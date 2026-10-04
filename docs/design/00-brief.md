@@ -61,3 +61,25 @@ These are Odin's standing decisions. Each one applies unchanged to Odin Desktop 
 | D4 | **Code.** Take what's needed from Odin and bring it into Odin Desktop. Both repositories are maintained when updates are made. There is no shared core package and no extraction campaign in the Odin repository. |
 | D5 | **Importing an existing user's data** (memory and so on) is out of scope. It will be handled separately later. |
 | D6 | **Phone and remote access** is not in the first versions. |
+
+## Aaron's decisions (2026-10-04, after the design review) and the go-ahead
+
+> 1, sure, 2, sure, 3 - not sure what you're asking, chat should work like it does in discord. 4, whatever, 5, yes, 6,
+> sure, 7, same exact way it works in discord, 8, all support should be available all the time, if electron is a
+> limitation we should pick something else, windows and macos, future date, dont worry about them right now, 10, private
+> repo for now until the projects completed and tested then ill make the choice. Begin working on this now with odin, in
+> the new repo, no commits to Odin himself's repo, only odin-desktop.
+
+| ID | Decision |
+|---|---|
+| D7 | **Wording approved.** All of `prompt-changes.md` is approved: parts A to C, the two guard-file lines, and the round-3 C1–C7 inventory. Line 66 uses the strictly minimal option, `You are {bot_name}, an autonomous execution agent.`, because it changes only the Discord reference. Aaron approved without choosing between the two options, so Claude chose this one. |
+| D8 | **Electron** is the shell. |
+| D9 | **Chat works like Discord.** A reply appears as a finished message once Odin's guards accept it, never as a streaming draft. Visible tool activity is an addition on top. |
+| D10 | **Webhook triggers:** option (b). An opt-in listener bound to the LAN or tailnet with a per-trigger secret, off until a webhook-triggered schedule exists (core-contracts section 8). |
+| D11 | **Linux v1 scope:** Cinnamon on X11, plus GNOME and KDE on Wayland. Computer use: the X11, Wayland portal and Hyprland backends. All of these are qualified for v1. |
+| D12 | **Missed schedules** follow Odin's policy. Overdue reminders become one bounded catch-up notice. Missed actions wait for the user to run them. An exited app runs nothing. |
+| D13 | **History and notifications work like Discord.** History is kept until the user deletes it. Notifications show message previews by default, and can be adjusted in settings. |
+| D14 | **Everything is bundled and always available:** browser automation (Chromium), semantic-search models, PDF support and computer-use helpers. Nothing is downloaded on demand. Features that need the user's credentials (email, MCP servers, hosts) still expose no tools until configured. |
+| D15 | **Windows and macOS** come later and are out of current scope. |
+| D16 | **The repository stays private** until the project is complete and tested. Aaron decides the licence then. |
+| GO | **Implementation is authorized in Calmingstorm/Odin-Desktop only.** No commits to the Odin repository. |

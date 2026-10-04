@@ -126,7 +126,7 @@ roadmap.
 | Feature | Odin Desktop |
 |---|---|
 | Closing the window keeps Odin working. Results from turns, schedules, workflows, loops and skills land in the conversation inbox. | **v1** |
-| Unread state per conversation; desktop notifications with privacy controls (minimal previews by default, quiet hours). A notification the OS accepted is not proof that the user saw it. | **v1** |
+| Unread state per conversation; desktop notifications that show message previews by default, like Discord (D13), adjustable in settings, with quiet hours. A notification the OS accepted is not proof that the user saw it. | **v1** |
 | Tray icon with a right-click menu: Open, status, Exit. Exit stops Odin (D3). On desktops without a tray, reopening goes through the launcher, and Exit is also in the window's menu and the launcher's actions. | **v1** |
 | Start at login (opt-in), minimized | **v1** |
 | Quick prompt from a global hotkey | v1+ |

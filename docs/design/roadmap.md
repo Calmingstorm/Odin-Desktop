@@ -75,7 +75,7 @@ integration gates, complete in Phase 2. Deferred gates are recorded explicitly; 
   - parent-loss containment holds;
   - isolated native-input and quarantine proofs pass;
   - package ownership and upgrade tests pass;
-  - rendering, security and accessibility are qualified on Cinnamon/X11, plus any other desktops Aaron includes.
+  - rendering, security and accessibility are qualified on Cinnamon/X11 and on GNOME and KDE under Wayland, with computer use on the X11, Wayland portal and Hyprland backends (D11).
 
   Acceptance on an active desktop is separate and explicitly authorized.
 

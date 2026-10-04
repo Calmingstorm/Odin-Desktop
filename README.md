@@ -2,8 +2,8 @@
 
 A standalone desktop application for [Odin](https://github.com/Calmingstorm/Odin), the self-hosted AI execution agent.
 
-**Status: design phase.** This repository holds design documents only. It contains no code, and none will be written
-until Aaron approves a plan.
+**Status: implementation, Linux v1.** Aaron approved the design and authorized the build on 2026-10-04. Decisions
+D1 to D16 are in the brief. Work follows [`CONTRIBUTING.md`](CONTRIBUTING.md). Work orders are in `docs/work/`.
 
 ## What Odin Desktop is meant to be
 
@@ -23,9 +23,10 @@ until Aaron approves a plan.
 
 Start with [`docs/design/00-brief.md`](docs/design/00-brief.md).
 
-## How we work during design
+## How we work
 
-- Documents only. No code, prototypes, dependency installs or build tooling.
-- Each author commits only the files they own or the round file they are writing. Run `git pull --rebase` before
-  pushing.
-- Commit messages carry no attribution trailers.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). In short:
+- code goes through PRs with cross-review (Odin reviews Claude's, Claude reviews Odin's);
+- no work in the Odin repository;
+- tests run only in an isolated PID namespace;
+- commits carry no attribution trailers.

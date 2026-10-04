@@ -1,6 +1,6 @@
 # Prompt changes for Odin Desktop
 
-Owner: Claude. Draft 3, 2026-10-04. This implements decision **D1**: Odin Desktop's prompt, and the rest of its
+Owner: Claude. **Approved by Aaron, D7 (2026-10-04).** This implements decision **D1**: Odin Desktop's prompt, and the rest of its
 model-facing text, does not mention Discord.
 
 **The rule.** Only the Discord references change. Every other byte of the personality presets and system templates
@@ -23,7 +23,7 @@ evidence).
 
 | Line | Today (Odin) | Proposed (Odin Desktop) |
 |---|---|---|
-| 66 (opening) | `You are {bot_name}, an autonomous execution agent on Discord.` | `You are {bot_name}, an autonomous execution agent running on the user's computer.` |
+| 66 (opening) | `You are {bot_name}, an autonomous execution agent on Discord.` | `You are {bot_name}, an autonomous execution agent.` (D7: the strictly minimal option) |
 | 95 (Tool Routing) | `- **Code attachments** → \`generate_file\`. Never write code inline in Discord.` | `- **Code attachments** → \`generate_file\`. Never write code inline in chat.` |
 | 97 (Tool Routing) | `- **Discord channel context unclear** → \`read_channel\` before answering.` | `- **Conversation context unclear** → \`read_conversation\` before answering.` The desktop history tool is `read_conversation` (Odin, round 3): it reads the current conversation's visible history only. |
 | 105 (Rule 2) | ``2. Keep responses concise — this is Discord. Code blocks for output. One update per task, not per tool call. Fenced code blocks (```) MUST start at column 0 — indented fences render as inline code in Discord.`` | ``2. Keep responses concise. Code blocks for output. One update per task, not per tool call. Fenced code blocks (```) MUST start at column 0.`` |
@@ -37,11 +37,7 @@ evidence).
 
 ## Notes for approval
 
-- **Line 66.** There are two candidates:
-  - Claude's: "…an autonomous execution agent running on the user's computer." It adds an accurate fact.
-  - Odin's: "…an autonomous execution agent." It is the strictly minimal change.
-
-  Aaron picks.
+- **Line 66.** Decided (D7): the strictly minimal "…an autonomous execution agent."
 - **Line 95.** It keeps today's behaviour: code goes to files rather than inline. On Discord, part of the reason was the
   2,000-character limit, which the desktop doesn't have. Changing the behaviour itself would be a separate decision. D2
   says he works the same, so the proposal keeps it.

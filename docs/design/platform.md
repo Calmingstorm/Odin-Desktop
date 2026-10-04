@@ -90,14 +90,14 @@ must therefore specify one of these:
 - a skill worker process with its own environment, reached through the bounded SkillContext bridge;
 - another loader strategy that is qualified to keep the executor's environment immutable.
 
-**Large optional components.** These are acquired only on explicit activation, with progress and verified package
-provenance:
-- Playwright's Chromium for browser tools, about 150 MB;
-- the fastembed model for semantic search;
-- PyMuPDF for PDF analysis.
+**Everything is bundled (D14).** These ship in the installer and are always available, never downloaded on demand:
+- browser automation (Playwright's Chromium);
+- the semantic-search models;
+- PDF support;
+- the computer-use helpers.
 
-If acquisition fails, the related tools are absent. "First use" never smuggles an install in behind a tool that was
-offered but not configured.
+Their provenance is pinned and verified at build time. Features that need the user's own credentials (email, MCP
+servers, hosts) still expose no tools until they are configured.
 
 ## 4. Per-OS integration
 
