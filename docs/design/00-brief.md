@@ -83,3 +83,13 @@ These are Odin's standing decisions. Each one applies unchanged to Odin Desktop 
 | D15 | **Windows and macOS** come later and are out of current scope. |
 | D16 | **The repository stays private** until the project is complete and tested. Aaron decides the licence then. |
 | GO | **Implementation is authorized in Calmingstorm/Odin-Desktop only.** No commits to the Odin repository. |
+
+## Aaron's direction during Phase 1 (2026-10-04)
+
+> yeah, you're free to make judgement calls on this that follow my guidance, odin desktop should be every bit as
+> capable as Odin is today, i do not want heightened security, blocking, governer, anything, it should just be the
+> desktop equivalent of odin with a beyond-flushed out UI, chat interface, settings menu, etc.
+
+| # | Decision |
+|---|---|
+| D17 | **Nothing stricter than Odin.** Odin Desktop is every bit as capable as Odin is today. It adds no security, blocking, approvals, consent prompts or allow-lists beyond what Odin itself does for an admin. The command governor behaves exactly as it does for an Odin admin with override on (the default): it logs and audits risky commands and never blocks the owner's. Every host the owner adds is usable; there is no per-user host access. Wherever the design or the code is stricter than Odin, it changes to match Odin. The investment goes into the app: a fully fleshed-out UI, chat interface and settings. Claude makes judgement calls that follow this. |
