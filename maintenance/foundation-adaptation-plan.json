@@ -1,0 +1,218 @@
+{
+  "version": 1,
+  "baseline_ref": "refs/baselines/odin-v4.13.0",
+  "baseline_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "review_state": "pending_review",
+  "scope": "Read-only foundation/config/owner/distribution/runner audit of phase-1/bring-over; this plan is not a drift approval, exact-byte delta record, selection override, or shipping qualification.",
+  "evidence": "CONTRIBUTING.md and the named existing tests were inspected; no tests, native operations, live operations, source edits, or commits were performed. Test associations are static review witnesses, not executed coverage. Removed-path entries require separate selection review.",
+  "entries": [
+    {
+      "path": "src/desktop/__init__.py",
+      "reason": "Add the transport-neutral desktop profile namespace without starting an engine, provisioning a profile, or importing transport authority.",
+      "contract": "The package initializer currently contains only its module docstring; foundations are imported explicitly from their individual modules.",
+      "invariant": "Importing src.desktop must not authenticate an owner, publish a tool, create state, or attach to a graphical session. Foundation imports in the named tests witness this boundary but do not explicitly assert all import side effects.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py"]
+    },
+    {
+      "path": "src/desktop/paths.py",
+      "reason": "Replace server/CWD state defaults with independent Linux XDG config, data, cache and private secret namespaces for each selected profile.",
+      "contract": "ProfilePaths.from_xdg validates the profile identifier and absolute, nonoverlapping XDG roots without provisioning. create_private uses private_directory descriptor traversal with O_NOFOLLOW and terminal owner-owned 0700 directories.",
+      "invariant": "Reject relative/traversal paths, overlapping namespaces, foreign owners, symlink ancestors and unsafe existing permissions instead of adopting or chmod-repairing them. Merely resolving paths must not create state or import another installation.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_foundation_config.py", "tests/test_desktop_core_paths.py"]
+    },
+    {
+      "path": "src/desktop/authority.py",
+      "reason": "Replace Discord/API identity and tier assumptions with a private installation/profile owner identity and a separately scoped runtime instance.",
+      "contract": "OwnerAuthority validates bounded owner-owned 0600 profile.json with canonical UUIDs and exact schema, refuses recordless existing state, and serializes creation with .identity.lock. authenticate_local requires an exact integer OS-verified peer UID, obtains the lifetime .core.lock, and mints OwnerContext carrying a private runtime seal. accepts checks seal, all identity fields, held lock and current identity; release_runtime rotates seal and runtime_id.",
+      "invariant": "Payload UIDs, owner strings, foreign runtime contexts, corrupt/rebound identity, degraded identity durability and released locks cannot confer authority. Owner identity is not exact-action consent. The caller must supply OS-derived credentials; this foundation does not qualify a Phase 2 IPC caller.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_capabilities_owner.py"]
+    },
+    {
+      "path": "src/desktop/secrets.py",
+      "reason": "Provide profile-local credential storage separate from public configuration without importing server credential inventories.",
+      "contract": "ProfileSecretStore validates bounded simple identifiers, writes strings of at most 65536 UTF-8 bytes through write_private_atomic, exposes durability_degraded, and reads with O_NOFOLLOW plus regular-file, owner, 0600 and size checks.",
+      "invariant": "Traversal identifiers and foreign/symlink/unsafe records are rejected; missing credentials return None rather than creating authority. Secret values must not appear in configuration or maintenance evidence. The named test proves separation and private mode, not every size or durability failure branch.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py"]
+    },
+    {
+      "path": "src/desktop/capabilities.py",
+      "reason": "Introduce explicit readiness filtering instead of publishing capabilities merely because schemas or code are present.",
+      "contract": "publish_capabilities keeps only definitions whose name maps to the literal boolean True in the supplied readiness mapping; absent readiness yields an empty publication.",
+      "invariant": "Truthy strings, numbers, containers and missing entries never publish tools. Publication is availability only and cannot replace OwnerAuthority, dispatch checks, host policy, governor checks or exact-action consent.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_capabilities_owner.py", "tests/test_desktop_capabilities_publication.py"]
+    },
+    {
+      "path": "src/desktop/errors.py",
+      "reason": "Give unwired desktop consumers a neutral unavailable exception rather than pretending transport delivery or execution succeeded.",
+      "contract": "CapabilityUnavailable is a RuntimeError identifying a required capability or consumer with no admitted route; callers explicitly raise it before unauthorized retention, output-scope admission or unavailable effects.",
+      "invariant": "Unavailable does not grant authority, prove teardown, or authorize effect replay. Downstream result handling must preserve structural failure and uncertainty instead of turning the exception into success.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_capabilities_owner.py", "tests/test_desktop_capabilities_publication.py"]
+    },
+    {
+      "path": "src/config/__init__.py",
+      "reason": "Remove mandatory Discord credentials from environment configuration while retaining a minimal logging policy and lazy schema exports.",
+      "contract": "OdinConfig contains log_level only; validate accepts standard logging levels. _load_env uses an explicitly supplied file or _profile_environment_path, not the repository .env or ODIN_ENV_FILE implicit override. _profile_environment_path resolves the profile's private environment file.",
+      "invariant": "Ambient DISCORD_TOKEN/ODIN_TOKEN must not become desktop authority and importing config must not load transport credentials. The inspected test proves the token field is absent; explicit startup argument overrides remain a separate boundary in startup_context.py.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation_config.py"]
+    },
+    {
+      "path": "src/config/schema.py",
+      "reason": "Remove Discord, tier and management-listener configuration; relocate engine defaults to the selected desktop profile and make config loading read-only.",
+      "contract": "Config uses extra='forbid' and per-instance default factories; obsolete discord/permissions/web sections are rejected. ToolsConfig has no default host inventory and stores SSH credentials beneath profile secrets; default_local_working_dir is a persistent sibling namespace outside profile state. GovernorConfig renames admin_can_override to owner_can_override without changing classifier consent semantics. load_config validates and records the source but invokes no legacy ceiling, image, timeout or retired-model migration.",
+      "invariant": "Loading cannot rewrite configuration or import legacy installs. Preserve ToolHost identity/key/trust validation, explicit default-host selection, timeout/output bounds and disabled ComputerUseConfig defaults; workspace protection and command governor remain mandatory. owner_can_override must not itself bypass the unchanged CommandGovernor, which receives no privilege tier for owner identity.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation_config.py", "tests/test_desktop_capabilities_owner.py", "tests/test_desktop_core_paths.py"]
+    },
+    {
+      "path": "src/config/apply_registry.py",
+      "reason": "Keep configuration apply/redaction descriptions aligned with the stripped schema instead of advertising Discord intake, tier permissions or Web API credentials.",
+      "contract": "SECTIONS, FIELDS and GROUP_DESCRIPTIONS remove discord/permissions/web records; the governor leaf is tools.governor.owner_can_override with restart semantics. spec_for, flatten, schema_facts and _is_sensitive_path retain schema-derived credential-container classification; conversational descriptions replace transport wording.",
+      "invariant": "Removing obsolete fields must not broaden sensitive scalar/container exposure or change apply timing for retained consumers. The existing apply-registry tests depend on removed WebUI files and are not a clean Desktop proof; foundation_config covers schema removal only. Dedicated neutral registry/redaction proof remains a review gap.",
+      "owner": "Odin",
+      "tests": ["tests/test_apply_registry.py", "tests/test_desktop_foundation_config.py"]
+    },
+    {
+      "path": "src/config/initialization.py",
+      "reason": "Disable legacy existing-install import for desktop profiles while retaining explicit initialization state and installation binding.",
+      "contract": "InitializationStore.refresh and state return recovery when legacy_loopback_restricted is supplied, before entering legacy import paths. Fresh provisioning/completion remain explicit transitions and credentials remain outside the state-machine inputs.",
+      "invariant": "Missing records or deleted credentials cannot silently turn a completed or foreign installation into setup. A legacy listener flag cannot authorize importing server state or widening a listener. The new test covers state(...), not refresh(...) or the full retained state-machine campaign.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation_config.py"]
+    },
+    {
+      "path": "src/config/migrations.py",
+      "reason": "Fence explicit migration writes to the selected Desktop configuration instead of using historical server launch/data directories.",
+      "contract": "_require_desktop_config checks lexical absolute config identity against runtime_profile_paths().config_file and validates OwnerAuthority durability. apply_compatible_timeout_migration, apply_legacy_ceiling_migration and apply_image_defaults_migration invoke the fence before work; marker-path functions rendezvous beneath profile data/config_migrations.",
+      "invariant": "Outside-profile migration writes fail before touching their target. Retained prepared/committed records, preimage provenance, atomic publication and no-blind-replay behavior must not weaken. OwnerAuthority rejects existing state without identity; loading configuration no longer triggers these migrations. The new test proves the outside-profile ceiling fence only, not all migration branches.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation_config.py", "tests/test_config_ceiling_migration.py"]
+    },
+    {
+      "path": "src/config/package_migrations.py",
+      "reason": "Remove server distribution migration entrypoints that import compose initialization or packaged SSH keys into an installation.",
+      "contract": "The baseline migrate_compose_initialization, migrate_packaged_ssh_key and main entrypoints are absent; Desktop foundations provision independent state and require explicit recovery for recordless existing data.",
+      "invariant": "Removal cannot be treated as approval to reimplement automatic server-state or key import elsewhere. A separate selected-removal record and independent review are required. Foundation_config exercises the no-legacy-import replacement boundary but does not directly assert this file's absence.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation_config.py", "tests/test_desktop_foundation.py"]
+    },
+    {
+      "path": "src/config/sensitivity.py",
+      "reason": "Remove obsolete web.api_tokens examples from comments while preserving the shared storage-sensitive-key policy.",
+      "contract": "The inspected diff changes comments only. STORAGE_SENSITIVE_KEYS, OPAQUE_CONTAINER_KEYS, their values and is_storage_sensitive_key behavior remain unchanged; headers/env/webhook_urls remain opaque containers.",
+      "invariant": "No key may become public because transport credentials were removed from Config. Arbitrary credential-bearing mappings remain masked wholesale, while schema-record sibling metadata stays distinct from secrets.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_privacy.py", "tests/test_apply_registry.py"]
+    },
+    {
+      "path": "src/config/startup_context.py",
+      "reason": "Bind startup environment, initialization state and installation identity to Desktop profiles rather than CWD .env, machine ID and server data paths.",
+      "contract": "default_environment_path and default_initialization_state_path resolve selected-profile paths. provision_initialization_parent delegates to private_directory. installation_id requires the selected config path and a nondegraded OwnerAuthority identity. parse_startup_arguments defaults config to the profile but retains explicit env/state arguments and ODIN_ENV_FILE/ODIN_INITIALIZATION_STATE defaults; resolve_startup_context preserves lexical launch and canonical config identities.",
+      "invariant": "Foreign config cannot acquire profile installation identity; private directory adoption follows the no-symlink/owner rules. Explicit env/state overrides must not be misrepresented as strict profile confinement. Foundation tests exercise the delegated identity/path primitives, not every startup override or canonical-alias branch; retained startup tests need Desktop adaptation before qualification.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_foundation_config.py", "tests/test_startup_onboarding_context.py"]
+    },
+    {
+      "path": "src/config/workspace_paths.py",
+      "reason": "Drop the removed permissions.overrides_path from protected configuration path inventory while retaining engine-state and credential fences.",
+      "contract": "WORKSPACE_PROTECTED_CONFIG_PATHS removes that single tuple; WORKSPACE_PROTECTED_CONFIG_PATH_NAMES still includes computer.storage_dir and tools.ssh_key_path, with existing file-versus-directory treatment unchanged.",
+      "invariant": "The removal must not expose retained profile state, SSH credentials, initialization or computer storage to the local execution workspace. The foundation_config assertions witness the changed inventory; runtime workspace containment remains enforced by unchanged workspace primitives.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation_config.py", "tests/test_desktop_capabilities_owner.py", "tests/test_local_workspace.py"]
+    },
+    {
+      "path": "src/permissions/manager.py",
+      "reason": "Replace server tier/RBAC overrides with an authenticated request-local profile owner gate, not an unconditional single-user shortcut.",
+      "contract": "PermissionManager.set_request_owner/reset_request_owner manage a ContextVar. is_owner requires authority.accepts(current_context) and matching owner_id. filter_tools returns None for unadmitted callers; allowed_tool_names returns an empty set for denial and None only for admitted owner identity. Tier/admin APIs are removed.",
+      "invariant": "A payload owner_id, missing manager, forged context or stale seal never confers authority. Owner identity does not approve commands, publish unready tools, admit hosts or suppress exact-action safety gates. Every caller must preserve the distinction between empty denial and unrestricted identity scope.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_capabilities_owner.py", "tests/test_desktop_capabilities_publication.py"]
+    },
+    {
+      "path": "src/permissions/host_access.py",
+      "reason": "Replace per-user/server defaults with a profile-private host policy intersected with authenticated owner and live request scope.",
+      "contract": "HostAccessManager defaults to profile config/host-policy.json. get_allowed_hosts requires a PermissionManager owner, rereads bounded owner-owned 0600 policy through O_NOFOLLOW with duplicate-key rejection, and intersects policy hosts with available_hosts and request scope. get_default_host returns only an admitted host. set_policy requires owner authentication, validates configured hosts and persists through write_private_atomic with durability_degraded reporting.",
+      "invariant": "Missing/corrupt/foreign policy, absent manager, revoked owner, removed host or narrowed request scope yields no host and no fallback localhost/root target. Request scope can narrow but never widen persisted authority; policy mutations must not claim durable success when directory fsync is unproven.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_capabilities_owner.py"]
+    },
+    {
+      "path": "src/permissions/persistence.py",
+      "reason": "Publish private profile policy/state/credentials atomically using descriptor-relative operations while distinguishing commit from durability.",
+      "contract": "write_private_atomic provisions a private parent, rejects nonregular/foreign targets, creates a unique O_EXCL/O_NOFOLLOW 0600 temp, writes and file-fsyncs before descriptor-relative replace, then directory-fsyncs. Pre-replace failures raise and clean the temp; post-replace fsync failure returns False without fictional rollback.",
+      "invariant": "Precommit failures preserve the previous value; committed-but-unproven directory durability is explicit degraded state, never a replay/rejection signal. Symlinks must not redirect writes. Identity authentication must fail when publication durability is degraded.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_strip_root.py"]
+    },
+    {
+      "path": "src/permissions/token_manager.py",
+      "reason": "Remove the server API-token identity and tier issuer rather than carrying network-token authority into the single-owner Desktop foundation.",
+      "contract": "Baseline ApiTokenManager, TokenAuthSnapshot, _IdentityIssuer, _StoredToken and _hash_token are absent; PermissionManager admits only runtime-sealed OwnerContext validated by OwnerAuthority. No Desktop token-session replacement is claimed in Phase 1.",
+      "invariant": "Removing network token machinery must not create an ownerless management or tool route. Existing retained web/transport paths must remain unavailable until independently admitted in Phase 2. A separate selection removal record is required; owner tests prove denial replacements, not a direct absence/import census for this file.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_capabilities_owner.py", "tests/test_desktop_strip_web.py"]
+    },
+    {
+      "path": "src/runtime_paths.py",
+      "reason": "Add a side-effect-free selected-profile resolver without changing the lexical installation-root helper used by safety fences.",
+      "contract": "runtime_install_root remains lexical absolute package-root resolution. runtime_profile_paths lazily imports ProfilePaths and selects ODIN_DESKTOP_PROFILE or 'default' through from_xdg without provisioning.",
+      "invariant": "Profile selection cannot adopt live/server state or create directories by resolution alone. Invalid profile/XDG values fail validation. Runtime installation-root protection must remain distinct from profile data protection.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_core_paths.py", "tests/test_desktop_foundation_config.py"]
+    },
+    {
+      "path": "src/__init__.py",
+      "reason": "Identify the copied engine as Odin Desktop while preserving the existing version accessor boundary.",
+      "contract": "The module docstring and __project__ change to Desktop; __version__ still delegates to .version.get_version without importing engine startup or transport clients.",
+      "invariant": "Importing src must not launch a core or grant authority. Branding must not hide the pinned upstream provenance or fabricate an installed version; the version metadata mismatch recorded below remains unresolved.",
+      "owner": "Odin",
+      "tests": ["tests/test_version.py", "tests/test_desktop_distribution.py"]
+    },
+    {
+      "path": "src/version.py",
+      "reason": "Retarget installed-package version fallback away from odin-bot while retaining checkout-first resolution.",
+      "contract": "get_version still resolves checkout pyproject, installed metadata, then 0.0.0-dev. REVIEW BLOCKER: _version_from_metadata currently requests 'odin-desktop', but pyproject.toml and uv.lock identify 'odin-desktop-engine'. A source-less engine installation therefore does not obtain its own metadata version through this lookup.",
+      "invariant": "Checkout metadata wins over stale installed metadata, but the installed fallback must name the actual engine distribution. tests/test_version.py stubs _version_from_metadata in fallback cases and does not prove the distribution-name lookup; do not record this adaptation as semantically approved until corrected and independently tested.",
+      "owner": "Odin",
+      "tests": ["tests/test_version.py", "tests/test_desktop_distribution.py"]
+    },
+    {
+      "path": "src/storage_redaction.py",
+      "reason": "Move storage privacy into a transport-neutral module for trajectories and durable checkpoints without depending on Discord tool-loop helpers.",
+      "contract": "_scrub_tool_input_for_storage recursively masks computer text/value/content/clipboard/accessibility fields with a depth limit, scrubs MCP strings and sensitive keys through _deep_scrub_strings, and redacts email bodies plus attachment directory components. Ordinary tool inputs retain their existing shape.",
+      "invariant": "Moving the helper must not persist private desktop documents, credential-bearing arbitrary MCP arguments or full email bodies/attachment paths. Scrubbing must not mutate source payloads; checkpoint storage composes tool privacy with sensitive-key redaction. Named tests cover computer/email composition, not a full MCP/depth-limit campaign.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_privacy.py", "tests/test_desktop_core_durability.py"]
+    },
+    {
+      "path": "pyproject.toml",
+      "reason": "Define the Desktop engine Python 3.12 distribution without Discord, PostgreSQL moderation/database dependencies or server console entrypoints; make D14 capabilities required dependencies.",
+      "contract": "Project is odin-desktop-engine 0.1.0.dev1 with >=3.12,<3.13. PyMuPDF, playwright, python-xlib and dbus-next are required alongside fastembed; only dev remains optional, project.scripts is absent, Ruff targets py312. The baseline MIT project field is removed while original license/provenance remain a separate distribution decision.",
+      "invariant": "Installed dependencies alone cannot authorize computer input, imply bundled Chromium/model availability, or qualify native behavior. No removed server entrypoint or third-party transport should be reintroduced transitively. Built-wheel contents, binary/model bundling, licensing and installed-version lookup require separate gates beyond parsed metadata tests.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_distribution.py", "tests/test_desktop_capabilities_owner.py"]
+    },
+    {
+      "path": "uv.lock",
+      "reason": "Add a resolved, hashed Python 3.12 dependency graph for the renamed Desktop engine and its required capabilities.",
+      "contract": "The new uv lock declares requires-python ==3.12.*, resolves the odin-desktop-engine project graph, and carries registry archive/wheel hashes. The distribution test parses package names and rejects discord-py/discord.py/sqlalchemy/asyncpg.",
+      "invariant": "A lockfile is dependency provenance, not permission to install, execute native assets or claim bundled browser/model readiness. The inspected package-exclusion test does not establish resolver consistency, platform artifacts, supply-chain review or installed wheel qualification; those remain pending review gates.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_distribution.py"]
+    },
+    {
+      "path": "scripts/run-phase1-tests.py",
+      "reason": "Provide the CONTRIBUTING-required PID-isolated and environment-sanitized launcher so process-group tests cannot signal the live engine or active desktop.",
+      "contract": "main requires Python 3.12, creates repo-local .test-state directories, invokes sudo -n unshare --mount --pid --fork --mount-proc --kill-child, then sudo -n -u USER env -i with repo-only HOME/XDG/PATH/PYTHONPATH and explicit pytest plugins. With no positional selection it reads safe_pass_now and adds Desktop tests, refusing an empty safe selection. Explicit argv selections are passed through, not validated against that classification.",
+      "invariant": "No fallback to bare pytest on namespace/sudo failure; DISPLAY, DBUS_SESSION_BUS_ADDRESS, XDG_RUNTIME_DIR, credentials and live-config overrides remain excluded. Only command-plan stubs were inspected, not a native namespace proof. Explicit paths require separate safe selection discipline, and existing .test-state permissions/symlink safety are not validated by this runner.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_isolated_runner.py", "tests/test_desktop_test_plan.py"]
+    }
+  ]
+}

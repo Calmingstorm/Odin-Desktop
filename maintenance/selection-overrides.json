@@ -1,0 +1,85 @@
+{
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "entries": [
+    {
+      "contract": "Authentic broker admission, supervised-child lifecycle and conversation events must be composed separately in Phase 2.",
+      "invariant": "Preserve stale-generation fencing, callback ownership and proven shutdown settlement without making on_message-style synthetic records execution authority.",
+      "owner": "Odin",
+      "path": "src/discord/client.py",
+      "reason": "Removed OdinBot transport client, generation-bound dispatch/on_ready/on_message/guild reconciliation and transport lifecycle rather than emulate Discord in Desktop.",
+      "replacement": "Removed transport, no executable replacement in Phase 1. src/discord/wiring.py and src/__main__.py are hard gates; src/desktop authority primitives do not implement the broker or durable conversation sinks.",
+      "reviewer": "pending Claude",
+      "state": "pending",
+      "tests": [
+        "tests/test_desktop_strip_root.py",
+        "tests/test_desktop_strip_native.py",
+        "tests/test_desktop_foundation.py"
+      ],
+      "upstream_sha256": "d192dae38c4e2f1f0ee7c0496c6fb4a6881151acb4e63cce0452dceeafa49124"
+    },
+    {
+      "contract": "Desktop navigation must authorize the owner/conversation/report and operate saved projections without rerunning a producer.",
+      "invariant": "Foreign conversation controls deny access, duplicate report IDs forbid replay, and navigation never implies artifact/event publication.",
+      "owner": "Odin",
+      "path": "src/discord/cogs/scheduled_report_pagination.py",
+      "reason": "Removed ScheduledReportPagination.on_raw_reaction_add and Cog setup, which routed platform reaction payloads to managed report controls.",
+      "replacement": "Neutral saved-page navigation implemented by ScheduledReportPaginationService.store_projection/project_page in src/discord/scheduled_report.py. Authenticated UI controls and durable publication remain Phase 2 blocked; post raises.",
+      "reviewer": "pending Claude",
+      "state": "pending",
+      "tests": [
+        "tests/test_desktop_strip_root.py",
+        "tests/test_desktop_strip_native.py",
+        "tests/test_scheduled_report.py"
+      ],
+      "upstream_sha256": "0d45d2b398fec3f2b750a3446ce4978ff20f612a86eb8e5c8007e325daf9c5a1"
+    },
+    {
+      "contract": "Any Phase 2 destructive confirmation must bind authentic owner, exact operation/target/revision and expiry with revocation rechecks.",
+      "invariant": "Foreign callers cannot confirm; timeout/cancel never becomes affirmative authority and stale/replayed confirmation cannot authorize a new effect.",
+      "owner": "Odin",
+      "path": "src/discord/views/confirm.py",
+      "reason": "Removed ConfirmView Discord buttons, author-ID interaction checks and timeout-as-cancel rather than treating a renderer click as authenticated confirmation.",
+      "replacement": "No confirmation UI/service replacement implemented in Phase 1. Broker-issued operation-specific confirmation remains Phase 2 work, not approved by this removal record.",
+      "reviewer": "pending Claude",
+      "state": "pending",
+      "tests": [
+        "tests/test_desktop_strip_root.py",
+        "tests/test_desktop_strip_web.py"
+      ],
+      "upstream_sha256": "1107c45f22c485c04477dd70cb55b7abb8f9ed573df6c82cdf6fbf0ed577ffcb"
+    },
+    {
+      "contract": "Desktop must independently validate signed/package-aware bundles, update/rollback and supervised-core handoff in Phase 2.",
+      "invariant": "Do not infer Desktop safety from server unit/nfpm workflow validity or reintroduce independent service resurrection/install-tree mutation.",
+      "owner": "Odin",
+      "path": "src/packaging/validate.py",
+      "reason": "Removed parse_systemd_unit/validate_service_file, maintainer shell-script/nfpm validators and server GitHub Docker/deb workflow validation; these encode the server distribution rather than Desktop packages.",
+      "replacement": "src/packaging/__init__.py is an inert deferred namespace and register_self_update is blocked. No claim of an implemented or validated signed Desktop release/update pipeline.",
+      "reviewer": "pending Claude",
+      "state": "pending",
+      "tests": [
+        "tests/test_desktop_strip_root.py",
+        "tests/test_desktop_strip_web.py",
+        "tests/test_desktop_distribution.py"
+      ],
+      "upstream_sha256": "1515e257ade48cacb2c3d12d934baeee498026bc0b42a0940b5174e2ce830300"
+    },
+    {
+      "contract": "Desktop owner authority must come from profile-bound issued context and real broker/OS-peer provenance, with private durable identity/session publication and revocation.",
+      "invariant": "No matching owner string, empty caller, tier or loopback address grants authority; corrupt/foreign/non-durable identity denies access and scopes never widen inherited policy.",
+      "owner": "Odin",
+      "path": "src/permissions/token_manager.py",
+      "reason": "Removed ApiTokenIdentity/TokenAuthSnapshot and remote token CRUD/resolve/inventory/last-credential publication policy instead of retaining multi-user bearer-token authority.",
+      "replacement": "Profile identity and runtime-bound OwnerAuthority/PermissionManager primitives are implemented in src/desktop and permissions; authentic OS-peer broker admission/session issuer and durable sinks remain Phase 2 blocked. Unit fixtures passing peer_uid explicitly are not OS-peer integration proof.",
+      "reviewer": "pending Claude",
+      "state": "pending",
+      "tests": [
+        "tests/test_desktop_foundation.py",
+        "tests/test_desktop_strip_web.py",
+        "tests/test_desktop_capabilities_owner.py"
+      ],
+      "upstream_sha256": "bee435bf33791926b8923e16b61bf42f61c897c594419992391e3dd4f5e76edb"
+    }
+  ],
+  "version": 1
+}
