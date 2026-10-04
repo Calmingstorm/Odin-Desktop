@@ -85,14 +85,18 @@ runtime service and tool authority/platform service. See [`core-contracts.md`](c
   owner by sharing the machine. IPC authenticates its peer.
 - **No root.** The core runs as the logged-in user. Elevated actions stay exact, separately authorized operations.
 
-## 5. IPC and the UI shell (round 2)
+## 5. IPC, shell and what the user sees
 
-- **IPC.** An owner-only Unix socket (a named pipe with an ACL on Windows), a per-install token, and a versioned
-  protocol with capability negotiation. No TCP listener by default.
-- **Shell.** The leaning is Electron for v1 because of Linux rendering reliability. Tauri is the alternative. See
-  [`platform.md`](platform.md).
-- **Renderer lockdown:** a preload bridge only, no Node in the renderer, a strict CSP, and file access only through
-  references the core issues.
+- **Shell: Electron for v1** (Claude and Odin, round 2), conditional on qualifying rendering, accessibility and
+  security on Linux. The renderer lockdown requirements are in [`platform.md`](platform.md#2-ui-shell-options).
+- **IPC.** An owner-only Unix socket (a named pipe on Windows) held by the app's main process, never the renderer. It
+  uses a profile-scoped credential and a versioned, framed protocol with capability negotiation. There is no TCP
+  listener. The core contracts (section 7) cover the handshake, command IDs, event cursors and catch-up.
+- **Committed text only.** Reply text reaches the UI only after the existing guard and classifier path accepts it.
+  Provider deltas and rejected drafts are never shown. Live tool, task and control activity is shown, from code-owned
+  facts.
+- **No tray?** Relaunching focuses the running app. Exit is also in the window menu and the launcher's actions. See
+  [`platform.md`](platform.md#1-process-model-platform-view-d3).
 
 ## 6. Coexistence, import and remote access
 

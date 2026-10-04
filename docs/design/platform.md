@@ -1,6 +1,6 @@
 # Platform: shell, packaging, startup and cross-platform
 
-Owner: Claude. Draft 1, 2026-10-04. "Verify" marks facts to re-check against current releases before any build.
+Owner: Claude. Draft 2, 2026-10-04 (round-2 review folded in; Aaron's decisions D3 and D4 applied). "Verify" marks facts to re-check against current releases before any build.
 
 ## What this has to satisfy
 
@@ -11,27 +11,23 @@ Owner: Claude. Draft 1, 2026-10-04. "Verify" marks facts to re-check against cur
 - **R6/R7:** reuse Odin's Python core. Odin is about 150K lines of Python. Rewriting the core in another language is out
   of scope.
 
-## 1. Process model (platform view)
+## 1. Process model (platform view, D3)
 
-There are two moving parts. The agent core is Python and holds the tool loop, providers, tools, schedules, agents and
-data. The user interface is a separate process.
+**Odin runs while the application runs.**
+- The app's main process owns the tray, windows, notifications, autostart and quick prompt.
+- It starts the Odin core (Python) as a supervised child process. The renderer is separate again.
+- **Closing the window** hides it and Odin keeps working.
+- **Right-click the tray and choose Exit:** Odin shuts down safely, then the app exits.
+- See [`architecture.md`](architecture.md#2-lifecycle-d3).
 
-**Proposed shape for discussion:**
+**When there is no tray.** Odin pointed this out in round 2: GNOME has no tray without an extension, and basic
+operation must not need one. So:
+- relaunching the app always focuses the running instance;
+- the window's menu has **Exit Odin**;
+- the `.desktop` launcher has an **Exit Odin** action (right-click in docks and menus);
+- notifications open the conversation.
 
-- **Core daemon (per user, background).**
-  - It owns all work and data.
-  - It starts at login when the user opts in, keeps running when the window is closed, and has no UI of its own.
-  - Schedules, agents and long turns therefore never depend on a window being open. Discord-Odin has this property
-    today because it is a service.
-- **Desktop UI (client).** The chat window, management screens, tray icon, notifications and global hotkey. It talks
-  to the core over a local, authenticated channel, never a TCP port open to the network.
-  - Closing the window minimizes to the tray.
-  - Quitting the tray quits the UI but leaves the core running.
-  - A separate "Stop Odin" control stops the core.
-- **One core, many windows.** The UI is single-instance and can open more than one window.
-
-**Alternative:** a single process with the core embedded in the UI. It is simpler to ship, but schedules die with the
-window and a UI crash takes the agent down. Odin's round-1 view will weigh in.
+Closing the window on a desktop with no tray shows a one-time notice that Odin is still running and how to reach it.
 
 ## 2. UI shell options
 
@@ -50,16 +46,28 @@ reuse it.
 | Packaging (Linux / Windows / macOS) | electron-builder: deb, rpm, AppImage / NSIS, MSIX / dmg, signing, notarization | Tauri bundler: deb, rpm, AppImage / MSI, NSIS / dmg | PyInstaller, Nuitka or pyside6-deploy; per-OS work | Whatever the core uses |
 | Security model | Needs care: context isolation, no `nodeIntegration` in the renderer, strict CSP | Strong by default: capability-scoped IPC | Native | Browser sandbox |
 
-**Leaning, for discussion:**
+**Recommendation (Claude and Odin, round 2): Electron for v1, conditionally.**
 
 - **Electron for v1.** Linux is the first and primary target, and Aaron's desktop is Linux. Electron gives the most
   predictable rendering there, and the same engine later on Windows and macOS.
+- **Conditions.** Nothing here is measured yet. Rendering, accessibility and security still need qualification on
+  Cinnamon/X11 and GNOME/Wayland before release.
+- **Renderer lockdown** (Odin's list, [round 2, section A](../discussion/04-odin-round2.md#required-renderer-lockdown)):
+  - a sandboxed renderer with context isolation and no Node integration;
+  - a narrow preload bridge of individually named, schema-checked methods, with sender and origin validated;
+  - the packaged UI served from a custom app origin;
+  - a strict CSP;
+  - sanitized Markdown with active HTML disabled;
+  - navigation and pop-ups blocked;
+  - files reached only through core-issued references, with native dialogs for save locations;
+  - no secrets or IPC token in the renderer;
+  - a bundled-Chromium security update obligation.
 - **Tauri is the strong alternative.** It is lighter and has a tighter security model, but its Linux engine is the
   weak point exactly where we start. Reconsider it if Tauri's Chromium backend becomes stable.
 - **Qt and app mode come third.** Qt is viable if a single language matters more than UI velocity. App mode fails R1
   and R2 on its own.
 
-**What would change the leaning:**
+**What would change it:**
 - a requirement for a small download;
 - a measured WebKitGTK result that is good enough for our UI on Aaron's Cinnamon/X11 desktop and on GNOME/Wayland.
 
@@ -72,7 +80,7 @@ modules loaded at runtime and some need their own dependencies.
 
 | Option | Notes |
 |---|---|
-| **Relocatable CPython (python-build-standalone, the builds uv uses) + a locked venv inside the app** | A full interpreter, pip-capable, with the same behaviour as Odin's own venv. **Preferred.** |
+| **Relocatable CPython (python-build-standalone, the builds uv uses) + a locked venv inside the app** | A full interpreter with the same behaviour as Odin's own venv. **Preferred.** The core's environment is immutable. User skills that need dependencies get their own writable environments, so a skill install can never break the executor (Odin, round 2). |
 | PyInstaller or Nuitka frozen binary | Smaller and faster to start, but it breaks runtime-installed dependencies and dynamic imports. Poor fit for skills. |
 | Depend on the system Python | Fragile across distros. Odin's `.deb` does this today with `python3-venv`. Acceptable on Linux, not on Windows or macOS. |
 
@@ -85,13 +93,12 @@ modules loaded at runtime and some need their own dependencies.
 
 | Concern | Linux (v1) | Windows (later) | macOS (later) |
 |---|---|---|---|
-| Start at login: core | systemd user unit (`systemctl --user enable`); optional `loginctl enable-linger` to run without a graphical login | Task Scheduler "at logon" task, or a `Run` registry key | LaunchAgent, registered with `SMAppService` |
-| Start at login: UI (tray, minimized) | XDG autostart entry in `~/.config/autostart/` | `HKCU\…\Run`, or the app's login-item API | Login item (`SMAppService`) |
+| Start at login (the app, minimized to the tray; it starts the core) | XDG autostart entry in `~/.config/autostart/` | `HKCU\…\Run`, or the app's login-item API | Login item (`SMAppService`) |
 | Tray | StatusNotifierItem / AppIndicator. Works on KDE and Cinnamon; **GNOME needs the AppIndicator extension** (verify). | Notification area | Menu bar extra |
 | Notifications | `org.freedesktop.Notifications` (libnotify) | Toast notifications (need an AppUserModelID) | UserNotifications (needs permission) |
 | Global hotkey | X11: an XGrabKey equivalent. **Wayland: the xdg-desktop-portal GlobalShortcuts portal**, whose support varies by desktop (verify GNOME, KDE, Cinnamon). | RegisterHotKey | Carbon or Cocoa hotkey API |
-| Secrets (OAuth tokens, API keys) | Secret Service (GNOME Keyring, KWallet), with an encrypted-file fallback for headless sessions | Credential Manager / DPAPI | Keychain |
-| Local IPC, UI to core | Unix domain socket in `$XDG_RUNTIME_DIR`, mode 0600, plus a per-install token | Named pipe with an ACL for the user, plus a token | Unix domain socket in the user's container or temp dir, plus a token |
+| Secrets (OAuth tokens, API keys) | Secret Service (GNOME Keyring, KWallet). An encrypted-file fallback needs a real key-unlock design; a key stored beside the ciphertext is not one. | Credential Manager / DPAPI | Keychain |
+| Local IPC, app to core | Unix domain socket in `$XDG_RUNTIME_DIR` with owner-only permissions and peer checks, plus a profile-scoped, rotatable credential. The app's main process (the broker) holds the connection, never the renderer. | Named pipe with an owner ACL, plus a credential | Unix domain socket in a private directory, plus a credential |
 | Data location | `~/.local/share/odin-desktop`, `~/.config/odin-desktop`, `~/.cache/odin-desktop` (XDG) | `%APPDATA%\Odin Desktop`, `%LOCALAPPDATA%` | `~/Library/Application Support/Odin Desktop` |
 | Packaging | `.deb` (Mint, Ubuntu, Debian), `.rpm`, AppImage | MSIX or NSIS installer, signed | `.dmg`, Developer ID signed and **notarized** |
 | Updates | The in-app updater channel; apt or rpm repos later | The in-app updater | The in-app updater (Sparkle-style) |
@@ -109,7 +116,7 @@ modules loaded at runtime and some need their own dependencies.
 | Resource | Odin (server) today | Odin Desktop |
 |---|---|---|
 | Package and binary names | `odin`, `odin-server`, `/opt/odin`, `odin.service` (system) | `odin-desktop`; installs per user or into `/opt/odin-desktop`; never touches `/opt/odin` |
-| Service | system unit, user `odin` | systemd **user** unit for the desktop user |
+| Service | system unit, user `odin` | No service. Odin runs inside the app (D3); start at login is an XDG autostart entry for the app. |
 | Network | HTTP on port 3002 (configurable), optionally on the LAN | No TCP listener by default. A Unix socket, plus optional remote access as a separate, explicit feature (see the chat-experience gaps). |
 | Data | `/opt/odin/data`, `config.yml` | XDG paths above, an own config schema version |
 | Codex auth | `data/codex_auth_*.json` | Its own store (keyring). One-time import from an Odin install is opt-in. |

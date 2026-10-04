@@ -1,24 +1,29 @@
 # Chat experience
 
-Owner: Claude. Draft 2, 2026-10-04. The "today" columns now follow Odin's source inventory
-([`../discussion/02-odin-capabilities.md`](../discussion/02-odin-capabilities.md), file:line evidence there).
+Owner: Claude. Draft 3, 2026-10-04. The "today" columns follow Odin's source inventory
+([`../discussion/02-odin-capabilities.md`](../discussion/02-odin-capabilities.md), file:line evidence there). The v1
+scope follows Odin's review ([round 2, section E](../discussion/04-odin-round2.md#e-chat-spec-review)) and Aaron's
+decisions D2 to D6.
 
 ## The bar
 
 Aaron's requirement R4: the chat must be "every bit as capable, or more capable than interfacing with Odin via
-Discord". Today's WebUI chat "doesnt really meet that bar".
+Discord". Today's WebUI chat "doesnt really meet that bar". D2 adds that he works exactly the same; only the interface is
+new.
 
-Three tests follow from that:
+What parity means here:
 
-1. **Parity.** Anything a user can do with Odin through Discord, they can do in Odin Desktop, without a workaround.
-2. **Better where a desktop can be better.** Discord limits Odin in ways a local app does not:
-   - 2,000-character messages;
-   - 25 MB uploads;
-   - no live text;
-   - tool work hidden behind one summary;
-   - controls that live in slash commands.
-3. **Nothing worse.** A user should never prefer Discord for a task. The hard cases are anywhere-access (a phone) and
-   notifications. See "Gaps a desktop app must answer" below.
+1. **Personal execution and chat parity.** Everything a user does with Odin through Discord in their own conversations
+   works in Odin Desktop without a workaround: conversations, attachments, controls, background results and management.
+2. **Better where a desktop can be better:**
+   - no 2,000-character chunking and no Discord upload caps;
+   - visible tool activity instead of one summary;
+   - first-class controls;
+   - a durable, searchable record.
+3. **Honest limits.** Two things are deliberately left out:
+   - **Social and guild features:** polls, reactions, roles and moderation. Odin Desktop is single-user.
+   - **Phone and remote access** is not in the first versions (D6). A local-only v1 does not claim reach parity with
+     Discord, and the plan says so plainly.
 
 ## What Discord gives Odin today
 
@@ -26,146 +31,125 @@ This is a summary; Odin's inventory is the authoritative list.
 
 | Area | Discord today |
 |---|---|
-| Conversations | One session per channel; channels run in parallel; threads inherit context from their parent; DMs. |
-| Input | Text, image attachments for vision, text/code/archive attachments inline (bounded), mentions, replies. |
-| Output | Final text chunked at 2,000 characters; code blocks; files (`generate_file`, `post_file`); images; video. |
-| Controls | `/stop` (safe stop with a truthful receipt), `/steer` (queues into the running turn), `/status`, `/usage`, `/reload`; reaction paging on scheduled reports. |
-| Visibility | A typing indicator while working. Tool activity is mostly invisible; the reply summarizes it. |
-| Background | Schedules post to channels; agent results arrive later; loops. |
-| Reach | Every device you're logged in on, including phones, with push notifications. |
-| History | Discord keeps the visible history. Odin keeps its own sessions and searchable archives. |
+| Conversations | One session per channel; channels run in parallel; a new thread is seeded once from its parent (summary plus six recent messages); DMs. |
+| Input | Text, images (vision), text, code, PDF and archive attachments (bounded), mentions, replies. |
+| Output | Final text chunked at 2,000 characters (over 8,000 falls back to `response.md`); code blocks; files; images; video. |
+| Controls | `/stop`, `/steer`, `/status`, `/usage`, `/reload` (context and caches, not a restart); a bare `resume`/`continue`; reaction paging on stored reports. |
+| Visibility | A typing indicator. Tool work is mostly invisible; the reply summarizes it. |
+| Background | Schedules, workflows, loops and permitted skills post to channels. Agents are silent workers: the main turn presents their results. |
+| Reach | Phones and other devices, with push notifications. |
+
+**Odin's own input limits today:**
+- images 5 MiB by default;
+- PDFs 25 MiB, as text extraction only;
+- archives 50 MiB compressed, 500 entries and 200 MiB extracted;
+- host files 25 MiB;
+- audio and video are saved but not understood.
 
 ## What the WebUI chat has today
 
-Source: `ui/js/pages/chat.js` (503 lines), `src/web/chat.py`, `src/web/websocket.py`. Odin's inventory is the
-authoritative list.
-
 - **Has:**
-  - the same tool loop as Discord, through a fake channel;
-  - sanitized GFM Markdown with a copy button on code;
-  - image URL thumbnails, plus image and file attachments produced during the turn;
-  - an animated wait indicator;
-  - tool *names* listed after the turn completes.
+  - the same tool loop, through a fake channel;
+  - sanitized Markdown and code copy;
+  - image thumbnails and files produced during the turn;
+  - tool *names* after the turn ends.
 - **Lacks:**
-  - **Input.** It submits text only, with no picker, paste, drag and drop or image blocks.
-  - **Conversations.** There is one identity-backed history; the page's `channel_id` is ignored and the WebSocket API
-    has no session selection.
-  - **An authoritative transcript.** A reload rebuilds from model-session data and drops tool cards and files.
-  - **Controls.** There is no stop, steer or guarded resume.
-  - **Background destinations.** Schedules, loops and workflows still resolve a Discord channel, and a closed or
-    disconnected client has no replayable inbox.
-  - **Visibility.** It shows no request-specific event sequence and no retained-evidence links.
-
-## Discord limits worth knowing
-
-These are Odin's limits today, not Discord's.
-
-- Images are 5 MiB by default.
-- PDFs are 25 MiB, as text extraction only.
-- Archives are 50 MiB compressed, 500 entries and 200 MiB extracted.
-- Host files are 25 MiB.
-- Audio and video attachments are saved but not understood.
-- Replies over 8,000 characters fall back to `response.md`.
-- DMs are not passively archived.
-- Agents are silent workers: the main turn presents their results.
+  - attachments as input;
+  - more than one conversation;
+  - an authoritative transcript: a reload drops tool cards and files;
+  - stop, steer and resume;
+  - a background destination: results still go to Discord channels;
+  - any request-specific activity.
 
 ## Odin Desktop target
 
-Legend: **v1** is required for the first Linux release (the parity bar). **v1+** comes in early follow-up releases.
-**later** is roadmap.
+Legend: **v1** is the first Linux release (the R4 parity bar). **v1+** comes in early follow-ups. **later** is
+roadmap.
 
 ### Conversations
 
-| Feature | Discord | WebUI | Odin Desktop |
-|---|---|---|---|
-| Many named conversations, running in parallel (Odin's channel model) | yes (channels) | no | **v1** |
-| Threads and branches that inherit context from the parent | yes (threads) | no | **v1**: "branch from here" creates a child conversation seeded the way threads are today |
-| Pin, rename, archive and delete conversations | partly | no | **v1** |
-| Per-conversation settings: model, effort, personality, default host, working directory | no | no | **v1+** |
-| Full-text search across all conversations, jump to the message | partly (`search_history`) | no | **v1**, using the existing FTS index |
-| Export a conversation (Markdown, JSON) | no | no | **v1+** |
-| Import sessions from an existing Odin server | n/a | n/a | **later**, a migration helper |
+| Feature | Odin Desktop |
+|---|---|
+| Named conversations running in parallel. Same-conversation turns serialize, as on Discord today. | **v1** |
+| A child conversation seeded from the current context, the equivalent of a Discord thread, labeled as inherited | **v1** |
+| Rename, archive, safe delete, reset context. Deletion, context reset and artifact expiry are distinct operations. | **v1** |
+| Search across the visible transcript and artifacts, jump to a message. The existing FTS engine is reused, but the new transcript records need their own deletion-aware indexing. | **v1** |
+| Pin conversations | v1+ |
+| Branch from any past message, edit-and-resend, regenerate. These need new cutoff, provenance and no-replay rules. | v1+ |
+| Per-conversation model, effort, personality and default host. Global defaults stay in v1 settings. | v1+ |
+| Export a conversation | v1+ |
 
 ### Composing
 
-| Feature | Discord | WebUI | Odin Desktop |
-|---|---|---|---|
-| Multi-line composer with history recall and draft persistence | partly | partly | **v1** |
-| Attach files and images by drag and drop, paste or picker, with previews, progress, cancel and explicit limits, plus a choice to ingest into knowledge | yes (see limits above) | no | **v1**. The core receives references to owned copies, never raw filesystem handles from the UI. |
-| Attach a folder or path reference (Odin reads it locally, nothing is uploaded) | no | no | **v1+** |
-| Screenshot capture (region or window) into the composer | no | no | **v1+**, reusing computer-use capture |
-| Slash commands with a command palette (`/stop`, `/steer`, `/status`, `/usage`, `/model`, `/effort`, `/new`, `/search`) | yes, a fixed set | no | **v1** |
-| `@` pickers for hosts, skills, MCP servers, files and conversations | no | no | **later** |
-| Voice input | no | no | **later**; see the Odin voice lane |
+| Feature | Odin Desktop |
+|---|---|
+| Multi-line composer with persisted drafts | **v1** |
+| Attach files and images by drag and drop, paste or picker. Includes previews, progress, cancel, per-file and per-turn limits, and honest messages for unsupported types. The core receives owned copies, never raw filesystem handles from the UI. | **v1** |
+| An explicit choice to ingest an attachment into knowledge. Never automatic. | **v1** |
+| Command palette:<ul><li>`/stop`, `/steer`, `/status`, `/usage` and `/reload` (Discord equivalents);</li><li>`/new` and `/search`;</li><li>model and effort shortcuts, which are new management aliases.</li></ul>Each shows what it affects. | **v1** |
+| Attach a folder or path reference; screenshot capture into the composer, which needs native consent | v1+ |
+| `@` pickers for hosts, skills, MCP servers and files | later |
+| Voice input (the separate voice lane) | later |
 
 ### While Odin works
 
-| Feature | Discord | WebUI | Odin Desktop |
-|---|---|---|---|
-| Live reply text as the model streams | no | no | **Open question, round 2.** Showing unguarded draft text may weaken the response guards in practice. See [round 2](../discussion/03-claude-round2.md). |
-| Live tool timeline per turn: name, host, arguments, status, duration | no | names only | **v1** |
-| Expand a tool call: full arguments, output with head/tail, retained output by cursor, exit codes | no | no | **v1** |
-| Live tail of `manage_process` output | no | no | **v1+** |
-| `apply_patch` shown as a rendered diff | no | no | **v1** |
-| Computer-use and browser screenshots inline | partly (files) | partly | **v1** |
-| Agent tree: spawned agents, live progress telemetry, open an agent's transcript | no (results only) | separate Agents page | **v1**; telemetry already exists |
-| Stop, with the same truthful requested/confirmed receipt as `/stop` | `/stop` | no | **v1**, as a button plus Esc, bound to the exact request |
-| Steer: type while a turn runs and it queues into that turn | `/steer` | no | **v1**. The composer becomes a steer box while a turn runs, with a receipt (queued, consumed, closed). |
-| Queue a follow-up for after the current turn | partly | no | **v1** |
-| Guarded resume of preserved work after an interruption (today: a bare `resume`/`continue` on Discord) | yes | no | **v1**, as an explicit control; unknown effects are never replayed blindly |
-| Context budget meter, model and account in use, quota | `/status`, `/usage` | separate pages | **v1**, in the header |
+| Feature | Odin Desktop |
+|---|---|
+| **No reply text until it is committed.** Reply text appears only after the existing guard and classifier path accepts it, as on Discord. Provider deltas and discarded drafts are never shown. (Recommended by Claude and Odin: showing unguarded drafts weakens the guards in practice.) | **v1** |
+| Activity per tool call: name, target host, scrubbed input summary, lifecycle and outcome (success, failure or unknown), duration, and a link to evidence and result | **v1** |
+| Expand a call: scrubbed arguments, head and tail output (labeled as excerpts), and retained output fetched by cursor without re-running anything, with expiry shown | **v1** |
+| Inline computer-use and browser screenshots; generated files | **v1** |
+| Agents, tasks, loops and processes: identity, state, corrections, controls and results | **v1** |
+| Stop: a button plus a dedicated shortcut, bound to the exact request and generation, with a requested or confirmed receipt. Never Esc on its own, which also closes dialogs. Stop is not rollback, and the UI lists anything that keeps running. | **v1** |
+| Steer and Queue follow-up, as two explicit modes with a visible target and receipts (queued, consumed or closed). A draft is never reinterpreted because another window started a turn. Rejected text is kept. | **v1** |
+| Guarded resume of preserved work. It binds the exact preserved request, and unknown effects block it. Retry is never an effect replay. | **v1** |
+| Status: target endpoint and host, model, core and provider health. Usage, quota and context are shown as measured, estimated or unknown, never invented. | **v1** |
+| Rendered diff view for `apply_patch` | v1+ |
+| A rich per-agent activity timeline, with no model drafts or reasoning | v1+ |
+| Live process output tail | v1+ |
 
 ### Reading results
 
-| Feature | Discord | WebUI | Odin Desktop |
-|---|---|---|---|
-| Rich Markdown: GFM tables, task lists, syntax highlighting | partial | yes (basic) | **v1** |
-| No 2,000-character chunking; long replies render as one message with collapsible sections | no | yes | **v1** |
-| Diagrams (Mermaid) and math | no | no | **later** |
-| Inline image, video and audio players; file cards with Open, Save as and Reveal in folder | partly | partly | **v1** |
-| Copy as Markdown or plain text; copy code blocks | partly | partly | **v1** |
-| Retry or regenerate a turn; edit a past message and resend as a branch | no | no | **v1+** |
+| Feature | Odin Desktop |
+|---|---|
+| Committed Markdown with tables and syntax highlighting; code copy; full-length replies with no chunking, virtualized for very long content | **v1** |
+| Media and file cards with Open, Save as and Reveal through core-issued references. No active previews (no HTML or SVG execution). Playback is not comprehension. If a codec fails, the file itself is still offered. | **v1** |
+| Stored report viewer with page controls. Paging never re-runs the check; re-running is a separate, explicit action. | **v1** |
+| Copy as Markdown or plain text | **v1** |
+| Diagrams and math rendering | later |
 
-### Background work and notifications
+### Background work and notifications (D3)
 
-| Feature | Discord | WebUI | Odin Desktop |
-|---|---|---|---|
-| Scheduled tasks post into a chosen conversation | yes (channels) | n/a | **v1**, with the delivery destination owned by the core and not dependent on a window being open |
-| Structured scheduled reports with page controls (today: embeds plus reaction paging; a refresh never reruns the check) | yes | no | **v1** |
-| Desktop notification when a long turn, agent or schedule finishes, or needs attention | phone/desktop push | no | **v1** |
-| Unread badges per conversation and on the tray icon | yes | no | **v1** |
-| Work continues while the window is closed; results wait for you | yes | n/a | **v1**: the core keeps running when the window closes (see the architecture options) |
-| Quick prompt from a global hotkey (a small floating window) | no | no | **v1+** |
+| Feature | Odin Desktop |
+|---|---|
+| Closing the window keeps Odin working. Results from turns, schedules, workflows, loops and skills land in the conversation inbox. | **v1** |
+| Unread state per conversation; desktop notifications with privacy controls (minimal previews by default, quiet hours). A notification the OS accepted is not proof that the user saw it. | **v1** |
+| Tray icon with a right-click menu: Open, status, Exit. Exit stops Odin (D3). On desktops without a tray, reopening goes through the launcher, and Exit is also in the window's menu and the launcher's actions. | **v1** |
+| Start at login (opt-in), minimized | **v1** |
+| Quick prompt from a global hotkey | v1+ |
 
-### Management surfaces outside the chat
+### Management screens
 
-The WebUI management pages carry over as app screens where they apply. Odin's reuse map decides the exact list.
-Examples: settings and models, tools, skills, MCP servers, schedules, memory, knowledge, processes, agents, audit,
-usage, hosts.
+These carry over as app screens: the workflows Odin's reuse map keeps, not the old pages unchanged.
+
+- **Configuration:** settings, providers and models, personality.
+- **Tools and integrations:** tools, skills, MCP servers, hosts and trust.
+- **Scheduled and running work:** schedules, workflows, loops, processes, agents.
+- **State:** memory, named lists, knowledge, context reload.
+- **Records:** audit, usage, health, logs, turn state, computer use.
 
 Multi-user pages do not carry over: host access, API tokens, permissions, Discord config.
 
-## Gaps a desktop app must answer
-
-These are design questions, answered in the architecture docs or put to Aaron.
-
-1. **Anywhere access.** Discord reaches Aaron's phone; a desktop app does not. Options:
-   - accept the loss;
-   - have the core serve an optional remote client over the tailnet;
-   - keep Discord as an optional surface of Odin Desktop.
-2. **Notifications away from the desk.** This follows from 1.
-3. **Shared conversations.** Discord channels can include other people. Odin Desktop is single-user by design (R7), so
-   shared rooms are out of scope unless Aaron says otherwise.
-
 ## Principles
 
-- **Guards stay authoritative.** Live text, tool cards and previews are views of work in progress. The committed reply
-  is the guarded one, the same as on Discord. Nothing shown live is ever presented as a final claim.
-- **Truthful controls.** Every control reports what actually happened (requested or confirmed, queued or consumed), the
-  same contracts `/stop` and `/steer` have today.
-- **Keyboard first, mouse friendly.** Every action has a shortcut. The palette reaches everything.
-- **No hidden work.** If Odin is doing something, the UI can show it.
-- **The visible record is durable.** The transcript, artifacts and events the user sees are stored separately from
-  Odin's compacted model context and survive restarts. Compaction never shortens what the user can scroll back through.
-- **Retries never repeat effects.** Every submission carries a client ID, and the event stream has cursors, so a
-  reconnect or a re-sent message cannot execute twice.
+- **Committed text only.** The user only ever reads reply text that passed the guards.
+- **Truthful controls and results.** Each receipt says what actually happened: requested or confirmed, queued or
+  consumed. Invocation completed, exit code zero, validation passed and task done are different facts, and the UI never
+  merges them.
+- **No hidden work.** Effects and state are visible. Model internals (reasoning, prompts, drafts) are not part of that.
+- **A durable visible record.** The transcript, artifacts and events are stored separately from Odin's compacted model
+  context and survive restarts. Compaction never shortens what the user can scroll back through.
+- **Safe retries.** Submissions carry a client ID, so the same submission is admitted once. Odin never replays effects
+  whose outcome is unknown. Reconnecting catches up from a cursor and never re-sends work.
+- **Keyboard and screen-reader first.** Focus, structure and announcements are qualified on Linux. Activity must not
+  flood screen-reader announcements.

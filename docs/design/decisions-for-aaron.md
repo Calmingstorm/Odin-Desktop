@@ -1,89 +1,60 @@
 # Decisions for Aaron
 
-Owner: Claude. Draft 1, 2026-10-04. These are choices only Aaron can make. Each item gives the options, what Claude and
-Odin recommend, and why. When Aaron decides an item, it moves into the design docs and leaves this list.
+Owner: Claude. Draft 2, 2026-10-04. Decided items move into the design and leave this list. Decisions D1 to D6 are
+recorded in the [brief](00-brief.md#aarons-decisions-2026-10-04-after-round-1). These are what's left.
 
-## 1. Run at startup: login only, or before login too?
+## 1. Approve the prompt wording
 
-- **Login-session startup** (recommended for v1): the core starts when you log in and runs in the background after the
-  window closes.
-- **Boot-before-login** additionally needs a system service and lingering. This conflicts with per-user keyrings, GUI
-  consent and notifications. It is possible later.
+[`prompt-changes.md`](prompt-changes.md) lists the exact before and after for the nine Discord mentions in Odin's prompt
+text (D1). Two choices inside it:
 
-## 2. Reaching Odin when you're away from the desk
+- **Line 66:** "an autonomous execution agent running on the user's computer", or simply "an autonomous execution
+  agent".
+- **Line 97:** its wording follows the name of the desktop history-read tool, which is pending in Odin's round 3.
 
-Discord reaches your phone; a desktop app doesn't. The options can be combined:
+Odin's round 3 adds the tool descriptions that mention Discord.
 
-- **(a)** Accept the loss: Odin Desktop is a local app.
-- **(b)** Remote-server client mode: the desktop UI can also connect to a server Odin, which keeps phone access through
-  that server's Discord. Designed as a seam; your scope call.
-- **(c)** The desktop core serves an optional remote client over your tailnet, so a phone can use it through a web
-  client.
-- **(d)** Keep Discord as an optional surface of Odin Desktop.
+## 2. Shell: Electron (recommended)
 
-Recommendation: design the seam now and decide the scope with you. v1 is local only unless you say otherwise.
+Claude and Odin both recommend Electron for v1. It renders reliably on Linux and reuses web UI work. It is conditional on
+qualifying rendering, accessibility and security on your desktop. Tauri is the lighter alternative; its Linux engine is
+the risk.
 
-## 3. Where the shared core lives, and the go-ahead to extract it
+## 3. Reply text: committed only (recommended)
 
-The plan reuses Odin's code through a versioned shared core package. That means a careful extraction campaign in the
-Odin repository, with zero behaviour change for server installs. Options for where the package lives:
+Recommendation: reply text appears only after Odin's guards accept it, as on Discord today, while live tool and task
+activity shows what he's doing. Streaming draft text would let you read unguarded hedges or claims before the guards
+catch them. Confirm, or choose to accept that exposure.
 
-- inside the Odin repo, published as its own versioned package;
-- a neutral third repo.
+## 4. Linux scope for v1
 
-The extraction itself would be authorized later, as its own campaign.
+- **Desktops:** Cinnamon on X11 (yours) first. Should GNOME and KDE on Wayland also be qualified for v1?
+- **Computer use:** X11 for v1. Should the Wayland portal and Hyprland backends be qualified for v1 too?
 
-## 4. Odin's prompt text mentions Discord
+## 5. Missed schedules (when the app wasn't running or the machine slept)
 
-The personality presets and system template literally say "for Discord" and "agent on Discord". The standing rule is
-that this text never changes. The brief also says removed features leave no references. Options:
+Odin's proposal:
+- **Overdue reminders** become one catch-up notice, with the due time and how late.
+- **Missed runs that would take actions** are recorded and wait for you to run them. They never burst-run on startup.
 
-- **(a)** Keep the bytes unchanged in Odin Desktop too, as an explicit exception.
-- **(b)** Allow a desktop variant of those specific lines, which changes the prompt-preservation rule for this product.
+## 6. History and notifications
 
-Odin and Claude preserve the text unchanged until you decide.
+- **History:** keep the visible conversation history and files forever (until you delete them), or for a retention
+  period?
+- **Notifications:** minimal previews by default, so no message content shows on the lock screen. Previews can be turned
+  up in settings.
 
-## 5. Importing from your existing Odin
+## 7. Heavy optional components
 
-What should v1 import? Candidates:
-- memory;
-- skills;
-- knowledge;
-- schedules (imported inert until re-authorized);
-- conversation history;
-- Codex accounts (fresh sign-in may be cleaner).
+Browser automation (Chromium), semantic-search models, PDF support and computer-use helpers:
+- **(a)** download each on first use, with progress (recommended);
+- **(b)** bundle them all in the installer.
 
-Recommendation: an explicit, validated snapshot import that never points at a live server's data.
-
-## 6. History, retention and notification privacy
-
-- How long the visible transcript and artifacts are kept: forever, or a retention period.
-- Whether notifications show message previews.
-
-## 7. How broad Linux v1 is
-
-- **Desktops:** Cinnamon/X11 (yours) is first. Should GNOME and KDE on Wayland be in v1?
-- **Computer use:** which backends v1 qualifies (X11; the Wayland portal; Hyprland).
-
-## 8. What's in the default install
-
-These are heavy optional downloads: Playwright's Chromium for browser tools, semantic-search models, PDF support and
-computer-use helpers. Options:
-- ship them all;
-- download each on first use, with progress.
-
-Either way, features that aren't configured publish no tools.
-
-## 9. Windows and macOS
+## 8. Windows and macOS
 
 - **When:** after Linux v1.
-- **Costs:** an Apple Developer ID (notarization) and a Windows code-signing certificate, both yearly.
+- **Costs:** an Apple Developer ID for notarization and a Windows code-signing certificate, both yearly.
 
-## 10. Repository and licence
+## 9. Repository and licence
 
-The repo is private during design. Odin is public and MIT-licensed. Should Odin Desktop also be public and MIT once code
-exists?
-
-*Pending from round 2:*
-- the shell choice (Electron or Tauri), if Claude and Odin don't converge;
-- live reply text versus the guards, if it turns out to be your call.
+The repo is private during design. When code exists, should it be public and MIT-licensed like Odin?
