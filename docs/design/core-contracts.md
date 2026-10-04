@@ -1,14 +1,16 @@
-# Shared core contracts
+# Odin Desktop: internal engine and surface contracts
 
-Owner: Odin. Round 2, 2026-10-04. Proposed design, not implementation authorization.
+Owner: Odin. Round 3, 2026-10-04. Proposed design, not implementation authorization. D1-D6 are settled.
 
 ## 0. Status, evidence and scope
 
-This document specifies the six seams agreed in [round 2](../discussion/03-claude-round2.md). It is a domain contract, not a Python interface, wire implementation or claim that these services already exist. Shell and extraction recommendations are in [04-odin-round2](../discussion/04-odin-round2.md).
+This document specifies the six seams agreed in [round 2](../discussion/03-claude-round2.md), revised for [Aaron's decisions D1-D6](00-brief.md#aarons-decisions-2026-10-04-after-round-1). They are boundaries **inside Odin Desktop**, between its copied-and-maintained engine and its desktop surface. There is no shared core package, dependency on an Odin checkout, or extraction campaign in the Odin repository (D4). Historical shell and extraction recommendations in [04-odin-round2](../discussion/04-odin-round2.md) are superseded where they conflict. [maintenance.md](maintenance.md) defines bring-over, baseline tracking and dual maintenance.
 
 Source references are relative to Odin **`cd7530906e9cfa10a0fa900247d7ce2a8bb33e25`**, the inspected round-1 baseline. A read-only Git check this round found `/opt/odin` still at that commit. Claude's spot-check of `3849d917` is additional evidence supplied by Claude, not a checkout I inspected. Source and public documentation reads are the only research performed. No code, imports, tests, installations, endpoint probes, configuration changes or service operations were performed.
 
-**Existing** means the cited source supplies that part of the behavior. **New** means desktop infrastructure or extraction changes are required. Each seam has an evidence map; its proposed contract is not observed desktop behavior.
+**Existing** means the cited source supplies that part of the behavior. **New** means infrastructure or adaptation in the Desktop repository is required. Each seam has an evidence map; its proposed contract is not observed desktop behavior. All features and execution behavior carry over, including agents, anti-hedging, continuation and guards (D2), except the explicitly irrelevant social/multi-user machinery identified in the reuse map. New durability/presentation boundaries must not silently change the engine's budgets, guard dispositions or continuation rules.
+
+**Scope limits.** First versions run a local app-owned engine. There are no user-data import/migration paths (D5), server-client mode, phone client or network listener for remote access (D6). Versioned domain/transport seams leave room for a separately designed remote protocol later; they do not qualify authentication, reach parity or remote recovery today. Managed-host SSH execution remains an engine capability and is not remote access to the app. Desktop has fresh state and credentials, independent of an alongside Odin installation; normal Desktop schema upgrades are not imports from Odin.
 
 ### Common domain vocabulary
 
@@ -17,7 +19,7 @@ Source references are relative to Odin **`cd7530906e9cfa10a0fa900247d7ce2a8bb33e
 | Installation identity | Stable `installation_id`; distinguishes Desktop from an alongside server. Never inferred from a source directory or port. |
 | Profile identity | Stable `profile_id`, authenticated `owner_id`, isolated config/data/secret namespace and storage identity. One core owns a profile at a time. |
 | Runtime identity | Fresh `core_instance_id` and ownership epoch for each core incarnation. A PID alone is not identity. |
-| Execution endpoint | Stable local/remote `endpoint_id`, profile and negotiated capabilities. Execution machine is explicit; disconnected remote never becomes local. |
+| Execution endpoint | Stable local Desktop `endpoint_id`, profile and negotiated capabilities. Future remote-engine identity is reserved, not a first-version feature. A managed-host execution target is separate; disconnected hosts never become local. |
 | Conversation identity | Stable `conversation_id`, monotonic mutation revision, optional parent and inheritance snapshot. Names are presentation, not identity. |
 | Submission identity | Client-generated unpredictable `client_submission_id`, scoped to endpoint/profile/conversation, immutable once admitted. Not a content hash. |
 | Message identity | Core-issued `message_id`, revision, role/provenance and originating submission/request. |
@@ -28,7 +30,7 @@ Source references are relative to Odin **`cd7530906e9cfa10a0fa900247d7ce2a8bb33e
 
 Persisted deadlines use UTC; live elapsed time/budgets use monotonic clocks. Event order uses sequence numbers, not timestamps. Fencing IDs/hashes are not user credentials or capabilities.
 
-All surfaces share the existing guard/classifier/validation stack and preserve personality/system-template bytes unchanged. Accurate adapter metadata is not permission to add always-on desktop instructions; new tool guidance belongs in tool descriptions. The literal Discord wording conflict stays an Aaron decision. Baseline: `src/llm/system_prompt.py:16-34,66-134` and `src/discord/tool_loop.py:2517-2700`.
+All Desktop surfaces use the copied guard/classifier/validation stack. **D1:** the Desktop personality/system templates remove Discord references using the exact wording Aaron approves in [prompt-changes.md](prompt-changes.md); every other byte stays unchanged. This replaces blanket byte preservation, not D2's behavioral preservation. The adapted history-read tool is **`read_conversation`**, reading the authenticated request's current visible conversation; prompt line 97 can therefore use that name. Other model-facing wording is inventoried separately in [06-odin-round3](../discussion/06-odin-round3.md). Guard/classifier wording substitutions also require Aaron's approval; no global search-and-replace or weakened guard is authorized. Accurate adapter metadata is not permission to add always-on desktop instructions; new tool guidance belongs in tool descriptions. Baseline: `src/llm/system_prompt.py:16-34,66-134` and `src/discord/tool_loop.py:2517-2700`.
 
 ### Common error and uncertainty vocabulary
 
@@ -72,7 +74,7 @@ Core owns validation, secret screening, attachment adoption, IDs, duplicate deci
 
 1. Record submission, visible input and execution identity durably before acknowledging acceptance. Required storage failure blocks a new effect-capable turn. Desktop does **not** silently inherit today's optional startup-time legacy/no-checkpoint fallback.
 2. Same submission ID and semantic payload returns original identity/current receipt. Same ID with different text, attachments, target or intent is a conflict, not an edit/second execution.
-3. Resolve lost acknowledgements by lookup or resending the **same** ID. Reconnect, REST fallback or restart cannot mint a replacement automatically.
+3. Resolve lost acknowledgements by lookup or resending the **same** ID. Reconnect, transport recovery or restart cannot mint a replacement automatically.
 4. Retain minimal admitted-ID tombstones for the profile's lifetime, including after visible deletion, without retaining deleted message bodies just for deduplication. A complete profile reset changes profile/journal identity and rejects old-profile submissions. If bounded tombstone retention is later needed, first introduce core-issued admission epochs with explicit expiry and reject retired epochs. Arbitrary client IDs alone cannot distinguish a forgotten old submission from a fresh one; do not promise otherwise. Deliberate new requests use new IDs.
 5. One foreground turn owns a conversation at a time. Other conversations can progress concurrently; cross-conversation filesystem/process/GUI ownership still applies.
 6. Follow-up, steering and retry are distinct intents. Ordinary draft text does not silently become steering because a turn started elsewhere.
@@ -112,7 +114,8 @@ Core owns model context, transcript, artifact storage and event publication. The
 ### Invariants
 
 - Compaction cannot truncate visible messages, controls or delivered files. Reload reconstructs committed transcript independently of model history.
-- History is data, not current instructions. Inheritance/import/artifacts cannot confer authority.
+- History is data, not current instructions. Inheritance/artifacts cannot confer authority. D5 excludes importing another installation's history or memories.
+- `read_conversation` is the Desktop equivalent of `read_channel`: bounded, scrubbed recent visible messages from the current authenticated conversation, including its recorded role/provenance, for model context rather than republication. The request supplies identity, never a model-selected foreign conversation ID. Cross-conversation `search_history` retains its explicit profile-scoped search contract. Stored tool text and past messages remain untrusted historical data.
 - Branch names a parent message/cutoff and coherent snapshot at a stated revision. Label inherited material. No live synchronization, tool replay or GUI-consent transfer.
 - Current thread seed is summary plus bounded recent messages. Historical 'branch from here' needs a **new cutoff-aware** snapshot builder; current summaries may contain later messages.
 - Search must index visible transcript, not only compacted sessions. Reuse search machinery with stable message IDs, endpoint isolation and retention/deletion-aware indexing. Snippets/previews are scrubbed.
@@ -141,7 +144,7 @@ Evidence references declare namespace, source invocation, scope, expiry, digest,
 
 ### Delivery operations
 
-Sink serves foreground turns, schedules, workflows, loops and permitted skills **without UI connection**. Publications have immutable producer identity and idempotency key.
+Sink serves foreground turns, schedules, workflows, loops and permitted skills **without a renderer/window connection**, while the app and its supervised core run. Exit ends that execution lifetime; no independently running daemon is implied. Publications have immutable producer identity and idempotency key.
 
 | Operation | Fields and semantics |
 |---|---|
@@ -273,23 +276,25 @@ Core owns scheduler/executors/providers/managers/stores/outbox. UI windows never
 
 | Event | Contract |
 |---|---|
-| First launch | Isolated profile/storage/credentials and explicit background/startup preferences. No implicit server-data/environment reuse. |
-| Second launch | Attach to proven core/open UI. Incompatibility refuses use; no competing core on same stores. |
-| Close window | Enabled background work continues into inbox; tray is optional, launcher/status must reopen. Explicit window-lifetime mode initiates disclosed safe shutdown. |
-| Quit UI | Presentation detaches only. If UI owned notification broker, popups wait/fail visibly; durable inbox still works. No popup promise without broker. |
-| Quit Odin | Stop admission, drain/cancel, checkpoint, release children/input, flush. Preserve unknowns and veto unsafe replacement. Not undo. |
-| Login/startup | Opt-in per-user login core; UI startup separate. Keychain/session negotiated. Linger/boot-before-login requires owner scope. |
+| First launch | App creates isolated profile/storage/credentials and starts its supervised core child. Explicit login-startup/privacy choices; no server-data/environment reuse or user-data import. |
+| Second launch | Authenticate/focus the existing app main process, which owns the core connection. No independent core attachment, competing core on the stores, or deletion of an unknown occupant. Incompatibility refuses use. |
+| Close window | Hide/destroy presentation only; app main process and core continue turns/background work into the durable inbox. Tray normally reopens. Without tray, relaunch focuses the app; Exit is in the window menu and launcher's actions, with a one-time close notice. No window-lifetime mode. |
+| Exit Odin | Tray right-click Exit, window-menu Exit and launcher Exit are the same app-owned shutdown command: stop admission, drain/cancel under bounded policy, checkpoint, release owned children/input and flush, then exit. Pending/unknown cleanup remains visible and is preserved for next start; Exit is not undo or permission to erase quarantine. No independent background daemon remains. |
+| Login/startup | Opt-in per-user app launch, normally minimized; app starts the core. Keychain/session readiness is negotiated. No separate core autostart, system service, linger or boot-before-login mode. |
 | Sleep/offline | No execution while asleep. Re-evaluate deadlines/leases/settlement on wake; no fabricated runs. Locked/absent graphical session cannot renew input. |
-| Core crash | Exclusive storage reconciliation, interrupted/unknown records preserved. Automatic daemon restart restores availability, not effects/input. |
-| UI crash | Core continues; replacement authenticates/catches up. No duplicate work by reopening. |
-| Update | Verify compatible bundle, quiesce, settle ownership, snapshot/migrate and switch under approved authority. Compatible UI-only restart independent. Unknown native ownership blocks unsafe replacement. |
+| Core crash | While the app main process remains alive, it may perform bounded supervised recovery after ownership/storage reconciliation. Preserve and show interrupted/unknown records. Restart restores availability, never effects, spent budgets or input consent; unsafe ownership or repeated failure blocks restart. |
+| Renderer crash | App main process/core continue. Replacement renderer uses the main-process broker and catches up; no duplicate work by reopening. Notifications remain main-process-owned. |
+| App main-process crash/termination | There is no daemon fallback. A qualified parent-death/watchdog containment path stops core admission and owned execution; no claim that arbitrary remote effects are undone or every abruptly lost input hold can be released. Next app launch reconciles durable interrupted/unknown records before restarting work. An unproven surviving child/ownership fence blocks replacement. |
+| Update | Verify compatible bundle, quiesce the app-owned engine, settle ownership, snapshot/upgrade Desktop schemas and switch under approved authority. Compatible renderer-only reload is independent. Unknown native ownership blocks unsafe replacement. No migration from an Odin installation. |
 
-Proposed initial missed-run policy: overdue reminders produce bounded/coalesced catch-up notices with due time/lateness/omitted count; effect-capable missed runs are recorded and need explicit recovery/run, not burst catch-up. Normal timezone/DST and known retry rules remain. Needs owner acceptance; not verified current sleep behavior.
+The core is a **supervised child of the app main process**, not of a window or renderer. Only that app supervisor can start/recover it, under the profile/storage lock. A PID or IPC disconnect is not parent-death proof. Parent-loss detection, containment and Exit deadlines need isolated platform qualification; abrupt termination cannot honestly promise universal input release. Core replacement never proceeds over unresolved ownership. Neither closing a window nor a renderer reload ends the application; Exit ends it. No background-daemon or window-lifetime alternatives are part of this product.
+
+Proposed initial missed-run policy: overdue reminders produce bounded/coalesced catch-up notices with due time/lateness/omitted count; effect-capable missed runs are recorded and need explicit recovery/run, not burst catch-up. It applies after Exit as well as sleep. Normal timezone/DST and known retry rules remain. Needs owner acceptance; not verified current sleep behavior. Child recovery cannot automatically restart agents/workflows/loops or replay their effects.
 
 ### Config, credentials and updates
 
 - Separate persisted/effective values, apply mode, activation and restart. Context/cache reload is not service restart.
-- Secrets stay core/platform-owned, never returned to renderer. Entry/import is bounded native onboarding, not secret-read RPC.
+- Secrets stay core/platform-owned, never returned to renderer. Entry/provider sign-in is bounded native onboarding, not secret-read RPC or import from another Odin installation (D5).
 - Activation, dependency acquisition, startup and updates are explicit. Save/upgrade cannot activate disabled tools.
 - Writable skill/dependency environments stay separate from immutable core packages. No skill installation mutating core/another install.
 - UI/protocol/core/storage/checkpoint versions are independent. Check compatibility before writable attachment. Rollback cannot opportunistically interpret newer state or restore weaker security.
@@ -299,7 +304,7 @@ Proposed initial missed-run policy: overdue reminders produce bounded/coalesced 
 
 | Existing at baseline | New or adapted |
 |---|---|
-| Startup: `src/__main__.py:515-520,548-595,599-655`; wiring: `src/discord/wiring.py:100-199,1130-1357`. | Per-user composition, profiles/locks, independent lifetime/startup modes. |
+| Startup: `src/__main__.py:515-520,548-595,599-655`; wiring: `src/discord/wiring.py:100-199,1130-1357`. | Per-user composition, profiles/locks, app-owned child supervision, tray/no-tray lifecycle and app-only login startup. |
 | Scheduler admission: `src/scheduler/scheduler.py:374-418`; nonretryable failure: `src/scheduler/scheduler.py:1562-1611`. | Core/durable-inbox readiness, missed-run policy; no unconditional connected shim. |
 | Apply/sensitivity: `src/config/apply_registry.py:15-36,54-84`; teardown veto: `src/restart.py:49-59,80-98`. | Desktop inventory/native secrets/startup/update and no replacement over unresolved resources. |
 
@@ -347,8 +352,8 @@ Backend earns publication through later qualification. Unsupported OS capability
 
 ## 7. Local transport and acceptance
 
-Domain services require neither HTTP nor a toolkit. Recommended local transport: owner-protected Unix socket, later owner-ACL named pipe; native broker/explicitly authorized clients only. Authenticate profile/installation/protocol before commands. Peer identity checks where supported plus private profile-scoped installation credential, never in renderer/URL/arguments/log/transcript. Same-user malware is not solved by socket/token; renderer compromise remains a threat.
+Domain services require neither HTTP nor a toolkit. Recommended local transport: owner-protected Unix socket, later owner-ACL named pipe, between the app main-process broker and its supervised core child. The main process owns the connection; the renderer receives only narrow named methods, never a socket/path/token or generic RPC. Authenticated second-launch/launcher actions route through the existing app, not a second engine. Authenticate profile/installation/protocol before commands. Peer identity checks where supported plus private profile-scoped installation credential, never in renderer/URL/arguments/log/transcript. Same-user malware is not solved by socket/token; renderer compromise remains a threat. D6 permits only a future remote-protocol seam, not a TCP listener, server attachment, remote settings or implementation in the first versions.
 
 Handshake: installation/profile/endpoint/core incarnation; protocol major/minor range; required/optional features; core/UI versions; storage readiness; capability revision; journal lineage/catch-up; attachment limits and privacy policy. Reject incompatible required features before writes. Schema-validated length-bounded structured payloads, not pickle/arbitrary objects. Transfer large bytes separately; read subscriptions cannot invoke tools.
 
-Eventual shared acceptance: duplicate/conflicting submissions/lost receipts; stale Stop/Steer; crash after dispatch; outbox recovery without effects; guarded resume/current policy/spent budgets; branch cutoffs; compaction/restart with files; UI-closed schedules/missed-run policy; expired cursors/slow clients; revoked evidence/tool/host scope; disabled/unsupported tools absent; alongside isolation; UI/core/update incompatibility. Native proofs are additional platform-specific requirements. None was authored or run in this documents-only round.
+Eventual Desktop acceptance: duplicate/conflicting submissions/lost receipts; stale Stop/Steer; crash after dispatch; outbox recovery without effects; guarded resume/current policy/spent budgets; branch cutoffs; compaction/restart with files; window-closed schedules; Exit/core/app-crash interruption and parent-loss containment; no-tray reopen/Exit and app-only login startup; missed-run policy; expired cursors/slow clients; revoked evidence/tool/host scope; disabled/unsupported tools absent; alongside isolation with fresh data/no import; renderer/core/update incompatibility; exact approved D1 wording with all other prompt bytes and guard behavior unchanged. Native proofs are additional platform-specific requirements. Cross-repo parity/drift acceptance is in [maintenance.md](maintenance.md). None was authored or run in this documents-only round.
