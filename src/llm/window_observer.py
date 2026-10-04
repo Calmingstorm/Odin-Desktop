@@ -51,13 +51,14 @@ from pathlib import Path
 from typing import TypeGuard
 
 from ..config.schema import canonical_codex_model
+from ..runtime_paths import runtime_profile_paths
 from ..odin_log import get_logger
 
 log = get_logger("window_observer")
 
 STORE_VERSION = 1
 CLAMP_TTL = timedelta(hours=24)
-DEFAULT_STORE_PATH = Path("data/context_windows.json")
+DEFAULT_STORE_PATH = runtime_profile_paths().data_dir / "context_windows.json"
 
 #: Density calibration is EPHEMERAL workload evidence, not durable capability
 #: evidence: it lives in memory only and never enters the version-1 store
@@ -331,7 +332,12 @@ class WindowObserver:
         """Atomic replacement: unique temp, fsync, rename, parent fsync."""
         payload = json.dumps(self._state if state is None else state, indent=2, sort_keys=True)
         directory = self._path.parent
-        directory.mkdir(parents=True, exist_ok=True)
+        if self._path == DEFAULT_STORE_PATH:
+            from ..desktop.paths import private_directory
+
+            private_directory(directory)
+        else:
+            directory.mkdir(parents=True, exist_ok=True)
         fd, tmp_name = tempfile.mkstemp(prefix=f".{self._path.name}.tmp-", dir=directory)
         tmp_path = Path(tmp_name)
         try:

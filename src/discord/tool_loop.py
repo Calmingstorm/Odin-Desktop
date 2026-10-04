@@ -1,6 +1,6 @@
 """The chat + autonomous tool-execution pipelines (RFC-001 P7/P8, RFC-002 P1).
 
-``ToolLoopRunner.run`` is the old ``OdinBot._process_with_tools`` — the
+``ToolLoopRunner.run`` retains the pinned upstream execution engine — the
 iteration loop with context compression, the response-guard cascade,
 stuck-loop tracking, completion continuations, validation enforcement,
 parallel tool execution with timeouts, audit/trajectory recording, vision
@@ -34,8 +34,6 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
-
-import discord
 
 from ..agents.wait_deadlines import (
     WAIT_FOR_AGENTS_NATIVE_GRACE_SECONDS,
@@ -74,7 +72,6 @@ if TYPE_CHECKING:
     from ..tools.mcp import MCPManager
     from ..tools.skill_manager import SkillManager
     from ..trajectories.saver import TrajectoryTurn
-    from .channel_config import ChannelConfigManager
     from .channel_state import ChannelStateRegistry
     from .completion import CompletionClassifier
     from .delivery import ResponseDelivery
@@ -85,7 +82,7 @@ if TYPE_CHECKING:
     from .tool_catalog import ToolCatalog
     from .turn_recorder import TurnRecorder
 from .channel_state import ChatTurnInbox
-from .delivery import DISCORD_MAX_LEN, TOOL_STATUS_LABELS
+from .delivery import CONVERSATION_MAX_LEN, TOOL_STATUS_LABELS
 from .llm_gateway import LLMServingIdentity
 from .mcp_dispatch import dispatch_mcp_tool, is_mcp_tool
 from .mcp_dispatch import uncertain_outcome as _mcp_uncertain
@@ -112,13 +109,22 @@ from .response_guards import (
 )
 from .steer_notifications import notify_steer
 from .tool_loop_helpers import (
-    _ALLOWED_WEBHOOK_IDS,
     _EMPTY_RESPONSE_FALLBACK,
     _scrub_tool_input_for_storage,
     ensure_failure_visible,  # noqa: F401 — re-export (client, tests)
 )
 
-log = get_logger("discord")
+log = get_logger("tool_loop")
+
+
+class Phase2WiringRequired(RuntimeError):
+    """Authenticated durable Desktop request/control wiring is not installed."""
+
+
+def _require_phase2_wiring() -> None:
+    raise Phase2WiringRequired(
+        "Desktop tool-loop intake, durable admission and delivery require Phase 2 wiring"
+    )
 
 
 def _serving_identity_for(gateway, config=None, fallback_client=None) -> LLMServingIdentity:
@@ -191,12 +197,6 @@ def _error_summary(exc: BaseException, limit: int = 200) -> str:
         return name
 
 
-# Per-phase ceiling for typing attempts. A healthy POST is ~100-300ms; a
-# dead endpoint used to burn discord.py's internal 5xx retry (~17s) per
-# attempt during the 2026-07-16 incident. Deliberately a private constant,
-# not config — a knob someone can raise would resurrect the incident.
-_TYPING_ATTEMPT_TIMEOUT = 1.0
-
 # The executor timeout covers handler attempts, not the dispatch bookkeeping
 # around them. Give dispatch and terminal settlement a small, bounded margin so
 # the outer loop does not cancel a handler at the same instant its own budget
@@ -207,61 +207,18 @@ _TOOL_DISPATCH_SETTLEMENT_GRACE_SECONDS = 15.0
 
 @asynccontextmanager
 async def _best_effort_typing(channel):
-    """Discord typing indicator that can never fail or stall the wrapped work.
-
-    The indicator is attempted on every call — no failure memory, so a
-    Discord API outage degrades cosmetics, not behavior — but each phase
-    (enter/exit) is bounded by ``_TYPING_ATTEMPT_TIMEOUT`` (read at call
-    time): wait briefly, then abandon the ornamentation and do the actual
-    work. Any ordinary ``Exception`` from typing setup or cleanup is logged
-    bounded and swallowed. Cancellation and exceptions raised by the wrapped
-    body always propagate; a cleanup failure never replaces a body exception.
-    """
-    cm = None
-    try:
-        cm = channel.typing()
-        await asyncio.wait_for(cm.__aenter__(), timeout=_TYPING_ATTEMPT_TIMEOUT)
-    except asyncio.CancelledError:
-        raise
-    except TimeoutError:
-        log.warning(
-            "Typing indicator enter timed out after %.1fs (non-fatal)",
-            _TYPING_ATTEMPT_TIMEOUT,
-        )
-        cm = None
-    except Exception as exc:
-        log.warning("Typing indicator failed (non-fatal): %s", _error_summary(exc))
-        cm = None
-    try:
-        yield
-    finally:
-        if cm is not None:
-            try:
-                await asyncio.wait_for(
-                    cm.__aexit__(None, None, None), timeout=_TYPING_ATTEMPT_TIMEOUT
-                )
-            except asyncio.CancelledError:
-                raise
-            except TimeoutError:
-                log.warning(
-                    "Typing indicator exit timed out after %.1fs (non-fatal)",
-                    _TYPING_ATTEMPT_TIMEOUT,
-                )
-            except Exception as exc:
-                log.warning("Typing indicator cleanup failed (non-fatal): %s", _error_summary(exc))
+    """Presence delivery is Phase 2-gated, never simulated by a transport shim."""
+    _require_phase2_wiring()
+    yield  # Context-manager contract; unreachable before durable admission exists.
 
 
 class _LoopMessageProxy:
-    """Lightweight proxy providing a discord.Message-like interface for loop iterations.
-
-    Allows Discord-native tool handlers to be called from autonomous loop
-    iterations without a real Discord message object.
-    """
+    """Legacy loop request shape retained behind the Phase 2 wiring gate."""
 
     def __init__(self, channel: object, user_id: str, user_name: str = "loop") -> None:
+        _require_phase2_wiring()
         self.channel = channel
         self.id = 0  # No triggering message
-        self.webhook_id = None
         self.author = _LoopAuthorProxy(user_id, user_name)
 
 
@@ -269,8 +226,7 @@ class _LoopAuthorProxy:
     """Lightweight proxy for message.author in loop context."""
 
     def __init__(self, user_id: str, name: str) -> None:
-        self.id = int(user_id) if user_id.isdigit() else 0
-        self.bot = False
+        self.id = user_id
         self._name = name
 
     def __str__(self) -> str:
@@ -307,7 +263,7 @@ class LoopPolicy:
     """
 
     skill_file_delivery: Literal["send", "stage"]  # chat sends, autonomous stages
-    trajectory_source: str  # "discord" | "loop"
+    trajectory_source: str  # "conversation" | "loop"
     audit_event_style: str  # "chat" (tool_start/tool_end) | "loop" (loop_tool)
     iteration_cap_key: str  # config.tools.max_tool_iterations_{chat,loop}
     llm_via_gateway: bool  # chat: call_with_tools; autonomous: raw active client
@@ -329,7 +285,7 @@ _LOOP_ENVELOPE_LEN = 1
 
 CHAT_POLICY = LoopPolicy(
     skill_file_delivery="send",
-    trajectory_source="discord",
+    trajectory_source="conversation",
     audit_event_style="chat",
     iteration_cap_key="chat",
     llm_via_gateway=True,
@@ -386,7 +342,7 @@ class _ChatTurn:
     comparing phase bodies against the old inline blocks.
     """
 
-    message: discord.Message
+    message: Any
     policy: LoopPolicy
     trace: ContextTraceCollector | None
     system_prompt: str  # rebound on skill-CRUD prompt rebuilds (was `nonlocal`)
@@ -543,12 +499,11 @@ class ToolLoopDeps:
 
     get_config: Callable  # live root — replaced by config hot-reload
     get_default_system_prompt: Callable  # live — rebuilt on config/context reload
-    get_context_compressor: Callable  # live read — tests swap it on the bot
+    get_context_compressor: Callable  # live read — tests swap this dependency
     llm_gateway: LLMGateway  # owns the swappable provider clients + guarded calls
     prompt_builder: PromptBuilder
     tool_catalog: ToolCatalog
     channel_state: ChannelStateRegistry  # cancel events, active requests, op details
-    channel_config: ChannelConfigManager  # shared guild/channel response resolution
     delivery: ResponseDelivery  # presence updates
     turn_recorder: TurnRecorder  # trajectories, traces, lifecycle events, reflection
     completion_classifier: CompletionClassifier
@@ -583,6 +538,7 @@ class ToolLoopRunner:
         return self._prompt_builder.refresh_learned_context(prompt, user_id=user_id)
 
     def __init__(self, deps: ToolLoopDeps) -> None:
+        _require_phase2_wiring()
         self._get_config = deps.get_config
         self._get_default_system_prompt = deps.get_default_system_prompt
         self._get_context_compressor = deps.get_context_compressor
@@ -591,7 +547,6 @@ class ToolLoopRunner:
         self._prompt_builder = deps.prompt_builder
         self._tool_catalog = deps.tool_catalog
         self._channel_state = deps.channel_state
-        self._channel_config = deps.channel_config
         self._delivery = deps.delivery
         self._turn_recorder = deps.turn_recorder
         self._completion_classifier = deps.completion_classifier
@@ -712,7 +667,6 @@ class ToolLoopRunner:
         *,
         user_id: str,
         api_allowed: list[str] | None = None,
-        bypass_rbac: bool = False,
         current_tools: list[dict] | None = None,
         cache_result: bool = True,
         request_config=None,
@@ -726,10 +680,8 @@ class ToolLoopRunner:
         config = request_config if request_config is not None else self._get_config()
         tools_config = getattr(config, "tools", None)
         if tools_config is None or not hasattr(self, "_tool_catalog"):
-            # Narrow direct-call unit seams construct the runner with only the
-            # LLM dependencies. Preserve their supplied catalog; production
-            # construction always has both dependencies.
-            return current_tools
+            # Supplied/persisted definitions are never execution authority.
+            return None
         if not tools_config.enabled:
             return None
         if cache_result:
@@ -744,8 +696,9 @@ class ToolLoopRunner:
                 merged = self._tool_catalog.merged_definitions()
         tools: list[dict] | None = merged
         filter_tools = getattr(self._permissions, "filter_tools", None)
-        if not bypass_rbac and filter_tools is not None:
-            tools = filter_tools(user_id, merged)
+        if filter_tools is None:
+            return None  # No owner authority means no published execution surface.
+        tools = filter_tools(user_id, merged)
         if api_allowed is not None and tools:
             allowed_set = set(api_allowed)
             tools = [tool for tool in tools if tool["name"] in allowed_set]
@@ -757,12 +710,11 @@ class ToolLoopRunner:
 
     async def run(
         self,
-        message: discord.Message,
+        message: Any,
         history: list[dict],
         system_prompt_override: str | None = None,
         trace=None,
         policy: LoopPolicy = CHAT_POLICY,
-        from_another_bot: bool | None = None,
     ) -> tuple[str, bool, bool, list[str], bool]:
         """Process a message with the tool loop — see module docstring.
 
@@ -775,13 +727,13 @@ class ToolLoopRunner:
         - tools_used: list of tool names called during this loop
         - handoff: True if the response should be handed off to another handler
         """
+        _require_phase2_wiring()
         st = await self._prepare_chat_turn(
             message,
             history,
             system_prompt_override,
             trace,
             policy,
-            from_another_bot=from_another_bot,
         )
         # Admission refusal: this message identity already has durable state
         # (terminal / in-flight / suspended). A redelivered or duplicate
@@ -820,6 +772,7 @@ class ToolLoopRunner:
         same guard envelope as a fresh one. The iteration loop starts from
         ``st.iteration`` — the restored transcript already contains every
         earlier generation."""
+        _require_phase2_wiring()
         st._cancel = self._channel_state.set_active_request(st._ch_id, st._req_id, st._cancel)
         # Only consumed directives survive in the checkpoint transcript. Never
         # resurrect a pending mailbox from a suspended/replaced process owner.
@@ -1098,43 +1051,21 @@ class ToolLoopRunner:
 
     async def _prepare_chat_turn(
         self,
-        message: discord.Message,
+        message: Any,
         history: list[dict],
         system_prompt_override: str | None,
         trace,
         policy: LoopPolicy,
-        *,
-        from_another_bot: bool | None = None,
     ) -> _ChatTurn:
         """Turn setup: prompt/tools resolution, request preamble, permission
         filtering, trajectory + correlation init, cancellation wiring."""
 
+        _require_phase2_wiring()
         system_prompt = system_prompt_override or self._get_default_system_prompt()
         messages = list(history)
 
         # Insert context separator between history and the current user request
         # so Codex evaluates tools fresh instead of repeating patterns from history
-        if from_another_bot is None:
-            # Direct callers have no intake snapshot, so resolve through the
-            # exact same channel > guild > global ladder as MessageIntake.
-            _guild = getattr(message, "guild", None)
-            _guild_id = str(_guild.id) if _guild is not None else None
-            _channel_id = str(message.channel.id)
-            _respond_to_bots = self._channel_config.should_respond_to_bots(
-                _guild_id,
-                _channel_id,
-                self._get_config().discord.respond_to_bots,
-            )
-            is_allowed_webhook = (
-                message.webhook_id and str(message.webhook_id) in _ALLOWED_WEBHOOK_IDS
-            )
-            is_bot_message = bool(
-                getattr(message.author, "bot", False) and (_respond_to_bots or is_allowed_webhook)
-            )
-        else:
-            # Intake already made the admission decision. Do not re-resolve a
-            # live setting after buffering/queueing and mislabel admitted work.
-            is_bot_message = from_another_bot
         from .tool_loop_helpers import (
             build_request_preamble,
             compute_request_id,
@@ -1149,13 +1080,7 @@ class ToolLoopRunner:
         # Build channel context line for spatial awareness
         _ch = message.channel
         _ch_name = getattr(_ch, "name", None) or str(_ch.id)
-        _is_thread = isinstance(_ch, discord.Thread)
-        if _is_thread and getattr(_ch, "parent", None):
-            # Guarded: _is_thread + the getattr probe exclude every
-            # parent-less/None case; mypy cannot narrow via the bool var.
-            channel_ctx = f"Channel: #{_ch.parent.name} → thread: {_ch_name}"  # type: ignore[union-attr]
-        else:
-            channel_ctx = f"Channel: #{_ch_name}"
+        channel_ctx = f"Conversation: {_ch_name}"
         preamble = build_request_preamble(
             request_id=req_hash,
             request_time=req_time,
@@ -1164,7 +1089,6 @@ class ToolLoopRunner:
             message_id=message.id,
             channel_description=channel_ctx,
             has_history=len(messages) > 1,
-            from_another_bot=is_bot_message,
         )
         if len(messages) > 1:
             messages.insert(-1, preamble)
@@ -1176,12 +1100,10 @@ class ToolLoopRunner:
 
         # Snapshot only the caller scope; the catalog itself is re-pulled at
         # each physical request assembly so same-turn publication changes land.
-        is_test_wh = bool(message.webhook_id and str(message.webhook_id) in _ALLOWED_WEBHOOK_IDS)
         api_allowed = getattr(message, "allowed_tools", None)
         tools = self._scoped_tools_for_request(
             user_id=user_id,
             api_allowed=api_allowed,
-            bypass_rbac=is_test_wh,
         )
 
         chat_cap = self._get_config().tools.max_tool_iterations_chat
@@ -1251,16 +1173,14 @@ class ToolLoopRunner:
         _steer_inbox = ChatTurnInbox(requester_id=user_id)
         self._channel_state.bind_steer_inbox(_ch_id, _req_id, _steer_inbox)
 
-        # Durable-turn admission: Discord chat turns only, resolved the same
-        # way the trajectory source is (web/API turns share this runner via
-        # message shims carrying _odin_source="web" and have no
-        # re-fetchable Discord message — v1 checkpoint fence). Any refusal →
-        # a disabled handle and the turn runs exactly as before.
+        # Phase 2 must wire authenticated conversation identity and mandatory
+        # durable admission. This retained legacy block cannot execute while
+        # _prepare_chat_turn is gated; it is not a fallback execution mode.
         durability = TurnDurability.disabled()
         if (
             policy is CHAT_POLICY
             and self._turn_store is not None
-            and _trajectory.source == "discord"
+            and _trajectory.source == "conversation"
         ):
             try:
                 durability = await TurnDurability.admit(
@@ -1908,11 +1828,9 @@ class ToolLoopRunner:
                 pin_kwargs["reasoning_effort"] = serving_identity.reasoning_effort
 
         async def _attempt():
-            webhook_id = getattr(st.message, "webhook_id", None)
             st.tools = self._scoped_tools_for_request(
                 user_id=st.user_id,
                 api_allowed=getattr(st.message, "allowed_tools", None),
-                bypass_rbac=bool(webhook_id and str(webhook_id) in _ALLOWED_WEBHOOK_IDS),
                 current_tools=st.tools,
                 cache_result=False,
                 request_config=request_config,
@@ -3427,6 +3345,7 @@ class ToolLoopRunner:
         Simplified version of the chat pipeline for autonomous loops: same
         Codex + tool execution pipeline but without detection retries.
         """
+        _require_phase2_wiring()
         if not self._llm_gateway.active_client:
             from ..tools.autonomous_loop import LoopIterationResult
 
@@ -4186,8 +4105,8 @@ class ToolLoopRunner:
         # text).
         if st.completed_naturally:
             final_text = scrub_output_secrets(st.final_text)
-            if len(final_text) > DISCORD_MAX_LEN:
-                final_text = final_text[: DISCORD_MAX_LEN - 50] + "\n... (truncated)"
+            if len(final_text) > CONVERSATION_MAX_LEN:
+                final_text = final_text[: CONVERSATION_MAX_LEN - 50] + "\n... (truncated)"
             _had_tool_errors = any(d.get("error") for d in st._loop_details)
             _first_err = next((d for d in st._loop_details if d.get("error")), None)
             # Iteration succeeded after a mid-flight tool error: the turn is

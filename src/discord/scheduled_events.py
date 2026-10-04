@@ -2,9 +2,9 @@
 
 The scheduled-task action router (reminder/check/workflow/digest),
 workflow step execution with condition and on_failure semantics, the
-structured-RBAC scheduled dispatch, the infrastructure digest, mention
-resolution, and the monitor/failure alert callbacks. Narrow-deps since
-RFC-002 P3: live roots (``config``, the guild list) come in as provider
+scoped scheduled dispatch, the infrastructure digest and failure alert
+projections. Admission and durable delivery await Phase 2, without emulated
+messages. Narrow-deps since RFC-002 P3: live ``config`` comes as a provider
 callables; the LLM surface comes in as the gateway (which owns the
 swappable provider clients); cross-component calls (loop dispatch, agent
 collection) take the components directly — construction order in
@@ -19,16 +19,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import discord
-
 from ..odin_log import get_logger
 from ..scheduler.scheduler import NonRetryableScheduleError
 from ..tools import ToolResult
 from ..tools.nested_payload import validate_nested_payload
-from .delivery import close_open_fence
 from .mcp_dispatch import uncertain_outcome as mcp_uncertain_outcome
 from .response_guards import scrub_response_secrets
-from .tool_loop import _LoopMessageProxy
 
 if TYPE_CHECKING:
     from ..audit.logger import AuditLogger
@@ -39,7 +35,20 @@ if TYPE_CHECKING:
     from .scheduled_report import ScheduledReportPaginationService
     from .tool_loop import ToolLoopRunner
 
-log = get_logger("discord")
+log = get_logger("scheduled_events")
+
+
+def _require_phase2() -> None:
+    raise NonRetryableScheduleError(
+        "Scheduled execution requires Phase 2 durable admission, "
+        "conversation authority and delivery."
+    )
+
+
+async def _publish_notice(conversation_id: str, text: str) -> None:
+    raise NonRetryableScheduleError(
+        "Conversation publication is unavailable until Phase 2; do not replay the producer."
+    )
 
 
 @dataclass(frozen=True)
@@ -47,8 +56,6 @@ class ScheduledEventsDeps:
     """The true dependency surface of the scheduled-events handlers."""
 
     get_config: Callable  # live root — replaced by config hot-reload
-    get_channel: Callable  # discord.Client.get_channel (bound method)
-    get_guilds: Callable  # live — the guild list changes at runtime
     tool_executor: ToolExecutor
     audit: AuditLogger
     llm_gateway: LLMGateway  # owns the swappable provider clients
@@ -61,8 +68,6 @@ class ScheduledEventsDeps:
 class ScheduledEventHandlers:
     def __init__(self, deps: ScheduledEventsDeps) -> None:
         self._get_config = deps.get_config
-        self._get_channel = deps.get_channel
-        self._get_guilds = deps.get_guilds
         self._tool_executor = deps.tool_executor
         self._host_registry = deps.host_registry
         self._audit = deps.audit
@@ -73,13 +78,11 @@ class ScheduledEventHandlers:
 
     async def _on_scheduled_digest(self, schedule: dict) -> None:
         """Run the daily infrastructure digest and post results."""
-        channel_id = schedule.get("channel_id")
+        _require_phase2()
+        channel_id = schedule.get("conversation_id")
         if not channel_id:
-            raise RuntimeError(f"Digest {schedule['id']} has no channel_id")
-
-        channel = self._get_channel(int(channel_id))
-        if not channel:
-            raise RuntimeError(f"Digest channel {channel_id} not found")
+            raise RuntimeError(f"Digest {schedule['id']} has no conversation_id")
+        channel = channel_id
 
         log.info("Running daily digest for channel %s", channel_id)
         try:
@@ -87,7 +90,7 @@ class ScheduledEventHandlers:
         except Exception as e:
             log.error("Digest data collection failed: %s", e)
             try:
-                await channel.send(
+                await _publish_notice(channel,
                     scrub_response_secrets(
                         f"**Daily Infrastructure Digest**\n\nFailed to collect data: {e}"
                     )
@@ -100,7 +103,7 @@ class ScheduledEventHandlers:
             raise RuntimeError(f"Digest data collection failed: {e}") from e
 
         if total and len(failed) == total:
-            await channel.send(
+            await _publish_notice(channel,
                 scrub_response_secrets(
                     "**Daily Infrastructure Digest**\n\n"
                     f"Collection failed for every check ({total} of {total}).\n\n{raw[:1500]}"
@@ -136,11 +139,8 @@ class ScheduledEventHandlers:
                 labels += ", …"
             summary += f"\n\nCollection failed for {len(failed)} of {total} checks: {labels}"
 
-        from .delivery import DISCORD_MAX_LEN
-
         notice = scrub_response_secrets(f"**Daily Infrastructure Digest**\n\n{summary}")
-        for offset in range(0, len(notice), DISCORD_MAX_LEN):
-            await channel.send(notice[offset:offset + DISCORD_MAX_LEN])
+        await _publish_notice(channel, notice)
 
         # Audit log the digest
         try:
@@ -155,12 +155,12 @@ class ScheduledEventHandlers:
                 execution_time_ms=0,
             )
         except Exception:
-            # Discord delivery already succeeded. Raising here would make the
+            # Publication already succeeded. Raising here would make the
             # scheduler retry and deliver the same digest a second time.
             log.exception("Failed to audit delivered scheduled digest")
 
     async def _format_digest_raw(
-        self, schedule: dict, channel: discord.abc.Messageable
+        self, schedule: dict, channel: str
     ) -> tuple[str, list[str], int]:
         """Collect raw infrastructure data for the digest."""
         tasks = []
@@ -219,24 +219,11 @@ class ScheduledEventHandlers:
 
         return "\n\n".join(sections), failed, len(labels)
 
-    def _resolve_mentions(self, text: str) -> str:
-        """Replace @username with proper Discord <@ID> mentions."""
-
-        def _replace(match: re.Match) -> str:
-            name = match.group(1).lower()
-            for guild in self._get_guilds():
-                for member in guild.members:
-                    if member.name.lower() == name or (member.nick and member.nick.lower() == name):
-                        return f"<@{member.id}>"
-            return match.group(0)  # leave unchanged if not found
-
-        return re.sub(r"@(\w+)", _replace, text)
-
     async def _execute_scheduled_tool(
         self,
         tool_name: str,
         tool_input: dict,
-        channel: discord.abc.Messageable,
+        channel: str,
         requester_id: str | None,
         requester_name: str = "scheduler",
     ) -> ToolResult:
@@ -245,16 +232,10 @@ class ScheduledEventHandlers:
         Routes through the same client-level dispatch as live messages and
         autonomous loops, so scheduled tasks have full tool parity.
         """
-        # Pre-check RBAC so we can return a structured failure — the dispatch
+        # Pre-check scope so we can return a structured failure — the dispatch
         # also checks, but returns a plain denial string we'd have to guess at.
-        # Empty creators are the existing administrative system schedules.
-        # Make their authority explicit here, never via a falsy RBAC bypass.
-        # The management API that creates these schedules is admin-only.
-        from ..permissions.manager import PermissionManager
-
-        system_scope = PermissionManager.set_request_tier("admin") if not requester_id else None
+        _require_phase2()
         execution_id = requester_id or "scheduler"
-        msg_proxy = _LoopMessageProxy(channel, execution_id, requester_name)
         from .scheduled_context import scheduled_dispatch
 
         scheduled_token = scheduled_dispatch.set(tool_name == "spawn_agent")
@@ -264,10 +245,10 @@ class ScheduledEventHandlers:
                 return ToolResult(
                     output=denial, ok=False, error="permission_denied", tool_name=tool_name
                 )
-            result = await self._tool_loop.dispatch_loop_tool_inner(
+            result = await self._dispatch_scheduled_tool(
                 tool_name,
                 tool_input,
-                msg_proxy,
+                channel,
                 execution_id,
             )
             if isinstance(result, ToolResult) and result.audit_metadata:
@@ -276,7 +257,7 @@ class ScheduledEventHandlers:
                         event_type="scheduled_tool",
                         action=tool_name,
                         actor=requester_id or "scheduler",
-                        channel_id=str(getattr(channel, "id", "")),
+                        channel_id=channel,
                         metadata=dict(result.audit_metadata),
                     )
                 except Exception:
@@ -290,8 +271,6 @@ class ScheduledEventHandlers:
             )
         finally:
             scheduled_dispatch.reset(scheduled_token)
-            if system_scope is not None:
-                PermissionManager.reset_request_tier(system_scope)
 
         if isinstance(result, ToolResult):
             return result
@@ -304,9 +283,15 @@ class ScheduledEventHandlers:
             error="tool_reported_failure" if failed else None, tool_name=tool_name,
         )
 
+    async def _dispatch_scheduled_tool(
+        self, tool_name: str, tool_input: dict, conversation_id: str, execution_id: str
+    ) -> ToolResult:
+        """No dispatch via synthetic messages; Phase 2 supplies a real context."""
+        _require_phase2()
+
     async def _run_scheduled_workflow(
         self,
-        channel: discord.abc.Messageable,
+        channel: str,
         schedule: dict,
     ) -> bool:
         """Execute a multi-step workflow from a scheduled task.
@@ -321,7 +306,7 @@ class ScheduledEventHandlers:
         nested_validated = bool(schedule.get("_nested_payload_validated"))
         catalog = self._tool_loop._tool_catalog.merged_definitions() if nested_validated else []
         # Scheduled work runs under the identity of whoever created the schedule, so
-        # host-access scoping / tier limits apply (None = unrestricted system task).
+        # tool/host scope applies; missing identity is not owner authorization.
         req_id = schedule.get("requester_id") or None
 
         for i, step in enumerate(steps):
@@ -453,11 +438,10 @@ class ScheduledEventHandlers:
 
         summary = "\n".join(results)
         text = f"**Workflow: {desc}**\n{summary}"
-        if len(text) > 1900:
-            text = close_open_fence(text[:1900]) + "\n... (truncated)"
-
         try:
-            await channel.send(scrub_response_secrets(text))
+            await _publish_notice(channel, scrub_response_secrets(text))
+        except NonRetryableScheduleError:
+            raise
         except Exception as e:
             raise RuntimeError(f"Failed to post workflow results: {e}") from e
 
@@ -466,7 +450,7 @@ class ScheduledEventHandlers:
     async def _on_schedule_failure(self, schedule: dict, consecutive: int) -> None:
         """Alert callback fired when a schedule crosses the consecutive-failure
         threshold. Previously never wired, so the alerting path was dead."""
-        channel_id = schedule.get("channel_id")
+        channel_id = schedule.get("conversation_id")
         last_error = schedule.get("last_error", "unknown error")
         text = (
             f"⚠️ **Scheduled task failing:** {schedule.get('description', schedule.get('id', '?'))}\n"  # noqa: E501
@@ -474,12 +458,11 @@ class ScheduledEventHandlers:
             f"```\n{str(last_error)[:1000]}\n```"
         )
         try:
-            channel = self._get_channel(int(channel_id)) if channel_id else None
-            if channel:
-                await channel.send(scrub_response_secrets(text))
+            if channel_id:
+                await _publish_notice(channel_id, scrub_response_secrets(text))
             else:
                 log.warning(
-                    "Schedule %s failed %d times but channel %s is unavailable for alert",
+                    "Schedule %s failed %d times but conversation %s is unavailable for alert",
                     schedule.get("id"),
                     consecutive,
                     channel_id,
@@ -489,24 +472,24 @@ class ScheduledEventHandlers:
 
     async def _on_scheduled_task(self, schedule: dict) -> None:
         """Callback fired by the scheduler when a task is due."""
+        # Fence before audit, lookup, validation or producer effects. No retry
+        # can turn unavailable delivery into duplicate command execution.
+        _require_phase2()
         try:
             await self._audit.log_event(
                 event_type="schedule_execution",
                 action=schedule.get("action", "unknown"),
                 actor="scheduler",
                 detail=f"Schedule {schedule.get('id', '?')}: {schedule.get('description', '')[:100]}",  # noqa: E501
-                channel_id=schedule.get("channel_id", ""),
+                channel_id=schedule.get("conversation_id", ""),
                 metadata={"schedule_id": schedule.get("id"), "action": schedule.get("action")},
             )
         except Exception:
             pass
-        channel_id = schedule.get("channel_id")
+        channel_id = schedule.get("conversation_id")
         if not channel_id:
-            raise RuntimeError(f"Scheduled task {schedule['id']} has no channel_id")
-
-        channel = self._get_channel(int(channel_id))
-        if not channel:
-            raise RuntimeError(f"Scheduled task channel {channel_id} not found")
+            raise RuntimeError(f"Scheduled task {schedule['id']} has no conversation_id")
+        channel = channel_id
 
         if schedule["action"] == "digest":
             await self._on_scheduled_digest(schedule)
@@ -514,10 +497,12 @@ class ScheduledEventHandlers:
 
         if schedule["action"] == "reminder":
             msg = schedule.get("message", schedule["description"])
-            # Resolve @username mentions to proper Discord <@ID> mentions
-            msg = self._resolve_mentions(msg)
             try:
-                await channel.send(f"**Scheduled reminder:** {msg}")
+                await _publish_notice(
+                    channel, scrub_response_secrets(f"**Scheduled reminder:** {msg}")
+                )
+            except NonRetryableScheduleError:
+                raise
             except Exception as e:
                 raise RuntimeError(f"Failed to send scheduled reminder: {e}") from e
 
@@ -551,7 +536,7 @@ class ScheduledEventHandlers:
                 ):
                     text = f"**Scheduled check outcome unknown:** {schedule['description']}\n```\n{str(result)[:1800]}\n```"  # noqa: E501
                     try:
-                        await channel.send(scrub_response_secrets(text))
+                        await _publish_notice(channel, scrub_response_secrets(text))
                     except Exception:
                         pass
                     raise NonRetryableScheduleError(
@@ -560,7 +545,7 @@ class ScheduledEventHandlers:
                 if isinstance(result, ToolResult) and not result.ok:
                     text = f"**Scheduled check failed:** {schedule['description']}\n```\n{str(result)[:1800]}\n```"  # noqa: E501
                     try:
-                        await channel.send(scrub_response_secrets(text))
+                        await _publish_notice(channel, scrub_response_secrets(text))
                     except Exception:
                         pass
                     raise RuntimeError(f"Scheduled check failed: {str(result)[:200]}")
@@ -571,15 +556,21 @@ class ScheduledEventHandlers:
                             raise RuntimeError("Scheduled report service is unavailable")
                         try:
                             # The pagination service parses JSON first and scrubs
-                            # only validated strings that can reach Discord.
+                            # only validated strings that can reach presentation.
                             await self._scheduled_reports.post(channel, report_format, str(result))
+                        except (NotImplementedError, NonRetryableScheduleError) as e:
+                            raise NonRetryableScheduleError(
+                                "Scheduled report publication unavailable; "
+                                "preserve producer output and recover delivery "
+                                "without rerunning the check"
+                            ) from e
                         except Exception as e:
                             text = (
                                 f"**Scheduled report failed:** {schedule['description']}\n"
                                 f"Error: {e}"
                             )
                             try:
-                                await channel.send(scrub_response_secrets(text))
+                                await _publish_notice(channel, scrub_response_secrets(text))
                             except Exception:
                                 pass
                             raise RuntimeError(
@@ -590,13 +581,15 @@ class ScheduledEventHandlers:
                             f"**Scheduled: {schedule['description']}**\n```\n"
                             f"{str(result)[:1800]}\n```"
                         )
-                        await channel.send(scrub_response_secrets(text))
+                        await _publish_notice(channel, scrub_response_secrets(text))
+            except NonRetryableScheduleError:
+                raise
             except RuntimeError:
                 raise
             except Exception as e:
                 log.error("Scheduled task error: %s", e, exc_info=True)
                 try:
-                    await channel.send(
+                    await _publish_notice(channel,
                         scrub_response_secrets(
                             f"**Scheduled task failed:** {schedule['description']}\nError: {e}"
                         )

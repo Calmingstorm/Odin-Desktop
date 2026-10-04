@@ -3,10 +3,10 @@
 This is deliberately a small persistence primitive, not an onboarding flow.
 It records whether an explicitly identified installation is still being
 provisioned, has completed setup, or needs operator recovery.  In particular,
-credential files are not an input to this state machine: deleting a Discord or
-web credential must never turn a completed installation back into setup.
+credential files are not an input to this state machine: deleting a credential
+must never turn a completed installation back into setup.
 
-The state file is separate from configuration and token stores.  It also holds
+The state file is separate from configuration and credential stores. It holds
 the D3 listener decision (restriction and explicit widening consent), so a
 future auth change cannot reinterpret credential presence as permission to
 widen a listener.
@@ -203,6 +203,8 @@ class InitializationStore:
         lock. A previously observed record disappearing is recovery, not a new
         legacy installation. Repairs and changes by another process invalidate.
         """
+        if legacy_loopback_restricted is not None:
+            return self._recovery("existing-install import is unavailable for desktop profiles")
         with _lock_for(self._lock_path):
             try:
                 before = self._cache_signature()
@@ -229,6 +231,8 @@ class InitializationStore:
 
     def state(self, *, legacy_loopback_restricted: bool | None = None) -> InitializationState:
         """Read the current state without ever inferring it from credentials."""
+        if legacy_loopback_restricted is not None:
+            return self._recovery("existing-install import is unavailable for desktop profiles")
         try:
             with self._locked():
                 state = self._read_locked()

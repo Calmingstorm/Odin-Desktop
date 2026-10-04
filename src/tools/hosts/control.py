@@ -313,7 +313,12 @@ class HostEnrollmentManager:
     async def test(self, token: str) -> HostCandidate:
         candidate = self.get(token)
         if is_local_address(candidate.address):
-            argv = ["sh", "-c", "printf 'odin-host-test linux\\n'"]
+            argv = [
+                "sh", "-c",
+                "printf 'odin-host-test '; "
+                "case \"$(uname -s)\" in Linux) echo linux;; "
+                "Darwin) echo macos;; *) echo unknown;; esac",
+            ]
         else:
             legacy = candidate.trust_mode == "legacy"
             key_alias = (
@@ -468,37 +473,19 @@ def authorized_keys_command(public_key: str) -> str:
     )
 
 
-def scan_host_references(bot: Any, alias: str) -> list[dict[str, str]]:
+def scan_host_references(
+    config: Any,
+    alias: str,
+    *,
+    scheduler: Any = None,
+    background_tasks: Mapping[str, Any] | None = None,
+) -> list[dict[str, str]]:
+    """Inspect explicit engine repositories, not a transport or user ACL inventory."""
     refs: list[dict[str, str]] = []
 
     def add(kind: str, location: str) -> None:
         refs.append({"kind": kind, "location": location})
 
-    access = getattr(bot, "host_access_manager", None)
-    if access is not None:
-        policy = access.default_policy
-        if policy.allowed_hosts is not None and alias in policy.allowed_hosts:
-            add("host_access", "default_policy.allowed_hosts")
-        if policy.default_host == alias:
-            add("host_access", "default_policy.default_host")
-        for user_id, entry in access.list_users().items():
-            if entry.get("allowed_hosts") is not None and alias in entry["allowed_hosts"]:
-                add("host_access", f"users.{user_id}.allowed_hosts")
-            if entry.get("default_host") == alias:
-                add("host_access", f"users.{user_id}.default_host")
-    token_manager = getattr(bot, "api_token_manager", None)
-    if token_manager is not None:
-        for token in token_manager.list_tokens():
-            if token.get("allowed_hosts") is not None and alias in token["allowed_hosts"]:
-                add("api_token", f"dynamic.{token.get('user_id', '')}.allowed_hosts")
-            if token.get("default_host") == alias:
-                add("api_token", f"dynamic.{token.get('user_id', '')}.default_host")
-    config = bot.config
-    for index, token in enumerate(config.web.api_tokens):
-        if token.allowed_hosts is not None and alias in token.allowed_hosts:
-            add("api_token", f"web.api_tokens.{index}.allowed_hosts")
-        if token.default_host == alias:
-            add("api_token", f"web.api_tokens.{index}.default_host")
     if alias in config.tools.governor.host_overrides:
         add("governor", f"tools.governor.host_overrides.{alias}")
     if config.tools.default_host == alias:
@@ -517,12 +504,9 @@ def scan_host_references(bot: Any, alias: str) -> list[dict[str, str]]:
             for index, child in enumerate(value):
                 walk(child, f"{path}.{index}")
 
-    scheduler = getattr(bot, "scheduler", None)
     for index, schedule in enumerate(scheduler.list_all() if scheduler else []):
         walk(schedule, f"schedules.{index}")
-    channel_state = getattr(bot, "channel_state", None)
-    tasks = getattr(channel_state, "background_tasks", {}) if channel_state else {}
-    for task_id, task in tasks.items():
+    for task_id, task in (background_tasks or {}).items():
         if task.status not in {"completed", "failed", "cancelled", "done"}:
             walk(task.steps, f"background_tasks.{task_id}.steps")
     return refs

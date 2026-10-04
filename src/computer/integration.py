@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
-import hashlib
 import json
 import logging
 from contextlib import contextmanager
@@ -165,41 +164,12 @@ class ComputerIntegration:
         )
 
     def _authorize(self, context):
-        if context.turn_id == "web-operator":
-            from ..web.computer_binding import operator_context_authorized
-
-            if not operator_context_authorized(context):
-                return False
-        manager = getattr(self.bot, "host_access_manager", None)
-        if manager is None or not manager.is_host_allowed(context.owner_id, "localhost"):
-            return False
-        authorize_context = getattr(self.bot, "computer_authorize_context", None)
-        if callable(authorize_context) and authorize_context(context) is not True:
-            return False
-        return all(
-            not self.bot.tool_executor.check_permission(name, context.owner_id)
-            for name in COMPUTER_TOOLS
-        )
+        # Desktop foreground/control admission is Phase 2. Never treat the
+        # absence of the removed gateway authority as owner authorization.
+        return False
 
     def _context(self, st):
-        from .models import RequestContext
-
-        owner = str(st.message.author.id)
-        if owner != str(st.user_id) or not st._req_id:
-            raise PermissionError("Missing authenticated foreground identity")
-        if getattr(st.policy, "trajectory_source", None) != "discord":
-            raise PermissionError("Background computer use is not authorized")
-        surface, channel = "discord", str(st.message.channel.id)
-        if getattr(st.message, "_odin_source", None) == "web":
-            binding = getattr(st.message, "_computer_web_session_id", None)
-            if not isinstance(binding, str) or not binding:
-                raise PermissionError("Missing authenticated web session binding")
-            surface, channel = "webui", self.web_binding(binding)
-        return RequestContext(owner, channel, str(st._req_id), "localhost", surface=surface)
-
-    @staticmethod
-    def web_binding(binding):
-        return "web:" + hashlib.sha256(binding.encode("utf-8")).hexdigest()
+        raise PermissionError("Desktop computer request admission is unavailable until Phase 2")
 
     @contextmanager
     def foreground(self, st, block):
@@ -485,24 +455,11 @@ class ComputerIntegration:
         await self.controller.session(context, {"operation": "stop"})
 
     async def finish_turn(self, st):
-        # Raw /api/execute turns deliberately have no browser-session binding
-        # and therefore cannot own foreground desktop state. Their generic
-        # turn-finalizer still reaches this facade; there is nothing to clean
-        # up, and routing them through _context() would turn that expected lack
-        # of authority into a spurious cleanup error. Bound web turns and
-        # Discord turns retain the normal ownership-checked cleanup path.
-        if getattr(st.message, "_odin_source", None) == "web":
-            binding = getattr(st.message, "_computer_web_session_id", None)
-            if not isinstance(binding, str) or not binding:
-                return None
-        return await self.controller.finish_turn(self._context(st))
+        context = self._context(st)
+        return await self.controller.finish_turn(context)
 
     async def stop_channel(self, owner_id, channel_id):
-        from .models import RequestContext
-
-        await self.stop_context(
-            RequestContext(str(owner_id), str(channel_id), "operator-stop", "localhost")
-        )
+        raise PermissionError("Desktop computer control admission is unavailable until Phase 2")
 
     async def set_enabled(self, enabled):
         await self.controller.set_enabled(bool(enabled))
@@ -520,24 +477,7 @@ class ComputerIntegration:
         self._closed = True
 
     def _operator_context(self, owner_id, web_session_id, *, emergency=False):
-        from .models import RequestContext
-
-        if (
-            (not self.bot.config.computer.enabled and not emergency)
-            or not owner_id
-            or not web_session_id
-        ):
-            raise PermissionError("Computer unavailable")
-        context = RequestContext(
-            str(owner_id),
-            self.web_binding(web_session_id),
-            "web-operator",
-            "localhost",
-            surface="webui",
-        )
-        if not self._authorize(context):
-            raise PermissionError("Computer unavailable")
-        return context
+        raise PermissionError("Desktop computer control admission is unavailable until Phase 2")
 
     async def _operator_session(self, operation, *, owner_id, web_session_id):
         context = self._operator_context(

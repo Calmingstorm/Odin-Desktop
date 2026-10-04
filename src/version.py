@@ -34,7 +34,7 @@ def _version_from_metadata() -> str | None:
     try:
         from importlib.metadata import version
 
-        return version("odin-bot")
+        return version("odin-desktop")
     except Exception:
         return None
 

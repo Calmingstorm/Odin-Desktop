@@ -2,7 +2,7 @@
 
 One shared policy object answers "is this built-in disabled for this
 installation?" for every dispatch surface, reading through a LIVE config
-provider — never a captured snapshot, so replacing ``bot.config`` can never
+provider — never a captured snapshot, so replacing the engine config can never
 leave dispatch enforcement stale. The catalog filter consumes the same
 normalized list at assembly time; this module is the single source of the
 name universe (``BUILTIN_TOOL_NAMES``) and of the typed rejection.
@@ -16,12 +16,12 @@ disabled built-in.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from ..odin_log import get_logger
 from .defs.computer import COMPUTER_TOOL_NAMES
-from .registry import TOOLS
+from .registry import PHASE1_EXECUTOR_TOOL_NAMES, TOOLS
 from .result_validator import ToolResult
 
 log = get_logger("tools.builtin_policy")
@@ -64,10 +64,14 @@ def disabled_rejection(name: str) -> ToolResult:
 
 
 class BuiltinToolPolicy:
-    """Live-read policy over ``tools.disabled_tools``."""
+    """Live-read installation switches and fail-closed capability readiness."""
 
-    def __init__(self, get_config: Callable[[], Any]):
+    def __init__(
+        self, get_config: Callable[[], Any],
+        get_readiness: Callable[[], Mapping[str, bool]] | None = None,
+    ):
         self._get_config = get_config
+        self._get_readiness = get_readiness
         self._warned: set[str] = set()
 
     def disabled_set(self) -> set[str]:
@@ -88,3 +92,35 @@ class BuiltinToolPolicy:
 
     def is_disabled(self, name: str) -> bool:
         return name in self.disabled_set()
+
+    def is_available(self, name: str) -> bool:
+        """Recheck readiness at dispatch, including revocation after publication.
+
+        Only a built-in name with the literal boolean True is ready. Missing,
+        malformed or unreadable live state never admits an external effect.
+        Reservation is independent of readiness, so unavailable built-ins
+        cannot be shadowed by skills or MCP tools.
+        """
+        if name not in PHASE1_EXECUTOR_TOOL_NAMES or self.is_disabled(name):
+            return False
+        if self._get_readiness is None:
+            return False
+        try:
+            readiness = self._get_readiness()
+            return isinstance(readiness, Mapping) and readiness.get(name) is True
+        except Exception:
+            log.warning("Built-in capability readiness unavailable; dispatch denied")
+            return False
+
+
+def unavailable_rejection(name: str) -> ToolResult:
+    """Reject an unconfigured/unwired built-in before effects or admission."""
+    return ToolResult(
+        output=(
+            f"Tool unavailable: '{name}' has no ready handler for this "
+            "installation and was not executed."
+        ),
+        ok=False,
+        error="tool_unavailable",
+        tool_name=name,
+    )

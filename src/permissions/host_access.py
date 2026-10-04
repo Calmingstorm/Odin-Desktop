@@ -1,308 +1,140 @@
+"""Profile host policy. Missing authenticated owner always denies."""
 from __future__ import annotations
 
-import asyncio
 import contextvars
 import json
-from collections.abc import Callable
+import os
+import stat
 from pathlib import Path
 
 from ..json_store import StoreCorruptError, load_json_store, load_json_store_safe
-from ..odin_log import get_logger
+from ..runtime_paths import runtime_profile_paths
 from .persistence import write_private_atomic
 
-log = get_logger("host_access")
+_scope = contextvars.ContextVar("profile_host_scope", default=None)
+_default = contextvars.ContextVar("profile_default_host", default="")
 
-_request_host_scope: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
-    "_request_host_scope",
-    default=None,
-)
-_request_default_host: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "_request_default_host",
-    default="",
-)
-
-
-def _validate_host_access(data: dict) -> None:
-    default_policy = data.get("default_policy", {})
-    users = data.get("users", {})
-    if not isinstance(default_policy, dict) or not isinstance(users, dict):
-        raise StoreCorruptError(
-            "host_access.json default_policy and users must be objects"
-        )
-    for label, entry in [("default_policy", default_policy), *users.items()]:
-        if not isinstance(label, str) or not isinstance(entry, dict):
-            raise StoreCorruptError("host_access.json entries must be objects")
-        allowed = entry.get("allowed_hosts")
-        if allowed is not None and (
-            not isinstance(allowed, list)
-            or not all(isinstance(host, str) for host in allowed)
-        ):
-            raise StoreCorruptError(
-                f"host_access.json {label!r} allowed_hosts must be null or a string list"
-            )
-        if not isinstance(entry.get("default_host", ""), str):
-            raise StoreCorruptError(
-                f"host_access.json {label!r} default_host must be a string"
-            )
-
+def _validate(data):
+    hosts, default = data.get("allowed_hosts", []), data.get("default_host", "")
+    if (
+        set(data) - {"allowed_hosts", "default_host"}
+        or not isinstance(hosts, list)
+        or any(not isinstance(host, str) or not host for host in hosts)
+        or not isinstance(default, str)
+        or (default and default not in hosts)
+    ):
+        raise StoreCorruptError("invalid profile host policy")
 
 class HostAccessEntry:
-    __slots__ = ("allowed_hosts", "default_host")
-
-    def __init__(self, allowed_hosts: list[str] | None = None, default_host: str = "") -> None:
-        # None = unset (inherit all), [] = explicit deny-all, [...] = whitelist
-        self.allowed_hosts: list[str] | None = allowed_hosts
-        self.default_host: str = default_host
-
-    def to_dict(self) -> dict:
-        return {"allowed_hosts": self.allowed_hosts, "default_host": self.default_host}
-
-    @classmethod
-    def from_dict(cls, data: dict) -> HostAccessEntry:
-        raw = data.get("allowed_hosts")
-        # Distinguish missing/null (None = allow all) from empty list ([] = deny all)
-        allowed = raw if isinstance(raw, list) else None
-        return cls(
-            allowed_hosts=allowed,
-            default_host=data.get("default_host", ""),
-        )
-
+    def __init__(self, allowed_hosts=None, default_host=""):
+        self.allowed_hosts, self.default_host = list(allowed_hosts or []), default_host
+    def to_dict(self):
+        return {"allowed_hosts": list(self.allowed_hosts), "default_host": self.default_host}
 
 class HostAccessManager:
-    """Per-user host access control with defaults and persistence."""
-
     def __init__(
         self,
-        path: str = "./data/host_access.json",
-        available_hosts: list[str] | None = None,
-        available_hosts_provider: Callable[[], list[str] | tuple[str, ...]] | None = None,
-    ) -> None:
-        self._path = Path(path)
-        self._lock = asyncio.Lock()
-        self._users: dict[str, HostAccessEntry] = {}
-        self._default_policy = HostAccessEntry()
-        self._store_corrupt = False
-        self._available_hosts: list[str] = available_hosts or []
-        self._available_hosts_provider = available_hosts_provider
-        self._load()
-
-    def _load(self) -> None:
-        data, ok = load_json_store_safe(
-            self._path,
-            validate=_validate_host_access,
-            what="host access policy",
+        path=None,
+        available_hosts=None,
+        available_hosts_provider=None,
+        *,
+        permission_manager=None,
+    ):
+        self._path = (
+            Path(path)
+            if path is not None
+            else runtime_profile_paths().config_dir / "host-policy.json"
         )
-        if not ok:
-            self._users = {}
-            self._default_policy = HostAccessEntry([], "")
-            self._store_corrupt = True
-            return
-        self._users, self._default_policy = self._decode(data)
-        self._store_corrupt = False
-
-    @staticmethod
-    def _decode(data: dict) -> tuple[dict[str, HostAccessEntry], HostAccessEntry]:
-        default = HostAccessEntry.from_dict(data.get("default_policy", {}))
-        users = {
-            uid: HostAccessEntry.from_dict(entry)
-            for uid, entry in data.get("users", {}).items()
-        }
-        return users, default
-
-    def _load_for_write(self) -> tuple[dict[str, HostAccessEntry], HostAccessEntry]:
-        data = load_json_store(self._path, validate=_validate_host_access)
-        return self._decode(data)
-
-    def _save(
-        self,
-        users: dict[str, HostAccessEntry] | None = None,
-        default_policy: HostAccessEntry | None = None,
-    ) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        data = {
-            "default_policy": (
-                self._default_policy if default_policy is None else default_policy
-            ).to_dict(),
-            "users": {
-                uid: entry.to_dict()
-                for uid, entry in (self._users if users is None else users).items()
-            },
-        }
-        self.durability_degraded = not write_private_atomic(self._path, json.dumps(data, indent=2))
-
+        self._permission_manager = permission_manager
+        self._available_hosts = list(available_hosts or [])
+        self._available_hosts_provider = available_hosts_provider
+        self.durability_degraded = False
+        data, ok = load_json_store_safe(self._path, validate=_validate, what="profile host policy")
+        self._store_corrupt = not ok
+        self._policy = HostAccessEntry(
+            data.get("allowed_hosts", []) if ok else [],
+            data.get("default_host", "") if ok else "",
+        )
     @property
-    def available_hosts(self) -> list[str]:
-        if self._available_hosts_provider is not None:
-            return list(self._available_hosts_provider())
-        return list(self._available_hosts)
-
-    def set_available_hosts(self, hosts: list[str]) -> None:
+    def available_hosts(self):
+        return (
+            list(self._available_hosts_provider())
+            if self._available_hosts_provider
+            else list(self._available_hosts)
+        )
+    def set_available_hosts(self, hosts):
         self._available_hosts = list(hosts)
-
-    def _available(self) -> list[str]:
-        """One runtime inventory read for an authorization decision."""
-        return self.available_hosts
-
     @property
-    def default_policy(self) -> HostAccessEntry:
-        return self._default_policy
-
-    def get_entry(self, user_id: str) -> HostAccessEntry:
-        return self._users.get(user_id, self._default_policy)
-
+    def default_policy(self):
+        return HostAccessEntry(self._policy.allowed_hosts, self._policy.default_host)
     @staticmethod
-    def set_request_host_scope(allowed_hosts: list[str]) -> contextvars.Token:
-        """Set a request-scoped host scope (concurrency-safe via contextvars)."""
-        return _request_host_scope.set(allowed_hosts)
-
+    def set_request_host_scope(hosts):
+        return _scope.set(tuple(hosts))
     @staticmethod
-    def reset_request_host_scope(token: contextvars.Token) -> None:
-        """Reset the request-scoped host scope."""
-        _request_host_scope.reset(token)
-
+    def reset_request_host_scope(token):
+        _scope.reset(token)
     @staticmethod
-    def set_request_default_host(default_host: str) -> contextvars.Token:
-        return _request_default_host.set(default_host or "")
-
+    def set_request_default_host(host):
+        return _default.set(host)
     @staticmethod
-    def reset_request_default_host(token: contextvars.Token) -> None:
-        _request_default_host.reset(token)
-
-    def get_allowed_hosts(self, user_id: str) -> list[str]:
-        if self._store_corrupt:
+    def reset_request_default_host(token):
+        _default.reset(token)
+    def get_allowed_hosts(self, owner_id):
+        if (
+            self._store_corrupt
+            or self._permission_manager is None
+            or not self._permission_manager.is_owner(owner_id)
+        ):
             return []
-        available = self._available()
-        scope = _request_host_scope.get()
-        has_own_entry = user_id in self._users
-        if scope is not None and not has_own_entry:
-            return [h for h in scope if h in available]
-        entry = self.get_entry(user_id)
-        if entry.allowed_hosts is None:
-            base = list(available)
-        else:
-            base = [h for h in entry.allowed_hosts if h in available]
-        if scope is not None:
-            base = [h for h in base if h in scope]
-        return base
+        try:
+            fd = os.open(self._path, os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(fd, "r", encoding="utf-8") as stream:
+                info = os.fstat(stream.fileno())
+                if (
+                    not stat.S_ISREG(info.st_mode)
+                    or info.st_uid != os.geteuid()
+                    or stat.S_IMODE(info.st_mode) != 0o600
+                    or info.st_size > 65536
+                ):
+                    return []
 
-    def get_default_host(self, user_id: str) -> str:
-        if self._store_corrupt:
-            return ""
-        available = self._available()
-        scope = _request_host_scope.get()
-        request_default = _request_default_host.get()
-        if request_default and request_default in available:
-            effective = self.get_allowed_hosts(user_id)
-            if request_default in effective:
-                return request_default
-        has_own_entry = user_id in self._users
-        if scope is not None and not has_own_entry:
-            valid = [h for h in scope if h in available]
-            return request_default if request_default in valid else ""
-        entry = self.get_entry(user_id)
-        if entry.default_host and entry.default_host in available:
-            if scope is None or entry.default_host in scope:
-                return entry.default_host
-        return ""
+                def unique(pairs):
+                    result = {}
+                    for key, value in pairs:
+                        if key in result:
+                            raise ValueError("duplicate profile host policy key")
+                        result[key] = value
+                    return result
 
-    def is_host_allowed(self, user_id: str, host: str) -> bool:
-        """Use the exact effective-list authority consumed by prompt rendering."""
-        return host in self.get_allowed_hosts(user_id)
-
-    def has_user_entry(self, user_id: str) -> bool:
-        return user_id in self._users
-
-    def list_users(self) -> dict[str, dict]:
-        result = {}
-        for uid, entry in self._users.items():
-            result[uid] = entry.to_dict()
-        return result
-
-    async def set_user(
-        self,
-        user_id: str,
-        allowed_hosts: list[str] | None,
-        default_host: str,
-    ) -> None:
-        async with self._lock:
-            current_users, current_default = self._load_for_write()
-            available = self._available()
-            if allowed_hosts is None:
-                valid_hosts = None
-            else:
-                valid_hosts = [h for h in allowed_hosts if h in available]
-            if default_host and (valid_hosts is None or default_host not in valid_hosts):
-                if valid_hosts is None:
-                    pass  # allow-all, any default is fine if it's a real host
-                elif valid_hosts:
-                    default_host = valid_hosts[0]
-                else:
-                    default_host = ""
-            if default_host and default_host not in available:
-                default_host = ""
-            candidate = dict(current_users)
-            candidate[user_id] = HostAccessEntry(
-                allowed_hosts=valid_hosts,
-                default_host=default_host,
+                data = json.load(stream, object_pairs_hook=unique)
+            _validate(data)
+            self._policy = HostAccessEntry(
+                data.get("allowed_hosts", []), data.get("default_host", "")
             )
-            self._save(users=candidate, default_policy=current_default)
-            self._users = candidate
-            self._default_policy = current_default
-            self._store_corrupt = False
-            log.info(
-                "Host access updated for user %s: hosts=%s, default=%s",
-                user_id,
-                valid_hosts,
-                default_host,
-            )
-
-    async def delete_user(self, user_id: str) -> bool:
-        return await self.delete_user_entry(user_id) is not None
-
-    async def delete_user_entry(self, user_id: str) -> HostAccessEntry | None:
-        """Remove an override and return its committed previous value for audit.
-
-        Capture under the write lock, from the persisted store, rather than a
-        potentially stale pre-delete snapshot in an API handler.
-        """
-        async with self._lock:
-            current_users, current_default = self._load_for_write()
-            if user_id in current_users:
-                candidate = dict(current_users)
-                previous = candidate.pop(user_id)
-                self._save(users=candidate, default_policy=current_default)
-                self._users = candidate
-                self._default_policy = current_default
-                self._store_corrupt = False
-                log.info("Host access override removed for user %s", user_id)
-                return previous
-            self._users = current_users
-            self._default_policy = current_default
-            self._store_corrupt = False
-        return None
-
-    async def set_default_policy(self, allowed_hosts: list[str] | None, default_host: str) -> None:
-        async with self._lock:
-            current_users, _current_default = self._load_for_write()
-            available = self._available()
-            if allowed_hosts is None:
-                valid_hosts = None
-            else:
-                valid_hosts = [h for h in allowed_hosts if h in available]
-            if default_host and default_host not in available:
-                default_host = ""
-            if default_host and valid_hosts is not None and default_host not in valid_hosts:
-                default_host = valid_hosts[0] if valid_hosts else ""
-            candidate = HostAccessEntry(
-                allowed_hosts=valid_hosts,
-                default_host=default_host,
-            )
-            self._save(users=current_users, default_policy=candidate)
-            self._users = current_users
-            self._default_policy = candidate
-            self._store_corrupt = False
-            log.info(
-                "Default host access policy updated: hosts=%s, default=%s",
-                valid_hosts,
-                default_host,
-            )
+        except (OSError, ValueError, TypeError, StoreCorruptError):
+            return []
+        available, scope = self.available_hosts, _scope.get()
+        return [
+            host
+            for host in self._policy.allowed_hosts
+            if host in available and (scope is None or host in scope)
+        ]
+    def get_default_host(self, owner_id):
+        default = _default.get() or self._policy.default_host
+        return default if default in self.get_allowed_hosts(owner_id) else ""
+    def is_host_allowed(self, owner_id, host):
+        return host in self.get_allowed_hosts(owner_id)
+    async def set_policy(self, owner_id, allowed_hosts, default_host="") -> bool:
+        if self._permission_manager is None or not self._permission_manager.is_owner(owner_id):
+            raise PermissionError("authenticated profile owner required")
+        candidate = {"allowed_hosts": allowed_hosts, "default_host": default_host}
+        _validate(candidate)
+        if any(h not in self.available_hosts for h in allowed_hosts):
+            raise ValueError("host is not configured")
+        load_json_store(self._path, validate=_validate)
+        durable = write_private_atomic(self._path, json.dumps(candidate, indent=2))
+        self._policy = HostAccessEntry(allowed_hosts, default_host)
+        self._store_corrupt = False
+        self.durability_degraded = not durable
+        return durable
+        return durable

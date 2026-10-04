@@ -1,6 +1,6 @@
-"""Discord attachment processor.
+"""Conversation attachment processor.
 
-Handles file attachments sent via Discord messages. Policy:
+Handles invocation-owned local attachment streams. Policy:
 - Attachments are current-task context by default.
 - Knowledge ingestion happens only when explicitly requested.
 - Archives are unpacked/listed safely into a temp workspace.
@@ -21,7 +21,10 @@ import zipfile
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from ..desktop.paths import ProfilePaths
 
 from ..odin_log import get_logger
 from ..tools.media_result import BinaryAttachment
@@ -78,6 +81,16 @@ class AttachmentResult:
     warnings: list[str] = field(default_factory=list)
     processing_ms: int = 0
     retained_content: list[BinaryAttachment] = field(default_factory=list, repr=False)
+
+
+class AttachmentStream(Protocol):
+    """Local input admitted by the authenticated request, not a remote URL."""
+
+    filename: str
+    content_type: str | None
+    size: int
+
+    async def read(self) -> bytes: ...
 
 
 def infer_attachment_intent(
@@ -152,7 +165,7 @@ def _is_archive(filename: str) -> bool:
 class AttachmentProcessor:
     def __init__(
         self,
-        temp_dir: str = "/tmp/odin-attachments",
+        temp_dir: str | Path | None = None,
         inline_max_bytes: int = 100_000,
         preview_max_chars: int = 12_000,
         large_preview_chars: int = 4_000,
@@ -164,7 +177,14 @@ class AttachmentProcessor:
         image_max_bytes: int = 5 * 1024 * 1024,
         pdf_max_bytes: int = 25 * 1024 * 1024,
         retention_hours: int = 24,
+        *,
+        profile_paths: ProfilePaths | None = None,
     ) -> None:
+        if temp_dir is None:
+            from ..runtime_paths import runtime_profile_paths
+
+            paths = profile_paths if profile_paths is not None else runtime_profile_paths()
+            temp_dir = paths.cache_dir / "attachments"
         self.temp_dir = Path(temp_dir)
         self.inline_max_bytes = inline_max_bytes
         self.preview_max_chars = preview_max_chars
@@ -178,19 +198,31 @@ class AttachmentProcessor:
         self.pdf_max_bytes = pdf_max_bytes
         self.retention_hours = retention_hours
 
-    def _workspace(self, channel_id: str, message_id: str) -> Path:
-        ws = self.temp_dir / channel_id / message_id
-        ws.mkdir(parents=True, exist_ok=True)
+    def _workspace(self, conversation_id: str, request_id: str) -> Path:
+        # Conversation/request identity is supplied by intake, never a filename.
+        for value in (conversation_id, request_id):
+            if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,200}", value):
+                raise ValueError("Invalid conversation or request identity.")
+        from ..desktop.paths import private_directory
+
+        private_directory(self.temp_dir)
+        conversation_dir = self.temp_dir / conversation_id
+        private_directory(conversation_dir)
+        ws = conversation_dir / request_id
+        private_directory(ws)
         return ws
 
-    def _save(self, att: Any, data: bytes, channel_id: str, message_id: str) -> Path:
+    def _save(
+        self, att: AttachmentStream, data: bytes, conversation_id: str, request_id: str,
+    ) -> Path:
         """Exclusive, per-attachment paths, even after sanitization or reprocessing."""
-        ws = self._workspace(channel_id, message_id)
+        ws = self._workspace(conversation_id, request_id)
         safe = _safe_filename(att.filename) or "attachment"
         while True:
             path = ws / (uuid.uuid4().hex + "-" + safe)
             try:
                 with path.open("xb") as saved:
+                    path.chmod(0o600)
                     saved.write(data)
                 return path
             except FileExistsError:
@@ -198,9 +230,9 @@ class AttachmentProcessor:
 
     async def process(
         self,
-        attachments: list[Any],
-        channel_id: str,
-        message_id: str,
+        attachments: list[AttachmentStream],
+        conversation_id: str,
+        request_id: str,
         intent: AttachmentIntent = AttachmentIntent.CURRENT_TASK,
     ) -> AttachmentResult:
         t0 = time.monotonic()
@@ -221,12 +253,12 @@ class AttachmentProcessor:
 
             # PDFs
             if ext == ".pdf":
-                await self._handle_pdf(att, channel_id, message_id, text_parts, result)
+                await self._handle_pdf(att, conversation_id, request_id, text_parts, result)
                 continue
 
             # Archives
             if _is_archive(filename):
-                await self._handle_archive(att, channel_id, message_id, text_parts, result)
+                await self._handle_archive(att, conversation_id, request_id, text_parts, result)
                 continue
 
             # Text files
@@ -235,22 +267,22 @@ class AttachmentProcessor:
                     att,
                     ext,
                     intent,
-                    channel_id,
-                    message_id,
+                    conversation_id,
+                    request_id,
                     text_parts,
                     result,
                 )
                 continue
 
             # Unknown binary
-            await self._handle_binary(att, channel_id, message_id, text_parts, result)
+            await self._handle_binary(att, conversation_id, request_id, text_parts, result)
 
         result.inline_text = "\n\n".join(text_parts) if text_parts else ""
         result.processing_ms = int((time.monotonic() - t0) * 1000)
         return result
 
     async def _handle_image(
-        self, att: Any, ext: str,
+        self, att: AttachmentStream, ext: str,
         text_parts: list[str], result: AttachmentResult,
     ) -> None:
         if att.size > self.image_max_bytes:
@@ -274,7 +306,7 @@ class AttachmentProcessor:
             text_parts.append(f"[Image: {att.filename} (failed: {e})]")
 
     async def _handle_pdf(
-        self, att: Any, channel_id: str, message_id: str,
+        self, att: AttachmentStream, conversation_id: str, request_id: str,
         text_parts: list[str], result: AttachmentResult,
     ) -> None:
         if att.size > self.pdf_max_bytes:
@@ -291,7 +323,7 @@ class AttachmentProcessor:
                 full = "\n".join(pages)
                 preview = _preview_text(full, ".pdf", self.preview_max_chars)
                 if len(full) > self.preview_max_chars:
-                    save_path = self._save(att, data, channel_id, message_id)
+                    save_path = self._save(att, data, conversation_id, request_id)
                     result.saved_files.append(SavedAttachment(
                         filename=att.filename, path=str(save_path), size=len(data),
                         sha256=_sha256(data), content_type="application/pdf", kind="pdf",
@@ -317,8 +349,8 @@ class AttachmentProcessor:
             text_parts.append(f"[PDF: {att.filename} (failed: {e})]")
 
     async def _handle_text(
-        self, att: Any, ext: str, intent: AttachmentIntent,
-        channel_id: str, message_id: str,
+        self, att: AttachmentStream, ext: str, intent: AttachmentIntent,
+        conversation_id: str, request_id: str,
         text_parts: list[str], result: AttachmentResult,
     ) -> None:
         try:
@@ -338,7 +370,7 @@ class AttachmentProcessor:
                     f"[File read for current task.{intent_note}]"
                 )
             else:
-                save_path = self._save(att, data, channel_id, message_id)
+                save_path = self._save(att, data, conversation_id, request_id)
                 result.retained_content.append(BinaryAttachment(
                     len(result.retained_content), f"Original text file: {att.filename}",
                     att.content_type or "text/plain", data,
@@ -363,7 +395,7 @@ class AttachmentProcessor:
             text_parts.append(f"[Attachment: {att.filename} (failed: {e})]")
 
     async def _handle_archive(
-        self, att: Any, channel_id: str, message_id: str,
+        self, att: AttachmentStream, conversation_id: str, request_id: str,
         text_parts: list[str], result: AttachmentResult,
     ) -> None:
         if att.size > self.archive_max_bytes:
@@ -374,7 +406,7 @@ class AttachmentProcessor:
         try:
             data = await att.read()
             digest = _sha256(data)
-            archive_path = self._save(att, data, channel_id, message_id)
+            archive_path = self._save(att, data, conversation_id, request_id)
 
             ext = _get_ext(att.filename)
             manifest_lines: list[str] = []
@@ -523,13 +555,13 @@ class AttachmentProcessor:
         return "**File previews:**\n```\n" + "\n\n".join(previews) + "\n```"
 
     async def _handle_binary(
-        self, att: Any, channel_id: str, message_id: str,
+        self, att: AttachmentStream, conversation_id: str, request_id: str,
         text_parts: list[str], result: AttachmentResult,
     ) -> None:
         try:
             data = await att.read()
             digest = _sha256(data)
-            save_path = self._save(att, data, channel_id, message_id)
+            save_path = self._save(att, data, conversation_id, request_id)
 
             text_parts.append(
                 f"[Attachment saved: `{save_path}` "
@@ -550,21 +582,21 @@ class AttachmentProcessor:
             return 0
         cutoff = time.time() - self.retention_hours * 3600
         removed = 0
-        for channel_dir in self.temp_dir.iterdir():
-            if not channel_dir.is_dir():
+        for conversation_dir in self.temp_dir.iterdir():
+            if not conversation_dir.is_dir():
                 continue
-            for msg_dir in channel_dir.iterdir():
-                if not msg_dir.is_dir():
+            for request_dir in conversation_dir.iterdir():
+                if not request_dir.is_dir():
                     continue
                 try:
-                    if msg_dir.stat().st_mtime < cutoff:
-                        shutil.rmtree(msg_dir)
+                    if request_dir.stat().st_mtime < cutoff:
+                        shutil.rmtree(request_dir)
                         removed += 1
                 except Exception:
                     continue
             try:
-                if not any(channel_dir.iterdir()):
-                    channel_dir.rmdir()
+                if not any(conversation_dir.iterdir()):
+                    conversation_dir.rmdir()
             except Exception:
                 continue
         if removed:

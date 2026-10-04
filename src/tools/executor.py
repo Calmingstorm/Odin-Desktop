@@ -97,9 +97,6 @@ from .tool_text import (  # noqa: E402, F401 — public re-export seam
 _user_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "odin_tool_user_id", default=None
 )
-_user_tier_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "odin_tool_user_tier", default=None
-)
 _host_lease_ctx: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
     "odin_tool_host_lease", default=None
 )
@@ -208,6 +205,7 @@ class ToolExecutor:
         host_registry=None,
         email_config: object | None = None,
         app_config: object | None = None,
+        profile_paths: object | None = None,
     ) -> None:
         self.config = config or ToolsConfig()
         self._command_shell_config: Callable[[], str] | None = None
@@ -248,12 +246,12 @@ class ToolExecutor:
         self._permission_manager = permission_manager
         self.output_streamer = output_streamer
         self._host_access = host_access_manager
-        self._compat_config_host_fallback = host_registry is None
         if host_registry is None:
             from .hosts import HostRegistry
 
             host_registry = HostRegistry(
                 self.config.hosts,
+                profile_paths=profile_paths,
                 key_path=self.config.ssh_key_path,
                 legacy_known_hosts_path=self.config.ssh_known_hosts_path,
                 default_host=self.config.default_host,
@@ -273,7 +271,7 @@ class ToolExecutor:
             self.command_governor = CommandGovernor(
                 block_critical=gov_cfg.block_critical,
                 block_exfil=gov_cfg.block_exfil,
-                admin_can_override=gov_cfg.admin_can_override,
+                admin_can_override=gov_cfg.owner_can_override,
                 host_overrides=dict(gov_cfg.host_overrides) if gov_cfg.host_overrides else None,
             )
         else:
@@ -370,13 +368,11 @@ class ToolExecutor:
         """Caller id for the in-flight tool call (contextvar-backed, task-isolated)."""
         return _user_id_ctx.get()
 
-    @property
-    def _current_user_tier(self) -> str | None:
-        """Caller tier for the in-flight tool call (contextvar-backed, task-isolated)."""
-        return _user_tier_ctx.get()
-
     def _resolve_host(self, alias: str) -> tuple[str, str, str] | None:
         """Resolve host alias to (address, ssh_user, os). Returns None if not allowed."""
+        manager = getattr(self, "_permission_manager", None)
+        if manager is None or not manager.is_owner(self._current_user_id):
+            return None
         active = _host_lease_ctx.get()
         if active is not None and active.target.alias == alias:
             return active.target.legacy_tuple()
@@ -388,18 +384,13 @@ class ToolExecutor:
         host = self.host_registry.get(alias, targetable_only=True)
         if host is not None:
             return host.legacy_tuple()
-        # Directly-constructed executors are a long-standing public/test seam:
-        # callers may replace ``executor.config`` after construction. Runtime
-        # wiring always injects a registry, so this compatibility path cannot
-        # resurrect stale config after a live control-plane publication.
-        if self._compat_config_host_fallback:
-            legacy = getattr(self.config, "hosts", {}).get(alias)
-            if legacy is not None:
-                return legacy.address, legacy.ssh_user, legacy.os
         return None
 
     def _acquire_host(self, alias: str):
         """Acquire one generation-bound target after the same fence as resolve."""
+        manager = getattr(self, "_permission_manager", None)
+        if manager is None or not manager.is_owner(self._current_user_id):
+            return None
         active = _host_lease_ctx.get()
         if active is not None and active.target.alias == alias:
             return record_host(active.borrow())
@@ -411,16 +402,13 @@ class ToolExecutor:
         lease = self.host_registry.acquire(alias)
         if lease is not None:
             return record_host(lease)
-        if self._compat_config_host_fallback:
-            legacy = getattr(self.config, "hosts", {}).get(alias)
-            if legacy is not None:
-                return record_host(self.host_registry.unmanaged_lease(
-                    alias, (legacy.address, legacy.ssh_user, legacy.os)
-                ))
         return None
 
     def acquire_host_for_user(self, alias: str, user_id: str | None):
         """Explicit-identity lease seam for native handlers."""
+        manager = getattr(self, "_permission_manager", None)
+        if manager is None or not manager.is_owner(user_id):
+            return None
         if self._host_access:
             if not user_id or not self._host_access.is_host_allowed(user_id, alias):
                 return None
@@ -428,6 +416,9 @@ class ToolExecutor:
 
     def _resolve_default_host(self, user_id: str | None) -> str:
         """Get an explicit effective default; mapping order is never policy."""
+        manager = getattr(self, "_permission_manager", None)
+        if manager is None or not manager.is_owner(user_id):
+            return ""
         if self._host_access:
             if not user_id:
                 return ""
@@ -663,7 +654,8 @@ class ToolExecutor:
     def _authorize_output(self, tool, hosts, owner):
         """Fence metadata before the store loads the body. Cursors grant nothing."""
         policy = getattr(self, "_builtin_policy", None)
-        if ((policy is not None and policy.is_disabled(tool))
+        if ((policy is None or not policy.is_available(tool))
+                or policy.is_disabled(tool)
                 or self.check_permission(tool, owner) or not tool_scope_allows(tool)):
             return False
         for binding in hosts:
@@ -720,6 +712,12 @@ class ToolExecutor:
 
     def deliver_output(self, text, *, tool_name, tool_input, user_id,
                        channel_id=None, status="succeeded", budget=None):
+        denial = self.check_permission(tool_name, user_id)
+        policy = getattr(self, "_builtin_policy", None)
+        if denial or policy is None or not policy.is_available(tool_name):
+            from ..desktop.errors import CapabilityUnavailable
+
+            raise CapabilityUnavailable(denial or "Output capability unavailable.")
         # These have their own byte-faithful or bounded retention contracts.
         # Do not re-scrub process byte offsets or persist a second spool copy.
         if tool_name == "read_file" or isinstance(text, DeliveredOutput):
@@ -761,22 +759,19 @@ class ToolExecutor:
         )
 
     def check_permission(self, tool_name: str, user_id: str | None) -> str | None:
-        """Check if user has permission to use the tool.
-
-        Returns None if allowed, or an error message string if denied.
-        """
-        if not self._permission_manager:
-            return None
+        """Require the authentic request owner; a payload identity grants nothing."""
+        manager = getattr(self, "_permission_manager", None)
+        if manager is None:
+            return "Permission denied: authenticated owner authority is unavailable."
         if not user_id:
             return "Permission denied: a requester identity is required."
-        allowed = self._permission_manager.allowed_tool_names(user_id)
+        allowed = manager.allowed_tool_names(user_id)
         if allowed is None:
             return None
         if tool_name not in allowed:
-            tier = self._permission_manager.get_tier(user_id)
             return (
                 f"Permission denied: tool '{tool_name}' is not available "
-                f"for tier '{tier}'. Contact an admin to upgrade your permissions."
+                "for this authenticated owner request."
             )
         return None
 
@@ -812,12 +807,10 @@ class ToolExecutor:
         owner, channel = delivery_scope.get()
         scope_token = delivery_scope.set((str(user_id or owner or ""), str(channel)))
         user_token = _user_id_ctx.set(user_id)
-        tier_token = _user_tier_ctx.set(None)
         try:
             with host_access_capture(), result_capture():
                 return await self._execute_scoped(tool_name, tool_input, user_id=user_id)
         finally:
-            _user_tier_ctx.reset(tier_token)
             _user_id_ctx.reset(user_token)
             delivery_scope.reset(scope_token)
 
@@ -826,6 +819,10 @@ class ToolExecutor:
     ) -> ToolResult:
         """Dispatch with a whole-operation lease for an explicit target."""
         prepared = dict(tool_input or {})
+        denial = self.check_permission(tool_name, user_id)
+        if denial:
+            return ToolResult(output=denial, ok=False, error="permission_denied",
+                              tool_name=tool_name)
         if not tool_scope_allows(tool_name):
             return ToolResult(output="Permission denied: tool scope revoked or unavailable.",
                               ok=False, error="permission_denied", tool_name=tool_name)
@@ -834,6 +831,10 @@ class ToolExecutor:
             from .builtin_policy import disabled_rejection
 
             return disabled_rejection(tool_name)
+        if policy is None or not policy.is_available(tool_name):
+            from .builtin_policy import unavailable_rejection
+
+            return unavailable_rejection(tool_name)
         if tool_name in {"run_command", "run_script"} and not prepared.get("host"):
             default = self._resolve_default_host(user_id)
             if default:
@@ -897,6 +898,10 @@ class ToolExecutor:
             from .builtin_policy import disabled_rejection
 
             return disabled_rejection(tool_name)
+        if policy is None or not policy.is_available(tool_name):
+            from .builtin_policy import unavailable_rejection
+
+            return unavailable_rejection(tool_name)
         handler = self._resolve_handler(tool_name)
         if handler is None:
             return ToolResult(
@@ -907,19 +912,11 @@ class ToolExecutor:
             )
 
         _user_id_ctx.set(user_id)
-        _user_tier_ctx.set(
-            self._permission_manager.get_tier(user_id)
-            if self._permission_manager and user_id
-            else None
-        )
 
         denial = self.check_permission(tool_name, user_id)
         if denial:
-            # A truthy denial implies _permission_manager and user_id were
-            # both set (check_permission returns None otherwise).
             log.warning(
-                "RBAC denied %s for user %s on tool %s",
-                self._permission_manager.get_tier(user_id),  # type: ignore[union-attr, arg-type]
+                "Owner authority denied requester %s on tool %s",
                 user_id,
                 tool_name,
             )
@@ -1421,10 +1418,12 @@ class ToolExecutor:
     def _govern_command(self, command: str, host: str | None = None) -> tuple[bool, str, str]:
         """Shared governor check. Returns (allowed, denial_message, governor_note)."""
         if not getattr(self, "command_governor", None):
-            return True, "", ""
+            return False, "Command authority unavailable: governor is not configured.", ""
         check = self.command_governor.check(
             command,
-            user_tier=getattr(self, "_current_user_tier", None),
+            # Owner identity does not approve an exact command/target. Phase 2
+            # will supply revision-bound control approval, never tool input.
+            user_tier=None,
             host=host,
         )
         if not check.allowed:

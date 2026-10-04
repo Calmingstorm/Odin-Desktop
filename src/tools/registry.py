@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import copy
+from collections.abc import Mapping
+
 from .defs.agents import TOOLS_SECTION as _AGENTS
 from .defs.browser_web import TOOLS_SECTION as _BROWSER_WEB
 from .defs.channel_process_loops import TOOLS_SECTION as _CHANNEL_PROCESS_LOOPS
@@ -34,6 +37,17 @@ TOOL_MAP: dict[str, dict] = {t["name"]: t for t in TOOLS}
 # contract, where changing it is a reviewed edit rather than a prod crash.)
 assert len(TOOL_MAP) == len(TOOLS), "duplicate tool name across defs/ sections"
 
+# Phase 1 imports real executor handler domains, not native/durable consumer
+# wiring. This set pins the retained handler table; readiness cannot fabricate
+# a Phase 2 handler. Dependencies being bundled does not bypass this boundary.
+PHASE1_EXECUTOR_TOOL_NAMES: frozenset[str] = frozenset({
+    "get_tool_output", "run_command", "run_script", "run_command_multi",
+    "read_file", "apply_patch", "memory_manage", "manage_list", "manage_process",
+    "browser_read_page", "browser_read_table", "browser_click", "browser_fill",
+    "browser_evaluate", "web_search", "fetch_url", "http_probe", "analyze_pdf",
+    "validate_action", "email_send", "email_search", "email_read", "email_list_recent",
+})
+
 # NOTE: the old MUTATING_TOOLS / READ_ONLY_TOOLS frozensets were removed — they
 # were imported only by a schema test and NOT consulted by any runtime
 # authorization path (the governor uses risk_classifier; mutation detection uses
@@ -46,8 +60,8 @@ assert len(TOOL_MAP) == len(TOOLS), "duplicate tool name across defs/ sections"
 _tool_defs_cache: list[dict] | None = None
 
 
-def get_tool_definitions(command_shell: str | None = None) -> list[dict]:
-    """Return tool definitions.
+def get_documentation_tool_definitions(command_shell: str | None = None) -> list[dict]:
+    """Return the static documentation catalog, NOT an execution publication.
 
     Each description is decorated with an affordance footer (cost / risk /
     latency / preconditions) so the LLM can price a call before making it.
@@ -55,7 +69,9 @@ def get_tool_definitions(command_shell: str | None = None) -> list[dict]:
     Results are cached. Call invalidate_tool_defs_cache()
     if TOOLS list is modified at runtime (e.g. by tests).
     Explicit command_shell decorates fresh local facts; None is the stable,
-    host-independent documentation catalog. ToolCatalog applies live facts.
+    host-independent documentation catalog. Live publication must use
+    get_tool_definitions with explicit readiness from the owning engine.
+    Clones keep one profile's schema edits out of another profile's catalog.
     """
     from .affordances import decorate_description
 
@@ -71,10 +87,28 @@ def get_tool_definitions(command_shell: str | None = None) -> list[dict]:
             for t in TOOLS
         ]
     if command_shell is None:
-        return _tool_defs_cache
+        return copy.deepcopy(_tool_defs_cache)
     from .command_shell import apply_shell_contracts
 
-    return apply_shell_contracts(_tool_defs_cache, command_shell)
+    return apply_shell_contracts(copy.deepcopy(_tool_defs_cache), command_shell)
+
+
+def get_tool_definitions(
+    command_shell: str | None = None, *, readiness: Mapping[str, bool] | None = None,
+) -> list[dict]:
+    """Publish only tools with explicit live readiness, never the static catalog.
+
+    Missing readiness fails closed. Installed dependencies and documented
+    schemas do not establish configured handlers or execution authority.
+    Publication does not replace the dispatch-time owner and readiness checks.
+    """
+    from ..desktop.capabilities import publish_capabilities
+
+    return publish_capabilities(
+        [tool for tool in get_documentation_tool_definitions(command_shell)
+         if tool["name"] in PHASE1_EXECUTOR_TOOL_NAMES],
+        {} if readiness is None else readiness,
+    )
 
 
 def invalidate_tool_defs_cache() -> None:

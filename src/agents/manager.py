@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Protocol
 
-from ..discord.tool_loop_helpers import _scrub_tool_input_for_storage
+from ..storage_redaction import _scrub_tool_input_for_storage
 from ..error_presentation import format_user_facing_error
 from ..llm.secret_scrubber import scrub_output_secrets
 from ..llm.timing import elapsed_ms, timed_generation

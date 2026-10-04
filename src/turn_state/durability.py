@@ -109,66 +109,14 @@ class TurnDurability:
         tools: list | None,
         session_snapshot: dict | None,
     ) -> TurnDurability:
-        """Admit a fresh Discord chat turn.
+        """Refuse fresh effects until Desktop durable admission is wired in Phase 2.
 
-        Store-unavailable (feature off / I/O failure) → a disabled handle
-        (legacy run). An EXISTING identity is different: the handle comes
-        back with ``blocked`` set and the loop must refuse fresh execution —
-        a redelivered message must never re-run its effects unledgered.
+        The removed gateway message shape is not a Desktop request envelope.
+        In particular, absent/unavailable storage must never select the old
+        uncheckpointed execution fallback.
         """
-        if store is None:
-            # Durability was off (or failed) at wiring — legacy run is the
-            # designed behavior; no ledger can exist to contradict it.
-            return cls.disabled()
-        if not store.available:
-            # The store WAS wired available (wiring nulls out failed inits)
-            # and has since died: this identity cannot be checked — refuse
-            # (round-3 deviation #2, PR #242).
-            handle = cls.disabled()
-            handle.blocked = "admission_error"
-            return handle
-        try:
-            key = TurnKey(
-                source="discord",
-                channel_id=str(message.channel.id),
-                message_id=str(message.id),
-            )
-            tool_names = sorted(t.get("name", "") for t in (tools or []))
-            lease, disposition = await asyncio.to_thread(
-                store.admit_turn_sync,
-                key,
-                guild_id=str(getattr(getattr(message, "guild", None), "id", "") or ""),
-                user_id=str(message.author.id),
-                content_digest=compute_content_digest(
-                    getattr(message, "content", "") or ""
-                ),
-                code_version=_code_version(),
-                prompt_policy_hash=_hash_text(system_prompt),
-                tool_catalog_hash=_hash_text(",".join(tool_names)),
-                session_snapshot=session_snapshot,
-            )
-        except Exception:
-            # The store was wired available; an admission failure here means
-            # the identity could not be checked — refuse (round-2 blocker #2).
-            log.exception("Turn admission raised — refusing execution (fail closed)")
-            handle = cls.disabled()
-            handle.blocked = "admission_error"
-            return handle
-        if lease is not None:
-            handle = cls(store, lease)
-            handle._start_heartbeats()
-            return handle
-        if disposition == "store_unavailable":
-            # The store was wired available but an admission I/O failure
-            # means this message's identity COULD NOT be checked — refusing
-            # is the only safe answer (round-2 blocker #2, PR #242). Legacy
-            # execution is reserved for durability being off/failed at
-            # wiring, where no ledger can exist to contradict.
-            handle = cls.disabled()
-            handle.blocked = "admission_error"
-            return handle
         handle = cls.disabled()
-        handle.blocked = disposition
+        handle.blocked = "admission_error"
         return handle
 
     @classmethod

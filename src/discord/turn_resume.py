@@ -34,14 +34,12 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-import discord
-
 from ..odin_log import get_logger
 from ..tools.effect_classifier import ToolEffectClass
 from ..turn_state.codec import compute_content_digest, restore_field_values
 from ..turn_state.durability import TurnDurability
 from ..turn_state.store import OpState, TurnKey, TurnStateStore, TurnStatus
-from .tool_loop import CHAT_POLICY, ToolLoopRunner, _ChatTurn
+from .tool_loop import CHAT_POLICY, ToolLoopRunner, _ChatTurn, _require_phase2_wiring
 
 log = get_logger("turn_resume")
 
@@ -51,6 +49,18 @@ _AUTO_POLL_SECONDS = 15.0
 # Response text cap for the session append on the auto path (mirrors the
 # intake pipeline's CHAT_RESPONSE_MAX_CHARS discipline without importing it).
 _SESSION_RESPONSE_CAP = 4000
+
+
+class ConversationMessageNotFound(LookupError):
+    """A store positively verified the original message does not exist."""
+
+
+class ConversationAccessDenied(PermissionError):
+    """A store denied the current authenticated owner access to the message."""
+
+
+class ConversationFetchUnavailable(OSError):
+    """The store cannot currently return the message; absence is unproven."""
 
 
 class TurnResumeManager:
@@ -69,9 +79,9 @@ class TurnResumeManager:
         fetch_message: Callable,
         auto_resume_enabled: bool = True,
         resume_ttl_hours: float = 24.0,
-        get_bot_user: Callable | None = None,
         release_workload: Callable | None = None,
     ) -> None:
+        _require_phase2_wiring()
         self._store = store
         self._tool_loop = tool_loop
         self._llm_gateway = llm_gateway
@@ -84,8 +94,6 @@ class TurnResumeManager:
         self._fetch_message = fetch_message  # async (channel_id, message_id) -> msg|None
         self._auto_resume_enabled = auto_resume_enabled
         self._resume_ttl_hours = resume_ttl_hours
-        # Live root (None-tolerant): the bot user exists only after login.
-        self._get_bot_user = get_bot_user
         self._release_workload = release_workload
         self._waiters: dict[TurnKey, asyncio.Task] = {}
 
@@ -99,14 +107,14 @@ class TurnResumeManager:
     # ── queries ──────────────────────────────────────────────────────
 
     async def is_suspended(self, channel_id: str, message_id: str) -> bool:
-        key = TurnKey(source="discord", channel_id=channel_id, message_id=message_id)
+        key = TurnKey(source="conversation", channel_id=channel_id, message_id=message_id)
         row = await asyncio.to_thread(self._store.load_resumable_sync, key)
         return row is not None
 
     async def _latest_suspended_for_channel(
         self, channel_id: str, user_id: str | None = None,
     ) -> dict | None:
-        rows = await asyncio.to_thread(self._store.list_suspended_sync, "discord")
+        rows = await asyncio.to_thread(self._store.list_suspended_sync, "conversation")
         candidates = [r for r in rows if r["channel_id"] == channel_id
                       and (user_id is None or str(r.get("user_id") or "") == user_id)]
         if not candidates:
@@ -117,6 +125,7 @@ class TurnResumeManager:
 
     def on_turn_suspended(self, key: TurnKey, generation: str) -> None:
         """Called by the tool loop when a turn suspends. In-process only."""
+        _require_phase2_wiring()
         if not self._auto_resume_enabled:
             return
         # Mutation revision AT SUSPENSION, captured synchronously inside
@@ -207,6 +216,7 @@ class TurnResumeManager:
     async def _run_auto_resume(
         self, key: TurnKey, row: dict, allowed: set[int]
     ) -> None:
+        _require_phase2_wiring()
         if self._unresolved_ops(row):
             # Never auto-continue over ambiguous external effects — a human
             # must look at this (explicit resume delivers the details).
@@ -281,24 +291,6 @@ class TurnResumeManager:
         # is preserved unchanged.
         return (content or "").strip().lower().rstrip("!.") in RESUME_TRIGGERS
 
-    def _resume_candidate(self, raw: str) -> str:
-        """The lexical text a resume trigger is recognized against.
-
-        Mention-required channels force ``@bot resume``, so ONE leading
-        anchored bot mention is stripped before matching. Anchored only:
-        ``resume @bot`` (mention elsewhere) must NOT become a command, which
-        is why this never reuses intake's strip-anywhere cleaned content.
-        Identity/admission checks elsewhere keep the raw message untouched.
-        """
-        user = self._get_bot_user() if self._get_bot_user is not None else None
-        if user is None:
-            return raw
-        stripped = raw.lstrip()
-        for mention in (f"<@{user.id}>", f"<@!{user.id}>"):
-            if stripped.startswith(mention):
-                return stripped[len(mention):]
-        return raw
-
     @staticmethod
     def _unresolved_ops(row: dict) -> list[dict]:
         """Operations whose external outcome is not settled. Their presence
@@ -329,8 +321,9 @@ class TurnResumeManager:
         recognized resume command can never fall through into a fresh
         normal turn.
         """
+        _require_phase2_wiring()
         content = getattr(message, "content", "") or ""
-        if not self.is_resume_trigger(self._resume_candidate(content)):
+        if not self.is_resume_trigger(content):
             return None
         # From lexical trigger recognition onward, every store read lives
         # inside this no-raise boundary. In particular, failure of the
@@ -362,7 +355,7 @@ class TurnResumeManager:
     async def _explicit_resume_recognized(self, message: Any, row_summary: dict):
         channel_id = str(message.channel.id)
         key = TurnKey(
-            source="discord",
+            source="conversation",
             channel_id=channel_id,
             message_id=row_summary["message_id"],
         )
@@ -444,15 +437,15 @@ class TurnResumeManager:
         original = None
         try:
             original = await self._fetch_message(key.channel_id, key.message_id)
-        except discord.NotFound:
-            # Only Discord's positive not-found response proves deletion.
+        except ConversationMessageNotFound:
+            # Only a positive store not-found result proves deletion.
             original = None
-        except discord.Forbidden:
-            log.warning("Resume admission cannot fetch %s: Discord access forbidden", key)
-            return None, None, "Discord currently denies access to the original message"
-        except discord.HTTPException as exc:
-            log.warning("Resume admission cannot fetch %s: Discord HTTP failure: %s", key, exc)
-            return None, None, "Discord could not fetch the original message yet"
+        except ConversationAccessDenied:
+            log.warning("Resume admission cannot fetch %s: store access forbidden", key)
+            return None, None, "The conversation store currently denies access to the original message"
+        except ConversationFetchUnavailable as exc:
+            log.warning("Resume admission cannot fetch %s: store failure: %s", key, exc)
+            return None, None, "The conversation store could not fetch the original message yet"
         except (ConnectionError, OSError, TimeoutError) as exc:
             log.warning("Resume admission cannot fetch %s: transient failure: %s", key, exc)
             return None, None, "the original message could not be fetched yet"
@@ -461,6 +454,10 @@ class TurnResumeManager:
             # Preserve the row rather than falsely claiming deletion.
             log.exception("Resume admission fetch failed for %s", key)
             return None, None, "the original message could not be fetched yet"
+        else:
+            if original is None:
+                # An empty adapter read is not positive evidence of deletion.
+                return None, None, "the original message could not be fetched yet"
         if original is None:
             await asyncio.to_thread(
                 self._store.reject_resumable_sync, key, "original message unavailable"
@@ -541,6 +538,7 @@ class TurnResumeManager:
 
         # Acquire LAST — the single-winner transition happens only once
         # everything else is ready to run.
+        _require_phase2_wiring()
         lease = await asyncio.to_thread(
             self._store.acquire_resume_lease_sync, key, row["generation"]
         )

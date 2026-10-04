@@ -76,24 +76,12 @@ def is_path_denied(path: str) -> bool:
     return False
 
 
-# Operator-configured URLs that skills are allowed to access despite being
-# local/private. Set via config: skills.allowed_urls: ["http://localhost:8188"]
-_SKILL_ALLOWED_URLS: set[str] = set()
-
-
-def set_skill_allowed_urls(urls: list[str]) -> None:
-    """Populate the skill URL allowlist from config."""
-    _SKILL_ALLOWED_URLS.clear()
-    for u in urls:
-        _SKILL_ALLOWED_URLS.add(u.rstrip("/"))
-
-
-def is_url_blocked(url: str) -> bool:
+def is_url_blocked(url: str, allowed_urls: tuple[str, ...] = ()) -> bool:
     """Return True if a URL targets localhost, private IPs, or metadata endpoints."""
     from .url_safety import is_url_blocked as _shared_check
 
     return _shared_check(
-        url, allowed_urls=list(_SKILL_ALLOWED_URLS) if _SKILL_ALLOWED_URLS else None
+        url, allowed_urls=list(allowed_urls) if allowed_urls else None
     )
 
 
@@ -116,7 +104,7 @@ class SkillContext:
     """API surface passed to user-created skills.
 
     Provides SSH execution, HTTP helpers, file reading,
-    persistent memory, channel messaging, config access, knowledge base,
+    persistent memory, conversation messaging, config access, knowledge base,
     conversation history search, scheduler, and generic tool execution.
     """
 
@@ -135,6 +123,7 @@ class SkillContext:
         resource_tracker: ResourceTracker | None = None,
         skill_memory_lock: threading.Lock | None = None,
         requester_id: str | None = None,
+        allowed_urls: tuple[str, ...] = (),
     ) -> None:
         self._executor = tool_executor
         self._log = get_logger(f"skills.{skill_name}")
@@ -151,28 +140,22 @@ class SkillContext:
         self._config: dict[str, Any] = skill_config or {}
         self._tracker: ResourceTracker = resource_tracker or ResourceTracker()
         self._requester_id = requester_id
+        # Grants belong to this profile/manager, never a process-global set.
+        self._allowed_urls = tuple(url.rstrip("/") for url in allowed_urls)
 
     async def run_on_host(self, alias: str, command: str) -> str:
         """Run a shell command on a managed host via SSH. Returns output string."""
         # The public executor owns admission, governance and the generation
         # lease. Never take the private transport shortcut on a real executor.
-        if hasattr(self._executor, "execute"):
-            from .execution_outcome import result_text
+        from .execution_outcome import result_text
 
-            return result_text(
-                await self._executor.execute(
-                    "run_command",
-                    {"host": alias, "command": command},
-                    user_id=getattr(self, "_requester_id", None),
-                )
+        return result_text(
+            await self._executor.execute(
+                "run_command",
+                {"host": alias, "command": command},
+                user_id=self._requester_id,
             )
-        # Legacy transport-only embedders do not expose ToolExecutor admission.
-        raw = await self._executor._run_on_host(
-            alias, command, use_workspace=True, use_command_shell=True,
         )
-        if isinstance(raw, tuple):
-            return raw[0]
-        return raw
 
     async def read_file(
         self,
@@ -203,7 +186,7 @@ class SkillContext:
         )
 
     async def post_message(self, text: str) -> None:
-        """Send a message to the channel that invoked this skill."""
+        """Send a message to the conversation that invoked this skill."""
         if self._tracker.messages_sent >= MAX_SKILL_MESSAGES:
             self._log.warning("Skill exceeded message limit (%d)", MAX_SKILL_MESSAGES)
             return
@@ -211,10 +194,10 @@ class SkillContext:
             await self._message_callback(text)
             self._tracker.messages_sent += 1
         else:
-            self._log.warning("post_message called but no channel callback available")
+            raise RuntimeError("Conversation delivery is unavailable until Phase 2 wiring.")
 
     async def post_file(self, data: bytes, filename: str, caption: str = "") -> None:
-        """Send a binary file to the channel that invoked this skill."""
+        """Send a binary file to the conversation that invoked this skill."""
         if self._tracker.files_sent >= MAX_SKILL_FILES:
             self._log.warning("Skill exceeded file send limit (%d)", MAX_SKILL_FILES)
             return
@@ -222,7 +205,7 @@ class SkillContext:
             await self._file_callback(data, filename, caption)
             self._tracker.files_sent += 1
         else:
-            self._log.warning("post_file called but no channel callback available")
+            raise RuntimeError("Conversation attachment delivery is unavailable until Phase 2 wiring.")
 
     def remember(self, key: str, value: str) -> None:
         """Save a key/value pair to persistent memory.
@@ -252,16 +235,12 @@ class SkillContext:
         return memory.get(key)
 
     def get_hosts(self) -> list[str]:
-        """List available host aliases."""
+        """List host aliases admitted by the authenticated owner context."""
         access = getattr(self._executor, "_host_access", None)
         if self._requester_id and access is not None:
             return access.get_allowed_hosts(self._requester_id)
-        registry = getattr(self._executor, "host_registry", None)
-        from .hosts import HostRegistry
-
-        if isinstance(registry, HostRegistry):
-            return list(registry.active_aliases())
-        return list(getattr(getattr(self._executor, "config", None), "hosts", {}))
+        # Desired config and the runtime inventory are not caller authority.
+        return []
 
     def get_services(self) -> list[str]:
         """List allowed systemd service names.
@@ -290,7 +269,7 @@ class SkillContext:
         Custom headers can be passed via *headers*. By default ``Accept: application/json``
         is included unless overridden. Binary content types (image/*, video/*) return raw bytes.
         """
-        if is_url_blocked(url):
+        if is_url_blocked(url, self._allowed_urls):
             self._log.warning("Skill attempted blocked URL: %s", url)
             return "Access denied: internal/private URLs are not allowed from skills."
         if self._tracker.http_requests >= MAX_SKILL_HTTP_REQUESTS:
@@ -304,7 +283,7 @@ class SkillContext:
         from .safe_fetch import BlockedAddressError, safe_fetch
 
         target = str(URL(url).update_query(params)) if params else url
-        allowed = list(_SKILL_ALLOWED_URLS) if _SKILL_ALLOWED_URLS else None
+        allowed = list(self._allowed_urls) if self._allowed_urls else None
         try:
             resp = await safe_fetch(
                 target, headers=merged, timeout=float(timeout), allowed_urls=allowed
@@ -338,7 +317,7 @@ class SkillContext:
 
         Custom headers can be passed via *headers*.
         """
-        if is_url_blocked(url):
+        if is_url_blocked(url, self._allowed_urls):
             self._log.warning("Skill attempted blocked URL: %s", url)
             return "Access denied: internal/private URLs are not allowed from skills."
         if self._tracker.http_requests >= MAX_SKILL_HTTP_REQUESTS:
@@ -349,7 +328,7 @@ class SkillContext:
             merged.update(headers)
         from .safe_fetch import BlockedAddressError, safe_fetch
 
-        allowed = list(_SKILL_ALLOWED_URLS) if _SKILL_ALLOWED_URLS else None
+        allowed = list(self._allowed_urls) if self._allowed_urls else None
         try:
             resp = await safe_fetch(
                 url,
@@ -386,50 +365,41 @@ class SkillContext:
         return await self._knowledge_store.ingest(content, source, self._embedder)
 
     async def search_history(self, query: str, limit: int = 10) -> list[dict]:
-        """Search conversation history. Returns list of {type, content, timestamp, channel_id}."""
-        if not self._session_manager:
-            return []
-        return await self._session_manager.search_history(query, limit=limit)
+        """Search conversation history. Returns list of {type, content, timestamp, conversation_id}."""
+        # The upstream store uses transport identities. Phase 2 must inject
+        # owner/profile-scoped history rather than expose that global store.
+        raise RuntimeError("Owner-scoped conversation history is unavailable until Phase 2 wiring.")
 
     async def schedule_task(
         self,
         description: str,
         action: str,
-        channel_id: str,
+        conversation_id: str,
         **kwargs: Any,
     ) -> dict | None:
-        """Add a scheduled task. Returns the schedule dict, or None if scheduler unavailable.
+        """Add a task to an authenticated, validated conversation destination.
 
-        Keyword args are passed to Scheduler.add() — e.g. cron, run_at, trigger,
-        tool_name, tool_input, steps, message.
+        Phase 1 has no destination authority. No caller-supplied ID is admitted
+        or forwarded to the upstream scheduler. Phase 2 must bind the owner,
+        profile and conversation before this surface can schedule delivery.
         """
-        if not self._scheduler:
-            return None
-        if self._requester_id and "requester_id" not in kwargs:
-            kwargs["requester_id"] = self._requester_id
-        return await self._scheduler.add(description, action, channel_id, **kwargs)
+        raise RuntimeError("Validated conversation scheduling is unavailable until Phase 2 wiring.")
 
     def list_schedules(self) -> list[dict]:
-        """List all scheduled tasks."""
-        if not self._scheduler:
-            return []
-        return self._scheduler.list_all()
+        """List schedules when owner/conversation intake is available."""
+        return []
 
     async def update_schedule(self, schedule_id: str, **kwargs: Any) -> dict | None:
         """Update a scheduled task by ID. Returns the updated schedule, or None.
 
-        Keyword args are passed to Scheduler.update() — e.g. description,
-        cron, run_at, trigger, message, tool_name, tool_input, steps, channel_id.
+        Description, timing, message, tools and conversation_id require the
+        validated destination authority, unavailable until Phase 2 wiring.
         """
-        if not self._scheduler:
-            return None
-        return await self._scheduler.update(schedule_id, **kwargs)
+        raise RuntimeError("Validated conversation scheduling is unavailable until Phase 2 wiring.")
 
     async def delete_schedule(self, schedule_id: str) -> bool:
         """Delete a scheduled task by ID. Returns True if deleted."""
-        if not self._scheduler:
-            return False
-        return await self._scheduler.delete(schedule_id)
+        raise RuntimeError("Validated conversation scheduling is unavailable until Phase 2 wiring.")
 
     async def execute_tool(self, tool_name: str, tool_input: dict | None = None) -> str:
         """Execute a safe built-in tool by name. Returns the tool's output string.

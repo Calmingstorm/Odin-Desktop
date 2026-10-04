@@ -24,7 +24,9 @@ from ..odin_log import get_logger
 
 log = get_logger("trajectories")
 
-DEFAULT_TRAJECTORY_DIR = "./data/trajectories"
+from ..runtime_paths import runtime_profile_paths
+
+DEFAULT_TRAJECTORY_DIR = str(runtime_profile_paths().data_dir / "trajectories")
 MAX_TOOL_OUTPUT_CHARS = 12_000
 # Storage-side cap per stored tool result (model-facing content is already
 # capped at TOOL_OUTPUT_MAX_CHARS=12000); keeps heavy turns from bloating
@@ -132,7 +134,7 @@ class TrajectoryTurn:
     user_id: str = ""
     user_name: str = ""
     timestamp: str = ""
-    source: str = "discord"
+    source: str = "desktop"
 
     # Autonomous-loop identity. A loop iteration is already a complete turn,
     # but older records carried only ``source="loop"`` and could not be joined
@@ -307,7 +309,12 @@ class TrajectorySaver:
         usage_observer=None,
     ) -> None:
         self.directory = Path(directory)
-        self.directory.mkdir(parents=True, exist_ok=True)
+        if directory == DEFAULT_TRAJECTORY_DIR:
+            from ..desktop.paths import private_directory
+
+            private_directory(self.directory)
+        else:
+            self.directory.mkdir(parents=True, exist_ok=True)
         self._count = 0
         self.usage_observer = usage_observer
 
@@ -361,7 +368,7 @@ class TrajectorySaver:
         tools_used: list[str],
         is_error: bool = False,
         handoff: bool = False,
-        source: str = "discord",
+        source: str = "desktop",
     ) -> Path:
         turn = TrajectoryTurn(
             message_id=message_id,

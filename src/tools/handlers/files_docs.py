@@ -501,8 +501,8 @@ END {
             if is_url_blocked(url):
                 return "Error: blocked URL (localhost / private IP / cloud-metadata address).", 1
 
-        # Structural gating hides this tool when PyMuPDF is missing, but the
-        # handler must still degrade cleanly: find_spec proves the module is
+        # Bundled PyMuPDF is required, but the handler must still fail cleanly:
+        # packaging presence proves the module is
         # importable, not that its native library loads, and a direct call can
         # reach here on an install whose catalog was built elsewhere.
         try:
@@ -510,8 +510,8 @@ END {
         except Exception as exc:
             return (
                 "PDF support unavailable: PyMuPDF could not be loaded "
-                f"({type(exc).__name__}: {exc}). Install the 'pdf' extra "
-                "(pip install '.[pdf]') and restart Odin.",
+                f"({type(exc).__name__}: {exc}). The required bundled "
+                "dependency is unavailable; repair the desktop installation.",
                 1,
             )
 

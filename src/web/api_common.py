@@ -1,9 +1,6 @@
-"""Shared helpers for the web API handlers (RFC-003 P1/P2).
+"""Neutral sensitivity, bounds, masks and serialization helpers.
 
-Moved verbatim from ``api.py`` — the single home for cross-domain helpers
-so the coming domain carve cannot fork copies (the RFC-001 lesson). The
-``api`` module re-imports every name, so existing import paths and patch
-targets keep working.
+These helpers do not authenticate callers or publish a server surface.
 """
 
 from __future__ import annotations
@@ -14,18 +11,15 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from aiohttp import web
 
 from ..config import sensitivity as _config_sensitivity
 from ..llm.secret_scrubber import scrub_output_secrets
 from ..odin_log import get_logger
-from ..setup_wizard import write_env_file
+from .api import require_phase2
 
 log = get_logger("web.api")
 
-# One shared sensitivity rule protects both GET /api/config and the Config
-# Center metadata route. Preserve the historical private aliases because route
-# modules and compatibility tests import them from here.
+# One shared sensitivity rule protects settings and metadata readback.
 _SENSITIVE_FIELDS = _config_sensitivity.SENSITIVE_FIELDS
 _SENSITIVE_KEY_SUBSTRINGS = _config_sensitivity.SENSITIVE_KEY_SUBSTRINGS
 _is_sensitive_key = _config_sensitivity.is_sensitive_key
@@ -55,17 +49,16 @@ def _safe_filename(name: str, max_len: int = 80) -> str:
     return _SAFE_FILENAME_RE.sub("_", name)[:max_len] or "export"
 
 
-# Caller-supplied chat session ids: opt-in, validated, and namespaced UNDER the
-# authenticated identity so one token can never address another token's history.
-# The charset is filename-safe (no path separators / control / whitespace) because
-# a channel id becomes a persisted session filename.
+# Validated identity components for the authenticated conversation store.
 _SESSION_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 
 
-def _scoped_chat_channel(user_id: str, session_id: str) -> str:
-    """Internal channel id for an authorized caller chat session. The
-    'web:{user}:session:' prefix keeps it owner-scoped and discoverable."""
-    return f"web:{user_id}:session:{session_id}"
+def _scoped_conversation(owner_id: str, conversation_id: str) -> str:
+    """Namespace validated components; this helper is not admission authority."""
+    if not all(isinstance(value, str) and _SESSION_ID_RE.fullmatch(value)
+               for value in (owner_id, conversation_id)):
+        raise ValueError("Invalid conversation identity")
+    return f"owner:{owner_id}:conversation:{conversation_id}"
 
 
 def _sanitize_error(msg: str | BaseException) -> str:
@@ -74,7 +67,7 @@ def _sanitize_error(msg: str | BaseException) -> str:
 
 
 def _safe_int_param(
-    request: web.Request, name: str, default: int, lo: int = 1, hi: int = 500
+    request: Any, name: str, default: int, lo: int = 1, hi: int = 500
 ) -> int:
     """Parse an integer query parameter, clamping to [lo, hi]. Falls back to *default*."""
     raw = request.query.get(name)
@@ -90,7 +83,7 @@ def _contains_blocked_fields(d: Any, blocked: frozenset[str], *, _depth: int = 0
     """Recursively check if any keys in *d* are in *blocked*.
 
     Lists are traversed too. Descending only into dicts left every credential
-    inside a list unfenced — ``web.api_tokens[].token`` and
+    inside a list unfenced — nested credentials and
     ``outbound_webhooks.targets[].secret`` reached the writer despite both
     names being on the blocked list.
     """
@@ -191,11 +184,8 @@ def _write_config(path: Path | str, data: dict) -> None:
 
 
 def _write_env_file(path: Path, content: str) -> None:
-    """Write .env file with restricted permissions.
-
-    Delegates to the shared ``write_env_file`` from ``setup_wizard``.
-    """
-    write_env_file(path, content)
+    """Credential publication requires the Desktop secure-settings boundary."""
+    require_phase2("Secure credential publication")
 
 
 # Guards concurrent writes to the Codex credential files. Module-level so
@@ -204,32 +194,6 @@ def _write_env_file(path: Path, content: str) -> None:
 _codex_creds_lock = asyncio.Lock()
 
 
-def admin_gate(bot):
-    """Build the per-bot admin gate the handlers call as ``_require_admin``.
-
-    Verbatim logic from the old closure pair (``_auth_configured`` +
-    ``_require_admin``): fail closed when any auth is configured, allow
-    only in dev mode (no tokens anywhere), and require the admin tier.
-    """
-
-    def _auth_configured() -> bool:
-        tm = getattr(bot, "api_token_manager", None)
-        return bool(
-            bot.config.web.api_token
-            or bot.config.web.api_tokens
-            or (tm and tm.list_tokens())
-        )
-
-    def _require_admin(request: web.Request) -> web.Response | None:
-        identity = getattr(request, "_api_identity", None)
-        if identity is None:
-            # Fail closed: a missing identity is allowed only in dev mode
-            # (no tokens configured, so auth is disabled wholesale).
-            if _auth_configured():
-                return web.json_response({"error": "admin access required"}, status=403)
-            return None
-        if getattr(identity, "tier", "admin") != "admin":
-            return web.json_response({"error": "admin access required"}, status=403)
-        return None
-
-    return _require_admin
+def owner_gate(*args, **kwargs):
+    """Do not infer owner authority from absent credentials or local callers."""
+    require_phase2("Owner admission")

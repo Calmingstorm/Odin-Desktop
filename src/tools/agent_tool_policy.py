@@ -297,9 +297,9 @@ def resolve_neutral_reasoning(config, model: str, reasoning: str) -> tuple[str |
 def apply_agent_limits(defs: list[dict], config) -> list[dict]:
     """Render limits from live enforcement config, on clones after axis policy."""
     agents = config.agents
-    static = "Max 5/channel; lifetime limit for NEW agents: 14400 seconds."
+    static = "Max 5/conversation; lifetime limit for NEW agents: 14400 seconds."
     live = (
-        f"Max {agents.max_concurrent_agents}/channel; lifetime limit for NEW agents: "
+        f"Max {agents.max_concurrent_agents}/conversation; lifetime limit for NEW agents: "
         f"{agents.max_lifetime_seconds} seconds."
     )
     out = []

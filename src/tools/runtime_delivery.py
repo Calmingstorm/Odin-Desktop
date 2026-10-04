@@ -1,4 +1,8 @@
-"""Delivery boundary shared by native, agent and deferred dispatchers."""
+"""Pure retained-output boundary, not durable conversation delivery.
+
+The executor must supply authenticated owner-scoped retention. No ownerless
+fallback promises delivery when Phase 2 conversation consumers are absent.
+"""
 
 import hashlib
 import json
@@ -9,7 +13,6 @@ from dataclasses import replace
 from .media_result import image_result_parts
 from .output_delivery import (
     DeliveredOutput,
-    deliver,
     delivery_scope,
     evidence_digest,
     get_delivery_budget,
@@ -42,27 +45,60 @@ def deliver_runtime_output(executor, text, *, tool_name, tool_input, user_id,
     """Use the executor's authorization/store owner even for native tools."""
     method = getattr(type(executor), "deliver_output", None)
     if callable(method):
+        _require_retention_authority(executor, tool_name, user_id)
         options = {} if budget is None else {"budget": budget}
         return method(executor, text, tool_name=tool_name, tool_input=tool_input,
                       user_id=user_id, channel_id=channel_id, status=status, **options)
-    # Embedded dispatchers may have no retention service. Never promise a
-    # cursor or silently discard the middle in that configuration.
-    return deliver(text, tool=tool_name, status=status,
-                   budget=(get_delivery_budget(getattr(executor, "config", None))
-                           if budget is None else budget))
+    # A schema, caller-supplied ID or result string is not an authenticated
+    # retention owner. Do not claim delivery or discard evidence through an
+    # ownerless truncation fallback. The original effect may already have run.
+    raise RuntimeError(
+        "Output retention unavailable: no authenticated executor consumer is "
+        "configured. Do not replay the tool."
+    )
+
+
+def _require_retention_authority(executor, tool_name, user_id):
+    """Check owner and live readiness even for out-of-band provider evidence."""
+    permission = getattr(type(executor), "check_permission", None)
+    policy = getattr(executor, "_builtin_policy", None)
+    if not callable(permission) or policy is None:
+        raise PermissionError("Output authority unavailable. Do not replay the tool.")
+    denial = permission(executor, tool_name, user_id)
+    if denial or not policy.is_available(tool_name):
+        raise PermissionError(
+            (denial or "Output capability unavailable.") + " Do not replay the tool."
+        )
+
+
+def ensure_failure_visible(result_text: str, ok: bool) -> str:
+    """Preserve structural failure visibility without a transport dependency."""
+    from .tool_text import _ERROR_RESULT_PREFIXES
+
+    if isinstance(result_text, DeliveredOutput):
+        # Canonical envelopes carry status separately. Prefixing invalidates
+        # JSON and can exceed the complete serialized-envelope budget.
+        return result_text
+    if ok or result_text.lstrip().startswith((*_ERROR_RESULT_PREFIXES, "Failed to ")):
+        return result_text
+    return f"Error (tool reported failure):\n{result_text}"
 
 
 def deliver_runtime_result(executor, result, **kwargs):
     from .execution_outcome import ToolFailure, is_tool_failure
 
+    if not callable(getattr(type(executor), "deliver_output", None)):
+        raise RuntimeError(
+            "Output retention unavailable: no authenticated executor consumer is "
+            "configured. Do not replay the tool."
+        )
+    _require_retention_authority(executor, kwargs.get("tool_name"), kwargs.get("user_id"))
     if not isinstance(result, ToolResult) and is_tool_failure(result):
         result = ToolResult(
             output=result, ok=False, error="tool reported failure",
             uncertain_outcome=isinstance(result, ToolFailure) and result.uncertain_outcome,
         )
     if isinstance(result, ToolResult):
-        from ..discord.tool_loop_helpers import ensure_failure_visible
-
         status = ("outcome_unknown" if result.uncertain_outcome
                   else "succeeded" if result.ok else "failed")
         text = result.output
@@ -118,5 +154,6 @@ def deliver_runtime_result(executor, result, **kwargs):
                        truncated=result.truncated or bool(
                            isinstance(output, DeliveredOutput) and output.truncated))
     if image_result_parts(result) is not None:
+        # Provider-facing evidence only, not an artifact-publication receipt.
         return result
     return deliver_runtime_output(executor, result, **kwargs)

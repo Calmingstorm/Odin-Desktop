@@ -13,7 +13,7 @@ from ..llm.secret_scrubber import scrub_output_secrets
 # Secret scrubbing
 # ---------------------------------------------------------------------------
 
-# Additional patterns for scrubbing LLM responses before Discord delivery.
+# Additional patterns for scrubbing LLM responses before conversation delivery.
 # These extend OUTPUT_SECRET_PATTERNS (applied via scrub_output_secrets) with
 # patterns more likely to appear in natural-language LLM output.
 _RESPONSE_EXTRA_PATTERNS = [
@@ -24,7 +24,7 @@ _RESPONSE_EXTRA_PATTERNS = [
 
 
 def scrub_response_secrets(text: str) -> str:
-    """Scrub potential secrets from LLM responses before sending to Discord.
+    """Scrub potential secrets from LLM responses before sending to the conversation.
 
     Applies the tool-output patterns (passwords, API keys, private keys,
     database URLs) plus additional patterns for secrets that LLMs might

@@ -22,6 +22,7 @@ from types import MappingProxyType
 from typing import Any
 
 from ...config.schema import ToolHost
+from ...desktop.paths import ProfilePaths, private_directory
 from ...odin_log import get_logger
 from ..ssh import is_local_address
 from .trust import normalize_public_key
@@ -162,13 +163,20 @@ class HostRegistry:
         key_path: str = "",
         legacy_known_hosts_path: str = "",
         default_host: str = "",
-        trust_dir: str | Path = "./data/host_trust",
+        trust_dir: str | Path | None = None,
+        profile_paths: ProfilePaths | None = None,
     ) -> None:
         self._generation = 0
         self._key_path = str(key_path)
         self._legacy_known_hosts_path = str(legacy_known_hosts_path)
         self._default_host = str(default_host or "")
+        if trust_dir is None:
+            if profile_paths is None:
+                raise ValueError("host trust requires an explicit profile path")
+            trust_dir = profile_paths.data_dir / "host_trust"
         self._trust_dir = Path(trust_dir)
+        if not self._trust_dir.is_absolute() or ".." in self._trust_dir.parts:
+            raise ValueError("host trust directory must be absolute")
         self._snapshot: Mapping[str, HostTarget] = MappingProxyType({})
         self._lease_counts: dict[str, int] = {}
         self._revoke_events: dict[str, asyncio.Event] = {}
@@ -442,8 +450,7 @@ class HostRegistry:
         trust_mode: str,
         keys: tuple[str, ...] | list[str],
     ) -> str:
-        self._trust_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(self._trust_dir, 0o700)
+        private_directory(self._trust_dir)
         normalized_keys = tuple(normalize_public_key(key) for key in keys)
         identity = "\0".join((host_id, key_alias, trust_mode, *normalized_keys))
         digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:32]

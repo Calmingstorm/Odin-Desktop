@@ -3,11 +3,9 @@
 Originally the "safe pure pieces" carved out of the old ~700-line chat
 tool loop. RFC-002 P1 widened the charter slightly: this is now the
 shared LEAF module for symbols the tool loop, the message intake, the
-background-task runner, and the client module all need — it imports
-nothing from ``src.discord``, which is what dissolves the old
-``tool_loop → client`` late-import cycle. Besides the pure functions it
-holds exactly one piece of module state, the test-webhook allowlist
-(mutated in place so every importer sees updates).
+background-task runner, and the transport adapters all need — it imports
+nothing from ``src.discord``. Storage redaction lives in the neutral
+``src.storage_redaction`` leaf and is re-exported here.
 """
 
 from __future__ import annotations
@@ -22,89 +20,11 @@ from ..tools.executor import _ERROR_RESULT_PREFIXES
 # (moved verbatim from client.py, RFC-002 P1).
 _EMPTY_RESPONSE_FALLBACK = "I couldn't generate a response. Please try again."
 
-# Webhook IDs allowed to bypass the bot-author check. Populated from the
-# ALLOWED_WEBHOOK_IDS env var at startup via init_allowed_webhook_ids().
-# MUTATED IN PLACE (never rebound) so `from ... import _ALLOWED_WEBHOOK_IDS`
-# bindings held by other modules always observe the live contents.
-_ALLOWED_WEBHOOK_IDS: set[str] = set()
-
-
-def init_allowed_webhook_ids(raw: str) -> None:
-    """(Re)populate the test-webhook allowlist from a comma-separated string.
-
-    Matches the original client.py semantics exactly: an empty value leaves
-    the existing contents untouched; a non-empty value replaces them.
-    """
-    if raw:
-        _ALLOWED_WEBHOOK_IDS.clear()
-        _ALLOWED_WEBHOOK_IDS.update(wid.strip() for wid in raw.split(",") if wid.strip())
-
-
-_EMAIL_BODY_TOOLS = frozenset({"email_send"})
-
-
-def _deep_scrub_strings(value):
-    """Recursively scrub patterns and opaque values under sensitive keys."""
-    from ..config.sensitivity import is_storage_sensitive_key
-    from ..llm.secret_scrubber import scrub_output_secrets
-
-    if isinstance(value, str):
-        return scrub_output_secrets(value)
-    if isinstance(value, dict):
-        return {
-            key: (
-                "[redacted:sensitive-key]"
-                if is_storage_sensitive_key(key)
-                else _deep_scrub_strings(item)
-            )
-            for key, item in value.items()
-        }
-    if isinstance(value, list):
-        return [_deep_scrub_strings(item) for item in value]
-    return value
-
-
-def _scrub_tool_input_for_storage(tool_name: str, tool_input: dict) -> dict:
-    """Redact privacy-sensitive fields from tool input before any storage path."""
-    if (
-        tool_name in {"computer_act", "computer_session", "computer_observe"}
-        and isinstance(tool_input, dict)
-    ):
-        # Desktop fields and expected text can contain a whole private document.
-        # Keep attribution/IDs and shape; never retain text, pixels or a data URL.
-        def desktop_scrub(value, key="", depth=0):
-            if depth > 30:
-                return "[private desktop content: nesting limit]"
-            if key in {"text", "value", "content", "data", "image_bytes", "text_equals",
-                       "text_contains", "contains_text", "expected_text", "selected_text",
-                       "accessible_name", "accessible_description", "clipboard"}:
-                length = len(value) if isinstance(value, (str, bytes)) else 0
-                return f"[private desktop content: {length} chars]"
-            if isinstance(value, dict):
-                return {name: desktop_scrub(item, name, depth + 1)
-                        for name, item in value.items()}
-            if isinstance(value, list):
-                return [desktop_scrub(item, depth=depth + 1) for item in value]
-            return value
-
-        return _deep_scrub_strings(desktop_scrub(tool_input))
-    if tool_name.startswith("mcp_") and isinstance(tool_input, dict):
-        # MCP argument shapes are arbitrary third-party contracts and may
-        # carry credentials — deep-scrub every string value with the shared
-        # secret scrubber before trajectory/durability storage. (Published
-        # MCP names always carry the mcp_ prefix; builtins win conflicts, so
-        # the prefix cannot capture a native tool.)
-        return _deep_scrub_strings(tool_input)
-    if tool_name not in _EMAIL_BODY_TOOLS or not isinstance(tool_input, dict):
-        return tool_input
-    cleaned = dict(tool_input)
-    body = cleaned.get("body", "")
-    cleaned["body"] = f"[redacted email body: {len(body)} chars]"
-    if "attachments" in cleaned and cleaned["attachments"]:
-        from pathlib import Path
-
-        cleaned["attachments"] = [Path(p).name for p in cleaned["attachments"]]
-    return cleaned
+from ..storage_redaction import (
+    _EMAIL_BODY_TOOLS,
+    _deep_scrub_strings,
+    _scrub_tool_input_for_storage,
+)
 
 
 def ensure_failure_visible(result_text: str, ok: bool) -> str:
@@ -135,7 +55,6 @@ def build_request_preamble(
     message_id: Any,
     channel_description: str,
     has_history: bool,
-    from_another_bot: bool = False,
 ) -> dict:
     """Build the developer-role separator message that delimits the current
     request from the history block above it.
@@ -145,22 +64,10 @@ def build_request_preamble(
     message instead of a full separator.
     """
     msg_id_note = f"Current message ID: {message_id}"
-    bot_origin_note = ""
-    if from_another_bot:
-        bot_origin_note = (
-            "\n\nIMPORTANT: This message is from ANOTHER BOT. "
-            "Bots cannot confirm, choose, or approve. "
-            "EXECUTE immediately — never hedge, ask permission, or say "
-            "'if you want' / 'shall I' / 'would you like'. "
-            "If execution is explicitly requested, use run_script or run_command. "
-            "If code is presented for review, discussion, or as context, "
-            "do not execute it — analyze and respond to the substance."
-        )
-
     if not has_history:
         return {
             "role": "developer",
-            "content": f"{channel_description}\n{msg_id_note}{bot_origin_note}",
+            "content": f"{channel_description}\n{msg_id_note}",
         }
 
     sep_text = (
@@ -177,7 +84,7 @@ def build_request_preamble(
         "being referenced — do not sweep through history re-executing everything. "
         "Evaluate tools fresh. Do not repeat prior refusals."
     )
-    return {"role": "developer", "content": sep_text + bot_origin_note}
+    return {"role": "developer", "content": sep_text}
 
 
 def compute_request_id(content: Any) -> str:

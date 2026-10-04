@@ -9,38 +9,16 @@ helper. ``get_config`` is a provider callable (config hot-reload).
 from __future__ import annotations
 
 import base64
-import io
 import os
 from collections.abc import Callable
-from urllib.parse import urlsplit
-
-import discord
 
 from ...odin_log import get_logger
 
-log = get_logger("discord")
+log = get_logger("media")
 
 # Hard cap on a URL-fetched image so a huge or hostile body can't exhaust memory.
 _ANALYZE_IMAGE_MAX_BYTES = 25 * 1024 * 1024  # 25 MiB
-_DISCORD_ATTACHMENT_HOSTS = frozenset({"cdn.discordapp.com", "media.discordapp.net"})
-
-
-def _safe_discord_attachment_url(value: object) -> str | None:
-    """Return a URL only when it points at Discord's HTTPS attachment CDN."""
-    if not isinstance(value, str) or len(value) > 4096:
-        return None
-    try:
-        parsed = urlsplit(value)
-        if (
-            parsed.scheme != "https"
-            or parsed.hostname not in _DISCORD_ATTACHMENT_HOSTS
-            or parsed.username is not None
-            or parsed.password is not None
-        ):
-            return None
-        return value
-    except (TypeError, ValueError):
-        return None
+_DELIVERY_UNAVAILABLE = "Conversation artifact publication is unavailable until Phase 2."
 
 
 class MediaTools:
@@ -58,6 +36,19 @@ class MediaTools:
         self.image_selector = image_selector
 
     @staticmethod
+    def _delivery_available() -> bool:
+        """No durable conversation publisher is wired in Phase 1."""
+        return False
+
+    @staticmethod
+    async def _publish_attachment(request, data: bytes, filename: str, caption: str = ""):
+        """Phase 2 must supply invocation-owned durable artifact publication.
+
+        A renderer connection or an in-memory queue is not a publication receipt.
+        """
+        raise NotImplementedError(_DELIVERY_UNAVAILABLE)
+
+    @staticmethod
     def _detect_image_type(data: bytes) -> str | None:
         """Detect image media type from file magic bytes."""
         if data[:8] == b"\x89PNG\r\n\x1a\n":
@@ -71,7 +62,7 @@ class MediaTools:
         return None
 
     async def _handle_browser_screenshot(self, message, inp: dict) -> str:
-        """Take a browser screenshot and post it as a Discord image."""
+        """Take a browser screenshot and post it as a conversation image."""
         if not self.browser_manager:
             return "Browser automation is not enabled. Set browser.enabled=true in config."
         from ...tools.browser import handle_browser_screenshot
@@ -79,30 +70,26 @@ class MediaTools:
         try:
             text, screenshot_bytes = await handle_browser_screenshot(self.browser_manager, inp)
             if screenshot_bytes:
-                discord_file = discord.File(
-                    io.BytesIO(screenshot_bytes), filename="screenshot.png"
-                )
-                await message.channel.send(file=discord_file)
+                await self._publish_attachment(message, screenshot_bytes, "screenshot.png")
             return text
         except Exception as e:
             return f"Browser screenshot failed: {e}"
 
     async def _handle_generate_file(self, message, inp: dict) -> str:
-        """Generate a file from content and post it as a Discord attachment."""
+        """Generate a file from content and post it as a conversation attachment."""
         filename = inp.get("filename", "output.txt")
         content = inp.get("content", "")
         caption = inp.get("caption", "")
 
         file_bytes = content.encode("utf-8")
-        discord_file = discord.File(io.BytesIO(file_bytes), filename=filename)
         try:
-            await message.channel.send(content=caption or None, file=discord_file)
-            return f"File `{filename}` ({len(file_bytes)} bytes) attached to channel."
+            await self._publish_attachment(message, file_bytes, filename, caption)
+            return f"File `{filename}` ({len(file_bytes)} bytes) attached to conversation."
         except Exception as e:
             return f"Failed to post file: {e}"
 
     async def _handle_post_file(self, message, inp: dict) -> str:
-        """Fetch a file from a host and post it to Discord.
+        """Fetch a file from a host and post it to the conversation.
 
         For localhost this reads directly from the local filesystem; for any
         other host it falls back to SSH + base64 stream (handles binary safely).
@@ -116,7 +103,9 @@ class MediaTools:
         if not host_alias or not path:
             return "Both 'host' and 'path' are required."
 
-        requester_id = str(getattr(getattr(message, "author", None), "id", "")) or None
+        requester_id = getattr(message, "owner_id", None)
+        if not isinstance(requester_id, str) or not requester_id:
+            return "Permission denied: authenticated owner identity is required."
         lease = self.tool_executor.acquire_host_for_user(host_alias, requester_id)
         if not lease:
             return f"Unknown or disallowed host: {host_alias}"
@@ -165,20 +154,19 @@ class MediaTools:
         if not file_bytes:
             return f"File not found or empty: {path}"
 
-        # Size check (Discord limit: 25MB for non-boosted servers)
+        # Size check (conversation attachment limit: 25MB)
         if len(file_bytes) > 25 * 1024 * 1024:
             return (
                 f"File too large to post ({len(file_bytes) / 1024 / 1024:.1f} MB). "
-                "Discord limit is 25 MB."
+                "Conversation attachment limit is 25 MB."
             )
 
         filename = os.path.basename(path)
         try:
-            file = discord.File(io.BytesIO(file_bytes), filename=filename)
-            await message.channel.send(content=caption or None, file=file)
-            return f"Posted `{filename}` ({len(file_bytes) / 1024:.1f} KB) to channel."
-        except discord.HTTPException as e:
-            return f"Failed to upload to Discord: {e}"
+            await self._publish_attachment(message, file_bytes, filename, caption)
+            return f"Posted `{filename}` ({len(file_bytes) / 1024:.1f} KB) to conversation."
+        except Exception as e:
+            return f"Failed to upload to the conversation: {e}"
 
     async def _handle_analyze_image(self, message, inp: dict) -> str | dict:
         """Fetch an image and return a vision block for the LLM to analyze.
@@ -232,7 +220,9 @@ class MediaTools:
         elif host and path:
             # Fetch from host as bounded raw bytes
 
-            requester_id = str(getattr(getattr(message, "author", None), "id", "")) or None
+            requester_id = getattr(message, "owner_id", None)
+            if not isinstance(requester_id, str) or not requester_id:
+                return "Permission denied: authenticated owner identity is required."
             lease = self.tool_executor.acquire_host_for_user(host, requester_id)
             if not lease:
                 return f"Unknown or disallowed host: {host}"
@@ -266,7 +256,7 @@ class MediaTools:
         if not image_bytes:
             return "No image data retrieved."
 
-        # Enforce 5MB limit (same as Discord attachment limit)
+        # Enforce 5MB image attachment limit
         if len(image_bytes) > 5 * 1024 * 1024:
             return "Image exceeds 5MB size limit."
 
@@ -293,8 +283,8 @@ class MediaTools:
         }
 
     async def _handle_generate_image(self, message, inp: dict):
-        """Generate an image via the selected backend and post as a Discord
-        attachment. The backend returns bytes; this tool layer owns Discord.
+        """Generate an image via the selected backend and post as a conversation
+        attachment. The backend returns bytes; this tool layer owns conversation delivery.
 
         Returns a ToolResult whose ``output`` is a generic user-facing string
         (never names the backend) plus ``audit_metadata`` — a bounded structured
@@ -312,6 +302,15 @@ class MediaTools:
         removed = sorted({"size", "negative", "model", "width", "height"} & inp.keys())
         if removed:
             return "Unsupported image generation option(s): " + ", ".join(removed)
+
+        # Do not incur a provider effect when durable publication is known unavailable.
+        if not self._delivery_available():
+            return ToolResult(
+                output=_DELIVERY_UNAVAILABLE,
+                ok=False,
+                error="conversation_delivery_unavailable",
+                tool_name="generate_image",
+            )
 
         try:
             result = await self.image_selector.generate(prompt=prompt_text)
@@ -332,14 +331,13 @@ class MediaTools:
             "decoded_height": result.height,
         }
         try:
-            file = discord.File(io.BytesIO(result.data), filename="generated.png")
-            posted_message = await message.channel.send(file=file)
-        except discord.HTTPException as e:
+            await self._publish_attachment(message, result.data, "generated.png")
+        except Exception as e:
             # Generation succeeded even though delivery failed — record both.
             meta["delivery_status"] = "upload_failed"
             log.info("image generated (backend=%s) but upload failed: %s", result.backend, e)
             return ToolResult(
-                output=(f"Failed to upload generated image to Discord: {e}. "
+                output=(f"Failed to upload generated image to the conversation: {e}. "
                         "Generation already succeeded; do not regenerate automatically."),
                 ok=False,
                 error="image_delivery_failed",
@@ -348,16 +346,8 @@ class MediaTools:
             )
 
         meta["delivery_status"] = "posted"
-        attachment_url = None
-        attachments = getattr(posted_message, "attachments", ())
-        if attachments:
-            attachment_url = _safe_discord_attachment_url(
-                getattr(attachments[0], "url", None)
-            )
-        if attachment_url:
-            meta["attachment_url_available"] = True
-        else:
-            meta["attachment_url_available"] = False
+        # Phase 2 artifacts need an authorized store reference, not a CDN URL.
+        meta["attachment_url_available"] = False
         log.info(
             "image generated: backend=%s model=%s decoded=%dx%d route=%s",
             result.backend, result.image_model, result.width, result.height, result.route,
@@ -366,7 +356,6 @@ class MediaTools:
             output=(
                 f"Image generated ({result.width}x{result.height}, "
                 f"{len(result.data) / 1024:.1f} KB) and posted."
-                + (f" Attachment URL: {attachment_url}" if attachment_url else "")
             ),
             tool_name="generate_image",
             audit_metadata=meta,

@@ -19,6 +19,7 @@ from pydantic import (
 )
 
 from ..reasoning import compatible_reasoning_dialect
+from ..runtime_paths import runtime_profile_paths
 from .model_defaults import (
     COMPAT_AUXILIARY_MODEL,
     COMPAT_LLM_PROVIDER_MODEL,
@@ -30,31 +31,25 @@ from .model_defaults import (
 _VALID_LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
 
 
-class DiscordConfig(BaseModel):
-    token: str
-    allowed_users: list[str] = Field(default_factory=list)
-    channels: list[str] = Field(default_factory=list)
-    respond_to_bots: bool = False
-    require_mention: bool = False
-    ignore_bot_ids: list[str] = Field(default_factory=list)  # Bot user IDs to never auto-respond to
-
-
 class ContextConfig(BaseModel):
-    directory: str = "./data/context"
+    directory: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "context")
+    )
 
 
 class SessionsConfig(BaseModel):
     max_history: int = 50
     max_age_hours: int = 24
-    persist_directory: str = "./data/sessions"
+    persist_directory: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "sessions")
+    )
     token_budget: int = 256_000
     adaptive_compaction: bool = True
     # Session archives are retained indefinitely by default; pruned oldest-first
     # only past these caps (restore-on-demand depends on archives surviving).
     archive_max_bytes: int | None = 2 * 1024**3
     archive_max_files: int | None = 10_000
-    # Max estimated tokens of session history sent per LLM request; hot
-    # channels can run larger windows via per-channel overrides.
+    # Max estimated tokens of session history sent per LLM request.
     context_token_budget: int = 64_000
     context_budget_overrides: dict[str, int] = {}
 
@@ -349,7 +344,9 @@ class AgentsConfig(BaseModel):
 class SSHPoolConfig(BaseModel):
     enabled: bool = True
     control_persist: int = 60
-    socket_dir: str = "/tmp/odin_ssh_sockets"
+    socket_dir: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().cache_dir / "ssh-sockets")
+    )
 
 
 class ConnectionPoolConfig(BaseModel):
@@ -412,22 +409,32 @@ class ContextCompressionConfig(BaseModel):
 class GovernorConfig(BaseModel):
     block_critical: bool = True
     block_exfil: bool = True
-    admin_can_override: bool = True
+    owner_can_override: bool = True
     host_overrides: dict[str, str] = Field(default_factory=dict)
 
 
 # The default local command workspace, spelled ONCE: the field default, the
-# blank-value normalizer, the tracked config.yml template and the packaging
+# blank-value normalizer and packaging
 # scripts must never drift apart.
-DEFAULT_LOCAL_WORKING_DIR = "/var/lib/odin-workspace"
+def default_local_working_dir() -> str:
+    # Outside protected profile state, but beneath the XDG data root.
+    paths = runtime_profile_paths()
+    return str(paths.data_dir.parents[2] / "odin-desktop-workspaces" / paths.profile_id)
+
+
+DEFAULT_LOCAL_WORKING_DIR = default_local_working_dir()
 
 
 class ToolsConfig(BaseModel):
     enabled: bool = True
     tool_output_max_chars: int = Field(default=12000, ge=1024, le=12000)
     governor: GovernorConfig = GovernorConfig()
-    ssh_key_path: str = "/app/.ssh/id_ed25519"
-    ssh_known_hosts_path: str = "/app/.ssh/known_hosts"
+    ssh_key_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().secrets_dir / "id_ed25519")
+    )
+    ssh_known_hosts_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().secrets_dir / "known_hosts")
+    )
     hosts: dict[str, ToolHost] = Field(default_factory=dict)
     # Omitted-host execution is never selected by YAML mapping order. Empty
     # means callers must choose a host unless requester policy supplies one.
@@ -480,37 +487,27 @@ class ToolsConfig(BaseModel):
     # Pydantic silently dropped the values when operators set them,
     # so the fields looked configurable but weren't. Declaring them
     # here fixes the silent-drop bug and makes defaults discoverable.
-    audit_log_path: str = "./data/audit.jsonl"
-    trajectory_path: str = "./data/trajectories"
+    audit_log_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "audit.jsonl")
+    )
+    trajectory_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "trajectories")
+    )
     ssh_retry: RetryConfig = RetryConfig(max_retries=2, base_delay=0.5, max_delay=10.0)
     bulkhead: BulkheadConfig = BulkheadConfig()
-    ssh_pool: SSHPoolConfig = SSHPoolConfig()
+    ssh_pool: SSHPoolConfig = Field(default_factory=SSHPoolConfig)
     recovery: RecoveryConfig = RecoveryConfig()
     branch_freshness: BranchFreshnessConfig = BranchFreshnessConfig()
     streaming: StreamingConfig = StreamingConfig()
     # Tool-iteration caps per request before the loop force-exits.
-    # Chat: normal Discord messages. Loop: autonomous loop iterations.
+    # Chat: ordinary conversational turns. Loop: autonomous loop iterations.
     # Loops typically need more budget for exploration + execution + verify + commit.
     max_tool_iterations_chat: int = 500
     max_tool_iterations_loop: int = 500
-    # Working directory for USER-COMMAND local execution (run_command,
-    # run_script, manage_process). Before this existed, those subprocesses
-    # inherited systemd's WorkingDirectory=/opt/odin, so a bare relative path
-    # in a command resolved against the live install — on 2026-07-27 an AE2 jar
-    # whose internal layout is `data/` was extracted and cleaned up with
-    # `rm -rf data`, which deleted /opt/odin/data.
-    #
-    # Deliberately a SIBLING of /var/lib/odin, not a child: packaged installs
-    # use /var/lib/odin as the live data directory behind /opt/odin/data.
-    # Not /tmp or /var/tmp (tmpfiles policy can age those out) and not $HOME
-    # (packaged Odin declares /opt/odin as the service account's home).
-    #
-    # Stable and persistent BY DESIGN: a fresh directory per command would
-    # break two-step workflows that write a relative file in one command and
-    # read it in the next, which would cost capability. Restart-required, not
-    # hot-reloadable — swapping workspaces at runtime would break exactly the
-    # cross-command continuity this preserves.
-    local_working_dir: str = DEFAULT_LOCAL_WORKING_DIR
+    # Persistent command workspace is outside protected profile state.
+    # Workspace fence checks remain mandatory. Runtime swapping is unsupported
+    # because it would break cross-command continuity.
+    local_working_dir: str = Field(default_factory=default_local_working_dir)
 
     @field_validator("local_working_dir")
     @classmethod
@@ -530,7 +527,7 @@ class ToolsConfig(BaseModel):
         validation error on a persisted config would.
         """
         if not isinstance(v, str) or not v.strip():
-            return DEFAULT_LOCAL_WORKING_DIR
+            return default_local_working_dir()
         return v.strip()
 
     @field_validator("command_timeout_seconds")
@@ -567,7 +564,7 @@ class ToolsConfig(BaseModel):
 
 class LoggingConfig(BaseModel):
     level: str = "INFO"
-    directory: str = "./data/logs"
+    directory: str = Field(default_factory=lambda: str(runtime_profile_paths().data_dir / "logs"))
 
     @field_validator("level")
     @classmethod
@@ -581,7 +578,7 @@ class LoggingConfig(BaseModel):
 
 
 class UsageConfig(BaseModel):
-    directory: str = "./data/usage"
+    directory: str = Field(default_factory=lambda: str(runtime_profile_paths().data_dir / "usage"))
 
 
 class AuxiliaryLLMConfig(BaseModel):
@@ -597,10 +594,9 @@ class AuxiliaryLLMConfig(BaseModel):
 
     enabled: bool = True
     # Upgrade-compatibility default, NOT the fresh-install default: this leaf is
-    # read directly by the auxiliary client (src/discord/wiring.py), so an
+    # read directly by the auxiliary client, so an
     # existing install that never wrote it must keep running the model it runs
-    # today. Fresh installs start on the GPT-6 auxiliary tier because the
-    # tracked config.yml template supplies the model explicitly.
+    # today. Fresh installs explicitly configure the current auxiliary model.
     model: str = COMPAT_AUXILIARY_MODEL
 
     @field_validator("model")
@@ -817,8 +813,7 @@ class OpenAICodexConfig(BaseModel):
     # Upgrade-compatibility default, NOT the fresh-install default: the live
     # Codex client is built from THIS leaf, so an existing install that never
     # wrote it must keep running the model it runs today. Fresh installs start
-    # on the GPT-6 main tier because the tracked config.yml template supplies
-    # the model explicitly.
+    # on the GPT-6 main tier when a fresh profile explicitly configures it.
     model: str = COMPAT_MAIN_MODEL
     reasoning_effort: ReasoningEffort = "xhigh"
     # Effort for SPAWNED-AGENT iterations only. None = inherit
@@ -829,7 +824,7 @@ class OpenAICodexConfig(BaseModel):
     agent_reasoning_effort: ReasoningEffort | Literal["auto"] | None = "auto"
     # Model for SPAWNED-AGENT iterations only. None = inherit ``model``;
     # "auto" = expose per-spawn model selection to the spawner. Free string
-    # like ``model`` otherwise (the WebUI dropdown is the constraint; an
+    # like ``model`` otherwise (the desktop selector is the constraint; an
     # unsupported value fails per-request). Read at call time.
     agent_model: str | None = "auto"
 
@@ -842,7 +837,9 @@ class OpenAICodexConfig(BaseModel):
             raise ValueError(retired)
         return v
 
-    credentials_path: str = "./data/codex_auth.json"
+    credentials_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().secrets_dir / "codex_auth.json")
+    )
     # Streaming transport timeouts: a generous whole-request backstop (long
     # high-effort reasoning turns stream well past 10 minutes) plus a stall
     # bound that fails a silent stream fast instead of waiting out the
@@ -1305,12 +1302,9 @@ class LLMProviderConfig(BaseModel):
 
 
 class WebhookConfig(BaseModel):
+    """Opt-in authenticated event listener; it has no conversational destination."""
     enabled: bool = False
     secret: str = ""
-    channel_id: str = ""
-    gitea_channel_id: str = ""
-    github_channel_id: str = ""
-    gitlab_channel_id: str = ""
 
 
 class LearningConfig(BaseModel):
@@ -1331,7 +1325,10 @@ class SearchConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     enabled: bool = True
     # Accepts "chromadb_path" from old configs for backward compat
-    search_db_path: str = Field(default="./data/search", validation_alias="chromadb_path")
+    search_db_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "search"),
+        validation_alias="chromadb_path",
+    )
 
 
 class BrowserConfig(BaseModel):
@@ -1349,12 +1346,6 @@ class BrowserConfig(BaseModel):
         if v < 1000:
             raise ValueError("default_timeout_ms must be >= 1000")
         return v
-
-
-class PermissionsConfig(BaseModel):
-    tiers: dict[str, str] = Field(default_factory=dict)
-    default_tier: str = "user"
-    overrides_path: str = "./data/permissions.json"
 
 
 class OutboundWebhookTarget(BaseModel):
@@ -1396,13 +1387,14 @@ class LLMRecoveryConfig(BaseModel):
 
 
 class TurnStateConfig(BaseModel):
-    """Durable chat-turn checkpoints, side-effect ledger, and resume.
-
-    Discord chat turns only (v1). Disabled => turns run exactly as before
-    (capacity exhaustion discards work instead of suspending)."""
+    """Durable conversational-turn checkpoints, side-effect ledger, and resume."""
 
     enabled: bool = True
-    db_path: str = "./data/turn_state/turns.sqlite3"
+    db_path: str = Field(
+        default_factory=lambda: str(
+            runtime_profile_paths().data_dir / "turn_state" / "turns.sqlite3"
+        )
+    )
     auto_resume: bool = True
     resume_ttl_hours: float = Field(default=24.0, ge=1.0, le=24.0 * 14)
     payload_retention_days: float = Field(default=7.0, ge=1.0, le=90.0)
@@ -1411,61 +1403,6 @@ class TurnStateConfig(BaseModel):
 
 class AuditConfig(BaseModel):
     hmac_key: str = ""  # Empty = signing disabled
-
-
-class ApiTokenIdentity(BaseModel):
-    token: str = ""
-    user_id: str = "api-user"
-    username: str = "API"
-    tier: str = "admin"
-    allowed_tools: list[str] = Field(default_factory=list)
-    allowed_hosts: list[str] | None = None
-    default_host: str = ""
-    label: str = ""
-
-
-class WebConfig(BaseModel):
-    enabled: bool = True
-    api_token: str = ""
-    api_tokens: list[ApiTokenIdentity] = Field(default_factory=list)
-    # Sessions expire after this many minutes of the token's lifetime. 0 meant
-    # "never expire", so a leaked WebUI session id was valid forever; default to
-    # a bounded lifetime (set to 0 explicitly to opt back into no-expiry).
-    session_timeout_minutes: int = 720  # 12 hours
-    port: int = 3000
-    # Bind address. Historically hardcoded 0.0.0.0 (exposed on LAN/Tailscale);
-    # now configurable so a deployment can bind localhost and front it with a
-    # reverse proxy.
-    host: str = "0.0.0.0"
-    # Trusted proxy CIDRs must contain only proxies you control. When the
-    # request's peer is trusted, X-Forwarded-For is walked right-to-left,
-    # ignoring trusted hops until the first untrusted address is found; that
-    # address is used for rate-limiting and audit.
-    trusted_proxies: list[str] = Field(default_factory=list)
-
-    @field_validator("port")
-    @classmethod
-    def _port_range(cls, v):
-        if v < 1 or v > 65535:
-            raise ValueError("port must be between 1 and 65535")
-        return v
-
-    def resolve_api_identity(self, token: str) -> ApiTokenIdentity | None:
-        """Look up identity for an API token. Falls back to default if single token configured."""
-        from ..web.authentication import credential_equals
-
-        for t in self.api_tokens:
-            if t.token and credential_equals(t.token, token):
-                return t if t.tier in {"admin", "user", "guest"} else None
-        if self.api_token and credential_equals(self.api_token, token):
-            return ApiTokenIdentity(
-                token=self.api_token,
-                user_id="api-admin",
-                username="Admin",
-                tier="admin",
-                label="default",
-            )
-        return None
 
 
 class PersonalityPreset(BaseModel):
@@ -1483,7 +1420,9 @@ class PersonalityConfig(BaseModel):
 
 
 class AttachmentsConfig(BaseModel):
-    temp_directory: str = "/tmp/odin-attachments"
+    temp_directory: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().cache_dir / "attachments")
+    )
     inline_text_max_bytes: int = 100_000
     preview_max_chars: int = 12_000
     large_preview_chars: int = 4_000
@@ -1622,7 +1561,9 @@ class ComputerUseConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     enabled: bool = False
-    storage_dir: str = "/var/lib/odin/computer"
+    storage_dir: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "computer")
+    )
     # Explicit operator provisioning, never inferred from root/sudo availability.
     runtime_sudo: bool = False
     environment: Literal["isolated", "existing_session"] = "isolated"
@@ -1772,39 +1713,38 @@ class ComputerUseConfig(BaseModel):
 class Config(BaseModel):
     # ``model``/``agent_model`` and other ``model_*`` fields would otherwise
     # collide with pydantic v2's protected ``model_*`` namespace. Disable it.
-    model_config = ConfigDict(protected_namespaces=())
+    model_config = ConfigDict(protected_namespaces=(), extra="forbid")
 
     timezone: str = "UTC"
-    discord: DiscordConfig
-    openai_codex: OpenAICodexConfig = OpenAICodexConfig()
-    ollama: OllamaConfig = OllamaConfig()
-    openai_compatible: OpenAICompatibleConfig = OpenAICompatibleConfig()
-    kimi: KimiConfig = KimiConfig()
-    llm_provider: LLMProviderConfig = LLMProviderConfig()
-    context: ContextConfig = ContextConfig()
-    sessions: SessionsConfig = SessionsConfig()
-    tools: ToolsConfig = ToolsConfig()
-    logging: LoggingConfig = LoggingConfig()
-    usage: UsageConfig = UsageConfig()
-    webhook: WebhookConfig = WebhookConfig()
-    learning: LearningConfig = LearningConfig()
-    observability: ObservabilityConfig = ObservabilityConfig()
-    email: EmailConfig = EmailConfig()
-    search: SearchConfig = SearchConfig()
-    browser: BrowserConfig = BrowserConfig()
+    openai_codex: OpenAICodexConfig = Field(default_factory=OpenAICodexConfig)
+    ollama: OllamaConfig = Field(default_factory=OllamaConfig)
+    openai_compatible: OpenAICompatibleConfig = Field(default_factory=OpenAICompatibleConfig)
+    kimi: KimiConfig = Field(default_factory=KimiConfig)
+    llm_provider: LLMProviderConfig = Field(default_factory=LLMProviderConfig)
+    context: ContextConfig = Field(default_factory=ContextConfig)
+    sessions: SessionsConfig = Field(default_factory=SessionsConfig)
+    tools: ToolsConfig = Field(default_factory=ToolsConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    usage: UsageConfig = Field(default_factory=UsageConfig)
+    webhook: WebhookConfig = Field(default_factory=WebhookConfig)
+    learning: LearningConfig = Field(default_factory=LearningConfig)
+    observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
+    email: EmailConfig = Field(default_factory=EmailConfig)
+    search: SearchConfig = Field(default_factory=SearchConfig)
+    browser: BrowserConfig = Field(default_factory=BrowserConfig)
     computer: ComputerUseConfig = Field(default_factory=ComputerUseConfig)
-    permissions: PermissionsConfig = PermissionsConfig()
-    image: ImageConfig = ImageConfig()
-    web: WebConfig = WebConfig()
-    attachments: AttachmentsConfig = AttachmentsConfig()
-    personality: PersonalityConfig = PersonalityConfig()
-    mcp: MCPConfig = MCPConfig()
-    audit: AuditConfig = AuditConfig()
-    agents: AgentsConfig = AgentsConfig()
-    outbound_webhooks: OutboundWebhooksConfig = OutboundWebhooksConfig()
-    graceful_degradation: GracefulDegradationConfig = GracefulDegradationConfig()
-    llm_recovery: LLMRecoveryConfig = LLMRecoveryConfig()
-    turn_state: TurnStateConfig = TurnStateConfig()
+    image: ImageConfig = Field(default_factory=ImageConfig)
+    attachments: AttachmentsConfig = Field(default_factory=AttachmentsConfig)
+    personality: PersonalityConfig = Field(default_factory=PersonalityConfig)
+    mcp: MCPConfig = Field(default_factory=MCPConfig)
+    audit: AuditConfig = Field(default_factory=AuditConfig)
+    agents: AgentsConfig = Field(default_factory=AgentsConfig)
+    outbound_webhooks: OutboundWebhooksConfig = Field(default_factory=OutboundWebhooksConfig)
+    graceful_degradation: GracefulDegradationConfig = Field(
+        default_factory=GracefulDegradationConfig
+    )
+    llm_recovery: LLMRecoveryConfig = Field(default_factory=LLMRecoveryConfig)
+    turn_state: TurnStateConfig = Field(default_factory=TurnStateConfig)
 
     @model_validator(mode="before")
     @classmethod
@@ -1988,7 +1928,9 @@ def set_active_config_path(path: str | Path | None) -> None:
     _LAUNCH_CONFIG_PATH = Path(os.path.abspath(path)) if path is not None else None
 
 
-def load_config(path: str | Path = "config.yml") -> Config:
+def load_config(path: str | Path | None = None) -> Config:
+    if path is None:
+        path = runtime_profile_paths().config_file
     path = Path(path)
     original_raw = path.read_text()
     try:
@@ -2008,36 +1950,9 @@ def load_config(path: str | Path = "config.yml") -> Config:
     if not isinstance(data, dict):
         raise SystemExit(
             f"Config file {path} is empty or invalid.\n"
-            "It must contain a YAML mapping with at least a 'discord' section.\n"
-            "See config.yml comments for examples."
+            "It must contain a YAML mapping.\n"
+            "See the desktop configuration documentation for examples."
         )
-    # Warn on unknown top-level keys. Pydantic silently drops unknown fields by
-    # default, so a typo like "sesions:" or "web_ui:" is ignored with no signal
-    # and the intended setting never applies. We warn rather than error
-    # (extra="forbid") so a slightly-ahead config can't hard-fail boot.
-    _warn_unknown_config_keys(data)
-    # One-time legacy-ceiling migration gate (see src/config/migrations.py).
-    # Runs on the raw dict so pydantic validates what will actually apply;
-    # the unsubstituted text distinguishes a literal legacy default from a
-    # deliberate ${VAR} placeholder.
-    from .migrations import (
-        MigrationCompletionError,
-        apply_image_defaults_migration,
-        apply_legacy_ceiling_migration,
-    )
-
-    try:
-        apply_legacy_ceiling_migration(data, path, original_raw)
-        apply_image_defaults_migration(data, path, original_raw)
-    except MigrationCompletionError as exc:
-        raise SystemExit(
-            f"Configuration migration failed for {path}: {exc}\n"
-            "Inspect the configuration migration record and retry; Odin will not "
-            "guess at operator provenance."
-        ) from exc
-    from .model_retirement import migrate_retired_codex_selections
-
-    migrate_retired_codex_selections(data)
     try:
         cfg = Config.model_validate(data, context={"startup": True})
     except Exception as exc:
@@ -2045,11 +1960,7 @@ def load_config(path: str | Path = "config.yml") -> Config:
             f"Config validation failed: {exc}\n"
             "Check config.yml values — numeric fields must be within valid ranges."
         ) from exc
-    # Record where this live config came from so persistence targets THIS file,
-    # never a CWD-relative guess.
-    from .migrations import apply_compatible_timeout_migration
-
-    apply_compatible_timeout_migration(data, path, original_raw)
+    # Record the config source for explicit persistence only. Loading is read-only.
     set_active_config_path(path)
     return cfg
 

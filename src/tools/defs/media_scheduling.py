@@ -1,4 +1,4 @@
-"""Tool definitions — purge_messages … parse_time (slice 2/9 of the original TOOLS order).
+"""Tool definitions — post_file … parse_time (slice 2/9 of the original TOOLS order).
 
 RFC-004 P1: verbatim positional slice. ORDER IS BEHAVIOR (the tool
 catalog feeds prompt assembly) — do not reorder, and do not move
@@ -7,27 +7,10 @@ concatenated order exactly.
 """
 
 TOOLS_SECTION: list[dict] = [
-    # --- Discord operations ---
-    {
-        "name": "purge_messages",
-        "description": (
-            "Deletes recent messages in the current Discord channel and resets conversation "
-            "history. Default 100, max 500."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "count": {
-                    "type": "integer",
-                    "description": "Number of messages to delete (default 100, max 500)",
-                },
-            },
-        },
-    },
     {
         "name": "post_file",
         "description": (
-            "Fetches a file from a managed host and posts it as a Discord attachment. Max 25MB. "
+            "Fetches a file from a managed host and posts it as a conversation attachment. Max 25MB. "
             "For generated content, use generate_file."
         ),
         "input_schema": {
@@ -53,7 +36,7 @@ TOOLS_SECTION: list[dict] = [
         "name": "generate_file",
         "is_core": True,
         "description": (
-            "Creates a file (script, code, CSV, report, etc.) and posts it as a Discord "
+            "Creates a file (script, code, CSV, report, etc.) and posts it as a conversation "
             "attachment. For files on a host, use post_file."
         ),
         "input_schema": {
@@ -172,7 +155,7 @@ TOOLS_SECTION: list[dict] = [
                     "type": "string",
                     "enum": ["paginated_embed_v1"],
                     "description": (
-                        "Optional generic paginated Discord embed renderer for a check result. "
+                        "Optional generic paginated conversation report renderer for a check result. "
                         "The command must emit the paginated_embed_v1 JSON contract."
                     ),
                 },
@@ -243,7 +226,7 @@ TOOLS_SECTION: list[dict] = [
         "description": (
             "Updates an existing schedule by ID. Only provided fields are changed. "
             "Can change description, cron, run_at, trigger, message, tool_name, tool_input, steps, "
-            "channel_id, report_format, or paused. "
+            "conversation_id, report_format, or paused. "
             "Changing timing (cron/run_at/trigger) replaces the previous timing mode. "
             "Set paused=true to suspend a schedule without deleting it; paused=false to resume."
         ),
@@ -304,7 +287,7 @@ TOOLS_SECTION: list[dict] = [
                     "type": "string",
                     "enum": ["paginated_embed_v1", ""],
                     "description": (
-                        "Generic paginated Discord embed renderer for check output; empty string "
+                        "Generic paginated conversation report renderer for check output; empty string "
                         "disables structured rendering."
                     ),
                 },
@@ -330,9 +313,9 @@ TOOLS_SECTION: list[dict] = [
                         "required": ["tool_name"],
                     },
                 },
-                "channel_id": {
+                "conversation_id": {
                     "type": "string",
-                    "description": "New channel ID for notifications",
+                    "description": "New conversation ID for notifications",
                 },
                 "paused": {
                     "type": "boolean",

@@ -1,13 +1,13 @@
 """Startup diagnostics — boot-time checks with helpful error messages.
 
-Runs a series of checks against the configuration and filesystem at bot
+Runs a series of checks against the configuration and filesystem at core
 startup to catch misconfigurations early.  Each check returns a
 :class:`DiagnosticResult` with a human-readable recommendation on how to
 fix any problem.
 
 All checks are **non-blocking** and **fail-open**: a failing check logs a
-warning but does not prevent the bot from starting.  The results are also
-exposed via the ``/api/startup/diagnostics`` REST endpoint for operators.
+warning but does not grant execution admission or bypass workspace fences.
+No listener is constructed. IPC and supervised-child readiness await Phase 2.
 """
 from __future__ import annotations
 
@@ -88,33 +88,6 @@ class StartupReport:
 # ------------------------------------------------------------------
 # Individual diagnostic checks
 # ------------------------------------------------------------------
-
-
-def check_discord_token(config: Any) -> DiagnosticResult:
-    """Verify the resolved ``config.discord.token`` is present.
-
-    ``config`` is normally the complete YAML configuration used by the running
-    bot. Accepting a Discord section directly keeps this check useful in
-    focused callers, but startup never reloads environment configuration and
-    therefore cannot accidentally diagnose a different token.
-    """
-    discord_config = getattr(config, "discord", None)
-    resolved_token = getattr(discord_config, "token", None)
-    token = resolved_token if isinstance(resolved_token, str) else getattr(config, "token", "")
-    if not isinstance(token, str):
-        token = ""
-    if not token:
-        return DiagnosticResult(
-            name="discord_token",
-            passed=False,
-            detail="Resolved discord.token is missing or empty",
-            recommendation="Set DISCORD_TOKEN in your .env file or shell environment.",
-        )
-    return DiagnosticResult(
-        name="discord_token",
-        passed=True,
-        detail="Discord token present",
-    )
 
 
 def check_codex_credentials(codex_config: Any) -> DiagnosticResult:
@@ -336,10 +309,6 @@ def warn_missing_host_defaults(tools_config: Any, host_access_manager: Any) -> l
     if not hosts or default_host:
         return []
     entries = [("default_policy", host_access_manager.default_policy.to_dict())]
-    entries.extend(
-        (f"users.{user_id}", entry)
-        for user_id, entry in host_access_manager.list_users().items()
-    )
     missing = [
         name
         for name, entry in entries
@@ -487,30 +456,9 @@ def check_knowledge_db(search_config: Any) -> DiagnosticResult:
     )
 
 
-def check_config_sections(config: Any, *, credential_inventory: Any = None) -> DiagnosticResult:
+def check_config_sections(config: Any) -> DiagnosticResult:
     """Validate that key config sections are internally consistent."""
     issues: list[str] = []
-
-    # Discord section required
-    discord_cfg = getattr(config, "discord", None)
-    if discord_cfg is None:
-        issues.append("Missing 'discord' config section")
-    elif not getattr(discord_cfg, "token", ""):
-        issues.append("discord.token is empty")
-
-    # Count static identities and the already validated runtime inventory,
-    # without inspecting secret stores a second time in the diagnostics.
-    web_cfg = getattr(config, "web", None)
-    if web_cfg and getattr(web_cfg, "enabled", False):
-        api_token = getattr(web_cfg, "api_token", "")
-        has_static = bool(api_token) or any(
-            bool(getattr(identity, "token", ""))
-            for identity in getattr(web_cfg, "api_tokens", ())
-        )
-        has_dynamic = credential_inventory is not None and credential_inventory.has_usable_auth
-        if not has_static and not has_dynamic:
-            issues.append("No usable web.api_token, web.api_tokens or dynamic API credentials — "
-                          "API has no configured authentication (dev mode)")
 
     # Webhook: if enabled, verify secret is set
     webhook_cfg = getattr(config, "webhook", None)
@@ -614,26 +562,24 @@ def _workspace_protected_roots(config: object = None) -> list[str]:
 
 
 def check_data_directories() -> DiagnosticResult:
-    """Verify core data directories exist or can be created."""
-    dirs = [
-        "data",
-        "data/sessions",
-        "data/trajectories",
-        "data/skills",
-        "data/logs",
-    ]
+    """Verify this profile's XDG data directories, never install-relative state."""
+    from ..runtime_paths import runtime_profile_paths
+
+    paths = runtime_profile_paths()
+    dirs = [paths.data_dir / name for name in ("", "sessions", "trajectories", "skills", "logs")]
     created: list[str] = []
     failed: list[str] = []
 
     for d in dirs:
         p = Path(d)
-        if p.is_dir():
-            continue
+        existed = p.is_dir()
         try:
-            p.mkdir(parents=True, exist_ok=True)
-            created.append(d)
+            from ..desktop.paths import private_directory
+            private_directory(p)
+            if not existed:
+                created.append(str(d))
         except OSError:
-            failed.append(d)
+            failed.append(str(d))
 
     if failed:
         return DiagnosticResult(
@@ -702,7 +648,6 @@ def check_codex_model(config: Any) -> DiagnosticResult:
 
 _CONFIG_CHECKS = [
     # (name, callable, config_attribute_or_None)
-    ("discord_token", check_discord_token, None),  # uses full resolved YAML config
     ("codex_credentials", check_codex_credentials, "openai_codex"),
     ("codex_model", check_codex_model, None),
     ("ssh_hosts", check_ssh_hosts, "tools"),
@@ -720,7 +665,6 @@ def run_startup_diagnostics(
     *,
     odin_config: Any | None = None,
     yaml_config: Any | None = None,
-    credential_inventory: Any = None,
 ) -> StartupReport:
     """Run all boot-time diagnostic checks and return a :class:`StartupReport`.
 
@@ -736,43 +680,26 @@ def run_startup_diagnostics(
     Both are optional — checks that require a missing config are skipped.
     """
     report = StartupReport(started_at=time.time())
+    resolved_config = yaml_config if yaml_config is not None else odin_config
 
     for name, check_fn, config_attr in _CONFIG_CHECKS:
         try:
             if config_attr is None:
-                # Prefer the full resolved YAML configuration the running bot
-                # received. Preserve callers that explicitly supplied an
-                # already-resolved OdinConfig, without reloading the env.
-                if name == "discord_token":
-                    token_config = yaml_config if yaml_config is not None else odin_config
-                    if token_config is None:
-                        report.results.append(DiagnosticResult(
-                            name=name, passed=True,
-                            detail="Discord configuration not provided — skipped",
-                        ))
-                        continue
-                    result = check_fn(token_config)
-                else:
-                    if yaml_config is None:
-                        report.results.append(DiagnosticResult(
-                            name=name, passed=True,
-                            detail="YAML config not provided — skipped",
-                        ))
-                        continue
-                    if name == "config_consistency":
-                        result = check_config_sections(
-                            yaml_config, credential_inventory=credential_inventory,
-                        )
-                    else:
-                        result = check_fn(yaml_config)
+                if resolved_config is None:
+                    report.results.append(DiagnosticResult(
+                        name=name, passed=True,
+                        detail="Resolved config not provided — skipped",
+                    ))
+                    continue
+                result = check_fn(resolved_config)
             else:
-                if yaml_config is None:
+                if resolved_config is None:
                     report.results.append(DiagnosticResult(
                         name=name, passed=True,
                         detail="YAML config not provided — skipped",
                     ))
                     continue
-                sub_config = getattr(yaml_config, config_attr, None)
+                sub_config = getattr(resolved_config, config_attr, None)
                 if sub_config is None:
                     report.results.append(DiagnosticResult(
                         name=name, passed=True,

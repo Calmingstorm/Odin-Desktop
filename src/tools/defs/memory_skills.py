@@ -12,7 +12,7 @@ TOOLS_SECTION: list[dict] = [
         "name": "search_history",
         "is_core": True,
         "description": (
-            "Searches past conversation history and full channel message logs from all users. Uses "
+            "Searches past conversation history and full conversation message logs in this profile. Uses "
             "keyword, semantic, and FTS matching. Returns '[date] (role): content'. For ingested "
             "docs, use search_knowledge. Large results preserve the original returned ranking "
             "and whole matches with showing/deferred counts; use get_tool_output(cursor=...) "

@@ -11,7 +11,7 @@ TOOLS_SECTION: list[dict] = [
     {
         "name": "browser_screenshot",
         "description": (
-            "Takes a screenshot of a URL (renders JavaScript) and posts to Discord. Works on "
+            "Takes a screenshot of a URL (renders JavaScript) and posts to the conversation. Works on "
             "dashboards, SPAs, and dynamic pages unlike fetch_url. For text, use browser_read_page."
         ),
         "input_schema": {
@@ -260,29 +260,6 @@ TOOLS_SECTION: list[dict] = [
                 },
             },
             "required": ["url"],
-        },
-    },
-    # --- Permissions ---
-    {
-        "name": "set_permission",
-        "description": (
-            "Sets a Discord user's permission tier. Admin-only. Tiers: admin (full access), user "
-            "(read-only), guest (chat only)."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string",
-                    "description": "Discord user ID (numeric string, e.g. '123456789012345678')",
-                },
-                "tier": {
-                    "type": "string",
-                    "enum": ["admin", "user", "guest"],
-                    "description": "Permission tier",
-                },
-            },
-            "required": ["user_id", "tier"],
         },
     },
     # --- PDF analysis ---

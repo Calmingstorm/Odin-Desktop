@@ -84,7 +84,7 @@ TOOLS_SECTION: list[dict] = [
         "name": "generate_image",
         "description": (
             "Generates an image from a text prompt with the native OpenAI image "
-            "backend and posts it to Discord. Output dimensions and aspect ratio "
+            "backend and posts it to the conversation. Output dimensions and aspect ratio "
             "are selected by the provider."
         ),
         "input_schema": {

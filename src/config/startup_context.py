@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
 import stat
 from collections.abc import Sequence
@@ -12,8 +11,6 @@ from pathlib import Path
 from .environment import EnvironmentSource, warn_group_writable_directory_once
 from .initialization import InitializationStore, InstallationBinding
 
-_MACHINE_ID_PATHS = (Path("/etc/machine-id"), Path("/var/lib/dbus/machine-id"))
-
 
 def _absolute(path: str | Path) -> Path:
     """Make a path CWD-independent without dereferencing its final symlink."""
@@ -21,14 +18,19 @@ def _absolute(path: str | Path) -> Path:
 
 
 def default_environment_path(config_path: Path) -> Path:
-    """Preserve the historical environment source captured from startup CWD."""
+    """Private desktop profile credentials, never CWD or another installation."""
     del config_path
-    return _absolute(".env")
+    from ..runtime_paths import runtime_profile_paths
+
+    return runtime_profile_paths().environment_file
 
 
 def default_initialization_state_path(config_path: Path) -> Path:
     """Keep state in a private child, not the shared application data directory."""
-    return config_path.parent / "data" / "initialization" / "state.json"
+    del config_path
+    from ..runtime_paths import runtime_profile_paths
+
+    return runtime_profile_paths().data_dir / "initialization" / "state.json"
 
 
 def _validate_initialization_ancestor(
@@ -44,57 +46,21 @@ def _validate_initialization_ancestor(
 
 def provision_initialization_parent(state_path: Path) -> None:
     """Create the terminal private state directory through no-follow descriptors."""
-    declared_parent = _absolute(state_path).parent
-    parent = declared_parent.resolve(strict=False)
-    parts = parent.parts
-    fd = os.open(os.path.sep, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    try:
-        current = Path(os.path.sep)
-        for index, part in enumerate(parts[1:], start=1):
-            terminal = index == len(parts) - 1
-            try:
-                next_fd = os.open(
-                    part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd
-                )
-            except FileNotFoundError:
-                os.mkdir(part, 0o700 if terminal else 0o755, dir_fd=fd)
-                next_fd = os.open(
-                    part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd
-                )
-            os.close(fd)
-            fd = next_fd
-            current /= part
-            _validate_initialization_ancestor(os.fstat(fd), path=current, terminal=terminal)
-        declared = os.stat(declared_parent)
-        opened = os.fstat(fd)
-        if (declared.st_dev, declared.st_ino) != (opened.st_dev, opened.st_ino):
-            raise RuntimeError("initialization parent changed during provisioning")
-    except BaseException:
-        os.close(fd)
-        raise
-    os.close(fd)
-
-
-def _machine_identity() -> str:
-    for path in _MACHINE_ID_PATHS:
-        try:
-            value = path.read_text(encoding="utf-8").strip()
-        except OSError:
-            continue
-        if value:
-            return value
-    return "machine-id-unavailable"
+    from ..desktop.paths import private_directory
+    private_directory(_absolute(state_path).parent)
 
 
 def installation_id(config_path: Path) -> str:
-    """Stable non-secret binding from canonical config path and host machine ID.
-
-    Configuration writes atomically replace inodes, so the canonical path is
-    the stable config identity. Machine ID keeps portable paths on distinct
-    machines distinct without introducing a second mutable identity record.
-    """
-    material = f"odin-initialization-v1\0{_machine_identity()}\0{config_path}".encode()
-    return "sha256:" + hashlib.sha256(material).hexdigest()
+    """Persisted profile install identity, never inferred from machine state."""
+    from ..desktop.authority import OwnerAuthority
+    from ..runtime_paths import runtime_profile_paths
+    paths = runtime_profile_paths()
+    if config_path != paths.config_file:
+        raise ValueError("startup configuration must belong to the selected desktop profile")
+    authority = OwnerAuthority(paths)
+    if authority.durability_degraded:
+        raise RuntimeError("profile identity durability unproven")
+    return authority.installation_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,7 +114,11 @@ def parse_startup_arguments(argv: Sequence[str] | None = None) -> argparse.Names
         "--provision-fresh-initialization", action="store_true", help=argparse.SUPPRESS
     )
     args = parser.parse_args(argv)
-    args.config = args.config_override or args.config_positional or "config.yml"
+    from ..runtime_paths import runtime_profile_paths
+    args.config = (
+        args.config_override or args.config_positional
+        or str(runtime_profile_paths().config_file)
+    )
     return args
 
 

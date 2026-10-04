@@ -25,8 +25,6 @@ from ..odin_log import get_logger
 from .steer_notifications import SteerNotifier, finish_steer_notifications, notify_steer
 
 if TYPE_CHECKING:
-    import discord
-
     from .background_task import BackgroundTask
 
 log = get_logger("discord")
@@ -72,8 +70,6 @@ class ChannelStateRegistry:
         self,
         *,
         processed_messages_max: int = 100,
-        bot_msg_buffer_delay: float = 2.0,
-        bot_msg_buffer_max: int = 20,
         recent_actions_max: int = 10,
         recent_actions_expiry: float = 3600.0,
         background_tasks_max: int = 20,
@@ -97,12 +93,6 @@ class ChannelStateRegistry:
         # Track recently processed message IDs to prevent duplicate handling
         self.processed_messages: collections.OrderedDict[int, None] = collections.OrderedDict()
         self.processed_messages_max = processed_messages_max
-        # Bot message buffer: accumulate rapid-fire bot messages before processing
-        # Key: (channel_id, author_id) → original messages (including attachments)
-        self.bot_msg_buffer: dict[tuple[str, str], list[discord.Message]] = {}
-        self.bot_msg_tasks: dict[tuple[str, str], asyncio.Task] = {}
-        self.bot_msg_buffer_delay = bot_msg_buffer_delay  # seconds to wait for more
-        self.bot_msg_buffer_max = bot_msg_buffer_max  # max messages per bot+channel
         # Recent tool executions for conversational context (system prompt)
         # Per-channel: {channel_id: [(timestamp, entry_text), ...]}
         self.recent_actions: dict[str, list[tuple[float, str]]] = {}
@@ -187,7 +177,7 @@ class ChannelStateRegistry:
                 notify_steer(item, "closed")
 
     async def shutdown_steering(self) -> None:
-        """Best-effort receipts before graceful restart disconnects Discord."""
+        """Best-effort receipts before graceful shutdown disconnects delivery."""
         self._steering_closed = True
         for channel_id, request_id in list(self._steer_inboxes):
             self.close_steer_inbox(channel_id, request_id)
@@ -199,7 +189,6 @@ class ChannelStateRegistry:
         message: str,
         *,
         user_id: str,
-        is_admin: bool = False,
         notifier: SteerNotifier | None = None,
     ) -> str:
         """Atomically authorize and enqueue against the current request ID.
@@ -212,8 +201,8 @@ class ChannelStateRegistry:
         inbox = self._steer_inboxes.get((channel_id, request_id)) if request_id else None
         if inbox is None or not inbox.accepting:
             return "No running chat turn accepting steering in this channel."
-        if user_id != inbox.requester_id and not is_admin:
-            return "Access denied. Only the turn's requester or an admin may steer it."
+        if user_id != inbox.requester_id:
+            return "Access denied. Only the turn's requester may steer it."
         if self._cancel_request_ids.get(channel_id) == request_id and self.is_cancelled(channel_id):
             return "The current task is stopping; steering was not queued."
         if not message.strip():

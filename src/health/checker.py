@@ -1,7 +1,6 @@
-"""Component health checker for the Odin web management dashboard.
+"""Component health checker over explicitly supplied core services.
 
-Probes all bot subsystems and returns a structured health report suitable
-for the ``/api/health/components`` endpoint and the web UI health page.
+Returns a structured report without opening a listener or admitting requests.
 Each component reports: name, healthy (bool), status label, detail string,
 and optional metadata dict.
 """
@@ -9,7 +8,10 @@ and optional metadata dict.
 from __future__ import annotations
 
 import os
-import resource
+try:
+    import resource
+except ImportError:  # unavailable on platforms without POSIX resource limits
+    resource = None
 from dataclasses import dataclass, field
 from datetime import UTC
 from typing import TYPE_CHECKING, Any
@@ -17,13 +19,12 @@ from typing import TYPE_CHECKING, Any
 from ..odin_log import get_logger
 
 if TYPE_CHECKING:
-    from ..discord.client import OdinBot
     from .subsystem_guard import SubsystemGuard
 
 log = get_logger("health.checker")
 
 
-def _effective_component_model(bot: OdinBot, provider: str, client: Any) -> str:
+def _effective_component_model(bot: Any, provider: str, client: Any) -> str:
     """Return runtime-selected model when *client* serves the primary.
 
     Provider clients retain their endpoint defaults, while ``llm_provider``
@@ -77,6 +78,8 @@ def _process_descriptor_usage() -> tuple[int, int | float]:
     it to report the process's actual open descriptors.  Do not silently
     substitute guessed values when procfs or the limit query is unavailable.
     """
+    if resource is None or not os.path.isdir("/proc/self/fd"):
+        raise NotImplementedError("Descriptor metrics are unavailable on this platform")
     descriptors = len(os.listdir("/proc/self/fd")) - 1
     soft_limit, _hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
     return descriptors, soft_limit
@@ -84,7 +87,7 @@ def _process_descriptor_usage() -> tuple[int, int | float]:
 
 def _open_files_status(open_descriptors: int, soft_limit: int | float) -> ComponentStatus:
     """Build the descriptor health component from an observed process sample."""
-    if soft_limit == resource.RLIM_INFINITY:
+    if soft_limit == (resource.RLIM_INFINITY if resource is not None else -1):
         return ComponentStatus(
             name="open_files",
             healthy=True,
@@ -115,11 +118,15 @@ def _open_files_status(open_descriptors: int, soft_limit: int | float) -> Compon
     )
 
 
-def check_open_files(_bot: OdinBot) -> ComponentStatus:
+def check_open_files(_bot: Any) -> ComponentStatus:
     """Report actual process descriptor usage, failing truthfully on probe errors."""
     try:
         open_descriptors, soft_limit = _process_descriptor_usage()
         return _open_files_status(open_descriptors, soft_limit)
+    except NotImplementedError as exc:
+        return ComponentStatus(
+            name="open_files", healthy=False, status="unavailable", detail=str(exc),
+        )
     except Exception as exc:
         return ComponentStatus(
             name="open_files",
@@ -129,35 +136,25 @@ def check_open_files(_bot: OdinBot) -> ComponentStatus:
         )
 
 
-def check_discord(bot: OdinBot) -> ComponentStatus:
-    try:
-        ready = bot.is_ready()
-        guild_count = len(bot.guilds)
-        user_count = sum(g.member_count or 0 for g in bot.guilds)
-        if ready:
-            return ComponentStatus(
-                name="discord",
-                healthy=True,
-                status="ok",
-                detail=f"Online — {guild_count} guild(s), {user_count} users",
-                metadata={"guild_count": guild_count, "user_count": user_count},
-            )
+def check_delivery(core: Any) -> ComponentStatus:
+    """Read a broker-owned readiness snapshot, never infer admission authority.
+
+    Phase 2 must supply ``delivery_readiness`` as an observed boolean. Missing
+    wiring is unavailable, not a healthy transport or an execution permit.
+    """
+    observed = getattr(core, "delivery_readiness", None)
+    if type(observed) is not bool:
         return ComponentStatus(
-            name="discord",
-            healthy=False,
-            status="degraded",
-            detail="Gateway not ready",
+            name="delivery", healthy=False, status="unavailable",
+            detail="Authenticated delivery readiness is not wired (Phase 2)",
         )
-    except Exception as exc:
-        return ComponentStatus(
-            name="discord",
-            healthy=False,
-            status="down",
-            detail=f"Error: {exc}",
-        )
+    return ComponentStatus(
+        name="delivery", healthy=observed, status="ok" if observed else "down",
+        detail="Delivery ready" if observed else "Delivery not ready",
+    )
 
 
-def check_codex(bot: OdinBot) -> ComponentStatus:
+def check_codex(bot: Any) -> ComponentStatus:
     codex = getattr(getattr(bot, "llm_gateway", None), "codex_client", None)
     if codex is None:
         cfg = getattr(bot, "config", None)
@@ -223,7 +220,7 @@ def check_codex(bot: OdinBot) -> ComponentStatus:
         )
 
 
-def check_sessions(bot: OdinBot) -> ComponentStatus:
+def check_sessions(bot: Any) -> ComponentStatus:
     sessions = getattr(bot, "sessions", None)
     if sessions is None:
         return ComponentStatus(
@@ -264,7 +261,7 @@ def check_sessions(bot: OdinBot) -> ComponentStatus:
         )
 
 
-def check_knowledge(bot: OdinBot) -> ComponentStatus:
+def check_knowledge(bot: Any) -> ComponentStatus:
     knowledge = getattr(bot, "knowledge", None)
     if knowledge is None:
         return ComponentStatus(
@@ -301,7 +298,7 @@ def check_knowledge(bot: OdinBot) -> ComponentStatus:
         )
 
 
-def check_ssh_hosts(bot: OdinBot) -> ComponentStatus:
+def check_ssh_hosts(bot: Any) -> ComponentStatus:
     executor = getattr(bot, "tool_executor", None)
     if executor is None:
         return ComponentStatus(
@@ -373,7 +370,7 @@ def check_ssh_hosts(bot: OdinBot) -> ComponentStatus:
         )
 
 
-def check_browser(bot: OdinBot) -> ComponentStatus:
+def check_browser(bot: Any) -> ComponentStatus:
     executor = getattr(bot, "tool_executor", None)
     browser_mgr = getattr(executor, "_browser_manager", None) if executor else None
     if browser_mgr is None:
@@ -412,7 +409,7 @@ def check_browser(bot: OdinBot) -> ComponentStatus:
         )
 
 
-def check_scheduler(bot: OdinBot) -> ComponentStatus:
+def check_scheduler(bot: Any) -> ComponentStatus:
     scheduler = getattr(bot, "scheduler", None)
     if scheduler is None:
         return ComponentStatus(
@@ -440,7 +437,7 @@ def check_scheduler(bot: OdinBot) -> ComponentStatus:
         )
 
 
-def check_loops(bot: OdinBot) -> ComponentStatus:
+def check_loops(bot: Any) -> ComponentStatus:
     loop_mgr = getattr(bot, "loop_manager", None)
     if loop_mgr is None:
         return ComponentStatus(
@@ -467,7 +464,7 @@ def check_loops(bot: OdinBot) -> ComponentStatus:
         )
 
 
-def check_agents(bot: OdinBot) -> ComponentStatus:
+def check_agents(bot: Any) -> ComponentStatus:
     agent_mgr = getattr(bot, "agent_manager", None)
     if agent_mgr is None:
         return ComponentStatus(
@@ -498,7 +495,7 @@ def check_agents(bot: OdinBot) -> ComponentStatus:
         )
 
 
-def check_ollama(bot: OdinBot) -> ComponentStatus:
+def check_ollama(bot: Any) -> ComponentStatus:
     from ..llm.ollama import OllamaClient
 
     ollama = getattr(getattr(bot, "llm_gateway", None), "ollama_client", None)
@@ -544,7 +541,7 @@ def check_ollama(bot: OdinBot) -> ComponentStatus:
         )
 
 
-def check_compatible(bot: OdinBot) -> ComponentStatus:
+def check_compatible(bot: Any) -> ComponentStatus:
     gateway = getattr(bot, "llm_gateway", None)
     values = getattr(gateway, "__dict__", {})
     kimi = values.get("compatible_client") or values.get("kimi_client")
@@ -594,7 +591,7 @@ check_kimi = check_compatible
 
 
 # Ordered list of all checkers
-def check_mcp(bot: OdinBot) -> ComponentStatus:
+def check_mcp(bot: Any) -> ComponentStatus:
     """MCP control plane — always present; disabled is a truthful state,
     never an error. A failed optional MCP server degrades, it does not mark
     Odin unhealthy."""
@@ -671,7 +668,7 @@ def check_mcp(bot: OdinBot) -> ComponentStatus:
 
 _ALL_CHECKERS = [
     check_open_files,
-    check_discord,
+    check_delivery,
     check_codex,
     check_ollama,
     check_compatible,
@@ -686,7 +683,7 @@ _ALL_CHECKERS = [
 ]
 
 
-def check_all(bot: OdinBot) -> dict[str, Any]:
+def check_all(bot: Any) -> dict[str, Any]:
     """Run all component health checks and return a summary.
 
     Returns a dict with:
@@ -714,10 +711,11 @@ def check_all(bot: OdinBot) -> dict[str, Any]:
     degraded_count = sum(1 for r in results if r["status"] == "degraded")
     down_count = sum(1 for r in results if r["status"] == "down")
     unconfigured_count = sum(1 for r in results if r["status"] == "unconfigured")
+    unavailable_count = sum(1 for r in results if r["status"] == "unavailable")
 
     if down_count > 0:
         overall = "unhealthy"
-    elif degraded_count > 0:
+    elif degraded_count > 0 or unavailable_count > 0:
         overall = "degraded"
     else:
         overall = "healthy"
@@ -731,6 +729,7 @@ def check_all(bot: OdinBot) -> dict[str, Any]:
         "degraded_count": degraded_count,
         "down_count": down_count,
         "unconfigured_count": unconfigured_count,
+        "unavailable_count": unavailable_count,
         "total": len(results),
         "checked_at": datetime.now(UTC).isoformat(),
     }

@@ -23,7 +23,9 @@ from ..trajectories.saver import ToolIteration
 
 log = get_logger("agent_trajectories")
 
-DEFAULT_AGENT_TRAJECTORY_DIR = "./data/trajectories/agents"
+from ..runtime_paths import runtime_profile_paths
+
+DEFAULT_AGENT_TRAJECTORY_DIR = str(runtime_profile_paths().data_dir / "trajectories" / "agents")
 _READ_CHUNK_BYTES = 64 * 1024
 
 
@@ -262,7 +264,12 @@ class AgentTrajectorySaver:
         usage_observer=None,
     ) -> None:
         self.directory = Path(directory)
-        self.directory.mkdir(parents=True, exist_ok=True)
+        if directory == DEFAULT_AGENT_TRAJECTORY_DIR:
+            from ..desktop.paths import private_directory
+
+            private_directory(self.directory)
+        else:
+            self.directory.mkdir(parents=True, exist_ok=True)
         self._count = 0
         self.usage_observer = usage_observer
 

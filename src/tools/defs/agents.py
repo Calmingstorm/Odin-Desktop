@@ -17,8 +17,8 @@ matching agent config axis is "auto" (see
 SPAWN_AGENT_BASE_DESC = (
     "Spawns an autonomous agent for a sub-task. Runs silently in background with "
     "isolated context; it may spawn its own sub-agents up to the nesting limit. "
-    "Results are NOT posted to Discord — use wait_for_agents to collect results, then "
-    "deliver a cohesive summary yourself. Max 5/channel; lifetime limit for NEW agents: "
+    "Results are NOT posted to the conversation — use wait_for_agents to collect results, then "
+    "deliver a cohesive summary yourself. Max 5/conversation; lifetime limit for NEW agents: "
     "14400 seconds. Budget warnings "
     "injected near iteration limit."
 )

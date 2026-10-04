@@ -126,14 +126,14 @@ def _bounded_text(value: object, limit: int = 160) -> str:
 def _source_surface(record: dict, kind: str) -> str:
     if kind == "agent":
         return "agent"
-    raw = str(record.get("source") or "discord").lower()
+    raw = str(record.get("source") or "desktop").lower()
     if raw in {"loop", "autonomous_loop"}:
         return "loop"
     if raw in {"web", "api"}:
         return "web"
     if raw in {"scheduled", "schedule", "background"}:
         return "scheduled"
-    if raw in {"discord", "chat"}:
+    if raw in {"desktop", "discord", "chat"}:
         return "chat"
     return "other"
 

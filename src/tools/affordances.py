@@ -135,12 +135,9 @@ _CATEGORY_DEFAULTS: list[tuple[str, Affordance]] = [
     ("fetch_url", Affordance(Cost.MEDIUM, Risk.NONE, Latency.SECONDS, ())),
     ("analyze_pdf", Affordance(Cost.HIGH, Risk.NONE, Latency.SECONDS, ())),
     ("analyze_image", Affordance(Cost.HIGH, Risk.NONE, Latency.SECONDS, ())),
-    # Discord output
-    ("add_reaction", Affordance(Cost.MEDIUM, Risk.LOW, Latency.FAST, ())),
-    ("create_poll", Affordance(Cost.MEDIUM, Risk.LOW, Latency.FAST, ())),
+    # Conversation output
     ("post_file", Affordance(Cost.HIGH, Risk.LOW, Latency.SECONDS, ())),
     ("generate_file", Affordance(Cost.MEDIUM, Risk.LOW, Latency.SECONDS, ())),
-    ("purge_messages", Affordance(Cost.HIGH, Risk.CRITICAL, Latency.SECONDS, ())),
     # Agents / loops / scheduler
     (
         "spawn_agent",
@@ -206,7 +203,6 @@ _CATEGORY_DEFAULTS: list[tuple[str, Affordance]] = [
     # Memory / lists / permissions
     ("memory_manage", Affordance(Cost.LOW, Risk.LOW, Latency.FAST, ())),
     ("manage_list", Affordance(Cost.LOW, Risk.LOW, Latency.FAST, ())),
-    ("set_permission", Affordance(Cost.LOW, Risk.HIGH, Latency.FAST, ())),
     ("parse_time", Affordance(Cost.FREE, Risk.NONE, Latency.INSTANT, ())),
     # Image / media gen
     (
@@ -249,8 +245,8 @@ _CATEGORY_DEFAULTS: list[tuple[str, Affordance]] = [
             ("browser enabled", "installed Chromium or reachable configured CDP endpoint"),
         ),
     ),
-    # Discord surfaces
-    ("read_channel", Affordance(Cost.MEDIUM, Risk.NONE, Latency.FAST, ())),
+    # Conversation history
+    ("read_conversation", Affordance(Cost.MEDIUM, Risk.NONE, Latency.FAST, ())),
     # Agent messaging / orchestration
     (
         "send_to_agent",

@@ -1,7 +1,10 @@
 """Background task delegation — run multi-step tool sequences without blocking conversation.
 
 The LLM constructs a list of steps upfront, the user approves once, and the task
-runs in the background with progress updates via an editable Discord message.
+runs in the background with task-owned progress and result projections.
+Admission and durable conversation delivery are Phase 2 gates, not an emulated
+transport. Native admission remains gated; the internal runner retains neutral
+workflow behavior without claiming durable delivery or crash resumption.
 """
 
 from __future__ import annotations
@@ -13,8 +16,6 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING
-
-import discord
 
 from ..audit.diff_tracker import DIFF_TOOLS, DiffTracker
 from ..llm.secret_scrubber import scrub_output_secrets
@@ -55,9 +56,8 @@ CodexCallback = Callable[[list[dict], str, int], Awaitable[str]]
 
 log = get_logger("background_task")
 
-# Tools that cannot run in background tasks (need Discord/interactive context)
+# Tools that cannot run in background tasks (need interactive/delivery context)
 BLOCKED_TOOLS = {
-    "purge_messages",
     "browser_screenshot",
     "generate_file",
     "post_file",
@@ -79,7 +79,7 @@ BLOCKED_TOOLS = {
 }
 
 MAX_STEPS = 200
-PROGRESS_UPDATE_INTERVAL = 2.0  # seconds between Discord message edits
+PROGRESS_UPDATE_INTERVAL = 2.0  # seconds between progress projections
 
 
 @dataclass
@@ -98,7 +98,7 @@ class BackgroundTask:
     task_id: str
     description: str
     steps: list[dict]
-    channel: discord.abc.Messageable
+    conversation_id: str
     requester: str
     requester_id: str = ""
     nested_payload_validated: bool = False
@@ -106,6 +106,9 @@ class BackgroundTask:
     status: str = "running"  # running, completed, failed, cancelled
     results: list[StepResult] = field(default_factory=list)
     current_step: int = 0
+    progress_text: str = ""
+    summary_text: str = ""
+    followup_text: str = ""
     _cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
     _asyncio_task: asyncio.Task | None = field(default=None, repr=False)
 
@@ -154,9 +157,13 @@ async def run_background_task(
     codex_callback: CodexCallback | None = None,
     mcp_manager: MCPManager | None = None,
 ) -> None:
-    """Execute a background task's steps sequentially with progress updates."""
+    """Internal workflow runner, not a public admission or durable delivery API.
 
-    # Post initial progress message
+    The native entry point is Phase 2 gated. These projections keep neutral
+    orchestration testable; they are not success receipts for publication.
+    """
+
+    # Prepare task-owned initial progress, without publishing a message.
     progress_msg = await _send_progress(task, None)
 
     variables: dict[str, str] = {}
@@ -338,7 +345,7 @@ async def run_background_task(
                     log_kwargs: dict = dict(
                         user_id=task.requester_id,
                         user_name=task.requester,
-                        channel_id=str(getattr(task.channel, "id", "")),
+                        channel_id=task.conversation_id,
                         tool_name=tool_name,
                         tool_input=_scrub_email_input(tool_name, tool_input),
                         approved=True,
@@ -388,7 +395,7 @@ async def run_background_task(
                     await audit_logger.log_execution(
                         user_id=task.requester_id,
                         user_name=task.requester,
-                        channel_id=str(getattr(task.channel, "id", "")),
+                        channel_id=task.conversation_id,
                         tool_name=tool_name,
                         tool_input=_scrub_email_input(tool_name, tool_input),
                         approved=True,
@@ -519,7 +526,7 @@ async def _execute_tool_captured(
     """
     # This dispatcher has several special-cased built-ins below which never
     # enter ToolExecutor.execute(). Apply the SAME live policy at this shared
-    # background/scheduled entry point before RBAC, handler selection, store
+    # background/scheduled entry point before scope checks, handler selection, store
     # access, skill lookup, or any other effect. The policy's disabled set is
     # restricted to the static built-in universe, so skills and MCP tools pass
     # through untouched.
@@ -529,11 +536,11 @@ async def _execute_tool_captured(
     if isinstance(policy, BuiltinToolPolicy) and policy.is_disabled(tool_name):
         return disabled_rejection(tool_name)
 
-    # Central RBAC gate for deferred/background execution. Skills, MCP, and the
+    # Central scope gate for deferred/background execution. Skills, MCP, and the
     # knowledge tools below bypass ToolExecutor.execute() (the only place
     # check_permission runs), and even the final execute() call only enforces
     # once requester_id is threaded through. Enforce for EVERY tool when we know
-    # who requested it, so a scoped token's tier/host limits still apply to work
+    # who requested it, so tool/host scope still applies to work
     # deferred to a background task or schedule.
     if requester_id:
         _denial = executor.check_permission(tool_name, requester_id)
@@ -716,10 +723,10 @@ def _check_condition(condition: str, prev_output: str) -> bool:
 
 async def _send_progress(
     task: BackgroundTask,
-    existing_msg: discord.Message | None,
+    existing_msg: str | None,
     status_override: str | None = None,
-) -> discord.Message | None:
-    """Post or edit a progress message in the channel.
+) -> str:
+    """Prepare task-owned progress text; this does not publish an event.
 
     ``status_override`` renders the terminal outcome while ``task.status`` is
     deliberately kept ``running`` (cancellable) through post-processing.
@@ -731,7 +738,7 @@ async def _send_progress(
     errors = sum(1 for r in task.results if r.status == "error")
     skipped = sum(1 for r in task.results if r.status == "skipped")
 
-    # Status emoji
+    # Status label
     if status == "completed":
         status_icon = "DONE"
     elif status == "failed":
@@ -761,7 +768,7 @@ async def _send_progress(
     # When finished, show ALL steps; while running, show last 3
     # Use the effective (possibly overridden) status: task.status is kept
     # 'running' during finalization so the follow-up stays cancellable, but the
-    # final render must still show all results + the full report attachment.
+    # final projection must still show all results. Artifact publication is Phase 2.
     is_finished = status in ("completed", "failed", "cancelled")
     show_results = task.results if is_finished else task.results[-3:]
     if show_results:
@@ -773,40 +780,12 @@ async def _send_progress(
 
     text = "\n".join(lines)
 
-    try:
-        if len(text) > 1900 and is_finished:
-            # Too long for Discord — post a short summary in the message,
-            # attach the full report as a file
-            import io
-
-            short = "\n".join(lines[:3])  # header + progress bar + counts
-            short += f"\n\nFull report attached ({len(task.results)} steps)."
-            file_bytes = text.encode("utf-8")
-            discord_file = discord.File(
-                io.BytesIO(file_bytes),
-                filename=f"task_{task.task_id}_report.txt",
-            )
-            if existing_msg:
-                await existing_msg.edit(content=short)
-                await task.channel.send(file=discord_file)
-            else:
-                await task.channel.send(content=short, file=discord_file)
-            return existing_msg
-        elif len(text) > 1900:
-            text = text[:1900] + "\n..."
-
-        if existing_msg:
-            await existing_msg.edit(content=text)
-            return existing_msg
-        else:
-            return await task.channel.send(text)
-    except Exception as e:
-        log.warning("Failed to update progress message: %s", e)
-        return existing_msg
+    task.progress_text = scrub_output_secrets(text)
+    return task.progress_text
 
 
 async def _send_summary(task: BackgroundTask, status_override: str | None = None) -> None:
-    """Post a natural language summary of the completed task."""
+    """Prepare a task-owned summary; durable publication remains unavailable."""
     status = status_override or task.status
     ok = [r for r in task.results if r.status == "ok"]
     errors = [r for r in task.results if r.status == "error"]
@@ -839,22 +818,7 @@ async def _send_summary(task: BackgroundTask, status_override: str | None = None
 
     text = "\n".join(lines)
 
-    try:
-        if len(text) > 1900:
-            import io
-
-            short_lines = lines[:3]  # header + status line
-            short = "\n".join(short_lines) + "\n\nFull summary attached."
-            file_bytes = text.encode("utf-8")
-            discord_file = discord.File(
-                io.BytesIO(file_bytes),
-                filename=f"task_{task.task_id}_summary.txt",
-            )
-            await task.channel.send(content=short, file=discord_file)
-        else:
-            await task.channel.send(text)
-    except Exception as e:
-        log.warning("Failed to send task summary: %s", e)
+    task.summary_text = scrub_output_secrets(text)
 
 
 async def _send_conversational_followup(
@@ -862,7 +826,7 @@ async def _send_conversational_followup(
     codex_callback: CodexCallback,
     status_override: str | None = None,
 ) -> None:
-    """Generate and post an LLM-written conversational summary of the task results."""
+    """Prepare an LLM-written summary, never publishing after cancellation."""
     # Build a concise context of what happened
     result_lines = []
     for r in task.results:
@@ -900,22 +864,15 @@ async def _send_conversational_followup(
             return
         response = scrub_output_secrets(response.strip())
         if response:
-            await task.channel.send(response)
+            task.followup_text = response
     except Exception as e:
         log.warning("Failed to generate conversational follow-up for task %s: %s", task.task_id, e)
         from ..llm.errors import LLMIncompleteResponseError
 
         if isinstance(e, LLMIncompleteResponseError) and not task._cancel_event.is_set():
-            import io
-
             partial = scrub_output_secrets(e.partial_text)
             notice = "[Provider marked this response incomplete.]"
-            if len(partial) + len(notice) + 2 <= 2000:
-                await task.channel.send(partial + "\n\n" + notice)
-            else:
-                await task.channel.send(notice, file=discord.File(
-                    io.BytesIO(partial.encode("utf-8")), filename="incomplete-response.txt",
-                ))
+            task.followup_text = partial + "\n\n" + notice
 
 
 def create_task_id() -> str:

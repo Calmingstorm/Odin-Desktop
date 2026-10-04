@@ -1,4 +1,4 @@
-"""Tool definitions — read_channel … list_loops (slice 6/9 of the original TOOLS order).
+"""Tool definitions — read_conversation … list_loops (slice 6/9 of the original TOOLS order).
 
 RFC-004 P1: verbatim positional slice. ORDER IS BEHAVIOR (the tool
 catalog feeds prompt assembly) — do not reorder, and do not move
@@ -7,13 +7,13 @@ concatenated order exactly.
 """
 
 TOOLS_SECTION: list[dict] = [
-    # --- Rich Discord messaging ---
+    # --- Current conversation history ---
     {
-        "name": "read_channel",
+        "name": "read_conversation",
         "description": (
-            "Reads recent messages from the CURRENT Discord channel into your context. "
-            "Returns channel history from ALL users and bots. Do NOT pass channel_id — "
-            "omit it to read the channel the message came from. The returned messages are "
+            "Reads recent messages from the CURRENT conversation into your context. "
+            "Returns visible conversation history from all recorded participants. The conversation "
+            "is the one this request came from; do NOT pass a conversation ID. The returned messages are "
             "for YOUR eyes only — do NOT paste or echo them. Read, understand, then respond "
             "with your own summary, analysis, or action."
         ),
@@ -24,50 +24,7 @@ TOOLS_SECTION: list[dict] = [
                     "type": "integer",
                     "description": "Number of messages to read (default 10, max 100)",
                 },
-                "channel_id": {
-                    "type": "string",
-                    "description": "Numeric channel ID. Omit to use current channel (recommended).",
-                },
             },
-        },
-    },
-    {
-        "name": "add_reaction",
-        "description": (
-            "Adds an emoji reaction to a message. Unicode emoji or custom format (<:name:id>)."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "message_id": {"type": "string", "description": "Discord message ID to react to"},
-                "emoji": {"type": "string", "description": "Emoji to react with"},
-            },
-            "required": ["message_id", "emoji"],
-        },
-    },
-    {
-        "name": "create_poll",
-        "description": "Creates a Discord native poll in the current channel. "
-        "Max 10 options. Duration in hours (default 24, max 168/7 days).",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "question": {"type": "string", "description": "The poll question"},
-                "options": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of answer options (max 10)",
-                },
-                "duration_hours": {
-                    "type": "integer",
-                    "description": "Poll duration in hours (default 24)",
-                },
-                "multiple": {
-                    "type": "boolean",
-                    "description": "Allow multiple selections (default false)",
-                },
-            },
-            "required": ["question", "options"],
         },
     },
     # --- Process management ---

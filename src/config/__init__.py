@@ -1,7 +1,7 @@
 """Configuration package for Odin.
 
 Exports:
-- ``OdinConfig`` — immutable dataclass for env-based bot config
+- ``OdinConfig`` — immutable environment logging policy
 - ``Config`` / ``load_config`` — pydantic model for config.yml
 """
 
@@ -16,11 +16,11 @@ from dotenv import load_dotenv
 
 def _load_env(env_file: str | Path | None = None) -> None:
     """Load one declared environment file, never an ambient request directory."""
-    configured = env_file if env_file is not None else os.environ.get("ODIN_ENV_FILE")
+    configured = env_file
     env_path = (
         Path(os.path.abspath(os.fspath(Path(configured).expanduser())))
         if configured
-        else Path(__file__).resolve().parent.parent.parent / ".env"
+        else _profile_environment_path()
     )
     if env_path.exists():
         load_dotenv(env_path)
@@ -28,13 +28,8 @@ def _load_env(env_file: str | Path | None = None) -> None:
 
 @dataclass(frozen=True)
 class OdinConfig:
-    """Immutable configuration from environment variables.
+    """Immutable logging policy; no transport credentials or ambient grants."""
 
-    Only holds values that come from .env / environment.
-    Web port, API token, and all other settings live in config.yml.
-    """
-
-    token: str = ""
     log_level: str = "INFO"
 
     @classmethod
@@ -42,15 +37,14 @@ class OdinConfig:
         """Build config from environment variables."""
         _load_env(env_file)
         return cls(
-            token=os.getenv("DISCORD_TOKEN", os.getenv("ODIN_TOKEN", "")),
             log_level=os.getenv("ODIN_LOG_LEVEL", "INFO"),
         )
 
     def validate(self) -> list[str]:
         """Return a list of validation errors (empty if valid)."""
         errors = []
-        if not self.token:
-            errors.append("DISCORD_TOKEN is required (set in .env or environment)")
+        if self.log_level.upper() not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            errors.append("ODIN_LOG_LEVEL must be a standard log level")
         return errors
 
 
@@ -64,3 +58,9 @@ def __getattr__(name: str):
 
 
 __all__ = ["OdinConfig", "Config", "load_config"]
+
+
+def _profile_environment_path() -> Path:
+    from ..runtime_paths import runtime_profile_paths
+
+    return runtime_profile_paths().environment_file

@@ -458,19 +458,8 @@ class ComputerLifecycle:
                             await asyncio.gather(task, return_exceptions=True)
 
     def authorize_context(self, context):
-        if context.turn_id == "web-operator":
-            from ..web.computer_binding import operator_context_authorized
-
-            return operator_context_authorized(context)
-        if not self.enabled:
-            return False
-        if context.surface != "webui":
-            return True
-        check = self._web_grants.get((context.owner_id, context.channel_id, context.turn_id))
-        try:
-            return bool(check is not None and check() is True)
-        except Exception:
-            return False
+        # No foreground/control transport authority is installed in Phase 1.
+        return False
 
     async def _watch_authority(self, service, st, key, context):
         try:

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
@@ -29,13 +30,6 @@ MAX_FILE_BYTES = 512_000  # 500 KB per file
 DURABILITY_FAILURE_MESSAGE = "document was not durably stored in both DB and FTS"
 ALREADY_STORED_NOTE = "already stored, unchanged"
 
-SAFE_IMPORT_ROOTS = (
-    "/opt/odin",
-    "/opt/heimdall",
-    "/tmp",
-    "/home",
-    "/root",
-)
 MAX_PDF_BYTES = 50_000_000  # 50 MB
 FETCH_TIMEOUT = aiohttp.ClientTimeout(total=30)
 FETCH_MAX_CHARS = 100_000  # larger than tool output — we want full content for ingestion
@@ -86,13 +80,28 @@ class BatchResult:
 class BulkImporter:
     """Orchestrates bulk ingestion of files, PDFs, and web pages."""
 
-    def __init__(self, store: KnowledgeStore, embedder: LocalEmbedder | None = None) -> None:
+    def __init__(
+        self,
+        store: KnowledgeStore,
+        embedder: LocalEmbedder | None = None,
+        *,
+        admitted_roots: Iterable[str | Path] = (),
+    ) -> None:
         self._store = store
         self._embedder = embedder
+        roots = tuple(Path(root) for root in admitted_roots)
+        if any(not root.is_absolute() for root in roots):
+            raise ValueError("admitted import roots must be absolute paths")
+        # Admission is injected by the owner/workspace boundary, never inferred
+        # from the host's home, temporary or installation directories.
+        self._admitted_roots = tuple(root.resolve() for root in roots)
 
-    @staticmethod
-    def _in_safe_import_root(path: Path) -> bool:
-        return any(path.is_relative_to(root) for root in SAFE_IMPORT_ROOTS)
+    def _in_safe_import_root(self, path: Path) -> bool:
+        return any(path.is_relative_to(root) for root in self._admitted_roots)
+
+    def _root_denial(self, kind: str) -> str:
+        roots = ", ".join(str(root) for root in self._admitted_roots) or "none admitted"
+        return f"{kind} not in allowed import roots: {roots}"
 
     @staticmethod
     def _canonical_file_source(path: Path) -> str:
@@ -341,7 +350,7 @@ class BulkImporter:
         file_path: str,
         uploader: str = "bulk-import",
     ) -> ImportResult:
-        """Import one local text file under the existing safe-root fence."""
+        """Import one local text file under explicitly admitted root fences."""
         path = Path(file_path).resolve()
         if not path.is_file():
             return ImportResult(source=file_path, status="error", error="file not found")
@@ -349,7 +358,7 @@ class BulkImporter:
             return ImportResult(
                 source=file_path,
                 status="error",
-                error=f"file not in allowed import roots: {', '.join(SAFE_IMPORT_ROOTS)}",
+                error=self._root_denial("file"),
             )
         return await self._import_resolved_file(path, uploader)
 
@@ -365,7 +374,7 @@ class BulkImporter:
         if not self._in_safe_import_root(base):
             return [ImportResult(
                 source=directory, status="error",
-                error=f"directory not in allowed import roots: {', '.join(SAFE_IMPORT_ROOTS)}",
+                error=self._root_denial("directory"),
             )]
 
         results: list[ImportResult] = []

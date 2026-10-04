@@ -53,7 +53,6 @@ _EMPTY_OK_TOOLS = frozenset(
     {
         "browser_click",
         "browser_fill",
-        "add_reaction",
         "memory_manage",
         "manage_list",
         "delete_schedule",

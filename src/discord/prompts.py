@@ -220,7 +220,7 @@ class PromptBuilder:
 
     def build_full_prompt(
         self,
-        channel=None,
+        conversation_id: str | None = None,
         user_id: str | None = None,
         query: str | None = None,
         trace=None,
@@ -263,10 +263,9 @@ class PromptBuilder:
             if trace is not None:
                 trace.section("skills_list", tokens=len(skills_text) // 4)
 
-        # Inject recent tool executions for this channel only
-        if channel is not None:
-            channel_id = str(channel.id)
-            channel_actions = self.channel_state.recent_entries(channel_id)
+        # Identity is supplied by authenticated Phase 2 admission, never a gateway object.
+        if conversation_id is not None:
+            channel_actions = self.channel_state.recent_entries(conversation_id)
             if channel_actions:
                 actions_text = "\n".join(channel_actions[-10:])
                 prompt += f"\n\n## Recent Actions\n{actions_text}"
@@ -303,7 +302,7 @@ class PromptBuilder:
 
     def build_chat_prompt(
         self,
-        channel=None,
+        conversation_id: str | None = None,
         user_id: str | None = None,
         query: str | None = None,
     ) -> str:

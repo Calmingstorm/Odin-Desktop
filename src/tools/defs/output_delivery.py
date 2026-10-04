@@ -5,7 +5,7 @@ TOOLS_SECTION = [{
         "Follow cursor until truncated=false. "
         "Pages are contiguous head-only; initial labelled tails are context only. "
         "Evidence expires 24 hours after capture (fixed TTL), with per-result/global quotas. "
-        "Original caller, channel, tool permission and host scope are rechecked; "
+        "Original caller, conversation, tool permission and host scope are rechecked; "
         "a cursor is not permission. "
         "Binary attachments return data_base64 pages with byte offsets, MIME and SHA-256; "
         "decode each page and concatenate bytes in order. No audio understanding. "

@@ -185,7 +185,7 @@ def scrub_stored_tool_input(tool_name: str, tool_input: Any) -> Any:
     a resumed transcript shows the model its own arguments with secrets
     masked; the executed effect already happened and is unaffected.
     """
-    from ..discord.tool_loop_helpers import _scrub_tool_input_for_storage
+    from ..storage_redaction import _scrub_tool_input_for_storage
 
     tool_input = without_replay(tool_input)
     if isinstance(tool_input, dict):
@@ -379,7 +379,7 @@ def trajectory_from_payload(data: dict):
         user_id=data.get("user_id", ""),
         user_name=data.get("user_name", ""),
         timestamp=data.get("timestamp", ""),
-        source=data.get("source", "discord"),
+        source=data.get("source", "desktop"),
         user_content=data.get("user_content", ""),
         system_prompt=data.get("system_prompt", ""),
         history=list(data.get("history") or []),

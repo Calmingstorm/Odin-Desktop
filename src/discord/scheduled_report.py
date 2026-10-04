@@ -1,9 +1,10 @@
-"""Generic structured Discord reports for scheduled checks.
+"""Generic structured report projections for scheduled checks.
 
 A scheduled check owns command execution. A registered renderer owns validation
 and presentation. :class:`ScheduledReportPaginationService` owns only durable,
-message-local pagination state and redraws; reaction refresh never executes the
-producer again.
+report-local pagination state and redraws; navigation never executes the producer
+again. Durable conversation publication and authenticated controls are Phase 2
+gates. This store is not a delivery sink or a schedule execution journal.
 """
 
 from __future__ import annotations
@@ -11,26 +12,19 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import re
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import quote, urlsplit
 
-import discord
-
 from ..odin_log import get_logger
 from .response_guards import scrub_response_secrets
 
-log = get_logger("discord")
+log = get_logger("scheduled_report")
 
 PAGINATED_EMBED_V1 = "paginated_embed_v1"
-REPORT_REACTIONS = ("⬅️", "➡️", "🔄")
-LEFT_REACTIONS = frozenset({"⬅", "⬅️", "◀", "◀️"})
-RIGHT_REACTIONS = frozenset({"➡", "➡️", "▶", "▶️"})
-REFRESH_REACTIONS = frozenset({"🔄"})
-CONTROL_REACTIONS = LEFT_REACTIONS | RIGHT_REACTIONS | REFRESH_REACTIONS
+REPORT_CONTROLS = frozenset({"previous", "next", "refresh"})
 
 MAX_PAGES = 10
 MAX_FIELDS_PER_PAGE = 25
@@ -71,7 +65,7 @@ class ScheduledReportRenderer(Protocol):
 
     def project(self, payload: Any) -> dict[str, Any]: ...
 
-    def render_page(self, projection: Mapping[str, Any], page: int) -> discord.Embed: ...
+    def render_page(self, projection: Mapping[str, Any], page: int) -> dict[str, Any]: ...
 
     def validate_projection(self, projection: Any) -> dict[str, Any]: ...
 
@@ -111,7 +105,7 @@ class ScheduledReportRendererRegistry:
 
     def render_page(
         self, report_format: str, projection: Mapping[str, Any], page: int
-    ) -> discord.Embed:
+    ) -> dict[str, Any]:
         return self.renderer(report_format).render_page(projection, page)
 
 
@@ -133,17 +127,13 @@ def _rendered_text(
     rendered = value.strip()
     if required and not rendered:
         raise ValueError(f"{context} must be a non-empty string")
-    # Scrub only the individual strings that can reach Discord. JSON structure
+    # Scrub only the individual strings that can reach presentation. JSON structure
     # has already been parsed, so redaction cannot damage syntax or types.
     rendered = scrub_response_secrets(rendered)
     if any((ord(char) < 32 and char not in {"\n", "\t"}) or ord(char) == 127 for char in rendered):
         raise ValueError(f"{context} contains control characters")
-    rendered = discord.utils.escape_mentions(rendered)
-    rendered = discord.utils.escape_markdown(rendered)
-    # Discord Markdown still recognizes URL syntax after escape_markdown;
-    # neutralize delimiters so only the structured links array can create
-    # clickable links.
-    rendered = re.sub(r"(?<!\\)([\[\]()<>])", r"\\\1", rendered)
+    # These are text fields, not markup. Phase 2 must render them as inert text;
+    # only the separately validated links array supplies clickable links.
     if len(rendered) > limit:
         raise ValueError(f"{context} exceeds {limit} characters after rendering")
     if required and not rendered:
@@ -172,7 +162,7 @@ def _safe_link_url(value: Any, *, context: str, scrub: bool = True) -> str:
         raise ValueError(f"{context} must not contain credentials")
     if port is not None and not 1 <= port <= 65535:
         raise ValueError(f"{context} has an invalid port")
-    # Parentheses and angle brackets can break Discord's Markdown link target.
+    # Parentheses and angle brackets can break a presentation link target.
     # Keep RFC 3986 delimiters and percent-encode presentation delimiters.
     return quote(url, safe=":/?#[]@!$&'*+,;=%-._~")
 
@@ -375,45 +365,32 @@ class PaginatedEmbedV1Renderer:
                 raise ValueError(f"{context} exceeds the {MAX_EMBED_CHARS}-character embed limit")
         return projection
 
-    def render_page(self, projection: Mapping[str, Any], page: int) -> discord.Embed:
+    def render_page(self, projection: Mapping[str, Any], page: int) -> dict[str, Any]:
         normalized = self.validate_projection(projection)
         pages = normalized["pages"]
         index = page % len(pages)
         data = pages[index]
-        embed = discord.Embed(
-            title=data["title"],
-            description=data["description"] or None,
-        )
-        for field in data["fields"]:
-            embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
-        if data["links"]:
-            embed.add_field(
-                name="Links",
-                value="\n".join(f"[{link['label']}]({link['url']})" for link in data["links"]),
-                inline=False,
-            )
-        embed.set_footer(text=_footer_text(data, index, len(pages)))
-        return embed
+        rendered = json.loads(json.dumps(data))
+        rendered["footer"] = _footer_text(data, index, len(pages))
+        return rendered
 
 
 class ScheduledReportPaginationService:
-    """Persist normalized projections and redraw report pages by reaction."""
+    """Persist normalized projections; controls never dispatch producer work."""
 
     def __init__(
         self,
         *,
         registry: ScheduledReportRendererRegistry,
         data_path: Path,
-        get_channel: Callable[[int], discord.abc.Messageable | None],
         max_reports: int = 100,
     ) -> None:
         if not data_path.is_absolute():
             raise ValueError("scheduled report state path must be absolute")
         self._registry = registry
         self._data_path = data_path
-        self._get_channel = get_channel
         self._max_reports = max_reports
-        self._reports: dict[int, dict[str, Any]] = {}
+        self._reports: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
         self._load()
 
@@ -429,7 +406,7 @@ class ScheduledReportPaginationService:
             if not isinstance(records, list):
                 raise ValueError("state root must be an array")
             now = datetime.now(UTC)
-            loaded: dict[int, dict[str, Any]] = {}
+            loaded: dict[str, dict[str, Any]] = {}
             for record in records:
                 if not isinstance(record, dict):
                     continue
@@ -438,11 +415,16 @@ class ScheduledReportPaginationService:
                     created = created.replace(tzinfo=UTC)
                 if (now - created).total_seconds() > MAX_REPORT_AGE_SECONDS:
                     continue
-                message_id = int(record["message_id"])
+                report_id = record["report_id"]
+                conversation_id = record["conversation_id"]
+                if not isinstance(report_id, str) or not report_id:
+                    raise ValueError("stored report_id must be a non-empty string")
+                if not isinstance(conversation_id, str) or not conversation_id:
+                    raise ValueError("stored conversation_id must be a non-empty string")
                 report_format = str(record["format"])
                 projection = self._registry.validate_projection(report_format, record["projection"])
-                loaded[message_id] = {
-                    "channel_id": int(record["channel_id"]),
+                loaded[report_id] = {
+                    "conversation_id": conversation_id,
                     "format": report_format,
                     "projection": projection,
                     "page": int(record.get("page", 0)) % len(projection["pages"]),
@@ -458,14 +440,14 @@ class ScheduledReportPaginationService:
         self._data_path.parent.mkdir(parents=True, exist_ok=True)
         records = [
             {
-                "message_id": message_id,
-                "channel_id": state["channel_id"],
+                "report_id": report_id,
+                "conversation_id": state["conversation_id"],
                 "format": state["format"],
                 "projection": state["projection"],
                 "page": state["page"],
                 "created_at": state["created_at"].isoformat(),
             }
-            for message_id, state in self._reports.items()
+            for report_id, state in self._reports.items()
         ]
         temp = self._data_path.with_suffix(self._data_path.suffix + ".tmp")
         with open(temp, "w") as handle:
@@ -493,96 +475,85 @@ class ScheduledReportPaginationService:
     def _prune_in_memory(self) -> bool:
         now = datetime.now(UTC)
         stale = [
-            message_id
-            for message_id, state in self._reports.items()
+            report_id
+            for report_id, state in self._reports.items()
             if (now - state["created_at"]).total_seconds() > MAX_REPORT_AGE_SECONDS
         ]
-        for message_id in stale:
-            self._reports.pop(message_id, None)
+        for report_id in stale:
+            self._reports.pop(report_id, None)
         trimmed = False
         while len(self._reports) > self._max_reports:
             self._reports.pop(next(iter(self._reports)))
             trimmed = True
         return bool(stale) or trimmed
 
-    def handles(self, message_id: int, emoji: Any) -> bool:
-        # Let handle_reaction perform age pruning under the service lock. A
-        # stale managed message is still ours for this one event; returning
-        # false here would bypass cleanup and leave it persisted indefinitely.
-        return message_id in self._reports and str(emoji) in CONTROL_REACTIONS
+    async def post(self, conversation_id: str, report_format: str, raw_output: str) -> None:
+        """Publication waits for authorized durable delivery in Phase 2.
 
-    async def post(
-        self,
-        channel: discord.abc.Messageable,
-        report_format: str,
-        raw_output: str,
-    ) -> discord.Message:
+        Never executes a producer. A failed publication must recover from the
+        stored projection, not repeat the scheduled check.
+        """
+        raise NotImplementedError(
+            "Scheduled report conversation publication is unavailable until Phase 2."
+        )
+
+    async def store_projection(
+        self, report_id: str, conversation_id: str, report_format: str, raw_output: str
+    ) -> dict[str, Any]:
+        """Internal store API for already-produced output, not a delivery receipt.
+
+        Phase 2 must supply core-owned IDs and bind admission before publication.
+        """
+        if not isinstance(report_id, str) or not report_id:
+            raise ValueError("report_id must be a non-empty string")
+        if not isinstance(conversation_id, str) or not conversation_id:
+            raise ValueError("conversation_id must be a non-empty string")
         projection = self._registry.project(report_format, raw_output)
-        embed = self._registry.render_page(report_format, projection, 0)
-        message = await channel.send(embed=embed)
         async with self._lock:
-            self._reports[message.id] = {
-                "channel_id": int(getattr(channel, "id", 0)),
+            if report_id in self._reports:
+                raise ValueError("report_id already exists; do not replay the producer")
+            previous = dict(self._reports)
+            self._reports[report_id] = {
+                "conversation_id": conversation_id,
                 "format": report_format,
                 "projection": projection,
                 "page": 0,
                 "created_at": datetime.now(UTC),
             }
             self._prune_in_memory()
-            self._save_best_effort(context="posting")
-        for emoji in REPORT_REACTIONS:
             try:
-                await message.add_reaction(emoji)
-            except (discord.Forbidden, discord.HTTPException):
-                log.warning(
-                    "Could not add scheduled-report reaction %s to message %s",
-                    emoji,
-                    message.id,
-                )
-        return message
+                self._save()
+            except OSError:
+                self._reports = previous
+                raise
+        return self._registry.render_page(report_format, projection, 0)
 
-    async def handle_reaction(self, payload: discord.RawReactionActionEvent) -> bool:
-        """Redraw from persisted projection only; refresh never reruns a check."""
-        emoji = str(payload.emoji)
-        if emoji not in CONTROL_REACTIONS:
-            return False
+    async def project_page(
+        self, report_id: str, conversation_id: str, control: str = "refresh"
+    ) -> dict[str, Any] | None:
+        """Internal projection navigation; no check execution or publication.
+
+        Phase 2 must bind authenticated conversation/revision authority before
+        exposing this operation. Destination equality alone is not authority.
+        """
+        if control not in REPORT_CONTROLS:
+            raise ValueError("unsupported report control")
         async with self._lock:
             changed = self._prune_in_memory()
-            state = self._reports.get(payload.message_id)
+            state = self._reports.get(report_id)
+            if changed:
+                self._save_best_effort(context="state pruning")
             if state is None:
-                if changed:
-                    self._save_best_effort(context="state pruning")
-                return False
-            page_count = len(state["projection"]["pages"])
-            current = int(state["page"]) % page_count
-            if emoji in LEFT_REACTIONS:
-                current = (current - 1) % page_count
-            elif emoji in RIGHT_REACTIONS:
-                current = (current + 1) % page_count
-            # REFRESH_REACTIONS intentionally leave current unchanged. The only
-            # side effect below is fetching/editing the existing message.
-            embed = self._registry.render_page(state["format"], state["projection"], current)
-            channel = self._get_channel(payload.channel_id)
-            if channel is None:
-                return False
-            try:
-                message = await channel.fetch_message(payload.message_id)  # type: ignore[attr-defined]
-                await message.edit(embed=embed)
-                state["page"] = current
-                self._save_best_effort(context="page redraw")
-                try:
-                    await message.remove_reaction(payload.emoji, discord.Object(id=payload.user_id))
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
-            except discord.NotFound:
-                self._reports.pop(payload.message_id, None)
-                self._save_best_effort(context="message removal")
-                return False
-            except (discord.Forbidden, discord.HTTPException, AttributeError) as exc:
-                log.warning(
-                    "Could not redraw scheduled report message %s; retaining state: %s",
-                    payload.message_id,
-                    exc,
-                )
-                return False
-            return True
+                return None
+            if state["conversation_id"] != conversation_id:
+                raise PermissionError("report belongs to a different conversation")
+            count = len(state["projection"]["pages"])
+            current = int(state["page"]) % count
+            if control == "previous":
+                current = (current - 1) % count
+            elif control == "next":
+                current = (current + 1) % count
+            rendered = self._registry.render_page(state["format"], state["projection"], current)
+            state["page"] = current
+            self._save_best_effort(context="page projection")
+            return rendered

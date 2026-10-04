@@ -1,4 +1,4 @@
-"""The single Discord-native tool dispatch table (RFC-001 Phase 5a).
+"""The single conversation-native tool dispatch table (RFC-001 Phase 5a).
 
 Replaces BOTH hand-synced if/elif chains (the chat loop's inline dispatch
 and ``_dispatch_loop_tool_inner``) with one registry, so a dispatch or
@@ -20,8 +20,8 @@ Behavioral contract (pinned by the P0 characterization suite):
   caller decides how to rebuild (the chat loop rebuilds inline via the
   bot; the autonomous loop keeps its own rebuild policy until P8).
 - Skill file delivery differs by pipeline and is a dispatch-time policy:
-  ``skill_file_delivery="send"`` posts files to the channel immediately
-  (chat behavior); ``"stage"`` appends to the per-channel pending-files
+  ``skill_file_delivery="send"`` posts files to the conversation immediately
+  (chat behavior); ``"stage"`` appends to the per-conversation pending-files
   queue (autonomous-loop behavior). ``export_skill`` always stages, in
   both pipelines — that matches the old code.
 - Executor-routed tools (run_command etc.) are NOT handled here —
@@ -92,7 +92,6 @@ class NativeToolDispatcher:
             skill_manager=skill_manager,
             tool_catalog=tool_catalog,
             prompt_builder=prompt_builder,
-            channel_state=channel_state,
         )
         self._handlers: dict[str, tuple[str, str, Shape]] = {}
 
@@ -143,7 +142,7 @@ class NativeToolDispatcher:
         denied = not tool_scope_allows(tool_name)
         owner = cast("ComputerIntegration | None", self.owners.get("computer"))
         computer_tool = owner is not None and owner.reserves_tool(tool_name)
-        channel_id = getattr(getattr(message, "channel", None), "id", None)
+        channel_id = getattr(message, "conversation_id", None)
         if computer_tool and channel_id is None:
             denied = True
         if computer_tool:
@@ -168,11 +167,11 @@ class NativeToolDispatcher:
             elif shape == "msg_only":
                 result = handler(message)
             elif shape == "author_input":
-                result = handler(tool_input, str(message.author))
+                result = handler(tool_input, message.owner_id)
             elif shape == "user_input":
                 result = handler(user_id, tool_input)
             elif shape == "scoped_input":
-                result = handler(tool_input, user_id=user_id, channel_id=str(message.channel.id))
+                result = handler(tool_input, user_id=user_id, channel_id=message.conversation_id)
             else:  # pragma: no cover — registration-time invariant
                 raise RuntimeError(f"unknown shape {shape!r} for {tool_name}")
             if asyncio.iscoroutine(result):
@@ -202,16 +201,13 @@ def register_native_handlers(dispatcher: NativeToolDispatcher) -> None:
     """
     d = dispatcher
     # message + input
-    d.register("purge_messages", "channel_ops", "_handle_purge", "msg_input")
     d.register("browser_screenshot", "media", "_handle_browser_screenshot", "msg_input")
     d.register("generate_file", "media", "_handle_generate_file", "msg_input")
     d.register("post_file", "media", "_handle_post_file", "msg_input")
     d.register("schedule_task", "scheduling", "_handle_schedule_task", "msg_input")
     d.register("delegate_task", "agents", "_handle_delegate_task", "msg_input")
     d.register("start_loop", "agents", "_handle_start_loop", "msg_input")
-    d.register("read_channel", "channel_ops", "_handle_read_channel", "msg_input")
-    d.register("add_reaction", "channel_ops", "_handle_add_reaction", "msg_input")
-    d.register("create_poll", "channel_ops", "_handle_create_poll", "msg_input")
+    d.register("read_conversation", "channel_ops", "_handle_read_conversation", "msg_input")
     d.register("analyze_image", "media", "_handle_analyze_image", "msg_input")
     d.register("generate_image", "media", "_handle_generate_image", "msg_input")
     d.register("spawn_agent", "agents", "_handle_spawn_agent", "msg_input")
@@ -238,7 +234,6 @@ def register_native_handlers(dispatcher: NativeToolDispatcher) -> None:
     d.register("list_agents", "agents", "_handle_list_agents", "msg_only")
     d.register("ingest_document", "knowledge", "_handle_ingest_document", "author_input")
     d.register("bulk_ingest_knowledge", "knowledge", "_handle_bulk_ingest", "author_input")
-    d.register("set_permission", "channel_ops", "_handle_set_permission", "user_input")
     register_computer_handlers(d)
 
 

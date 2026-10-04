@@ -18,8 +18,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-import discord
-
 from ...agents.manager import AGENT_BLOCKED_TOOLS, filter_agent_tools
 from ...async_utils import fire_and_forget
 from ...config.model_defaults import DEFAULT_AGENT_MODEL
@@ -36,7 +34,6 @@ from ..background_task import (
     create_task_id,
     run_background_task,
 )
-from ..tool_loop import _LoopMessageProxy
 
 if TYPE_CHECKING:
     from ...agents.manager import AgentManager
@@ -755,8 +752,9 @@ class AgentTaskTools:
 
     # --- Background task delegation ---
 
-    async def _handle_delegate_task(self, message: discord.Message, inp: dict) -> str:
+    async def _handle_delegate_task(self, message: object, inp: dict) -> str:
         """Create and start a background task."""
+        raise RuntimeError("Phase 2 background request admission and delivery is not implemented.")
         # RequestToolAdapter validates Codex payloads before dispatch. Legacy
         # providers supply canonical objects directly and retain their existing
         # permissive delegation contract, including deferred execution checks.
@@ -792,7 +790,7 @@ class AgentTaskTools:
         if nested_validated:
             for i, step in enumerate(steps, 1):
                 denied = self._tool_executor.check_permission(
-                    step["tool_name"], str(message.author.id)
+                    step["tool_name"], message.owner_id
                 )
                 if isinstance(denied, str) and denied:
                     return f"Step {i}: {denied}"
@@ -800,7 +798,7 @@ class AgentTaskTools:
                     target = (step.get("tool_input") or {}).get("name")
                     if not isinstance(target, str) or not target:
                         return f"Step {i}: invoke_skill requires a selected skill name"
-                    denied = self._tool_executor.check_permission(target, str(message.author.id))
+                    denied = self._tool_executor.check_permission(target, message.owner_id)
                     if isinstance(denied, str) and denied:
                         return f"Step {i}: {denied}"
 
@@ -808,9 +806,9 @@ class AgentTaskTools:
             task_id=create_task_id(),
             description=description,
             steps=steps,
-            channel=message.channel,
-            requester=str(message.author),
-            requester_id=str(message.author.id),
+            conversation_id=message.conversation_id,
+            requester=message.owner_id,
+            requester_id=message.owner_id,
             nested_payload_validated=nested_validated,
         )
 
@@ -884,25 +882,20 @@ class AgentTaskTools:
 
         return (
             f"Background task started (ID: `{task.task_id}`): **{description}** "
-            f"({len(steps)} steps). Progress will be posted to this channel."
+            f"({len(steps)} steps). Progress will be posted to this conversation."
         )
 
     def _handle_list_tasks(
         self, inp: dict | None = None, *, user_id: str = "", channel_id: str = ""
     ) -> str:
         """List background tasks, or get detailed results for a specific task."""
-        permissions = self._tool_executor._permission_manager
-        admin = (
-            bool(user_id) and permissions is not None and permissions.get_tier(user_id) == "admin"
-        )
         tasks = {
             tid: task
             for tid, task in self._channel_state.background_tasks.items()
-            if admin
-            or (
+            if (
                 bool(user_id)
                 and task.requester_id == user_id
-                and str(getattr(task.channel, "id", "")) == channel_id
+                and task.conversation_id == channel_id
             )
         }
 
@@ -966,8 +959,9 @@ class AgentTaskTools:
             return f"Task `{task_id}` is not running (status: {task.status})."
         return f"Task `{task_id}` cancelled."
 
-    def _handle_start_loop(self, message: discord.Message, inp: dict) -> str:
+    def _handle_start_loop(self, message: object, inp: dict) -> str:
         """Start an autonomous loop."""
+        raise RuntimeError("Phase 2 autonomous request admission and delivery is not implemented.")
         goal = inp.get("goal", "")
         if not goal:
             return "A 'goal' is required to start a loop."
@@ -988,15 +982,15 @@ class AgentTaskTools:
                 prompt,
                 channel,
                 prev_context,
-                str(message.author.id),
+                message.owner_id,
                 cancel_event=cancel_event,
             )
 
         result = self._loop_manager.start_loop(
             goal=goal,
-            channel=message.channel,
-            requester_id=str(message.author.id),
-            requester_name=str(message.author),
+            channel=message.surface,
+            requester_id=message.owner_id,
+            requester_name=message.owner_id,
             iteration_callback=_iteration_cb,
             interval_seconds=interval,
             mode=mode,
@@ -1017,8 +1011,8 @@ class AgentTaskTools:
                     "interval_seconds": interval,
                     "mode": mode,
                     "max_iterations": max_iterations,
-                    "channel_id": str(getattr(message.channel, "id", "")),
-                    "requester_id": str(message.author.id),
+                    "channel_id": message.conversation_id,
+                    "requester_id": message.owner_id,
                 },
             ),
             name="lifecycle:loop.started",
@@ -1136,6 +1130,9 @@ class AgentTaskTools:
         captures the agent's own id, so if the child itself calls spawn_agent
         the grandchild is correctly nested.
         """
+        raise RuntimeError(
+            "Phase 2 agent request admission and invocation context is not implemented."
+        )
         from ..scheduled_context import consume_scheduled_dispatch
 
         scheduled = consume_scheduled_dispatch()
@@ -1401,7 +1398,8 @@ class AgentTaskTools:
                 ),
             }
 
-        msg_proxy = _LoopMessageProxy(channel, user_id, user_name)
+        # Phase 2 must supply a real invocation context; never synthesize one.
+        raise RuntimeError("Phase 2 agent invocation context is not implemented.")
 
         # Mutable container so the callback can learn its own agent_id
         # AFTER agent_manager.spawn() returns and use it as parent_id when
@@ -1426,7 +1424,7 @@ class AgentTaskTools:
             result = await self._tool_loop.dispatch_loop_tool(
                 tool_name,
                 tool_input,
-                msg_proxy,
+                message,
                 user_id,
             )
             if isinstance(result, ToolResult):
@@ -1632,9 +1630,6 @@ class AgentTaskTools:
         return result
 
     def _can_read_agent_result(self, result: dict, user_id: str, channel_id: str) -> bool:
-        permissions = self._tool_executor._permission_manager
-        if user_id and permissions is not None and permissions.get_tier(user_id) == "admin":
-            return True
         return (
             bool(user_id)
             and result.get("requester_id") == user_id

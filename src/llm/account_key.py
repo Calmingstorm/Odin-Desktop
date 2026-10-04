@@ -42,9 +42,11 @@ from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 
+from ..runtime_paths import runtime_profile_paths
+
 log = logging.getLogger("odin.llm")
 
-DEFAULT_KEY_PATH = Path("data") / "account_key.secret"
+DEFAULT_KEY_PATH = runtime_profile_paths().secrets_dir / "account_key.secret"
 
 _KEY_BYTES = 32
 #: Hex prefix length: 128 bits of a keyed MAC — far beyond collision concern
@@ -155,7 +157,12 @@ def _create_key(key_path: Path) -> bytes | None:
     """
     material = secrets.token_bytes(_KEY_BYTES)
     try:
-        key_path.parent.mkdir(parents=True, exist_ok=True)
+        if key_path == DEFAULT_KEY_PATH:
+            from ..desktop.paths import private_directory
+
+            private_directory(key_path.parent)
+        else:
+            key_path.parent.mkdir(parents=True, exist_ok=True)
         fd, temporary_name = tempfile.mkstemp(
             dir=key_path.parent, prefix=f".{key_path.name}.", suffix=".tmp"
         )

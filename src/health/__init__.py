@@ -1,4 +1,3 @@
-from .checker import ComponentStatus, check_all
-from .server import HealthServer
+from .checker import ComponentStatus, check_all, sync_guard_from_health
 
-__all__ = ["ComponentStatus", "HealthServer", "check_all"]
+__all__ = ["ComponentStatus", "check_all", "sync_guard_from_health"]

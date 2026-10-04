@@ -6,7 +6,6 @@ import importlib.util
 import json
 import os
 import re
-import subprocess
 import sys
 import tempfile
 import threading
@@ -18,7 +17,7 @@ from datetime import datetime
 from enum import StrEnum
 from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jsonschema.validators import validator_for
 from packaging.requirements import InvalidRequirement, Requirement
@@ -26,9 +25,12 @@ from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion
 
 from ..odin_log import get_logger
-from .executor import ToolExecutor
+from ..desktop.paths import private_directory
 from .registry import TOOLS
 from .skill_context import ResourceTracker, SkillContext
+
+if TYPE_CHECKING:
+    from .executor import ToolExecutor
 
 log = get_logger("skills")
 
@@ -91,7 +93,7 @@ _URL_DOWNLOAD_TIMEOUT = 30  # seconds
 _ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
 
 # Modules/builtins a URL-sourced skill must not use. Local create_skill is
-# trusted (admin-authored) and stays unrestricted; install_skill fetches code
+# trusted (owner-authored) and stays unrestricted; install_skill fetches code
 # from a prompt-influenceable URL, so URL installs get this AST denylist as
 # defense-in-depth against injected-instruction RCE.
 _URL_SKILL_DENIED_IMPORTS = frozenset(
@@ -208,7 +210,7 @@ def is_safe_dependency_spec(spec: str) -> bool:
 
     A PEP 508 direct reference (``pkg @ https://attacker/x.tar.gz``), a VCS URL
     (``git+https://...``), a bare URL, or a local path all make pip build an
-    sdist and execute the attacker's setup.py as the bot user. Only allow
+    sdist and execute the attacker's setup.py as the runtime user. Only allow
     ``name[extras]<version-specifier>`` from a package index.
     """
     s = spec.strip()
@@ -267,21 +269,13 @@ def _is_package_installed(spec: str, _seen: set[str] | None = None) -> bool:
 
 
 def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> tuple[bool, str]:
-    """Install pip packages. Returns ``(success, output)``."""
-    try:
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check"]
-            + specs,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-        output = (result.stdout + result.stderr).strip()
-        return result.returncode == 0, output
-    except subprocess.TimeoutExpired:
-        return False, f"pip install timed out after {timeout}s"
-    except Exception as e:
-        return False, str(e)
+    """Never install skill dependencies into the desktop app interpreter.
+
+    An approved isolated dependency environment and explicit dependency
+    consent are not wired in Phase 1. Inspection of existing distributions
+    remains available, but missing packages fail closed.
+    """
+    return False, "Approved isolated skill dependency installation is unavailable in Phase 1."
 
 
 def _extract_dependencies_from_source(source: str) -> list[str]:
@@ -640,14 +634,19 @@ class SkillManager:
         tool_executor: ToolExecutor,
         memory_path: str | None = None,
         tool_timeouts: dict[str, int] | None = None,
+        *,
+        allowed_urls: tuple[str, ...] = (),
     ) -> None:
         self.skills_dir = Path(skills_dir)
-        self.skills_dir.mkdir(parents=True, exist_ok=True)
+        if not self.skills_dir.is_absolute() or ".." in self.skills_dir.parts:
+            raise ValueError("skill directory must be an absolute profile path")
+        private_directory(self.skills_dir)
         self._config_dir = self.skills_dir / "config"
-        self._config_dir.mkdir(parents=True, exist_ok=True)
+        private_directory(self._config_dir)
         self._disabled_path = self.skills_dir / ".disabled.json"
         self._executor = tool_executor
         self._tool_timeouts = tool_timeouts or {}
+        self._allowed_urls = tuple(url.rstrip("/") for url in allowed_urls)
         # Derive a separate skill memory file to avoid corrupting the
         # executor's scoped memory structure (global/user_* namespaces).
         if memory_path:
@@ -742,6 +741,9 @@ class SkillManager:
             for d in dep_diagnostics:
                 lvl = log.warning if d.level == "warn" else log.error
                 lvl("Skill %s deps: %s", path.name, d.message)
+            if any(d.level == "error" for d in dep_diagnostics):
+                self.definition_errors[path.name] = "DependencyError: skill dependencies unavailable"
+                return None
 
         try:
             spec = importlib.util.spec_from_file_location(module_name, path)
@@ -919,7 +921,7 @@ class SkillManager:
         return f"Skill '{name}' deleted."
 
     def delete_failed_skill(self, name: str) -> str:
-        """WebUI-only removal of a recorded failed module, never a loaded skill.
+        """Owner-control removal of a recorded failed module, never a loaded skill.
 
         Resolve by the recorded filename, not a user-supplied filesystem path.
         Keep the diagnostic if unlink fails so the operator can retry.
@@ -1241,7 +1243,11 @@ class SkillManager:
         file_callback: Callable | None = None,
         requester_id: str | None = None,
     ) -> str:
-        """Execute a user-created skill with timeout and sandboxing."""
+        """Execute trusted in-process Python with scoped admission and timeout.
+
+        This is not a Python sandbox. Phase 2 authoring intake must obtain
+        explicit trusted-code consent before importing owner-provided modules.
+        """
         from .execution_outcome import DispatchEvidence, ToolFailure, dispatch_evidence
         from .output_authorization import tool_scope_allows
 
@@ -1249,10 +1255,11 @@ class SkillManager:
         # This boundary also covers legacy/background and direct manager calls.
         if not tool_scope_allows(tool_name):
             return ToolFailure("Permission denied: selected skill scope revoked or unavailable.")
-        if isinstance(self._executor, ToolExecutor):
-            denial = self._executor.check_permission(tool_name, requester_id)
-            if denial:
-                return ToolFailure(denial)
+        # Intake must authenticate the owner before this call. An executor
+        # without the public admission boundary is not a privileged shortcut.
+        denial = self._executor.check_permission(tool_name, requester_id)
+        if denial:
+            return ToolFailure(denial)
         skill = self._skills.get(tool_name)
         if not skill:
             return ToolFailure(f"Skill '{tool_name}' not found.")
@@ -1279,6 +1286,7 @@ class SkillManager:
             resource_tracker=tracker,
             skill_memory_lock=self._skill_memory_lock,
             requester_id=requester_id,
+            allowed_urls=self._allowed_urls,
         )
 
         start = time.monotonic()

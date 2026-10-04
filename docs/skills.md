@@ -66,12 +66,12 @@ The `context` parameter passed to `execute()` provides:
 - `search_history(query, limit=10)` → `list[dict]` — Search conversation history
 
 ### Scheduling
-- `schedule_task(description, action, channel_id, **kwargs)` → `dict`
+- `schedule_task(description, action, conversation_id, **kwargs)` → `dict`
 - `list_schedules()` → `list[dict]`
 - `update_schedule(id, **kwargs)` / `delete_schedule(id)`
 
-### Discord
-- `post_message(text)` — Send to invoking channel
+### Conversation delivery
+- `post_message(text)` — Send to invoking conversation
 - `post_file(data, filename, caption="")` — Post file attachment
 
 ### Utility
@@ -141,4 +141,4 @@ SKILL_DEFINITION = {
 }
 ```
 
-Access via `context.get_config("timeout_seconds", 10)`. Set via web UI or `skill_status` API.
+Access via `context.get_config("timeout_seconds", 10)`. Desktop settings and delivery wiring are Phase 2 work; `skill_status` remains the tool-side inspection contract.

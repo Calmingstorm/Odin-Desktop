@@ -125,7 +125,7 @@ class LoopManager:
     def start_loop(
         self,
         goal: str,
-        channel: Any,  # discord.abc.Messageable
+        channel: Any,
         requester_id: str,
         requester_name: str,
         iteration_callback: LoopIterationCallback,
@@ -135,6 +135,16 @@ class LoopManager:
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
     ) -> str:
         """Start a new autonomous loop. Returns the loop ID or an error string."""
+        # Phase 1 copies the manager's cancellation/settlement behavior, but
+        # does not wire durable admission or an authorized conversation sink.
+        # A send-shaped object is not that consumer. Never start a task early.
+        return (
+            "Error: Autonomous loops unavailable: Phase 2 durable admission "
+            "and conversation delivery are not configured. No loop was started."
+        )
+
+        # The original admission algorithm is retained below for the reviewed
+        # Phase 2 port. It is intentionally unreachable, not an opt-in shim.
         if self.active_count >= MAX_CONCURRENT_LOOPS:
             return (
                 f"Error: Maximum concurrent loops ({MAX_CONCURRENT_LOOPS}) reached. "
@@ -595,13 +605,9 @@ class LoopManager:
                 )
                 return
 
-        # Post to channel (truncate for Discord limit)
-        try:
-            text = response
-            if len(text) > 2000:
-                from ..discord.delivery import close_open_fence
-
-                text = close_open_fence(text[:1950]) + "\n... (truncated)"
-            await channel.send(text)
-        except Exception as e:
-            log.warning("Loop %s: failed to post response: %s", info.id, e)
+        # Native/durable conversation publication needs an actual neutral
+        # consumer. Do not emulate the removed transport or claim success.
+        raise RuntimeError(
+            "Autonomous loop conversation delivery unavailable. "
+            "Do not replay the iteration."
+        )

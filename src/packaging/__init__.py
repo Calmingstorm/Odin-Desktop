@@ -1,1 +1,1 @@
-"""Packaging utilities for Odin — systemd service and .deb helpers."""
+"""Desktop packaging namespace; bundle validation is deferred to Phase 2."""

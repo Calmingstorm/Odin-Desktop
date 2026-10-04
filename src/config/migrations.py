@@ -36,6 +36,18 @@ from .schema import LEGACY_MAX_CONTEXT_CHARS
 
 log = logging.getLogger("odin.config")
 
+
+def _require_desktop_config(config_path: str | Path) -> None:
+    """Migration writes belong only to an established desktop profile."""
+    from ..desktop.authority import OwnerAuthority
+    from ..runtime_paths import runtime_profile_paths
+    paths = runtime_profile_paths()
+    if Path(config_path).absolute() != paths.config_file:
+        raise MigrationCompletionError("configuration is outside the selected desktop profile")
+    authority = OwnerAuthority(paths)
+    if authority.durability_degraded:
+        raise MigrationCompletionError("profile identity durability unproven")
+
 LEGACY_CEILING_MARKER_NAME = "context_ceiling_migration.json"
 
 _CEILING_PATH = ("openai_codex", "context_compression", "max_context_chars")
@@ -91,15 +103,16 @@ def _config_identity(config_path: str | Path) -> str:
 
 def ceiling_marker_path(config_path: str | Path) -> Path:
     """Return this config identity's marker in the unresolved data anchor."""
-    launch = Path(config_path).absolute()
-    return launch.parent / "data" / "config_migrations" / (
+    from ..runtime_paths import runtime_profile_paths
+    return runtime_profile_paths().data_dir / "config_migrations" / (
         f"{_MIGRATION_ID}.{_config_identity(config_path)}.json"
     )
 
 
 def _legacy_ceiling_marker_path(config_path: str | Path) -> Path:
     """The pre-identity directory-wide marker, retained only for upgrade."""
-    return Path(config_path).absolute().parent / "data" / LEGACY_CEILING_MARKER_NAME
+    from ..runtime_paths import runtime_profile_paths
+    return runtime_profile_paths().data_dir / LEGACY_CEILING_MARKER_NAME
 
 
 def _shared_ceiling_marker_path(config_path: str | Path) -> Path:
@@ -109,8 +122,8 @@ def _shared_ceiling_marker_path(config_path: str | Path) -> Path:
     identity-bound record is what lets aliases in different launch directories
     observe one completed migration.
     """
-    target = Path(config_path).resolve()
-    return target.parent / ".odin-data" / "config_migrations" / (
+    from ..runtime_paths import runtime_profile_paths
+    return runtime_profile_paths().data_dir / "config_migrations" / (
         f"{_MIGRATION_ID}.{_config_identity(config_path)}.json"
     )
 
@@ -474,6 +487,7 @@ def apply_compatible_timeout_migration(
     while the total is widened to 3600 seconds. The rewrite is leaf-scoped and
     atomic, preserving comments, placeholders, permissions and unrelated keys.
     """
+    _require_desktop_config(config_path)
     compatible = data.get("openai_compatible")
     if not isinstance(compatible, dict) or "timeout" not in compatible:
         return
@@ -533,6 +547,7 @@ def apply_compatible_timeout_migration(
 
 def apply_legacy_ceiling_migration(data: dict, config_path: str | Path, original_raw: str) -> None:
     """Apply the identity-bound one-time legacy-ceiling migration."""
+    _require_desktop_config(config_path)
     config_id = _config_identity(config_path)
     marker = ceiling_marker_path(config_path)
     shared_marker = _shared_ceiling_marker_path(config_path)
@@ -715,9 +730,9 @@ def apply_legacy_ceiling_migration(data: dict, config_path: str | Path, original
 
 def image_defaults_marker_path(config_path: str | Path) -> Path:
     """Canonical identity rendezvous, shared by every symlink launch alias."""
-    target = Path(config_path).resolve()
-    return target.parent / ".odin-data" / "config_migrations" / (
-        f"image_model_defaults_v1.{_config_identity(target)}.json"
+    from ..runtime_paths import runtime_profile_paths
+    return runtime_profile_paths().data_dir / "config_migrations" / (
+        f"image_model_defaults_v1.{_config_identity(config_path)}.json"
     )
 
 
@@ -729,6 +744,7 @@ def apply_image_defaults_migration(data: dict, config_path: str | Path, original
     Prepared records fence interrupted commits; an ambiguous preimage requires
     inspection, never a blind second rewrite of a possible later operator pin.
     """
+    _require_desktop_config(config_path)
     from .image_defaults import IMAGE_MODEL_DEFAULTS, LEGACY_IMAGE_MODEL_DEFAULTS
     from .persistence import _assert_not_shared, _config_file_lock, _dump_atomic, _load_document
     from .schema import _substitute_env_vars

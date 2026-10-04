@@ -1,8 +1,9 @@
-"""Private, atomic publication for policy/token files and setup credentials."""
+"""Private atomic publication for profile policy, state and credentials."""
 from __future__ import annotations
 
 import os
-import tempfile
+import secrets
+import stat
 from pathlib import Path
 
 from ..odin_log import get_logger
@@ -17,16 +18,26 @@ def write_private_atomic(path: Path, content: str) -> bool:
     replace succeeds the candidate is committed: a directory-fsync failure is
     explicitly degraded, not a rejected mutation or a fictitious rollback.
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
-    temporary: Path | None = None
+    from ..desktop.paths import private_directory
+    private_directory(path.parent)
+    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    temporary: str | None = None
     try:
         try:
-            owner = path.stat()
+            owner = os.stat(path.name, dir_fd=directory, follow_symlinks=False)
         except FileNotFoundError:
             owner = None
-        fd, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
-        temporary = Path(name)
+        if owner is not None and (
+            not stat.S_ISREG(owner.st_mode) or owner.st_uid != os.geteuid()
+        ):
+            raise PermissionError("private state must be a regular owner-owned file")
+        temporary = f".{path.name}.{secrets.token_hex(16)}.tmp"
+        fd = os.open(
+            temporary,
+            os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=directory,
+        )
         try:
             if owner is not None:
                 current = os.fstat(fd)
@@ -40,7 +51,7 @@ def write_private_atomic(path: Path, content: str) -> bool:
         finally:
             if fd >= 0:
                 os.close(fd)
-        temporary.replace(path)
+        os.replace(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory)
         temporary = None
         try:
             os.fsync(directory)
@@ -50,5 +61,8 @@ def write_private_atomic(path: Path, content: str) -> bool:
         return True
     finally:
         if temporary is not None:
-            temporary.unlink(missing_ok=True)
+            try:
+                os.unlink(temporary, dir_fd=directory)
+            except FileNotFoundError:
+                pass
         os.close(directory)

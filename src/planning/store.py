@@ -48,9 +48,16 @@ class ExecutionPlan:
 class PlanStore:
     """Manages pending execution plans with user+channel scoping."""
 
-    def __init__(self, persist_path: str = "./data/plans.json") -> None:
-        self._path = Path(persist_path)
-        self._path.parent.mkdir(parents=True, exist_ok=True)
+    def __init__(self, persist_path: str | None = None) -> None:
+        from ..runtime_paths import runtime_profile_paths
+
+        self._path = Path(persist_path) if persist_path is not None else runtime_profile_paths().data_dir / "plans.json"
+        if persist_path is None:
+            from ..desktop.paths import private_directory
+
+            private_directory(self._path.parent)
+        else:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
         self._plans: dict[str, ExecutionPlan] = {}
         self._load()
 

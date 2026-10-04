@@ -28,7 +28,7 @@ class RequestContext:
     turn_id: str
     host_id: str
     origin: str = "foreground"
-    surface: str = "discord"
+    surface: str = "desktop"
 
     def __post_init__(self):
         for value in (self.owner_id, self.channel_id, self.turn_id, self.host_id):

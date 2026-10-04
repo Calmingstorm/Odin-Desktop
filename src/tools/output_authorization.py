@@ -55,100 +55,14 @@ def tool_scope_allows(tool):
 
 
 @contextmanager
-def web_output_scope(bot, request):
-    """Keep a live resolver, not a snapshot of a token's initial grants."""
-    header = request.headers.get("Authorization", "")
-    raw = header[7:] if header.startswith("Bearer ") else ""
-    if not raw:
-        query = getattr(request, "query", {})
-        raw = query.get("token", "")
-    if not raw:
-        yield
-        return
-    manager = getattr(bot, "api_token_manager", None)
-    sessions = getattr(request, "app", {}).get("session_manager")
-    session_managed = bool(getattr(request, "_session_managed", False))
-    source = getattr(request, "_auth_source", None)
-    if source is None and not session_managed:
-        from ..web.authentication import resolve_credential
-        _, source = resolve_credential(bot.config.web, manager, raw)
+def owner_output_scope(*args, **kwargs):
+    """No admitted conversation scope exists until Phase 2 intake is wired.
 
-    def identity():
-        from ..web.authentication import current_session_identity, resolve_credential
+    Retained host/tool resolver primitives above remain available for internal
+    evidence authorization. A conversation ID or owner-looking argument must
+    never manufacture an authentic, generation-bound delivery scope.
+    """
+    from ..desktop.errors import CapabilityUnavailable
 
-        if session_managed:
-            current = getattr(bot, "api_token_manager", None)
-            snapshot = (current.auth_snapshot()
-                        if current and hasattr(current, "auth_snapshot") else current)
-            return (current_session_identity(sessions, raw, bot.config.web, snapshot)
-                    if sessions else None)
-        current = getattr(bot, "api_token_manager", None)
-        found, current_source = resolve_credential(bot.config.web, current, raw)
-        return found if current_source == source else None
-
-    def tools():
-        current = identity()
-        if current is None:
-            return False
-        scope = current.allowed_tools or None
-        tier = getattr(current, "tier", "admin")
-        if tier not in {"admin", "user", "guest"}:
-            return False
-        if tier == "guest":
-            return set()
-        if tier == "user":
-            from ..permissions.manager import USER_TIER_TOOLS
-
-            return USER_TIER_TOOLS if scope is None else set(scope) & USER_TIER_TOOLS
-        return scope
-
-    def hosts(alias):
-        current = identity()
-        return current is not None and (
-            current.allowed_hosts is None or alias in current.allowed_hosts)
-
-    scope_token = request_scope_id.set(hashlib.sha256(raw.encode()).hexdigest())
-    tools_token = request_scope_authorizer.set(tools)
-    hosts_token = request_host_authorizer.set(hosts)
-    channel_token = request_delivery_channel.set(
-        "api-execute" if getattr(request, "path", "") == "/api/execute" else "")
-    try:
-        yield
-    finally:
-        request_delivery_channel.reset(channel_token)
-        request_host_authorizer.reset(hosts_token)
-        request_scope_authorizer.reset(tools_token)
-        request_scope_id.reset(scope_token)
-
-
-@contextmanager
-def websocket_output_scope(manager, ws):
-    """Reuse the WebSocket's generation-fenced live credential check."""
-    identity = getattr(ws, "_odin_identity", None)
-    credential = getattr(ws, "_odin_credential_policy", None)
-    bearer = getattr(credential, "bearer", "")
-    bearer = bearer if isinstance(bearer, str) else ""
-    scope = (hashlib.sha256(bearer.encode()).hexdigest() if bearer else
-             hashlib.sha256(repr((getattr(credential, "source", "internal"),
-                                  getattr(identity, "user_id", ""),
-                                  getattr(credential, "fingerprint", ""))).encode()).hexdigest())
-
-    def tools():
-        if not manager._policy_authorized(ws):
-            return False
-        return getattr(identity, "allowed_tools", None) or None
-
-    def hosts(alias):
-        allowed_hosts = getattr(identity, "allowed_hosts", None)
-        return manager._policy_authorized(ws) and (
-            allowed_hosts is None or alias in allowed_hosts)
-
-    scope_token = request_scope_id.set(scope)
-    tools_token = request_scope_authorizer.set(tools)
-    hosts_token = request_host_authorizer.set(hosts)
-    try:
-        yield
-    finally:
-        request_host_authorizer.reset(hosts_token)
-        request_scope_authorizer.reset(tools_token)
-        request_scope_id.reset(scope_token)
+    raise CapabilityUnavailable("Conversation output scope unavailable until Phase 2 admission.")
+    yield  # contextmanager never enters without admitted scope

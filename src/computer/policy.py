@@ -30,7 +30,7 @@ def foreground(context: RequestContext) -> None:
     if (
         not isinstance(context, RequestContext)
         or context.origin != "foreground"
-        or context.surface not in {"discord", "webui"}
+        or context.surface != "desktop"
     ):
         raise ComputerError("foreground_only")
 

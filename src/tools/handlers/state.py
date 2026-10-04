@@ -164,7 +164,7 @@ class StateTools(HandlerBase):
         return self._memory_path.parent / "lists.json"
 
     def _load_lists(self) -> dict:
-        """Load all lists. Migrates old grocery_list.json on first access.
+        """Load all lists from this fresh Desktop profile only.
 
         Structure: {
             "grocery": {
@@ -184,33 +184,12 @@ class StateTools(HandlerBase):
         data, ok = load_json_store_safe(path, container=dict, what="lists.json")
         if ok and data:
             return data
-        # Auto-migrate old grocery_list.json if it exists
-        old_grocery = path.parent / "grocery_list.json"
-        if old_grocery.exists():
-            try:
-                old_data = json.loads(old_grocery.read_text())
-                old_items = old_data.get("items", [])
-                migrated_items = []
-                for item in old_items:
-                    migrated_items.append(
-                        {
-                            "name": item.get("name", ""),
-                            "added_by": item.get("added_by", ""),
-                            "added_at": item.get("added_at", ""),
-                            "done": False,
-                        }
-                    )
-                lists = {"grocery": {"owner": "shared", "items": migrated_items}}
-                self._save_lists(lists)
-                return lists
-            except Exception:
-                pass
         return {}
 
     def _load_lists_for_write(self) -> dict:
         """MUTATION path — raises StoreCorruptError on a corrupt lists.json so
         the caller refuses rather than overwriting (which would wipe the
-        lists). Missing/empty falls back to the read path (grocery migration)."""
+        lists). Missing/empty falls back to the profile read path."""
         from ...json_store import load_json_store
 
         path = self._lists_path()
@@ -261,8 +240,6 @@ class StateTools(HandlerBase):
                 lines = ["**Your Lists**\n"]
                 for name, lst in sorted(lists.items()):
                     lst_owner = lst.get("owner", "shared")
-                    if lst_owner != "shared" and lst_owner != user_id:
-                        continue
                     count = len(lst.get("items", []))
                     done = sum(1 for i in lst.get("items", []) if i.get("done"))
                     owner_label = "shared" if lst_owner == "shared" else "personal"
@@ -277,10 +254,8 @@ class StateTools(HandlerBase):
             if not list_name:
                 return "list_name is required for this action."
 
-            # Resolve the list — check for personal or shared
+            # Lists belong to the authenticated profile; labels are not ACLs.
             lst = lists.get(list_name)
-            if lst and lst.get("owner") not in ("shared", user_id, None):
-                return f"You don't have access to the '{list_name}' list."
 
             if action == "show":
                 if not lst or not lst.get("items"):

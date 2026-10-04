@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import asyncio
 import math
+import os
 import re
 from collections.abc import AsyncIterator, Awaitable
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
 from ..odin_log import get_logger
@@ -112,6 +114,7 @@ class BrowserManager:
         viewport_height: int = 1080,
         allow_private_targets: list[str] | None = None,
         max_wait_timeout_seconds: int = _HARD_MAX_WAIT_TIMEOUT_SECONDS,
+        bundled_executable: str | None = None,
     ) -> None:
         self._cdp_url = cdp_url
         self._default_timeout_ms = default_timeout_ms
@@ -123,6 +126,7 @@ class BrowserManager:
         self._browser: Browser | None = None
         self._lock = asyncio.Lock()
         self._native = not bool(cdp_url)
+        self._bundled_executable = bundled_executable
         self.allowed_urls = allow_private_targets or []
 
     def wait_timeout_ms(self, value: object = None) -> int:
@@ -176,18 +180,25 @@ class BrowserManager:
         async with self._lock:
             if self._browser and self._browser.is_connected():
                 return
+            if self._native:
+                executable = self._bundled_executable
+                if (not executable or not Path(executable).is_absolute()
+                        or not Path(executable).is_file() or not os.access(executable, os.X_OK)):
+                    raise RuntimeError(
+                        "Browser unavailable: required bundled Chromium is not configured."
+                    )
             try:
                 from playwright.async_api import async_playwright
             except ImportError:
                 raise RuntimeError(
-                    "playwright is not installed. "
-                    "Run: pip install playwright && playwright install chromium"
+                    "Browser unavailable: required bundled Playwright dependency is missing."
                 )
             if not self._playwright:
                 self._playwright = await async_playwright().start()
             try:
                 if self._native:
                     self._browser = await self._playwright.chromium.launch(
+                        executable_path=self._bundled_executable,
                         headless=True,
                         args=[
                             "--no-sandbox",
@@ -204,8 +215,8 @@ class BrowserManager:
             except Exception as e:
                 if self._native:
                     raise RuntimeError(
-                        f"Failed to launch Chromium. Run 'playwright install chromium' "
-                        f"to install browser binaries. ({e})"
+                        "Failed to launch required bundled Chromium. "
+                        f"Repair the desktop installation. ({e})"
                     )
                 raise RuntimeError(
                     f"Browser service unavailable at {self._cdp_url.split('?')[0]}. ({e})"

@@ -1,18 +1,10 @@
-"""Entry point for running Odin via ``python -m src``.
-
-Loads pydantic Config from config.yml, instantiates the executor-shape
-OdinBot, starts the HealthServer (web UI + webhook receiver), wires
-Discord ↔ webhook callbacks, registers signal handlers, and runs the
-event loop until shutdown. Mirrors Heimdall's startup flow so behavior
-between the two bots stays predictable.
-"""
+"""Desktop entry point. App-supervised composition is deferred to Phase 2."""
 
 from __future__ import annotations
 
 import asyncio
 import os
 import select
-import signal
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -21,36 +13,6 @@ from typing import NoReturn
 from src import restart
 from src.runtime_paths import runtime_install_root
 from src.tools.process_manager import AdoptedZombieReaper
-
-
-def _wire_observability(health, bot, log) -> None:
-    """Register cheap component health checks for the health endpoints."""
-    scheduler = getattr(bot, "scheduler", None)
-    def _discord_health() -> tuple[bool, str]:
-        try:
-            if not bot.config.discord.token:
-                return (True, "not configured (HTTP-only mode)")
-            latency = bot.latency
-            # latency == latency filters out NaN (discord.py before first heartbeat)
-            if latency and latency == latency:
-                detail = f"latency={latency * 1000:.0f}ms"
-            else:
-                detail = "connecting"
-            return (bot.is_ready(), detail)
-        except Exception as exc:
-            return (False, f"error: {exc}")
-
-    health.register_component("discord", _discord_health)
-
-    if scheduler is not None:
-        def _scheduler_health() -> tuple[bool, str]:
-            task = getattr(scheduler, "_task", None)
-            alive = task is not None and not task.done()
-            return (alive, f"{len(getattr(scheduler, '_schedules', []))} schedules")
-
-        health.register_component("scheduler", _scheduler_health)
-
-    log.info("Observability wired: component health checks registered")
 
 
 def _enable_process_containment(log) -> bool:
@@ -480,391 +442,60 @@ def _emergency_exit(
 
 
 def main() -> None:
-    # ``--version`` short-circuit
+    """No core authority, listener or delivery until Phase 2 composition."""
     if "--version" in sys.argv or "-V" in sys.argv:
         from src.version import get_version
-        print(f"Odin {get_version()}")
+        print(f"Odin Desktop {get_version()}")
         return
+    raise RuntimeError("Desktop core composition is deferred to Phase 2")
 
-    from src.config.startup_context import (
-        parse_startup_arguments,
-        provision_initialization_parent,
-        resolve_startup_context,
+
+def _command_protected_roots(config) -> list[str]:
+    from src.tools.workspace import command_protected_roots
+
+    return command_protected_roots(runtime_install_root(), config)
+
+
+def _provision_command_workspace(config, log):
+    """Fail-closed workspace preflight for Phase 2 composition.
+
+    The executor independently validates these roots on every use. Neither
+    import nor the Phase 1 entry point provisions anything.
+    """
+    from src.tools.workspace import (
+        WorkspaceError,
+        provision_startup_workspace,
+        provisioning_hint,
     )
 
-    args = parse_startup_arguments()
-    context = resolve_startup_context(
-        args.config, env_file=args.env_file, initialization_state=args.initialization_state
-    )
-    if not context.config_path.exists():
-        print(f"Config file not found: {context.config_path}")
-        sys.exit(1)
-    # Existing ``data`` may intentionally be shared 0755. Only the dedicated
-    # terminal state parent is private; provisioning never traverses symlinks.
-    initialization_provisioning_error = None
-    try:
-        provision_initialization_parent(context.initialization_state_path)
-    except (OSError, RuntimeError) as exc:
-        initialization_provisioning_error = exc
-
-    # Load .env before config.yml so ${DISCORD_TOKEN} substitution works
-    from dotenv import load_dotenv
-    if context.environment_path.exists():
-        load_dotenv(context.environment_path)
-
-    from src.config import load_config
-    from src.discord.client import OdinBot
-    from src.discord.connection_supervisor import ConnectionStatus, ConnectionSupervisor
-    from src.discord.response_guards import scrub_response_secrets
-    from src.discord.wiring import close_computer_once
-    from src.health import HealthServer
-    from src.odin_log import get_logger
-
-    config = load_config(context.config_path)
-    # Load/migrate against the canonical target; preserve the original alias
-    # separately for the existing workspace protection used before re-exec.
-    from src.config.schema import set_active_config_path
-    set_active_config_path(context.config_launch_path)
-
-    import logging
-    logging.basicConfig(
-        level=getattr(logging, config.logging.level.upper(), logging.INFO),
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
-    log = get_logger("main")
-    log.info("Starting Odin")
-    if initialization_provisioning_error is not None:
+    def _warn_fallback(path, configured, reason) -> None:
         log.warning(
-            "Initialization state storage is unavailable; HTTP will start in a "
-            "restricted compatibility mode: %s",
-            initialization_provisioning_error,
+            "Local command workspace fell back to %s — the configured "
+            "default could not be provisioned (%s). Local commands work, "
+            "but this indicates a packaging or permissions problem. %s",
+            path,
+            reason,
+            provisioning_hint(configured),
         )
-    containment = _enable_process_containment(log)
-    # Containment makes escaped descendants OURS, so we owe them a reaper:
-    # nothing else will wait on an adopted orphan, and without this they
-    # accumulate as zombies for the process lifetime (PR #244 soak).
-    zombie_reaper = AdoptedZombieReaper()
 
-    # STARTUP MIGRATION — must run after the real configuration is loaded and
-    # before any command service begins.
-    #
-    # Local user commands run in a validated workspace outside the install and
-    # refuse to run without one. A preflight in the self-updater cannot
-    # bootstrap that: the update which INTRODUCES the preflight is executed by
-    # the previous release's handler, which has none, so the very first upgrade
-    # would re-exec into code whose workspace was never created (PR #239
-    # round-5 review, verified against a live install). Provisioning here runs
-    # in the NEW code on the restart that follows any update, however the
-    # update arrived.
-    #
-    # Failure is logged, not fatal: an unusable workspace must not prevent
-    # Odin from starting and answering on Discord. Local commands then fail
-    # closed individually, with the same actionable error.
     try:
-        from src.tools.workspace import (
-            WorkspaceError,
-            provision_startup_workspace,
-            provisioning_hint,
-        )
-
-        def _warn_fallback(path, configured, reason) -> None:
-            # A fallback is not a failure, but it must never look like normal
-            # operation: on a packaged install it means the packaged default
-            # could not be provisioned, which the operator needs to know
-            # (cross-review of PR #239 round 13).
-            log.warning(
-                "Local command workspace fell back to %s — the configured "
-                "default could not be provisioned (%s). Local commands work, "
-                "but this indicates a packaging or permissions problem. %s",
-                path,
-                reason,
-                provisioning_hint(configured),
-            )
-
         workspace = provision_startup_workspace(
             config.tools,
             protected_roots=_command_protected_roots(config),
             on_fallback=_warn_fallback,
         )
         log.info("Local command workspace ready: %s", workspace)
+        return workspace
     except WorkspaceError as exc:
         log.error(
             "Local command workspace unusable — local commands will refuse to run: %s. %s",
             exc,
             provisioning_hint(config.tools.local_working_dir),
         )
-    except Exception as exc:  # never block startup on provisioning
+    except Exception as exc:
         log.error("Local command workspace provisioning failed unexpectedly: %s", exc)
-
-    health = HealthServer(
-        port=config.web.port,
-        webhook_config=config.webhook,
-        web_config=config.web,
-    )
-    bot = OdinBot(config)
-    from src.web.bootstrap_policy import CredentialInventory
-    from src.web.onboarding import OnboardingCoordinator
-
-    # Missing records belong only to pre-onboarding installations. Derive their
-    # migration bind policy from the same validated static and dynamic credential
-    # sources HealthServer will use, not from credential-file existence.
-    static_usable = int(bool(getattr(config.web, "api_token", ""))) + sum(
-        int(bool(getattr(token, "token", ""))) for token in getattr(config.web, "api_tokens", ())
-    )
-    manager = getattr(bot, "api_token_manager", None)
-    dynamic_usable = (
-        manager.credential_inventory.dynamic_usable
-        if manager is not None and hasattr(manager, "credential_inventory") else 0
-    )
-    legacy_loopback_restricted = not CredentialInventory(
-        static_usable=static_usable, dynamic_usable=dynamic_usable
-    ).has_usable_auth
-    onboarding_store = context.onboarding_store()
-    # A missing record is a legacy installation, not a fresh setup. Migration
-    # occurs only after the real credential inventory establishes bind policy.
-    # Corrupt records stay recovery diagnostics while HTTP remains available.
-    onboarding_store.state(legacy_loopback_restricted=legacy_loopback_restricted)
-    onboarding = OnboardingCoordinator(
-        onboarding_store, context.environment_source(), legacy_loopback_restricted
-    )
-    bot.onboarding = onboarding
-    # Fatal paths must be distinguishable from a requested clean stop by the
-    # process supervisor. No gateway task can start until run() below.
-    exit_code = 0
-    shutdown_task: asyncio.Task[None] | None = None
-    # Services outlive a Discord transport generation. Bootstrap HTTP remains
-    # useful when no gateway credential has been supplied.
-    def gateway_terminal(status: ConnectionStatus) -> None:
-        nonlocal exit_code
-        if shutdown_task is not None:
-            return
-        exit_code = 1
-        health.set_ready(False)
-        log.error("Discord gateway terminated unexpectedly: %s; stopping service", status.detail)
-        request_shutdown()
-
-    bot.bind_connection_supervisor(ConnectionSupervisor(bot, on_terminal=gateway_terminal))
-    scheduler = getattr(bot, "scheduler", None)
-    if scheduler is not None and hasattr(scheduler, "set_connection_state_provider"):
-        # Install the strict generation-aware authority before HTTP routes can
-        # admit schedules. A merely constructed supervisor is deliberately not
-        # treated as connected by the scheduler.
-        scheduler.set_connection_state_provider(bot.connection_supervisor.connection_availability)
-    # Setup ingress must exist before REST routes are registered by set_bot().
-    health.attach_onboarding(onboarding)
-    health.set_bot(bot)
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    service_stopped: asyncio.Future[None] = loop.create_future()
-
-    def request_shutdown() -> asyncio.Task[None]:
-        """Create the shutdown task exactly once; repeat requests reuse it.
-
-        A second SIGTERM must not start a second teardown pass — every
-        cleanup step would run twice, racing its own first invocation.
-        """
-        nonlocal shutdown_task
-        if shutdown_task is None:
-            shutdown_task = loop.create_task(shutdown())
-        return shutdown_task
-
-    async def run() -> None:
-        nonlocal exit_code
-        try:
-            if containment:
-                zombie_reaper.start()
-            await bot.start_application()
-            await health.start()
-
-            async def _webhook_send(channel_id: str, text: str) -> None:
-                channel = bot.get_channel(int(channel_id))
-                if channel:
-                    # Admin-configured webhook target; kind not enforced, so the
-                    # union includes send-less channel types (Category/Forum).
-                    await channel.send(scrub_response_secrets(text))  # type: ignore[union-attr]
-                else:
-                    log.warning("Webhook: channel %s not found", channel_id)
-
-            health.set_send_message(_webhook_send)
-            if hasattr(bot, "scheduler") and hasattr(health, "set_trigger_callback"):
-                health.set_trigger_callback(bot.scheduler.fire_triggers)
-
-            _wire_observability(health, bot, log)
-
-            def handle_signal() -> None:
-                log.info("Shutdown signal received")
-                request_shutdown()
-
-            for sig in (signal.SIGTERM, signal.SIGINT):
-                loop.add_signal_handler(sig, handle_signal)
-
-            health.set_ready(True)
-            token = getattr(config.discord, "token", "")
-            if token:
-                log.info("Attaching Discord gateway…")
-                await bot.connection_supervisor.attach(token)
-            else:
-                log.warning(
-                    "Discord token absent; HTTP/bootstrap remains available without a gateway"
-                )
-            # Tokenless bootstrap and intentional detach remain HTTP-only.
-            # Unexpected gateway termination requests a nonzero service exit
-            # so the existing process supervisor can recover the connection.
-            await service_stopped
-        except Exception as exc:
-            exit_code = 1
-            log.error("Fatal error: %s", exc, exc_info=True)
-        finally:
-            # Completion barrier: run() returns only after teardown actually
-            # finished. shutdown()'s bot.close() unblocks bot.start() above,
-            # so without this await run_until_complete() would return — and
-            # main() would close the loop — while the shutdown task was still
-            # mid-cleanup ("Task was destroyed but it is pending"), silently
-            # skipping whatever remained (health stop, session saves).
-            await request_shutdown()
-
-    async def shutdown() -> None:
-        log.info("Shutting down…")
-        if not service_stopped.done():
-            service_stopped.set_result(None)
-        # Desktop authority must not wait for browser/provider/model teardown.
-        try:
-            await close_computer_once(bot)
-        except Exception:
-            log.exception("Computer cleanup unverified")
-        # Teardown order (PR #244 round-15 §3.3, step 1): stop the periodic
-        # reaper FIRST. The final no-grace drain does NOT run here — it runs
-        # in _finalize_loop, after remaining tasks, async generators and the
-        # default executor have all stopped, because only then has every
-        # subprocess owner provably finished.
-        try:
-            await zombie_reaper.stop()
-        except Exception:
-            log.exception("zombie reaper stop error")
-        for label, action in (
-            # The getattr-and-call lambdas short-circuit on absent/None
-            # managers; mypy can't relate the getattr probe to the direct
-            # attribute access that follows it.
-            (
-                "browser",
-                lambda: getattr(bot, "browser_manager", None)
-                and bot.browser_manager.shutdown(),  # type: ignore[attr-defined]
-            ),
-            ("scheduler", lambda: getattr(bot, "scheduler", None) and bot.scheduler.stop()),
-        ):
-            try:
-                coro = action()
-                if coro is not None:
-                    await coro
-            except Exception:
-                log.exception("%s shutdown error", label)
-        try:
-            if getattr(bot, "sessions", None):
-                bot.sessions.save_all()
-        except Exception:
-            log.exception("sessions save error")
-        try:
-            await bot.connection_supervisor.close()
-        except Exception:
-            log.exception("Discord gateway detach error")
-        try:
-            await bot.shutdown_application()
-        except Exception:
-            log.exception("bot close error")
-        try:
-            from .tools.local_supervisor import shutdown_local_supervisors
-
-            await shutdown_local_supervisors()
-        except Exception:
-            from .restart import block_reexec
-
-            block_reexec("local command supervisor cleanup unverified")
-            log.exception("Local command supervisor cleanup unverified")
-        try:
-            await health.stop()
-        except Exception:
-            log.exception("health stop error")
-
-    try:
-        loop.run_until_complete(run())
-    except (KeyboardInterrupt, SystemExit) as exc:
-        # Ctrl-C stays a clean stop; an intentional SystemExit keeps its
-        # original code rather than being normalized. run()'s finally has
-        # normally completed shutdown already; a raw KeyboardInterrupt that
-        # broke out of the loop itself still needs it finished here.
-        if isinstance(exc, SystemExit) and exc.code:
-            exit_code = exc.code if isinstance(exc.code, int) else 1
-        loop.run_until_complete(request_shutdown())
-    except asyncio.CancelledError:
-        # Cancellation reaching the top level is a shutdown path, not a
-        # fatal error — exit clean unless a fatal path already set a code.
-        loop.run_until_complete(request_shutdown())
-    except Exception:
-        # Failures outside run()'s own guard previously tracebacked out with
-        # no clean shutdown. Cleanup failures are logged separately and never
-        # mask the fatal code.
-        exit_code = 1
-        log.exception("Fatal error during startup")
-        try:
-            loop.run_until_complete(request_shutdown())
-        except Exception:
-            log.exception("Cleanup after fatal startup error failed")
-    finally:
-        _finalize_and_exit(loop, zombie_reaper, log, exit_code)
-
-    if restart.restart_requested():
-        veto = restart.reexec_blocked()
-        if veto:
-            # Teardown could not prove it terminated everything it owned
-            # (PR #244 round-8 #3). Exec would hand those survivors to the
-            # new image invisibly; exiting nonzero lets the supervisor
-            # start a clean one instead.
-            log.error(
-                "Restart requested but in-place re-exec is vetoed (%s) — "
-                "exiting for a supervisor restart instead", veto,
-            )
-            sys.exit(exit_code or 1)
-        # In-place restart (self-update / setup wizard): replace the process
-        # image instead of exiting so recovery does not depend on the unit's
-        # Restart= policy. Exec failure exits nonzero — a clean-exit fallback
-        # would recreate exactly the stranding this path removes.
-        log.info("Restart requested — re-executing in place")
-        try:
-            restart.reexec()
-        except OSError:
-            log.exception("In-place restart failed")
-            sys.exit(exit_code or 1)
-    if exit_code:
-        sys.exit(exit_code)
+    return None
 
 
-def _command_protected_roots(config) -> list[str]:
-    """Install root plus canonical live-data roots for the startup migration.
-
-    Delegates to the ONE shared derivation so startup, the self-update
-    preflight, and the executor protect exactly the same directories. Deriving
-    them separately here silently protected nothing (``Config`` has no
-    ``memory`` section) while the executor protected live memory.json — so a
-    workspace beside it was provisioned at startup and then refused on every
-    command (PR #239 round-6 review).
-
-    The FULL config is passed so every independently relocatable live-state
-    path is covered. ``memory_path`` is left at its default: production wiring
-    hardcodes that path, and startup runs before wiring exists.
-    """
-    from src.tools.workspace import command_protected_roots
-
-    return command_protected_roots(runtime_install_root(), config)
-
-
-# The entrypoint guard MUST stay the last statement in this module. Python
-# executes a module top-to-bottom, so a guard placed above a helper runs main()
-# before that helper's `def` is reached: the startup migration raised NameError
-# and its own nonfatal handler swallowed it, leaving the workspace uncreated and
-# resurrecting the first-update bootstrap failure this migration exists to fix
-# (PR #239 round-6 review). tests/test_local_workspace.py executes `python -m src`
-# for real to keep this honest.
 if __name__ == "__main__":
     main()

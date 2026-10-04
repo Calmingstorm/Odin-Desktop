@@ -1,15 +1,5 @@
-"""Odin Discord bot package."""
+"""Retained execution engine at its upstream module paths.
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .client import OdinBot
-
-__all__ = ["OdinBot"]
-
-
-def __getattr__(name: str):
-    if name == "OdinBot":
-        from .client import OdinBot
-        return OdinBot
-    raise AttributeError(name)
+Desktop admission, composition and durable presentation are Phase 2 work.
+Importing this namespace never starts a transport or acquires authority.
+"""

@@ -12,7 +12,7 @@ TOOLS_SECTION: list[dict] = [
         "name": "delegate_task",
         "is_core": True,
         "description": (
-            "Runs a multi-step task in the background, posting progress to Discord. "
+            "Runs a multi-step task in the background, posting progress to the conversation. "
             "Steps run sequentially with conditions (substring match, ! to negate), "
             "on_failure (abort/continue), store_as ({var.name}), {prev_output} substitution. "
             "IMPORTANT: each step using run_command MUST have tool_input with 'command' key. "

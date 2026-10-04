@@ -1,24 +1,18 @@
 """User-facing exception presentation — the single formatter for error text
 that reaches an end user.
 
-Two boundaries consume this today: Discord chat (``intake_pipeline``'s
-catch-all and outer handlers) and WebUI chat (the WebSocket ``chat_error``
-path). Neither Discord nor Web owns the policy, so it lives here.
+Conversation boundaries share this policy; no transport owns it.
 
 The formatter is total and non-throwing (any internal failure falls back to
 the exception type name) and its output is bounded, HTML-free,
 control-character-free, mention-safe, and secret-scrubbed. It never renders
-``discord.HTTPException`` bodies: ``str(exc)``/``.text`` carry the raw HTTP
-response, and Discord 500s are whole Cloudflare HTML pages (the 2026-07-16
-incident dumped them into chat verbatim). Full diagnostics stay in the
-journal via ``exc_info`` at the call sites.
+HTML response bodies. Full diagnostics stay in logs via ``exc_info`` at
+the call sites. Transport-specific structured exceptions belong in adapters.
 """
 
 from __future__ import annotations
 
 import unicodedata
-
-import discord
 
 from .llm.secret_scrubber import scrub_output_secrets
 
@@ -71,20 +65,11 @@ def format_user_facing_error(exc: BaseException, limit: int = 200) -> str:
     properties (HTML-free, control-free, mention-safe, scrubbed) are
     prefix-independent.
 
-    ``discord.HTTPException`` renders structured fields only — the reason
-    phrase is upstream-controlled text, so it goes through the SAME
-    ``_clean_detail`` normalization as generic detail, and a non-int
-    ``status`` renders as ``?``.
+    Every exception detail passes through ``_clean_detail``. Local storage
+    or IPC failures never acquire an invented HTTP status.
     """
     name = type(exc).__name__
     try:
-        if isinstance(exc, discord.HTTPException):
-            status = getattr(exc, "status", None)
-            status_s = str(status) if isinstance(status, int) else "?"
-            reason = _clean_detail(
-                str(getattr(getattr(exc, "response", None), "reason", "") or "")
-            )
-            return f"Discord API error: HTTP {status_s} {reason}".strip()[:limit]
         try:
             text = str(exc)
         except Exception:

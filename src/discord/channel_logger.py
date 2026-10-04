@@ -1,4 +1,4 @@
-"""Passive channel logger — writes ALL Discord messages to JSONL files.
+"""Passive conversation logger — writes admitted messages to JSONL files.
 
 Zero LLM tokens. Pure file I/O. One JSON line per message, appended to
 ``data/channel_logs/{channel_id}.jsonl``.
@@ -28,7 +28,7 @@ log = get_logger("channel_logger")
 
 
 class ChannelLogger:
-    """Append-only JSONL logger for Discord channel messages.
+    """Append-only JSONL logger for conversation messages.
 
     Parameters
     ----------
@@ -49,31 +49,27 @@ class ChannelLogger:
         self._index_lock = threading.Lock()
 
     def log_message(self, message: object, *, content: str | None = None) -> None:
-        """Append a single message to the appropriate channel JSONL file.
+        """Append a single admitted message to the conversation JSONL file.
 
-        Skips DMs (no guild).  Tolerant of missing attributes so it never
-        raises and never blocks the caller.
+        The Phase 2 composition root supplies authenticated, revisioned records.
+        Missing identity is not permission to invent a default conversation.
         """
         try:
-            # Skip DMs — no guild means no channel log
-            channel = getattr(message, "channel", None)
-            if channel is None:
+            channel_id = getattr(message, "conversation_id", None)
+            if not isinstance(channel_id, str) or not channel_id or any(
+                char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+                for char in channel_id
+            ):
                 return
-            guild = getattr(channel, "guild", None)
-            if guild is None:
-                return
-
-            channel_id = str(channel.id)
-            author = getattr(message, "author", None)
 
             record = {
                 "ts": (message.created_at.timestamp()
                        if hasattr(message, "created_at") and message.created_at else 0.0),
-                "author_id": str(author.id) if author else "0",
+                "author_id": str(message.owner_id),
                 "author": redact_credentials(str(
-                    getattr(author, "display_name", getattr(author, "name", "Unknown")),
+                    getattr(message, "participant", "Unknown"),
                 )),
-                "bot": bool(getattr(author, "bot", False)),
+                "bot": getattr(message, "role", None) == "assistant",
                 "content": redact_credentials(
                     (getattr(message, "content", "") or "") if content is None else content,
                 ),
@@ -82,7 +78,6 @@ class ChannelLogger:
                 "message_id": str(getattr(message, "id", "") or ""),
                 "log_identity": uuid.uuid4().hex,
                 "channel_id": channel_id,
-                "guild_id": str(guild.id),
             }
 
             path = self._log_dir / f"{channel_id}.jsonl"

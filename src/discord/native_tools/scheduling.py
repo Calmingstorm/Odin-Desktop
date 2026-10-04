@@ -102,6 +102,9 @@ class SchedulingTools:
 
     async def _handle_schedule_task(self, message, inp: dict) -> str:
         """Create a scheduled task."""
+        # Validated destination/revision and authenticated requester admission
+        # are Phase 2, not a message-shaped owner shortcut.
+        raise RuntimeError("Phase 2 scheduled destination admission is not implemented.")
         # Codex inputs arrive already decoded and checked by RequestToolAdapter.
         # Other providers keep the historical schedule input behavior.
         nested_validated = isinstance(inp, ValidatedNestedPayload)
@@ -112,7 +115,7 @@ class SchedulingTools:
             schedule = await self.scheduler.add(
                 description=inp.get("description", "Unnamed task"),
                 action=inp.get("action", "reminder"),
-                channel_id=str(message.channel.id),
+                conversation_id=message.conversation_id,
                 cron=inp.get("cron"),
                 run_at=inp.get("run_at"),
                 message=inp.get("message"),
@@ -121,7 +124,7 @@ class SchedulingTools:
                 steps=inp.get("steps"),
                 trigger=inp.get("trigger"),
                 cron_timezone=inp.get("cron_timezone"),
-                requester_id=str(message.author.id),
+                requester_id=message.owner_id,
                 report_format=inp.get("report_format"),
                 **({"nested_payload_validated": True} if nested_validated else {}),
             )
@@ -170,6 +173,7 @@ class SchedulingTools:
 
     async def _handle_update_schedule(self, inp: dict) -> str:
         """Update an existing schedule."""
+        raise RuntimeError("Phase 2 scheduled destination authorization is not implemented.")
         nested_validated = isinstance(inp, ValidatedNestedPayload)
         if (
             nested_validated
@@ -206,7 +210,7 @@ class SchedulingTools:
             "tool_name",
             "tool_input",
             "steps",
-            "channel_id",
+            "conversation_id",
             "cron_timezone",
             "report_format",
         ):

@@ -208,15 +208,22 @@ class AuditLogger:
     """Append-only JSON Lines audit log for tool executions."""
 
     def __init__(
-        self, path: str = "./data/audit.jsonl", *,
+        self, path: str | None = None, *,
         hmac_key: str = "", classify_failures: bool = True,
         result_cap: int = DEFAULT_RESULT_CAP,
         tool_input_cap: int = DEFAULT_TOOL_INPUT_CAP,
         max_bytes: int = DEFAULT_MAX_BYTES,
         max_files: int = DEFAULT_MAX_FILES,
     ) -> None:
-        self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        from ..runtime_paths import runtime_profile_paths
+
+        self.path = Path(path) if path is not None else runtime_profile_paths().data_dir / "audit.jsonl"
+        if path is None:
+            from ..desktop.paths import private_directory
+
+            private_directory(self.path.parent)
+        else:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         self._event_callback: Callable | None = None
         self._signer: AuditSigner | None = AuditSigner(hmac_key) if hmac_key else None
         # Serializes every operation that reads/mutates the signer's chain

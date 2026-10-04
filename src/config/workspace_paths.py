@@ -23,7 +23,6 @@ WORKSPACE_PROTECTED_CONFIG_PATHS: tuple[tuple[str, bool], ...] = (
     ("usage.directory", False),
     # Treated as a file: wiring derives its sibling fts.db via `.parent`.
     ("search.search_db_path", True),
-    ("permissions.overrides_path", True),
     ("openai_codex.credentials_path", True),
     ("attachments.temp_directory", False),
     ("computer.storage_dir", False),

@@ -1,8 +1,8 @@
 """Native image generation over the Codex OAuth backend.
 
-The backend returns an :class:`ImageResult` and never touches Discord —
+The backend returns an :class:`ImageResult` and never touches conversation delivery —
 the native tool layer owns attachment posting, keeping backends reusable from
-the Web/API surface.
+the engine. Backend availability is not durable artifact publication readiness.
 """
 
 from __future__ import annotations

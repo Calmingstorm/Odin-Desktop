@@ -1,16 +1,11 @@
 [project]
-name = "odin-bot"
-version = "4.13.0"
-description = "Odin — autonomous executor Discord bot, Heimdall-pattern with extended capability surface"
-requires-python = ">=3.11"
-license = "MIT"
+name = "odin-desktop-engine"
+version = "0.1.0.dev1"
+description = "Odin Desktop execution engine, maintained from Odin v4.13.0"
+requires-python = ">=3.12,<3.13"
 dependencies = [
-    # Private transport reattachment is deliberately tested only against this layout.
-    "discord.py==2.7.1",
     "aiohttp>=3.9",
     "aiofiles>=24.0",
-    "sqlalchemy[asyncio]>=2.0",
-    "asyncpg>=0.29",
     "python-dotenv>=1.0",
     "jinja2>=3.1",
     "pyyaml>=6.0",
@@ -24,17 +19,14 @@ dependencies = [
     "sqlite-vec>=0.1.0",
     # Native image output must be fully decoded before it can be delivered.
     "Pillow>=12.3,<13",
+    # D14: these capabilities are part of the distribution, not optional extras.
+    "PyMuPDF>=1.24.0",
+    "playwright>=1.40.0",
+    "python-xlib>=0.33,<1",
+    "dbus-next>=0.2.3,<1",
 ]
 
 [project.optional-dependencies]
-# PDF text extraction (analyze_pdf tool)
-pdf = ["PyMuPDF>=1.24.0"]
-# Browser automation (browser_screenshot, browser_click, etc.)
-browser = ["playwright>=1.40.0"]
-# Lazy observation rendering and explicit Linux X11 capture. Neither enables input.
-computer = ["Pillow>=12.3,<13", "python-xlib>=0.33,<1; sys_platform == 'linux'", "dbus-next>=0.2.3,<1; sys_platform == 'linux'"]
-# All optional executor features
-all = ["odin-bot[pdf,browser,computer]"]
 dev = [
     # Packaging regressions build a non-editable wheel without network/build
     # isolation. Match the backend's SPDX-license support, not editable imports.
@@ -61,11 +53,6 @@ dev = [
     "types-regex==2026.9.10.20260911",
 ]
 
-[project.scripts]
-odin = "src.cli:main"
-odin-client = "src.cli:main"
-odin-server = "src.__main__:main"
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
@@ -75,7 +62,7 @@ markers = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP"]
@@ -89,7 +76,7 @@ select = ["E", "F", "W", "I", "N", "UP"]
 "src/learning/reflector.py" = ["E501"]
 
 [build-system]
-requires = ["setuptools>=77.0"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

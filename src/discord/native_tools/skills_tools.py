@@ -11,17 +11,17 @@ dispatch-table file. Behavior is pinned by
 - ``invoke_skill`` fails loudly on missing name / unknown skill /
   non-dict input / missing required fields
 - ``export_skill`` ALWAYS stages, in both pipelines
-- file delivery: ``"send"`` posts to the channel now (chat), ``"stage"``
-  appends to the per-channel pending-files queue (autonomous loop)
+- file delivery: ``"send"`` posts to the conversation now (chat), ``"stage"``
+  appends to the per-conversation pending-files queue (autonomous loop)
+
+Durable invocation-owned publication and staging are Phase 2-gated. No
+in-memory queue is treated as an artifact publication receipt.
 """
 
 from __future__ import annotations
 
 import asyncio
-import io
 from typing import TYPE_CHECKING, Any, Literal
-
-import discord
 
 from ...odin_log import get_logger
 from ..response_guards import scrub_response_secrets
@@ -29,7 +29,9 @@ from ..response_guards import scrub_response_secrets
 if TYPE_CHECKING:
     from .registry import NativeToolEffects
 
-log = get_logger("discord")
+log = get_logger("skills")
+
+_DELIVERY_UNAVAILABLE = "Conversation skill delivery is unavailable until Phase 2."
 
 # Skill-CRUD tool names — these invalidate the tool catalog + skills text
 # and require a system-prompt rebuild (the model must see the new tool).
@@ -41,11 +43,10 @@ SKILL_CRUD_TOOLS = frozenset(
 class SkillTools:
     """Owner for every skill-flavored native tool, incl. dynamic user skills."""
 
-    def __init__(self, *, skill_manager, tool_catalog, prompt_builder, channel_state) -> None:
+    def __init__(self, *, skill_manager, tool_catalog, prompt_builder) -> None:
         self.skill_manager = skill_manager
         self.tool_catalog = tool_catalog
         self.prompt_builder = prompt_builder
-        self.channel_state = channel_state
 
     def _invoke_skill_missing_required(self, name: str, payload: dict) -> list[str]:
         """Return required input fields the payload omits, or [] if complete.
@@ -118,11 +119,19 @@ class SkillTools:
             if isinstance(export_result, str):
                 return export_result, effects
             file_bytes, filename = export_result
-            channel_id_key = str(getattr(message.channel, "id", ""))
-            self.channel_state.pending_files.setdefault(channel_id_key, []).append(
-                (file_bytes, filename)
+            # Artifact preparation succeeded; durable staging has not.
+            from ...tools.result_validator import ToolResult
+
+            return (
+                ToolResult(
+                    output=(f"Skill '{tool_input['name']}' export prepared as {filename} "
+                            f"({len(file_bytes)} bytes), but not staged. {_DELIVERY_UNAVAILABLE}"),
+                    ok=False,
+                    error="conversation_delivery_unavailable",
+                    tool_name="export_skill",
+                ),
+                effects,
             )
-            return f"Skill '{tool_input['name']}' exported as {filename}.", effects
 
         if tool_name == "skill_status":
             return self.skill_manager.skill_status(tool_input["name"]), effects
@@ -198,7 +207,8 @@ class SkillTools:
 
     def _skill_message_cb(self, message):
         async def _skill_msg(text: str) -> None:
-            await message.channel.send(scrub_response_secrets(text))
+            scrub_response_secrets(text)
+            raise NotImplementedError(_DELIVERY_UNAVAILABLE)
 
         return _skill_msg
 
@@ -206,15 +216,11 @@ class SkillTools:
         if mode == "send":
 
             async def _skill_file_send(data: bytes, filename: str, caption: str = "") -> None:
-                await message.channel.send(
-                    content=caption or None,
-                    file=discord.File(io.BytesIO(data), filename=filename),
-                )
+                raise NotImplementedError(_DELIVERY_UNAVAILABLE)
 
             return _skill_file_send
 
         async def _skill_file_stage(data: bytes, filename: str, caption: str = "") -> None:
-            ch_id_key = str(getattr(message.channel, "id", ""))
-            self.channel_state.pending_files.setdefault(ch_id_key, []).append((data, filename))
+            raise NotImplementedError(_DELIVERY_UNAVAILABLE)
 
         return _skill_file_stage

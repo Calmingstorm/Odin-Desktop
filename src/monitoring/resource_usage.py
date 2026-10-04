@@ -11,15 +11,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..odin_log import get_logger
+from ..runtime_paths import runtime_profile_paths
 
 if TYPE_CHECKING:
     pass  # bot type only used in function signatures
 
 log = get_logger("monitoring.resource_usage")
 
-DEFAULT_TRAJECTORY_DIR = "./data/trajectories"
-DEFAULT_AGENT_TRAJECTORY_DIR = "./data/trajectories/agents"
-DEFAULT_SESSION_DIR = "./data/sessions"
+DEFAULT_TRAJECTORY_DIR = str(runtime_profile_paths().data_dir / "trajectories")
+DEFAULT_AGENT_TRAJECTORY_DIR = str(runtime_profile_paths().data_dir / "trajectories" / "agents")
+DEFAULT_SESSION_DIR = str(runtime_profile_paths().data_dir / "sessions")
 
 
 @dataclass(slots=True)

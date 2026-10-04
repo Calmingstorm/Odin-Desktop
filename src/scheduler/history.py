@@ -29,11 +29,18 @@ class ScheduleHistory:
 
     def __init__(
         self,
-        path: str = "./data/schedule_history.jsonl",
+        path: str | None = None,
         max_entries_per_schedule: int = DEFAULT_MAX_ENTRIES,
     ) -> None:
-        self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        from ..runtime_paths import runtime_profile_paths
+
+        self.path = Path(path) if path is not None else runtime_profile_paths().data_dir / "schedule_history.jsonl"
+        if path is None:
+            from ..desktop.paths import private_directory
+
+            private_directory(self.path.parent)
+        else:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         self._max_per_schedule = max_entries_per_schedule
         self._records_since_prune = 0
         self._auto_prune_interval = 100

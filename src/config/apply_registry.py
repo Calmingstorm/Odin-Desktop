@@ -149,16 +149,6 @@ SECTIONS: dict[str, SectionSpec] = {
         "including off/on cycles.",
     ),
     "timezone": SectionSpec("restart", "Locale and scheduling defaults used across Odin."),
-    "discord": SectionSpec(
-        "live_read",
-        "Discord conversational-intake policy. Allowed users and channels are "
-        "absolute global gates within that path; guild and channel settings "
-        "cannot bypass them. Only explicitly allowed test webhooks bypass the "
-        "user gate. "
-        "Require-mention and bot-response behavior can be overridden per guild "
-        "or channel; an explicit mention bypasses the ignored-bot check, but "
-        "the effective respond-to-bots policy still applies.",
-    ),
     "llm_provider": SectionSpec(
         "live_read",
         "Canonical per-generation serving-model selection and failover ownership.",
@@ -239,17 +229,7 @@ SECTIONS: dict[str, SectionSpec] = {
         "Browser automation limits and viewport defaults.",
         restart_reason="Browser defaults are captured when the tool is built.",
     ),
-    "permissions": SectionSpec(
-        "restart",
-        "Default and per-user execution policy.",
-        restart_reason="The permission manager loads its tier policy at startup.",
-    ),
     "image": SectionSpec("live_read", "Native image-generation policy."),
-    "web": SectionSpec(
-        "restart",
-        "Management API listener, authentication, and sessions.",
-        restart_reason="The management listener binds its socket and auth at startup.",
-    ),
     "attachments": SectionSpec("live_read", "Attachment limits, paths, and cleanup policy."),
     "personality": SectionSpec(
         "live_for_new_work",
@@ -366,7 +346,6 @@ GROUP_DESCRIPTIONS: dict[str, str] = {
     "tools.ssh_pool": "Reuse SSH connections across commands.",
     "tools.ssh_retry": "How failed SSH connections are retried.",
     "tools.streaming": "Stream long tool output as it is produced.",
-    "web.api_tokens": "Scoped API tokens defined in the config file.",
 }
 
 # --------------------------------------------------------------------------
@@ -377,7 +356,7 @@ GROUP_DESCRIPTIONS: dict[str, str] = {
 #: the identity it started with. Shared by the four identity leaves.
 _IDENTITY_CONSUMERS: tuple[Consumer, ...] = (
     Consumer(
-        "Chat, Discord, and loop prompts",
+        "Conversational turns and loop prompts",
         "live_read",
         "Every prompt is assembled fresh and reads the current value.",
     ),
@@ -397,12 +376,6 @@ FIELDS: dict[str, FieldSpec] = {
     "llm_provider.model": FieldSpec(
         apply_mode="live_read",
         description="Canonical serving model, resolved at each new generation.",
-    ),
-    "web.api_token": FieldSpec(
-        apply_mode="live_read", description="Live management credential policy."
-    ),
-    "web.api_tokens": FieldSpec(
-        apply_mode="live_read", description="Live scoped management credential policy."
     ),
     "mcp.max_published_tools_per_server": FieldSpec(
         label="Published tools per server",
@@ -607,37 +580,6 @@ FIELDS: dict[str, FieldSpec] = {
                 "The parser currently captures the boot value.",
             ),
         ),
-    ),
-    "discord.token": FieldSpec(
-        owner="secrets",
-        sensitivity="sensitive",
-        apply_mode="restart",
-        description="Write-only Discord bot credential.",
-        restart_reason="The gateway connection is established with this token at startup.",
-    ),
-    "discord.allowed_users": FieldSpec(
-        description="Absolute global user gate for ordinary conversational "
-        "intake. An empty list allows all users; guild and channel settings "
-        "cannot readmit a blocked user. Explicitly allowed test webhooks "
-        "bypass this gate.",
-    ),
-    "discord.channels": FieldSpec(
-        description="Absolute global channel gate for ordinary conversational "
-        "intake. An empty list allows all channels; guild and channel settings "
-        "cannot readmit a blocked channel.",
-    ),
-    "discord.require_mention": FieldSpec(
-        description="Require a mention by default. Guild and channel settings "
-        "may override this behavior.",
-    ),
-    "discord.respond_to_bots": FieldSpec(
-        description="Allow replies to bot-authored messages by default. Guild "
-        "and channel settings may override this behavior.",
-    ),
-    "discord.ignore_bot_ids": FieldSpec(
-        description="Bot IDs ignored by default. An explicit mention bypasses "
-        "this ignore check, but the effective respond-to-bots policy still "
-        "applies.",
     ),
     "llm_provider.active_provider": FieldSpec(
         description="Provider used for new primary requests.",
@@ -1353,9 +1295,9 @@ FIELDS: dict[str, FieldSpec] = {
         description="Refuse commands that would exfiltrate data.",
         restart_reason="The governor is constructed with these values.",
     ),
-    "tools.governor.admin_can_override": FieldSpec(
+    "tools.governor.owner_can_override": FieldSpec(
         apply_mode="restart",
-        description="Let an admin proceed past a governor refusal.",
+        description="Let the authorized owner proceed past a governor refusal.",
         restart_reason="The governor is constructed with these values.",
     ),
     "tools.governor.host_overrides": FieldSpec(
@@ -1492,7 +1434,7 @@ FIELDS: dict[str, FieldSpec] = {
     # ---------------- turn_state ----------------
     "turn_state.enabled": FieldSpec(
         apply_mode="restart",
-        description="Checkpoint Discord chat turns so they survive an outage.",
+        description="Checkpoint conversational turns so they survive an outage.",
         restart_reason="The checkpoint store is opened at startup, and every "
         "consumer tests whether it exists rather than re-reading this flag.",
     ),
@@ -1609,10 +1551,7 @@ def _is_sensitive_path(path: str) -> bool:
     """Use the same compound-key rule as GET /api/config redaction.
 
     A credential-bearing scalar or plain mapping makes its descendants secret.
-    A container OF schema records does not:
-    ``web.api_tokens.0.tier`` is public metadata beside the token field. The
-    schema distinction prevents both leaking arbitrary-key maps and redacting
-    whole records into uselessness.
+    A container of schema records does not make its sibling fields secret.
     """
     segments = path.split(".")
     facts = schema_facts()
@@ -1650,9 +1589,7 @@ def spec_for(path: str) -> FieldSpec:
             apply_mode=section_spec.apply_mode if section_spec else "restart",
         )
     if resolved.sensitivity is None:
-        # Container shape wins over a credential-shaped container name. A list
-        # such as web.api_tokens must expose only configured state, not masquerade
-        # as one scalar secret and not serialize its entries.
+        # Container shape wins over a credential-shaped container name.
         if _facts_for(path).get("secret_container"):
             derived: Sensitivity = "secret_container"
         elif _is_sensitive_path(path):
@@ -1742,11 +1679,9 @@ def flatten(value: Any, prefix: str = "") -> list[tuple[str, Any]]:
     record, otherwise a credential container disappears from the page the
     moment someone clears it.
 
-    A list of RECORDS is descended into, because its entries carry their own
-    leaves — ``web.api_tokens`` and ``outbound_webhooks.targets`` each hold a
-    credential per entry, and treating the list as one leaf would serialize
-    those secrets whole. A list of plain values stays a single leaf, since it
-    is edited as one value.
+    A list of records is descended into, because entries have their own schema
+    leaves. A list of plain values stays a single leaf, since it is edited as
+    one value.
     """
     out: list[tuple[str, Any]] = []
     if isinstance(value, dict):
@@ -1913,10 +1848,8 @@ def schema_facts() -> dict[str, dict[str, Any]]:
 
     walk(Config, "")
 
-    # A container whose RECORDS carry credentials is itself a credential
-    # container, empty or not. Deciding this from the current value would make
-    # an empty api_tokens list a public raw-JSON control — a place to type a
-    # token into the generic editor.
+    # A container whose records carry credentials is itself a credential
+    # container, empty or not.
     for path, facts in out.items():
         if facts.get("type") not in ("array", "object"):
             continue
@@ -1950,7 +1883,7 @@ def _facts_for(path: str) -> dict[str, Any]:
     """Schema facts for a path, with container entry keys normalised away.
 
     An entry key is arbitrary — ``tools.hosts.prod.ssh_user``,
-    ``mcp.servers.foo.transport``, ``web.api_tokens.0.tier``. Dropping only
+    ``mcp.servers.foo.transport``. Dropping only
     digits and ``*`` handled the list case and silently missed every
     dict-keyed one, so those fields fell back to guessing their type and
     default from whatever value happened to be there.
