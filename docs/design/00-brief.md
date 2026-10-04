@@ -38,7 +38,26 @@ These are Odin's standing decisions. Each one applies unchanged to Odin Desktop 
 
 - The anti-hedging guards, the completion classifier and the response guards are never weakened.
 - A feature that is not configured exposes no tools.
-- Existing personality and system-prompt text never changes. New tool guidance belongs in tool descriptions, not in new
-  always-on prompt lines.
+- Existing personality and system-prompt text never changes, except that the Desktop prompt drops its Discord references
+  (D1 below). New tool guidance belongs in tool descriptions, not in new always-on prompt lines.
 - Other people will install this, so we design for every install, not only Aaron's.
 - Removed features leave no references behind.
+
+## Aaron's decisions (2026-10-04, after round 1)
+
+> obviously his prompt would change to not mention discord, as far as what to import from my current odin, if you
+> mean like my memory etc? this is a project for all users, we would address that separately, features/functionality
+> should all make their way over from the normal Odin app to Odin Desktop, agents, anti hedging, continuation, etc, he
+> should "work" the exact same way, but just with a new interface and be reliant on the application being running/in
+> system tray by default when closed unless right clicked and exited, etc, not sure what you mean about where the shared
+> core lives, you would take what you need from Odin and bring it over to Odin Desktop, and we would maintain both when
+> doing updates etc. As far as reach odin from phone, for Odin Desktop, that wont immediately be available.
+
+| ID | Decision |
+|---|---|
+| D1 | **Prompt.** Odin Desktop's prompt text does not mention Discord. Only the Discord references change. The rest of the personality and system prompt stays the same, and Aaron approves the exact wording ([`prompt-changes.md`](prompt-changes.md)). This replaces the round-1 assumption that the bytes stay unchanged. |
+| D2 | **Behaviour.** Odin works exactly the same: every feature and function comes over, including agents, anti-hedging, continuation and the rest. Only the interface is new. |
+| D3 | **Lifecycle.** Odin runs while the application is running. Closing the window leaves it in the system tray, still working. Odin stops only when the user right-clicks the tray icon and chooses Exit. |
+| D4 | **Code.** Take what's needed from Odin and bring it into Odin Desktop. Both repositories are maintained when updates are made. There is no shared core package and no extraction campaign in the Odin repository. |
+| D5 | **Importing an existing user's data** (memory and so on) is out of scope. It will be handled separately later. |
+| D6 | **Phone and remote access** is not in the first versions. |

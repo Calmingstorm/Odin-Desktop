@@ -1,92 +1,72 @@
 # Architecture
 
-Owner: Claude. Draft 1, 2026-10-04. It consolidates what Claude and Odin agreed in rounds 1 and 2. Detailed contracts
+Owner: Claude. Draft 2, 2026-10-04. It consolidates what Claude and Odin agreed in rounds 1 and 2, and Aaron's
+decisions D1 to D6 ([brief](00-brief.md#aarons-decisions-2026-10-04-after-round-1)). Detailed contracts
 live in [`core-contracts.md`](core-contracts.md), owned by Odin. The per-file reuse plan is in
 [`reuse-map.md`](reuse-map.md), also owned by Odin. Items marked **(round 2)** are being settled now.
 
 ## 1. Shape
 
 ```
-            Odin Desktop (one install, one user profile)
+                 Odin Desktop: one application, one user
 
- ┌──────────────────────────────┐        local IPC (owner-only socket / named pipe,
- │ Desktop UI (client)          │◄──────► per-install token, versioned protocol)
- │ chat workspace, management   │                 │
- │ screens, tray, notifications,│                 ▼
- │ quick prompt                 │   ┌───────────────────────────────────────────┐
- └──────────────────────────────┘   │ Odin core (per-user background process)   │
-       restartable, any number      │                                           │
-       of windows; closing a        │ shared core package (from Odin):          │
-       window never stops work      │  tool loop + guards + completion judge,   │
-                                    │  providers, tools, agents, scheduler,     │
-                                    │  memory, knowledge, skills, MCP, computer │
-                                    │  use, audit, turn durability, usage       │
-                                    │                                           │
-                                    │ desktop surface: conversations, durable   │
-                                    │  transcript + artifacts + events,         │
-                                    │  background inbox, controls, runtime      │
-                                    └───────────────────────────────────────────┘
-                                         one core per profile (lock + handshake)
+  ┌────────────────────────────────────────────────────────────────────┐
+  │ App process (shell): tray icon + menu, windows, notifications,     │
+  │ autostart, quick prompt. Owns the lifetime of everything below.    │
+  │                                                                    │
+  │   ┌───────────────────────────┐     ┌───────────────────────────┐  │
+  │   │ UI (renderer): chat       │◄───►│ Odin core (child process, │  │
+  │   │ workspace, management     │ IPC │ Python): the full Odin    │  │
+  │   │ screens. Restartable.     │     │ engine brought over from  │  │
+  │   └───────────────────────────┘     │ Odin + desktop surface.   │  │
+  │                                     └───────────────────────────┘  │
+  └────────────────────────────────────────────────────────────────────┘
+   Close window → app stays in the tray and Odin keeps working.
+   Tray → right-click → Exit → Odin shuts down safely, then the app exits.
 ```
 
-## 2. Process model
+## 2. Lifecycle (D3)
 
-**Core.** A per-user background process. It owns:
-- configuration and secrets;
-- providers, the tool executor, and the agent, loop and schedule managers;
-- conversations, the durable transcript and artifacts, retained evidence and audit;
-- guarded shutdown.
+**Odin runs while the application runs (D3).**
+- **Closing the window** hides it to the tray. Odin keeps working: turns, agents, schedules, loops and workflows all
+  continue, and their results land in the conversation inbox with a notification.
+- **Exit from the tray's right-click menu** stops Odin. Admission stops, owned work is settled or cancelled safely, state
+  is persisted, supervised input is released and owned child processes end. Unknown effects are reported on the next
+  start; they are never erased or replayed.
+- **Start at login** is opt-in (R2). The app starts minimized to the tray, which starts Odin.
 
-It starts at login when the user opts in. Login-session startup comes first; boot-before-login is a question for
-Aaron.
+**Internal process split.** The core runs as a child process of the app, rather than inside the renderer. A renderer
+crash or reload then cannot stop work or lose output: the UI reconnects and catches up from durable events. The app
+supervises the core, and if the core crashes it reports interrupted work and restarts the core. This is invisible to
+the user. There is still one Odin per user profile: a second launch focuses the running app.
 
-**UI.** A client of the core. It renders the chat and management screens and owns the tray, notifications and the
-quick-prompt hotkey. If it crashes, closes or restarts, no work stops and no output is lost: the UI catches up from
-durable events.
+**When the app is not running,** nothing runs. Schedules due while it was exited, or while the machine slept, follow a
+documented missed-run policy on the next start. Last-run and next-run times are shown. Odin's round-1 lifecycle table
+still applies, with the background-daemon rows replaced by the app-owned model above.
 
-**One core per profile.** An owner-only lock plus a discovery handshake bind process, profile and protocol generation.
-A second launch opens or connects the UI instead of starting a second scheduler. An unrelated Odin server is never
-mistaken for this core.
+## 3. Code: bring Odin's code over, maintain both (D4)
 
-**Lifecycle contract.** The full table is in Odin's
-[capabilities round](../discussion/02-odin-capabilities.md#lifecycle-behavior-that-needs-explicit-design).
+**Approach.** Odin Desktop starts from a copy of Odin's code at a recorded **baseline commit**. Then:
+- strip what doesn't apply (Discord machinery, multi-user access control), following Odin's
+  [`reuse-map.md`](reuse-map.md) verdicts;
+- adapt the surfaces to the desktop.
 
-| Event | Behaviour |
-|---|---|
-| Close window | Background work continues if the user enabled background operation (disclosed once). |
-| Quit UI | Different from Quit Odin. The UI reconnects and catches up later. |
-| Quit Odin | Stop admitting work, settle or cancel owned work safely, persist, release supervised input, end owned children. Report unknown effects; never erase them. |
-| Sleep or offline | No claim that anything ran while the machine slept. A documented missed-run policy, with last-run and next-run visible. |
-| Crash, restart or update | Durable transcript and schedule definitions survive. Interrupted work is shown as interrupted or uncertain, with guarded explicit resume where supported. Nothing is replayed blindly. |
+There is no shared package and no Odin-repo extraction. Both repositories are maintained.
 
-## 3. The shared core and the desktop surface
+**Keeping the two in step.** This is the cost of D4, so it's designed in from the start:
+- **Keep the layout.** Shared engine code (tool loop, guards, completion judge, providers, tools, agents, scheduler,
+  memory, knowledge, skills, MCP, computer use, audit, turn state) keeps Odin's module paths and names where possible,
+  so a fix ports as the same diff.
+- **Port ledger.** Every Odin commit after the baseline gets an entry in the Desktop repo: ported (with the Desktop
+  commit), not applicable (with the reason), or pending. Every Odin release is reviewed against the ledger before the
+  matching Desktop release.
+- **Dual changes.** A change to shared behaviour lands in both repos. The Desktop PR links the Odin PR, or the reverse.
+- **Parity tests.** The behaviour tests that pin how Odin works (guards, classifier, anti-hedging, stop and steer
+  receipts, durability, no-replay) are carried into Desktop and kept identical where the code is shared.
 
-**Destination.** A versioned core package that both Odin (the server, with its Discord and web surfaces) and Odin
-Desktop depend on. The aim is one implementation of:
-- the tool loop and guards;
-- providers;
-- tools and containment;
-- durability and audit.
-
-The desktop repo adds its own composition, surface, settings and packaging.
-
-**Not the destination:**
-- a permanent copy-and-strip fork, because the two would drift on security and guard fixes;
-- the whole `odin` package with features switched off, because feature switches do not isolate dependencies.
-
-**Seams**, defined in `core-contracts.md`:
-
-| Seam | What it does |
-|---|---|
-| Request envelope | Installation, conversation, branch, request and invocation IDs; content and media references; provenance; explicit scope. Transport IDs never double as authority. |
-| Conversation service | Model context, which keeps today's compaction, plus a separate durable user-visible transcript, artifacts and events. |
-| Delivery sink | Typed message, artifact, report and notification output bound to a conversation and request. It works with no UI attached. |
-| Control service | Stop, steer and resume bound to the exact request, with truthful receipts: queued, consumed or closed; requested or confirmed; unknown. |
-| Runtime service | Startup, readiness, feature availability, config apply, shutdown and updates. |
-| Tool authority and platform service | The governor, host trust, workspace fences, output authorization, computer consent, and platform-capability boundaries. An unsupported native feature publishes no tools. |
-
-**Extraction sequencing (round 2).** This needs Odin-repository changes that Aaron authorizes separately. It must never
-destabilize the server install.
+**Seams inside Odin Desktop.** Odin's six seams from round 1 still define the boundary between the engine and the
+desktop surface, now inside one repository: request envelope, conversation service, delivery sink, control service,
+runtime service and tool authority/platform service. See [`core-contracts.md`](core-contracts.md).
 
 ## 4. Authority model on a personal desktop
 
@@ -114,16 +94,14 @@ destabilize the server install.
 - **Renderer lockdown:** a preload bridge only, no Node in the renderer, a strict CSP, and file access only through
   references the core issues.
 
-## 6. Coexistence and remote mode
+## 6. Coexistence, import and remote access
 
-- **Standalone.** Its own install identity, XDG data roots, socket, credentials (keyring), known hosts, caches, browser
-  profile, audit and lock. It never touches `/opt/odin` or a server's data. Migration is an explicit, validated
-  snapshot import; imported schedules stay inert until re-authorized.
-- **Remote-server client mode.** Designed as a seam now; its scope is Aaron's decision.
-  - Separate, clearly labeled connection profiles.
-  - The server keeps its own identity, tier and host policy.
-  - No silent fallback from remote to local.
-  - Capability negotiation, with unsupported features shown as unavailable.
+- **Alongside an existing Odin (R3).** Odin Desktop has its own install identity, per-user data roots, IPC endpoint,
+  credentials (keyring), known hosts, caches, browser profile, audit and lock. It never touches `/opt/odin` or a server
+  install's data, services or ports.
+- **Importing an existing user's data:** out of scope for now (D5).
+- **Phone and remote access:** not in the first versions (D6). The IPC protocol is versioned and has capability
+  negotiation, so a remote client can be added later without reworking the core.
 
 ## 7. Portability seams (Windows and macOS later)
 
