@@ -14,9 +14,9 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src.knowledge import importer as importer_module
-from src.knowledge.importer import BulkImporter, MAX_FILE_BYTES
+from src.knowledge.importer import MAX_FILE_BYTES, BulkImporter
 from src.knowledge.store import IngestOutcome
-from src.search.embedder import LocalEmbedder, MAX_INPUT_CHARS
+from src.search.embedder import MAX_INPUT_CHARS, LocalEmbedder
 from src.search.sqlite_vec import deserialize_vector, serialize_vector
 
 
@@ -73,7 +73,9 @@ def test_relative_roots_are_not_cwd_grants(store):
 
 
 @pytest.mark.asyncio
-async def test_bundle_loading_is_local_cpu_worker_and_serialization_unchanged(tmp_path, monkeypatch):
+async def test_bundle_loading_is_local_cpu_worker_and_serialization_unchanged(
+    tmp_path, monkeypatch
+):
     calls, texts = [], []
     main_thread = threading.get_ident()
     values = [float(i) / 384 for i in range(384)]
@@ -259,7 +261,9 @@ async def test_post_stat_growth_size_fence_is_preserved(tmp_path, store, monkeyp
     ("failure", 0, "error", ""),
 ])
 @pytest.mark.asyncio
-async def test_admitted_import_preserves_typed_dedup_outcomes(tmp_path, store, outcome, count, status, note):
+async def test_admitted_import_preserves_typed_dedup_outcomes(
+    tmp_path, store, outcome, count, status, note
+):
     path = tmp_path / "doc.md"
     path.write_text("typed store result", encoding="utf-8")
     store.ingest.return_value = IngestOutcome(count, outcome, "existing")

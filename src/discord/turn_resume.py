@@ -51,16 +51,21 @@ _AUTO_POLL_SECONDS = 15.0
 _SESSION_RESPONSE_CAP = 4000
 
 
-class ConversationMessageNotFound(LookupError):
+class ConversationMessageNotFoundError(LookupError):
     """A store positively verified the original message does not exist."""
 
 
-class ConversationAccessDenied(PermissionError):
+class ConversationAccessDeniedError(PermissionError):
     """A store denied the current authenticated owner access to the message."""
 
 
-class ConversationFetchUnavailable(OSError):
+class ConversationFetchUnavailableError(OSError):
     """The store cannot currently return the message; absence is unproven."""
+
+
+ConversationMessageNotFound = ConversationMessageNotFoundError
+ConversationAccessDenied = ConversationAccessDeniedError
+ConversationFetchUnavailable = ConversationFetchUnavailableError
 
 
 class TurnResumeManager:
@@ -442,7 +447,9 @@ class TurnResumeManager:
             original = None
         except ConversationAccessDenied:
             log.warning("Resume admission cannot fetch %s: store access forbidden", key)
-            return None, None, "The conversation store currently denies access to the original message"
+            return (
+                None, None, "The conversation store currently denies access to the original message"
+            )
         except ConversationFetchUnavailable as exc:
             log.warning("Resume admission cannot fetch %s: store failure: %s", key, exc)
             return None, None, "The conversation store could not fetch the original message yet"

@@ -12,5 +12,6 @@ dist/
 .test-state/
 .test-logs/
 .test-logs-*.txt
+.lint-format-evidence/
 app/node_modules/
 app/dist/

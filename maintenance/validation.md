@@ -29,3 +29,55 @@ The full failed output is retained locally at `.test-logs-pass-now-full.txt`; ne
 ## Execution-boundary incident
 
 A surface subagent used `create_skill` for a temporary structural patch helper, outside the repository-only scope. Audit records show `desktop_scoped_strip_edit` created at **20:19:17 UTC** and deleted at **20:54:26 UTC**. The helper only generated scoped Desktop patches, but its runtime registration was still an unauthorized boundary expansion. Cleanup is verified by the deletion audit. No deployment, service restart, live configuration change or native desktop operation was performed. This incident prevents an unqualified claim that all work stayed inside the repository.
+
+## Final selected-corpus requalification
+
+The final 24-group plan completed with **12,844 passing test executions, zero
+failures/errors, and two skips**. Counts include duplicated direct/adapter
+cases and new tests, not 12,844 distinct upstream cases. Every group used the
+sanitized non-root mount/PID namespace launcher. No native desktop or lifecycle
+qualification was attempted. `maintenance/qualification-result.json` pins the
+plan and individual local JUnit hashes.
+
+The earlier broad runs remain failed evidence, not overwritten claims. The
+final plan uses exact case selections and frozen-source adapters. All 851
+retained upstream files remain byte-identical; assertions, signatures,
+decorators and parameter ASTs are verified before case projection. Authentic
+disposable owner/profile/host contexts replace obsolete setup, not permissive
+privilege shims. Independent review of those adaptations remains required.
+
+The final complete selected-plan run initially found one stale new Desktop
+byte-identity assertion after the catalog name-reservation fix. That test now
+admits only the three exact catalog substitutions and checks every other byte.
+The entire 24-group plan was rerun successfully. This is not a first-run-clean
+claim.
+
+Additional verification:
+
+- Offline drift: **1,235 identical paths, 181 exact ledgered paths, 186 pending
+  independent reviews, zero unexplained errors**. Explanation is not approval.
+- No new lint findings; seven exact named inherited findings remain visible.
+- Locked dependency consistency and `pip check` pass. Static tool reference
+  generation is current and does not consult runtime grants/readiness.
+- Engine wheel builds; 362 entries have no removed third-party transport imports
+  or test/archive/script/legacy UI payloads. This is not the complete app bundle.
+- New safety cases exposed and fixed unready built-in name shadowing: readiness
+  hides tools but never releases their reserved names to skills/MCP.
+- Ordinary selected-owner-profile upgrades and runtime retired-model serving are
+  retained. D5 prohibits cross-installation imports, not normal profile upgrades.
+- Clean-CI baseline readers use the digest-verified committed archive rather
+  than local-only Git refs. Local historical XML is not a collected-test input.
+
+### Acceptance remains blocked
+
+`maintenance/case-accounting.json` still has **20 unresolved historical failure
+mappings and 82 unresolved foundation-definition mappings**. These populations
+may overlap. They are not Phase 2 waivers or passing evidence. Twelve actual
+Phase 2 wiring and sixteen native/prohibited-scope foundation limitations are
+separately recorded. Partial coverage of a suite never qualifies its remainder.
+
+Phase 2 defers authenticated request/control wiring, durable conversation
+delivery/outboxes, destination binding and app supervision. D14 Chromium/model/
+native-helper shipping and hard-isolated native proofs remain unqualified.
+The PR stays draft: no completed Phase 1, full-suite coverage, parity, shipping,
+release, independent approval or clean execution-boundary acceptance is claimed.

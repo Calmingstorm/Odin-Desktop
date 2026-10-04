@@ -48,8 +48,11 @@ def main() -> int:
         "sudo", "-n", "unshare", "--mount", "--pid", "--fork", "--mount-proc",
         "--kill-child", "sudo", "-n", "-u", os.environ.get("USER", "root"),
         "env", "-i", *(f"{key}={value}" for key, value in environment.items()),
+        str(ROOT / ".venv/bin/python"), "-c",
+        "import subprocess,sys; raise SystemExit(subprocess.call(sys.argv[1:]))",
         str(ROOT / ".venv/bin/pytest"), "-p", "pytest_asyncio.plugin",
-        "-p", "pytest_cov.plugin", "-q", *arguments,
+        "-p", "pytest_cov.plugin", "-p", "pytest_timeout", "--timeout=90",
+        "--timeout-method=signal", "-q", *arguments,
     ]
     return subprocess.call(command, cwd=ROOT)
 

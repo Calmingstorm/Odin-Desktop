@@ -11,7 +11,8 @@ TOOLS_SECTION: list[dict] = [
     {
         "name": "browser_screenshot",
         "description": (
-            "Takes a screenshot of a URL (renders JavaScript) and posts to the conversation. Works on "
+            "Takes a screenshot of a URL (renders JavaScript) and posts to the conversation. "
+            "Works on "
             "dashboards, SPAs, and dynamic pages unlike fetch_url. For text, use browser_read_page."
         ),
         "input_schema": {

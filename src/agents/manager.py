@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Protocol
 
-from ..storage_redaction import _scrub_tool_input_for_storage
 from ..error_presentation import format_user_facing_error
 from ..llm.secret_scrubber import scrub_output_secrets
 from ..llm.timing import elapsed_ms, timed_generation
@@ -29,6 +28,7 @@ from ..llm.tool_history import (
     settled_call_ids,
 )
 from ..odin_log import get_logger
+from ..storage_redaction import _scrub_tool_input_for_storage
 from ..tools.result_validator import ToolResult
 from .execution_context import waiting_agent
 from .repetition import RepetitionGuard

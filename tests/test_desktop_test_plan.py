@@ -44,7 +44,9 @@ def test_retained_inherited_bytes_and_import_evidence():
     plan = json.loads((ROOT / "maintenance/test-plan.json").read_text())
     for entry in plan["entries"]:
         if entry["classification"] != "excluded":
-            assert hashlib.sha256((ROOT / entry["path"]).read_bytes()).hexdigest() == entry["sha256"], entry["path"]
+            assert (
+                hashlib.sha256((ROOT / entry["path"]).read_bytes()).hexdigest() == entry["sha256"]
+            ), entry["path"]
         if "import_closure_id" in entry:
             closure = plan["import_closures"][entry["import_closure_id"]]
             assert all(p.startswith("src/") for p in closure)

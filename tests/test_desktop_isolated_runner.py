@@ -48,6 +48,9 @@ def test_runner_namespaces_and_cleans_ambient_environment(tmp_path, monkeypatch)
     assert f"HOME={tmp_path / '.test-state/home'}" in command
     assert f"XDG_DATA_HOME={tmp_path / '.test-state/data'}" in command
     assert command[-1] == "tests/test_neutral.py"
+    assert "import subprocess,sys; raise SystemExit(subprocess.call(sys.argv[1:]))" in command
+    assert "--timeout=90" in command
+    assert "--timeout-method=signal" in command
 
 
 def test_runner_refuses_an_empty_unclassified_selection(tmp_path, monkeypatch):

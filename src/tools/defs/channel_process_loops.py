@@ -13,7 +13,8 @@ TOOLS_SECTION: list[dict] = [
         "description": (
             "Reads recent messages from the CURRENT conversation into your context. "
             "Returns visible conversation history from all recorded participants. The conversation "
-            "is the one this request came from; do NOT pass a conversation ID. The returned messages are "
+            "is the one this request came from; do NOT pass a conversation ID. "
+            "The returned messages are "
             "for YOUR eyes only — do NOT paste or echo them. Read, understand, then respond "
             "with your own summary, analysis, or action."
         ),

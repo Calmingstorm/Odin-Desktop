@@ -41,11 +41,10 @@ from typing import Any
 
 from ..odin_log import get_logger
 from ..tools.effect_classifier import classify_tool_effect
-from .codec import compute_content_digest, scrub_stored_tool_input, snapshot_chat_turn
+from .codec import scrub_stored_tool_input, snapshot_chat_turn
 from .store import (
     OpState,
     StaleTurnError,
-    TurnKey,
     TurnLease,
     TurnStateStore,
     TurnStateUnavailableError,

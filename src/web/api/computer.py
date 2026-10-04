@@ -32,14 +32,19 @@ _PUBLIC_ERRORS = {
     "explicit_acknowledgment_required": (
         400, "Explicit acknowledgment must exactly match ACKNOWLEDGE UNVERIFIED CLEANUP "
         "followed by a space and the selected session ID.", "correct_acknowledgment"),
-    "disabled": (503, "Computer use is disabled. Status and recovery remain available.", "refresh_status"),
+    "disabled": (
+        503, "Computer use is disabled. Status and recovery remain available.", "refresh_status"
+    ),
     "hyprland_recovery_unavailable": (409, "Native release recovery requires the retained "
                                      "Hyprland session. Use the operator setup recovery command "
                                      "if the controller is gone.", "inspect_recorded_workload"),
-    "grant_revoked": (409, "Input authority was revoked. Refresh status before continuing.", "refresh_status"),
+    "grant_revoked": (
+        409, "Input authority was revoked. Refresh status before continuing.", "refresh_status"
+    ),
     "runtime_identity_required": (
         409, "No recorded runtime identity is available. Use the legacy acknowledgment "
-        "flow as the session owner after independently inspecting cleanup.", "inspect_legacy_cleanup"),
+        "flow as the session owner after independently inspecting cleanup.",
+        "inspect_legacy_cleanup"),
 }
 
 

@@ -92,9 +92,9 @@ class ToolCatalog:
         # disabled or backend-hidden — skills and MCP tools must never
         # shadow one (collision checks below use this set, not post-filter
         # visibility).
-        static_names = {t["name"] for t in builtin}
-        if computer_cfg is not None and computer_cfg.enabled:
-            static_names.update({"computer_session", "computer_observe", "computer_act"})
+        from ..tools.builtin_policy import BUILTIN_TOOL_NAMES
+
+        static_names = set(BUILTIN_TOOL_NAMES)
         # Operator-disabled built-ins (tools.disabled_tools) leave first:
         # a disabled tool does not exist for the model on any surface. The
         # dispatch-time policy guard is the backstop for requests assembled
@@ -163,19 +163,13 @@ class ToolCatalog:
 
         if not image_tool_available(config):
             hidden.add("generate_image")
-        # analyze_pdf: PyMuPDF lives in the optional `pdf` extra, and no
-        # install path used to install extras — so the tool was advertised on
-        # every install while its dependency was present on none of them, and
-        # calls died with "No module named 'fitz'". Structural availability
-        # only; the handler still converts a load failure into a clean result,
-        # because find_spec proves the module is importable, not that the
-        # native library loads.
+        # Required bundled dependencies still need a structural readiness check.
+        # Importability is not proof the native library or packaged assets load.
         if importlib.util.find_spec("fitz") is None:
             hidden.add("analyze_pdf")
             log.info(
-                "analyze_pdf hidden from the tool catalog: PyMuPDF is not "
-                "installed. Install the 'pdf' extra to enable it "
-                "(pip install '.[pdf]')."
+                "analyze_pdf hidden from the tool catalog: required bundled "
+                "PyMuPDF is unavailable; repair the desktop installation."
             )
         return hidden
 

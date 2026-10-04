@@ -5,8 +5,11 @@ HTTP route inventory, listener, browser login or remote client is published.
 """
 
 
-class Phase2Unavailable(RuntimeError):
+class Phase2UnavailableError(RuntimeError):
     """A required authenticated service boundary has not been implemented."""
+
+
+Phase2Unavailable = Phase2UnavailableError
 
 
 def require_phase2(operation: str) -> None:

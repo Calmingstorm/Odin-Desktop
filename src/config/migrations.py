@@ -42,9 +42,14 @@ def _require_desktop_config(config_path: str | Path) -> None:
     from ..desktop.authority import OwnerAuthority
     from ..runtime_paths import runtime_profile_paths
     paths = runtime_profile_paths()
-    if Path(config_path).absolute() != paths.config_file:
+    # An alias may name the selected canonical config, but selecting a profile
+    # never authorizes a symlink from its config slot into another installation.
+    if paths.config_file.is_symlink() or Path(config_path).resolve() != paths.config_file:
         raise MigrationCompletionError("configuration is outside the selected desktop profile")
-    authority = OwnerAuthority(paths)
+    try:
+        authority = OwnerAuthority(paths)
+    except (OSError, ValueError) as exc:
+        raise MigrationCompletionError("selected profile owner identity is unproven") from exc
     if authority.durability_degraded:
         raise MigrationCompletionError("profile identity durability unproven")
 

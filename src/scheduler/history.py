@@ -34,7 +34,11 @@ class ScheduleHistory:
     ) -> None:
         from ..runtime_paths import runtime_profile_paths
 
-        self.path = Path(path) if path is not None else runtime_profile_paths().data_dir / "schedule_history.jsonl"
+        self.path = (
+            Path(path)
+            if path is not None
+            else runtime_profile_paths().data_dir / "schedule_history.jsonl"
+        )
         if path is None:
             from ..desktop.paths import private_directory
 

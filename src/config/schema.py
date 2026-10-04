@@ -1953,6 +1953,41 @@ def load_config(path: str | Path | None = None) -> Config:
             "It must contain a YAML mapping.\n"
             "See the desktop configuration documentation for examples."
         )
+    # Reject stripped/unknown top-level fields before any profile upgrade can
+    # write. Config forbids extras; do not migrate an obsolete server config and
+    # only afterwards discover that it cannot be admitted by Desktop.
+    known = set(Config.model_fields)
+    known.update(f.alias for f in Config.model_fields.values() if f.alias)
+    if set(data) - known:
+        raise SystemExit("Config validation failed: unsupported top-level configuration fields")
+    from .migrations import (
+        MigrationCompletionError,
+        _require_desktop_config,
+        apply_compatible_timeout_migration,
+        apply_image_defaults_migration,
+        apply_legacy_ceiling_migration,
+    )
+
+    paths = runtime_profile_paths()
+    # Explicit external reads retain runtime normalization only. They are not
+    # installation imports and cannot publish profile migration provenance.
+    selected = path.resolve() == paths.config_file.resolve()
+    if selected:
+        try:
+            _require_desktop_config(path)
+            apply_legacy_ceiling_migration(data, path, original_raw)
+            apply_image_defaults_migration(data, path, original_raw)
+        except MigrationCompletionError as exc:
+            raise SystemExit(
+                f"Configuration migration failed for {path}: {exc}\n"
+                "Inspect the configuration migration record and retry; Odin will not "
+                "guess at operator provenance."
+            ) from exc
+    # Runtime retirement is not an import from another installation and does
+    # not write the operator's YAML. Preserve the upstream serving boundary.
+    from .model_retirement import migrate_retired_codex_selections
+
+    migrate_retired_codex_selections(data)
     try:
         cfg = Config.model_validate(data, context={"startup": True})
     except Exception as exc:
@@ -1960,7 +1995,12 @@ def load_config(path: str | Path | None = None) -> Config:
             f"Config validation failed: {exc}\n"
             "Check config.yml values — numeric fields must be within valid ranges."
         ) from exc
-    # Record the config source for explicit persistence only. Loading is read-only.
+    if selected:
+        try:
+            apply_compatible_timeout_migration(data, path, original_raw)
+        except MigrationCompletionError as exc:
+            raise SystemExit(f"Configuration migration failed for {path}: {exc}") from exc
+    # Record the config source for explicit persistence, never a CWD guess.
     set_active_config_path(path)
     return cfg
 

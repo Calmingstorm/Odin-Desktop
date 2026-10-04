@@ -217,7 +217,9 @@ class AuditLogger:
     ) -> None:
         from ..runtime_paths import runtime_profile_paths
 
-        self.path = Path(path) if path is not None else runtime_profile_paths().data_dir / "audit.jsonl"
+        self.path = (
+            Path(path) if path is not None else runtime_profile_paths().data_dir / "audit.jsonl"
+        )
         if path is None:
             from ..desktop.paths import private_directory
 

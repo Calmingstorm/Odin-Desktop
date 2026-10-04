@@ -9,7 +9,9 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("desktop_inventory", REPO / "scripts/maintenance/inventory.py")
+spec = importlib.util.spec_from_file_location(
+    "desktop_inventory", REPO / "scripts/maintenance/inventory.py"
+)
 inventory = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(inventory)
 
@@ -27,7 +29,20 @@ def sandbox(tmp_path, monkeypatch):
         target = tmp_path / path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
-    for name, data in (("manifest.json", manifest), ("safety-manifest.json", safety), ("desktop-deltas.json", {"version": 1, "baseline": inventory.BASELINE, "entries": []}), ("ledger.json", {"version": 1, "baseline": inventory.BASELINE, "review_watermark": inventory.BASELINE, "entries": []})):
+    for name, data in (
+        ("manifest.json", manifest),
+        ("safety-manifest.json", safety),
+        ("desktop-deltas.json", {"version": 1, "baseline": inventory.BASELINE, "entries": []}),
+        (
+            "ledger.json",
+            {
+                "version": 1,
+                "baseline": inventory.BASELINE,
+                "review_watermark": inventory.BASELINE,
+                "entries": [],
+            },
+        ),
+    ):
         inventory.write_json(tmp_path / "maintenance" / name, data)
     monkeypatch.setattr(inventory, "baseline_blobs", lambda root: blobs)
     monkeypatch.setattr(inventory, "manifests", lambda root, source: (manifest, safety))
@@ -35,7 +50,10 @@ def sandbox(tmp_path, monkeypatch):
 
 def test_frozen_archive_and_copy_identity(frozen):
     assert len(frozen) == 1762
-    assert inventory.digest((REPO / "maintenance/odin-v4.13.0.tar.gz").read_bytes()) == inventory.ARCHIVE_SHA256
+    assert (
+        inventory.digest((REPO / "maintenance/odin-v4.13.0.tar.gz").read_bytes())
+        == inventory.ARCHIVE_SHA256
+    )
     assert frozen["LICENSE"] == (REPO / "maintenance/UPSTREAM-LICENSE").read_bytes()
 
 @pytest.mark.parametrize("path", ["src/llm/system_prompt.py", "src/discord/response_guards.py"])
@@ -57,14 +75,27 @@ def test_exact_approved_wording_protects_surroundings(frozen, path, tmp_path):
     # Coherently updating the patch and hashes cannot expand approved wording.
     mutated = approved + b"# unapproved extra policy byte\n"
     errors.clear()
-    inventory.validate_delta(tmp_path, delta(path, before, mutated), before, mutated, errors, [], [])
+    inventory.validate_delta(
+        tmp_path, delta(path, before, mutated), before, mutated, errors, [], []
+    )
     assert any("surrounding" in e for e in errors)
 
 def delta(path, before, after):
-    return {"path": path, "before_sha256": inventory.digest(before), "after_sha256": inventory.digest(after),
-            "patch": inventory.byte_patch(before, after), "reason": "test boundary", "contract": "exact bytes",
-            "invariant": "no approval widening", "owner": "Odin", "reviewer": "pending Claude", "state": "pending",
-            "tests": ["tests/test_evidence.py"], "approval": "pending", "evidence": "unit fixture"}
+    return {
+        "path": path,
+        "before_sha256": inventory.digest(before),
+        "after_sha256": inventory.digest(after),
+        "patch": inventory.byte_patch(before, after),
+        "reason": "test boundary",
+        "contract": "exact bytes",
+        "invariant": "no approval widening",
+        "owner": "Odin",
+        "reviewer": "pending Claude",
+        "state": "pending",
+        "tests": ["tests/test_evidence.py"],
+        "approval": "pending",
+        "evidence": "unit fixture",
+    }
 
 def test_shared_removed_added_and_budget_drift(sandbox):
     root, blobs = sandbox
@@ -112,9 +143,28 @@ def test_safety_selection_cannot_be_deleted_through_override_json(frozen, tmp_pa
         target = tmp_path / path
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(REPO / path, target)
-    plan = {"entries": [{"path": p, "reason": "retained fixture", "classification": "retained_support"} for p in frozen if p.startswith("tests/")]}
+    plan = {
+        "entries": [
+            {"path": p, "reason": "retained fixture", "classification": "retained_support"}
+            for p in frozen
+            if p.startswith("tests/")
+        ]
+    }
     inventory.write_json(tmp_path / "maintenance/test-plan.json", plan)
-    inventory.write_json(tmp_path / "maintenance/selection-overrides.json", {"version": 1, "baseline": inventory.BASELINE, "entries": [{"path": "src/discord/response_guards.py", "upstream_sha256": inventory.digest(frozen["src/discord/response_guards.py"]), "reason": "forged approval"}]})
+    inventory.write_json(
+        tmp_path / "maintenance/selection-overrides.json",
+        {
+            "version": 1,
+            "baseline": inventory.BASELINE,
+            "entries": [
+                {
+                    "path": "src/discord/response_guards.py",
+                    "upstream_sha256": inventory.digest(frozen["src/discord/response_guards.py"]),
+                    "reason": "forged approval",
+                }
+            ],
+        },
+    )
     with pytest.raises(ValueError, match="Invalid/duplicate selection"):
         inventory.manifests(tmp_path, frozen)
 
@@ -143,7 +193,10 @@ def test_inconsistent_delta_self_review_and_duplicate_path(sandbox):
     errors = []
     inventory.validate_delta(root, entry, blobs["src/shared.py"], b"limit = 8\n", errors, [], [])
     assert any("independent" in e for e in errors)
-    inventory.write_json(root / "maintenance/desktop-deltas.json", {"version": 1, "baseline": inventory.BASELINE, "entries": [entry, entry]})
+    inventory.write_json(
+        root / "maintenance/desktop-deltas.json",
+        {"version": 1, "baseline": inventory.BASELINE, "entries": [entry, entry]},
+    )
     with pytest.raises(ValueError, match="Duplicate"):
         inventory.ledger(root)
 

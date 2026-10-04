@@ -8,6 +8,7 @@ and optional metadata dict.
 from __future__ import annotations
 
 import os
+
 try:
     import resource
 except ImportError:  # unavailable on platforms without POSIX resource limits

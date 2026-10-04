@@ -122,7 +122,7 @@ def generate() -> str:
     """Return deterministic UTF-8 Markdown from the checked-out public catalog."""
     # Clear only an in-memory definition cache; never consult an operator config.
     registry.invalidate_tool_defs_cache()
-    served = registry.get_tool_definitions()
+    served = registry.get_documentation_tool_definitions()
     if [t["name"] for t in served] != [t["name"] for t in registry.TOOLS]:
         raise ValueError("Served definitions do not preserve registry order")
     by_name = {tool["name"]: tool for tool in served}
@@ -135,7 +135,8 @@ def generate() -> str:
         "",
         f"**{len(served)} built-in tools**, in registry order, grouped by definition module.",
         "Descriptions are the complete affordance-decorated output of "
-        "`get_tool_definitions()`; core flags and input schemas come from the same registry.",
+        "`get_documentation_tool_definitions()`; core flags and input schemas come "
+        "from the same registry.",
         "This is the static catalog, not a snapshot of a running installation: backend "
         "availability, permissions and disabled-tool policy can reduce visibility. Agent "
         "limits and model/effort fields are conditioned on configuration at catalog build time.",

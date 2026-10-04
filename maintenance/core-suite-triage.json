@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "state": "partial-executed-closure-not-full-phase1-acceptance",
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "evidence": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_shared_config.py tests/test_desktop_shared_computer.py --junitxml=.test-state/shared-core.xml",
+    "result": "290 passed in 9.46s",
+    "junit": ".test-state/shared-core.xml",
+    "log": ".test-state/shared-core.log",
+    "preservation": "Exact frozen archive digest and original retained test bytes; exact assert AST/source spans and decorator parameter AST before compilation. No production shim, native operation, endpoint probe, install, source change or commit."
+  },
+  "selector_map": "tests.test_desktop_shared_config.CASE_MAP exposes each baseline suite::class::function to adapted executable selector; CORPUS_SELECTIONS explicitly lists every selection and ORIGINALS records SHA256 plus line-specific setup edits. A test verifies no empty or misspelled selection silently passes.",
+  "fixture_edits": [
+    "Remove Config dummy discord token keyword only outside original Assert nodes.",
+    "Remove only multi_provider_schema_boundaries raw setup dictionary transport member, not parametrized cases.",
+    "Static documentation catalogue import for agent-policy schemas only; no readiness/authorization changes.",
+    "Omit removed API types for selected neutral schema env/error tests and omitted package_migrations import for selected core config tests.",
+    "Real OwnerAuthority created in fresh per-case XDG profile; migration tmp_path setup aliased to profile config directory. No migration admission guard bypass."
+  ],
+  "qualified_corpus": {
+    "tests/test_model_ref.py": "all cases",
+    "tests/test_multi_provider_schema_boundaries.py": "all cases",
+    "tests/test_agent_tool_policy_branch_coverage.py": "all cases",
+    "tests/test_bulkhead.py": ["TestBulkhead", "TestBulkheadRegistry", "TestBulkheadFullError", "TestBulkheadConfig", "TestBuildBulkheadRegistry", "TestConfigRoundTrip"],
+    "tests/test_outbound_webhooks.py": ["TestOutboundWebhookTargetConfig", "TestOutboundWebhooksConfig"],
+    "tests/test_tool_timeouts.py": ["TestConfigYAMLCompat"],
+    "tests/test_config_schema_validators.py": "Exact neutral classes/methods in CORPUS_SELECTIONS; env substitution, load-error handling, effort/model/timeouts, max children. No old API-schema expectations.",
+    "tests/test_config_persistence.py": "Exact nine writer classes plus seven alias methods and dual-spelling writer in CORPUS_SELECTIONS; YAML/comment/placeholder/atomic/metadata/alias source cases retained.",
+    "tests/test_config_ceiling_migration.py": "Exact profile-qualified one-time/vacuous/no-resurrection/failure/marker provenance methods in CORPUS_SELECTIONS.",
+    "tests/test_image_defaults_core.py": "26 exact functions, including original16-row byte-preserving matrix, lexical/comment styles, corrupt-marker matrix, explicit intent, lock safety and failure repair. Genuine profile fixture.",
+    "tests/test_campaign_coverage_core_config.py": "13 exact functions with retained budget/model/host validation, tombstones, config writer scopes and genuine profile-local timeout/image migration fixtures.",
+    "tests/test_version.py": "all seven cases unchanged",
+    "tests/test_computer_profile_status_r6.py": "all four pure declaration cases"
+  },
+  "remaining_neutral_phase1_blockers_not_waived": [
+    {"selector": "tests/test_config_schema_validators.py::test_max_concurrent_agents_default_and_bounds", "reason": "Config construction appears inside original assertion. Keyword removal would mutate assertion; retain blocker until faithful setup alternative is reviewed."},
+    {"selector": "tests/test_config_ceiling_migration.py::TestVacuousCompletion::test_non_legacy_values_marked_and_untouched", "reason": "Matrix uses several arbitrary config filenames; needs genuine separate selected profile per row, not widened migration admission."},
+    {"selector": "tests/test_config_ceiling_migration.py::TestDegenerateInputs::test_non_scalar_or_missing_lexical_shapes_complete_vacuously", "reason": "Nested per-case config paths need genuine profile rebinding with unchanged original matrix."},
+    {"selector": "tests/test_config_ceiling_migration.py::TestLexicalLiteralGate", "reason": "Lexical matrix needs exact separate profile per numeric directory; neutral behavior not waived."},
+    {"selector": "tests/test_config_ceiling_migration.py::TestVacuousFailureSequence::test_blocked_vacuous_record_prevents_later_750k_erasure", "reason": "Fault setup writes obsolete sibling data path. Adapt fault injection to truthful profile migration storage, preserve assertions."},
+    {"selector": "tests/test_config_ceiling_migration.py::TestConfigIdentityBinding", "reason": "Alias/multiple config/legacy markers need exact profile-local fixture translation; neutral identity invariants not waived."},
+    {"selector": "tests/test_config_ceiling_migration.py::TestIdentityMarkerAdversarialBranches", "reason": "Legacy marker setup paths need exact profile-local adaptation, not assertion rewrites."}
+  ],
+  "loader_upgrade_review_correction": {
+    "observed": "Pinned load_config invokes ceiling and image migrations then migrate_retired_codex_selections(data), which only rewrites runtime dict, then validated compatible timeout persistence. Desktop load_config removed all of them.",
+    "judgment": "D5 forbids importing another installation; it does not justify losing ordinary established Desktop profile upgrades. Following loader-related removal judgments are provisional and NOT waivers. Parent must retain runtime retired-model normalization and ordinary profile migrations under existing _require_desktop_config owner/profile admission, without restoring Discord/permissions/web config acceptance.",
+    "concrete_source_fix": "src/config/schema.py load_config: after YAML mapping parse/reject stripped fields, invoke migrate_retired_codex_selections(data) before Config.model_validate. For exact selected established profile invoke apply_legacy_ceiling_migration and apply_image_defaults_migration in preserved order using original unsubstituted text and MigrationCompletionError honesty; invoke apply_compatible_timeout_migration after successful validation. Never invoke these writes for arbitrary import/config paths."
+  },
+  "provisional_loader_expectations_not_accepted_waivers": [
+    {"selector": "tests/test_config_ceiling_migration.py::TestLoadConfigIntegration", "reason": "D5 fresh-only load_config does not call existing-data import migrations."},
+    {"selector": "tests/test_config_ceiling_migration.py::TestPlaceholderIsDeliberate", "reason": "Original loader invoked on Discord YAML expects loader-created completion marker. D5 removed startup import contract, not explicit migration lexical gate."},
+    {"selector": "tests/test_config_ceiling_migration.py::TestPackagedSymlink", "reason": "Pins old server /opt-to-/etc layout and sibling data marker path. Desktop uses selected owner-private profile roots."},
+    {"selector": "tests/test_image_defaults_core.py::test_loader_new_defaults_and_later_old_pin", "reason": "Legacy migration on load intentionally removed by D5."},
+    {"selector": "tests/test_image_defaults_core.py::test_loader_reconciles_save_between_migrations", "reason": "Original legacy loader ordering contract removed; retained explicit migration cases qualify separately."},
+    {"selector": "tests/test_config_init.py::TestFromEnv", "reason": "Discord/ODIN token authority and mandatory transport-token validation are stripped, not Desktop owner authority."},
+    {"selector": "tests/test_audit_config_reliability.py::test_unknown_config_key_warns", "reason": "Original assertion requires discord to remain known production schema, contrary to strip."},
+    {"selector": "tests/test_audit_config_reliability.py::test_known_config_keys_no_warning", "reason": "Original schema expects supported discord/web blocks. Never accept them in production."}
+  ],
+  "computer_operator_phase2_coupling": {
+    "observed": "ComputerController._auth invokes foreground, accepting desktop only; reconcile_recovery, acknowledge_legacy, operator_reconcile/operator_session still require webui. Lifecycle authorize_context is False and operator routes unavailable.",
+    "judgment": "Cannot repair operator cases by fixture surface replacement: it satisfies one guard and violates the other. Requires real Phase2 control/authority wiring. Pure release/store/controller behavior is not waived and separate recovery agent owns it.",
+    "selectors": [
+      "tests/test_computer_gui_actions_r5.py::test_web_operator_owner_read_cross_channel_not_model_authority",
+      "tests/test_computer_local_recovery.py::test_closed_store_and_controller",
+      "tests/test_computer_orchestration_coverage_r10.py::test_resume_rebinds_turn_consent_and_exports_evidence",
+      "tests/test_computer_orchestration_coverage_r10.py::test_operator_authority_and_export",
+      "tests/test_computer_recovery_r5.py::test_operator_absence_unblocks_without_replay",
+      "tests/test_computer_recovery_r5.py::test_legacy_explicit_acknowledgment_is_not_clean",
+      "tests/test_computer_recovery_r5.py::test_recovery_operator_binding",
+      "tests/test_computer_recovery_r5.py::test_recovery_rechecks_auth_and_generation",
+      "tests/test_computer_recovery_r5.py::test_constructor_does_not_inspect_and_recovery_is_bounded",
+      "tests/test_computer_recovery_reopen_campaign.py::test_terminal_fallback_reopens_with_resolution_and_history",
+      "tests/test_computer_recovery_reopen_campaign.py::test_unknown_inspection_keeps_fence_and_admission_blocked"
+    ]
+  }
+}

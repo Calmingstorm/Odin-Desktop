@@ -1,0 +1,201 @@
+{
+  "scope": "Audited extra neutral read_file, retry, output, bulkhead and timeout tests only",
+  "baseline_failure_evidence": ".test-state/inherited-bounded.xml",
+  "adapter": "tests/desktop_adapters/tools_extra.py",
+  "runtime_wrapper": "tests/test_desktop_shared_tools_extra.py",
+  "safety": {
+    "source_and_inherited_tests_edited": false,
+    "real_owner_authority": true,
+    "sealed_permission_manager": true,
+    "explicit_persisted_host_grants": true,
+    "readiness": "Explicit named capabilities inherited from the tools_cases owner fixture; no production policy bypass",
+    "transformations": [
+      "ToolExecutor import redirects to a module-local subclass of the authentic owner-fixture executor",
+      "Synthetic user_id='reader' keyword becomes the authenticated fixture owner outside assertions",
+      "Audited top-level case/class selection only; full assertion, signature and parameter decorator AST corpus equality is enforced before imports"
+    ],
+    "side_effects": "Temporary files and SQLite stores only; remote SSH and lifecycle subprocess boundaries mocked; no network, destructive test input, system or live runtime changes"
+  },
+  "runs": [
+    {
+      "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_shared_tools_extra.py --junitxml=.test-state/tools-extra-incremental.xml",
+      "result": "116 passed, 1 warning in 8.68s",
+      "inherited_cases": 109,
+      "corpus_parity_cases": 7
+    },
+    {
+      "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_shared_tools_extra.py --junitxml=.test-state/tools-extra-final.xml",
+      "result": "135 passed, 1 warning in 9.31s",
+      "inherited_cases": 127,
+      "corpus_parity_cases": 8,
+      "addition": "18 audited output_delivery_retention cases plus one corpus-parity case"
+    }
+  ],
+  "observed_warning": {
+    "status": "open Phase 1 qualification finding; not suppressed or waived",
+    "message": "RuntimeWarning: slow_handler coroutine was never awaited",
+    "cases": [
+      "test_tool_timeouts::TestExecutorPerToolTimeout::test_timeout_fires_with_per_tool_value",
+      "test_tool_timeouts::TestExecutorPerToolTimeout::test_timeout_message_uses_global_when_no_override",
+      "test_tool_timeouts::TestExecutorPerToolTimeout::test_metrics_recorded_on_timeout"
+    ],
+    "observation": "The inherited tests replace asyncio.wait_for with close_and_raise. Output reports one pytest warning and two further garbage-collection RuntimeWarnings. This is an observed harness/executor coroutine-lifecycle interaction, not a proven harmless defect. No warning filter or assertion relaxation was added."
+  },
+  "bounded_failure_triage": [
+    {
+      "suite": "test_backoff",
+      "class": "TestExecutorSSHRetryConfig",
+      "original_error": "ValueError: host trust requires an explicit profile path",
+      "status": "All three observed failures requalified under authentic owner/host setup; assertions and cases unchanged",
+      "cases": [
+        "test_exec_command_passes_retry_config",
+        "test_exec_command_default_retry_config",
+        "test_local_command_not_affected"
+      ]
+    },
+    {
+      "suite": "test_read_file_ranges",
+      "original_error": "ValueError: host trust requires an explicit profile path",
+      "status": "All 25 observed failures requalified under authentic owner/host setup; real isolated local read_file handler, assertions and cases unchanged",
+      "cases": [
+        "test_returns_true_source_numbers_and_exact_interval",
+        "test_past_eof_is_explicit_empty_range",
+        "test_maximum_start_line_is_preserved_exactly",
+        "test_output_budget_keeps_contiguous_prefix_and_cursor",
+        "test_one_oversize_source_line_fails_without_splicing",
+        "test_read_error_is_bounded_by_handler",
+        "test_transport_marker_literal_in_file_content_is_not_rejected",
+        "test_overbudget_transport_output_is_bounded_by_handler",
+        "test_raw_mode_temp_artifacts_are_private_and_unpredictable",
+        "test_raw_mode_returns_framed_byte_faithful_content",
+        "test_raw_mode_preserves_missing_final_newline",
+        "test_raw_mode_machine_content_hash_matches_source",
+        "test_raw_mode_rejects_non_utf8_content",
+        "test_raw_mode_redacts_before_framing_and_updates_length",
+        "test_raw_frame_survives_outer_secret_scrubber",
+        "test_raw_mode_rejects_invalid_internal_transport_envelope",
+        "test_raw_mode_empty_range_is_explicit_and_unambiguous",
+        "test_raw_mode_content_may_contain_markers",
+        "test_raw_budget_is_contiguous_and_signals_continuation",
+        "test_raw_mode_one_oversize_source_line_fails_without_envelope",
+        "test_raw_mode_validation_rejects_non_boolean",
+        "test_raw_mode_rejects_unparsable_oversize_line_number",
+        "test_raw_mode_accepts_metadata_only_envelope_without_leading_body",
+        "test_raw_mode_rejects_metadata_with_wrong_field_count",
+        "test_raw_mode_rejects_declared_length_mismatch"
+      ]
+    },
+    {
+      "suite": "test_read_file_delivery_budget",
+      "original_error": "ValueError: host trust requires an explicit profile path",
+      "status": "All four observed failures requalified with real owner, host grants and ready read_file; exact raw/nonraw parameter corpus preserved",
+      "cases": [
+        "test_small_delivery_budget_reconstructs_contiguous_file[False]",
+        "test_small_delivery_budget_reconstructs_contiguous_file[True]",
+        "test_single_oversized_source_line_is_an_explicit_error[False]",
+        "test_single_oversized_source_line_is_an_explicit_error[True]"
+      ]
+    },
+    {
+      "suite": "test_successful_retry_provenance",
+      "original_error": "AssertionError: subprocess mock await_count was zero instead of expected one or two",
+      "status": "Six observed failures requalified using real owner/grants/readiness, executor, host leases, handlers and SSH retry; only subprocess boundaries mocked",
+      "cases": [
+        "test_real_run_command_internal_ssh_retry_settlement[0]",
+        "test_real_run_command_internal_ssh_retry_settlement[7]",
+        "test_real_read_file_executor_recovery_settlement[0]",
+        "test_real_read_file_executor_recovery_settlement[7]",
+        "test_real_read_file_error_like_content_does_not_recover",
+        "test_real_run_command_exhausted_timeouts_remain_failed"
+      ]
+    },
+    {
+      "suite": "test_successful_retry_provenance",
+      "original_error": "Permission denied: authenticated owner authority is unavailable",
+      "status": "Three retained failures remain Phase 1 replacement blockers; unregistered test_tool synthetic dispatch conflicts with the explicit built-in readiness allowlist",
+      "required_proof": "Replace setup with a ready supported builtin while preserving success-wrapper uncertainty and handler-invocation assertions; do not admit arbitrary synthetic tools in production",
+      "cases": [
+        "test_nested_success_wrapper_keeps_success_and_uncertainty[False]",
+        "test_nested_success_wrapper_keeps_success_and_uncertainty[True]",
+        "test_returned_success_wrapper_keeps_provenance_without_active_context"
+      ]
+    },
+    {
+      "suite": "test_output_authorization",
+      "original_error": "AttributeError: web_output_scope is absent; Desktop exposes owner_output_scope",
+      "status": "Seven retained failures remain Phase 1 replacement blockers; removed bearer-token HTTP authorization setup is not a neutral owner fixture",
+      "required_proof": "Desktop authenticated owner output-scope revocation, restoration on exception and missing-authority fail-closed behavior",
+      "cases": [
+        "test_live_revocation_restores_scope_even_on_exception[False-False]",
+        "test_live_revocation_restores_scope_even_on_exception[False-True]",
+        "test_live_revocation_restores_scope_even_on_exception[True-False]",
+        "test_live_revocation_restores_scope_even_on_exception[True-True]",
+        "test_admin_session_fallback_and_missing_manager[None]",
+        "test_admin_session_fallback_and_missing_manager[origin1]",
+        "test_missing_bearer_and_dynamic_manager_removal"
+      ]
+    },
+    {
+      "suite": "test_output_authorization",
+      "original_error": "ImportError: USER_TIER_TOOLS is absent from src.permissions.manager",
+      "status": "Four retained failures remain Phase 1 replacement blockers; legacy guest/user/admin tier model was removed",
+      "required_proof": "Authenticated owner capability and live scope intersection without resurrecting legacy permission tiers",
+      "cases": [
+        "test_tier_and_scope_intersection[guest-None]",
+        "test_tier_and_scope_intersection[user-None]",
+        "test_tier_and_scope_intersection[user-scope2]",
+        "test_tier_and_scope_intersection[admin-scope3]"
+      ]
+    },
+    {
+      "suite": "test_output_authorization",
+      "original_error": "ImportError: ApiTokenIdentity is absent from src.config.schema",
+      "status": "One retained failure remains a Phase 1 replacement blocker; removed static/dynamic API-token lineage must not substitute for authenticated local owner authority",
+      "required_proof": "Owner credential generation and session lineage revocation rechecked before retained evidence access",
+      "cases": ["test_session_tracks_identity_and_fails_closed_after_removal"]
+    },
+    {
+      "suite": "test_output_authorization",
+      "original_error": "AttributeError: websocket_output_scope is absent; Desktop exposes owner_output_scope",
+      "status": "Three retained failures remain Phase 1 replacement blockers; old WebSocket bearer policy fixture was removed",
+      "required_proof": "Desktop local channel credential policy rechecks and context cleanup before output reads",
+      "cases": [
+        "test_websocket_live_policy_and_cleanup[synthetic-credential]",
+        "test_websocket_live_policy_and_cleanup[None]",
+        "test_websocket_live_policy_and_cleanup[42]"
+      ]
+    },
+    {
+      "suite": "test_tool_failure_reporting",
+      "original_error": "ValueError: host trust requires an explicit profile path",
+      "status": "All ten retained failures remain unqualified Phase 1 blockers; no tests in this suite were imported/executed by this adapter",
+      "required_proof": "Hermetic supported capability setup and stubbed HTTP/process/backend boundaries with structural failure status preserved",
+      "reasons_by_case": {
+        "test_failures_are_reported_as_failures[http_probe-params0-]": "Would perform real loopback HTTP; stub the transport before any requalification",
+        "test_failures_are_reported_as_failures[manage_process-params1-Unknown action]": "Needs explicit ready manage_process and authentic owner setup",
+        "test_failures_are_reported_as_failures[manage_process-params2-No process]": "Needs isolated process registry and ready manage_process setup",
+        "test_failures_are_reported_as_failures[manage_process-params3-No process]": "Needs isolated registry, ready manage_process and stubbed stdin boundary",
+        "test_failures_are_reported_as_failures[manage_process-params4-No process]": "Contains process kill input; not executed; must substitute a stubbed harmless primitive without weakening case semantics",
+        "test_failures_are_reported_as_failures[http_probe-params5-http_probe error]": "Unsupported method should be rejected before transport under explicitly ready capability",
+        "test_failures_are_reported_as_failures[http_probe-params6-over the]": "Oversize body should be rejected before transport under explicitly ready capability",
+        "test_failures_are_reported_as_failures[analyze_pdf-params7-Only http]": "Needs explicitly ready PDF capability and scheme rejection before any file read",
+        "test_successful_probe_is_still_ok": "Live public HTTP success test is not safe neutral setup; requires transport fixture",
+        "test_browser_tools_report_disabled_as_failure": "Missing Desktop browser readiness fails before old backend-disabled prose; requires separately justified capability/backend fixture"
+      }
+    }
+  ],
+  "additional_requalification": {
+    "test_backoff": "59 cases including three originally failed executor fixtures",
+    "test_output_authorization": "Only nested host capture and static/live scope intersection, two neutral cases",
+    "test_output_delivery_retention": "18 immutable evidence, contiguous page reconstruction, revocation, expiry, private-store and concurrent quota cases",
+    "test_bulkhead": "Eight TestExecutorBulkheadIntegration cases with mocked SSH/local/browser effects",
+    "test_tool_timeouts": "Five TestExecutorPerToolTimeout cases with fake wait_for; warning remains recorded"
+  },
+  "closure": {
+    "observed_original_failures_accounted_for": 66,
+    "observed_original_failures_requalified": 38,
+    "observed_original_failures_remaining_blockers": 28,
+    "phase2_waivers": 0,
+    "claim": "Selected neutral corpus passes; not full Phase 1 acceptance or native/network qualification"
+  }
+}

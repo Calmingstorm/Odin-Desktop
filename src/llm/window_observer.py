@@ -51,8 +51,8 @@ from pathlib import Path
 from typing import TypeGuard
 
 from ..config.schema import canonical_codex_model
-from ..runtime_paths import runtime_profile_paths
 from ..odin_log import get_logger
+from ..runtime_paths import runtime_profile_paths
 
 log = get_logger("window_observer")
 

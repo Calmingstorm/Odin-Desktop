@@ -3,12 +3,12 @@ import ast
 import asyncio
 import importlib
 import inspect
-import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from scripts.maintenance.inventory import baseline_blobs
 from src.health import checker, startup
 from src.web import api_common
 from src.web.api import Phase2Unavailable
@@ -21,7 +21,9 @@ def test_no_server_routes_or_removed_transport_inventory():
         for path in directory.rglob("*.py"):
             source = path.read_text()
             ast.parse(source)
-            checked = source.replace("from ...discord.native_tools.agents_tasks import _entry_native_reasoning", "")
+            checked = source.replace(
+                "from ...discord.native_tools.agents_tasks import _entry_native_reasoning", ""
+            )
             for forbidden in ("discord", "api_token", "RouteTableDef", "@routes.",
                               "config.web", "OdinBot", "web.Application"):
                 assert forbidden not in checked, (path, forbidden)
@@ -49,28 +51,55 @@ def test_neutral_health_namespace_and_unchanged_guard():
     import src.health as health
 
     assert not hasattr(health, "HealthServer")
-    baseline = subprocess.check_output(
-        ["git", "show", "refs/baselines/odin-v4.13.0:src/health/subsystem_guard.py"], cwd=ROOT,
-    )
+    baseline = baseline_blobs(ROOT)["src/health/subsystem_guard.py"]
     assert (ROOT / "src/health/subsystem_guard.py").read_bytes() == baseline
 
 
-@pytest.mark.parametrize("file,names", [
-    ("src/web/api_common.py", ["_validate_string", "_safe_filename", "_sanitize_error", "_safe_int_param",
-                               "_contains_blocked_fields", "contains_redaction_mask", "_deep_merge",
-                               "_mask_subtree", "_redact_config", "_write_config"]),
-    ("src/web/api/hosts.py", ["_tool_host_dump", "_leaf_changes", "_drain_host_mutation"]),
-    ("src/web/api/integrations.py", ["_drain_mcp_management"]),
-    ("src/web/api/llm_admin.py", ["_openrouter_models", "_openrouter_endpoint_rows", "_validate_ollama_url",
-                                 "_parse_int", "_compatible_client", "_reload_openai_compatible",
-                                 "_auxiliary_status", "_model_catalogue", "_boot_codex_group_status",
-                                 "_set_fields", "_provider_changes", "_parse_codex_advanced", "_apply_ops"]),
-    ("src/web/api/computer.py", ["_expiry", "_opaque"]),
-    ("src/web/api/config_admin.py", ["_image_intent_revision", "_config_has_explicit_path"]),
-    ("src/web/api/turn_state.py", ["_observed_at", "_envelope"]),
-])
+@pytest.mark.parametrize(
+    "file,names",
+    [
+        (
+            "src/web/api_common.py",
+            [
+                "_validate_string",
+                "_safe_filename",
+                "_sanitize_error",
+                "_safe_int_param",
+                "_contains_blocked_fields",
+                "contains_redaction_mask",
+                "_deep_merge",
+                "_mask_subtree",
+                "_redact_config",
+                "_write_config",
+            ],
+        ),
+        ("src/web/api/hosts.py", ["_tool_host_dump", "_leaf_changes", "_drain_host_mutation"]),
+        ("src/web/api/integrations.py", ["_drain_mcp_management"]),
+        (
+            "src/web/api/llm_admin.py",
+            [
+                "_openrouter_models",
+                "_openrouter_endpoint_rows",
+                "_validate_ollama_url",
+                "_parse_int",
+                "_compatible_client",
+                "_reload_openai_compatible",
+                "_auxiliary_status",
+                "_model_catalogue",
+                "_boot_codex_group_status",
+                "_set_fields",
+                "_provider_changes",
+                "_parse_codex_advanced",
+                "_apply_ops",
+            ],
+        ),
+        ("src/web/api/computer.py", ["_expiry", "_opaque"]),
+        ("src/web/api/config_admin.py", ["_image_intent_revision", "_config_has_explicit_path"]),
+        ("src/web/api/turn_state.py", ["_observed_at", "_envelope"]),
+    ],
+)
 def test_pure_helper_algorithms_match_exact_copy(file, names):
-    baseline = subprocess.check_output(["git", "show", f"f6170072:{file}"], cwd=ROOT).decode()
+    baseline = baseline_blobs(ROOT)[file].decode()
     current = (ROOT / file).read_text()
 
     def algorithms(source):
@@ -79,7 +108,11 @@ def test_pure_helper_algorithms_match_exact_copy(file, names):
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 # Only algorithm bodies, not neutral transport annotations or prose.
-                if node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant):
+                if (
+                    node.body
+                    and isinstance(node.body[0], ast.Expr)
+                    and isinstance(node.body[0].value, ast.Constant)
+                ):
                     node.body.pop(0)
                 result[node.name] = ast.dump(ast.Module(body=node.body, type_ignores=[]))
         return result
@@ -112,7 +145,9 @@ def test_unavailable_health_is_not_overall_healthy(monkeypatch):
 def test_startup_removes_transport_and_inventory_requirements():
     assert startup.check_config_sections(SimpleNamespace()).passed
     assert all("discord" not in name for name, *_ in startup._CONFIG_CHECKS)
-    assert "credential_inventory" not in inspect.signature(startup.run_startup_diagnostics).parameters
+    assert (
+        "credential_inventory" not in inspect.signature(startup.run_startup_diagnostics).parameters
+    )
 
 
 def test_data_readiness_uses_only_private_xdg_profile(tmp_path, monkeypatch):
@@ -141,7 +176,9 @@ def test_data_readiness_refuses_existing_nonprivate_state(tmp_path, monkeypatch)
 
 
 def test_neutral_security_helpers_keep_recursive_mask_and_bounds():
-    assert api_common._contains_blocked_fields({"items": [{"password": "value"}]}, frozenset({"password"}))
+    assert api_common._contains_blocked_fields(
+        {"items": [{"password": "value"}]}, frozenset({"password"})
+    )
     assert api_common.contains_redaction_mask({"items": ["••••••••"]})
     redacted = api_common._redact_config({"headers": {"ordinary": "value"}, "password": "value"})
     assert redacted["headers"]["ordinary"] == "••••••••"
@@ -173,15 +210,25 @@ def test_truthful_ingestion_outcomes_are_preserved():
         status = "duplicate"
         duplicate_of = "existing"
 
-    body, status = _ingest_result_response("new", Outcome(0), failure_message="failed", created_status=201)
+    body, status = _ingest_result_response(
+        "new", Outcome(0), failure_message="failed", created_status=201
+    )
     assert status == 200 and body["duplicate_of"] == "existing"
     assert "not ingested" in body["status"]
-    assert _ingest_result_response("new", 0, failure_message="failed", created_status=201) == ({"error": "failed"}, 500)
+    assert _ingest_result_response("new", 0, failure_message="failed", created_status=201) == (
+        {"error": "failed"},
+        500,
+    )
 
 
 def test_provider_ssrf_schema_and_adoption_facts():
     from src.config.schema import OpenAICodexConfig
-    from src.web.api.llm_admin import _apply_ops, _boot_codex_group_status, _parse_codex_advanced, _validate_ollama_url
+    from src.web.api.llm_admin import (
+        _apply_ops,
+        _boot_codex_group_status,
+        _parse_codex_advanced,
+        _validate_ollama_url,
+    )
 
     assert _validate_ollama_url("http://127.0.0.1:11434")
     for url in ("http://8.8.8.8", "http://169.254.169.254", "file:///tmp/local"):
@@ -200,7 +247,10 @@ def test_provider_ssrf_schema_and_adoption_facts():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("module,function", [("hosts", "_drain_host_mutation"), ("integrations", "_drain_mcp_management")])
+@pytest.mark.parametrize(
+    "module,function",
+    [("hosts", "_drain_host_mutation"), ("integrations", "_drain_mcp_management")],
+)
 async def test_publication_drains_committed_work_before_cancellation(module, function):
     drain = getattr(importlib.import_module(f"src.web.api.{module}"), function)
     started, finish, settled = asyncio.Event(), asyncio.Event(), asyncio.Event()

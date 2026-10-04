@@ -2,7 +2,7 @@
 
 **Artifact:** `test-plan.json` accounts for all 869 frozen tracked upstream paths, commit `cd7530906e9cfa10a0fa900247d7ce2a8bb33e25`, `v4.13.0`.
 
-**Static audit, not passing evidence.** Audit executed no tests, collection, source imports, native fixtures or endpoints. Parent execution is separate.
+**Historical eligibility audit, not passing evidence or executable gate.** Candidate labels remain provenance; `qualification-plan.json` defines corrected original/adapter selections and dispositions. Broad runs observed **116 failures** before interruption and **259 failures** in the complete bounded run. Neither is a pass. Neutral fixture gaps remain Phase1 blockers.
 
 ## Counts
 

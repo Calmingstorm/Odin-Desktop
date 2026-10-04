@@ -51,7 +51,11 @@ class PlanStore:
     def __init__(self, persist_path: str | None = None) -> None:
         from ..runtime_paths import runtime_profile_paths
 
-        self._path = Path(persist_path) if persist_path is not None else runtime_profile_paths().data_dir / "plans.json"
+        self._path = (
+            Path(persist_path)
+            if persist_path is not None
+            else runtime_profile_paths().data_dir / "plans.json"
+        )
         if persist_path is None:
             from ..desktop.paths import private_directory
 

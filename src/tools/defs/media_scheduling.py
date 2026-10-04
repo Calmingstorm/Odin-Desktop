@@ -10,7 +10,8 @@ TOOLS_SECTION: list[dict] = [
     {
         "name": "post_file",
         "description": (
-            "Fetches a file from a managed host and posts it as a conversation attachment. Max 25MB. "
+            "Fetches a file from a managed host and posts it as a conversation attachment. "
+            "Max 25MB. "
             "For generated content, use generate_file."
         ),
         "input_schema": {
@@ -155,7 +156,8 @@ TOOLS_SECTION: list[dict] = [
                     "type": "string",
                     "enum": ["paginated_embed_v1"],
                     "description": (
-                        "Optional generic paginated conversation report renderer for a check result. "
+                        "Optional generic paginated conversation report renderer "
+                        "for a check result. "
                         "The command must emit the paginated_embed_v1 JSON contract."
                     ),
                 },
@@ -287,7 +289,8 @@ TOOLS_SECTION: list[dict] = [
                     "type": "string",
                     "enum": ["paginated_embed_v1", ""],
                     "description": (
-                        "Generic paginated conversation report renderer for check output; empty string "
+                        "Generic paginated conversation report renderer for check output; "
+                        "empty string "
                         "disables structured rendering."
                     ),
                 },

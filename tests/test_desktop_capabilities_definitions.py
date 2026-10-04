@@ -39,11 +39,35 @@ def test_scheduling_destination_uses_conversation_id() -> None:
 
 def test_approved_catalog_substitutions_are_exact_and_limited() -> None:
     expected = {
-        "browser_screenshot": "Takes a screenshot of a URL (renders JavaScript) and posts to the conversation. Works on dashboards, SPAs, and dynamic pages unlike fetch_url. For text, use browser_read_page.",
-        "post_file": "Fetches a file from a managed host and posts it as a conversation attachment. Max 25MB. For generated content, use generate_file.",
-        "generate_file": "Creates a file (script, code, CSV, report, etc.) and posts it as a conversation attachment. For files on a host, use post_file.",
-        "generate_image": "Generates an image from a text prompt with the native OpenAI image backend and posts it to the conversation. Output dimensions and aspect ratio are selected by the provider.",
-        "delegate_task": "Runs a multi-step task in the background, posting progress to the conversation. Steps run sequentially with conditions (substring match, ! to negate), on_failure (abort/continue), store_as ({var.name}), {prev_output} substitution. IMPORTANT: each step using run_command MUST have tool_input with 'command' key. Example step: {\"tool_name\": \"run_command\", \"description\": \"List files\", \"tool_input\": {\"command\": \"ls -la /tmp\"}}. Track with list_tasks, stop with cancel_task.",
+        "browser_screenshot": (
+            "Takes a screenshot of a URL (renders JavaScript) and posts to "
+            "the conversation. Works on dashboards, SPAs, and dynamic pages "
+            "unlike fetch_url. For text, use browser_read_page."
+        ),
+        "post_file": (
+            "Fetches a file from a managed host and posts it as a "
+            "conversation attachment. Max 25MB. For generated content, use "
+            "generate_file."
+        ),
+        "generate_file": (
+            "Creates a file (script, code, CSV, report, etc.) and posts it as "
+            "a conversation attachment. For files on a host, use post_file."
+        ),
+        "generate_image": (
+            "Generates an image from a text prompt with the native OpenAI "
+            "image backend and posts it to the conversation. Output "
+            "dimensions and aspect ratio are selected by the provider."
+        ),
+        "delegate_task": (
+            "Runs a multi-step task in the background, posting progress to "
+            "the conversation. Steps run sequentially with conditions "
+            "(substring match, ! to negate), on_failure (abort/continue), "
+            "store_as ({var.name}), {prev_output} substitution. IMPORTANT: "
+            "each step using run_command MUST have tool_input with 'command' "
+            "key. Example step: {\"tool_name\": \"run_command\", \"description\": "
+            "\"List files\", \"tool_input\": {\"command\": \"ls -la /tmp\"}}. Track "
+            "with list_tasks, stop with cancel_task."
+        ),
     }
     for name, description in expected.items():
         assert _tool(name)["description"] == description
@@ -58,8 +82,16 @@ def test_approved_catalog_substitutions_are_exact_and_limited() -> None:
     for name in ("schedule_task", "update_schedule"):
         description = _tool(name)["input_schema"]["properties"]["report_format"]["description"]
         assert "paginated conversation report renderer" in description
-    assert "paginated_embed_v1" in _tool("schedule_task")["input_schema"]["properties"]["report_format"]["description"]
-    assert "paginated_embed_v1" not in _tool("update_schedule")["input_schema"]["properties"]["report_format"]["description"]
+    assert (
+        "paginated_embed_v1"
+        in _tool("schedule_task")["input_schema"]["properties"]["report_format"]["description"]
+    )
+    assert (
+        "paginated_embed_v1"
+        not in _tool("update_schedule")["input_schema"]["properties"]["report_format"][
+            "description"
+        ]
+    )
 
 
 def test_affordance_metadata_tracks_current_conversation_history() -> None:

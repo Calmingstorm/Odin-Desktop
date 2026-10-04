@@ -14,18 +14,14 @@ import hashlib
 import time
 from typing import Any
 
+from ..storage_redaction import _EMAIL_BODY_TOOLS as _EMAIL_BODY_TOOLS
+from ..storage_redaction import _deep_scrub_strings as _deep_scrub_strings
+from ..storage_redaction import _scrub_tool_input_for_storage as _scrub_tool_input_for_storage
 from ..tools.executor import _ERROR_RESULT_PREFIXES
 
 # Friendly fallback when the LLM returns an empty response after retries
 # (moved verbatim from client.py, RFC-002 P1).
 _EMPTY_RESPONSE_FALLBACK = "I couldn't generate a response. Please try again."
-
-from ..storage_redaction import (
-    _EMAIL_BODY_TOOLS,
-    _deep_scrub_strings,
-    _scrub_tool_input_for_storage,
-)
-
 
 def ensure_failure_visible(result_text: str, ok: bool) -> str:
     """Make a structurally-failed tool result visible to the model.

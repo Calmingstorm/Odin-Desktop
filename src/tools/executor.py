@@ -247,11 +247,12 @@ class ToolExecutor:
         self.output_streamer = output_streamer
         self._host_access = host_access_manager
         if host_registry is None:
+            from ..runtime_paths import runtime_profile_paths
             from .hosts import HostRegistry
 
             host_registry = HostRegistry(
                 self.config.hosts,
-                profile_paths=profile_paths,
+                profile_paths=profile_paths or runtime_profile_paths(),
                 key_path=self.config.ssh_key_path,
                 legacy_known_hosts_path=self.config.ssh_known_hosts_path,
                 default_host=self.config.default_host,

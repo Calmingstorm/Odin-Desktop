@@ -6,7 +6,8 @@
     "tracked_test_paths": 869,
     "archive": "maintenance/odin-v4.13.0.tar.gz"
   },
-  "execution_status": "Static eligibility audit only. Parent execution reports separate; no tests/source imports executed by audit agent.",
+  "execution_status": "Historical eligibility inventory only, NOT passing evidence or corrected executable gate. Observed broad runs:116 failures interrupted then259 failures complete bounded. qualification-plan.json supplies exact original/adapter groups and dispositions; hashes and inventory unchanged.",
+  "qualification_plan": "maintenance/qualification-plan.json",
   "methodology": {
     "imports": "AST Import/ImportFrom relative resolution, package initializers, cross-test helper closure. Deduplicated pinned source import closure below. Literal src patch references also recorded. No source imported.",
     "selection": "Filename list whole-file safe selection. Mixed domain/transport suites retained Phase2, not deleted. Explicit foundation fixture mismatch adaptation-gated, not mislabeled Phase2. Native and prohibited literals safety-gated.",

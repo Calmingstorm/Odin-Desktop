@@ -4,9 +4,9 @@ import logging
 from pathlib import Path
 
 from src.desktop.paths import ProfilePaths
-from src.runtime_paths import runtime_profile_paths
 from src.odin_log.logger import setup_logging
 from src.planning.store import PlanStore
+from src.runtime_paths import runtime_profile_paths
 from src.scheduler.history import ScheduleHistory
 
 

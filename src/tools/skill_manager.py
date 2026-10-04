@@ -24,8 +24,8 @@ from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion
 
-from ..odin_log import get_logger
 from ..desktop.paths import private_directory
+from ..odin_log import get_logger
 from .registry import TOOLS
 from .skill_context import ResourceTracker, SkillContext
 
@@ -742,7 +742,9 @@ class SkillManager:
                 lvl = log.warning if d.level == "warn" else log.error
                 lvl("Skill %s deps: %s", path.name, d.message)
             if any(d.level == "error" for d in dep_diagnostics):
-                self.definition_errors[path.name] = "DependencyError: skill dependencies unavailable"
+                self.definition_errors[path.name] = (
+                    "DependencyError: skill dependencies unavailable"
+                )
                 return None
 
         try:

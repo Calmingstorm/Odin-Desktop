@@ -21,10 +21,9 @@ import aiofiles
 
 from ..llm.cost_tracker import estimate_tokens
 from ..odin_log import get_logger
+from ..runtime_paths import runtime_profile_paths
 
 log = get_logger("trajectories")
-
-from ..runtime_paths import runtime_profile_paths
 
 DEFAULT_TRAJECTORY_DIR = str(runtime_profile_paths().data_dir / "trajectories")
 MAX_TOOL_OUTPUT_CHARS = 12_000

@@ -205,7 +205,9 @@ class SkillContext:
             await self._file_callback(data, filename, caption)
             self._tracker.files_sent += 1
         else:
-            raise RuntimeError("Conversation attachment delivery is unavailable until Phase 2 wiring.")
+            raise RuntimeError(
+                "Conversation attachment delivery is unavailable until Phase 2 wiring."
+            )
 
     def remember(self, key: str, value: str) -> None:
         """Save a key/value pair to persistent memory.
@@ -365,7 +367,7 @@ class SkillContext:
         return await self._knowledge_store.ingest(content, source, self._embedder)
 
     async def search_history(self, query: str, limit: int = 10) -> list[dict]:
-        """Search conversation history. Returns list of {type, content, timestamp, conversation_id}."""
+        """Search conversation history. Returns list of {type, content, timestamp, conversation_id}."""  # noqa: E501
         # The upstream store uses transport identities. Phase 2 must inject
         # owner/profile-scoped history rather than expose that global store.
         raise RuntimeError("Owner-scoped conversation history is unavailable until Phase 2 wiring.")

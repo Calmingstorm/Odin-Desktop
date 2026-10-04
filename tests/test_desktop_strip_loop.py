@@ -1,22 +1,20 @@
 """Phase 1 pins: neutral imports, hard wiring gates, unchanged safety logic."""
 
 import ast
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from scripts.maintenance.inventory import baseline_blobs
+
 ROOT = Path(__file__).resolve().parents[1]
-COPY_COMMIT = "f6170072"
 
 
 def _baseline(path):
-    return subprocess.run(
-        ["git", "show", f"{COPY_COMMIT}:{path}"], cwd=ROOT,
-        check=True, capture_output=True, text=True,
-    ).stdout
+    return baseline_blobs(ROOT)[path].decode()
 
 
 def _methods(source, class_name):
@@ -105,7 +103,10 @@ assert "discord" not in sys.modules
 @pytest.mark.asyncio
 async def test_execution_and_presence_entrypoints_fail_before_any_dependency_access():
     from src.discord.tool_loop import (
-        Phase2WiringRequired, ToolLoopRunner, _LoopMessageProxy, _best_effort_typing,
+        Phase2WiringRequired,
+        ToolLoopRunner,
+        _best_effort_typing,
+        _LoopMessageProxy,
     )
     from src.discord.turn_resume import TurnResumeManager
 
@@ -150,8 +151,10 @@ async def test_execution_and_presence_entrypoints_fail_before_any_dependency_acc
 ])
 async def test_resume_receipts_match_actual_store_conditions(condition, expected, rejected):
     from src.discord.turn_resume import (
-        ConversationAccessDenied, ConversationFetchUnavailable,
-        ConversationMessageNotFound, TurnResumeManager,
+        ConversationAccessDenied,
+        ConversationFetchUnavailable,
+        ConversationMessageNotFound,
+        TurnResumeManager,
     )
     from src.turn_state.store import TurnKey
 
@@ -188,8 +191,11 @@ async def test_resume_refuses_materially_changed_original_before_reconstruction(
     from src.discord.turn_resume import TurnResumeManager
     from src.turn_state.codec import compute_content_digest
     from src.turn_state.store import TurnKey
-    original = SimpleNamespace(author=SimpleNamespace(id="other" if changed == "author" else "owner"),
-                               content="changed" if changed == "content" else "original")
+
+    original = SimpleNamespace(
+        author=SimpleNamespace(id="other" if changed == "author" else "owner"),
+        content="changed" if changed == "content" else "original",
+    )
     async def fetch(*args):
         return original
     rejections = []

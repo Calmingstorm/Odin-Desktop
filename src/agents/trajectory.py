@@ -19,11 +19,10 @@ import aiofiles
 
 from ..llm.tool_replay import without_replay
 from ..odin_log import get_logger
+from ..runtime_paths import runtime_profile_paths
 from ..trajectories.saver import ToolIteration
 
 log = get_logger("agent_trajectories")
-
-from ..runtime_paths import runtime_profile_paths
 
 DEFAULT_AGENT_TRAJECTORY_DIR = str(runtime_profile_paths().data_dir / "trajectories" / "agents")
 _READ_CHUNK_BYTES = 64 * 1024

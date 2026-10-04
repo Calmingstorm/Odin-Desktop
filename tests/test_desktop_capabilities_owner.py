@@ -1,7 +1,6 @@
 """Desktop authority adaptation; no host/process/graphical effects."""
 import ast
 import os
-import subprocess
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -156,8 +155,9 @@ async def test_native_browser_requires_explicit_bundled_binary():
 
 def test_common_classifier_functions_remain_byte_identical():
     root = Path(__file__).resolve().parents[1]
-    baseline = subprocess.check_output(["git", "show",
-        "refs/baselines/odin-v4.13.0:src/tools/risk_classifier.py"], cwd=root, text=True)
+    from scripts.maintenance.inventory import baseline_blobs
+
+    baseline = baseline_blobs(root)["src/tools/risk_classifier.py"].decode()
     current = (root / "src/tools/risk_classifier.py").read_text()
     def functions(source):
         lines = source.splitlines(keepends=True)
@@ -174,18 +174,21 @@ def test_common_classifier_functions_remain_byte_identical():
 
 def test_common_safety_primitives_byte_identical():
     root = Path(__file__).resolve().parents[1]
+    from scripts.maintenance.inventory import baseline_blobs
+
+    blobs = baseline_blobs(root)
     for name in ("effect_classifier.py", "command_shapes.py", "command_authority.py",
                  "local_supervisor.py", "local_supervisor_worker.py", "execution_outcome.py",
                  "workspace.py", "ssh.py", "ssh_pool.py", "process_manager.py"):
-        baseline = subprocess.check_output(["git", "show",
-            f"refs/baselines/odin-v4.13.0:src/tools/{name}"], cwd=root)
+        baseline = blobs[f"src/tools/{name}"]
         assert (root / "src/tools" / name).read_bytes() == baseline
 
 
 def test_attempt_settlement_and_no_replay_logic_byte_identical():
     root = Path(__file__).resolve().parents[1]
-    baseline = subprocess.check_output(["git", "show",
-        "refs/baselines/odin-v4.13.0:src/tools/executor.py"], cwd=root, text=True)
+    from scripts.maintenance.inventory import baseline_blobs
+
+    baseline = baseline_blobs(root)["src/tools/executor.py"].decode()
     current = (root / "src/tools/executor.py").read_text()
     def attempt(source):
         lines = source.splitlines(keepends=True)

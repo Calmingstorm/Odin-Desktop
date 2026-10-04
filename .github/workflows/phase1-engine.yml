@@ -22,5 +22,7 @@ jobs:
           .venv/bin/uv sync --locked --extra dev --active
       - name: Offline lineage and safety drift
         run: .venv/bin/python scripts/maintenance/inventory.py report
+      - name: No new lint findings
+        run: .venv/bin/python scripts/maintenance/lint_gate.py
       - name: Explicit pass-now suites in a PID namespace
-        run: .venv/bin/python scripts/run-phase1-tests.py
+        run: .venv/bin/python scripts/run-qualified-tests.py

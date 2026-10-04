@@ -117,8 +117,11 @@ from .tool_loop_helpers import (
 log = get_logger("tool_loop")
 
 
-class Phase2WiringRequired(RuntimeError):
+class Phase2WiringRequiredError(RuntimeError):
     """Authenticated durable Desktop request/control wiring is not installed."""
+
+
+Phase2WiringRequired = Phase2WiringRequiredError
 
 
 def _require_phase2_wiring() -> None:

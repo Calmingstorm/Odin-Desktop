@@ -19,14 +19,16 @@ def _ingest_result_response(source, chunks, *, failure_message, created_status):
             if existing else
             "Identical content is already stored under another source; no new source was created."
         )
-        return {"source": source, "status": "identical content already stored elsewhere; not ingested",
+        return {"source": source,
+                "status": "identical content already stored elsewhere; not ingested",
                 "outcome": outcome, "duplicate_of": existing, "message": message}, 200
     if outcome == "conflict":
         existing = getattr(chunks, "duplicate_of", "")
         message = (
             f"Near-duplicate content conflicts with '{existing}'; the new content was not stored."
             if existing else
-            "Near-duplicate content conflicts with existing knowledge; the new content was not stored."
+            "Near-duplicate content conflicts with existing knowledge; "
+            "the new content was not stored."
         )
         return {"source": source, "status": "near-duplicate conflict; new content not stored",
                 "outcome": outcome, "duplicate_of": existing, "message": message}, 200

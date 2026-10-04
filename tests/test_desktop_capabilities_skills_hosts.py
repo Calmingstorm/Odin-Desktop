@@ -11,19 +11,36 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src.config.schema import ToolHost
-from src.desktop.paths import ProfilePaths
 from src.desktop.authority import OwnerAuthority
-from src.permissions.manager import PermissionManager
+from src.desktop.paths import ProfilePaths
 from src.permissions.host_access import HostAccessManager
-from src.tools.hosts import HostEnrollmentManager, HostForceRevokedError, HostRegistry, HostTrustError
+from src.permissions.manager import PermissionManager
+from src.tools.hosts import (
+    HostEnrollmentManager,
+    HostForceRevokedError,
+    HostRegistry,
+    HostTrustError,
+)
 from src.tools.hosts.control import scan_host_references
 from src.tools.hosts.trust import fingerprint_public_key
-from src.tools.skill_context import MAX_SKILL_FILES, MAX_SKILL_MESSAGES, ResourceTracker, SkillContext
-from src.tools.skill_manager import LoadedSkill, SkillManager, _install_packages, resolve_dependencies
+from src.tools.skill_context import (
+    MAX_SKILL_FILES,
+    MAX_SKILL_MESSAGES,
+    ResourceTracker,
+    SkillContext,
+)
+from src.tools.skill_manager import (
+    LoadedSkill,
+    SkillManager,
+    _install_packages,
+    resolve_dependencies,
+)
 
 
 def _context(**kwargs):
-    executor = kwargs.pop("tool_executor", SimpleNamespace(execute=AsyncMock(return_value="admitted")))
+    executor = kwargs.pop(
+        "tool_executor", SimpleNamespace(execute=AsyncMock(return_value="admitted"))
+    )
     return SkillContext(executor, "desktop_test", **kwargs)
 
 
@@ -31,10 +48,14 @@ async def test_host_command_requires_public_executor_admission():
     executor = SimpleNamespace(execute=AsyncMock(return_value="admitted"), _run_on_host=AsyncMock())
     context = _context(tool_executor=executor, requester_id="owner")
     assert await context.run_on_host("build", "true") == "admitted"
-    executor.execute.assert_awaited_once_with("run_command", {"host": "build", "command": "true"}, user_id="owner")
+    executor.execute.assert_awaited_once_with(
+        "run_command", {"host": "build", "command": "true"}, user_id="owner"
+    )
     executor._run_on_host.assert_not_called()
     with pytest.raises(AttributeError):
-        await _context(tool_executor=SimpleNamespace(_run_on_host=AsyncMock())).run_on_host("build", "true")
+        await _context(tool_executor=SimpleNamespace(_run_on_host=AsyncMock())).run_on_host(
+            "build", "true"
+        )
 
 
 def test_host_inventory_has_no_desired_config_fallback():
@@ -70,13 +91,17 @@ async def test_conversation_callbacks_preserve_quotas():
 
 
 async def test_schedule_destination_is_not_a_free_form_scheduler_id():
-    scheduler = SimpleNamespace(add=AsyncMock(), update=AsyncMock(), delete=AsyncMock(), list_all=lambda: ["foreign"])
+    scheduler = SimpleNamespace(
+        add=AsyncMock(), update=AsyncMock(), delete=AsyncMock(), list_all=lambda: ["foreign"]
+    )
     context = _context(scheduler=scheduler, requester_id="owner")
     signature = inspect.signature(SkillContext.schedule_task)
     assert "conversation_id" in signature.parameters
     assert "channel_id" not in signature.parameters
     with pytest.raises(RuntimeError, match="Validated conversation"):
-        await context.schedule_task("task", "reminder", "foreign", requester_id="other", message="hello")
+        await context.schedule_task(
+            "task", "reminder", "foreign", requester_id="other", message="hello"
+        )
     with pytest.raises(RuntimeError, match="Validated conversation"):
         await context.update_schedule("task", conversation_id="foreign")
     with pytest.raises(RuntimeError, match="Validated conversation"):
@@ -98,7 +123,9 @@ async def test_unscoped_history_store_cannot_be_used_by_skill():
 async def test_url_grants_are_instance_scoped_and_used_for_hardened_fetch(monkeypatch):
     from src.tools import safe_fetch
 
-    fetch = AsyncMock(return_value=SimpleNamespace(content_type="text/plain", body=b"ok", text=lambda: "ok"))
+    fetch = AsyncMock(
+        return_value=SimpleNamespace(content_type="text/plain", body=b"ok", text=lambda: "ok")
+    )
     monkeypatch.setattr(safe_fetch, "safe_fetch", fetch)
     granted = _context(allowed_urls=("http://127.0.0.1:8188/",))
     denied = _context()
@@ -115,8 +142,12 @@ async def test_restricted_files_and_generic_command_calls_stay_denied():
     executor = SimpleNamespace(execute=AsyncMock())
     context = _context(tool_executor=executor, requester_id="owner")
     assert "Access denied" in await context.read_file("build", "/home/owner/.ssh/id_ed25519")
-    assert "Access denied" in await context.execute_tool("read_file", {"host": "build", "path": "/etc/shadow"})
-    assert "not allowed" in await context.execute_tool("run_command", {"host": "build", "command": "true"})
+    assert "Access denied" in await context.execute_tool(
+        "read_file", {"host": "build", "path": "/etc/shadow"}
+    )
+    assert "not allowed" in await context.execute_tool(
+        "run_command", {"host": "build", "command": "true"}
+    )
     executor.execute.assert_not_called()
 
 
@@ -132,11 +163,14 @@ def test_missing_skill_dependencies_do_not_install_in_app_interpreter(monkeypatc
 def test_missing_dependencies_prevent_module_execution(tmp_path, monkeypatch):
     manager = SkillManager(str(tmp_path), SimpleNamespace(), allowed_urls=("http://127.0.0.1:8188",))
     monkeypatch.setattr("src.tools.skill_manager._is_package_installed", lambda _spec: False)
-    code = '''SKILL_DEFINITION = {"name": "missing", "description": "test", "input_schema": {"type": "object", "properties": {}}, "dependencies": ["example-package>=1"]}
-raise RuntimeError("module execution must not occur")
-async def execute(inp, context):
-    return "ok"
-'''
+    code = (
+        'SKILL_DEFINITION = {"name": "missing", "description": "test", '
+        '"input_schema": {"type": "object", "properties": {}}, '
+        '"dependencies": ["example-package>=1"]}\n'
+        'raise RuntimeError("module execution must not occur")\n'
+        'async def execute(inp, context):\n'
+        '    return "ok"\n'
+    )
     result = manager.create_skill("missing", code)
     assert "DependencyError" in manager.definition_errors["missing.py"]
     assert "missing" not in manager._skills
@@ -144,8 +178,14 @@ async def execute(inp, context):
 
 
 def test_reference_scan_uses_explicit_engine_repositories_only():
-    config = SimpleNamespace(tools=SimpleNamespace(default_host="build", governor=SimpleNamespace(host_overrides={"build": {}})))
-    scheduler = SimpleNamespace(list_all=lambda: [{"tool_input": {"host": "build", "hosts": ["build"]}}])
+    config = SimpleNamespace(
+        tools=SimpleNamespace(
+            default_host="build", governor=SimpleNamespace(host_overrides={"build": {}})
+        )
+    )
+    scheduler = SimpleNamespace(
+        list_all=lambda: [{"tool_input": {"host": "build", "hosts": ["build"]}}]
+    )
     tasks = {
         "active": SimpleNamespace(status="running", steps=[{"host": "build"}]),
         "settled": SimpleNamespace(status="completed", steps=[{"host": "build"}]),
@@ -160,13 +200,24 @@ async def test_enrollment_requires_exact_trust_then_successful_test(tmp_path, mo
     key = "ssh-ed25519 " + base64.b64encode(b"test-key").decode()
     manager = HostEnrollmentManager(HostRegistry({}, trust_dir=tmp_path))
     monkeypatch.setattr(manager, "scan", AsyncMock(return_value=(key,)))
-    details = {"address": "example.invalid", "ssh_user": "deploy", "os": "linux", "trust_mode": "pinned"}
+    details = {
+        "address": "example.invalid",
+        "ssh_user": "deploy",
+        "os": "linux",
+        "trust_mode": "pinned",
+    }
     with pytest.raises(HostTrustError, match="expected_fingerprints"):
         await manager.prepare("build", details, allow_tofu=False)
-    candidate = await manager.prepare("build", {**details, "expected_fingerprints": [fingerprint_public_key(key)]}, allow_tofu=False)
+    candidate = await manager.prepare(
+        "build",
+        {**details, "expected_fingerprints": [fingerprint_public_key(key)]},
+        allow_tofu=False,
+    )
     with pytest.raises(HostTrustError, match="connection test"):
         manager.consume(candidate.token)
-    monkeypatch.setattr("src.tools.hosts.control._run_argv", AsyncMock(return_value=(0, b"odin-host-test linux\n")))
+    monkeypatch.setattr(
+        "src.tools.hosts.control._run_argv", AsyncMock(return_value=(0, b"odin-host-test linux\n"))
+    )
     tested = await manager.test(candidate.token)
     assert tested.tested
     assert manager.consume(candidate.token) is tested
@@ -178,7 +229,9 @@ async def test_local_enrollment_requires_consent_and_actual_platform_probe(tmp_p
     manager = HostEnrollmentManager(HostRegistry({}, trust_dir=tmp_path))
     with pytest.raises(HostTrustError, match="confirm_local"):
         await manager.prepare("local", {"address": "localhost", "os": "linux"}, allow_tofu=False)
-    candidate = await manager.prepare("local", {"address": "localhost", "os": "macos", "confirm_local": True}, allow_tofu=False)
+    candidate = await manager.prepare(
+        "local", {"address": "localhost", "os": "macos", "confirm_local": True}, allow_tofu=False
+    )
     probe = AsyncMock(return_value=(0, b"odin-host-test macos\n"))
     monkeypatch.setattr("src.tools.hosts.control._run_argv", probe)
     assert (await manager.test(candidate.token)).tested
@@ -224,8 +277,14 @@ def test_trust_paths_require_explicit_profile_and_reject_symlinks(tmp_path):
 async def test_skill_host_discovery_requires_authentic_owner_and_only_narrows(tmp_path):
     authority = OwnerAuthority(ProfilePaths.from_xdg("test", environ={}, home=tmp_path))
     permission = PermissionManager(authority)
-    access = HostAccessManager(tmp_path / "policy.json", available_hosts=["build", "private"], permission_manager=permission)
-    context = _context(tool_executor=SimpleNamespace(_host_access=access), requester_id=authority.owner_id)
+    access = HostAccessManager(
+        tmp_path / "policy.json",
+        available_hosts=["build", "private"],
+        permission_manager=permission,
+    )
+    context = _context(
+        tool_executor=SimpleNamespace(_host_access=access), requester_id=authority.owner_id
+    )
     assert context.get_hosts() == []
     token = permission.set_request_owner(authority.authenticate_local(peer_uid=authority.owner_uid))
     try:
