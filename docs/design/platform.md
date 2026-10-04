@@ -1,6 +1,6 @@
 # Platform: shell, packaging, startup and cross-platform
 
-Owner: Claude. Draft 2, 2026-10-04 (round-2 review folded in; Aaron's decisions D3 and D4 applied). "Verify" marks facts to re-check against current releases before any build.
+Owner: Claude. Draft 3, 2026-10-04 (Odin's round-2 and round-3 reviews folded in; Aaron's decisions D3 to D6 applied). "Verify" marks facts to re-check against current releases before any build.
 
 ## What this has to satisfy
 
@@ -84,10 +84,20 @@ modules loaded at runtime and some need their own dependencies.
 | PyInstaller or Nuitka frozen binary | Smaller and faster to start, but it breaks runtime-installed dependencies and dynamic imports. Poor fit for skills. |
 | Depend on the system Python | Fragile across distros. Odin's `.deb` does this today with `python3-venv`. Acceptable on Linux, not on Windows or macOS. |
 
-**Large optional downloads.** These should be fetched on first use with visible progress, not shipped in the installer:
+**User skills need their own runtime boundary.** A separate writable environment does not help by itself: today's
+skills are imported into the core's own process, so they would not see packages installed elsewhere. The build design
+must therefore specify one of these:
+- a skill worker process with its own environment, reached through the bounded SkillContext bridge;
+- another loader strategy that is qualified to keep the executor's environment immutable.
+
+**Large optional components.** These are acquired only on explicit activation, with progress and verified package
+provenance:
 - Playwright's Chromium for browser tools, about 150 MB;
 - the fastembed model for semantic search;
 - PyMuPDF for PDF analysis.
+
+If acquisition fails, the related tools are absent. "First use" never smuggles an install in behind a tool that was
+offered but not configured.
 
 ## 4. Per-OS integration
 
@@ -101,31 +111,34 @@ modules loaded at runtime and some need their own dependencies.
 | Local IPC, app to core | Unix domain socket in `$XDG_RUNTIME_DIR` with owner-only permissions and peer checks, plus a profile-scoped, rotatable credential. The app's main process (the broker) holds the connection, never the renderer. | Named pipe with an owner ACL, plus a credential | Unix domain socket in a private directory, plus a credential |
 | Data location | `~/.local/share/odin-desktop`, `~/.config/odin-desktop`, `~/.cache/odin-desktop` (XDG) | `%APPDATA%\Odin Desktop`, `%LOCALAPPDATA%` | `~/Library/Application Support/Odin Desktop` |
 | Packaging | `.deb` (Mint, Ubuntu, Debian), `.rpm`, AppImage | MSIX or NSIS installer, signed | `.dmg`, Developer ID signed and **notarized** |
-| Updates | The in-app updater channel; apt or rpm repos later | The in-app updater | The in-app updater (Sparkle-style) |
+| Updates | **The owner depends on how it was installed.** A package-manager install (`.deb`, `.rpm`) is updated by the package manager, never by an in-app updater writing to package-owned files. An AppImage uses a signed in-app update channel and manifest. Either way, Odin quiesces first and checks ownership and schema compatibility. | Signed in-app updater | Signed in-app updater (Sparkle-style) |
 
 ### Linux packaging notes
 
 - **Flatpak and Snap are poor fits for an execution agent.** Odin runs host commands, manages processes, drives the
   desktop and SSHes to hosts. A sandbox would need host escapes (`flatpak-spawn --host`, broad filesystem access),
   which defeats it. Defer both.
-- **The `.deb` path already exists in Odin** (nfpm plus a disposable-container smoke gate). Reuse it for the
-  `odin-desktop` package.
+- **The `.deb` path already exists in Odin** (nfpm plus a disposable-container smoke gate). The workflow can be reused
+  for `odin-desktop`, but that doesn't qualify the Electron and Python bundle; that needs its own gates.
+- **Every Electron figure in this document is an estimate,** not a measurement. Qualification covers renderer security,
+  no-tray reopen and Exit, and parent-loss containment, not just visual performance. It covers only the Linux scope
+  Aaron approves.
 
 ## 5. Coexisting with a server install (R3)
 
 | Resource | Odin (server) today | Odin Desktop |
 |---|---|---|
-| Package and binary names | `odin`, `odin-server`, `/opt/odin`, `odin.service` (system) | `odin-desktop`; installs per user or into `/opt/odin-desktop`; never touches `/opt/odin` |
-| Service | system unit, user `odin` | No service. Odin runs inside the app (D3); start at login is an XDG autostart entry for the app. |
-| Network | HTTP on port 3002 (configurable), optionally on the LAN | No TCP listener by default. A Unix socket, plus optional remote access as a separate, explicit feature (see the chat-experience gaps). |
-| Data | `/opt/odin/data`, `config.yml` | XDG paths above, an own config schema version |
-| Codex auth | `data/codex_auth_*.json` | Its own store (keyring). One-time import from an Odin install is opt-in. |
+| Package and binary names | `odin`, `odin-server`, `/opt/odin`, `odin.service` (system) | `odin-desktop`; never touches `/opt/odin` |
+| Service | system unit, user `odin` | No service. Odin is a supervised child of the app's main process (D3). Start at login is an XDG autostart entry for the app. |
+| Network | HTTP on port 3002 (configurable), optionally on the LAN | No TCP listener. Local IPC is an owner-only socket. Inbound webhook triggers are a separate open design item ([architecture](architecture.md#7-open-design-item-inbound-webhook-triggers)). |
+| Data | `/opt/odin/data`, `config.yml` | Fresh per-user XDG paths and its own config schema version |
+| Credentials | `data/codex_auth_*.json` | Its own keyring entries, with fresh sign-in |
 
-"Instead of": Odin Desktop is a complete Odin for one user. "Alongside": both can run on one machine with no shared
-state unless the user imports it.
+"Instead of": Odin Desktop is a complete Odin for one user. "Alongside": both run on one machine with nothing shared:
+- no imports (D5);
+- no remote client and no attaching to a server (D6).
 
-A third reading is a desktop client for an existing server. Whether the app should also connect to an existing Odin
-server is a question for Aaron. Odin's round-1 view will weigh in.
+SSH to the user's configured managed hosts is an ordinary Odin execution capability and is unaffected.
 
 ## 6. Portability seams in the core (for Windows and macOS)
 

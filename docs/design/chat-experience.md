@@ -1,6 +1,6 @@
 # Chat experience
 
-Owner: Claude. Draft 3, 2026-10-04. The "today" columns follow Odin's source inventory
+Owner: Claude. Draft 4, 2026-10-04 (Odin's round-3 precision fixes applied). The "today" columns follow Odin's source inventory
 ([`../discussion/02-odin-capabilities.md`](../discussion/02-odin-capabilities.md), file:line evidence there). The v1
 scope follows Odin's review ([round 2, section E](../discussion/04-odin-round2.md#e-chat-spec-review)) and Aaron's
 decisions D2 to D6.
@@ -16,7 +16,10 @@ What parity means here:
 1. **Personal execution and chat parity.** Everything a user does with Odin through Discord in their own conversations
    works in Odin Desktop without a workaround: conversations, attachments, controls, background results and management.
 2. **Better where a desktop can be better:**
-   - no 2,000-character chunking and no Discord upload caps;
+   - no 2,000-character chunking;
+   - limits that are Odin's own rather than Discord's. Inputs and outputs are still bounded: input extraction limits and
+     output delivery quotas are separate. The copied `post_file` keeps its 25 MiB cap until an approved change replaces
+     it with new quotas, tests and descriptions;
    - visible tool activity instead of one summary;
    - first-class controls;
    - a durable, searchable record.
@@ -97,12 +100,12 @@ roadmap.
 |---|---|
 | **No reply text until it is committed.** Reply text appears only after the existing guard and classifier path accepts it, as on Discord. Provider deltas and discarded drafts are never shown. (Recommended by Claude and Odin: showing unguarded drafts weakens the guards in practice.) | **v1** |
 | Activity per tool call: name, target host, scrubbed input summary, lifecycle and outcome (success, failure or unknown), duration, and a link to evidence and result | **v1** |
-| Expand a call: scrubbed arguments, head and tail output (labeled as excerpts), and retained output fetched by cursor without re-running anything, with expiry shown | **v1** |
+| Expand a call: scrubbed arguments; the output previews the source API actually supplies, labeled as previews; retained output fetched by cursor without re-running anything, with expiry shown. Raw file ranges, retained evidence pages and process cursors keep their exact contracts. The UI never stitches them into a fake contiguous read. | **v1** |
 | Inline computer-use and browser screenshots; generated files | **v1** |
 | Agents, tasks, loops and processes: identity, state, corrections, controls and results | **v1** |
 | Stop: a button plus a dedicated shortcut, bound to the exact request and generation, with a requested or confirmed receipt. Never Esc on its own, which also closes dialogs. Stop is not rollback, and the UI lists anything that keeps running. | **v1** |
 | Steer and Queue follow-up, as two explicit modes with a visible target and receipts (queued, consumed or closed). A draft is never reinterpreted because another window started a turn. Rejected text is kept. | **v1** |
-| Guarded resume of preserved work. It binds the exact preserved request, and unknown effects block it. Retry is never an effect replay. | **v1** |
+| Guarded resume of preserved work. It binds the exact preserved request, and unknown effects block it. | **v1** |
 | Status: target endpoint and host, model, core and provider health. Usage, quota and context are shown as measured, estimated or unknown, never invented. | **v1** |
 | Rendered diff view for `apply_patch` | v1+ |
 | A rich per-agent activity timeline, with no model drafts or reasoning | v1+ |
@@ -149,7 +152,14 @@ Multi-user pages do not carry over: host access, API tokens, permissions, Discor
 - **No hidden work.** Effects and state are visible. Model internals (reasoning, prompts, drafts) are not part of that.
 - **A durable visible record.** The transcript, artifacts and events are stored separately from Odin's compacted model
   context and survive restarts. Compaction never shortens what the user can scroll back through.
-- **Safe retries.** Submissions carry a client ID, so the same submission is admitted once. Odin never replays effects
-  whose outcome is unknown. Reconnecting catches up from a cursor and never re-sends work.
+- **Safe retries, named precisely.**
+  - A lost receipt is resolved by re-sending, or looking up, the **same submission ID**. That reconciles admission and
+    reruns nothing.
+  - A deliberate new request gets a new ID and can cause new effects. The UI says so.
+  - Reconnecting catches up from a cursor and never invents a new submission ID.
+  - Odin never replays effects whose outcome is unknown.
+- **Honest outcomes.** Passing the guards is not proof that a task succeeded. Code-owned outcomes are shown as they
+  are: unknown, incomplete, storage unavailable, and accepted-but-incomplete provider results. Agents stay silent
+  workers: their results are collected and presented by the main turn, not posted into the chat on their own.
 - **Keyboard and screen-reader first.** Focus, structure and announcements are qualified on Linux. Activity must not
   flood screen-reader announcements.

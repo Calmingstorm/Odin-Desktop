@@ -1,6 +1,6 @@
 # Roadmap
 
-Owner: Claude, reviewed by Odin. Draft 2, 2026-10-04, rewritten for D4: bring Odin's code over and maintain both
+Owner: Claude, reviewed by Odin. Draft 3, 2026-10-04 (Odin's round-3 review applied), built around D4: bring Odin's code over and maintain both
 repositories. There is no shared package and no work in the Odin repository. Every phase has a gate, and nothing starts
 without Aaron's go for that phase.
 
@@ -11,37 +11,47 @@ without Aaron's go for that phase.
 
 ## Phase 1: bring over (this repository)
 
+Follow [`maintenance.md`](maintenance.md) section 3, steps 1 to 4.
+
 - **Work:**
-  - Record the **baseline**: the Odin commit the copy is taken from.
-  - Copy Odin's engine and the code the reuse map keeps, keeping Odin's module paths and names wherever the code is
-    shared, so later fixes port as the same diff.
-  - Strip Discord machinery and multi-user access control. Removed code leaves no references: no registrations, config,
-    tools, UI or dependencies.
-  - Bring over the behaviour tests that pin how Odin works: guards, classifier, anti-hedging, continuation, stop and
-    steer receipts, durability and no-replay.
-  - Apply the D1 prompt changes exactly as Aaron approves them.
-  - Start the **port ledger**.
+  - Freeze and record the **baseline**: a clean upstream Odin release chosen when this phase is approved.
+  - Copy the code and the tests the reuse map keeps, byte-identical at Odin's paths.
+  - Strip removed features completely.
+  - Adapt the foundation: profile paths, secrets, authority and capability publication.
+  - Apply the D1 prompt changes and the other text changes exactly as Aaron approves them.
+  - Start the **port ledger** and the safety-path manifest.
 - **Gate:**
-  - The carried tests pass.
-  - A drift report shows which shared modules match the baseline and which were adapted, and why.
-  - No Discord or multi-user references remain.
+  - **Carried tests are classified.** Neutral engine suites (guards, classifier, anti-hedging, governor, durability
+    stores) pass here. Suites that need the new intake, delivery or control wiring are recorded as Phase 2 gates. No
+    fake privileged shim is built to make them pass early.
+  - **The drift report** shows shared modules matching the baseline, and every adaptation ledgered.
+  - **Removed features leave no references.** No operative, model-facing or shipped references remain in source,
+    dependencies or the built package. There is a narrow, reviewed allowlist for provenance, legal notices and negative
+    test fixtures.
 
 ## Phase 2: desktop engine (headless, Linux)
 
 - **Work:**
-  - the desktop surface over the engine (the six seams in [`core-contracts.md`](core-contracts.md)): conversations, the
-    durable transcript, artifacts and events with cursors, the inbox, controls and the runtime;
+  - the desktop surface over the engine (the six seams in [`core-contracts.md`](core-contracts.md)): conversations,
+    `read_conversation`, the durable transcript, artifacts and events with cursors, the inbox, controls and the runtime;
   - local IPC;
   - per-user paths and keyring secrets;
   - the missed-run policy;
-  - a headless test client exercising all of it.
-- **Gate:** the engine-level parity scenarios pass headless, including:
+  - the inbound-webhook design, if Aaron includes it.
+
+  A test harness supervises the core during this phase. It is never a shippable daemon alternative to D3.
+- **Gate:** the core-contract suite passes headless. It covers:
   - two conversations and a child conversation;
   - stop and steer during a long tool call;
   - a disconnect and catch-up during a workflow;
   - a restart after compaction;
-  - a re-sent submission with no duplicate execution;
-  - running alongside a server install.
+  - lost receipts and a re-sent submission, with no duplicate execution;
+  - unknown dispatch and outbox recovery;
+  - resume with spent budgets and a current-policy recheck;
+  - storage failure;
+  - revocation;
+  - loss of the core or the app;
+  - running alongside a server install with fresh data and no shared state.
 
 ## Phase 3: the app v1 (Linux)
 
@@ -51,8 +61,16 @@ without Aaron's go for that phase.
   - the chat workspace v1 from [`chat-experience.md`](chat-experience.md);
   - management screens rebuilt from the WebUI workflows the reuse map keeps;
   - first-run onboarding: provider sign-in, startup and privacy choices.
-- **Gate:** UI-level parity scenarios pass, plus keyboard and screen-reader checks, and rendering, security and
-  accessibility qualification on Cinnamon/X11 (plus whatever else Aaron's Linux scope includes).
+- **Gate:**
+  - UI-level parity scenarios pass;
+  - keyboard and screen-reader checks pass;
+  - no-tray reopen and Exit work;
+  - parent-loss containment holds;
+  - isolated native-input and quarantine proofs pass;
+  - package ownership and upgrade tests pass;
+  - rendering, security and accessibility are qualified on Cinnamon/X11, plus any other desktops Aaron includes.
+
+  Acceptance on an active desktop is separate and explicitly authorized.
 
 ## Phase 4: release v1.0 (Linux)
 
@@ -92,12 +110,15 @@ without Aaron's go for that phase.
 
 ## Ongoing from Phase 1: maintaining both (D4)
 
-The process is designed in Odin's round 3 [`maintenance.md`](maintenance.md) (pending). Its outline:
-
-- **The ledger.** Every Odin change after the baseline is ported, marked not applicable (with the reason), or pending.
-- **Dual changes.** Changes to shared behaviour land in both repositories, with each PR linking the other.
-- **Release review.** Each Odin release is checked against the ledger before the matching Desktop release.
-- **Identical tests.** Behaviour tests stay identical where the code is shared.
+The process is defined in [`maintenance.md`](maintenance.md), owned by Odin:
+- **The ledger.** Every upstream commit since the baseline is ported, not applicable, intentionally divergent,
+  conflict-blocked or pending.
+- **Cadence.** Odin releases are reviewed weekly and before every Desktop release, and each Desktop release publishes its
+  review watermark. Critical guard, governor, containment or uncertain-effect fixes are triaged immediately and block
+  affected releases.
+- **Fixes flow back.** Desktop fixes to shared logic go back to Odin through linked PRs, under Odin's own review and
+  authorization.
+- **CI** fails on any unexplained divergence in safety-critical paths.
 
 ## Separate lanes
 

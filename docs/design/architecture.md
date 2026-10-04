@@ -1,6 +1,6 @@
 # Architecture
 
-Owner: Claude. Draft 2, 2026-10-04. It consolidates what Claude and Odin agreed in rounds 1 and 2, and Aaron's
+Owner: Claude. Draft 3, 2026-10-04 (Odin's round-3 review applied). It consolidates what Claude and Odin agreed in rounds 1 and 2, and Aaron's
 decisions D1 to D6 ([brief](00-brief.md#aarons-decisions-2026-10-04-after-round-1)). Detailed contracts
 live in [`core-contracts.md`](core-contracts.md), owned by Odin. The per-file reuse plan is in
 [`reuse-map.md`](reuse-map.md), also owned by Odin. Items marked **(round 2)** are being settled now.
@@ -8,20 +8,28 @@ live in [`core-contracts.md`](core-contracts.md), owned by Odin. The per-file re
 ## 1. Shape
 
 ```
-                 Odin Desktop: one application, one user
+                    Odin Desktop: one application, one user
 
-  ┌────────────────────────────────────────────────────────────────────┐
-  │ App process (shell): tray icon + menu, windows, notifications,     │
-  │ autostart, quick prompt. Owns the lifetime of everything below.    │
-  │                                                                    │
-  │   ┌───────────────────────────┐     ┌───────────────────────────┐  │
-  │   │ UI (renderer): chat       │◄───►│ Odin core (child process, │  │
-  │   │ workspace, management     │ IPC │ Python): the full Odin    │  │
-  │   │ screens. Restartable.     │     │ engine brought over from  │  │
-  │   └───────────────────────────┘     │ Odin + desktop surface.   │  │
-  │                                     └───────────────────────────┘  │
-  └────────────────────────────────────────────────────────────────────┘
-   Close window → app stays in the tray and Odin keeps working.
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ App main process (Electron): tray + menu, windows, notifications,        │
+  │ autostart, single instance. The broker: it alone holds the core socket.  │
+  │                                                                          │
+  │  ┌────────────────────────┐  narrow preload   ┌────────────────────────┐ │
+  │  │ Renderer (sandboxed):  │  bridge (named,   │ main-process broker    │ │
+  │  │ chat workspace and     │──schema-checked──►│ (validates sender,     │ │
+  │  │ management screens     │  methods only)    │ origin, schema)        │ │
+  │  └────────────────────────┘                   └───────────┬────────────┘ │
+  │                                                           │ owner-only   │
+  │                                                           │ socket       │
+  │                                               ┌───────────▼────────────┐ │
+  │                                               │ Odin core: supervised  │ │
+  │                                               │ Python child. The full │ │
+  │                                               │ Odin engine brought    │ │
+  │                                               │ over from Odin, plus   │ │
+  │                                               │ the desktop surface.   │ │
+  │                                               └────────────────────────┘ │
+  └──────────────────────────────────────────────────────────────────────────┘
+   Close window → app stays in the tray, Odin keeps working.
    Tray → right-click → Exit → Odin shuts down safely, then the app exits.
 ```
 
@@ -30,19 +38,27 @@ live in [`core-contracts.md`](core-contracts.md), owned by Odin. The per-file re
 **Odin runs while the application runs (D3).**
 - **Closing the window** hides it to the tray. Odin keeps working: turns, agents, schedules, loops and workflows all
   continue, and their results land in the conversation inbox with a notification.
-- **Exit from the tray's right-click menu** stops Odin. Admission stops, owned work is settled or cancelled safely, state
-  is persisted, supervised input is released and owned child processes end. Unknown effects are reported on the next
-  start; they are never erased or replayed.
+- **Exit from the tray's right-click menu** stops Odin.
+  - Admission stops, owned work is settled or cancelled safely, state is persisted and supervised input is released.
+  - Ending owned child processes is a shutdown *gate*, not an assumption. Anything that cannot be confirmed (for
+    example, remote work) is reported as pending or unknown, and those fences are kept.
+  - Unknown effects are shown on the next start and are never erased or replayed.
+- **If the app's main process dies**, a qualified parent-loss containment path makes sure the core cannot carry on as an
+  unsupervised daemon.
 - **Start at login** is opt-in (R2). The app starts minimized to the tray, which starts Odin.
 
-**Internal process split.** The core runs as a child process of the app, rather than inside the renderer. A renderer
-crash or reload then cannot stop work or lose output: the UI reconnects and catches up from durable events. The app
-supervises the core, and if the core crashes it reports interrupted work and restarts the core. This is invisible to
-the user. There is still one Odin per user profile: a second launch focuses the running app.
+**Internal process split.**
+- The core is a supervised child process of the app's main process. The renderer is sandboxed and never talks to the
+  core directly.
+- **A renderer crash or reload** is unobtrusive: the UI reconnects and catches up from durable events.
+- **A core crash is not hidden.** Restart is bounded and conditional on storage and ownership reconciliation.
+  Interrupted or uncertain work is shown with its durable receipts. Effects are never replayed, and computer-input
+  consent is never renewed automatically.
+- **One Odin per user profile:** a second launch focuses the running app.
 
-**When the app is not running,** nothing runs. Schedules due while it was exited, or while the machine slept, follow a
-documented missed-run policy on the next start. Last-run and next-run times are shown. Odin's round-1 lifecycle table
-still applies, with the background-daemon rows replaced by the app-owned model above.
+**When the app is not running,** nothing runs. Schedules due while it was exited, or while the machine slept, follow the
+missed-run policy on the next start. The lifecycle table in [`core-contracts.md`](core-contracts.md) (section 5) is the
+contract.
 
 ## 3. Code: bring Odin's code over, maintain both (D4)
 
@@ -57,12 +73,19 @@ There is no shared package and no Odin-repo extraction. Both repositories are ma
 - **Keep the layout.** Shared engine code (tool loop, guards, completion judge, providers, tools, agents, scheduler,
   memory, knowledge, skills, MCP, computer use, audit, turn state) keeps Odin's module paths and names where possible,
   so a fix ports as the same diff.
-- **Port ledger.** Every Odin commit after the baseline gets an entry in the Desktop repo: ported (with the Desktop
-  commit), not applicable (with the reason), or pending. Every Odin release is reviewed against the ledger before the
-  matching Desktop release.
+- **Port ledger.** Every Odin commit after the baseline gets an entry in the Desktop repo: ported, not applicable (with
+  the reason), intentionally divergent, conflict-blocked or pending. Odin releases are reviewed weekly and before every
+  Desktop release. Critical safety fixes are handled immediately.
+- **Release watermark.** A Desktop release states the upstream commit its review covers. "Matching" means the fixes
+  were reviewed through that pinned watermark, not that the version numbers are equal.
+- **Separate versions.** The product bundle version, internal protocol and storage versions, upstream baseline and
+  review watermark are all distinct. No shared core is distributed separately.
 - **Dual changes.** A change to shared behaviour lands in both repos. The Desktop PR links the Odin PR, or the reverse.
 - **Parity tests.** The behaviour tests that pin how Odin works (guards, classifier, anti-hedging, stop and steer
-  receipts, durability, no-replay) are carried into Desktop and kept identical where the code is shared.
+  receipts, durability, no-replay) are carried into Desktop with byte-identical assertions and data where the code is
+  shared.
+- **The full plan** (baseline, bring-over order, ledger fields, cadence, drift and safety gates, risks) is
+  [`maintenance.md`](maintenance.md), owned by Odin.
 
 **Seams inside Odin Desktop.** Odin's six seams from round 1 still define the boundary between the engine and the
 desktop surface, now inside one repository: request envelope, conversation service, delivery sink, control service,
@@ -107,7 +130,20 @@ runtime service and tool authority/platform service. See [`core-contracts.md`](c
 - **Phone and remote access:** not in the first versions (D6). The IPC protocol is versioned and has capability
   negotiation, so a remote client can be added later without reworking the core.
 
-## 7. Portability seams (Windows and macOS later)
+## 7. Open design item: inbound webhook triggers
+
+Today, Odin's web server receives webhooks that fire schedules. D2 keeps that capability, but the desktop app has no
+general network listener, and D6 excludes remote access. Webhook triggers therefore need their own small, explicitly
+scoped ingress, separate from any future remote-client seam. The design must cover:
+- where it listens;
+- per-trigger authentication;
+- its lifetime, which follows the app;
+- that it publishes nothing until it is qualified.
+
+The scope is a question for Aaron; see [`decisions-for-aaron.md`](decisions-for-aaron.md). Until this is designed and
+qualified, trigger parity is unproven, and configured triggers are never silently dropped.
+
+## 8. Portability seams (Windows and macOS later)
 
 These are Linux and POSIX primitives in today's core, each to be put behind a platform-capability interface. Each one
 needs its own design and qualification on Windows and macOS:
