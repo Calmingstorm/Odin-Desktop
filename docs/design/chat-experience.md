@@ -1,7 +1,7 @@
 # Chat experience
 
-Owner: Claude. Draft 1, 2026-10-04. The "today" columns are partly provisional until Odin's capability inventory
-(`../discussion/02-odin-capabilities.md`) lands. Entries marked † still need that check.
+Owner: Claude. Draft 2, 2026-10-04. The "today" columns now follow Odin's source inventory
+([`../discussion/02-odin-capabilities.md`](../discussion/02-odin-capabilities.md), file:line evidence there).
 
 ## The bar
 
@@ -37,23 +37,37 @@ This is a summary; Odin's inventory is the authoritative list.
 
 ## What the WebUI chat has today
 
-Source: `ui/js/pages/chat.js`, 503 lines.
+Source: `ui/js/pages/chat.js` (503 lines), `src/web/chat.py`, `src/web/websocket.py`. Odin's inventory is the
+authoritative list.
 
 - **Has:**
-  - message bubbles and timestamps;
-  - GFM markdown (marked) with a copy button on code blocks;
-  - inline images, and files produced by tools;
-  - a typing indicator and a reconnect state;
-  - a list of the tool names used in a turn.
-- **Lacks** (all †):
-  - user file uploads or paste;
-  - tool details (arguments, output, diffs);
-  - live text;
-  - steering;
-  - more than one conversation (the web channel is the user);
-  - search;
-  - agent views;
-  - notifications.
+  - the same tool loop as Discord, through a fake channel;
+  - sanitized GFM Markdown with a copy button on code;
+  - image URL thumbnails, plus image and file attachments produced during the turn;
+  - an animated wait indicator;
+  - tool *names* listed after the turn completes.
+- **Lacks:**
+  - **Input.** It submits text only, with no picker, paste, drag and drop or image blocks.
+  - **Conversations.** There is one identity-backed history; the page's `channel_id` is ignored and the WebSocket API
+    has no session selection.
+  - **An authoritative transcript.** A reload rebuilds from model-session data and drops tool cards and files.
+  - **Controls.** There is no stop, steer or guarded resume.
+  - **Background destinations.** Schedules, loops and workflows still resolve a Discord channel, and a closed or
+    disconnected client has no replayable inbox.
+  - **Visibility.** It shows no request-specific event sequence and no retained-evidence links.
+
+## Discord limits worth knowing
+
+These are Odin's limits today, not Discord's.
+
+- Images are 5 MiB by default.
+- PDFs are 25 MiB, as text extraction only.
+- Archives are 50 MiB compressed, 500 entries and 200 MiB extracted.
+- Host files are 25 MiB.
+- Audio and video attachments are saved but not understood.
+- Replies over 8,000 characters fall back to `response.md`.
+- DMs are not passively archived.
+- Agents are silent workers: the main turn presents their results.
 
 ## Odin Desktop target
 
@@ -64,7 +78,7 @@ Legend: **v1** is required for the first Linux release (the parity bar). **v1+**
 
 | Feature | Discord | WebUI | Odin Desktop |
 |---|---|---|---|
-| Many named conversations, running in parallel (Odin's channel model) | yes (channels) | no † | **v1** |
+| Many named conversations, running in parallel (Odin's channel model) | yes (channels) | no | **v1** |
 | Threads and branches that inherit context from the parent | yes (threads) | no | **v1**: "branch from here" creates a child conversation seeded the way threads are today |
 | Pin, rename, archive and delete conversations | partly | no | **v1** |
 | Per-conversation settings: model, effort, personality, default host, working directory | no | no | **v1+** |
@@ -77,7 +91,7 @@ Legend: **v1** is required for the first Linux release (the parity bar). **v1+**
 | Feature | Discord | WebUI | Odin Desktop |
 |---|---|---|---|
 | Multi-line composer with history recall and draft persistence | partly | partly | **v1** |
-| Attach files and images by drag and drop or paste, of any type Odin handles today | yes (25 MB cap) | no † | **v1**, with the cap set by Odin's limits rather than Discord's |
+| Attach files and images by drag and drop, paste or picker, with previews, progress, cancel and explicit limits, plus a choice to ingest into knowledge | yes (see limits above) | no | **v1**. The core receives references to owned copies, never raw filesystem handles from the UI. |
 | Attach a folder or path reference (Odin reads it locally, nothing is uploaded) | no | no | **v1+** |
 | Screenshot capture (region or window) into the composer | no | no | **v1+**, reusing computer-use capture |
 | Slash commands with a command palette (`/stop`, `/steer`, `/status`, `/usage`, `/model`, `/effort`, `/new`, `/search`) | yes, a fixed set | no | **v1** |
@@ -88,16 +102,17 @@ Legend: **v1** is required for the first Linux release (the parity bar). **v1+**
 
 | Feature | Discord | WebUI | Odin Desktop |
 |---|---|---|---|
-| Live reply text as the model streams | no | no † | **v1**. Shown live; the final text still passes every guard before it becomes the committed message. |
+| Live reply text as the model streams | no | no | **Open question, round 2.** Showing unguarded draft text may weaken the response guards in practice. See [round 2](../discussion/03-claude-round2.md). |
 | Live tool timeline per turn: name, host, arguments, status, duration | no | names only | **v1** |
 | Expand a tool call: full arguments, output with head/tail, retained output by cursor, exit codes | no | no | **v1** |
 | Live tail of `manage_process` output | no | no | **v1+** |
 | `apply_patch` shown as a rendered diff | no | no | **v1** |
 | Computer-use and browser screenshots inline | partly (files) | partly | **v1** |
 | Agent tree: spawned agents, live progress telemetry, open an agent's transcript | no (results only) | separate Agents page | **v1**; telemetry already exists |
-| Stop, with the same truthful requested/confirmed receipt as `/stop` | `/stop` | partly † | **v1**, as a button plus Esc |
+| Stop, with the same truthful requested/confirmed receipt as `/stop` | `/stop` | no | **v1**, as a button plus Esc, bound to the exact request |
 | Steer: type while a turn runs and it queues into that turn | `/steer` | no | **v1**. The composer becomes a steer box while a turn runs, with a receipt (queued, consumed, closed). |
 | Queue a follow-up for after the current turn | partly | no | **v1** |
+| Guarded resume of preserved work after an interruption (today: a bare `resume`/`continue` on Discord) | yes | no | **v1**, as an explicit control; unknown effects are never replayed blindly |
 | Context budget meter, model and account in use, quota | `/status`, `/usage` | separate pages | **v1**, in the header |
 
 ### Reading results
@@ -115,7 +130,8 @@ Legend: **v1** is required for the first Linux release (the parity bar). **v1+**
 
 | Feature | Discord | WebUI | Odin Desktop |
 |---|---|---|---|
-| Scheduled tasks post into a chosen conversation | yes (channels) | n/a | **v1** |
+| Scheduled tasks post into a chosen conversation | yes (channels) | n/a | **v1**, with the delivery destination owned by the core and not dependent on a window being open |
+| Structured scheduled reports with page controls (today: embeds plus reaction paging; a refresh never reruns the check) | yes | no | **v1** |
 | Desktop notification when a long turn, agent or schedule finishes, or needs attention | phone/desktop push | no | **v1** |
 | Unread badges per conversation and on the tray icon | yes | no | **v1** |
 | Work continues while the window is closed; results wait for you | yes | n/a | **v1**: the core keeps running when the window closes (see the architecture options) |
@@ -149,3 +165,7 @@ These are design questions, answered in the architecture docs or put to Aaron.
   same contracts `/stop` and `/steer` have today.
 - **Keyboard first, mouse friendly.** Every action has a shortcut. The palette reaches everything.
 - **No hidden work.** If Odin is doing something, the UI can show it.
+- **The visible record is durable.** The transcript, artifacts and events the user sees are stored separately from
+  Odin's compacted model context and survive restarts. Compaction never shortens what the user can scroll back through.
+- **Retries never repeat effects.** Every submission carries a client ID, and the event stream has cursors, so a
+  reconnect or a re-sent message cannot execute twice.
