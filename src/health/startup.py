@@ -1,0 +1,824 @@
+"""Startup diagnostics — boot-time checks with helpful error messages.
+
+Runs a series of checks against the configuration and filesystem at bot
+startup to catch misconfigurations early.  Each check returns a
+:class:`DiagnosticResult` with a human-readable recommendation on how to
+fix any problem.
+
+All checks are **non-blocking** and **fail-open**: a failing check logs a
+warning but does not prevent the bot from starting.  The results are also
+exposed via the ``/api/startup/diagnostics`` REST endpoint for operators.
+"""
+from __future__ import annotations
+
+import json
+import re
+import sqlite3
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from ..odin_log import get_logger
+from ..runtime_paths import runtime_install_root
+
+log = get_logger("health.startup")
+
+
+@dataclass(slots=True)
+class DiagnosticResult:
+    """Outcome of a single boot-time diagnostic check."""
+
+    name: str
+    passed: bool
+    detail: str
+    recommendation: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
+            "name": self.name,
+            "passed": self.passed,
+            "detail": self.detail,
+        }
+        if self.recommendation:
+            d["recommendation"] = self.recommendation
+        if self.metadata:
+            d["metadata"] = self.metadata
+        return d
+
+
+@dataclass
+class StartupReport:
+    """Aggregated results from all boot-time diagnostic checks."""
+
+    results: list[DiagnosticResult] = field(default_factory=list)
+    started_at: float = 0.0
+    finished_at: float = 0.0
+
+    @property
+    def all_passed(self) -> bool:
+        return all(r.passed for r in self.results)
+
+    @property
+    def passed_count(self) -> int:
+        return sum(1 for r in self.results if r.passed)
+
+    @property
+    def failed_count(self) -> int:
+        return sum(1 for r in self.results if not r.passed)
+
+    @property
+    def duration_ms(self) -> float:
+        if self.finished_at and self.started_at:
+            return round((self.finished_at - self.started_at) * 1000, 1)
+        return 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "all_passed": self.all_passed,
+            "passed_count": self.passed_count,
+            "failed_count": self.failed_count,
+            "total_checks": len(self.results),
+            "duration_ms": self.duration_ms,
+            "results": [r.to_dict() for r in self.results],
+        }
+
+
+# ------------------------------------------------------------------
+# Individual diagnostic checks
+# ------------------------------------------------------------------
+
+
+def check_discord_token(config: Any) -> DiagnosticResult:
+    """Verify the resolved ``config.discord.token`` is present.
+
+    ``config`` is normally the complete YAML configuration used by the running
+    bot. Accepting a Discord section directly keeps this check useful in
+    focused callers, but startup never reloads environment configuration and
+    therefore cannot accidentally diagnose a different token.
+    """
+    discord_config = getattr(config, "discord", None)
+    resolved_token = getattr(discord_config, "token", None)
+    token = resolved_token if isinstance(resolved_token, str) else getattr(config, "token", "")
+    if not isinstance(token, str):
+        token = ""
+    if not token:
+        return DiagnosticResult(
+            name="discord_token",
+            passed=False,
+            detail="Resolved discord.token is missing or empty",
+            recommendation="Set DISCORD_TOKEN in your .env file or shell environment.",
+        )
+    return DiagnosticResult(
+        name="discord_token",
+        passed=True,
+        detail="Discord token present",
+    )
+
+
+def check_codex_credentials(codex_config: Any) -> DiagnosticResult:
+    """Check that the Codex credentials file exists and contains a token."""
+    enabled = getattr(codex_config, "enabled", False)
+    if not enabled:
+        return DiagnosticResult(
+            name="codex_credentials",
+            passed=True,
+            detail="Codex is disabled in config — skipped",
+            metadata={"enabled": False},
+        )
+
+    creds_path = getattr(codex_config, "credentials_path", "")
+    if not creds_path:
+        return DiagnosticResult(
+            name="codex_credentials",
+            passed=False,
+            detail="Codex credentials_path is empty",
+            recommendation="Set openai_codex.credentials_path in config.yml "
+                           "(default: ./data/codex_auth.json).",
+        )
+
+    path = Path(creds_path)
+    if not path.exists():
+        return DiagnosticResult(
+            name="codex_credentials",
+            passed=False,
+            detail=f"Credentials file not found: {creds_path}",
+            recommendation="Run scripts/codex_login.py to authenticate with OpenAI Codex.",
+            metadata={"path": creds_path},
+        )
+
+    try:
+        data = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        return DiagnosticResult(
+            name="codex_credentials",
+            passed=False,
+            detail=f"Cannot parse credentials file: {exc}",
+            recommendation="Delete the file and re-run scripts/codex_login.py.",
+            metadata={"path": creds_path},
+        )
+
+    # Support both single-object and array (pool) format
+    if isinstance(data, list):
+        valid = sum(1 for d in data if isinstance(d, dict) and d.get("access_token"))
+        if valid == 0:
+            return DiagnosticResult(
+                name="codex_credentials",
+                passed=False,
+                detail=f"Credentials file has {len(data)} entries but none have access_token",
+                recommendation="Re-run scripts/codex_login.py to generate valid credentials.",
+                metadata={"path": creds_path, "entries": len(data)},
+            )
+        # Check expiry on first valid entry
+        first_valid = next(d for d in data if isinstance(d, dict) and d.get("access_token"))
+        expires_at = first_valid.get("expires_at", 0)
+        expired = time.time() > expires_at if expires_at else False
+        return DiagnosticResult(
+            name="codex_credentials",
+            passed=True,
+            detail=f"Codex auth pool: {valid} valid credential(s)",
+            metadata={"path": creds_path, "accounts": valid, "format": "pool",
+                       "first_expired": expired},
+        )
+
+    if not isinstance(data, dict) or not data.get("access_token"):
+        return DiagnosticResult(
+            name="codex_credentials",
+            passed=False,
+            detail="Credentials file does not contain an access_token",
+            recommendation="Re-run scripts/codex_login.py to generate valid credentials.",
+            metadata={"path": creds_path},
+        )
+
+    expires_at = data.get("expires_at", 0)
+    expired = time.time() > expires_at if expires_at else False
+    has_refresh = bool(data.get("refresh_token"))
+    meta: dict[str, Any] = {
+        "path": creds_path,
+        "format": "single",
+        "expired": expired,
+        "has_refresh_token": has_refresh,
+    }
+    if expired and not has_refresh:
+        return DiagnosticResult(
+            name="codex_credentials",
+            passed=False,
+            detail="Access token expired and no refresh token available",
+            recommendation="Re-run scripts/codex_login.py to re-authenticate.",
+            metadata=meta,
+        )
+    detail = "Codex credentials valid"
+    if expired:
+        detail += " (token expired, will refresh on first use)"
+    return DiagnosticResult(
+        name="codex_credentials",
+        passed=True,
+        detail=detail,
+        metadata=meta,
+    )
+
+
+def check_ssh_hosts(tools_config: Any) -> DiagnosticResult:
+    """Verify SSH key and known_hosts exist when SSH hosts are configured."""
+    hosts = getattr(tools_config, "hosts", {})
+    if not hosts:
+        return DiagnosticResult(
+            name="ssh_hosts",
+            passed=True,
+            detail="No SSH hosts configured — skipped",
+            metadata={"host_count": 0},
+        )
+
+    ssh_key = getattr(tools_config, "ssh_key_path", "")
+    known_hosts = getattr(tools_config, "ssh_known_hosts_path", "")
+    needs_legacy_trust = any(
+        getattr(host, "address", "") not in {"127.0.0.1", "localhost", "::1"}
+        and getattr(host, "trust_mode", None) not in {"pinned", "tofu", "ca"}
+        for host in hosts.values()
+    )
+    issues: list[str] = []
+    meta: dict[str, Any] = {"host_count": len(hosts)}
+
+    if ssh_key and not Path(ssh_key).exists():
+        issues.append(f"SSH key not found: {ssh_key}")
+        meta["ssh_key_exists"] = False
+    elif ssh_key:
+        meta["ssh_key_exists"] = True
+
+    if needs_legacy_trust and known_hosts and not Path(known_hosts).exists():
+        issues.append(f"Known hosts file not found: {known_hosts}")
+        meta["known_hosts_exists"] = False
+    elif needs_legacy_trust and known_hosts:
+        meta["known_hosts_exists"] = True
+
+    host_names = list(hosts.keys()) if isinstance(hosts, dict) else []
+    meta["hosts"] = host_names
+
+    if issues:
+        return DiagnosticResult(
+            name="ssh_hosts",
+            passed=False,
+            detail="; ".join(issues),
+            recommendation=(
+                "Ensure tools.ssh_key_path and tools.ssh_known_hosts_path "
+                "point to existing files. Generate a key with: ssh-keygen -t ed25519"
+            ),
+            metadata=meta,
+        )
+
+    return DiagnosticResult(
+        name="ssh_hosts",
+        passed=True,
+        detail=f"{len(hosts)} SSH host(s) configured, key and known_hosts present",
+        metadata=meta,
+    )
+
+
+def check_host_inventory_compat(tools_config: Any) -> DiagnosticResult:
+    """Warn about legacy host shapes without turning an upgrade into an outage."""
+    hosts = getattr(tools_config, "hosts", {})
+    if not hosts:
+        return DiagnosticResult(
+            name="host_inventory_compat",
+            passed=True,
+            detail="No managed hosts configured — skipped",
+        )
+    alias_pattern = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
+    issues: list[str] = []
+    for alias, host in hosts.items():
+        if not alias_pattern.fullmatch(alias):
+            issues.append(f"tools.hosts alias {alias!r} is not editable in the Hosts panel")
+        if getattr(host, "os", "linux") not in {"linux", "macos"}:
+            issues.append(
+                f"tools.hosts.{alias}.os={getattr(host, 'os', '')!r} is legacy-only"
+            )
+        if (
+            getattr(host, "trust_mode", "legacy") in {"pinned", "tofu", "ca"}
+            and not getattr(host, "host_keys", [])
+        ):
+            issues.append(f"tools.hosts.{alias} has no usable pinned host key")
+    configured = set(hosts)
+    dangling = set(
+        getattr(getattr(tools_config, "governor", None), "host_overrides", {})
+    ) - configured
+    if dangling:
+        issues.append(
+            "tools.governor.host_overrides names unknown hosts: "
+            + ", ".join(sorted(dangling))
+        )
+    default_host = getattr(tools_config, "default_host", "")
+    if default_host and default_host not in configured:
+        issues.append(f"tools.default_host names unknown host {default_host!r}")
+    if issues:
+        return DiagnosticResult(
+            name="host_inventory_compat",
+            passed=False,
+            detail="; ".join(issues),
+            recommendation=(
+                "Existing entries remain loaded. Normalize them through config.yml or the "
+                "Hosts and Host Access panels before relying on omitted-host execution."
+            ),
+            metadata={"issue_count": len(issues)},
+        )
+    return DiagnosticResult(
+        name="host_inventory_compat",
+        passed=True,
+        detail="Managed-host inventory and explicit defaults are coherent",
+        metadata={"host_count": len(hosts)},
+    )
+
+
+def warn_missing_host_defaults(tools_config: Any, host_access_manager: Any) -> list[str]:
+    """Warn when omitted-host work lost its former YAML-order fallback."""
+    hosts: Any = getattr(tools_config, "hosts", {})
+    default_host: Any = getattr(tools_config, "default_host", "")
+    if not hosts or default_host:
+        return []
+    entries = [("default_policy", host_access_manager.default_policy.to_dict())]
+    entries.extend(
+        (f"users.{user_id}", entry)
+        for user_id, entry in host_access_manager.list_users().items()
+    )
+    missing = [
+        name
+        for name, entry in entries
+        if entry.get("allowed_hosts") != [] and not entry.get("default_host")
+    ]
+    if missing:
+        log.warning(
+            "Managed-host default selection changed: tools.default_host is unset and %s "
+            "has no policy default. Omitted-host work now requires an explicit host; YAML "
+            "inventory order is no longer used.",
+            ", ".join(missing),
+        )
+    return missing
+
+
+def check_sessions_directory(sessions_config: Any) -> DiagnosticResult:
+    """Verify that the sessions persist directory exists or can be created."""
+    persist_dir = getattr(sessions_config, "persist_directory", "")
+    if not persist_dir:
+        return DiagnosticResult(
+            name="sessions_directory",
+            passed=True,
+            detail="No persist directory configured — sessions are in-memory only",
+        )
+
+    path = Path(persist_dir)
+    try:
+        exists = path.is_dir()
+    except OSError:
+        exists = False
+
+    if exists:
+        # Check writability
+        try:
+            test_file = path / ".odin_write_test"
+            test_file.write_text("ok")
+            test_file.unlink()
+            writable = True
+        except OSError:
+            writable = False
+
+        if not writable:
+            return DiagnosticResult(
+                name="sessions_directory",
+                passed=False,
+                detail=f"Sessions directory exists but is not writable: {persist_dir}",
+                recommendation=f"Fix permissions: chmod 755 {persist_dir}",
+                metadata={"path": persist_dir, "exists": True, "writable": False},
+            )
+
+        return DiagnosticResult(
+            name="sessions_directory",
+            passed=True,
+            detail=f"Sessions directory exists and is writable: {persist_dir}",
+            metadata={"path": persist_dir, "exists": True, "writable": True},
+        )
+
+    # Directory doesn't exist — try to create it
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        return DiagnosticResult(
+            name="sessions_directory",
+            passed=True,
+            detail=f"Sessions directory created: {persist_dir}",
+            metadata={"path": persist_dir, "created": True},
+        )
+    except OSError as exc:
+        return DiagnosticResult(
+            name="sessions_directory",
+            passed=False,
+            detail=f"Cannot create sessions directory: {exc}",
+            recommendation=f"Create it manually: mkdir -p {persist_dir}",
+            metadata={"path": persist_dir, "exists": False},
+        )
+
+
+def check_knowledge_db(search_config: Any) -> DiagnosticResult:
+    """Verify the knowledge store SQLite DB path is accessible."""
+    enabled = getattr(search_config, "enabled", True)
+    if not enabled:
+        return DiagnosticResult(
+            name="knowledge_db",
+            passed=True,
+            detail="Knowledge search is disabled — skipped",
+            metadata={"enabled": False},
+        )
+
+    db_path = getattr(search_config, "search_db_path", "")
+    if not db_path:
+        return DiagnosticResult(
+            name="knowledge_db",
+            passed=False,
+            detail="Knowledge search_db_path is empty",
+            recommendation="Set search.search_db_path in config.yml (default: ./data/search).",
+        )
+
+    # The knowledge store uses a directory path — the actual DB file is inside
+    parent = Path(db_path)
+    if not parent.exists():
+        try:
+            parent.mkdir(parents=True, exist_ok=True)
+            return DiagnosticResult(
+                name="knowledge_db",
+                passed=True,
+                detail=f"Knowledge DB directory created: {db_path}",
+                metadata={"path": db_path, "created": True},
+            )
+        except OSError as exc:
+            return DiagnosticResult(
+                name="knowledge_db",
+                passed=False,
+                detail=f"Cannot create knowledge DB directory: {exc}",
+                recommendation=f"Create it manually: mkdir -p {db_path}",
+                metadata={"path": db_path},
+            )
+
+    # Check SQLite can open a connection at this path
+    test_db = parent / "knowledge.db" if parent.is_dir() else parent
+    conn = None
+    try:
+        conn = sqlite3.connect(str(test_db))
+        # A constant SELECT never reads the database header/schema and can
+        # succeed even on arbitrary bytes. quick_check validates existing
+        # storage while an empty first-run database remains valid.
+        check = conn.execute("PRAGMA quick_check").fetchall()
+        if check != [("ok",)]:
+            raise sqlite3.DatabaseError("knowledge database integrity check failed")
+    except sqlite3.Error as exc:
+        return DiagnosticResult(
+            name="knowledge_db",
+            passed=False,
+            detail=f"SQLite cannot open knowledge DB: {exc}",
+            recommendation="Check disk space and file permissions.",
+            metadata={"path": str(test_db)},
+        )
+    finally:
+        if conn is not None:
+            conn.close()
+
+    return DiagnosticResult(
+        name="knowledge_db",
+        passed=True,
+        detail=f"Knowledge DB accessible: {db_path}",
+        metadata={"path": db_path, "exists": True},
+    )
+
+
+def check_config_sections(config: Any, *, credential_inventory: Any = None) -> DiagnosticResult:
+    """Validate that key config sections are internally consistent."""
+    issues: list[str] = []
+
+    # Discord section required
+    discord_cfg = getattr(config, "discord", None)
+    if discord_cfg is None:
+        issues.append("Missing 'discord' config section")
+    elif not getattr(discord_cfg, "token", ""):
+        issues.append("discord.token is empty")
+
+    # Count static identities and the already validated runtime inventory,
+    # without inspecting secret stores a second time in the diagnostics.
+    web_cfg = getattr(config, "web", None)
+    if web_cfg and getattr(web_cfg, "enabled", False):
+        api_token = getattr(web_cfg, "api_token", "")
+        has_static = bool(api_token) or any(
+            bool(getattr(identity, "token", ""))
+            for identity in getattr(web_cfg, "api_tokens", ())
+        )
+        has_dynamic = credential_inventory is not None and credential_inventory.has_usable_auth
+        if not has_static and not has_dynamic:
+            issues.append("No usable web.api_token, web.api_tokens or dynamic API credentials — "
+                          "API has no configured authentication (dev mode)")
+
+    # Webhook: if enabled, verify secret is set
+    webhook_cfg = getattr(config, "webhook", None)
+    if webhook_cfg and getattr(webhook_cfg, "enabled", False):
+        secret = getattr(webhook_cfg, "secret", "")
+        if not secret:
+            issues.append("webhook.enabled=true but secret is empty")
+
+    if issues:
+        return DiagnosticResult(
+            name="config_consistency",
+            passed=False,
+            detail=f"{len(issues)} config issue(s): " + "; ".join(issues),
+            recommendation="Review config.yml and fix the reported issues.",
+            metadata={"issues": issues},
+        )
+
+    return DiagnosticResult(
+        name="config_consistency",
+        passed=True,
+        detail="Config sections are consistent",
+    )
+
+
+def check_local_workspace(config: Any) -> DiagnosticResult:
+    """Verify the local command workspace against the full live config.
+
+    Local user commands FAIL CLOSED when this directory is missing, wrongly
+    owned, or not 0700 — deliberately, because falling back to the install
+    directory is the hazard this exists to remove. That makes it an operator-
+    visible dependency: without this check a broken workspace shows up as
+    every run_command failing, with nothing in the startup report to say why.
+    """
+    from ..tools.workspace import WorkspaceError, provisioning_hint, resolve_workspace
+
+    # Production passes the full Config so independently relocated sessions,
+    # context, logs, credentials, and other state are protected exactly as the
+    # startup migration and executor protect them. Accept ToolsConfig directly
+    # only for focused callers/tests; that intentionally yields the reduced
+    # fallback contract.
+    tools_config = getattr(config, "tools", config)
+    full_config = config if tools_config is not config else None
+    configured = getattr(tools_config, "local_working_dir", "") or ""
+    try:
+        workspace = resolve_workspace(
+            configured,
+            protected_roots=_workspace_protected_roots(full_config),
+        )
+    except WorkspaceError as exc:
+        return DiagnosticResult(
+            name="local_workspace",
+            passed=False,
+            detail=f"Local command workspace unusable: {exc}",
+            recommendation=provisioning_hint(configured),
+            metadata={"configured": configured},
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        return DiagnosticResult(
+            name="local_workspace",
+            passed=False,
+            detail=f"Local command workspace check failed: {exc}",
+            recommendation=provisioning_hint(configured),
+            metadata={"configured": configured},
+        )
+    # A legacy-config fallback is usable, so this still passes — but it must
+    # be visible in the report an operator reads, not buried as a path they
+    # would have to notice (cross-review of PR #239 round 13).
+    from ..tools.workspace import startup_fallback
+
+    fallback = startup_fallback()
+    if fallback is not None and str(workspace) == fallback[0]:
+        _active, intended, reason = fallback
+        return DiagnosticResult(
+            name="local_workspace",
+            passed=True,
+            detail=(
+                f"Local command workspace ready at FALLBACK {workspace} — the "
+                f"configured default {intended!r} could not be provisioned ({reason})"
+            ),
+            recommendation=provisioning_hint(intended),
+            metadata={
+                "path": str(workspace),
+                "configured": intended,
+                "fallback": True,
+            },
+        )
+    return DiagnosticResult(
+        name="local_workspace",
+        passed=True,
+        detail=f"Local command workspace ready: {workspace}",
+        metadata={"path": str(workspace)},
+    )
+
+
+def _workspace_protected_roots(config: object = None) -> list[str]:
+    """Protected roots for the diagnostic, from the same full live config and
+    shared derivation used by startup migration and executor."""
+    from ..tools.workspace import command_protected_roots
+
+    return command_protected_roots(runtime_install_root(), config)
+
+
+def check_data_directories() -> DiagnosticResult:
+    """Verify core data directories exist or can be created."""
+    dirs = [
+        "data",
+        "data/sessions",
+        "data/trajectories",
+        "data/skills",
+        "data/logs",
+    ]
+    created: list[str] = []
+    failed: list[str] = []
+
+    for d in dirs:
+        p = Path(d)
+        if p.is_dir():
+            continue
+        try:
+            p.mkdir(parents=True, exist_ok=True)
+            created.append(d)
+        except OSError:
+            failed.append(d)
+
+    if failed:
+        return DiagnosticResult(
+            name="data_directories",
+            passed=False,
+            detail=f"Cannot create directories: {', '.join(failed)}",
+            recommendation="Create them manually or fix filesystem permissions.",
+            metadata={"failed": failed, "created": created},
+        )
+
+    detail = "All data directories present"
+    if created:
+        detail += f" ({len(created)} created)"
+    return DiagnosticResult(
+        name="data_directories",
+        passed=True,
+        detail=detail,
+        metadata={"created": created} if created else {},
+    )
+
+
+def check_codex_model(config: Any) -> DiagnosticResult:
+    """Verify the effective Codex model name is non-empty.
+
+    Startup passes the root configuration so a Codex primary reports the
+    model selected by ``llm_provider``, the same authority used for routing.
+    Accepting a Codex section directly preserves focused callers and keeps the
+    check meaningful when Codex is configured only as an inactive backend.
+    """
+    own_fields = getattr(config, "__dict__", {})
+    root_config = config if "enabled" not in own_fields and "model" not in own_fields else None
+    codex_config = getattr(root_config, "openai_codex", None) or config
+    enabled = getattr(codex_config, "enabled", False)
+    if not enabled:
+        return DiagnosticResult(
+            name="codex_model",
+            passed=True,
+            detail="Codex is disabled — skipped",
+            metadata={"enabled": False},
+        )
+
+    model = getattr(codex_config, "model", "")
+    provider_config = getattr(root_config, "llm_provider", None)
+    primary_model = getattr(provider_config, "model", None)
+    if isinstance(primary_model, str) and primary_model and ":" not in primary_model:
+        model = primary_model
+    if not model:
+        return DiagnosticResult(
+            name="codex_model",
+            passed=False,
+            detail="Effective Codex model is empty",
+            recommendation="Set llm_provider.model to a Codex model in config.yml.",
+        )
+
+    return DiagnosticResult(
+        name="codex_model",
+        passed=True,
+        detail=f"Codex model: {model}",
+        metadata={"model": model},
+    )
+
+
+# ------------------------------------------------------------------
+# Ordered list of all diagnostic checks
+# ------------------------------------------------------------------
+
+_CONFIG_CHECKS = [
+    # (name, callable, config_attribute_or_None)
+    ("discord_token", check_discord_token, None),  # uses full resolved YAML config
+    ("codex_credentials", check_codex_credentials, "openai_codex"),
+    ("codex_model", check_codex_model, None),
+    ("ssh_hosts", check_ssh_hosts, "tools"),
+    ("host_inventory_compat", check_host_inventory_compat, "tools"),
+    ("sessions_directory", check_sessions_directory, "sessions"),
+    ("knowledge_db", check_knowledge_db, "search"),
+    # Full Config, not only ToolsConfig: every relocatable live-state path
+    # must be judged by the same contract as runtime command execution.
+    ("local_workspace", check_local_workspace, None),
+    ("config_consistency", check_config_sections, None),  # uses full Config
+]
+
+
+def run_startup_diagnostics(
+    *,
+    odin_config: Any | None = None,
+    yaml_config: Any | None = None,
+    credential_inventory: Any = None,
+) -> StartupReport:
+    """Run all boot-time diagnostic checks and return a :class:`StartupReport`.
+
+    Parameters
+    ----------
+    odin_config:
+        Retained for callers that already hold an environment-resolved config.
+        It is used only when no YAML config was supplied; diagnostics never
+        reload environment configuration.
+    yaml_config:
+        The :class:`Config` instance (YAML-based config with all subsystem settings).
+
+    Both are optional — checks that require a missing config are skipped.
+    """
+    report = StartupReport(started_at=time.time())
+
+    for name, check_fn, config_attr in _CONFIG_CHECKS:
+        try:
+            if config_attr is None:
+                # Prefer the full resolved YAML configuration the running bot
+                # received. Preserve callers that explicitly supplied an
+                # already-resolved OdinConfig, without reloading the env.
+                if name == "discord_token":
+                    token_config = yaml_config if yaml_config is not None else odin_config
+                    if token_config is None:
+                        report.results.append(DiagnosticResult(
+                            name=name, passed=True,
+                            detail="Discord configuration not provided — skipped",
+                        ))
+                        continue
+                    result = check_fn(token_config)
+                else:
+                    if yaml_config is None:
+                        report.results.append(DiagnosticResult(
+                            name=name, passed=True,
+                            detail="YAML config not provided — skipped",
+                        ))
+                        continue
+                    if name == "config_consistency":
+                        result = check_config_sections(
+                            yaml_config, credential_inventory=credential_inventory,
+                        )
+                    else:
+                        result = check_fn(yaml_config)
+            else:
+                if yaml_config is None:
+                    report.results.append(DiagnosticResult(
+                        name=name, passed=True,
+                        detail="YAML config not provided — skipped",
+                    ))
+                    continue
+                sub_config = getattr(yaml_config, config_attr, None)
+                if sub_config is None:
+                    report.results.append(DiagnosticResult(
+                        name=name, passed=True,
+                        detail=f"Config section '{config_attr}' not present — skipped",
+                    ))
+                    continue
+                result = check_fn(sub_config)
+            report.results.append(result)
+        except Exception as exc:
+            report.results.append(DiagnosticResult(
+                name=name,
+                passed=False,
+                detail=f"Check crashed: {exc}",
+                recommendation="This is a bug — report to the developer.",
+            ))
+
+    # Data directories check (no config needed)
+    try:
+        report.results.append(check_data_directories())
+    except Exception as exc:
+        report.results.append(DiagnosticResult(
+            name="data_directories",
+            passed=False,
+            detail=f"Check crashed: {exc}",
+            recommendation="This is a bug — report to the developer.",
+        ))
+
+    report.finished_at = time.time()
+
+    # Log summary
+    if report.all_passed:
+        log.info(
+            "Startup diagnostics: %d/%d passed (%.1fms)",
+            report.passed_count, len(report.results), report.duration_ms,
+        )
+    else:
+        log.warning(
+            "Startup diagnostics: %d/%d passed, %d FAILED (%.1fms)",
+            report.passed_count, len(report.results),
+            report.failed_count, report.duration_ms,
+        )
+        for r in report.results:
+            if not r.passed:
+                msg = f"  FAIL [{r.name}]: {r.detail}"
+                if r.recommendation:
+                    msg += f" → {r.recommendation}"
+                log.warning(msg)
+
+    return report

@@ -1,0 +1,400 @@
+"""Bounded native Hyprland owner. Native acknowledgement is not receiver proof.
+
+The native child opens Wayland itself: an inherited connection retains the
+Python connector's SO_PEERCRED PID. Plugin activation is never automatic here.
+Guardian SIGKILL and same-button physical/virtual overlap remain residuals.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+import pwd
+import re
+import time
+from typing import Any
+
+from .hyprland_identity import connect_peer
+from .hyprland_scope import _TOKEN, LEASE_NS
+from .wayland_guardian import (
+    WaylandGuardian,
+    WaylandGuardianError,
+    _action_diagnostics,
+    _Credentials,
+    trusted_binary,
+)
+
+log = logging.getLogger("odin.computer.hyprland_guardian")
+
+
+class HyprlandGuardianError(WaylandGuardianError):
+    """Static failures, never native tokens or window information."""
+
+
+_SCOPE_ERRORS = frozenset({
+    "none", "absolute-scope-deadline-required", "invalid-lease-or-cleanup-failed",
+    "renew-binding-refused", "already-armed", "stale-snapshot", "ambiguous-keyboard",
+    "missing-guardian-keyboard", "ambiguous-pointer", "missing-or-wrong-output-pointer",
+    "human-input-held", "unknown-operation", "invalid-json", "unrecognized-scope-error",
+    "missing-scope-token", "local-deadline-invalid", "scope-exchange-failed",
+    "scope-operation-refused", "scope-ack-invalid", "scope-rejected-input", "scope-ack-expired",
+})
+
+# This is intentionally a Hyprland-native extension. The shared guardian
+# turns transport exceptions into the compatibility error
+# ``wayland_guardian_input_path_lost``; changing that behavior would alter the
+# X11 and portal paths as well.
+_INPUT_LOSS_CAUSES = frozenset({
+    "scope_refused", "controller_eof", "controller_timeout",
+    "wayland_dispatch_failed", "scope_transport_failed", "signal_cancel",
+    "scope_timeout", "mapping_changed", "invalid_command", "other", "orderly",
+})
+_SCOPE_OUTCOMES = frozenset({
+    "not_attempted", "accepted", "refused", "transport_lost",
+})
+_RELEASE_SUBMISSIONS = frozenset({
+    "not_attempted", "queued_not_submitted", "submitted",
+})
+_RELEASE_ACKS = frozenset({
+    "not_attempted", "acknowledged", "negative", "transport_lost", "invalid_or_unconfirmed",
+})
+_RESOURCE_CLOSURES = frozenset({"not_started", "display_disconnected", "complete"})
+_INPUT_LOSS_COUNT_LIMIT = 4096
+
+
+def _input_loss_v1(raw):
+    """Return only bounded native terminal evidence, never native prose.
+
+    An absent or malformed extension is deliberately not a reason to discard
+    legacy failure evidence. Older native guardians retain the existing
+    unknown-outcome behavior, while newer ones can provide this bounded record.
+    """
+    if type(raw) is not dict:
+        return None
+    enums = {
+        "terminal_cause": _INPUT_LOSS_CAUSES,
+        "scope_outcome": _SCOPE_OUTCOMES,
+        "release_submission": _RELEASE_SUBMISSIONS,
+        "release_ack": _RELEASE_ACKS,
+        "resource_closure": _RESOURCE_CLOSURES,
+    }
+    counts = ("events_queued", "events_submitted")
+    if (set(raw) != set(enums) | set(counts)
+            or any(type(raw.get(key)) is not str or raw[key] not in allowed
+                   for key, allowed in enums.items())
+            or any(type(raw.get(key)) is not int or not 0 <= raw[key] <= _INPUT_LOSS_COUNT_LIMIT
+                   for key in counts)
+            or raw["events_submitted"] > raw["events_queued"]):
+        return None
+    return {key: raw[key] for key in (*enums, *counts)}
+
+
+def _native_diagnostics(row):
+    """Malformed native enums must not replace the original dispatch failure."""
+    if type(row) is not dict:
+        return None
+    raw = row.get("diagnostics")
+    if (type(raw) is not dict
+            or not all(type(raw.get(k)) is str for k in ("phase", "release", "reason"))):
+        return None
+    return _action_diagnostics(row)
+
+
+def native_failure(row):
+    """Sanitize native evidence without promoting execution or cleanup state."""
+    if type(row) is not dict:
+        return None
+    raw = row.get("native_failure")
+    if type(raw) is not dict:
+        return None
+    command, operation, error = (raw.get(k) for k in ("command", "scope_operation", "scope_error"))
+    if (type(command) is not str or command not in {
+            "none", "begin", "renew", "bind", "select", "pixel-permit", "action"}
+            or type(operation) is not str
+            or operation not in {"none", "arm", "renew", "release_all"}
+            or type(error) is not str or error not in _SCOPE_ERRORS):
+        return None
+    result: dict[str, Any] = {
+        "command": command, "scope_operation": operation, "scope_error": error,
+    }
+    for key in ("input_was_sent", "release_sent", "release_acknowledged"):
+        if type(row.get(key)) is bool:
+            result[key] = row[key]
+    diagnostics = _native_diagnostics(row)
+    if diagnostics is not None:
+        result["diagnostics"] = diagnostics
+    input_loss = _input_loss_v1(raw.get("input_loss_v1"))
+    if input_loss is not None:
+        result["input_loss_v1"] = input_loss
+    return result
+
+
+def owned_release_v1(row, *, closed):
+    """Strict local ownership evidence, never a compositor or receiver ACK."""
+    if type(row) is not dict:
+        return False
+    evidence = row.get("owned_release_v1")
+    return bool(
+        type(evidence) is dict
+        and set(evidence) == {"release_sent", "ledger_empty", "resources_closed"}
+        and all(type(value) is bool for value in evidence.values())
+        and evidence["release_sent"] is True and evidence["ledger_empty"] is True
+        and evidence["resources_closed"] is closed
+        and row.get("release_sent") is True
+        and row.get("receiver_release_verified") is False
+        and row.get("event") == ("closed" if closed else "action_done")
+    )
+
+
+def _path(value):
+    if (type(value) is not str or not value.startswith("/")
+            or len(os.fsencode(value)) > 107 or any(ord(c) < 32 for c in value)):
+        raise HyprlandGuardianError("hyprland_explicit_socket_required")
+
+
+class HyprlandGuardian(WaylandGuardian):
+    """Compatible action/ready/close interface; native scope is mandatory."""
+
+    def __init__(self, binary: str, expected_uid: int, on_spawn=None):
+        super().__init__(binary, expected_uid, on_spawn)
+        self._scope_deadline = 0
+        self._scope_binding: tuple[Any, ...] | None = None
+        self._mapping_id: str | None = None
+        self._spawning: asyncio.Task[asyncio.subprocess.Process] | None = None
+        self._owner_identity: dict[str, int] | None = None
+        self._group_refresh_clean = True
+
+    @property
+    def application_group_refresh_ready(self):
+        """Local release proof only; native independently checks its exact ledger."""
+        return (self.alive and not self._active and not self._closing
+                and self._group_refresh_clean)
+
+    @property
+    def owner_identity(self) -> dict[str, int] | None:
+        """Original spawn identity retained after death, never a PID lookup."""
+        return dict(self._owner_identity) if self._owner_identity is not None else None
+
+    async def start(  # type: ignore[override]  # Native connector intentionally owns its sockets.
+        self, wayland_path, mapping_id, scope_path, compositor_pid, logical_width, logical_height,
+    ):
+        trusted_binary(self.binary)
+        _path(wayland_path)
+        _path(scope_path)
+        if (self._child is not None or self._closing
+                or type(self.expected_uid) is not int or self.expected_uid < 0
+                or type(compositor_pid) is not int or compositor_pid <= 1
+                or any(type(v) is not int or not 1 <= v <= 16384
+                       for v in (logical_width, logical_height))
+                or type(mapping_id) is not str
+                or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", mapping_id)):
+            raise HyprlandGuardianError("hyprland_guardian_configuration_invalid")
+        credentials: _Credentials = {}
+        if self.expected_uid != os.geteuid():
+            if os.geteuid() != 0:
+                raise HyprlandGuardianError("hyprland_guardian_uid_unavailable")
+            credentials = {"user": self.expected_uid,
+                           "group": pwd.getpwuid(self.expected_uid).pw_gid, "extra_groups": []}
+        for path in (wayland_path, scope_path):
+            peer = await connect_peer(path, compositor_pid, self.expected_uid, time.monotonic() + 1)
+            peer.close()
+        await self._identity(None)
+        spawning = asyncio.create_task(asyncio.create_subprocess_exec(
+            self.binary, wayland_path, str(compositor_pid), str(self.expected_uid),
+            mapping_id, scope_path, str(logical_width), str(logical_height),
+            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL, start_new_session=True, cwd="/",
+            env={"PATH": "/usr/bin", "LANG": "C.UTF-8", "HOME": "/nonexistent"},
+            limit=65536, **credentials,
+        ))
+        self._spawning = spawning
+        try:
+            try:
+                self._child = await asyncio.shield(spawning)
+            except asyncio.CancelledError:
+                self._child = await spawning
+                self._waiter = asyncio.create_task(self._child.wait())
+                self._reader = asyncio.create_task(self._read())
+                raise
+            self._waiter = asyncio.create_task(self._child.wait())
+            if self._closing:
+                raise HyprlandGuardianError("hyprland_guardian_revoked")
+            from .recovery import process_identity
+
+            identity = process_identity(self._child.pid)
+            self._owner_identity = {**identity, "uid": self.expected_uid}
+            await self._identity(identity)
+            self._reader = asyncio.create_task(self._read())
+            self._ready = await self._receive("ready", timeout=8)
+            if (self._ready.get("scope_lease_v1") is not True
+                    or self._ready.get("peer_pid") != compositor_pid):
+                raise HyprlandGuardianError("hyprland_guardian_scope_unavailable")
+            self._mapping_id = mapping_id
+            self._heartbeat = asyncio.create_task(self._heartbeats())
+            return self.ready
+        except BaseException:
+            await self.close()
+            raise
+
+    async def select(self, mapping_id):
+        if mapping_id != self._mapping_id or not self.alive:
+            raise HyprlandGuardianError("hyprland_guardian_mapping_changed")
+        return self.ready
+
+    async def bind_scope(self, snapshot):
+        now = time.monotonic_ns()
+        if type(snapshot) is not dict:
+            raise HyprlandGuardianError("hyprland_guardian_scope_invalid")
+        measured, token = snapshot.get("observed_monotonic_ns"), snapshot.get("native_scope_token")
+        binding = tuple(snapshot.get(k) for k in ("source_digest", "focus_digest", "bounds_digest"))
+        if (snapshot.get("locked") is not False or snapshot.get("authenticated") is not True
+                or type(measured) is not int or not 0 <= now - measured < LEASE_NS
+                or type(token) is not str or not _TOKEN.fullmatch(token)
+                or any(type(v) is not str or not re.fullmatch(r"[0-9a-f]{64}", v) for v in binding)
+                or (self._active and binding != self._scope_binding)):
+            raise HyprlandGuardianError("hyprland_guardian_scope_invalid")
+        await self._send(f"F {token}\n")
+        self._scope_binding = binding
+        self._scope_deadline = measured + LEASE_NS
+
+    async def refresh_scope(self, deadline_ns: int):
+        if (type(deadline_ns) is not int or not time.monotonic_ns() < deadline_ns
+                or deadline_ns > self._scope_deadline):
+            raise HyprlandGuardianError("hyprland_guardian_scope_expired")
+        await super().refresh_scope(deadline_ns)
+
+    async def act(self, command: str, *, pixel_guard=None, scope_deadline_ns=None):
+        if (type(scope_deadline_ns) is not int
+                or not time.monotonic_ns() < scope_deadline_ns <= self._scope_deadline):
+            raise HyprlandGuardianError("hyprland_guardian_scope_expired")
+        permit_reason = None
+
+        async def checked_permit():
+            nonlocal permit_reason
+            try:
+                await pixel_guard()
+            except Exception as exc:
+                from ..error_guidance import exception_reason
+
+                reason = exception_reason(exc)
+                permit_reason = reason if reason in {
+                    "hyprland_session_revoked", "hyprland_generation_revoked",
+                    "hyprland_owned_cleanup_unverified", "hyprland_scope_evidence_expired",
+                } else "hyprland_pixel_permit_failed"
+                raise
+
+        try:
+            self._group_refresh_clean = False
+            receipt = await super().act(
+                command, pixel_guard=checked_permit if pixel_guard is not None else None,
+                scope_deadline_ns=scope_deadline_ns)
+        except Exception as exc:
+            details = getattr(exc, "details", None)
+            # Native plan rejection is a terminal no-input result, not an
+            # unknown dispatch exception. Admit fresh group observations only
+            # with the same strict ledger proof used after successful actions.
+            if (isinstance(exc, WaylandGuardianError)
+                    and type(details) is dict
+                    and details.get("event") == "action_rejected"
+                    and details.get("input_was_sent") is False
+                    and owned_release_v1({**details, "event": "action_done"}, closed=False)):
+                self._group_refresh_clean = True
+            # Controller receipts conservatively collapse dispatch exceptions.
+            # Preserve bounded native facts in the journal, never commands,
+            # coordinates, socket tokens, application text or raw exceptions.
+            failure = native_failure(self._last_terminal)
+            if isinstance(exc, WaylandGuardianError) and failure is not None:
+                exc.details = {**getattr(exc, "details", {}), "native_failure": failure}
+            if isinstance(exc, WaylandGuardianError) and permit_reason is not None:
+                exc.details = {**getattr(exc, "details", {}), "permit_reason": permit_reason}
+            if permit_reason is not None:
+                log.warning("Hyprland field permit refused: %s", permit_reason)
+            log.warning(
+                "Hyprland native action failed: diagnostics=%s input_was_sent=%s "
+                "release_sent=%s release_acknowledged=%s native_failure=%s",
+                _native_diagnostics(self._last_terminal),
+                *(self._last_terminal.get(key)
+                  if type(self._last_terminal.get(key)) is bool else None
+                  for key in ("input_was_sent", "release_sent", "release_acknowledged")),
+                failure,
+            )
+            raise
+        # Validate native evidence before normalizing public facts: replacing a
+        # forged receiver claim must not admit a later group refresh.
+        clean_release = owned_release_v1(receipt, closed=False)
+        receipt["release_ack"] = (receipt.pop("release_acknowledged", False) is True
+                                  and clean_release)
+        receipt["receiver_release_verified"] = False
+        self._group_refresh_clean = clean_release
+        return receipt
+
+    async def close(self):
+        self._closing = True
+        if self._child is None and self._spawning is not None:
+            try:
+                self._child = await asyncio.shield(self._spawning)
+            except Exception:
+                # Failed exec never owns input; cancellation must propagate.
+                pass
+            if self._child is not None:
+                if self._waiter is None:
+                    self._waiter = asyncio.create_task(self._child.wait())
+                if self._reader is None:
+                    self._reader = asyncio.create_task(self._read())
+        receipt = await super().close()
+        if self._child is None:
+            # No owner was ever spawned, so cleanup is vacuous, not a native
+            # acknowledgement. Expose that distinction explicitly to admission.
+            return {**receipt, "release_ack": True, "release_not_required": True,
+                    "native_release_acknowledged": False, "receiver_release_verified": False}
+        terminal = self._last_terminal
+        evidence = terminal.get("prearm_cleanup_v1")
+        expected = {"ready": True, "arm_attempted": False,
+                    "input_ever_attempted": False, "release_not_required": True,
+                    "resources_closed": True}
+        # Vacuous cleanup is a lifetime native fact plus successful owner reap,
+        # never a compositor release ACK. Reject absent/coerced/partial evidence.
+        prearm = (
+            type(evidence) is dict and evidence.keys() == expected.keys()
+            and all(evidence[key] is value for key, value in expected.items())
+            and terminal.get("event") == "closed"
+            and terminal.get("input_was_sent") is False
+            and terminal.get("release_sent") is False
+            and terminal.get("release_acknowledged") is False
+            and receipt.get("process_reaped") is True
+            and self._child.returncode == 0 and self._closed_receipt
+        )
+        if prearm:
+            return {**receipt, "release_submitted": False,
+                    "release_ack": True, "release_not_required": True,
+                    "native_release_acknowledged": False,
+                    "receiver_release_verified": False}
+        failure = native_failure(terminal)
+        loss = failure.get("input_loss_v1", {}) if failure else {}
+        # Preserve a native release ACK independently of action failure.
+        native_ack = (
+            self._closed_receipt and terminal.get("event") == "closed"
+            and owned_release_v1(terminal, closed=True)
+            and terminal.get("release_sent") is True
+            and terminal.get("release_acknowledged") is True
+            and loss.get("release_submission") == "submitted"
+            and loss.get("release_ack") == "acknowledged"
+            and loss.get("resource_closure") == "complete"
+        )
+        local_release = bool(
+            self._closed_receipt and owned_release_v1(terminal, closed=True)
+            and loss.get("release_submission") == "submitted"
+            and loss.get("resource_closure") == "complete"
+            and receipt.get("process_reaped") is True
+        )
+        return {**receipt,
+                "release_ack": bool(native_ack and receipt.get("process_reaped") is True),
+                # Local ownership only, never compositor or receiver proof.
+                "release_confirmed": local_release,
+                "owned_release_v1": terminal.get("owned_release_v1") if local_release else None,
+                "native_release_acknowledged": bool(native_ack),
+                "native_release_submitted": terminal.get("release_sent") is True,
+                "transport_clean": not self._failed,
+                "guardian_exit_code": self._child.returncode,
+                "release_not_required": False,
+                "receiver_release_verified": False}

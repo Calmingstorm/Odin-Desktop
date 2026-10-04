@@ -1,0 +1,186 @@
+"""Built-in web search and URL fetching tools.
+
+Replaces the fragile fetch_url and search_news skills with proper built-in tools.
+"""
+
+from __future__ import annotations
+
+import re
+from html.parser import HTMLParser
+from urllib.parse import quote_plus
+
+import aiohttp
+
+from ..odin_log import get_logger
+from .result_capture import capture_active
+
+log = get_logger("tools.web")
+
+MAX_CONTENT_CHARS = 16_000
+FETCH_TIMEOUT = aiohttp.ClientTimeout(total=15)
+SEARCH_TIMEOUT = aiohttp.ClientTimeout(total=10)
+
+# User-Agent to avoid bot blocking
+USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36"
+)
+
+
+class _HTMLToText(HTMLParser):
+    """Minimal HTML to text converter — strips tags, keeps structure."""
+
+    def __init__(self):
+        super().__init__()
+        self._text: list[str] = []
+        self._skip_depth = 0
+        self._skip_tags = {"script", "style", "noscript", "head", "nav", "footer", "header"}
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]):
+        if tag in self._skip_tags:
+            self._skip_depth += 1
+        if tag in ("br", "p", "div", "h1", "h2", "h3", "h4", "li", "tr"):
+            self._text.append("\n")
+
+    def handle_endtag(self, tag: str):
+        if tag in self._skip_tags and self._skip_depth > 0:
+            self._skip_depth -= 1
+
+    def handle_data(self, data: str):
+        if self._skip_depth == 0:
+            self._text.append(data)
+
+    def get_text(self) -> str:
+        text = "".join(self._text)
+        # Collapse excessive whitespace
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        text = re.sub(r"[ \t]+", " ", text)
+        return text.strip()
+
+
+def _html_to_text(html: str) -> str:
+    parser = _HTMLToText()
+    parser.feed(html)
+    return parser.get_text()
+
+
+async def fetch_url(url: str, max_chars: int = MAX_CONTENT_CHARS) -> str:
+    """Fetch a URL and return its content as text.
+
+    Handles HTML (converts to markdown-like text), JSON (returns raw),
+    and plain text. Truncates to max_chars. Routes through the hardened
+    ``safe_fetch`` transport: every redirect hop is validated (no SSRF via
+    redirect), the connection IP is pinned to the validated address, and TLS
+    certificates are verified.
+    """
+    from .safe_fetch import BlockedAddressError, ResponseTooLargeError, safe_fetch
+
+    try:
+        resp = await safe_fetch(
+            url,
+            headers={"User-Agent": USER_AGENT},
+            timeout=15.0,
+        )
+    except BlockedAddressError:
+        return "Error: URL targets a blocked address (localhost, private IP, or metadata endpoint)"
+    except ResponseTooLargeError:
+        return "Error: fetch_url response too large"
+    except aiohttp.ClientError as e:
+        # Use the standard "Error:" prefix so classify_error can tag
+        # connection/timeout/dns failures into their recovery categories.
+        return f"Error: fetch_url network failure: {e}"
+    except Exception as e:
+        log.error("fetch_url failed for %s: %s", url, e)
+        return f"Error: {e}"
+
+    if resp.status != 200:
+        # Prefix with "Error:" so the recovery classifier sees a known error
+        # shape and can attach a hint (e.g. 404 → NOT_FOUND, 401/403 →
+        # AUTH_FAILURE). Without the prefix, classify_error returns None and
+        # operators get a bare status line with no recovery guidance.
+        return f"Error: HTTP {resp.status}: {resp.reason}"
+
+    content_type = resp.content_type
+    body = resp.text(errors="replace")
+    if "json" in content_type:
+        result = body
+    elif "html" in content_type:
+        result = _html_to_text(body)
+    else:
+        result = body
+
+    if not capture_active() and len(result) > max_chars:
+        result = result[:max_chars] + "\n\n... (content truncated)"
+    return result
+
+
+async def web_search(query: str, max_results: int = 5) -> str:
+    """Search the web using DuckDuckGo HTML and return results.
+
+    Returns a formatted list of results with titles, URLs, and snippets.
+    """
+    search_url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
+    try:
+        async with aiohttp.ClientSession(timeout=SEARCH_TIMEOUT) as session:
+            async with session.get(
+                search_url,
+                headers={"User-Agent": USER_AGENT},
+                allow_redirects=True,
+            ) as resp:
+                if resp.status != 200:
+                    return f"Search failed: HTTP {resp.status}"
+
+                html = await resp.text(errors="replace")
+                return _parse_ddg_results(html, max_results)
+
+    except TimeoutError:
+        return f"Error: web search timed out after {SEARCH_TIMEOUT.total:g} seconds."
+    except aiohttp.ClientError as e:
+        return f"Search error: {str(e).strip() or type(e).__name__}"
+    except Exception as e:
+        log.error("web_search failed for %s: %s", query, e)
+        return f"Error: {str(e).strip() or type(e).__name__}"
+
+
+def _parse_ddg_results(html: str, max_results: int) -> str:
+    """Parse DuckDuckGo HTML search results into a readable format."""
+    results: list[str] = []
+
+    # DuckDuckGo HTML results use class="result__a" for links
+    # and class="result__snippet" for snippets
+    link_pattern = re.compile(
+        r'class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)</a>',
+        re.DOTALL,
+    )
+    snippet_pattern = re.compile(
+        r'class="result__snippet"[^>]*>(.*?)</(?:td|span|div)',
+        re.DOTALL,
+    )
+
+    links = link_pattern.findall(html)
+    snippets = snippet_pattern.findall(html)
+
+    for i, (url, title) in enumerate(links[:max_results]):
+        # Clean HTML from title and snippet
+        clean_title = re.sub(r"<[^>]+>", "", title).strip()
+        clean_snippet = ""
+        if i < len(snippets):
+            clean_snippet = re.sub(r"<[^>]+>", "", snippets[i]).strip()
+
+        # DuckDuckGo wraps URLs in a redirect — extract the actual URL
+        if "uddg=" in url:
+            actual = re.search(r"uddg=([^&]+)", url)
+            if actual:
+                from urllib.parse import unquote
+
+                url = unquote(actual.group(1))
+
+        result = f"**{i + 1}. {clean_title}**\n{url}"
+        if clean_snippet:
+            result += f"\n{clean_snippet}"
+        results.append(result)
+
+    if not results:
+        return "No results found."
+
+    return "\n\n".join(results)

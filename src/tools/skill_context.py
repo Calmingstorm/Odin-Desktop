@@ -1,0 +1,491 @@
+from __future__ import annotations
+
+import json
+import json as _json  # http_post's `json=` parameter shadows the module (TS-0005)
+import re
+import threading
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from ..odin_log import get_logger
+
+if TYPE_CHECKING:
+    from ..knowledge.store import KnowledgeStore
+    from ..scheduler.scheduler import Scheduler
+    from ..search.embedder import LocalEmbedder
+    from ..sessions.manager import SessionManager
+    from .executor import ToolExecutor
+
+
+# ---------------------------------------------------------------------------
+# Resource tracking
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ResourceTracker:
+    """Tracks resource usage during a single skill execution."""
+
+    tool_calls: int = 0
+    http_requests: int = 0
+    messages_sent: int = 0
+    files_sent: int = 0
+    bytes_downloaded: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "tool_calls": self.tool_calls,
+            "http_requests": self.http_requests,
+            "messages_sent": self.messages_sent,
+            "files_sent": self.files_sent,
+            "bytes_downloaded": self.bytes_downloaded,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Sandbox limits
+# ---------------------------------------------------------------------------
+
+# Maximum number of tool calls per skill execution.
+MAX_SKILL_TOOL_CALLS = 50
+# Maximum number of HTTP requests per skill execution.
+MAX_SKILL_HTTP_REQUESTS = 20
+# Maximum number of messages per skill execution.
+MAX_SKILL_MESSAGES = 10
+MAX_SKILL_FILES = 10
+
+# File path patterns that skills are NOT allowed to read.
+_DENIED_PATH_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"(^|/)\.env($|\.)"),  # .env, .env.local, etc.
+    re.compile(r"(^|/)config\.ya?ml$"),  # config.yml / config.yaml
+    re.compile(r"/etc/shadow$"),  # system shadow passwords
+    re.compile(r"(^|/)id_(rsa|ed25519|ecdsa|dsa)$"),  # SSH private keys
+    re.compile(r"(^|/)\.ssh/"),  # entire .ssh directory
+    re.compile(r"(^|/)credentials\.json$"),  # service credentials
+    re.compile(r"(^|/)\.kube/config$"),  # kubernetes config
+]
+
+
+def is_path_denied(path: str) -> bool:
+    """Return True if a file path matches a denied pattern."""
+    for pat in _DENIED_PATH_PATTERNS:
+        if pat.search(path):
+            return True
+    return False
+
+
+# Operator-configured URLs that skills are allowed to access despite being
+# local/private. Set via config: skills.allowed_urls: ["http://localhost:8188"]
+_SKILL_ALLOWED_URLS: set[str] = set()
+
+
+def set_skill_allowed_urls(urls: list[str]) -> None:
+    """Populate the skill URL allowlist from config."""
+    _SKILL_ALLOWED_URLS.clear()
+    for u in urls:
+        _SKILL_ALLOWED_URLS.add(u.rstrip("/"))
+
+
+def is_url_blocked(url: str) -> bool:
+    """Return True if a URL targets localhost, private IPs, or metadata endpoints."""
+    from .url_safety import is_url_blocked as _shared_check
+
+    return _shared_check(
+        url, allowed_urls=list(_SKILL_ALLOWED_URLS) if _SKILL_ALLOWED_URLS else None
+    )
+
+
+# Tools that skills are allowed to call via execute_tool().
+# Only read-only / non-destructive tools are included.
+SKILL_SAFE_TOOLS: frozenset[str] = frozenset(
+    {
+        "read_file",
+        "memory_manage",
+        "web_search",
+        "fetch_url",
+        "http_probe",
+        "browser_read_page",
+        "browser_read_table",
+    }
+)
+
+
+class SkillContext:
+    """API surface passed to user-created skills.
+
+    Provides SSH execution, HTTP helpers, file reading,
+    persistent memory, channel messaging, config access, knowledge base,
+    conversation history search, scheduler, and generic tool execution.
+    """
+
+    def __init__(
+        self,
+        tool_executor: ToolExecutor,
+        skill_name: str,
+        memory_path: str | None = None,
+        message_callback: Callable[[str], Awaitable[None]] | None = None,
+        file_callback: Callable[[bytes, str, str], Awaitable[None]] | None = None,
+        knowledge_store: KnowledgeStore | None = None,
+        embedder: LocalEmbedder | None = None,
+        session_manager: SessionManager | None = None,
+        scheduler: Scheduler | None = None,
+        skill_config: dict[str, Any] | None = None,
+        resource_tracker: ResourceTracker | None = None,
+        skill_memory_lock: threading.Lock | None = None,
+        requester_id: str | None = None,
+    ) -> None:
+        self._executor = tool_executor
+        self._log = get_logger(f"skills.{skill_name}")
+        self._memory_path = Path(memory_path) if memory_path else None
+        # Shared across all contexts by the SkillManager (they write one file);
+        # a private lock is only a fallback for direct construction (e.g. tests).
+        self._skill_memory_lock = skill_memory_lock or threading.Lock()
+        self._message_callback = message_callback
+        self._file_callback = file_callback
+        self._knowledge_store = knowledge_store
+        self._embedder = embedder
+        self._session_manager = session_manager
+        self._scheduler = scheduler
+        self._config: dict[str, Any] = skill_config or {}
+        self._tracker: ResourceTracker = resource_tracker or ResourceTracker()
+        self._requester_id = requester_id
+
+    async def run_on_host(self, alias: str, command: str) -> str:
+        """Run a shell command on a managed host via SSH. Returns output string."""
+        # The public executor owns admission, governance and the generation
+        # lease. Never take the private transport shortcut on a real executor.
+        if hasattr(self._executor, "execute"):
+            from .execution_outcome import result_text
+
+            return result_text(
+                await self._executor.execute(
+                    "run_command",
+                    {"host": alias, "command": command},
+                    user_id=getattr(self, "_requester_id", None),
+                )
+            )
+        # Legacy transport-only embedders do not expose ToolExecutor admission.
+        raw = await self._executor._run_on_host(
+            alias, command, use_workspace=True, use_command_shell=True,
+        )
+        if isinstance(raw, tuple):
+            return raw[0]
+        return raw
+
+    async def read_file(
+        self,
+        host: str,
+        path: str,
+        lines: int = 200,
+        start_line: int = 1,
+        raw: bool = False,
+    ) -> str:
+        """Read a contiguous file range, optionally as raw source content."""
+        if is_path_denied(path):
+            self._log.warning("Skill attempted to read denied path: %s", path)
+            return f"Access denied: '{path}' is a restricted path."
+        from .execution_outcome import result_text
+
+        return result_text(
+            await self._executor.execute(
+                "read_file",
+                {
+                    "host": host,
+                    "path": path,
+                    "lines": lines,
+                    "start_line": start_line,
+                    "raw": raw,
+                },
+                user_id=self._requester_id,
+            )
+        )
+
+    async def post_message(self, text: str) -> None:
+        """Send a message to the channel that invoked this skill."""
+        if self._tracker.messages_sent >= MAX_SKILL_MESSAGES:
+            self._log.warning("Skill exceeded message limit (%d)", MAX_SKILL_MESSAGES)
+            return
+        if self._message_callback:
+            await self._message_callback(text)
+            self._tracker.messages_sent += 1
+        else:
+            self._log.warning("post_message called but no channel callback available")
+
+    async def post_file(self, data: bytes, filename: str, caption: str = "") -> None:
+        """Send a binary file to the channel that invoked this skill."""
+        if self._tracker.files_sent >= MAX_SKILL_FILES:
+            self._log.warning("Skill exceeded file send limit (%d)", MAX_SKILL_FILES)
+            return
+        if self._file_callback:
+            await self._file_callback(data, filename, caption)
+            self._tracker.files_sent += 1
+        else:
+            self._log.warning("post_file called but no channel callback available")
+
+    def remember(self, key: str, value: str) -> None:
+        """Save a key/value pair to persistent memory.
+
+        Refuses (without saving) when the store is corrupt, so a transient
+        read failure can't wipe the skill's memory — the void contract is kept;
+        the refusal is logged and a corrupt copy is preserved.
+        """
+        if not self._memory_path:
+            return
+        from ..json_store import StoreCorruptError
+
+        with self._skill_memory_lock:
+            try:
+                memory = self._load_memory_for_write()
+            except StoreCorruptError as exc:
+                self._log.error(
+                    "Skill memory corrupt (backup preserved); not saving %r: %s", key, exc
+                )
+                return
+            memory[key] = value
+            self._save_memory(memory)
+
+    def recall(self, key: str) -> str | None:
+        """Retrieve a value from persistent memory. Returns None if not found."""
+        memory = self._load_memory()
+        return memory.get(key)
+
+    def get_hosts(self) -> list[str]:
+        """List available host aliases."""
+        access = getattr(self._executor, "_host_access", None)
+        if self._requester_id and access is not None:
+            return access.get_allowed_hosts(self._requester_id)
+        registry = getattr(self._executor, "host_registry", None)
+        from .hosts import HostRegistry
+
+        if isinstance(registry, HostRegistry):
+            return list(registry.active_aliases())
+        return list(getattr(getattr(self._executor, "config", None), "hosts", {}))
+
+    def get_services(self) -> list[str]:
+        """List allowed systemd service names.
+
+        Returns an empty list since systemd tools were removed.
+        """
+        return []
+
+    def get_config(self, key: str, default: Any = None) -> Any:
+        """Get a single skill config value. Returns default if not set."""
+        return self._config.get(key, default)
+
+    def get_all_config(self) -> dict[str, Any]:
+        """Get all skill config values (with defaults applied)."""
+        return dict(self._config)
+
+    async def http_get(
+        self,
+        url: str,
+        params: dict | None = None,
+        timeout: int = 15,
+        headers: dict[str, str] | None = None,
+    ) -> dict | list | str | bytes:
+        """Perform an HTTP GET request. Auto-parses JSON, returns bytes for binary content.
+
+        Custom headers can be passed via *headers*. By default ``Accept: application/json``
+        is included unless overridden. Binary content types (image/*, video/*) return raw bytes.
+        """
+        if is_url_blocked(url):
+            self._log.warning("Skill attempted blocked URL: %s", url)
+            return "Access denied: internal/private URLs are not allowed from skills."
+        if self._tracker.http_requests >= MAX_SKILL_HTTP_REQUESTS:
+            return f"HTTP request limit ({MAX_SKILL_HTTP_REQUESTS}) exceeded."
+        self._tracker.http_requests += 1
+        merged = {"Accept": "application/json"}
+        if headers:
+            merged.update(headers)
+        from yarl import URL
+
+        from .safe_fetch import BlockedAddressError, safe_fetch
+
+        target = str(URL(url).update_query(params)) if params else url
+        allowed = list(_SKILL_ALLOWED_URLS) if _SKILL_ALLOWED_URLS else None
+        try:
+            resp = await safe_fetch(
+                target, headers=merged, timeout=float(timeout), allowed_urls=allowed
+            )
+        except BlockedAddressError:
+            self._log.warning("Skill attempted blocked URL (via redirect): %s", url)
+            return "Access denied: internal/private URLs are not allowed from skills."
+        ct = resp.content_type or ""
+        if "json" in ct:
+            return _json.loads(resp.text())
+        # Return raw bytes for binary content (images, gifs, etc.)
+        if ct.startswith(("image/", "application/octet-stream", "video/")):
+            self._tracker.bytes_downloaded += len(resp.body)
+            return resp.body
+        text = resp.text()
+        self._tracker.bytes_downloaded += len(text.encode())
+        try:
+            return _json.loads(text)
+        except (ValueError, TypeError):
+            return text
+
+    async def http_post(
+        self,
+        url: str,
+        json: dict | None = None,
+        data: str | None = None,
+        timeout: int = 15,
+        headers: dict[str, str] | None = None,
+    ) -> dict | list | str:
+        """Perform an HTTP POST request. Auto-parses JSON responses, otherwise returns string.
+
+        Custom headers can be passed via *headers*.
+        """
+        if is_url_blocked(url):
+            self._log.warning("Skill attempted blocked URL: %s", url)
+            return "Access denied: internal/private URLs are not allowed from skills."
+        if self._tracker.http_requests >= MAX_SKILL_HTTP_REQUESTS:
+            return f"HTTP request limit ({MAX_SKILL_HTTP_REQUESTS}) exceeded."
+        self._tracker.http_requests += 1
+        merged: dict[str, str] = {}
+        if headers:
+            merged.update(headers)
+        from .safe_fetch import BlockedAddressError, safe_fetch
+
+        allowed = list(_SKILL_ALLOWED_URLS) if _SKILL_ALLOWED_URLS else None
+        try:
+            resp = await safe_fetch(
+                url,
+                method="POST",
+                json_body=json,
+                data=data,
+                headers=merged,
+                timeout=float(timeout),
+                allowed_urls=allowed,
+            )
+        except BlockedAddressError:
+            self._log.warning("Skill attempted blocked URL (via redirect): %s", url)
+            return "Access denied: internal/private URLs are not allowed from skills."
+        ct = resp.content_type or ""
+        if "json" in ct:
+            return _json.loads(resp.text())
+        text = resp.text()
+        self._tracker.bytes_downloaded += len(text.encode())
+        try:
+            return _json.loads(text)
+        except (ValueError, TypeError):
+            return text
+
+    async def search_knowledge(self, query: str, limit: int = 5) -> list[dict]:
+        """Search the knowledge base. Returns list of {content, source, score}."""
+        if not self._knowledge_store or not self._embedder:
+            return []
+        return await self._knowledge_store.search_hybrid(query, self._embedder, limit=limit)
+
+    async def ingest_document(self, content: str, source: str) -> int:
+        """Ingest text into the knowledge base. Returns number of chunks indexed."""
+        if not self._knowledge_store or not self._embedder:
+            return 0
+        return await self._knowledge_store.ingest(content, source, self._embedder)
+
+    async def search_history(self, query: str, limit: int = 10) -> list[dict]:
+        """Search conversation history. Returns list of {type, content, timestamp, channel_id}."""
+        if not self._session_manager:
+            return []
+        return await self._session_manager.search_history(query, limit=limit)
+
+    async def schedule_task(
+        self,
+        description: str,
+        action: str,
+        channel_id: str,
+        **kwargs: Any,
+    ) -> dict | None:
+        """Add a scheduled task. Returns the schedule dict, or None if scheduler unavailable.
+
+        Keyword args are passed to Scheduler.add() — e.g. cron, run_at, trigger,
+        tool_name, tool_input, steps, message.
+        """
+        if not self._scheduler:
+            return None
+        if self._requester_id and "requester_id" not in kwargs:
+            kwargs["requester_id"] = self._requester_id
+        return await self._scheduler.add(description, action, channel_id, **kwargs)
+
+    def list_schedules(self) -> list[dict]:
+        """List all scheduled tasks."""
+        if not self._scheduler:
+            return []
+        return self._scheduler.list_all()
+
+    async def update_schedule(self, schedule_id: str, **kwargs: Any) -> dict | None:
+        """Update a scheduled task by ID. Returns the updated schedule, or None.
+
+        Keyword args are passed to Scheduler.update() — e.g. description,
+        cron, run_at, trigger, message, tool_name, tool_input, steps, channel_id.
+        """
+        if not self._scheduler:
+            return None
+        return await self._scheduler.update(schedule_id, **kwargs)
+
+    async def delete_schedule(self, schedule_id: str) -> bool:
+        """Delete a scheduled task by ID. Returns True if deleted."""
+        if not self._scheduler:
+            return False
+        return await self._scheduler.delete(schedule_id)
+
+    async def execute_tool(self, tool_name: str, tool_input: dict | None = None) -> str:
+        """Execute a safe built-in tool by name. Returns the tool's output string.
+
+        Only executor-routable tools listed in SKILL_SAFE_TOOLS are allowed.
+        Native-only tools require their dedicated context helper. Destructive
+        tools (run_command, apply_patch, etc.) are blocked from skill context.
+        """
+        if tool_name not in SKILL_SAFE_TOOLS:
+            self._log.warning("Skill attempted blocked tool: %s", tool_name)
+            return (
+                f"Tool '{tool_name}' is not allowed from skills. "
+                "Only read-only tools are permitted."
+            )
+        if self._tracker.tool_calls >= MAX_SKILL_TOOL_CALLS:
+            return f"Tool call limit ({MAX_SKILL_TOOL_CALLS}) exceeded."
+        self._tracker.tool_calls += 1
+        # Apply file path restriction for read_file
+        if tool_name == "read_file":
+            path = (tool_input or {}).get("path", "")
+            if is_path_denied(path):
+                self._log.warning("Skill attempted to read denied path via tool: %s", path)
+                return f"Access denied: '{path}' is a restricted path."
+        from .execution_outcome import result_text
+
+        return result_text(
+            await self._executor.execute(
+                tool_name, tool_input or {}, user_id=self._requester_id
+            )
+        )
+
+    def log(self, msg: str) -> None:
+        """Write a log message under the skill's namespace."""
+        self._log.info("%s", msg)
+
+    def _load_memory(self) -> dict[str, str]:
+        """READ path — corruption degrades to an empty store (never raises)."""
+        from ..json_store import load_json_store_safe
+
+        data, _ok = load_json_store_safe(
+            self._memory_path, container=dict, what="skill memory"
+        )
+        return data
+
+    def _load_memory_for_write(self) -> dict[str, str]:
+        """MUTATION path — raises StoreCorruptError so remember() refuses to
+        overwrite rather than wiping the skill's memory (a corrupt copy is
+        preserved by load_json_store)."""
+        from ..json_store import load_json_store
+
+        return load_json_store(self._memory_path, container=dict)
+
+    def _save_memory(self, data: dict[str, str]) -> None:
+        if not self._memory_path:
+            return
+        self._memory_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self._memory_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2))
+        tmp.replace(self._memory_path)

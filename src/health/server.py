@@ -1,0 +1,1604 @@
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import hmac
+import ipaddress
+import json
+import secrets
+import time
+from collections import defaultdict
+from collections.abc import Awaitable, Callable
+from pathlib import Path
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from urllib.parse import urlparse
+
+from aiohttp import web
+
+from ..config.schema import WebConfig, WebhookConfig
+from ..odin_log import get_logger
+from ..version import get_version
+from ..web.api_common import contains_redaction_mask
+from ..web.session_store import SessionStore
+
+if TYPE_CHECKING:
+    from aiohttp.typedefs import Middleware
+
+    from ..discord.client import OdinBot
+    from ..tools.output_streamer import StreamChunk
+
+log = get_logger("health")
+_wall_time = time.time
+
+# Type for component health check callbacks: returns (healthy: bool, detail: str)
+ComponentCheck = Callable[[], tuple[bool, str]]
+
+SendMessageCallback = Callable[[str, str], Awaitable[None]]
+TriggerCallback = Callable[[str, dict], Awaitable[int]]
+
+
+@runtime_checkable
+class ListenerSocket(Protocol):
+    """Minimal listener interface supplied by aiohttp's private server boundary."""
+
+    def getsockname(self) -> tuple[object, ...]: ...
+
+
+# --- Route auth policy table ---
+# Single source of truth for which routes bypass authentication.
+# PUBLIC_PREFIXES: any path starting with these skips auth entirely.
+# PUBLIC_EXACT: specific /api/ paths that skip auth (e.g. login).
+# Everything else under /api/ requires a valid Bearer token or session.
+AUTH_PUBLIC_PREFIXES = ("/health", "/webhook/", "/ui")
+AUTH_PUBLIC_EXACT = frozenset({"/api/auth/login"})
+
+_AUTH_SKIP_PREFIXES = AUTH_PUBLIC_PREFIXES
+_AUTH_SKIP_PATHS = AUTH_PUBLIC_EXACT
+
+# Control-plane prefixes that require the ADMIN tier for ANY method. These grant
+# privileges or reconfigure the bot (permission/host-access grants, config,
+# self-update, LLM/codex credentials, skills, tokens), so a non-admin scoped
+# token must never reach them. Enforced centrally by the admin middleware
+# because per-route _require_admin historically covered only a handful of the
+# ~80 mutating routes, leaving a self-escalation path.
+ADMIN_ONLY_PREFIXES = (
+    "/api/config",
+    "/api/reload",
+    "/api/setup",
+    "/api/permissions",
+    "/api/host-access",
+    "/api/hosts",
+    "/api/update",
+    "/api/codex",
+    "/api/llm",
+    "/api/ollama",
+    "/api/kimi",
+    "/api/skills",
+    "/api/mcp",
+    "/api/tokens",
+    "/api/personality",
+    "/api/tools/timeouts",
+    "/api/tools/builtins",
+    "/api/pools",
+    "/api/outbound-webhooks",
+    "/api/context",
+    "/api/restart",
+    "/api/turn-state",
+)
+
+
+# Deliberate self-service exceptions. Everything else in the API, including
+# future routes and sensitive reads, is administrative by default. Dynamic
+# entries use the router's canonical resource, not a user-supplied prefix.
+SELF_SERVICE_ROUTES = frozenset(
+    {
+        ("POST", "/api/auth/login"),
+        ("POST", "/api/auth/logout"),
+        ("GET", "/api/auth/session"),
+        ("POST", "/api/chat"),
+        ("POST", "/api/execute"),
+        ("GET", "/api/ws"),
+        ("GET", "/api/sessions"),
+        ("GET", "/api/sessions/search"),
+        ("GET", "/api/sessions/{channel_id}"),
+        ("GET", "/api/sessions/{channel_id}/export"),
+        ("DELETE", "/api/sessions/{channel_id}"),
+    }
+)
+
+
+def _is_admin_only_path(path: str, method: str = "GET") -> bool:
+    method = "GET" if method == "HEAD" else method
+    return path.startswith("/api/") and (method, path) not in SELF_SERVICE_ROUTES
+
+
+def _make_bootstrap_gate_middleware():
+    """Pending installs expose only the setup UI's narrow ingress surface."""
+    last_recovery_reason = None
+    allowed_api = frozenset(
+        {
+            ("GET", "/api/setup/status"),
+            ("POST", "/api/setup/complete"),
+            ("POST", "/api/codex/device-code"),
+            ("POST", "/api/codex/device-poll"),
+            ("POST", "/api/auth/login"),
+            ("GET", "/api/auth/session"),
+        }
+    )
+
+    @web.middleware
+    async def bootstrap_gate(request: web.Request, handler: Callable) -> web.StreamResponse:
+        nonlocal last_recovery_reason
+        onboarding = request.app.get("onboarding")
+        if onboarding is not None:
+            reason = None
+            try:
+                state = await onboarding.state()
+                state_mode = getattr(state, "mode", state)
+                mode = getattr(state_mode, "value", state_mode)
+                if mode == "recovery":
+                    reason = getattr(state, "detail", None) or "initialization recovery required"
+            except Exception as exc:
+                mode = "recovery"
+                # Exception values can include credentials or operator input.
+                reason = f"initialization state unavailable ({type(exc).__name__})"
+            if reason != last_recovery_reason:
+                if reason is not None:
+                    log.warning("Bootstrap gate entered recovery: %s", reason)
+                last_recovery_reason = reason
+            if mode not in {"complete", "legacy"}:
+                path = request.path
+                static = path in {"/", "/ui"} or path.startswith("/ui/")
+                is_health_probe = path in {"/health/live", "/health/ready"}
+                is_allowed_api = (request.method, path) in allowed_api
+                if not is_health_probe and not is_allowed_api and not static:
+                    raise web.HTTPForbidden(text="installation setup is incomplete")
+        return await handler(request)
+
+    return bootstrap_gate
+
+
+def _client_ip(request: web.Request, trusted_proxies: tuple[str, ...] = ()) -> str:
+    """Resolve the real client IP for rate-limiting and audit.
+
+    Behind a reverse proxy every request's peer is the proxy, so without this
+    all clients collapse to one IP (one client could 429 everyone, and audit
+    records the proxy). Only honor X-Forwarded-For when the immediate peer is a
+    configured trusted proxy — otherwise a client could spoof the header."""
+    peer = request.remote or "unknown"
+
+    def parse_ip(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+        try:
+            return ipaddress.ip_address(value.strip())
+        except ValueError:
+            return None
+
+    peer_ip = parse_ip(peer)
+    if peer_ip is None:
+        return peer
+
+    networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for entry in trusted_proxies:
+        try:
+            networks.append(ipaddress.ip_network(entry.strip(), strict=False))
+        except (AttributeError, ValueError):
+            # Invalid configuration must not make a peer trusted.
+            continue
+
+    def is_trusted(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+        return any(
+            address.version == network.version and address in network for network in networks
+        )
+
+    if not is_trusted(peer_ip):
+        return str(peer_ip)
+
+    forwarded_values = request.headers.getall("X-Forwarded-For", [])
+    forwarded = ",".join(forwarded_values)
+    if not forwarded:
+        return str(peer_ip)
+
+    # Proxies append the peer they received the request from. Walk from the
+    # nearest hop outward, ignoring trusted proxies; stop at the first client.
+    current = peer_ip
+    for value in reversed(forwarded.split(",")):
+        address = parse_ip(value)
+        if address is None:
+            # Never let malformed header text become an audit/rate-limit key,
+            # nor trust addresses farther left past a broken chain.
+            return str(current)
+        current = address
+        if not is_trusted(address):
+            return str(address)
+    return str(current)
+
+
+# Rate-limit: max requests per window per IP on /api/ routes
+_RATE_LIMIT_MAX = 120
+_RATE_LIMIT_WINDOW = 60  # seconds
+
+# Content-Security-Policy for the web UI.
+# All assets are self-hosted since the Vite migration — no external script,
+# style, or font origins. 'unsafe-eval' remains ONLY because the UI uses
+# runtime-compiled Vue template strings; remove it when/if pages migrate to
+# precompiled SFC templates (tracked follow-up).
+_CSP_POLICY = "; ".join(
+    [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-eval'",
+        "style-src 'self' 'unsafe-inline'",
+        "font-src 'self' data:",
+        "connect-src 'self' ws: wss:",
+        "img-src 'self' data: https://cdn.discordapp.com",
+        "object-src 'none'",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+    ]
+)
+
+
+# ---------------------------------------------------------------------------
+# Session manager
+# ---------------------------------------------------------------------------
+
+
+class SessionManager:
+    """Server-side session tracking with configurable timeout."""
+
+    def __init__(self, timeout_minutes: int = 0, *, store_path: Path | None = None,
+                 config=None, snapshot=None) -> None:
+        self._sessions: dict[str, float] = {}  # session_id -> last_activity (monotonic)
+        self._identities: dict[str, object] = {}  # session_id -> ApiTokenIdentity or None
+        self._auth_sources: dict[str, str] = {}
+        self._timeout = timeout_minutes * 60 if timeout_minutes > 0 else 0
+        self._destroy_callback: Callable[[str], object] | None = None
+        self._store: SessionStore | None = None
+        if store_path is not None:
+            self.configure_persistence(store_path, config, snapshot)
+
+    def configure_persistence(self, path: Path, config, snapshot) -> None:
+        self._store = SessionStore(path, config, snapshot, self._timeout, _wall_time())
+
+    def _record(self, sid: str):
+        from ..web.session_store import session_hash
+        return self._store.records.get(session_hash(sid)) if self._store else None
+
+    def persist(self, sid: str) -> None:
+        """Opt in only after login has bound authenticated credential provenance."""
+        if self._store is None or sid not in self._sessions:
+            return
+        try:
+            self._store.add(sid, self.get_identity(sid), self.get_auth_source(sid), _wall_time())
+        except (OSError, ValueError):
+            log.warning("WebUI session persistence failed; session remains memory-only")
+            from ..web.session_store import session_hash
+            self._store.records.pop(session_hash(sid), None)
+
+    def set_destroy_callback(self, callback: Callable[[str], object] | None) -> None:
+        """Register the exact-session teardown hook used by WebSockets.
+
+        Session bookkeeping is synchronous because it runs inside auth
+        middleware.  The callback therefore schedules its own bounded async
+        close; expiry and explicit logout still enter the same manager-owned
+        ``close_by_session_id`` contract.
+        """
+        self._destroy_callback = callback
+
+    def _remove(self, sid: str) -> bool:
+        from ..web.session_store import session_hash
+        persisted = self._record(sid) is not None
+        if persisted and self._store is not None:
+            self._store.records.pop(session_hash(sid), None)
+            self._store.origins.pop(session_hash(sid), None)
+        self._identities.pop(sid, None)
+        self._auth_sources.pop(sid, None)
+        existed = self._sessions.pop(sid, None) is not None or persisted
+        if existed and self._destroy_callback is not None:
+            try:
+                self._destroy_callback(sid)
+            except Exception:
+                log.exception("Session teardown callback failed")
+        if persisted:
+            self._flush_store()
+        return existed
+
+    def _flush_store(self) -> None:
+        assert self._store is not None
+        try:
+            self._store.flush(_wall_time())
+        except OSError:
+            from ..web.session_store import session_hash
+            for sid in list(self._sessions):
+                if session_hash(sid) in self._store.records:
+                    self._sessions.pop(sid, None)
+                    self._identities.pop(sid, None)
+                    self._auth_sources.pop(sid, None)
+                    if self._destroy_callback is not None:
+                        try:
+                            self._destroy_callback(sid)
+                        except Exception:
+                            log.exception("Session teardown callback failed")
+            self._store.disabled = True
+            self._store.records.clear()
+            self._store.origins.clear()
+            log.warning("WebUI session store write failed; persisted admission disabled")
+            try:
+                self._store.invalidate()
+            except OSError:
+                log.warning("WebUI durable session revocation failed; storage repair required")
+            raise
+
+    def set_auth_source(self, sid: str, source: str) -> None:
+        if sid in self._sessions:
+            self._auth_sources[sid] = source
+
+    def get_auth_source(self, sid: str) -> str | None:
+        record = self._record(sid)
+        return record["auth_source"] if record else self._auth_sources.get(sid)
+
+    def contains(self, sid: str) -> bool:
+        """Whether *sid* is currently tracked, without refreshing its lease."""
+        return sid in self._sessions or self._record(sid) is not None
+
+    @property
+    def active_count(self) -> int:
+        self.cleanup()
+        restored = len(self._store.records) if self._store else 0
+        return restored + sum(self._record(sid) is None for sid in self._sessions)
+
+    @property
+    def timeout_seconds(self) -> int:
+        return self._timeout
+
+    def create(self, identity: object = None) -> tuple[str, int]:
+        """Create a new session. Returns (session_id, timeout_seconds)."""
+        self.cleanup()
+        sid = secrets.token_urlsafe(32)
+        self._sessions[sid] = time.monotonic()
+        if identity is not None:
+            self._identities[sid] = identity
+        return sid, self._timeout
+
+    def get_identity(self, sid: str) -> object | None:
+        """Return the identity bound to a session, if any."""
+        record = self._record(sid)
+        if record and self._store is not None:
+            if record["auth_source"] == "dynamic":
+                from ..web.session_store import session_hash
+                origin = self._identities.get(sid)
+                if origin is None:
+                    origin = self._store.origins.get(session_hash(sid))
+                snapshot = self._store.snapshot()
+                if origin is not None:
+                    return origin if snapshot and snapshot.identity_is_current(origin) else None
+                origin = self._store.identity(record)
+                if origin is not None:
+                    self._identities[sid] = origin
+                return origin
+            return self._store.identity(record)
+        return self._identities.get(sid)
+
+    def seconds_until_expiry(self, sid: str) -> float | None:
+        """Return the remaining inactivity lease without touching it.
+
+        ``None`` means the session is absent or expiry is disabled.  WebSocket
+        ownership uses this read-only deadline to discover idle expiry even
+        when the browser sends no further application frames.
+        """
+        record = self._record(sid)
+        if record:
+            from ..web.session_store import LIFETIME
+            deadlines = [record["created_at"] + LIFETIME]
+            if self._timeout > 0:
+                deadlines.append(record["last_activity"] + self._timeout)
+            return max(0.0, min(deadlines) - _wall_time())
+        if self._timeout <= 0:
+            return None
+        ts = self._sessions.get(sid)
+        if ts is None:
+            return None
+        return max(0.0, ts + self._timeout - time.monotonic())
+
+    def validate(self, sid: str, *, touch: bool = True) -> bool:
+        """Validate a session ID. Returns False if expired or unknown.
+
+        ``touch=False`` is the WebSocket liveness check: protocol pings prove
+        the connection is alive but must not extend an authentication lease
+        forever.
+        """
+        record = self._record(sid)
+        if record and self._store is not None:
+            from ..web.session_store import WRITE_INTERVAL
+            now = _wall_time()
+            identity = self.get_identity(sid)
+            if self._store.disabled or self._store.expired(record, now) or identity is None:
+                self._remove(sid)
+                return False
+            self._identities[sid] = identity
+            self._sessions[sid] = time.monotonic()
+            if touch:
+                record["last_activity"] = now
+                if now - self._store.last_write >= WRITE_INTERVAL:
+                    self._flush_store()
+            return True
+        ts = self._sessions.get(sid)
+        if ts is None:
+            return False
+        now = time.monotonic()
+        if self._timeout > 0 and (now - ts) >= self._timeout:
+            self._remove(sid)
+            return False
+        if touch:
+            self._sessions[sid] = now
+        return True
+
+    def destroy(self, sid: str) -> bool:
+        """Destroy a session. Returns True if it existed."""
+        return self._remove(sid)
+
+    def destroy_by_user_id(self, user_id: str) -> int:
+        """Destroy all sessions whose bound identity has the given user_id."""
+        to_remove = []
+        for sid, identity in self._identities.items():
+            if getattr(identity, "user_id", None) == user_id:
+                to_remove.append(sid)
+        for sid in to_remove:
+            self._remove(sid)
+        restored: list[str] = []
+        if self._store:
+            restored = [key for key, record in self._store.records.items()
+                        if record["user_id"] == user_id]
+            for key in restored:
+                self._store.records.pop(key)
+                self._store.origins.pop(key, None)
+            if restored:
+                self._flush_store()
+        return len(to_remove) + len(restored)
+
+    def cleanup(self) -> int:
+        """Remove expired sessions. Returns count removed."""
+        expired_records: list[str] = []
+        if self._store:
+            expired_records = [key for key, record in self._store.records.items()
+                               if self._store.expired(record, _wall_time())
+                               or self._store.identity(record) is None]
+            for sid in list(self._sessions):
+                from ..web.session_store import session_hash
+                if session_hash(sid) in expired_records:
+                    self._remove(sid)
+            for key in expired_records:
+                self._store.records.pop(key, None)
+                self._store.origins.pop(key, None)
+            if expired_records:
+                self._flush_store()
+        if self._timeout <= 0:
+            return len(expired_records)
+        now = time.monotonic()
+        expired = [sid for sid, ts in self._sessions.items()
+                   if self._record(sid) is None and now - ts >= self._timeout]
+        for sid in expired:
+            self._remove(sid)
+        return len(expired) + len(expired_records)
+
+
+# ---------------------------------------------------------------------------
+# Middleware factories
+# ---------------------------------------------------------------------------
+
+
+def _usable_web_credential(value: object) -> bool:
+    """True only for a configured value that can authenticate a request."""
+    if not isinstance(value, str) or not value.strip():
+        return False
+    value = value.strip()
+    return not (value.startswith("${") and value.endswith("}"))
+
+
+def _static_credential_count(web_config: WebConfig) -> int:
+    return int(_usable_web_credential(getattr(web_config, "api_token", ""))) + sum(
+        int(_usable_web_credential(getattr(token, "token", "")))
+        for token in getattr(web_config, "api_tokens", ())
+    )
+
+
+def _token_auth_snapshot(manager):
+    """Return one coherent auth view, retaining simple test-double support."""
+    if manager is None:
+        return None
+    snapshot_method = getattr(type(manager), "auth_snapshot", None)
+    if callable(snapshot_method):
+        return snapshot_method(manager)
+    return manager
+
+
+def _snapshot_dynamic_auth_required(snapshot) -> bool:
+    if snapshot is None:
+        return False
+    required = getattr(snapshot, "dynamic_auth_required", None)
+    if isinstance(required, bool):
+        return required
+    inventory = getattr(snapshot, "credential_inventory", None)
+    has_usable_auth = getattr(inventory, "has_usable_auth", None)
+    if isinstance(has_usable_auth, bool):
+        return has_usable_auth
+    list_tokens = getattr(snapshot, "list_tokens", None)
+    if callable(list_tokens):
+        return bool(list_tokens())
+    return False
+
+
+def _make_auth_middleware(
+    web_config: WebConfig | Callable[[], WebConfig],
+    session_manager: SessionManager,
+) -> Middleware:
+    """Create middleware that enforces authentication on ``/api/`` routes.
+
+    Normal HTTP requests accept Authorization bearer credentials and the
+    historical query carrier used by downloads.  ``/api/ws`` is deliberately
+    different: browsers cannot set Authorization on a WebSocket handshake, so
+    it accepts the bearer subprotocol and NEVER authenticates a query token.
+    Query-token presence is left for the WebSocket handler to reject with its
+    explicit close reason before any credential is validated/refreshed.
+    """
+
+    @web.middleware
+    async def auth_middleware(
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        path = request.path
+        if not path.startswith("/api/"):
+            return await handler(request)
+        if path in _AUTH_SKIP_PATHS:
+            return await handler(request)
+
+        token_store = request.app.get("token_manager")
+        token_snapshot = _token_auth_snapshot(token_store)
+        request._token_auth_snapshot = token_snapshot
+        is_websocket = path == "/api/ws"
+        # Presence, not truthiness or first-value order, is the security
+        # boundary.  Do not validate/refresh ANY query credential on /api/ws;
+        # the handler turns this into the protocol-level 4001 rejection.
+        if is_websocket and "token" in request.query:
+            return await handler(request)
+
+        current_web_config = web_config() if callable(web_config) else web_config
+        dynamic_recovery = bool(
+            token_snapshot
+            and getattr(token_snapshot, "credential_store_auth_required", False) is True
+        )
+        has_any_token = _static_credential_count(current_web_config) or (
+            _snapshot_dynamic_auth_required(token_snapshot)
+        )
+        has_any_token = bool(has_any_token or dynamic_recovery)
+        request._auth_required = has_any_token
+
+        bearer_value = ""
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            bearer_value = auth_header[len("Bearer ") :]
+        elif is_websocket:
+            # Shared decoder with WebSocketManager.handle: one wire format,
+            # including malformed/base64 handling, at both auth boundaries.
+            from ..web.websocket import (
+                _bearer_subprotocol,
+                _decode_bearer_subprotocol,
+            )
+
+            bearer_value = _decode_bearer_subprotocol(_bearer_subprotocol(request))
+        else:
+            query_tokens = request.query.getall("token", [])
+            bearer_value = query_tokens[0] if query_tokens else ""
+
+        if not has_any_token:
+            if bearer_value and session_manager.contains(bearer_value):
+                if (session_manager.get_auth_source(bearer_value) is not None
+                        or session_manager.get_identity(bearer_value) is not None):
+                    session_manager.destroy(bearer_value)
+                    return web.json_response({"error": "unauthorized"}, status=401)
+            return await handler(request)
+
+        if bearer_value:
+            from ..web.authentication import current_session_identity, resolve_credential
+
+            identity, source = resolve_credential(current_web_config, token_snapshot, bearer_value)
+            if identity is not None:
+                request._session_id = identity.user_id
+                request._api_identity = identity
+                request._auth_source = source
+                return await handler(request)
+
+            if session_manager.validate(bearer_value):
+                current = current_session_identity(
+                    session_manager, bearer_value, current_web_config, token_snapshot
+                )
+                if current is not None:
+                    request._session_id = bearer_value
+                    request._session_managed = True
+                    request._api_identity = current
+                    request._auth_source = session_manager.get_auth_source(bearer_value)
+                    return await handler(request)
+
+        if dynamic_recovery:
+            raise web.HTTPForbidden(text="API credential store requires recovery")
+        return web.json_response({"error": "unauthorized"}, status=401)
+
+    return auth_middleware
+
+
+def _make_admin_middleware(web_config: WebConfig | Callable[[], WebConfig]) -> Middleware:
+    """Deny API access by default except explicit method/resource exceptions.
+
+    Runs after auth_middleware, so request._api_identity is already resolved.
+    Dev mode (no tokens configured) is unaffected — auth is disabled wholesale
+    there, matching auth_middleware's own behavior.
+    """
+
+    @web.middleware
+    async def admin_middleware(
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        resource = request.match_info.route.resource
+        path = resource.canonical if resource is not None else request.path
+        if not _is_admin_only_path(path, request.method):
+            return await handler(request)
+        auth_required = getattr(request, "_auth_required", None)
+        if isinstance(auth_required, bool):
+            if not auth_required:
+                return await handler(request)  # dev mode
+            identity = getattr(request, "_api_identity", None)
+            if getattr(identity, "tier", None) != "admin":
+                return web.json_response({"error": "admin access required"}, status=403)
+            return await handler(request)
+        snapshot = _token_auth_snapshot(request.app.get("token_manager"))
+        if snapshot and getattr(snapshot, "credential_store_auth_required", False):
+            return web.json_response(
+                {"error": "API credential store requires recovery"}, status=403
+            )
+        current_web_config = web_config() if callable(web_config) else web_config
+        has_any_token = _static_credential_count(current_web_config) or (
+            _snapshot_dynamic_auth_required(snapshot)
+        )
+        if not has_any_token:
+            return await handler(request)  # dev mode
+        identity = getattr(request, "_api_identity", None)
+        if getattr(identity, "tier", None) != "admin":
+            return web.json_response({"error": "admin access required"}, status=403)
+        return await handler(request)
+
+    return admin_middleware
+
+
+def _make_redaction_mask_middleware() -> Middleware:
+    """Refuse any request body carrying the mask this API hands out.
+
+    Every read path reports secrets as ``••••••••``. A client that renders one
+    as an editable control sends it straight back, and the handler installs
+    eight bullets as the live credential and persists them.
+
+    This lives in middleware because guarding handlers one at a time kept
+    missing doors — the generic config save was fenced while the dedicated
+    provider routes still installed the sentinel, and fencing those still left
+    MCP headers and outbound-webhook secrets. Nine route modules accept
+    secret-bearing bodies; enumerating them is how the hole reopens. Nobody
+    sets a credential to eight bullets deliberately, so refusing it here costs
+    no legitimate capability.
+    """
+
+    @web.middleware
+    async def redaction_mask_middleware(
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        if request.method not in ("POST", "PUT", "PATCH"):
+            return await handler(request)
+        if not request.path.startswith("/api/"):
+            return await handler(request)
+        try:
+            # Do not trust Content-Type here. aiohttp's request.json() does not
+            # enforce it, and every API handler uses that permissive parser: a
+            # valid JSON credential body labelled text/plain would otherwise
+            # bypass this fence and still be installed by the handler. aiohttp
+            # caches the payload, so the handler can parse it again unchanged.
+            body = await request.json()
+        except Exception:
+            return await handler(request)  # malformed — the handler reports it
+        if contains_redaction_mask(body):
+            return web.json_response(
+                {
+                    "error": "Request contains a redacted placeholder. Send the "
+                    "real value, or omit the field to leave it unchanged."
+                },
+                status=400,
+            )
+        return await handler(request)
+
+    return redaction_mask_middleware
+
+
+def _make_rate_limit_middleware(trusted_proxies: tuple[str, ...] = ()) -> Middleware:
+    """Simple in-memory rate limiter for /api/ routes (per client IP)."""
+    # {ip: [timestamp, ...]}
+    _buckets: dict[str, list[float]] = defaultdict(list)
+    _last_eviction = [0.0]  # mutable container for nonlocal access
+
+    @web.middleware
+    async def rate_limit_middleware(
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        if not request.path.startswith("/api/"):
+            return await handler(request)
+        ip = _client_ip(request, trusted_proxies)
+        now = time.monotonic()
+        window_start = now - _RATE_LIMIT_WINDOW
+        # Prune old entries for this IP
+        bucket = _buckets[ip]
+        _buckets[ip] = bucket = [t for t in bucket if t > window_start]
+        if len(bucket) >= _RATE_LIMIT_MAX:
+            return web.json_response({"error": "rate limit exceeded"}, status=429)
+        bucket.append(now)
+
+        # Periodic eviction of stale IP keys (every 5 minutes)
+        if now - _last_eviction[0] > 300:
+            _last_eviction[0] = now
+            stale = [k for k, v in _buckets.items() if not v or v[-1] < window_start]
+            for k in stale:
+                del _buckets[k]
+
+        return await handler(request)
+
+    return rate_limit_middleware
+
+
+def _make_security_headers_middleware() -> Middleware:
+    """Add security headers (CSP, X-Frame-Options, etc.) to all responses."""
+
+    def add_headers(response: web.StreamResponse) -> None:
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = _CSP_POLICY
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+
+    @web.middleware
+    async def security_headers_middleware(
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        try:
+            response = await handler(request)
+        except web.HTTPException as exc:
+            add_headers(exc)
+            raise
+        except json.JSONDecodeError:
+            response = web.json_response({"error": "invalid JSON body"}, status=400)
+        add_headers(response)
+        return response
+
+    return security_headers_middleware
+
+
+def _make_csrf_middleware() -> Middleware:
+    """Validate Origin/Referer on state-changing requests (defense-in-depth).
+
+    Bearer tokens already prevent CSRF (not auto-sent by browsers), but this
+    adds an extra layer by rejecting cross-origin POST/PUT/DELETE requests.
+    """
+
+    @web.middleware
+    async def csrf_middleware(
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        # Only check state-changing methods
+        if request.method not in ("POST", "PUT", "DELETE"):
+            return await handler(request)
+        # Only check API routes
+        if not request.path.startswith("/api/"):
+            return await handler(request)
+        # Skip for login endpoint
+        if request.path in _AUTH_SKIP_PATHS:
+            return await handler(request)
+        # Skip for webhook endpoints (they have their own auth)
+        if request.path.startswith("/webhook/"):
+            return await handler(request)
+
+        host = request.host  # includes port
+        origin = request.headers.get("Origin", "")
+        referer = request.headers.get("Referer", "")
+
+        if origin:
+            parsed = urlparse(origin)
+            if parsed.netloc and parsed.netloc != host:
+                log.warning(
+                    "CSRF blocked: Origin %s != Host %s on %s %s",
+                    origin,
+                    host,
+                    request.method,
+                    request.path,
+                )
+                return web.json_response({"error": "cross-origin request blocked"}, status=403)
+        elif referer:
+            parsed = urlparse(referer)
+            if parsed.netloc and parsed.netloc != host:
+                log.warning(
+                    "CSRF blocked: Referer %s != Host %s on %s %s",
+                    referer,
+                    host,
+                    request.method,
+                    request.path,
+                )
+                return web.json_response({"error": "cross-origin request blocked"}, status=403)
+        # If neither Origin nor Referer is present, allow — Bearer token
+        # already prevents CSRF since it's not auto-sent by browsers.
+
+        return await handler(request)
+
+    return csrf_middleware
+
+
+def _make_web_audit_middleware(trusted_proxies: tuple[str, ...] = ()) -> Middleware:
+    """Log state-changing API requests to the audit log."""
+
+    @web.middleware
+    async def web_audit_middleware(
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        # Only audit state-changing API requests
+        if request.method not in ("POST", "PUT", "DELETE") or not request.path.startswith("/api/"):
+            return await handler(request)
+
+        start = time.monotonic()
+        response = await handler(request)
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        # Fire-and-forget audit log (don't block the response)
+        audit = request.app.get("audit_logger")
+        if audit:
+            try:
+                config_diff = request.get("_config_diff")
+                identity = getattr(request, "_api_identity", None)
+                await audit.log_web_action(
+                    method=request.method,
+                    path=request.path,
+                    status=response.status,
+                    ip=_client_ip(request, trusted_proxies),
+                    execution_time_ms=elapsed_ms,
+                    diff=config_diff,
+                    user_id=getattr(identity, "user_id", "") if identity else "",
+                    username=getattr(identity, "username", "") if identity else "",
+                    label=getattr(identity, "label", "") if identity else "",
+                )
+            except Exception:
+                pass  # Never block the response for audit failures
+
+        return response
+
+    return web_audit_middleware
+
+
+# ---------------------------------------------------------------------------
+# Health server
+# ---------------------------------------------------------------------------
+
+
+class HealthServer:
+    def __init__(
+        self,
+        port: int = 3000,
+        webhook_config: WebhookConfig | None = None,
+        web_config: WebConfig | None = None,
+        initialization_store=None,
+    ) -> None:
+        self.port = port
+        self._ready = False
+        self._webhook_config = webhook_config or WebhookConfig()
+        self._web_config = web_config or WebConfig()
+        self._send_message: SendMessageCallback | None = None
+        self._trigger_callback: TriggerCallback | None = None
+        self._start_time = time.monotonic()
+        self._components: dict[str, ComponentCheck] = {}
+        self._initialization_store = initialization_store
+        self._config_owner: OdinBot | None = None
+        self._effective_bind_host: str | None = None
+        self._listener_sockets: tuple[ListenerSocket, ...] = ()
+        # Session management
+        self._session_manager = SessionManager(
+            timeout_minutes=self._web_config.session_timeout_minutes,
+        )
+
+        middlewares = []
+        if self._web_config.enabled:
+            middlewares.append(_make_bootstrap_gate_middleware())
+            trusted_proxies = tuple(getattr(self._web_config, "trusted_proxies", ()) or ())
+            middlewares.append(_make_security_headers_middleware())
+            middlewares.append(_make_rate_limit_middleware(trusted_proxies))
+            middlewares.append(_make_csrf_middleware())
+            middlewares.append(
+                _make_auth_middleware(self._current_web_config, self._session_manager)
+            )
+            middlewares.append(_make_admin_middleware(self._current_web_config))
+            middlewares.append(_make_web_audit_middleware(trusted_proxies))
+        # Outside the auth block on purpose: the mask this API emits is never
+        # valid input, with or without tokens configured.
+        middlewares.append(_make_redaction_mask_middleware())
+        self._app = web.Application(middlewares=middlewares, client_max_size=10 * 1024 * 1024)
+        # Store session_manager on app for access by API routes
+        self._app["session_manager"] = self._session_manager
+        self._app.router.add_get("/health", self._health)
+        self._app.router.add_get("/health/live", self._health_live)
+        self._app.router.add_get("/health/ready", self._health_ready)
+        if self._webhook_config.enabled:
+            self._app.router.add_post("/webhook/gitea", self._webhook_gitea)
+            self._app.router.add_post("/webhook/generic", self._webhook_generic)
+            self._app.router.add_post("/webhook/github", self._webhook_github)
+            self._app.router.add_post("/webhook/gitlab", self._webhook_gitlab)
+            log.info("Webhook endpoints enabled")
+        # Serve static UI files if the directory exists
+        if self._web_config.enabled:
+            ui_root = Path(__file__).resolve().parent.parent.parent / "ui"
+            # Raw Vite sources contain bare imports and cannot run in browsers.
+            dist_dir = ui_root / "dist"
+            ui_dir = dist_dir
+            if (ui_dir / "index.html").is_file():
+                self._app.router.add_get("/", self._redirect_to_ui)
+                self._ui_dir = ui_dir
+                # Serve static files with a fallback to index.html for SPA routing
+                self._app.router.add_get("/ui/{path:.*}", self._serve_ui_file)
+                self._app.router.add_get("/ui", self._redirect_to_ui)
+                log.info("Serving web UI from %s", ui_dir)
+            else:
+                self._app.router.add_get("/", self._ui_build_unavailable)
+                self._app.router.add_get("/ui", self._ui_build_unavailable)
+                self._app.router.add_get("/ui/{path:.*}", self._ui_build_unavailable)
+        self._runner: web.AppRunner | None = None
+
+    async def _ui_build_unavailable(self, _request: web.Request) -> web.Response:
+        return web.Response(status=503, text=(
+            "WebUI build unavailable. Build the frontend with npm ci and npm run build "
+            "from the checkout, or use the packaged release assets. "
+            "For development, use the Vite development server."
+        ))
+
+    def set_ready(self, ready: bool = True) -> None:
+        self._ready = ready
+
+    def register_component(self, name: str, check: ComponentCheck) -> None:
+        """Register a named component health check.
+
+        The *check* callable should return ``(healthy, detail)`` where
+        *healthy* is a bool and *detail* is a short human-readable string
+        (e.g. ``"3 active sessions"``).  Checks must be cheap and
+        non-blocking — they are called synchronously on every detailed
+        health request.
+        """
+        self._components[name] = check
+
+    def set_send_message(self, callback: SendMessageCallback) -> None:
+        self._send_message = callback
+
+    def set_trigger_callback(self, callback: TriggerCallback) -> None:
+        """Set callback for webhook-triggered scheduler actions."""
+        self._trigger_callback = callback
+
+    def set_bot(self, bot: OdinBot) -> None:
+        """Wire the bot instance to enable the REST API and WebSocket endpoints."""
+        # Backlink before the enabled check so all construction paths expose
+        # component health and listener policy to the bot.
+        bot.health_server = self
+        self._config_owner = bot
+        # The startup coordinator owns the persisted initialization store used
+        # to make the bind decision. Do not replace an explicitly attached
+        # coordinator with an absent attribute or a test double.
+        from ..web.onboarding import OnboardingCoordinator
+
+        onboarding = getattr(bot, "onboarding", None)
+        if isinstance(onboarding, OnboardingCoordinator):
+            self.attach_onboarding(onboarding)
+        token_manager = getattr(bot, "api_token_manager", None)
+        if token_manager is not None:
+            token_manager.set_last_credential_guard(self.may_remove_dynamic_credential)
+        if not self._web_config.enabled:
+            return
+        from ..web.api import setup_api
+        from ..web.websocket import setup_websocket
+
+        setup_api(self._app, bot)
+        self._app["token_manager"] = getattr(bot, "api_token_manager", None)
+        self._session_manager.configure_persistence(
+            Path("./data/web_sessions.json"), self._current_web_config,
+            lambda: _token_auth_snapshot(self._app.get("token_manager")),
+        )
+        self._ws_manager = setup_websocket(
+            self._app,
+            bot,
+            api_token=self._web_config.api_token,
+            web_config=self._web_config,
+        )
+        self._app["ws_manager"] = self._ws_manager
+        # Wire audit events to WebSocket for live dashboard/log updates
+        ws_mgr = self._ws_manager
+        bot.audit.set_event_callback(ws_mgr.broadcast_event)
+
+        # Wire tool output streaming to WebSocket (if enabled)
+        executor = getattr(bot, "tool_executor", None)
+        streamer = getattr(executor, "output_streamer", None) if executor else None
+        if streamer is not None:
+
+            async def _stream_to_ws(chunk: StreamChunk) -> None:
+                await ws_mgr.broadcast_event(
+                    {
+                        "type": "tool_stream",
+                        **chunk.to_dict(),
+                    }
+                )
+
+            streamer.add_listener(_stream_to_ws)
+        # Store audit logger on app for the web audit middleware
+        self._app["audit_logger"] = bot.audit
+        log.info("Web management API enabled")
+
+    def _current_web_config(self) -> WebConfig:
+        """Read the transaction-published config, not the startup snapshot."""
+        if self._config_owner is None:
+            return self._web_config
+        return self._config_owner.config.web
+
+    def attach_onboarding(self, onboarding) -> None:
+        """Attach explicit startup setup context before the listener starts."""
+        self._initialization_store = onboarding.initialization_store
+        self._app["onboarding"] = onboarding
+
+    async def _redirect_to_ui(self, _request: web.Request) -> web.Response:
+        """Redirect / to /ui/."""
+        raise web.HTTPFound("/ui/")
+
+    async def _serve_ui_file(self, request: web.Request) -> web.StreamResponse:
+        """Serve static UI files, defaulting to index.html for SPA routing."""
+        path = request.match_info.get("path", "")
+        if not path or path == "/":
+            return web.FileResponse(self._ui_dir / "index.html")
+        file = (self._ui_dir / path).resolve()
+        # Prevent path traversal — use trailing separator to avoid
+        # sibling directory prefix attacks (e.g. ../ui_backup/secret)
+        ui_root = str(self._ui_dir.resolve()) + "/"
+        if not str(file).startswith(ui_root):
+            raise web.HTTPForbidden()
+        if file.is_file():
+            return web.FileResponse(file)
+        # SPA fallback — serve index.html for unmatched routes
+        return web.FileResponse(self._ui_dir / "index.html")
+
+    async def start(self) -> None:
+        # shutdown_timeout bounds cleanup()'s wait for in-flight handlers
+        # (default 60s — far past systemd's stop window; an open handler
+        # can spend up to ~2x this between graceful wait and cancellation,
+        # still inside Mint's DefaultTimeoutStopSec=10s). WebSockets are
+        # closed separately via the app.on_shutdown hook, which cleanup()
+        # runs after the listener stops accepting.
+        self._runner = web.AppRunner(self._app, shutdown_timeout=3.0)
+        try:
+            await self._runner.setup()
+            from ..config.initialization import InitializationMode
+            from ..web.bootstrap_policy import CredentialInventory, decide_bind
+
+            static_count = _static_credential_count(self._current_web_config())
+            token_manager = self._app.get("token_manager")
+            dynamic_count = (
+                token_manager.credential_inventory.dynamic_usable if token_manager else 0
+            )
+            credentials = CredentialInventory(
+                static_usable=static_count, dynamic_usable=dynamic_count
+            )
+            restricted = widening = False
+            recovery = False
+            state = None
+            if self._initialization_store is not None:
+                try:
+                    state = await asyncio.to_thread(
+                        self._initialization_store.state,
+                        legacy_loopback_restricted=not credentials.has_usable_auth,
+                    )
+                except Exception as exc:
+                    recovery = True
+                    restricted = True
+                    log.warning(
+                        "Initialization state unavailable during listener startup (%s); "
+                        "continuing on loopback",
+                        type(exc).__name__,
+                    )
+                else:
+                    recovery = state.mode is InitializationMode.RECOVERY
+                    restricted = recovery or state.loopback_restricted
+                    widening = False if recovery else state.explicit_widening
+            decision = decide_bind(
+                configured_host=(
+                    getattr(self._current_web_config(), "host", "0.0.0.0") or "0.0.0.0"
+                ),
+                credentials=credentials,
+                persisted_restriction=restricted,
+                explicit_widening=widening,
+            )
+            bind_host = decision.effective_host
+            if (
+                self._initialization_store is not None
+                and decision.loopback_restricted
+                and not recovery
+                and state is not None
+                and state.mode is not InitializationMode.LEGACY
+            ):
+                try:
+                    await asyncio.to_thread(
+                        self._initialization_store.set_bind_decision,
+                        loopback_restricted=True,
+                        explicit_widening=False,
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "Listener restriction could not be persisted (%s); continuing",
+                        type(exc).__name__,
+                    )
+            site = web.TCPSite(self._runner, bind_host, self.port)
+            await site.start()
+            self._effective_bind_host = bind_host
+            server = getattr(site, "_server", None)
+            sockets = getattr(server, "sockets", ()) or ()
+            self._listener_sockets = tuple(
+                listener_socket
+                for listener_socket in sockets
+                if isinstance(listener_socket, ListenerSocket)
+            )
+            log.info("Health server listening on %s:%d", bind_host, self.port)
+        except BaseException:
+            runner, self._runner = self._runner, None
+            self._effective_bind_host = None
+            self._listener_sockets = ()
+            if runner is not None:
+                await runner.cleanup()
+            raise
+
+    def may_remove_credential_inventory(self, candidate) -> bool:
+        """Live-socket candidate guard for all credential mutation paths."""
+        from ..web.bootstrap_policy import may_remove_last_credential, numeric_loopback
+
+        hosts: list[str] = []
+        for listener_socket in self._listener_sockets:
+            try:
+                address = listener_socket.getsockname()
+            except OSError:
+                return False
+            if not address or not isinstance(address[0], str):
+                return False
+            hosts.append(address[0])
+        if not hosts:
+            hosts = [self._effective_bind_host or ""]
+        return candidate.has_usable_auth or all(
+            may_remove_last_credential(
+                credentials_after_removal=candidate,
+                actual_listener_host=host,
+            )
+            and numeric_loopback(host)
+            for host in hosts
+        )
+
+    def may_remove_dynamic_credential(self, dynamic_after_removal) -> bool:
+        from ..web.bootstrap_policy import CredentialInventory
+
+        static_count = _static_credential_count(self._current_web_config())
+        return self.may_remove_credential_inventory(
+            CredentialInventory(
+                static_usable=static_count,
+                dynamic_usable=dynamic_after_removal.dynamic_usable,
+            )
+        )
+
+    def validate_web_credential_transition(self, candidate_web) -> None:
+        """Reject a generic config write that would unauthenticate this listener."""
+        from ..web.bootstrap_policy import CredentialInventory
+
+        static_count = _static_credential_count(candidate_web)
+        token_manager = self._app.get("token_manager")
+        dynamic_count = token_manager.credential_inventory.dynamic_usable if token_manager else 0
+        if not self.may_remove_credential_inventory(
+            CredentialInventory(static_usable=static_count, dynamic_usable=dynamic_count)
+        ):
+            raise ValueError(
+                "refusing to remove the last web credential from a non-loopback listener"
+            )
+
+    async def stop(self) -> None:
+        # Quiesce the HTTP server first. A cleanup failure must not leave
+        # the runner (and its open handlers) alive past the stop window.
+        if self._runner:
+            # Both shutdown_services (via the bot backlink) and __main__
+            # hold a reference now, so stop() can be called twice. The
+            # runner is dropped only AFTER cleanup succeeds: clearing it
+            # first would make a second call a no-op that silently
+            # abandons unfinished cleanup, so a raised cleanup could never
+            # be retried by the later caller.
+            await self._runner.cleanup()
+            self._runner = None
+
+    async def _health(self, request: web.Request) -> web.Response:
+        """Combined health endpoint.
+
+        Without query parameters, returns the same compact response as
+        before (``{"status": "ok"}`` / 503 ``{"status": "starting"}``).
+
+        With ``?detail=1``, includes version, uptime, and per-component
+        status so operators can diagnose partial failures.
+        """
+        if not self._ready:
+            return web.json_response({"status": "starting"}, status=503)
+
+        if request.query.get("detail") != "1":
+            return web.json_response({"status": "ok"})
+
+        components = self._check_components()
+        all_healthy = all(c["healthy"] for c in components.values())
+        uptime = time.monotonic() - self._start_time
+
+        body = {
+            "status": "ok" if all_healthy else "degraded",
+            "version": get_version(),
+            "uptime_seconds": round(uptime, 1),
+            "components": components,
+            "listener": self._listener_status(),
+        }
+        status_code = 200 if all_healthy else 200  # still 200 — the bot is running
+        return web.json_response(body, status=status_code)
+
+    def _listener_status(self) -> dict[str, object]:
+        """Return configured and actual listener state without credentials."""
+        configured_host = getattr(self._current_web_config(), "host", "0.0.0.0")
+        hosts: list[str] = []
+        ports: list[int] = []
+        for listener_socket in self._listener_sockets:
+            try:
+                address = listener_socket.getsockname()
+            except OSError:
+                continue
+            if (
+                len(address) < 2
+                or not isinstance(address[0], str)
+                or not isinstance(address[1], int)
+            ):
+                continue
+            hosts.append(address[0])
+            ports.append(address[1])
+        return {
+            "configured_host": configured_host or "0.0.0.0",
+            "effective_host": self._effective_bind_host,
+            "listening_hosts": hosts,
+            "listening_ports": ports,
+        }
+
+    def listener_status(self) -> dict[str, object]:
+        """Public, non-secret snapshot of the listener actually owned by this process."""
+        return self._listener_status()
+
+    async def _health_live(self, _request: web.Request) -> web.Response:
+        """Liveness probe — always 200 if the process is running.
+
+        Use this for container liveness checks (Docker HEALTHCHECK,
+        Kubernetes livenessProbe).  A non-200 here means the process
+        should be restarted.
+        """
+        return web.json_response({"status": "alive"})
+
+    async def _health_ready(self, _request: web.Request) -> web.Response:
+        """Readiness probe — 200 only when the bot is fully initialised.
+
+        Use this for load-balancer or Kubernetes readinessProbe so that
+        traffic is only routed once the bot can handle it.
+        """
+        if not self._ready:
+            return web.json_response({"status": "not_ready"}, status=503)
+
+        components = self._check_components()
+        owner = self._config_owner
+        if owner is not None and owner.config.discord.token:
+            supervisor = getattr(owner, "connection_supervisor", None)
+            available = supervisor is not None and supervisor.connection_availability().available
+            components["discord_connection"] = {
+                "healthy": bool(available),
+                "detail": "connected" if available else "configured gateway unavailable",
+            }
+        all_healthy = all(c["healthy"] for c in components.values())
+        status_code = 200 if all_healthy else 503
+        status_text = "ready" if all_healthy else "degraded"
+        return web.json_response(
+            {"status": status_text, "components": components},
+            status=status_code,
+        )
+
+    def _check_components(self) -> dict[str, dict]:
+        """Run all registered component checks and return a summary dict."""
+        results: dict[str, dict] = {}
+        for name, check in self._components.items():
+            try:
+                healthy, detail = check()
+                results[name] = {"healthy": healthy, "detail": detail}
+            except Exception as exc:
+                results[name] = {"healthy": False, "detail": f"check error: {exc}"}
+        return results
+
+    def _verify_hmac_sha256(self, body: bytes, signature: str) -> bool:
+        """Verify HMAC-SHA256 signature against webhook secret.
+
+        Returns False (reject) when no secret is configured — webhooks
+        should not be accepted without authentication.
+        """
+        secret = self._webhook_config.secret
+        if not secret:
+            log.warning("Webhook rejected: no secret configured for HMAC verification")
+            return False
+        expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        from ..web.authentication import credential_equals
+        return credential_equals(expected, signature)
+
+    def _verify_shared_secret(self, header_value: str) -> bool:
+        """Verify a shared-secret header against the configured webhook secret.
+
+        **Fails closed**: returns False if no secret is configured so
+        webhooks don't accept unauthenticated POSTs when the operator
+        hasn't set one up.
+        """
+        secret = self._webhook_config.secret
+        if not secret:
+            log.warning("Webhook rejected: no secret configured for shared-secret verification")
+            return False
+        from ..web.authentication import credential_equals
+        return credential_equals(header_value, secret)
+
+    def _get_channel_id(self, source: str) -> str | None:
+        """Get the channel ID for a webhook source."""
+        if source == "gitea" and self._webhook_config.gitea_channel_id:
+            return self._webhook_config.gitea_channel_id
+        if source == "github" and self._webhook_config.github_channel_id:
+            return self._webhook_config.github_channel_id
+        if source == "gitlab" and self._webhook_config.gitlab_channel_id:
+            return self._webhook_config.gitlab_channel_id
+        return self._webhook_config.channel_id or None
+
+    async def _notify_triggers(self, source: str, event_data: dict) -> None:
+        """Notify the scheduler about an incoming webhook for trigger matching."""
+        if not self._trigger_callback:
+            return
+        try:
+            fired = await self._trigger_callback(source, event_data)
+            if fired:
+                log.info("Webhook %s fired %d trigger(s)", source, fired)
+        except Exception as e:
+            log.error("Trigger callback failed for %s: %s", source, e)
+
+    async def _send(self, source: str, text: str) -> web.Response:
+        channel_id = self._get_channel_id(source)
+        if not channel_id:
+            log.warning("Webhook %s: no channel_id configured", source)
+            return web.json_response({"error": "no channel configured"}, status=500)
+        if not self._send_message:
+            log.warning("Webhook %s: no send_message callback", source)
+            return web.json_response({"error": "bot not ready"}, status=503)
+
+        try:
+            await self._send_message(channel_id, text)
+        except Exception as e:
+            log.error("Webhook %s delivery failed: %s", source, e)
+            return web.json_response({"error": str(e)}, status=500)
+
+        return web.json_response({"status": "delivered"})
+
+    async def _webhook_gitea(self, request: web.Request) -> web.Response:
+        body = await request.read()
+        signature = request.headers.get("X-Gitea-Signature", "")
+        if not self._verify_hmac_sha256(body, signature):
+            return web.json_response({"error": "invalid signature"}, status=403)
+
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            return web.json_response({"error": "invalid JSON"}, status=400)
+
+        event = request.headers.get("X-Gitea-Event", "unknown")
+        repo = data.get("repository", {}).get("full_name", "unknown")
+
+        if event == "push":
+            pusher = data.get("pusher", {}).get("login", "unknown")
+            commits = data.get("commits", [])
+            ref = data.get("ref", "").replace("refs/heads/", "")
+            commit_lines = []
+            for c in commits[:5]:
+                msg = c.get("message", "").split("\n")[0][:80]
+                commit_lines.append(f"  \u2022 `{c.get('id', '')[:7]}` {msg}")
+            commits_text = "\n".join(commit_lines)
+            text = (
+                f"**Gitea Push** \u2014 `{repo}` (`{ref}`)\nBy: {pusher} | {len(commits)} "
+                f"commit(s)\n{commits_text}"
+            )
+
+        elif event in ("pull_request", "pull_request_approved", "pull_request_rejected"):
+            pr = data.get("pull_request", {})
+            action = data.get("action", "")
+            title = pr.get("title", "")
+            user = pr.get("user", {}).get("login", "unknown")
+            text = f"**Gitea PR** \u2014 `{repo}`\n{action}: **{title}** by {user}"
+
+        elif event == "issues":
+            issue = data.get("issue", {})
+            action = data.get("action", "")
+            title = issue.get("title", "")
+            user = data.get("sender", {}).get("login", "unknown")
+            text = f"**Gitea Issue** \u2014 `{repo}`\n{action}: **{title}** by {user}"
+
+        else:
+            text = f"**Gitea** \u2014 `{repo}` \u2014 event: `{event}`"
+
+        await self._notify_triggers("gitea", {"event": event, "repo": repo})
+        return await self._send("gitea", text)
+
+    async def _webhook_generic(self, request: web.Request) -> web.Response:
+        body = await request.read()
+        secret_header = request.headers.get("X-Webhook-Secret", "")
+        # Reject unauthenticated requests even when no secret is configured.
+        if not self._verify_shared_secret(secret_header):
+            return web.json_response({"error": "invalid secret"}, status=403)
+
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            return web.json_response({"error": "invalid JSON"}, status=400)
+
+        title = data.get("title", "Webhook")
+        message = data.get("message", "")
+        text = f"**{title}**\n{message}" if message else f"**{title}**"
+
+        event_data_generic: dict = {
+            "event": data.get("event", "generic"),
+            "title": title,
+        }
+        await self._notify_triggers("generic", event_data_generic)
+        return await self._send("generic", text)
+
+    async def _webhook_github(self, request: web.Request) -> web.Response:
+        body = await request.read()
+
+        # GitHub uses X-Hub-Signature-256 (HMAC-SHA256 with sha256= prefix)
+        signature = request.headers.get("X-Hub-Signature-256", "")
+        if signature.startswith("sha256="):
+            signature = signature[7:]
+        if not self._verify_hmac_sha256(body, signature):
+            return web.json_response({"error": "invalid signature"}, status=403)
+
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            return web.json_response({"error": "invalid JSON"}, status=400)
+
+        event = request.headers.get("X-GitHub-Event", "unknown")
+        repo = data.get("repository", {}).get("full_name", "unknown")
+
+        if event == "push":
+            pusher = data.get("pusher", {}).get("name", "unknown")
+            commits = data.get("commits", [])
+            ref = data.get("ref", "").replace("refs/heads/", "")
+            commit_lines = []
+            for c in commits[:5]:
+                msg = c.get("message", "").split("\n")[0][:80]
+                commit_lines.append(f"  \u2022 `{c.get('id', '')[:7]}` {msg}")
+            commits_text = "\n".join(commit_lines)
+            text = (
+                f"**GitHub Push** \u2014 `{repo}` (`{ref}`)\nBy: {pusher} | {len(commits)} "
+                f"commit(s)\n{commits_text}"
+            )
+
+        elif event == "pull_request":
+            pr = data.get("pull_request", {})
+            action = data.get("action", "")
+            title = pr.get("title", "")
+            user = pr.get("user", {}).get("login", "unknown")
+            number = pr.get("number", "")
+            text = f"**GitHub PR #{number}** \u2014 `{repo}`\n{action}: **{title}** by {user}"
+
+        elif event == "issues":
+            issue = data.get("issue", {})
+            action = data.get("action", "")
+            title = issue.get("title", "")
+            user = data.get("sender", {}).get("login", "unknown")
+            number = issue.get("number", "")
+            text = f"**GitHub Issue #{number}** \u2014 `{repo}`\n{action}: **{title}** by {user}"
+
+        elif event == "release":
+            release = data.get("release", {})
+            action = data.get("action", "")
+            tag = release.get("tag_name", "")
+            author = release.get("author", {}).get("login", "unknown")
+            text = f"**GitHub Release** \u2014 `{repo}`\n{action}: **{tag}** by {author}"
+
+        elif event == "workflow_run":
+            workflow = data.get("workflow_run", {})
+            action = data.get("action", "")
+            name = workflow.get("name", "")
+            conclusion = workflow.get("conclusion", "")
+            branch = workflow.get("head_branch", "")
+            status_part = f" ({conclusion})" if conclusion else ""
+            text = (
+                f"**GitHub Workflow** \u2014 `{repo}`\n{action}: **{name}**{status_part} on "
+                f"`{branch}`"
+            )
+
+        else:
+            text = f"**GitHub** \u2014 `{repo}` \u2014 event: `{event}`"
+
+        await self._notify_triggers("github", {"event": event, "repo": repo})
+        return await self._send("github", text)
+
+    async def _webhook_gitlab(self, request: web.Request) -> web.Response:
+        body = await request.read()
+
+        # GitLab uses X-Gitlab-Token (shared secret, not HMAC)
+        token = request.headers.get("X-Gitlab-Token", "")
+        secret = self._webhook_config.secret
+        if not secret:
+            log.warning("Webhook rejected: no secret configured for GitLab verification")
+            return web.json_response({"error": "invalid token"}, status=403)
+        from ..web.authentication import credential_equals
+        if not credential_equals(token, secret):
+            return web.json_response({"error": "invalid token"}, status=403)
+
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            return web.json_response({"error": "invalid JSON"}, status=400)
+
+        event = data.get("object_kind", request.headers.get("X-Gitlab-Event", "unknown"))
+        project = data.get("project", {})
+        repo = project.get("path_with_namespace", "unknown")
+
+        if event == "push":
+            user = data.get("user_name", "unknown")
+            commits = data.get("commits", [])
+            ref = data.get("ref", "").replace("refs/heads/", "")
+            commit_lines = []
+            for c in commits[:5]:
+                msg = c.get("message", "").split("\n")[0][:80]
+                commit_lines.append(f"  \u2022 `{c.get('id', '')[:7]}` {msg}")
+            commits_text = "\n".join(commit_lines)
+            text = (
+                f"**GitLab Push** \u2014 `{repo}` (`{ref}`)\nBy: {user} | {len(commits)} "
+                f"commit(s)\n{commits_text}"
+            )
+
+        elif event == "merge_request":
+            attrs = data.get("object_attributes", {})
+            action = attrs.get("action", attrs.get("state", ""))
+            title = attrs.get("title", "")
+            user = data.get("user", {}).get("name", "unknown")
+            iid = attrs.get("iid", "")
+            text = f"**GitLab MR !{iid}** \u2014 `{repo}`\n{action}: **{title}** by {user}"
+
+        elif event == "tag_push":
+            user = data.get("user_name", "unknown")
+            ref = data.get("ref", "").replace("refs/tags/", "")
+            text = f"**GitLab Tag** \u2014 `{repo}`\nTag `{ref}` pushed by {user}"
+
+        elif event == "pipeline":
+            attrs = data.get("object_attributes", {})
+            status = attrs.get("status", "unknown")
+            ref = attrs.get("ref", "")
+            pipeline_id = attrs.get("id", "")
+            user = data.get("user", {}).get("name", "unknown")
+            text = (
+                f"**GitLab Pipeline #{pipeline_id}** \u2014 `{repo}`\nStatus: **{status}** on "
+                f"`{ref}` by {user}"
+            )
+
+        else:
+            text = f"**GitLab** \u2014 `{repo}` \u2014 event: `{event}`"
+
+        await self._notify_triggers("gitlab", {"event": event, "repo": repo})
+        return await self._send("gitlab", text)

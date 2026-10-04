@@ -1,0 +1,3083 @@
+"""Background process lifecycle management.
+
+Provides start/poll/write/kill/list operations for long-running processes
+spawned locally or on remote hosts. Jobs retain a bounded 4 MiB output spool
+with generation-bound reads and a 24-hour post-exit evidence lifecycle.
+Execution is still auto-killed after 1 hour.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import ctypes
+import inspect
+import json
+import os
+import re
+import secrets
+import shlex
+import signal
+import tempfile
+import time
+from collections import deque
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import TYPE_CHECKING, BinaryIO
+
+from ..llm.secret_scrubber import embedded_process_scrubber_source
+from ..llm.secret_scrubber import scrub_process_secrets as _scrub_process_bytes
+from ..observability.diagnostics import command_display, safe_error, safe_text
+from ..odin_log import get_logger
+from .input_defaults import default_if_empty
+from .workspace import WorkspaceError, workspace_env
+
+if TYPE_CHECKING:
+    from .hosts import HostLease, HostTarget
+
+log = get_logger("process_manager")
+
+
+_UNKNOWN = object()  # "could not determine" — never means "absent"
+
+
+def _scrub_process_tail(data: bytes, emitted: int) -> bytes:
+    """Keep recent complete lines even when the captured prefix is exhausted.
+
+    A clipped window may start halfway through a credential: discard at most
+    that first partial line, then mask the remaining lines before delivery.
+    """
+    if len(data) < emitted:
+        boundary = re.search(rb"[\r\n]", data)
+        data = data[boundary.end():] if boundary else b""
+    return _scrub_process_bytes(data)
+
+_REMOTE_SUPERVISOR = r'''import base64,json,os,re,signal,subprocess,sys,threading,time
+PATTERNS=__PROCESS_SECRET_PATTERNS__
+__PROCESS_SCRUBBER__
+root,token,encoded,lifetime=sys.argv[1:]
+os.umask(0o077)
+os.setsid()
+fifo=root+"/in"
+out_path=root+"/out"
+exit_path=root+"/exit.json"
+ready_path=root+"/ready.json"
+stdin_fd=os.open(fifo,os.O_RDWR)
+env=dict(os.environ)
+env["ODIN_REMOTE_JOB_TOKEN"]=token
+command=base64.b64decode(encoded).decode("utf-8")
+stopping=False
+def request_stop(_signum,_frame):
+    global stopping
+    stopping=True
+signal.signal(signal.SIGTERM,request_stop)
+signal.signal(signal.SIGINT,request_stop)
+proc=subprocess.Popen(["/bin/sh","-c",command],stdin=stdin_fd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,bufsize=0,env=env,preexec_fn=os.setpgrp)
+pid=proc.pid
+pgid=os.getpgid(pid)
+sid=os.getsid(pid)
+def start_id(value):
+    try:
+        return open("/proc/%d/stat"%value).read().rsplit(")",1)[1].split()[19]
+    except Exception:
+        try:
+            probe=subprocess.check_output(["ps","-o","lstart=","-p",str(value)],env={**os.environ,"LC_ALL":"C"},stderr=subprocess.DEVNULL).decode().strip()
+            return "ps:"+probe if probe else ""
+        except Exception:
+            return ""
+ready={"token":token,"supervisor_pid":os.getpid(),"pid":pid,"pgid":pgid,"sid":sid,"start_id":start_id(pid)}
+tmp=ready_path+".tmp"
+open(tmp,"w").write(json.dumps(ready,separators=(",",":")))
+os.replace(tmp,ready_path)
+output_state={"bytes":0,"emitted":0,"truncated":False}
+def drain_output():
+    tail=b""
+    with open(out_path,"ab",buffering=0) as out:
+        while True:
+            # Drain available bytes: buffered read(n) can wait for n bytes or EOF.
+            chunk=os.read(proc.stdout.fileno(),65536)
+            if not chunk: break
+            remaining=max(0,4194304-output_state["bytes"])
+            if remaining: out.write(chunk[:remaining]); output_state["bytes"]+=min(len(chunk),remaining)
+            if len(chunk)>remaining: output_state["truncated"]=True
+            output_state["emitted"]+=len(chunk)
+            tail=(tail+chunk)[-12000:]
+            tmp=root+"/tail.tmp"
+            open(tmp,"w").write(json.dumps({"emitted":output_state["emitted"],"tail":base64.b64encode(tail).decode()},separators=(",",":")))
+            os.replace(tmp,root+"/tail.json")
+reader=threading.Thread(target=drain_output,daemon=True)
+reader.start()
+timed_out=False
+deadline=time.monotonic()+int(lifetime)
+while proc.poll() is None and not stopping and time.monotonic()<deadline: time.sleep(.2)
+if proc.poll() is None and time.monotonic()>=deadline: timed_out=True
+rc=proc.returncode if proc.returncode is not None else (124 if timed_out else 143)
+def alive():
+    # Reap our own leader before probing; its zombie is not a live job.
+    proc.poll()
+    try:
+        os.killpg(pgid,0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+if alive():
+    try: os.killpg(pgid,signal.SIGTERM)
+    except ProcessLookupError: pass
+    end=time.monotonic()+5
+    while alive() and time.monotonic()<end: time.sleep(.1)
+if alive():
+    try: os.killpg(pgid,signal.SIGKILL)
+    except ProcessLookupError: pass
+    end=time.monotonic()+3
+    while alive() and time.monotonic()<end: time.sleep(.1)
+try: proc.wait(timeout=1)
+except Exception: pass
+reader.join(timeout=2)
+output_masked=False
+try:
+    with open(out_path,"r+b") as handle:
+        masked=scrub(handle.read(4194304))
+        handle.seek(0); handle.write(masked); handle.flush()
+    output_masked=True
+except OSError: pass
+try:
+    tail_record=json.load(open(root+"/tail.json"))
+    tail_bytes=_scrub_process_tail(base64.b64decode(tail_record["tail"]),output_state["emitted"])
+    tail_record.update(tail=base64.b64encode(tail_bytes).decode(),masked=True)
+    tmp=root+"/tail.tmp"
+    open(tmp,"w").write(json.dumps(tail_record,separators=(",",":")))
+    os.replace(tmp,root+"/tail.json")
+except (OSError,ValueError,KeyError): pass
+try: os.close(stdin_fd)
+except Exception: pass
+group_empty=not alive()
+record={"exit_code":rc,"empty":group_empty,"group_empty":group_empty,"containment":"process_group_only","timed_out":timed_out,"output_truncated":output_state["truncated"],"emitted":output_state["emitted"],"finished_at":time.time(),"output_masked":output_masked}
+tmp=exit_path+".tmp"
+open(tmp,"w").write(json.dumps(record,separators=(",",":")))
+os.replace(tmp,exit_path)
+'''
+
+# ruff: noqa: E501
+_REMOTE_CONTROLLER = r'''# noqa: E501
+import base64,json,os,re,shutil,signal,subprocess,sys,time
+PATTERNS=__PROCESS_SECRET_PATTERNS__
+__PROCESS_SCRUBBER__
+root,token,op,payload,wait_s=sys.argv[1:]
+def emit(**value):
+    print(json.dumps(value,separators=(",",":")))
+def load(name):
+    try:
+        return json.load(open(root+"/"+name))
+    except Exception:
+        return None
+ready=load("ready.json")
+if not isinstance(ready,dict) or ready.get("token")!=token:
+    emit(ok=False,unknown=True,error="remote process identity is unavailable")
+    raise SystemExit(3)
+pid=int(ready["pid"]); pgid=int(ready["pgid"]); sid=int(ready["sid"])
+def start_id(value):
+    try:
+        return open("/proc/%d/stat"%value).read().rsplit(")",1)[1].split()[19]
+    except Exception:
+        try:
+            probe=subprocess.check_output(["ps","-o","lstart=","-p",str(value)],env={**os.environ,"LC_ALL":"C"},stderr=subprocess.DEVNULL).decode().strip()
+            return "ps:"+probe if probe else ""
+        except Exception:
+            return ""
+def identity():
+    try:
+        if os.getpgid(pid)!=pgid or os.getsid(pid)!=sid: return False
+        expected=ready.get("start_id","")
+        return not expected or start_id(pid)==expected
+    except (ProcessLookupError,PermissionError):
+        return False
+def group_alive():
+    try:
+        os.killpg(pgid,0); return True
+    except ProcessLookupError: return False
+    except PermissionError: return True
+def cleanup_proven(record):
+    if not isinstance(record,dict): return False
+    if record.get("containment")=="owned_descendants": return record.get("empty") is True
+    # Older supervisors wrote empty=False even when the group was verified empty.
+    return record.get("containment")=="process_group_only" and record.get("group_empty") is True
+if op=="status":
+    end=time.monotonic()+max(0.0,float(wait_s))
+    exit_record=load("exit.json")
+    while exit_record is None and time.monotonic()<end:
+        time.sleep(.2); exit_record=load("exit.json")
+    request=json.loads(payload) if payload.startswith("{") else {"offset":int(payload or "0"),"limit":4000}
+    cursor=max(0,int(request.get("offset",0))); limit=max(4,min(8000,int(request.get("limit",4000)))); data=b""; total=0
+    tail=load("tail.json") or {}
+    emitted=int((exit_record or {}).get("emitted",tail.get("emitted",0)))
+    tail_withheld=False
+    capture_error=None
+    try:
+        with open(root+"/out","rb") as handle:
+            snapshot=handle.read(4194304)
+            if not (exit_record or {}).get("output_masked"): snapshot=scrub(snapshot)
+            total=len(snapshot)
+            captured=total; emitted=max(emitted,captured)
+            if captured<min(emitted,4194304): capture_error="process output capture incomplete"
+            if exit_record is None and not request.get("tail"):
+                snapshot=re.sub(rb"\S+\Z",b"",snapshot); total=len(snapshot)
+            # Withhold only an incomplete final UTF-8 sequence, not malformed bytes.
+            for width in range(1,min(4,total)+1):
+                last=snapshot[-width]
+                if last&0xC0!=0x80:
+                    need=2 if 0xC2<=last<=0xDF else 3 if 0xE0<=last<=0xEF else 4 if 0xF0<=last<=0xF4 else 1
+                    if width<need: snapshot=snapshot[:-width]; total=len(snapshot)
+                    break
+            if request.get("tail"):
+                if captured==emitted:
+                    data=snapshot[-12000:]; cursor=total-len(data)
+                else:
+                    complete_tail=base64.b64decode(tail.get("tail",""))
+                    if complete_tail:
+                        data=complete_tail if tail.get("masked") else _scrub_process_tail(complete_tail,emitted)
+                        cursor=emitted-len(data)
+                    else:
+                        data=b""; cursor=0; tail_withheld=True
+            else:
+                data=snapshot[cursor:cursor+limit]
+    except FileNotFoundError: pass
+    cleanup_unknown=exit_record is not None and not cleanup_proven(exit_record)
+    emit(ok=True,status="unknown" if cleanup_unknown else "exited" if exit_record is not None else "running",unknown=cleanup_unknown,cleanup_error="remote process group cleanup could not be verified" if cleanup_unknown else None,exit=exit_record,output=base64.b64encode(data).decode(),start=cursor,cursor=cursor+len(data),size=total,emitted=emitted,tail_withheld=tail_withheld,capture_error=capture_error,identity=identity(),ready=ready)
+elif op=="expire":
+    record=load("exit.json")
+    if record is None or time.time()<float(record.get("finished_at",time.time()))+86400:
+        emit(ok=False,error="retention has not expired"); raise SystemExit(10)
+    shutil.rmtree(root)
+    emit(ok=True,expired=True)
+elif op=="write":
+    if load("exit.json") is not None: emit(ok=False,error="process is not running"); raise SystemExit(5)
+    if not identity(): emit(ok=False,unknown=True,error="remote process identity changed; stdin not written"); raise SystemExit(6)
+    data=base64.b64decode(payload)
+    fd=None; written=0; deadline=time.monotonic()+2
+    try:
+        fd=os.open(root+"/in",os.O_WRONLY|os.O_NONBLOCK)
+        while written<len(data) and time.monotonic()<deadline:
+            try:
+                accepted=os.write(fd,data[written:])
+                if accepted<=0: break
+                written+=accepted
+            except InterruptedError: continue
+            except BlockingIOError: time.sleep(.02)
+    except Exception as exc:
+        emit(ok=False,unknown=True,written=written,error="stdin delivery could not be completed: "+type(exc).__name__); raise SystemExit(7)
+    finally:
+        if fd is not None: os.close(fd)
+    if written!=len(data):
+        emit(ok=False,unknown=True,written=written,error="partial stdin delivery: %d of %d bytes accepted"%(written,len(data))); raise SystemExit(7)
+    emit(ok=True,written=written,ready=ready)
+elif op=="kill":
+    record=load("exit.json")
+    if record is not None:
+        if cleanup_proven(record):
+            emit(ok=True,killed=False,already_exited=True,empty=True,group_empty=record.get("group_empty"),containment=record["containment"],exit=record,ready=ready); raise SystemExit(0)
+        emit(ok=False,unknown=True,group_empty=not group_alive(),error="remote process group cleanup could not be verified",ready=ready); raise SystemExit(9)
+    if not identity(): emit(ok=False,unknown=True,error="remote process identity changed; no signal sent"); raise SystemExit(8)
+    try: os.killpg(pgid,signal.SIGTERM)
+    except ProcessLookupError: pass
+    end=time.monotonic()+5
+    while group_alive() and time.monotonic()<end: time.sleep(.1)
+    if group_alive():
+        try: os.killpg(pgid,signal.SIGKILL)
+        except ProcessLookupError: pass
+        end=time.monotonic()+3
+        while group_alive() and time.monotonic()<end: time.sleep(.1)
+    end=time.monotonic()+2; exit_record=load("exit.json")
+    while exit_record is None and time.monotonic()<end: time.sleep(.1); exit_record=load("exit.json")
+    empty=not group_alive()
+    if not empty: emit(ok=False,unknown=True,error="remote process group still exists",ready=ready); raise SystemExit(9)
+    # A directly verified empty group is sufficient, even if the supervisor's
+    # exit record is delayed. Escaped descendants remain outside this scope.
+    emit(ok=True,killed=True,empty=True,group_empty=True,containment="process_group_only",exit=exit_record,ready=ready)
+else:
+    emit(ok=False,error="invalid controller operation"); raise SystemExit(2)
+'''
+
+_REMOTE_SCRUBBER = (
+    embedded_process_scrubber_source()
+    + "\n_scrub_process_bytes = scrub_process_secrets\n"
+    + "\n" + inspect.getsource(_scrub_process_tail)
+)
+_REMOTE_CONTROLLER = _REMOTE_CONTROLLER.replace("__PROCESS_SCRUBBER__", _REMOTE_SCRUBBER).replace(
+    "__PROCESS_SECRET_PATTERNS__", "()",
+)
+_REMOTE_SUPERVISOR = _REMOTE_SUPERVISOR.replace("__PROCESS_SCRUBBER__", _REMOTE_SCRUBBER).replace(
+    "__PROCESS_SECRET_PATTERNS__", "()",
+)
+
+_PR_SET_CHILD_SUBREAPER = 36
+_PR_GET_CHILD_SUBREAPER = 37
+
+
+def child_subreaper_active() -> bool:
+    """Whether THIS process is already a child subreaper (read-only)."""
+    try:
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        value = ctypes.c_int(0)
+        if libc.prctl(_PR_GET_CHILD_SUBREAPER, ctypes.byref(value), 0, 0, 0) != 0:
+            return False
+        return value.value == 1
+    except Exception:
+        return False
+
+
+def set_child_subreaper(enabled: bool = True) -> bool:
+    """Set (or clear) the child-subreaper flag; returns the verified state."""
+    try:
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        if libc.prctl(_PR_SET_CHILD_SUBREAPER, 1 if enabled else 0, 0, 0, 0) != 0:
+            return child_subreaper_active()
+    except Exception:
+        log.exception("Could not change child-subreaper containment")
+        return child_subreaper_active()
+    return child_subreaper_active()
+
+
+def reap_adopted_zombies(
+    adopted: set[tuple[int, int]] | frozenset[tuple[int, int]] = frozenset(),
+) -> int:
+    """Reap zombies among orphans we previously VERIFIED as ours.
+
+    Attribution happened while each process was alive (a zombie's
+    environment is unreadable), so this works from recorded
+    ``(pid, starttime)`` identities — the starttime is re-checked so pid
+    reuse can never redirect a ``waitpid`` at an unrelated child
+    (round-11 #2). Only zombies parented to us are touched, and settled
+    entries are pruned from a mutable record.
+    """
+    if not adopted:
+        return 0
+    reaped = 0
+    mypid = os.getpid()
+    mutable = adopted if isinstance(adopted, set) else None
+    for pid, start in list(adopted):
+        current = _proc_starttime(pid)
+        if current is None:
+            if mutable is not None:
+                mutable.discard((pid, start))
+            continue
+        if current != start:
+            if mutable is not None:
+                mutable.discard((pid, start))  # pid reused — not ours
+            continue
+        try:
+            raw = Path(f"/proc/{pid}/stat").read_bytes()
+            rest = raw.rsplit(b")", 1)[1].split()
+            if rest[0] != b"Z" or int(rest[1]) != mypid:
+                continue
+        except (OSError, IndexError, ValueError):
+            continue
+        try:
+            if os.waitpid(pid, os.WNOHANG)[0]:
+                reaped += 1
+                if mutable is not None:
+                    mutable.discard((pid, start))
+        except (ChildProcessError, OSError):
+            pass
+    return reaped
+
+
+
+def _pidfd_owned_pids() -> set[int] | None:
+    """PIDs for which THIS process holds an open pidfd.
+
+    The runtime uses ``PidfdChildWatcher``, so an open pidfd means the
+    event loop still owns that child's exit status and nobody else may
+    consume it — the decisive exclusion signal (round-14 design, Odin:
+    "age alone is not proof that nobody owns the exit status").
+
+    Fail-closed inspection rule (round-15 blocker #2): a malformed or
+    unreadable **pidfd** entry makes the WHOLE pass incomplete (``None``)
+    — a partial owned-set once let a real asyncio-owned child be reaped.
+    An entry that PROVABLY closed between enumeration and inspection is
+    gone, not ambiguous. Ordinary descriptors (files, sockets — no
+    ``Pid:`` line in fdinfo) are classifiable and never poison the pass.
+    """
+    try:
+        entries = os.listdir("/proc/self/fd")
+    except OSError:
+        return None
+    owned: set[int] = set()
+    for entry in entries:
+        try:
+            info = Path(f"/proc/self/fdinfo/{entry}").read_text()
+        except FileNotFoundError:
+            continue  # provably closed between enumeration and inspection
+        except OSError:
+            return None  # unreadable: could be a pidfd — prove nothing
+        for line in info.splitlines():
+            if line.startswith("Pid:"):
+                try:
+                    owned.add(int(line.split()[1]))
+                except (IndexError, ValueError):
+                    # A pidfd we cannot attribute: the inspection is
+                    # incomplete, and a partial owned-set must never
+                    # authorize reaping.
+                    return None
+                break
+    return owned
+
+
+def _scan_process_table() -> tuple[dict[int, tuple[int, int, bytes]], bool]:
+    """``pid -> (ppid, starttime, state)`` for every readable process.
+
+    ``complete`` is False when the table may be MISSING a live process:
+    an unreadable /proc, an unreadable stat (non-ENOENT), or a malformed
+    stat line. An incomplete table still carries positive observations,
+    but absence must not be inferred from it and reaping must not be
+    authorized on it (round-15 design §3.4). Parsing is done on BYTES:
+    ``comm`` may hold arbitrary non-UTF-8.
+    """
+    table: dict[int, tuple[int, int, bytes]] = {}
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return table, False
+    complete = True
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        try:
+            raw = Path(f"/proc/{pid}/stat").read_bytes()
+        except (FileNotFoundError, ProcessLookupError):
+            continue  # exited between listdir and read — provably gone
+        except OSError:
+            complete = False
+            continue
+        try:
+            rest = raw.rsplit(b")", 1)[1].split()
+            table[pid] = (int(rest[1]), int(rest[19]), rest[0])
+        except (IndexError, ValueError):
+            complete = False
+    return table, complete
+
+
+def _descendants_of(
+    table: dict[int, tuple[int, int, bytes]], root: int
+) -> set[int]:
+    """Transitive descendants of ``root`` within one table snapshot.
+
+    Everything containment can ever hand us is in here: subreaper
+    adoption applies only to descendants, and a process that already
+    reparented to us appears as our direct child in the same snapshot.
+    """
+    children: dict[int, list[int]] = {}
+    for pid, (ppid, _start, _state) in table.items():
+        children.setdefault(ppid, []).append(pid)
+    found: set[int] = set()
+    stack = [root]
+    while stack:
+        for child in children.get(stack.pop(), ()):
+            if child not in found:
+                found.add(child)
+                stack.append(child)
+    return found
+
+
+def _reap_identity(pid: int, starttime: int, parent: int) -> bool | None:
+    """Identity-stable consumption of ONE verified zombie (design §3.5).
+
+    Sequence: ``pidfd_open`` FIRST, then re-verify ``(starttime, state=Z,
+    ppid==parent)`` from /proc — the fd and that read name the same
+    current occupant of the pid, so pid reuse between any earlier
+    snapshot and the open cannot redirect the reap — then
+    ``waitid(P_PIDFD)`` through the fd, which stays pinned to that exact
+    incarnation no matter what the pid later names.
+
+    Returns True (status consumed), None (identity provably gone —
+    reaped elsewhere or pid reused), or False (must not / could not act;
+    nothing was consumed).
+    """
+    try:
+        fd = os.pidfd_open(pid)
+    except ProcessLookupError:
+        return None
+    except OSError:
+        return False
+    try:
+        try:
+            raw = Path(f"/proc/{pid}/stat").read_bytes()
+        except (FileNotFoundError, ProcessLookupError):
+            return None
+        except OSError:
+            return False
+        try:
+            rest = raw.rsplit(b")", 1)[1].split()
+            state, ppid, start = rest[0], int(rest[1]), int(rest[19])
+        except (IndexError, ValueError):
+            return False
+        if start != starttime:
+            return None  # pid reused — the recorded incarnation is gone
+        if state != b"Z" or ppid != parent:
+            return False
+        try:
+            result = os.waitid(os.P_PIDFD, fd, os.WEXITED | os.WNOHANG)
+        except ChildProcessError:
+            return None  # consumed by someone else — not ours to take
+        except OSError:
+            return False
+        return result is not None
+    finally:
+        os.close(fd)
+
+
+# ---------------------------------------------------------------------------
+# Positive-ownership registration (round-15 design §3.1.2)
+#
+# Observed reparenting cannot cover a descendant whose intermediate parent
+# exits entirely between scans — an ssh ControlPersist master daemonizes in
+# milliseconds, so its first observation is already ``ppid == us`` with no
+# recorded transition. Subsystems that KNOW a process is theirs therefore
+# register its identity while it is alive. Process-global on purpose: there
+# is exactly one subreaper per process, and registration must reach it from
+# any subsystem without threading an instance through every constructor.
+# ---------------------------------------------------------------------------
+
+_REAP_REGISTRY_CAP = 256
+_reap_registry: dict[tuple[int, int], tuple[float, str]] = {}
+_reap_registry_evictions = 0
+
+
+def register_reap_identity(pid: int, starttime: int, *, source: str) -> None:
+    """Register ``(pid, starttime)`` as ours-to-reap once it dies.
+
+    Registration is EVIDENCE, not action: the reaper still requires the
+    identity to be observed as our own zombie, to survive the grace
+    period, and to pass the pidfd exclusion. Re-registering refreshes
+    the entry's age. Saturation evicts the oldest entry — losing
+    evidence defers that reap to teardown; it can never create
+    eligibility (design §3.4).
+    """
+    global _reap_registry_evictions
+    if (pid, starttime) not in _reap_registry:
+        while len(_reap_registry) >= _REAP_REGISTRY_CAP:
+            oldest = min(_reap_registry, key=lambda k: _reap_registry[k][0])
+            del _reap_registry[oldest]
+            _reap_registry_evictions += 1
+            log.warning(
+                "Reap registry saturated: evicted %r (evidence lost — its "
+                "zombie defers to the teardown drain)", oldest,
+            )
+    _reap_registry[(pid, starttime)] = (time.monotonic(), source)
+
+
+def register_reap_candidate(pid: int, *, source: str) -> int | None:
+    """Verify ``pid`` against /proc and register its LIVE identity.
+
+    Returns the starttime that was registered, or None when the process
+    could not be identified (gone, or /proc unreadable) — a guess must
+    never enter the registry.
+    """
+    starttime = _proc_starttime(pid)
+    if starttime is None:
+        return None
+    register_reap_identity(pid, starttime, source=source)
+    return starttime
+
+
+def registered_reap_identities() -> frozenset[tuple[int, int]]:
+    """Snapshot of the currently registered identities."""
+    return frozenset(_reap_registry)
+
+
+def _reset_reap_registry() -> None:
+    """Test hygiene only: drop all registrations and counters."""
+    global _reap_registry_evictions
+    _reap_registry.clear()
+    _reap_registry_evictions = 0
+
+
+@dataclass
+class _Candidate:
+    """Bounded per-descendant history (round-15 design §3.4)."""
+
+    last_seen_ppid: int
+    last_seen_at: float
+    adoption_observed: bool = False
+    zombie_since: float | None = None
+
+
+class AdoptedZombieReaper:
+    """Reaps orphaned descendants that child-subreaper containment made
+    ours (PR #244 soak finding).
+
+    Containment reparents escaped grandchildren to this process instead
+    of PID 1, so nothing else will ever wait on them — an ``ssh``
+    ControlPersist master or a job shell's forked child otherwise
+    lingers as a zombie forever. Eligibility is a union of POSITIVE
+    evidence only (round-15 design §3.1):
+
+    - **observed reparenting** — the same ``(pid, starttime)`` was seen
+      alive with ``ppid != us`` and later with ``ppid == us``; a
+      directly spawned child has us as parent from birth and can never
+      satisfy this, which is the safety property that keeps ordinary
+      ``subprocess.Popen`` children untouchable;
+    - **explicit registration** while alive by the spawning subsystem
+      (ssh ControlPersist masters, background-job descendants);
+    - **final teardown** (:meth:`drain_at_teardown`) — after every
+      subprocess owner has stopped, every remaining zombie child is
+      ours by construction.
+
+    A candidate must additionally survive :attr:`GRACE` measured from
+    its first observation AS A ZOMBIE (adoption age proves nothing
+    about status interest — §3.2), must not be pidfd-owned by asyncio,
+    and is consumed only through the identity-stable §3.5 sequence.
+    Incomplete evidence — an unreadable fd table, a malformed pidfd
+    entry, an incomplete /proc scan — authorizes nothing.
+    """
+
+    SCAN_INTERVAL = 15.0
+    GRACE = 30.0
+    # History bounds (§3.4): a fork storm or prolonged /proc failure must
+    # not grow tracking without limit. Eviction only loses evidence — an
+    # evicted identity re-enters as a fresh candidate and its reap defers.
+    MAX_TRACKED = 512
+    MAX_AGE = 3600.0
+
+    def __init__(
+        self,
+        *,
+        scan_interval: float = SCAN_INTERVAL,
+        grace: float = GRACE,
+    ) -> None:
+        self._scan_interval = scan_interval
+        self._grace = grace
+        self._candidates: dict[tuple[int, int], _Candidate] = {}
+        self._task: asyncio.Task | None = None
+        self.reaped_total = 0
+        self.evicted_total = 0
+
+    @property
+    def pending_zombies(self) -> int:
+        return sum(
+            1 for c in self._candidates.values() if c.zombie_since is not None
+        )
+
+    @property
+    def stats(self) -> dict[str, int]:
+        return {
+            "pending_zombies": self.pending_zombies,
+            "reaped_total": self.reaped_total,
+            "tracked_candidates": len(self._candidates),
+            "registered_candidates": len(_reap_registry),
+            "evicted_total": self.evicted_total + _reap_registry_evictions,
+        }
+
+    def start(self) -> None:
+        """Begin sweeping. Only meaningful once containment is active —
+        without it, orphans go to PID 1 and are never ours."""
+        if self._task is not None or not child_subreaper_active():
+            return
+        self._task = asyncio.create_task(self._run(), name="zombie-reaper")
+
+    async def stop(self) -> None:
+        task, self._task = self._task, None
+        if task is None:
+            return
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+    async def _run(self) -> None:
+        while True:
+            await asyncio.sleep(self._scan_interval)
+            try:
+                self.sweep_once()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # A failing pass must never silently kill the task.
+                log.exception("Adopted-zombie sweep failed (continuing)")
+
+    def sweep_once(self) -> int:
+        """One observe → prune → reap pass. Returns the number reaped."""
+        mypid = os.getpid()
+        now = time.monotonic()
+        table, complete = _scan_process_table()
+        evicted = 0
+        for pid in _descendants_of(table, mypid):
+            ppid, start, state = table[pid]
+            identity = (pid, start)
+            cand = self._candidates.get(identity)
+            if cand is None:
+                if len(self._candidates) >= self.MAX_TRACKED:
+                    oldest = min(
+                        self._candidates,
+                        key=lambda k: self._candidates[k].last_seen_at,
+                    )
+                    del self._candidates[oldest]
+                    evicted += 1
+                cand = _Candidate(last_seen_ppid=ppid, last_seen_at=now)
+                self._candidates[identity] = cand
+            else:
+                if ppid == mypid and cand.last_seen_ppid != mypid:
+                    # Same incarnation, previously under another parent,
+                    # now under us: kernel-observed adoption. A first
+                    # sighting that is ALREADY ours records ppid == us
+                    # and can never flip this flag (§3.6 pin 1).
+                    cand.adoption_observed = True
+                cand.last_seen_ppid = ppid
+                cand.last_seen_at = now
+            if state == b"Z" and ppid == mypid and cand.zombie_since is None:
+                # Grace runs from the first observation AS A ZOMBIE —
+                # time spent adopted-but-alive must not pre-spend it
+                # (§3.2: a long-lived ControlPersist master would
+                # otherwise exhaust its grace before it dies).
+                cand.zombie_since = now
+        if complete:
+            # Only a COMPLETE table may infer absence (§3.4): identities
+            # that disappeared or changed incarnation are forgotten, in
+            # both the candidate history and the registration registry.
+            for identity in list(self._candidates):
+                entry = table.get(identity[0])
+                if entry is None or entry[1] != identity[1]:
+                    del self._candidates[identity]
+            for identity in list(_reap_registry):
+                entry = table.get(identity[0])
+                if entry is None or entry[1] != identity[1]:
+                    del _reap_registry[identity]
+        # Age bound: the backstop for prolonged /proc failure, where the
+        # completeness-gated pruning above never runs.
+        for identity, cand in list(self._candidates.items()):
+            if (now - cand.last_seen_at) > self.MAX_AGE:
+                del self._candidates[identity]
+                evicted += 1
+        if evicted:
+            self.evicted_total += evicted
+            log.warning(
+                "Zombie-candidate history evicted %d entry(ies) (cap/age) — "
+                "affected reaps defer to teardown", evicted,
+            )
+        if not complete:
+            return 0  # an incomplete scan authorizes nothing (§3.4)
+        owned = _pidfd_owned_pids()
+        if owned is None:
+            return 0  # cannot prove abandonment — reap nothing
+        reaped = 0
+        for identity, cand in list(self._candidates.items()):
+            pid, start = identity
+            if cand.zombie_since is None or pid in owned:
+                continue
+            if (now - cand.zombie_since) < self._grace:
+                continue
+            if not (cand.adoption_observed or identity in _reap_registry):
+                continue  # no positive evidence — age alone never reaps
+            verdict = _reap_identity(pid, start, mypid)
+            if verdict is True:
+                reaped += 1
+                self.reaped_total += 1
+            if verdict is not False:
+                del self._candidates[identity]
+                _reap_registry.pop(identity, None)
+        return reaped
+
+    def drain_at_teardown(self) -> tuple[int, bool]:
+        """Final no-grace drain (design §3.3 step 5).
+
+        Returns ``(reaped, verified)``. Runs after the periodic reaper
+        is stopped, loop tasks are done, async generators are shut and
+        the default executor has joined — every subprocess owner has
+        stopped, so EVERY remaining zombie child is ours: transition
+        history and registration are unnecessary (nobody can
+        legitimately wait later), and the pidfd exclusion does not
+        apply (asyncio will never run its callbacks again; the same
+        fact is what keeps zombies from surviving an in-place
+        ``execve``).
+
+        ``verified`` is True only when a COMPLETE scan observed zero
+        remaining zombie children. The caller must treat False as a
+        VETO for in-place re-exec (§3.3): exec'ing over unproven state
+        hands invisible survivors to the new image.
+        """
+        mypid = os.getpid()
+        total = 0
+
+        def _remaining() -> tuple[list[tuple[int, int]], bool]:
+            table, complete = _scan_process_table()
+            return (
+                [
+                    (pid, entry[1])
+                    for pid, entry in table.items()
+                    if entry[2] == b"Z" and entry[0] == mypid
+                ],
+                complete,
+            )
+
+        # A still-live adopted child may die mid-drain and add a fresh
+        # zombie; bounded re-scans converge on the settled table.
+        for _attempt in range(4):
+            zombies, complete = _remaining()
+            if complete and not zombies:
+                return total, True
+            progressed = False
+            for pid, start in zombies:
+                verdict = _reap_identity(pid, start, mypid)
+                if verdict is True:
+                    total += 1
+                    self.reaped_total += 1
+                if verdict is not False:
+                    progressed = True
+            if not progressed:
+                return total, False
+        zombies, complete = _remaining()
+        return total, (complete and not zombies)
+
+
+class ProcessCleanupError(RuntimeError):
+    """Shutdown could not affirmatively prove the owned session is empty.
+
+    Raised so the caller — which re-execs in place after teardown — sees
+    that descendants may survive, rather than shutdown returning normally
+    on unverified state (round-7 #3).
+    """
+
+MAX_CONCURRENT = 20
+OUTPUT_CAPTURE_BYTES = 4 * 1024 * 1024
+OUTPUT_RETENTION_SECONDS = 24 * 60 * 60
+OUTPUT_PAGE_DEFAULT = 4000
+OUTPUT_PAGE_MAX = 8000
+OUTPUT_GLOBAL_QUOTA = 128 * 1024 * 1024
+MAX_LIFETIME_SECONDS = 3600  # 1 hour
+OUTPUT_BUFFER_LINES = 500
+# Ceiling for one poll's server-side wait: comfortably under the executor's
+# 300s per-tool wall (an unbounded wait would die THERE as a tool error).
+# Monitoring longer work = chained poll calls, each ≤ this.
+MAX_POLL_WAIT_SECONDS = 120.0
+# Upper bound on awaiting an in-flight group reap at shutdown before giving up
+# and cancelling it — comfortably exceeds a reader's TERM-grace + KILL-grace so
+# a compliant descendant always finishes, while a wedged one can't hang re-exec.
+SHUTDOWN_REAP_TIMEOUT = 12.0
+# Display segmentation for the ring buffer: newline AND carriage return
+# both end a display segment (progress bars redraw with bare \r).
+_SEGMENT_SPLIT = re.compile(rb"[\r\n]")
+
+
+def _utf8_boundary_split(buf: bytes) -> tuple[bytes, bytes]:
+    """Split ``buf`` so the head never ends mid-UTF-8-sequence.
+
+    Backs off past trailing continuation bytes (0b10xxxxxx) and, if the
+    byte before them is a multibyte lead whose sequence is incomplete,
+    past the lead too. Arbitrary binary output degrades gracefully: at
+    most 3 bytes are carried, everything else flushes with
+    errors='replace' as before.
+    """
+    i = len(buf)
+    while i > 0 and (len(buf) - i) < 3 and (buf[i - 1] & 0xC0) == 0x80:
+        i -= 1
+    if i > 0:
+        lead = buf[i - 1]
+        expected = 0
+        if (lead & 0xE0) == 0xC0:
+            expected = 2
+        elif (lead & 0xF0) == 0xE0:
+            expected = 3
+        elif (lead & 0xF8) == 0xF0:
+            expected = 4
+        if expected and (len(buf) - (i - 1)) < expected:
+            # Incomplete trailing sequence: carry lead + continuations.
+            return buf[: i - 1], buf[i - 1 :]
+    # Trailing unit is complete (or not UTF-8 at all): flush everything.
+    return buf, b""
+
+
+
+def _proc_ids(pid: int) -> tuple[int, int] | None | str:
+    """``(ppid, session)`` from /proc/<pid>/stat.
+
+    Returns ``None`` only when the process is PROVABLY gone
+    (ENOENT/ESRCH), or the sentinel ``"unknown"`` for any other failure —
+    a malformed or unreadable stat must never read as absence. Parsing is
+    done on BYTES: ``comm`` may hold arbitrary non-UTF-8.
+    """
+    try:
+        raw = Path(f"/proc/{pid}/stat").read_bytes()
+    except (FileNotFoundError, ProcessLookupError):
+        return None  # exited between listdir and read — genuinely gone
+    except OSError:
+        return "unknown"  # EMFILE/EACCES/… — we do NOT know
+    try:
+        rest = raw.rsplit(b")", 1)[1].split()
+        if rest[0] == b"Z":
+            return None  # zombie: dead, awaiting reap — not a live member
+        return int(rest[1]), int(rest[3])  # ppid, session
+    except (IndexError, ValueError):
+        return "unknown"  # malformed — never treated as absence
+
+
+def _proc_starttime(pid: int) -> int | None:
+    """Field 22 of /proc/<pid>/stat — the incarnation discriminator.
+
+    A bare pid is not an identity: after reuse it names a different
+    process entirely (round-11 #2). ``(pid, starttime)`` is stable and
+    unique for the life of one incarnation, so a recorded escapee can
+    never be confused with whatever later occupies its pid.
+    """
+    try:
+        raw = Path(f"/proc/{pid}/stat").read_bytes()
+        rest = raw.rsplit(b")", 1)[1].split()
+        return int(rest[19])
+    except (OSError, IndexError, ValueError):
+        return None
+
+
+def _proc_live_starttime(pid: int) -> int | None:
+    """Starttime of a LIVE (non-zombie) incarnation, else None.
+
+    A zombie still shows its starttime until it is reaped, so starttime
+    alone cannot distinguish "this process is alive" from "this is a
+    corpse awaiting reap" (round-16 #1: a cached ssh-master record must
+    not treat its own zombie as proof of liveness — the replacement
+    master would silently bypass registration and leak until teardown).
+    """
+    try:
+        raw = Path(f"/proc/{pid}/stat").read_bytes()
+        rest = raw.rsplit(b")", 1)[1].split()
+        if rest[0] == b"Z":
+            return None
+        return int(rest[19])
+    except (OSError, IndexError, ValueError):
+        return None
+
+
+def _proc_session(pid: int) -> int | None | str:
+    """Session id alone (see :func:`_proc_ids` for the sentinel contract)."""
+    ids = _proc_ids(pid)
+    if isinstance(ids, tuple):
+        return ids[1]
+    return ids
+
+
+def _scan_owned_members(
+    sid: int,
+    leader_pid: int | None = None,
+    *,
+    adopted_by: int | None = None,
+    known_own_children: frozenset[int] = frozenset(),
+    job_token: str | None = None,
+    proc_token: str | None = None,
+    adopted_sink: set[tuple[int, int]] | None = None,
+    teardown: bool = False,
+) -> tuple[list[tuple[int, int]], bool]:
+    """Enumerate every process we own, each PINNED with a pidfd.
+
+    Ownership is the union of THREE relations, because no one of them
+    covers every escape:
+
+    - **Session** ``session == sid`` — the default for descendants of a
+      leader spawned with ``start_new_session``.
+    - **Ancestry** — a descendant that called ``setsid()`` left the
+      session but is still ours while its parent chain reaches the
+      leader (round-8 #1).
+    - **Adoption + provenance** — a descendant that ALSO double-forked
+      left the ancestry chain too; as a child subreaper we adopt it
+      instead of PID 1 (round-9 #1). Adoption alone is NOT attribution:
+      other Odin subsystems have direct children too, and killing those
+      would be collateral damage (round-10). An adopted process must
+      ALSO carry this job's ``ODIN_BG_JOB`` token, injected at spawn and
+      inherited across fork, exec and setsid.
+
+    Environment markers are CHILD-CONTROLLED: a descendant can delete or
+    FORGE them, so they can never prove a process foreign. During normal
+    operation that means ambiguity is left UNTOUCHED and makes the scan
+    incomplete — never a kill, never affirmative emptiness.
+
+    The opt-in ``teardown`` mode may classify an adopted orphan that escaped
+    this process's session as owned based on subreaper adoption alone. No
+    production caller enables that broader rule: normal cleanup, revoke, and
+    shutdown all use the provenance-preserving default. Ambiguous descendants
+    therefore remain untouched and can make cleanup fail closed.
+
+    The pin happens BEFORE membership is verified, so verification and
+    every later signal act on the exact process the fd names. ``complete``
+    is False whenever any candidate could not be inspected or pinned for
+    a reason other than provable disappearance, AND whenever an ancestry
+    walk exhausts its bound — uncertainty is never non-ownership
+    (round-9 #3). Caller owns the returned fds.
+    """
+    pinned: list[tuple[int, int]] = []
+    try:
+        own_session = os.getsid(0)
+    except OSError:
+        own_session = -1
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return pinned, False
+    ids: dict[int, tuple[int, int]] = {}
+    complete = True
+    candidates: list[tuple[int, int]] = []
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        try:
+            fd = os.pidfd_open(pid)
+        except ProcessLookupError:
+            continue  # exited — not a member
+        except OSError:
+            # Could not pin: membership UNKNOWN unless provably gone.
+            if _proc_ids(pid) is not None:
+                complete = False
+            continue
+        info = _proc_ids(pid)
+        if isinstance(info, tuple):
+            ids[pid] = info
+            candidates.append((pid, fd))
+            continue
+        if info == "unknown":
+            complete = False
+        os.close(fd)
+
+    def _owned(pid: int) -> bool | None:
+        """True/False, or None when the walk could not decide."""
+        seen: set[int] = set()
+        cur = pid
+        for _ in range(64):  # bounded: no unbounded walk, no cycles
+            if cur in seen:
+                return False  # cycle — cannot be a chain to our leader
+            if cur <= 1:
+                return False
+            entry = ids.get(cur)
+            if entry is None:
+                return False  # chain left our snapshot — not provably ours
+            seen.add(cur)
+            ppid, session = entry
+            if session == sid:
+                return True
+            if leader_pid is not None and (cur == leader_pid or ppid == leader_pid):
+                return True
+            if (
+                adopted_by is not None
+                and ppid == adopted_by
+                and cur not in known_own_children
+            ):
+                if job_token is None:
+                    return None  # cannot attribute — ambiguous, never killed
+                tokens = _read_env_tokens(cur)
+                if tokens is _UNKNOWN or tokens is None:
+                    return None  # unreadable — ambiguous, fail closed
+                assert isinstance(tokens, dict)
+                if teardown and session != own_session:
+                    # Shutdown: an adopted orphan that LEFT our session is
+                    # an escapee — only `setsid()` gets a process out, and
+                    # no forged or deleted environment marker can buy it
+                    # survival past our own teardown. Ordinary subsystem
+                    # children (ssh, run_command, browser) stay IN our
+                    # session, so they are never swept by this arm — the
+                    # round-10 collateral-damage rule still holds.
+                    if adopted_sink is not None:
+                        start = _proc_starttime(cur)
+                        if start is not None:
+                            adopted_sink.add((cur, start))
+                    return True
+                if PROC_TOKEN_ENV not in tokens or (
+                    proc_token is not None
+                    and tokens.get(PROC_TOKEN_ENV) != proc_token
+                ):
+                    # No Odin process marker at all: the environment was
+                    # DISCARDED (`env -i`, execve with an empty env), so
+                    # "not ours" cannot be concluded — an escapee could
+                    # erase its own provenance and be certified gone while
+                    # alive (round-11 #1). Fail closed.
+                    return None
+                token = tokens.get(JOB_TOKEN_ENV)
+                if token is None:
+                    # Process marker present but the JOB token deleted —
+                    # selective erasure (round-12). Every legitimate Odin
+                    # child inherits a job token (a default one is stamped
+                    # at startup), so its absence is evidence of tampering,
+                    # not of foreign ownership. Fail closed.
+                    return None
+                if token == job_token:
+                    # Record provenance NOW: a zombie has no address
+                    # space, so /proc/<pid>/environ becomes unreadable the
+                    # moment it dies — identification must happen while it
+                    # is alive, and reaping later goes by recorded pid.
+                    if adopted_sink is not None:
+                        start = _proc_starttime(cur)
+                        if start is not None:
+                            adopted_sink.add((cur, start))
+                            if not teardown:
+                                # Positive ownership, proven while alive:
+                                # its exit status will land on us, and the
+                                # central reaper may consume it (§3.1.2).
+                                # (Usually redundant with the direct-child
+                                # registration below — this arm still
+                                # covers an adopted ancestor reached from
+                                # a descendant's walk when the ancestor's
+                                # own candidate pin failed.)
+                                register_reap_identity(
+                                    cur, start, source="job-escapee"
+                                )
+                    return True  # our escapee: adopted AND provably ours
+                # Carries OUR process marker but a different job (or
+                # none): another Odin subsystem's child — decidedly not
+                # this job's, and killing it would be collateral damage.
+                return False
+            cur = ppid
+        return None  # bound exhausted — UNKNOWN, never "not ours"
+
+    for pid, fd in candidates:
+        verdict = _owned(pid)
+        if verdict:
+            pinned.append((pid, fd))
+            if (
+                not teardown
+                and adopted_sink is not None
+                and adopted_by is not None
+                and pid not in known_own_children
+                and ids[pid][0] == adopted_by
+            ):
+                # A verified-ours member that is ALREADY our direct child
+                # was ADOPTED — its original parent died — so its exit
+                # status will land on us and nothing else will ever wait
+                # on it. Capture the identity while it is alive: a zombie
+                # can no longer be attributed. (Round-15: the soak's
+                # job-shell `sleep` was exactly this — killed as a
+                # session member but never recorded as adopted, so its
+                # zombie lingered for the process lifetime.)
+                start = _proc_starttime(pid)
+                if start is not None:
+                    adopted_sink.add((pid, start))
+                    register_reap_identity(pid, start, source="job-adopted")
+            continue
+        if verdict is None:
+            complete = False
+        os.close(fd)
+    return pinned, complete
+
+
+JOB_TOKEN_ENV = "ODIN_BG_JOB"
+# Process-wide provenance: stamped into os.environ at startup, so EVERY
+# subprocess Odin spawns inherits it — background jobs, ssh/run_command
+# children, browser workers alike. It is what lets a direct child with a
+# DIFFERENT job (or none) be decided "another subsystem's, not ours"
+# instead of ambiguous; only a child that deliberately discarded its
+# environment lacks it, and that is exactly the case that must fail
+# closed (round-11 #1).
+PROC_TOKEN_ENV = "ODIN_PROC"
+# Default job token stamped at startup so EVERY Odin child carries one.
+# It is what makes another subsystem's child DECIDABLE (its token differs
+# from the background job's) while a child that deleted its job token is
+# evidence of tampering and must fail closed (round-12).
+DEFAULT_JOB_TOKEN = "odin-main"
+
+
+def _read_env_tokens(pid: int) -> dict[str, str] | None | object:
+    """This process's Odin provenance markers from /proc/<pid>/environ.
+
+    Returns a dict with whichever of ``ODIN_PROC``/``ODIN_BG_JOB`` are
+    present, ``None`` when the process is gone, or :data:`_UNKNOWN` when
+    the environment could not be read — ambiguity, never absence.
+
+    The markers are inherited across fork AND exec, so they follow a
+    descendant that double-forks or calls ``setsid()``. They are NOT a
+    security boundary: a child can discard its environment, which is why
+    a missing process marker fails closed rather than reading as "not
+    ours" (round-11 #1).
+    """
+    try:
+        raw = Path(f"/proc/{pid}/environ").read_bytes()
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+    except OSError:
+        return _UNKNOWN
+    found: dict[str, str] = {}
+    for key in (PROC_TOKEN_ENV, JOB_TOKEN_ENV):
+        marker = key.encode() + b"="
+        for item in raw.split(b"\0"):
+            if item.startswith(marker):
+                found[key] = item[len(marker):].decode("utf-8", "replace")
+                break
+    return found
+
+
+def _read_job_token(pid: int) -> str | None | object:
+    """Just this job's token (see :func:`_read_env_tokens`)."""
+    tokens = _read_env_tokens(pid)
+    if tokens is None or tokens is _UNKNOWN:
+        return tokens
+    assert isinstance(tokens, dict)
+    return tokens.get(JOB_TOKEN_ENV)
+
+
+def _reap_adopted(
+    identities: set[tuple[int, int]], known_own_children: frozenset[int]
+) -> None:
+    """Non-blocking reap of orphans already VERIFIED as ours.
+
+    Entries are ``(pid, starttime)``: a bare pid is not an identity after
+    reuse (round-11 #2), so the incarnation is re-checked before any
+    ``waitpid``. Pids we deliberately spawned are still excluded —
+    asyncio's child watcher owns those statuses. Never ``waitpid(-1)``.
+    Settled entries are pruned so the record cannot grow without bound.
+    """
+    for pid, start in list(identities):
+        if pid in known_own_children:
+            continue
+        current = _proc_starttime(pid)
+        if current is None:
+            identities.discard((pid, start))  # provably gone
+            continue
+        if current != start:
+            identities.discard((pid, start))  # pid reused — not our process
+            continue
+        try:
+            if os.waitpid(pid, os.WNOHANG)[0]:
+                identities.discard((pid, start))
+        except (ChildProcessError, OSError):
+            pass  # not our child, or already reaped
+
+
+def _signal_pinned(pinned: list[tuple[int, int]], sig: int) -> None:
+    for pid, fd in pinned:
+        try:
+            signal.pidfd_send_signal(fd, sig)
+        except OSError:
+            log.debug("pidfd signal %d to PID %d failed", sig, pid)
+
+
+def _close_pinned(pinned: list[tuple[int, int]]) -> None:
+    for _pid, fd in pinned:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+
+def _pidfd_exited(fd: int) -> bool:
+    """A pidfd polls readable exactly when its process has exited."""
+    import select
+
+    try:
+        r, _w, _x = select.select([fd], [], [], 0)
+        return bool(r)
+    except OSError:
+        return True
+
+
+async def _terminate_session_until_empty(
+    sid: int,
+    *,
+    grace: float = 2.0,
+    timeout: float = 10.0,
+    term_first: bool = True,
+    settle_scans: int = 2,
+    settle_delay: float = 0.2,
+    adopted_by: int | None = None,
+    known_own_children: frozenset[int] = frozenset(),
+    containment: bool = True,
+    job_token: str | None = None,
+    proc_token: str | None = None,
+    adopted_sink: set[tuple[int, int]] | None = None,
+    teardown: bool = False,
+) -> bool:
+    """Drive everything we own to provably empty.
+
+    Every pass RE-ENUMERATES (round-6 #1), so a signal handler that forks
+    a fresh child — or one that changes its process group (round-7 #1) —
+    is caught by the next pass. TERM is offered once per pid (when
+    ``term_first``), then passes escalate to KILL, which cannot be caught
+    or forked around.
+
+    Emptiness requires ``settle_scans`` CONSECUTIVE complete-and-empty
+    scans separated by ``settle_delay`` (round-8 #2): a single snapshot
+    can miss a member that forked after enumeration and exited before the
+    scan finished, leaving a child behind. The repeated scans also give
+    any such child time to appear in /proc.
+
+    Returns True only on that repeated affirmative observation — an
+    unreadable /proc, fd exhaustion, a malformed stat, or an exhausted
+    ancestry walk returns False, never a false success. ``containment``
+    False (child-subreaper unavailable) means a double-fork+setsid
+    escape would be undetectable, so emptiness is never claimed at all
+    (round-9 #1).
+    """
+    deadline = time.monotonic() + timeout
+    adopted: set[tuple[int, int]] = (
+        adopted_sink if adopted_sink is not None else set()
+    )
+    termed: set[int] = set()
+    escalate_at = time.monotonic() + grace if term_first else 0.0
+    clean_scans = 0
+    while True:
+        pinned, complete = _scan_owned_members(
+            sid,
+            leader_pid=sid,
+            adopted_by=adopted_by,
+            known_own_children=known_own_children,
+            job_token=job_token,
+            proc_token=proc_token,
+            adopted_sink=adopted,
+            teardown=teardown,
+        )
+        try:
+            if complete and not pinned and containment:
+                clean_scans += 1
+                if clean_scans >= settle_scans:
+                    return True
+            else:
+                clean_scans = 0
+                if term_first and time.monotonic() < escalate_at:
+                    fresh = [(p, fd) for p, fd in pinned if p not in termed]
+                    _signal_pinned(fresh, signal.SIGTERM)
+                    termed.update(p for p, _fd in fresh)
+                else:
+                    _signal_pinned(pinned, signal.SIGKILL)
+                    # Adopted orphans become zombies once killed — reap
+                    # them so a long-running process does not accumulate
+                    # entries (our own children stay with asyncio).
+                    _reap_adopted(adopted, known_own_children)
+        finally:
+            _close_pinned(pinned)
+        if time.monotonic() >= deadline:
+            if not containment:
+                log.error(
+                    "Cannot prove session %d is empty: child-subreaper "
+                    "containment is unavailable, so an escaped descendant "
+                    "would be undetectable", sid,
+                )
+            return False
+        await asyncio.sleep(settle_delay if clean_scans else 0.1)
+
+
+async def _wait_leader_exit(
+    proc: asyncio.subprocess.Process, timeout: float | None = None
+) -> bool:
+    """Pipe-independent wait for LEADER exit.
+
+    ``Process.wait()`` resolves only after every pipe transport closes
+    (asyncio ``_try_finish``), so a ``&``-descendant holding stdout blocks
+    it long past leader death — the PR #244 round-1 repro. ``returncode``
+    is published at SIGCHLD reap regardless of pipes, so poll it. Returns
+    True when the leader exited, False on deadline. Cancellation
+    propagates (the sleep is the await point).
+    """
+    from .local_supervisor import SupervisedShell
+
+    if isinstance(proc, SupervisedShell):
+        try:
+            if timeout is None:
+                await proc.wait()
+            else:
+                await asyncio.wait_for(proc.wait(), timeout=timeout)
+            return True
+        except TimeoutError:
+            return False
+    deadline = None if timeout is None else time.monotonic() + timeout
+    while proc.returncode is None:
+        if deadline is not None and time.monotonic() >= deadline:
+            return False
+        await asyncio.sleep(0.25)
+    return True
+
+
+@dataclass
+class ProcessInfo:
+    """Metadata and handles for a managed process."""
+
+    pid: int
+    command: str
+    host: str
+    start_time: float
+    status: str = "running"  # running | completed | failed | killed | unknown
+    output_buffer: deque = field(default_factory=lambda: deque(maxlen=OUTPUT_BUFFER_LINES))
+    process: asyncio.subprocess.Process | None = None
+    _reader_task: asyncio.Task | None = field(default=None, repr=False)
+    _exit_task: asyncio.Task | None = field(default=None, repr=False)
+    _lifetime_task: asyncio.Task | None = field(default=None, repr=False)
+    exit_code: int | None = None
+    # Unknown until the launcher records its choice. Dataclass defaults are
+    # not evidence of the shell used by legacy/restored records.
+    effective_shell: str | None = None
+    shell_executable: str | None = None
+    termination_reason: str | None = None
+    # Monotonic progress signal: total bytes ever read from the process,
+    # NOT bounded by the ring buffer — a full ring of repeated lines can
+    # look frozen while output is still arriving; this counter cannot.
+    total_output_bytes: int = 0
+    # Affirmative cleanup proof (round-7 #3): True only once the owned
+    # session was OBSERVED empty by a complete scan. For remote jobs this
+    # means the verified scope in containment, possibly process_group_only.
+    # It never asserts that escaped remote descendants were contained.
+    session_confirmed_empty: bool = False
+    # Per-job provenance (round-10): injected into the spawn environment
+    # and inherited across fork/exec/setsid, so an escaped descendant is
+    # attributable to THIS job and never confused with another
+    # subsystem's direct child.
+    job_token: str = ""
+    remote: bool = False
+    remote_dir: str = ""
+    remote_pid: int | None = None
+    remote_pgid: int | None = None
+    remote_sid: int | None = None
+    remote_start_id: str = ""
+    remote_token: str = ""
+    remote_cursor: int = 0
+    remote_lease: HostLease | None = field(default=None, repr=False)
+    transport_unknown: bool = False
+    containment: str = ""
+    _remote_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+    generation: str = field(default_factory=lambda: secrets.token_hex(16))
+    owner_id: str | None = None
+    host_alias: str = ""
+    spool: BinaryIO | None = field(default=None, repr=False)
+    # Only the active capture writer owns a descriptor. Retained evidence is
+    # reopened for each bounded read; this path is derived, never persisted.
+    spool_path: Path | None = field(default=None, repr=False)
+    retained_bytes: int = 0
+    output_tail: bytes = b""
+    output_masked: bool = False
+    output_tail_masked: bool = False
+    finished_at: float | None = None
+    capture_error: str | None = None
+    # No command/stdin/signal API: reachable only by fixed output reads.
+    output_lease: HostLease | None = field(default=None, repr=False)
+    output_revoked: bool = False
+    # Generation lease held for the WHOLE lifetime of a non-remote job (H2):
+    # admission evidence while it runs, and the handle force-revoke/shutdown
+    # use to fence the generation they are terminating. Never persisted —
+    # leases are execution handles, and retained evidence is read-only.
+    host_lease: HostLease | None = field(default=None, repr=False)
+    host_identity: str = ""
+    origin_channel: str = ""
+    scope_id: str = ""
+    host_binding: dict | None = None
+    reserved_bytes: int = 0
+    restored: bool = False
+    expiry_scheduled: bool = False
+
+
+class ProcessRegistry:
+    """Registry for background processes with full lifecycle management."""
+
+    def __init__(
+        self,
+        workspace: str | Callable[[], str] | None = None,
+        remote_exec: Callable[
+            [HostTarget, str, int], Awaitable[tuple[int, str]]
+        ] | None = None,
+        retention_dir: str | Path | None = None,
+        acquire_output_lease: Callable[[ProcessInfo], HostLease | None] | None = None,
+        command_shell: str | Callable[[], str] = "sh",
+    ) -> None:
+        self._processes: dict[int, ProcessInfo] = {}
+        # Background starts share the foreground workspace. Without this,
+        # `manage_process start` stays an alternate route to the 2026-07-27
+        # incident: a bare relative path resolving against the live install
+        # (29 historical background starts had no explicit cd).
+        #
+        # A CALLABLE is preferred: the workspace's existence, type, ownership
+        # and mode are mutable, so they must be re-verified immediately before
+        # each spawn rather than trusted from construction time (PR #239
+        # round-3 review — a cached path accepted a directory later replaced
+        # by a symlink into the install).
+        self._workspace = workspace
+        self._command_shell = command_shell
+        self._remote_exec = remote_exec
+        self._acquire_output_lease = acquire_output_lease
+        # Public handles are namespace-separated from positive local OS PIDs.
+        self._next_remote_handle = -1
+        self._pending_remote_reservations = 0
+        self._pending_starts = 0
+        # Starts still awaiting settlement are absent from the process
+        # snapshot. Epochs fence them even after revoke returns.
+        self._local_revoke_epochs: dict[str, int] = {}
+        self._revoking_aliases: dict[str, int] = {}
+        # Kernel-backed containment for escaped descendants (round-9 #1):
+        # as a child subreaper the PROCESS adopts orphans instead of PID
+        # 1, so a double-fork+setsid escape stays attributable. Enabled
+        # once at application startup (``src/__main__``) — a library
+        # constructor must not flip process-wide state — and only READ
+        # here. Its absence makes the terminator refuse to claim
+        # emptiness rather than report a false success.
+        # Pids WE deliberately spawned here: an adopted orphan is any
+        # child of ours that is NOT one of these.
+        self._own_children: set[int] = set()
+        # Orphans verified as OURS by provenance while alive — reaping
+        # goes by recorded pid because a zombie's environment is
+        # unreadable (round-10).
+        self._adopted_pids: set[tuple[int, int]] = set()
+        self._retention_dir = Path(retention_dir) if retention_dir is not None else None
+        # Nonpersistent registries still need reopenable spools, but must not
+        # strand named temporary files when the registry itself is discarded.
+        self._temporary_output: tempfile.TemporaryDirectory | None = None
+        self._retained_generations: dict[str, ProcessInfo] = {}
+        if self._retention_dir is not None:
+            self._retention_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            self._restore_output()
+
+    def _persist_output(self, info: ProcessInfo) -> None:
+        """Persist evidence identity, never reusable execution handles."""
+        if self._retention_dir is None:
+            return
+        record = {key: getattr(info, key) for key in (
+            "pid", "generation", "host", "host_alias", "host_identity", "owner_id",
+            "start_time", "status", "exit_code", "total_output_bytes", "retained_bytes",
+            "finished_at", "capture_error", "remote", "remote_dir", "remote_token",
+            "output_revoked",
+            "output_masked",
+            "origin_channel", "scope_id", "host_binding", "reserved_bytes",
+            "session_confirmed_empty",
+            "containment",
+            "effective_shell", "shell_executable", "termination_reason",
+        )}
+        if info.output_tail_masked:
+            record["masked_tail"] = base64.b64encode(info.output_tail).decode("ascii")
+        path = self._retention_dir / (info.generation + ".json")
+        temp = path.with_suffix(".tmp")
+        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            json.dump(record, handle, separators=(",", ":"))
+        os.replace(temp, path)
+
+    def _schedule_output_expiry(self, info: ProcessInfo) -> None:
+        if info.expiry_scheduled or info.finished_at is None:
+            return
+        info.expiry_scheduled = True
+        from ..async_utils import fire_and_forget
+
+        fire_and_forget(self._expire_output_at_deadline(info), name="process_output_expiry")
+
+    async def _expire_output_at_deadline(self, info: ProcessInfo) -> None:
+        deadline = (info.finished_at or time.time()) + OUTPUT_RETENTION_SECONDS
+        await asyncio.sleep(max(0, deadline - time.time()))
+        lease = None
+        try:
+            remote_exec = self._remote_exec
+            if info.remote and remote_exec is not None and self._acquire_output_lease is not None:
+                lease = self._acquire_output_lease(info)
+            if lease is not None and remote_exec is not None:
+                command = self._remote_controller_command(info, "expire")
+                await lease.run(lambda: remote_exec(lease.target, command, 15))
+        except Exception:
+            log.warning("Remote process output expiry could not be confirmed")
+        finally:
+            if lease is not None:
+                lease.release()
+            self._expire_output(info)
+
+    def _spool_quota_remaining(self) -> int:
+        return max(0, OUTPUT_GLOBAL_QUOTA - self._pending_remote_reservations - sum(
+            max(item.retained_bytes, item.reserved_bytes) for item in self._retained_generations.values()
+            if not item.output_revoked
+        ))
+
+    def _spool_quota_available(self) -> bool:
+        return self._spool_quota_remaining() > 0
+
+    def _restore_output(self) -> None:
+        directory = self._retention_dir
+        if directory is None:
+            return
+        for path in directory.glob("*.json"):
+            try:
+                record = json.loads(path.read_text())
+                generation = record["generation"]
+                if not re.fullmatch(r"[a-f0-9]{32}", generation) or path.stem != generation:
+                    continue
+                masked_tail = record.pop("masked_tail", None)
+                info = ProcessInfo(command="(retained output)", **record)
+                if masked_tail is not None:
+                    info.output_tail = base64.b64decode(masked_tail, validate=True)
+                    info.output_tail_masked = True
+                info.restored = True
+                if info.finished_at is None:
+                    if info.remote:
+                        info.reserved_bytes = OUTPUT_CAPTURE_BYTES
+                    info.status = "unknown"
+                    info.finished_at = info.start_time
+                if info.finished_at + OUTPUT_RETENTION_SECONDS <= time.time() or info.output_revoked:
+                    self._expire_output(info)
+                    continue
+                if not info.remote:
+                    spool_path = directory / (generation + ".out")
+                    if spool_path.exists():
+                        info.spool_path = spool_path
+                        info.retained_bytes = min(info.retained_bytes, spool_path.stat().st_size)
+                    elif info.retained_bytes:
+                        info.capture_error = "retained process output is unavailable"
+                        info.retained_bytes = 0
+                self._retained_generations[generation] = info
+                self._processes[info.pid] = info
+                self._next_remote_handle = min(self._next_remote_handle, info.pid - 1)
+                try:
+                    asyncio.get_running_loop()
+                except RuntimeError:
+                    pass
+                else:
+                    self._schedule_output_expiry(info)
+            except (OSError, ValueError, KeyError, TypeError):
+                log.warning("Could not restore a retained process output manifest")
+
+    def output_info(self, pid: int, cursor: str | None = None) -> ProcessInfo | None:
+        cursor = default_if_empty(cursor)
+        if cursor is not None and isinstance(cursor, str):
+            generation = cursor.split(":", 1)[0]
+            info = self._retained_generations.get(generation)
+            if info is None:
+                candidate = self._processes.get(pid)
+                info = candidate if candidate and candidate.generation == generation else None
+            return info if info is not None and info.pid == pid else None
+        return self._processes.get(pid)
+
+    @property
+    def _containment(self) -> bool:
+        """Live read — containment is process state, not construction state."""
+        return child_subreaper_active()
+
+    def _resolve_workspace(self) -> str | None:
+        if callable(self._workspace):
+            return self._workspace()
+        return self._workspace
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def start(self, host: str, command: str, timeout: int = 300, *, owner_id: str | None = None, host_alias: str = "", host_identity: str = "", origin_channel: str = "", scope_id: str = "", host_binding: dict | None = None, host_lease: HostLease | None = None) -> str:
+        running = self._active_count() + self._pending_starts
+        if running >= MAX_CONCURRENT:
+            return self._refuse_start(
+                host_lease, f"Cannot start: {running} processes already running (max {MAX_CONCURRENT}).",
+            )
+        self._pending_starts += 1
+        try:
+            return await self._start_local_reserved(
+                host, command, timeout, owner_id=owner_id, host_alias=host_alias,
+                host_identity=host_identity, origin_channel=origin_channel,
+                scope_id=scope_id, host_binding=host_binding, host_lease=host_lease,
+            )
+        finally:
+            self._pending_starts -= 1
+
+    def _active_count(self) -> int:
+        return sum(
+            1 for info in self._processes.values()
+            if not info.restored and (
+                info.status == "running" or
+                (not info.session_confirmed_empty and (
+                    info.process is not None or info.remote_lease is not None
+                ))
+            )
+        )
+
+    async def _start_local_reserved(self, host: str, command: str, timeout: int = 300, *, owner_id: str | None = None, host_alias: str = "", host_identity: str = "", origin_channel: str = "", scope_id: str = "", host_binding: dict | None = None, host_lease: HostLease | None = None) -> str:
+        """Start a background process locally. Returns confirmation with PID.
+
+        ``host_lease`` is the generation-bound admission evidence the handler
+        already acquired for this start (H2). It is held for the job's WHOLE
+        lifetime — admission evidence while it runs, plus the live lease
+        reference that lets ``force_revoke_host``/``shutdown`` see and fence
+        this exact generation — and released only when the job settles or is
+        torn down. Never persisted.
+        """
+        from ..tools.ssh import is_local_address
+
+        if not is_local_address(host):
+            return "Error: remote process start requires a generation-bound host lease."
+
+        alias = host_alias or host
+        if alias in self._revoking_aliases or (host_lease is not None and host_lease.revoked):
+            return self._refuse_start(host_lease, "Error: host force-revoked; process not started.")
+        revoke_epoch = self._local_revoke_epochs.get(alias, 0)
+
+        try:
+            # start_new_session puts the shell at the head of its own process
+            # group, so kill()/shutdown() can take out descendants
+            # (`sh -c 'x & ...'`) instead of just the shell leader.
+            workspace = self._resolve_workspace()
+            job_token = secrets.token_hex(8)
+            env = dict(workspace_env(Path(workspace))) if workspace else dict(os.environ)
+            env[JOB_TOKEN_ENV] = job_token
+        except WorkspaceError as e:
+            # The workspace is unusable. This is a REFUSAL, not a spawn error:
+            # it must read as a failure to the tool loop, not as a started
+            # process (PR #239 round-4 — the plain string was classified ok).
+            return self._refuse_start(
+                host_lease, f"Error: cannot start background process — {e}"
+            )
+        try:
+            from .command_shell import ShellUnavailableError, resolve_local_shell
+            from .local_supervisor import create_supervised_shell
+
+            mode = self._command_shell() if callable(self._command_shell) else self._command_shell
+            shell_choice = resolve_local_shell(mode)
+            proc = await create_supervised_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                stdin=asyncio.subprocess.PIPE,
+                start_new_session=True,
+                cwd=workspace,
+                env=env,
+                shell_choice=shell_choice,
+            )
+        except ShellUnavailableError as exc:
+            return self._refuse_start(host_lease, f"Error: {exc}")
+        except asyncio.CancelledError:
+            # Cancellation is not a refusal, but it is still an exit path: the
+            # generation reference must be processed before it propagates, or
+            # a cancelled start leaks a lease for a job that never existed.
+            self._release_start_lease(host_lease)
+            raise
+        except Exception as e:
+            return self._refuse_start(host_lease, f"Failed to start process: {e}")
+
+        pid = proc.pid
+        info = ProcessInfo(
+            pid=pid,
+            command=command,
+            host=host,
+            start_time=time.time(),
+            process=proc,
+            effective_shell=shell_choice.name,
+            shell_executable=shell_choice.executable,
+            job_token=job_token,
+            owner_id=owner_id,
+            host_alias=host_alias,
+            host_identity=host_identity,
+            origin_channel=origin_channel,
+            scope_id=scope_id,
+            host_binding=host_binding,
+            host_lease=host_lease,
+        )
+        self._processes[pid] = info
+        self._retained_generations[info.generation] = info
+        self._own_children.add(pid)
+
+        # Drainage and terminal-state publication are SEPARATE tasks:
+        # the reader drains stdout; the watcher publishes status at
+        # leader exit and reaps the group (which closes the pipe).
+        try:
+            info._reader_task = asyncio.create_task(self._read_output(info))
+            info._exit_task = asyncio.create_task(self._watch_exit(info))
+            from ..async_utils import fire_and_forget
+
+            info._lifetime_task = fire_and_forget(
+                self._enforce_lifetime(info, MAX_LIFETIME_SECONDS), name=f"process_lifetime:{pid}"
+            )
+            self._persist_output(info)
+        except BaseException:
+            # The job is already spawned and recorded, so it now OWNS the
+            # lease. Tear the process down instead of leaving an untracked
+            # generation reference behind (H2); an unstartable lifecycle
+            # deliberately fails loud here.
+            await self._terminate_bound_host_job(info)
+            raise
+
+        if (revoke_epoch != self._local_revoke_epochs.get(alias, 0)
+                or alias in self._revoking_aliases
+                or (host_lease is not None and host_lease.revoked)):
+            # Spawn crossed the revoke snapshot. Install the complete lifecycle
+            # before teardown: even an unprovable kill must not strand a
+            # permanently-running record or its concurrency slot.
+            gone = await self._terminate_bound_host_job(info)
+            if not gone:
+                info.status = "unknown"
+                info.finished_at = info.finished_at or time.time()
+                info.capture_error = info.capture_error or "process cleanup could not be confirmed"
+                self._persist_output(info)
+            return ("Error: host force-revoked; process terminated."
+                    if gone else "Error: host force-revoked; process outcome unknown outcome_unknown=true.")
+
+        log.info("Started process PID %d: %s", pid, command_display(command))
+        return f"Process started (PID {pid}): {safe_text(command)}"
+
+    async def start_remote(self, lease, command: str, *, owner_id: str | None = None, host_alias: str = "", host_identity: str = "", origin_channel: str = "", scope_id: str = "", host_binding: dict | None = None) -> str:
+        # The target is authoritative for the host fence. Provenance metadata
+        # must not be able to redirect this start into another alias' epoch.
+        alias = lease.target.alias
+        if alias in self._revoking_aliases or getattr(lease, "revoked", False):
+            lease.release()
+            return "Error: host force-revoked; process not started."
+        revoke_epoch = self._local_revoke_epochs.get(alias, 0)
+        running = self._active_count() + self._pending_starts
+        if running >= MAX_CONCURRENT:
+            lease.release()
+            return f"Cannot start: {running} processes already running (max {MAX_CONCURRENT})."
+        # Reserve before dispatch, including starts still awaiting settlement.
+        if self._spool_quota_remaining() < OUTPUT_CAPTURE_BYTES:
+            lease.release()
+            return "Cannot start: process retention quota exhausted."
+        self._pending_remote_reservations += OUTPUT_CAPTURE_BYTES
+        self._pending_starts += 1
+        try:
+            return await self._start_remote_reserved(
+                lease, command, owner_id=owner_id, host_alias=host_alias,
+                host_identity=host_identity, origin_channel=origin_channel,
+                scope_id=scope_id, host_binding=host_binding,
+                revoke_alias=alias, revoke_epoch=revoke_epoch,
+            )
+        finally:
+            self._pending_remote_reservations -= OUTPUT_CAPTURE_BYTES
+            self._pending_starts -= 1
+
+    async def _start_remote_reserved(self, lease, command: str, *, owner_id: str | None = None, host_alias: str = "", host_identity: str = "", origin_channel: str = "", scope_id: str = "", host_binding: dict | None = None, revoke_alias: str = "", revoke_epoch: int = 0) -> str:
+        """Start a detached SSH process with remote file/FIFO-backed I/O."""
+        if self._remote_exec is None:
+            lease.release()
+            return "Failed to start process: remote execution is unavailable"
+        token = secrets.token_hex(16)
+        encoded = base64.b64encode(command.encode("utf-8")).decode("ascii")
+        root = f"/tmp/odin-process-{token}"
+        supervisor = base64.b64encode(_REMOTE_SUPERVISOR.encode()).decode("ascii")
+        write_supervisor = (
+            "import base64,sys;"
+            f"open(sys.argv[1],'wb').write(base64.b64decode({supervisor!r}))"
+        )
+        script = (
+            "set -eu; umask 077; command -v python3 >/dev/null; "
+            f"d={shlex.quote(root)}; mkdir -- \"$d\"; "
+            "mkfifo \"$d/in\"; "
+            f"python3 -c {shlex.quote(write_supervisor)} \"$d/supervisor.py\"; "
+            f"nohup python3 \"$d/supervisor.py\" \"$d\" {shlex.quote(token)} "
+            f"{shlex.quote(encoded)} {MAX_LIFETIME_SECONDS} "
+            "</dev/null >/dev/null 2>&1 & "
+            "i=0; while [ ! -f \"$d/ready.json\" ] && [ $i -lt 100 ]; "
+            "do sleep .1; i=$((i+1)); done; "
+            "test -f \"$d/ready.json\"; cat \"$d/ready.json\""
+        )
+        try:
+            code, output = await lease.run(
+                lambda: self._remote_exec(lease.target, script, 30)
+            )
+        except asyncio.CancelledError:
+            await self._teardown_unsettled_remote(lease, root, token)
+            lease.release()
+            raise
+        except Exception as exc:
+            cleaned = await self._teardown_unsettled_remote(lease, root, token)
+            lease.release()
+            if (revoke_epoch != self._local_revoke_epochs.get(revoke_alias, 0)
+                    or revoke_alias in self._revoking_aliases
+                    or getattr(lease, "revoked", False)):
+                return (
+                    "Error: host force-revoked; remote process terminated."
+                    if cleaned else
+                    "Error: host force-revoked; remote process cleanup could not be verified "
+                    "(outcome_unknown=true)."
+                )
+            return (
+                "Failed to start process: SSH transport failed after dispatch; "
+                f"outcome unknown outcome_unknown=true: {safe_error(exc)}"
+            )
+        try:
+            ready = json.loads(output.strip().splitlines()[-1])
+            remote_pid = int(ready["pid"])
+            remote_pgid = int(ready["pgid"])
+            remote_sid = int(ready["sid"])
+            remote_start_id = str(ready["start_id"])
+            identity_ok = (
+                ready.get("token") == token
+                and remote_pid > 1
+                and remote_pgid > 1
+                and remote_sid > 1
+                and bool(remote_start_id)
+            )
+        except (IndexError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            identity_ok = False
+        if code != 0 or not identity_ok:
+            await self._teardown_unsettled_remote(lease, root, token)
+            lease.release()
+            return (
+                "Failed to start process: SSH settlement was not observed; "
+                f"outcome unknown outcome_unknown=true: {output[:500]}"
+            )
+        if (revoke_epoch != self._local_revoke_epochs.get(revoke_alias, 0)
+                or revoke_alias in self._revoking_aliases
+                or getattr(lease, "revoked", False)):
+            cleaned = await self._teardown_unsettled_remote(lease, root, token)
+            lease.release()
+            return (
+                "Error: host force-revoked; remote process terminated."
+                if cleaned else
+                "Error: host force-revoked; remote process cleanup could not be verified "
+                "(outcome_unknown=true)."
+            )
+        handle = self._next_remote_handle
+        self._next_remote_handle -= 1
+        self._processes[handle] = ProcessInfo(
+            pid=handle,
+            command=command,
+            host=lease.target.alias,
+            start_time=time.time(),
+            # The remote supervisor launches /bin/sh explicitly, independent
+            # of both the SSH login shell and local command-shell config.
+            effective_shell="sh",
+            shell_executable="/bin/sh",
+            remote=True,
+            remote_dir=root,
+            remote_pid=remote_pid,
+            remote_pgid=remote_pgid,
+            remote_sid=remote_sid,
+            remote_start_id=remote_start_id,
+            remote_token=token,
+            remote_lease=lease,
+            owner_id=owner_id,
+            host_alias=host_alias,
+            host_identity=host_identity,
+            origin_channel=origin_channel,
+            scope_id=scope_id,
+            host_binding=host_binding,
+            reserved_bytes=OUTPUT_CAPTURE_BYTES,
+        )
+        info = self._processes[handle]
+        self._retained_generations[info.generation] = info
+        from ..async_utils import fire_and_forget
+
+        try:
+            info._lifetime_task = fire_and_forget(
+                self._enforce_lifetime(info, MAX_LIFETIME_SECONDS),
+                name=f"remote_process_lifetime:{handle}",
+            )
+            self._persist_output(info)
+        except BaseException:
+            await self._kill_remote(info)
+            raise
+        return f"Process started (PID {handle}): {safe_text(command)}"
+
+    async def poll(
+        self, pid: int, wait_seconds: float = 0.0, *, cursor: str | None = None,
+        offset: int | None = None, limit: int = OUTPUT_PAGE_DEFAULT,
+        max_chars: int | None = None,
+        authorized: Callable[[ProcessInfo], bool] | None = None,
+        output_lease: HostLease | None = None,
+        acquire_output_lease: Callable[[], HostLease | None] | None = None,
+    ) -> str:
+        """Return recent output lines from a process.
+
+        ``wait_seconds > 0`` waits server-side until the process EXITS or
+        the deadline elapses, then reports — never an error, never a wake
+        on intermediate output (early-output wakeup would return almost
+        immediately on a streaming build and defeat the purpose; design
+        settled with Odin, 2026-07-31). A terminal process reports
+        immediately. Cancellation aborts only this wait — the detached
+        process is never touched.
+        """
+        cursor = default_if_empty(cursor)
+        offset = default_if_empty(offset)
+        limit = default_if_empty(limit, OUTPUT_PAGE_DEFAULT)
+        info = self.output_info(pid, cursor)
+        if not info:
+            return f"No process with PID {pid}."
+
+        if authorized is not None and not authorized(info):
+            return "Error: process access denied."
+
+        if max_chars is None:
+            from .output_delivery import get_delivery_budget
+
+            max_chars = get_delivery_budget()
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 4 <= limit <= OUTPUT_PAGE_MAX:
+            return "Error: limit must be an integer between 4 and 8000 bytes."
+        if cursor is not None:
+            # Schema-filling callers may also send offset=0. The generation-bound
+            # cursor takes precedence; never restart a continuation from offset.
+            try:
+                generation, encoded_offset = cursor.split(":")
+                if generation != info.generation:
+                    raise ValueError
+                offset = int(encoded_offset)
+            except (ValueError, AttributeError):
+                return "Error: invalid cursor or process generation no longer retained."
+        if offset is not None and (isinstance(offset, bool) or not isinstance(offset, int) or offset < 0):
+            return "Error: offset must be a nonnegative integer byte offset."
+        if cursor is None and offset == 0:
+            # Zero-filled optional fields mean the ordinary newest-lines poll.
+            # Only a generation:0 cursor explicitly starts a read at byte zero.
+            offset = None
+        explicit = cursor is not None or offset is not None
+        if info.output_revoked:
+            return "Error: process output authorization revoked."
+        if info.finished_at is not None and time.time() >= info.finished_at + OUTPUT_RETENTION_SECONDS:
+            self._expire_output(info)
+            return "Error: process output retention expired (24 hours after exit)."
+        if info.remote:
+            async with info._remote_lock:
+                if authorized is not None and not authorized(info):
+                    return "Error: process access denied."
+                # Another poll may discover exit while we wait for this lock.
+                if info.remote_lease is None and output_lease is None and acquire_output_lease is not None:
+                    output_lease = acquire_output_lease()
+                result = await self._poll_remote(info, wait_seconds, offset=offset, limit=limit, max_chars=max_chars,
+                                                 output_lease=output_lease)
+                if authorized is not None and not authorized(info):
+                    return "Error: process access denied."
+                return result
+
+        # Exit detection must not depend on the watcher having PUBLISHED
+        # yet (round-3 blocker #3): returncode is set at SIGCHLD reap, so a
+        # zero-wait poll landing in the publication window still settles.
+        exited = info.status != "running" or (
+            info.process is not None and info.process.returncode is not None
+        )
+        if wait_seconds > 0 and not exited and info.process is not None:
+            exited = await _wait_leader_exit(info.process, timeout=wait_seconds)
+        if exited:
+            # Terminal report discipline (PR #244 round-2 blocker #3): the
+            # leader is gone — whether it exited during OUR wait or before
+            # this poll — so give the watcher a bounded moment to publish
+            # status/exit_code and reap the group (closing the pipe), then
+            # the reader to drain the tail. Without this, a poll landing
+            # between status publication and drain completion reports a
+            # terminal process with its final output missing. Shielded —
+            # our bound must not cancel either task; normally both are
+            # already done and this costs nothing.
+            for settling in (info._exit_task, info._reader_task):
+                if settling is not None and not settling.done():
+                    try:
+                        await asyncio.wait_for(asyncio.shield(settling), timeout=5.0)
+                    except TimeoutError:
+                        pass
+
+        if authorized is not None and not authorized(info):
+            return "Error: process access denied."
+        try:
+            return self._poll_local_output(info, explicit, offset, limit, max_chars)
+        except OSError:
+            info.capture_error = "retained process output is unavailable"
+            return "Error: retained process output is unavailable."
+
+    def _poll_local_output(
+        self, info: ProcessInfo, explicit: bool, offset: int | None, limit: int, max_chars: int,
+    ) -> str:
+        if explicit:
+            start = offset or 0
+            data = b""
+            if (info.spool is not None or info.spool_path is not None) and info.output_masked:
+                data = self._read_spool(info, start, limit)
+                view = info
+            elif info.spool is not None or info.spool_path is not None:
+                snapshot = _scrub_process_bytes(self._read_spool(info, 0, OUTPUT_CAPTURE_BYTES))
+                snapshot, _ = _utf8_boundary_split(snapshot)
+                if info.status == "running":
+                    snapshot = re.sub(rb"\S+\Z", b"", snapshot)
+                view = replace(info, retained_bytes=len(snapshot))
+                data = snapshot[start:start + limit]
+            else:
+                view = info
+            if start > view.retained_bytes:
+                return "Error: offset exceeds retained output."
+            return self._output_page(view, data, start, limit, max_chars, preview=False)
+        full = b""
+        if info.spool is not None or info.spool_path is not None:
+            if info.output_masked and info.retained_bytes == info.total_output_bytes:
+                tail = self._read_spool(info, max(0, info.retained_bytes - 12000), 12000)
+                data = b"".join(tail.splitlines(keepends=True)[-50:])
+                return self._output_page(info, data, info.total_output_bytes - len(data),
+                                         limit, max_chars, preview=True)
+            if not info.output_masked:
+                full = _scrub_process_bytes(self._read_spool(info, 0, OUTPUT_CAPTURE_BYTES))
+        if full and len(full) == info.total_output_bytes:
+            tail = full[-12000:]
+        elif info.output_tail:
+            tail = (info.output_tail if info.output_tail_masked else
+                    _scrub_process_tail(info.output_tail, info.total_output_bytes))
+        else:
+            return self._output_page(info, b"", 0, limit, max_chars,
+                                     preview=True, tail_withheld=bool(info.total_output_bytes))
+        data = b"".join(tail.splitlines(keepends=True)[-50:])
+        start = max(0, info.total_output_bytes - len(data))
+        return self._output_page(info, data, start, limit, max_chars, preview=True)
+
+    @staticmethod
+    def _read_spool(info: ProcessInfo, start: int, size: int) -> bytes:
+        """Read retained output without acquiring a long-lived descriptor.
+
+        Active capture writers are flushed before publication and are only
+        accessed synchronously on the event loop. Reads do not await while a
+        descriptor is held, so expiry cannot interleave with them.
+        """
+        if info.spool is not None:
+            info.spool.seek(start)
+            return info.spool.read(size)
+        if info.spool_path is not None:
+            with info.spool_path.open("rb") as spool:
+                spool.seek(start)
+                return spool.read(size)
+        return b""
+
+    def _expire_output(self, info: ProcessInfo) -> None:
+        if info.spool is not None:
+            info.spool.close()
+            info.spool = None
+        if info.spool_path is not None:
+            info.spool_path.unlink(missing_ok=True)
+            info.spool_path = None
+        if info.output_lease is not None:
+            info.output_lease.release()
+            info.output_lease = None
+        if info.host_lease is not None and info.session_confirmed_empty:
+            # Expiry only revokes EVIDENCE; it must never drop the generation
+            # lease of a job that is STILL RUNNING (H2). That lease is exactly
+            # what keeps the alias's reference count non-zero, which is how
+            # force-revoke discovers and fences this generation; releasing it
+            # here would blind the revoke to a live local job and let the job
+            # outlive its authority. It is released when the job settles
+            # (_retire_execution_lease), when force-revoke terminates it after
+            # teardown, or at shutdown/cleanup once it is terminal.
+            info.host_lease.release()
+            info.host_lease = None
+        info.output_revoked = True
+        info.reserved_bytes = 0
+        info.output_tail = b""
+        info.output_buffer.clear()
+        if self._retention_dir is not None:
+            for suffix in (".json", ".out"):
+                (self._retention_dir / (info.generation + suffix)).unlink(missing_ok=True)
+
+    @staticmethod
+    def _output_page(info: ProcessInfo, data: bytes, start: int, limit: int, budget: int, *, preview: bool,
+                     tail_withheld: bool = False) -> str:
+        """Fit complete delivery before deriving a cursor. Preview retrieves from zero."""
+        if not preview and data and data[0] & 0xC0 == 0x80:
+            return "Error: offset is not a UTF-8 code point boundary."
+        if preview:
+            while data and data[0] & 0xC0 == 0x80:
+                data = data[1:]
+                start += 1
+        else:
+            data, _ = _utf8_boundary_split(data[:limit])
+
+        def render(chunk: bytes, shown_start: int) -> str:
+            from .command_shell import signal_name
+
+            end = shown_start + len(chunk)
+            next_offset = 0 if preview else end
+            more = (preview and info.retained_bytes > 0) or end < info.retained_bytes
+            next_cursor = f"{info.generation}:{next_offset}" if more else None
+            meta = {
+                "kind": "process_output", "pid": info.pid, "generation": info.generation,
+                "status": info.status, "exit_code": info.exit_code,
+                "lifetime_deadline": info.start_time + MAX_LIFETIME_SECONDS,
+                "emitted_bytes": info.total_output_bytes, "retained_bytes": info.retained_bytes,
+                "shown_intervals": [[shown_start, end]] if chunk else [], "shown_bytes": len(chunk),
+                "capture_limit_loss_bytes": max(0, info.total_output_bytes - OUTPUT_CAPTURE_BYTES),
+                "not_retained_bytes": max(0, info.total_output_bytes - info.retained_bytes),
+                "capture_error": info.capture_error,
+                "expires_at": info.finished_at + OUTPUT_RETENTION_SECONDS if info.finished_at is not None else None,
+                "retention_seconds_after_exit": OUTPUT_RETENTION_SECONDS,
+                "truncated": bool(more), "cursor": next_cursor,
+                "retrieval": {"tool": "manage_process", "arguments": {
+                    "action": "poll", "pid": info.pid, "cursor": next_cursor, "limit": limit,
+                }} if more else None,
+            }
+            if info.effective_shell is not None:
+                meta["effective_shell"] = info.effective_shell
+            if info.status in {"failed", "killed"}:
+                meta["cleanup_verified"] = info.session_confirmed_empty
+                if info.termination_reason:
+                    meta["termination_reason"] = info.termination_reason
+                if sig := signal_name(info.exit_code):
+                    meta["signal"] = sig
+            if info.remote and info.containment:
+                meta["containment"] = info.containment
+                if info.containment == "process_group_only":
+                    meta["cleanup_caveat"] = "escaped descendants are unverified"
+            text = chunk.decode("utf-8", "replace")
+            if tail_withheld:
+                meta["tail_status"] = "unavailable"
+                text = "(recent output unavailable; retrieve the retained prefix using the cursor)"
+            if preview:
+                status = f"[PID {info.pid}] status={info.status}"
+                if info.exit_code is not None:
+                    status += f" exit_code={info.exit_code}"
+                if sig := signal_name(info.exit_code):
+                    status += f" signal={sig}"
+                if info.termination_reason:
+                    status += f" termination_reason={info.termination_reason}"
+                if info.effective_shell is not None:
+                    status += f" effective_shell={info.effective_shell}"
+                if info.transport_unknown:
+                    status += " outcome_unknown=true"
+                status += f" uptime={time.time() - info.start_time:.0f}s output_bytes={info.total_output_bytes}"
+                return status + "\n" + (text or "(no output yet)") + "\n[output retention] " + json.dumps(meta, ensure_ascii=False, separators=(",", ":"))
+            meta["text"] = text
+            return json.dumps(meta, ensure_ascii=False, separators=(",", ":"))
+
+        result = render(data, start)
+        if len(result) <= budget:
+            return result
+        low, high, best = 0, len(data), None
+        while low <= high:
+            size = (low + high) // 2
+            chunk = data[-size:] if preview and size else data[:size]
+            if preview:
+                while chunk and chunk[0] & 0xC0 == 0x80:
+                    chunk = chunk[1:]
+                shown_start = start + len(data) - len(chunk)
+            else:
+                chunk, _ = _utf8_boundary_split(chunk)
+                shown_start = start
+            candidate = render(chunk, shown_start)
+            if len(candidate) <= budget:
+                best = candidate if chunk or not data else best
+                low = size + 1
+            else:
+                high = size - 1
+        return best or "Error: delivery budget cannot fit a process output page."
+
+    async def write(self, pid: int, text: str, *, authorized: Callable[[ProcessInfo], bool] | None = None) -> str:
+        """Write text to a process's stdin."""
+        info = self._processes.get(pid)
+        if not info:
+            return f"No process with PID {pid}."
+        if info.status != "running":
+            return f"Process {pid} is not running (status: {info.status})."
+        if authorized is not None and not authorized(info):
+            return "Error: process access denied."
+        if info.restored:
+            return "Error: retained process evidence is read-only."
+        if info.remote:
+            async with info._remote_lock:
+                if authorized is not None and not authorized(info):
+                    return "Error: process access denied."
+                return await self._write_remote(info, text)
+        if not info.process or not info.process.stdin:
+            return f"Process {pid} has no stdin."
+
+        try:
+            info.process.stdin.write(text.encode())
+            await info.process.stdin.drain()
+            return f"Wrote {len(text)} bytes to PID {pid}."
+        except Exception as e:
+            return f"Failed to write to PID {pid}: {e}"
+
+    async def kill(self, pid: int, *, authorized: Callable[[ProcessInfo], bool] | None = None) -> str:
+        """Kill a running process — and its process group when it leads one."""
+        info = self._processes.get(pid)
+        if not info:
+            return f"No process with PID {pid}."
+        if info.status != "running" and info.session_confirmed_empty:
+            return f"Process {pid} already {info.status}." + self._remote_cleanup_caveat(info)
+        if authorized is not None and not authorized(info):
+            return "Error: process access denied."
+        if info.restored:
+            return "Error: retained process evidence is read-only."
+        if info.remote:
+            async with info._remote_lock:
+                if authorized is not None and not authorized(info):
+                    return "Error: process access denied."
+                return await self._kill_remote(info)
+
+        try:
+            # Use the same whole-execution settlement as force revoke and
+            # generation termination. The exit watcher may still be pending;
+            # leader termination alone neither proves cleanup nor retires it.
+            info.termination_reason = info.termination_reason or "cancellation"
+            if await self._terminate_bound_host_job(info):
+                return f"Process {pid} killed."
+            info.status = "unknown"
+            info.transport_unknown = True
+            return f"Failed to kill PID {pid}: cleanup unverified outcome_unknown=true."
+        except Exception as e:
+            return f"Failed to kill PID {pid}: {e}"
+
+    def list_all(self, *, authorized: Callable[[ProcessInfo], bool] | None = None) -> str:
+        """Return a formatted table of all tracked processes."""
+        if not self._processes:
+            return "No processes tracked."
+
+        lines = [f"{'PID':<8} {'HOST':<16} {'STATUS':<12} {'UPTIME':<10} {'COMMAND'}"]
+        lines.append("-" * 60)
+        now = time.time()
+        for pid, info in sorted(self._processes.items()):
+            if authorized is not None and not authorized(info):
+                continue
+            elapsed = now - info.start_time
+            if elapsed < 60:
+                uptime = f"{elapsed:.0f}s"
+            elif elapsed < 3600:
+                uptime = f"{elapsed / 60:.1f}m"
+            else:
+                uptime = f"{elapsed / 3600:.1f}h"
+            cmd_short = safe_text(info.command)[:40]
+            lines.append(
+                f"{pid:<8} {info.host[:15]:<16} {info.status:<12} {uptime:<10} {cmd_short}"
+            )
+        return "\n".join(lines)
+
+    async def _remote_call(
+        self, info: ProcessInfo, command: str, timeout: int
+    ) -> tuple[int, str]:
+        lease = info.remote_lease
+        if lease is None or self._remote_exec is None:
+            raise RuntimeError("remote process lease is unavailable")
+        remote_exec = self._remote_exec
+        try:
+            return await lease.run(
+                lambda: remote_exec(lease.target, command, timeout)
+            )
+        except Exception:
+            info.transport_unknown = True
+            raise
+
+    def _remote_controller_command(
+        self, info: ProcessInfo, operation: str, payload: str = "", wait_seconds: float = 0
+    ) -> str:
+        controller = base64.b64encode(_REMOTE_CONTROLLER.encode()).decode("ascii")
+        execute_controller = (
+            "import base64;"
+            f"exec(compile(base64.b64decode({controller!r}),"
+            "'<odin-remote-controller>','exec'))"
+        )
+        return (
+            f"python3 -c {shlex.quote(execute_controller)} "
+            f"{shlex.quote(info.remote_dir)} {shlex.quote(info.remote_token)} "
+            f"{shlex.quote(operation)} {shlex.quote(payload)} {float(wait_seconds)!r}"
+        )
+
+    async def _teardown_unsettled_remote(self, lease, root: str, token: str) -> bool:
+        """Try to kill an unsettled remote start and report only verified cleanup."""
+        if self._remote_exec is None:
+            return False
+        controller = base64.b64encode(_REMOTE_CONTROLLER.encode()).decode("ascii")
+        execute_controller = (
+            "import base64;"
+            f"exec(compile(base64.b64decode({controller!r}),"
+            "'<odin-remote-controller>','exec'))"
+        )
+        quoted_root = shlex.quote(root)
+        command = (
+            "set -eu; "
+            f"d={quoted_root}; test -f \"$d/ready.json\"; "
+            f"python3 -c {shlex.quote(execute_controller)} "
+            f"{quoted_root} {shlex.quote(token)} kill '' 0"
+        )
+        try:
+            code, output = await self._remote_exec(lease.target, command, 15)
+            return code == 0 and self._remote_cleanup_proven(self._parse_remote_reply(output))
+        except Exception:
+            log.warning(
+                "Could not verify cleanup of unsettled remote process on %s",
+                lease.target.alias,
+            )
+            return False
+
+    @staticmethod
+    def _parse_remote_reply(output: str) -> dict | None:
+        try:
+            value = json.loads(output.strip().splitlines()[-1])
+        except (IndexError, TypeError, ValueError, json.JSONDecodeError):
+            return None
+        return value if isinstance(value, dict) else None
+
+    async def _poll_remote(
+        self, info: ProcessInfo, wait_seconds: float, *, offset: int | None = None,
+        limit: int = OUTPUT_PAGE_DEFAULT, max_chars: int = 12000,
+        output_lease: HostLease | None = None,
+    ) -> str:
+        lease = info.remote_lease or output_lease
+        remote_exec = self._remote_exec
+        if lease is None or info.output_revoked or remote_exec is None:
+            return "Error: remote process output lease is unavailable or revoked."
+        deadline = max(0, min(float(wait_seconds), MAX_POLL_WAIT_SECONDS))
+        command = self._remote_controller_command(
+            info, "status", json.dumps({"offset": offset or 0, "limit": limit, "tail": offset is None}), deadline
+        )
+        try:
+            # Only this fixed, identity-bound status operation uses the output lease.
+            code, output = await lease.run(
+                lambda: remote_exec(lease.target, command, int(deadline) + 15)
+            )
+        except Exception as exc:
+            info.transport_unknown = True
+            return (
+                f"[PID {info.pid}] status=unknown outcome_unknown=true\n"
+                f"SSH transport failed: {safe_error(exc)}"
+            )
+        reply = self._parse_remote_reply(output)
+        if code != 0 or reply is None or not reply.get("ok"):
+            info.transport_unknown = True
+            detail = safe_error(reply.get("error", "") if reply else output)
+            return f"[PID {info.pid}] status=unknown outcome_unknown=true\n{detail}"
+        try:
+            data = base64.b64decode(reply.get("output", ""), validate=True)
+        except (ValueError, TypeError):
+            info.transport_unknown = True
+            return f"[PID {info.pid}] status=unknown outcome_unknown=true\ninvalid reply"
+        info.remote_cursor = int(reply.get("cursor", info.remote_cursor))
+        info.retained_bytes = int(reply.get("size", info.remote_cursor))
+        info.total_output_bytes = int(reply.get("emitted", info.retained_bytes))
+        if reply.get("capture_error"):
+            info.capture_error = "process output capture incomplete"
+        if reply.get("status") == "unknown" or reply.get("unknown"):
+            info.transport_unknown = True
+            info.status = "unknown"
+            exit_record = reply.get("exit") or {}
+            info.exit_code = exit_record.get("exit_code")
+            if info.finished_at is None and exit_record.get("finished_at") is not None:
+                # The supervisor's leader-exit timestamp starts EVIDENCE
+                # retention, not execution retirement. Unverified cleanup
+                # must retain its authority even after that evidence expires.
+                info.finished_at = float(exit_record["finished_at"])
+                self._schedule_output_expiry(info)
+        if reply.get("status") == "exited":
+            exit_record = reply.get("exit") or {}
+            if not self._remote_cleanup_proven({"ok": True, **exit_record}):
+                info.transport_unknown = True
+                return f"[PID {info.pid}] status=unknown outcome_unknown=true\nremote process group cleanup unverified"
+            info.session_confirmed_empty = True
+            info.containment = exit_record["containment"]
+            info.transport_unknown = False
+            info.exit_code = int(exit_record.get("exit_code", 1))
+            if info.status != "killed":
+                info.status = "completed" if info.exit_code == 0 else "failed"
+            info.finished_at = info.finished_at or float(exit_record.get("finished_at", time.time()))
+            info.reserved_bytes = 0
+            self._retire_execution_lease(info)
+        self._persist_output(info)
+        if info.finished_at is not None and time.time() >= info.finished_at + OUTPUT_RETENTION_SECONDS:
+            self._expire_output(info)
+            return "Error: process output retention expired (24 hours after exit)."
+        if offset is not None and offset > info.retained_bytes:
+            return "Error: offset exceeds retained output."
+        start = int(reply.get("start", info.remote_cursor - len(data)))
+        if offset is None:
+            recent = b"".join(data.splitlines(keepends=True)[-50:])
+            start += len(data) - len(recent)
+            data = recent
+        return self._output_page(info, data, start, limit, max_chars, preview=offset is None,
+                                 tail_withheld=bool(reply.get("tail_withheld", False)))
+
+    def _retire_execution_lease(self, info: ProcessInfo) -> None:
+        task = info._lifetime_task
+        if task is not None:
+            try:
+                current = asyncio.current_task()
+            except RuntimeError:
+                current = None
+            if task is not current:
+                task.cancel()
+        info._lifetime_task = None
+        if info.remote_lease is not None:
+            info.remote_lease.release()
+            info.remote_lease = None
+        # A settled job must not pin its generation any longer (H2): the host
+        # itself is healthy, only THIS execution is over. Holding it here would
+        # keep an alias permanently "leased" and, through the registry's
+        # retirement path, keep revoked generations alive.
+        if info.host_lease is not None:
+            info.host_lease.release()
+            info.host_lease = None
+        self._schedule_output_expiry(info)
+
+    async def _write_remote(self, info: ProcessInfo, text: str) -> str:
+        encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
+        command = self._remote_controller_command(info, "write", encoded)
+        try:
+            code, output = await self._remote_call(info, command, 15)
+        except Exception as exc:
+            return (
+                f"Failed to write to PID {info.pid}: SSH transport failed; "
+                f"outcome unknown outcome_unknown=true: {safe_error(exc)}"
+            )
+        reply = self._parse_remote_reply(output)
+        if (code != 0 or reply is None or reply.get("ok") is not True
+                or reply.get("written") != len(text.encode("utf-8"))):
+            info.transport_unknown = True
+            detail = safe_error(reply.get("error", "") if reply else output)
+            accepted = reply.get("written") if reply else None
+            return (
+                f"Failed to write to PID {info.pid}: accepted_bytes={accepted}; outcome unknown "
+                f"outcome_unknown=true: {detail}"
+            )
+        return f"Wrote {reply['written']} bytes to PID {info.pid}."
+
+    async def _kill_remote(self, info: ProcessInfo) -> str:
+        command = self._remote_controller_command(info, "kill")
+        try:
+            code, output = await self._remote_call(info, command, 15)
+        except Exception as exc:
+            info.transport_unknown = True
+            return (
+                f"Failed to kill PID {info.pid}: SSH transport failed; "
+                f"outcome unknown outcome_unknown=true: {safe_error(exc)}"
+            )
+        reply = self._parse_remote_reply(output)
+        if code != 0 or not self._remote_cleanup_proven(reply):
+            info.transport_unknown = True
+            detail = safe_error(
+                reply.get("error") or "remote process group cleanup unverified"
+                if reply else output
+            )
+            return (
+                f"Failed to kill PID {info.pid}: outcome unknown "
+                f"outcome_unknown=true: {detail}"
+            )
+        assert reply is not None
+        info.containment = reply["containment"]
+        info.transport_unknown = False
+        if reply.get("already_exited"):
+            info.session_confirmed_empty = True
+            info.status = "completed" if (reply.get("exit") or {}).get("exit_code") == 0 else "failed"
+            info.exit_code = (reply.get("exit") or {}).get("exit_code")
+            info.finished_at = info.finished_at or float((reply.get("exit") or {}).get("finished_at", time.time()))
+            info.reserved_bytes = 0
+            self._retire_execution_lease(info)
+            self._persist_output(info)
+            return f"Process {info.pid} already exited; poll to collect its outcome." + self._remote_cleanup_caveat(info)
+        info.status = "killed"
+        info.session_confirmed_empty = True
+        info.reserved_bytes = 0
+        exit_record = reply.get("exit") or {}
+        info.exit_code = exit_record.get("exit_code")
+        info.finished_at = info.finished_at or float(exit_record.get("finished_at", time.time()))
+        self._retire_execution_lease(info)
+        self._persist_output(info)
+        return f"Process {info.pid} killed." + self._remote_cleanup_caveat(info)
+
+    @staticmethod
+    def _remote_cleanup_proven(reply: dict | None) -> bool:
+        return bool(
+            isinstance(reply, dict) and reply.get("ok") is True and not reply.get("unknown")
+            and (
+                reply.get("containment") == "owned_descendants" and reply.get("empty") is True
+                or reply.get("containment") == "process_group_only" and reply.get("group_empty") is True
+            )
+        )
+
+    @staticmethod
+    def _remote_cleanup_caveat(info: ProcessInfo) -> str:
+        if info.remote and info.containment == "process_group_only":
+            return " containment=process_group_only; escaped descendants are unverified."
+        return ""
+
+    async def force_revoke_host(self, alias: str) -> dict[str, int]:
+        """Terminate every running job bound to ``alias``, then drop its output.
+
+        LOCAL jobs are terminated too (H2). They previously only had their
+        retained output expired, so a local command kept executing after the
+        operator force-revoked or disabled its host — the effect outlived the
+        authority, and the caller lost even the ability to read what it was
+        still doing. Counting matches by the SAME predicate as the terminal
+        action (``info.remote and info.host == alias``) keeps the returned
+        totals truthful; a mismatched key extraction would make the kill
+        silently unmatched while ``attempted`` still counted it.
+        """
+        self._local_revoke_epochs[alias] = self._local_revoke_epochs.get(alias, 0) + 1
+        self._revoking_aliases[alias] = self._revoking_aliases.get(alias, 0) + 1
+        summary = {"attempted": 0, "killed": 0, "unknown": 0}
+        try:
+            infos = {info.generation: info for info in self._processes.values()}
+            infos.update(self._retained_generations)
+            for info in infos.values():
+                running = not info.session_confirmed_empty and not info.restored
+                if info.remote and info.host == alias:
+                    if running:
+                        summary["attempted"] += 1
+                        try:
+                            await self._kill_remote(info)
+                            proven = info.session_confirmed_empty
+                        except Exception:
+                            log.exception("Force-revoke remote cleanup failed for PID %d", info.pid)
+                            proven = False
+                        summary["killed" if proven else "unknown"] += 1
+                elif running and (info.host_alias or info.host) == alias:
+                    summary["attempted"] += 1
+                    summary["killed" if await self._terminate_bound_host_job(info) else "unknown"] += 1
+                if info.host == alias or info.host_alias == alias:
+                    try:
+                        self._expire_output(info)
+                    except Exception:
+                        log.exception("Force-revoke output expiry failed for PID %d", info.pid)
+            return summary
+        finally:
+            pending = self._revoking_aliases[alias] - 1
+            if pending:
+                self._revoking_aliases[alias] = pending
+            else:
+                del self._revoking_aliases[alias]
+
+    async def _terminate_bound_host_job(self, info: ProcessInfo) -> bool:
+        """Kill one local job and report whether termination was PROVEN.
+
+        Force-revoke has already fenced the generation, so the exit watcher may
+        be racing this teardown. Keep the lease until whole-job cleanup settles;
+        the terminal status is only published once an affirmative
+        observation exists — ``_kill_group_until_gone`` returns True solely on
+        a verified-empty scan, so a TERM-immune descendant can never be
+        reported as killed.
+        """
+        info.termination_reason = info.termination_reason or "cancellation"
+        if info.process is not None:
+            from ..tools.ssh import terminate_process_tree
+
+            try:
+                await terminate_process_tree(info.process, grace=5.0)
+            except Exception:
+                # Still attempt the independent, bounded owned-session proof.
+                # A supervisor timeout alone cannot establish that it is empty.
+                log.exception("Force-revoke supervisor teardown failed for PID %d", info.pid)
+        try:
+            gone = await self._kill_group_until_gone(info)
+        except Exception:
+            log.exception("Force-revoke cleanup failed for PID %d", info.pid)
+            gone = False
+        if gone:
+            info.status = "killed"
+            info.session_confirmed_empty = True
+            info.exit_code = (
+                info.process.returncode if info.process is not None else info.exit_code
+            )
+            info.finished_at = info.finished_at or time.time()
+            self._retire_execution_lease(info)
+            log.info("Force-revoke killed PID %d on a revoked host", info.pid)
+        else:
+            log.error(
+                "Force-revoke could not confirm PID %d is gone — its outcome "
+                "is unknown", info.pid,
+            )
+        try:
+            self._persist_output(info)
+        except Exception:
+            log.exception("Force-revoke evidence persistence failed for PID %d", info.pid)
+        return gone
+
+    @staticmethod
+    def _release_start_lease(host_lease: HostLease | None) -> None:
+        """Drop admission evidence for a start that produced no process (H2)."""
+        if host_lease is not None:
+            host_lease.release()
+
+    def _refuse_start(self, host_lease: HostLease | None, message: str) -> str:
+        """A REFUSAL before ProcessInfo creation must not keep the reference.
+
+        Every refusal return in :meth:`start` happens before the registry
+        records a process, so no record exists to own the lease; the caller's
+        generation reference would otherwise be held forever by a job that
+        never started.
+        """
+        self._release_start_lease(host_lease)
+        return message
+
+    async def terminate_generation(self, generation: str) -> bool:
+        """Terminate ONE exact generation and report whether that was proven.
+
+        Used when authority over a job is withdrawn after it started (H3's
+        post-start authorization recheck): the caller must not receive a denial
+        while the command it created keeps running. Addressing by generation,
+        not PID, means a recycled handle can never be aimed at another job, and
+        an already-exited process is a settled outcome rather than a failure.
+
+        Returns True only on affirmative whole-execution cleanup evidence.
+        Leader exit, terminal status and process-group emptiness alone cannot
+        establish it. False means the outcome is genuinely unknown.
+        """
+        info = self._retained_generations.get(generation)
+        if info is None:
+            info = next(
+                (p for p in self._processes.values() if p.generation == generation),
+                None,
+            )
+        if info is None:
+            # The generation is not tracked at all: nothing of ours is running
+            # under it, which is a settled (if already-forgotten) outcome.
+            return True
+        if info.session_confirmed_empty:
+            return True
+        if info.restored:
+            return False
+        if info.remote:
+            await self._kill_remote(info)
+            # ``_kill_remote`` reports "already exited" when the remote
+            # supervisor confirms the job is gone — a settled outcome, not a
+            # failure to terminate.
+            return info.session_confirmed_empty
+        return await self._terminate_bound_host_job(info)
+
+    async def shutdown(self) -> int:
+        """Terminate all managed processes and their groups before returning.
+
+        Live remote jobs are deliberately included: restart does not re-adopt
+        detached remote state, so leaving one behind would turn a managed job
+        into an untracked effect. A failed remote kill remains outcome-unknown
+        and the remote supervisor's one-hour deadline is the final backstop.
+
+        Restored local and remote records are read-only output evidence from
+        a previous process image, not executions owned by this one. They are
+        neither terminated nor required to prove settlement before re-exec.
+
+        Returns the number of processes that were still running.
+
+        Callers re-exec in place once this returns, so NOTHING the registry
+        owns may still be alive or mid-cleanup afterwards. A leader that already
+        exited on its own may have its reader task mid-reap of a TERM-immune
+        descendant, with the record already marked terminal — so we must AWAIT
+        every reader/reaper to completion, never cancel it out from under an
+        in-flight group kill (cancellation propagates through
+        terminate_process_tree and would strand the descendant across the exec).
+        """
+        killed = 0
+        # 1) TERM/KILL every still-running leader. Its exit watcher then
+        #    publishes terminal state and reaps surviving group members,
+        #    which closes the pipe and unblocks the drainer.
+        for pid, info in list(self._processes.items()):
+            if not info.session_confirmed_empty and not info.restored:
+                try:
+                    if await self.terminate_generation(info.generation):
+                        killed += 1
+                except Exception:
+                    log.warning("Failed to kill PID %d during shutdown", pid)
+        # 2) Let every reader/reaper finish so no group cleanup is left pending.
+        for pid, info in list(self._processes.items()):
+            for task in (info._exit_task, info._reader_task):
+                if task is None or task.done():
+                    continue
+                try:
+                    await asyncio.wait_for(
+                        asyncio.shield(task), timeout=SHUTDOWN_REAP_TIMEOUT
+                    )
+                except TimeoutError:
+                    # A wedged async reap must not strand TERM-immune
+                    # descendants across re-exec. The BARRIER is ordered so
+                    # that the process state — not the task — decides when
+                    # shutdown may return (round-5 blocker #1): a
+                    # cancellation-resistant task can never hold us, because
+                    # we never await it unboundedly.
+                    log.warning(
+                        "Reaper for PID %d did not finish; hard-killing group "
+                        "before abandoning", pid,
+                    )
+                    task.cancel()  # best effort; NEVER awaited unbounded
+                    await self._kill_group_until_gone(info)
+                except Exception:
+                    log.debug(
+                        "Reaper for PID %d errored during shutdown", pid, exc_info=True
+                    )
+        # 3) FINAL AFFIRMATIVE PROOF (round-7 #3). A completed watcher is
+        #    not proof by itself: it may have recorded a FAILED reap, and
+        #    the timeout fallback's verdict must not be discarded either.
+        #    Every live record that has not been OBSERVED session-empty is
+        #    re-verified here; anything still unproven is escalated to the
+        #    caller, which owns the re-exec decision.
+        unproven: list[int] = []
+        for pid, info in list(self._processes.items()):
+            if info.remote:
+                if not info.session_confirmed_empty and not info.restored:
+                    unproven.append(pid)
+                continue
+            if info.session_confirmed_empty or info.restored:
+                # A local job holding its own generation lease must still
+                # retire it before we re-exec (H2): a lease is an in-memory
+                # handle, and leaving one dangling would let a stale count
+                # outlive the exec.
+                if info.host_lease is not None:
+                    info.host_lease.release()
+                    info.host_lease = None
+                continue
+            try:
+                if not await self._kill_group_until_gone(info):
+                    unproven.append(pid)
+            except Exception:
+                log.exception("Final cleanup verification failed for PID %d", pid)
+                unproven.append(pid)
+            finally:
+                if info.host_lease is not None and info.session_confirmed_empty:
+                    info.host_lease.release()
+                    info.host_lease = None
+        if killed:
+            log.info("Shutdown: terminated %d running process(es)", killed)
+        if unproven:
+            raise ProcessCleanupError(
+                "could not confirm the owned session is empty for "
+                f"PID(s) {sorted(unproven)} — descendants may survive a "
+                "re-exec"
+            )
+        return killed
+
+    def cleanup(self) -> int:
+        """Remove terminal output after its explicit 24-hour retention period.
+
+        NEVER cancels lifecycle tasks (PR #244 round-2 blocker #1): the
+        exit watcher may be mid-group-reap, and cancellation propagates
+        through ``terminate_process_tree`` — stranding a TERM-immune
+        descendant is exactly the v3.59.1 shutdown bug reinvented. A
+        record whose tasks are still running simply stays until the next
+        cycle; the reap is self-terminating (TERM grace then KILL), so
+        deferral is bounded by nature, not by us.
+        """
+        now = time.time()
+        to_remove = [
+            pid
+            for pid, info in self._processes.items()
+            if info.status != "running"
+            and (info.session_confirmed_empty or info.restored)
+            and info.finished_at is not None
+            and now >= info.finished_at + OUTPUT_RETENTION_SECONDS
+            and all(
+                t is None or t.done()
+                for t in (info._reader_task, info._exit_task)
+            )
+        ]
+        for pid in to_remove:
+            expired = self._processes.pop(pid)
+            if expired.host_lease is not None:
+                # Belt and braces: a terminal record normally retired its lease
+                # at settlement, but an unexpected path must not drop the
+                # record while its generation reference is still held (H2).
+                expired.host_lease.release()
+                expired.host_lease = None
+            self._expire_output(expired)
+        for generation, info in list(self._retained_generations.items()):
+            if (info.session_confirmed_empty or info.restored) and info.finished_at is not None and now >= info.finished_at + OUTPUT_RETENTION_SECONDS:
+                self._expire_output(info)
+                self._retained_generations.pop(generation)
+        # Adopted orphans die as zombies (nothing else will wait on them);
+        # sweep them here so a long-running process cannot accumulate.
+        reap_adopted_zombies(self._adopted_pids)
+        return len(to_remove)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    async def _kill_group_until_gone(
+        self, info: ProcessInfo, timeout: float = 8.0
+    ) -> bool:
+        """Bounded, race-free termination of everything we still own.
+
+        Drive the owned session empty with repeated COMPLETE enumeration
+        (fork-on-signal descendants are caught by the next pass) and reap
+        the leader, then return only on an AFFIRMATIVE observation. An
+        unreadable /proc or fd exhaustion yields False, never assumed
+        success (round-6). Used by kill, revoke and shutdown; shutdown
+        performs an additional final verification before allowing re-exec.
+
+        A False return is LOUD (error) and is what the caller reports.
+        """
+        proc = info.process
+        if proc is None:
+            # Losing the local handle does not prove descendants exited.
+            # Previously settled records carry their verdict explicitly.
+            return info.session_confirmed_empty
+        from .local_supervisor import SupervisedShell
+
+        if isinstance(proc, SupervisedShell):
+            try:
+                info.session_confirmed_empty = await proc.terminate_tree(grace=.5)
+            except Exception:
+                info.session_confirmed_empty = False
+            return info.session_confirmed_empty
+        gone = await _terminate_session_until_empty(
+            proc.pid,
+            timeout=timeout,
+            term_first=False,
+            adopted_by=os.getpid(),
+            known_own_children=frozenset(self._own_children),
+            containment=self._containment,
+            job_token=info.job_token or None,
+            proc_token=os.environ.get(PROC_TOKEN_ENV),
+            adopted_sink=self._adopted_pids,
+            teardown=False,  # normal kill/revoke cannot claim adopted strangers
+        )
+        # Do not publish a partial verdict before the leader reap settles.
+        # Cancellation, errors or a reap timeout must remain unproven.
+        info.session_confirmed_empty = False
+        if proc.returncode is None:
+            # Reap the leader (bounded) so no zombie crosses the exec.
+            await _wait_leader_exit(proc, timeout=1.0)
+        if gone and proc.returncode is not None:
+            info.session_confirmed_empty = True
+            return True
+        log.error(
+            "Shutdown could not confirm PID %d's owned group is gone "
+            "(group_empty_observed=%s, leader_rc=%r) — re-exec may inherit "
+            "orphaned descendants",
+            info.pid, gone, proc.returncode,
+        )
+        return False
+
+    async def _read_output(self, info: ProcessInfo) -> None:
+        """Drain stdout into the ring buffer. Pure drainage — terminal
+        status and group reaping live in ``_watch_exit`` (PR #244 round-1:
+        a ``&``-descendant holding the stdout pipe kept EOF from arriving,
+        so an exited leader reported ``running`` forever and the reap
+        stalled behind drainage).
+
+        Bounded RAW reads, not ``readline()``: newline-free output and
+        carriage-return progress bars must still advance
+        ``total_output_bytes`` (it is the wait-poll progress signal), and
+        an over-limit line must not kill drainage (``readline`` raises on
+        lines beyond the stream limit; ``read(n)`` cannot).
+        """
+        pending = b""
+        try:
+            while info.process and info.process.stdout:
+                chunk = await info.process.stdout.read(4096)
+                if not chunk:
+                    break
+                info.total_output_bytes += len(chunk)
+                info.output_tail = (info.output_tail + chunk)[-12000:]
+                info.output_masked = info.output_tail_masked = False
+                if info.capture_error is None and info.retained_bytes < OUTPUT_CAPTURE_BYTES:
+                    try:
+                        if not self._spool_quota_available():
+                            raise OSError("process retention quota exhausted")
+                        if info.spool is None:
+                            if self._retention_dir is None:
+                                if self._temporary_output is None:
+                                    self._temporary_output = tempfile.TemporaryDirectory(
+                                        prefix="odin-process-",
+                                    )
+                                directory = Path(self._temporary_output.name)
+                            else:
+                                directory = self._retention_dir
+                            path = directory / (info.generation + ".out")
+                            fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600)
+                            info.spool_path = path
+                            info.spool = os.fdopen(fd, "w+b")
+                        capture_remaining = OUTPUT_CAPTURE_BYTES - info.retained_bytes
+                        quota_remaining = self._spool_quota_remaining()
+                        retained = chunk[:min(capture_remaining, quota_remaining)]
+                        info.spool.seek(info.retained_bytes)
+                        info.spool.write(retained)
+                        info.retained_bytes += len(retained)
+                        info.spool.flush()
+                        if len(retained) < min(len(chunk), capture_remaining):
+                            info.capture_error = "process retention quota exhausted"
+                        self._persist_output(info)
+                    except OSError:
+                        info.capture_error = "process spool write failed"
+                pending += chunk
+                # Display buffering: split on both \n and \r so progress
+                # bars render as lines; keep the unterminated tail bounded.
+                segments = _SEGMENT_SPLIT.split(pending)
+                pending = segments.pop()
+                for seg in segments:
+                    if seg:
+                        info.output_buffer.append(
+                            seg.decode("utf-8", errors="replace") + "\n"
+                        )
+                if len(pending) > 4096:
+                    # Forced flush of an unterminated tail must not split a
+                    # multibyte sequence (PR #244 round-2 blocker #4): cut
+                    # at a UTF-8 boundary and carry the partial sequence.
+                    flush, pending = _utf8_boundary_split(pending)
+                    if flush:
+                        info.output_buffer.append(
+                            flush.decode("utf-8", errors="replace") + "\n"
+                        )
+        except asyncio.CancelledError:
+            if info.spool is not None:
+                info.spool.close()
+                info.spool = None
+            raise
+        except Exception:
+            pass
+        if pending:
+            info.output_buffer.append(pending.decode("utf-8", errors="replace") + "\n")
+        if info.spool is not None:
+            try:
+                info.spool.seek(0)
+                snapshot = _scrub_process_bytes(info.spool.read(OUTPUT_CAPTURE_BYTES))
+                snapshot, _ = _utf8_boundary_split(snapshot)
+                info.spool.seek(0)
+                info.spool.write(snapshot)
+                info.spool.truncate()
+                info.spool.flush()
+                info.retained_bytes = len(snapshot)
+                info.output_masked = True
+            finally:
+                info.spool.close()
+                info.spool = None
+        info.output_tail = _scrub_process_tail(info.output_tail, info.total_output_bytes)
+        info.output_tail_masked = True
+        self._persist_output(info)
+
+    async def _watch_exit(self, info: ProcessInfo) -> None:
+        """Record leader exit, then publish terminal state after owned cleanup.
+
+        Separated from stdout drainage (PR #244 round-1): ``process.wait()``
+        returns when the leader exits regardless of who still holds the
+        pipe, so status/exit_code publication never waits on EOF, and the
+        reap (which kills lingering descendants — the v3.59.1 contract:
+        managed descendants are reaped when their leader exits) is what
+        CLOSES the pipe and lets the drainer finish naturally.
+        """
+        if info.process is None:
+            return
+        try:
+            await _wait_leader_exit(info.process)
+            info.exit_code = info.process.returncode
+            self._persist_output(info)
+        except Exception:
+            if info.status == "running":
+                info.status = "unknown"
+            info.finished_at = info.finished_at or time.time()
+            info.capture_error = "process exit could not be confirmed"
+            log.exception("Could not confirm leader exit for PID %d", info.pid)
+            try:
+                self._persist_output(info)
+            except Exception:
+                log.exception("Could not persist uncertain exit for PID %d", info.pid)
+
+        # Reap while ownership is fresh: a non-empty group keeps the leader
+        # pid from being recycled — but ONLY while a member survives, so a
+        # numeric pgid is stale-capable here (round-5 blocker #2). Every
+        # signal now goes through pidfds pinned BEFORE membership
+        # verification: TERM, bounded grace, then KILL for survivors.
+        try:
+            from .local_supervisor import SupervisedShell
+
+            if isinstance(info.process, SupervisedShell):
+                info.session_confirmed_empty = await info.process.terminate_tree(grace=2.0)
+                self._publish_local_settlement(info)
+                return
+            info.session_confirmed_empty = await _terminate_session_until_empty(
+                info.process.pid,
+                grace=2.0,
+                timeout=10.0,
+                adopted_by=os.getpid(),
+                known_own_children=frozenset(self._own_children),
+                containment=self._containment,
+                job_token=info.job_token or None,
+                proc_token=os.environ.get(PROC_TOKEN_ENV),
+                adopted_sink=self._adopted_pids,
+            )
+        except Exception:
+            info.session_confirmed_empty = False
+            log.debug("session reap after PID %d exit failed", info.pid, exc_info=True)
+        self._publish_local_settlement(info)
+
+    def _publish_local_settlement(self, info: ProcessInfo) -> None:
+        if not info.session_confirmed_empty:
+            info.status = "unknown"
+            log.error(
+                "Could not confirm PID %d's owned session is empty after "
+                "leader exit — shutdown will re-verify", info.pid,
+            )
+        else:
+            if info.status in {"running", "unknown"} and info.exit_code is not None:
+                info.status = "completed" if info.exit_code == 0 else "failed"
+            info.finished_at = info.finished_at or time.time()
+            self._retire_execution_lease(info)
+        try:
+            self._persist_output(info)
+        except Exception:
+            log.exception("Could not persist cleanup outcome for PID %d", info.pid)
+
+    async def _enforce_lifetime(self, info: ProcessInfo, max_seconds: int) -> None:
+        """Auto-kill process after max lifetime."""
+        await asyncio.sleep(max_seconds)
+        if self._processes.get(info.pid) is not info:
+            return
+        pid = info.pid
+        if info.status == "running":
+            log.warning("Auto-killing PID %d after %ds lifetime limit", pid, max_seconds)
+            info.termination_reason = "timeout"
+            await self.kill(pid)
+        elif not info.session_confirmed_empty:
+            log.warning("Retrying unverified cleanup for PID %d after %ds lifetime limit", pid, max_seconds)
+            await self.terminate_generation(info.generation)

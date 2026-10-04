@@ -1,0 +1,435 @@
+"""Tests for graceful shutdown behaviour.
+
+Validates that OdinBot.close() shuts down all attached components in order,
+that KnowledgeStore.close() cleans up SQLite, and that
+ProcessRegistry.shutdown() terminates running processes.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import time
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+import src.tools.process_manager as pm
+from src.config.schema import Config
+from src.discord.client import OdinBot
+from src.knowledge.store import KnowledgeStore
+from src.tools.process_manager import ProcessInfo, ProcessRegistry
+
+# ── OdinBot.close() ──────────────────────────────────────────────────
+
+
+def _make_bot() -> OdinBot:
+    """Create an OdinBot with the executor-shape pydantic Config."""
+    config = Config(discord={"token": "test-token"})
+    bot = OdinBot(config)
+    return bot
+
+
+class TestOdinBotClose:
+    """Terminal application shutdown shuts down all attached components."""
+
+    @pytest.mark.asyncio
+    async def test_close_no_components(self):
+        """shutdown_application() works fine when no components are attached."""
+        bot = _make_bot()
+        with patch.object(type(bot).__bases__[0], "close", new_callable=AsyncMock) as super_close:
+            await bot.shutdown_application()
+            super_close.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_close_stops_loop_manager(self):
+        bot = _make_bot()
+        bot.loop_manager = MagicMock()
+        # close() now uses shutdown() (cancels AND awaits loop tasks) rather
+        # than stop_loop("all"), which only set cancel events and left tasks
+        # pending at process exit.
+        bot.loop_manager.shutdown = AsyncMock()
+        await bot.shutdown_application()
+        bot.loop_manager.shutdown.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_close_stops_scheduler(self):
+        bot = _make_bot()
+        bot.scheduler = AsyncMock()
+        await bot.shutdown_application()
+        bot.scheduler.stop.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_close_stops_health_server(self):
+        bot = _make_bot()
+        bot.health_server = AsyncMock()
+        await bot.shutdown_application()
+        bot.health_server.stop.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_close_shuts_down_process_registry(self):
+        # The registry is created lazily ON the executor
+        # (ToolExecutor._ensure_process_registry) — teardown must read that
+        # seam. The old `bot.process_registry` attribute never existed
+        # anywhere, so manage_process children leaked past shutdown (and an
+        # in-place restart would carry them into the new image).
+        bot = _make_bot()
+        bot.tool_executor._process_registry = AsyncMock()
+        await bot.shutdown_application()
+        bot.tool_executor._process_registry.shutdown.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_close_does_not_create_unused_process_registry(self):
+        # Reading the lazy seam must never instantiate a registry that no
+        # tool ever used.
+        bot = _make_bot()
+        assert not hasattr(bot.tool_executor, "_process_registry")
+        await bot.shutdown_application()
+        assert not hasattr(bot.tool_executor, "_process_registry")
+
+    @pytest.mark.asyncio
+    async def test_close_tolerates_missing_tool_executor(self):
+        bot = _make_bot()
+        bot.tool_executor = None
+        await bot.shutdown_application()
+
+    @pytest.mark.asyncio
+    async def test_close_closes_knowledge_store(self):
+        bot = _make_bot()
+        bot.knowledge = MagicMock()
+        await bot.shutdown_application()
+        bot.knowledge.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_close_saves_sessions(self):
+        bot = _make_bot()
+        bot.sessions = MagicMock()
+        await bot.shutdown_application()
+        bot.sessions.save_all.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_close_continues_on_component_error(self):
+        """If one component raises during shutdown, others still get cleaned up."""
+        bot = _make_bot()
+        bot.loop_manager = MagicMock()
+        bot.loop_manager.shutdown = AsyncMock(side_effect=RuntimeError("boom"))
+        bot.scheduler = AsyncMock()
+        bot.scheduler.stop = AsyncMock(side_effect=RuntimeError("bang"))
+        bot.sessions = MagicMock()
+        await bot.shutdown_application()
+        # Despite errors in earlier components, sessions still saved
+        bot.sessions.save_all.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_close_all_components(self):
+        """Full integration: all components present and shut down in order."""
+        bot = _make_bot()
+        call_order = []
+
+        bot.loop_manager = MagicMock()
+        bot.loop_manager.shutdown = AsyncMock(
+            side_effect=lambda: call_order.append("loop_manager")
+        )
+        bot.scheduler = AsyncMock()
+        bot.scheduler.stop = AsyncMock(
+            side_effect=lambda: call_order.append("scheduler")
+        )
+        bot.health_server = AsyncMock()
+        bot.health_server.stop = AsyncMock(
+            side_effect=lambda: call_order.append("health_server")
+        )
+        bot.tool_executor._process_registry = AsyncMock()
+        bot.tool_executor._process_registry.shutdown = AsyncMock(
+            side_effect=lambda: call_order.append("process_registry")
+        )
+        bot.knowledge = MagicMock()
+        bot.knowledge.close = MagicMock(
+            side_effect=lambda: call_order.append("knowledge")
+        )
+        bot.sessions = MagicMock()
+        bot.sessions.save_all = MagicMock(
+            side_effect=lambda: call_order.append("sessions")
+        )
+
+        await bot.shutdown_application()
+
+        assert call_order == [
+            "loop_manager",
+            "scheduler",
+            "health_server",
+            "process_registry",
+            "knowledge",
+            "sessions",
+        ]
+
+
+# ── KnowledgeStore.close() ───────────────────────────────────────────
+
+
+class TestKnowledgeStoreClose:
+    def test_close_closes_connection(self, tmp_path):
+        store = KnowledgeStore(str(tmp_path / "test.db"))
+        assert store.available
+        store.close()
+        assert not store.available
+
+    def test_close_idempotent(self, tmp_path):
+        store = KnowledgeStore(str(tmp_path / "test.db"))
+        store.close()
+        store.close()  # second call should not raise
+        assert not store.available
+
+    def test_close_with_no_connection(self):
+        """Store that failed to init (no connection) still handles close()."""
+        store = KnowledgeStore.__new__(KnowledgeStore)
+        store._conn = None
+        store._has_vec = False
+        store._fts = None
+        store.close()  # should not raise
+
+
+# ── ProcessRegistry.shutdown() ────────────────────────────────────────
+
+
+class TestProcessRegistryShutdown:
+    @pytest.mark.asyncio
+    async def test_shutdown_empty(self):
+        registry = ProcessRegistry()
+        killed = await registry.shutdown()
+        assert killed == 0
+
+    @pytest.mark.asyncio
+    async def test_shutdown_kills_running_process(self):
+        registry = ProcessRegistry()
+        # Start a long-running process
+        result = await registry.start("localhost", "sleep 60")
+        assert "PID" in result
+
+        # Verify it's tracked
+        assert len(registry._processes) == 1
+        pid = next(iter(registry._processes))
+        assert registry._processes[pid].status == "running"
+
+        killed = await registry.shutdown()
+        assert killed == 1
+        assert registry._processes[pid].status == "killed"
+
+    @pytest.mark.asyncio
+    async def test_shutdown_cancels_reader_tasks(self, monkeypatch):
+        registry = ProcessRegistry()
+        reader_started = asyncio.Event()
+        read_output = registry._read_output
+
+        async def reader(info):
+            reader_started.set()
+            await read_output(info)
+
+        monkeypatch.setattr(registry, "_read_output", reader)
+        previous = set(registry._processes)
+        await registry.start("localhost", "echo hello && sleep 60")
+        [pid] = set(registry._processes) - previous
+        info = registry._processes[pid]
+        try:
+            await asyncio.wait_for(reader_started.wait(), 5)
+            assert not info._reader_task.done()
+        finally:
+            await registry.shutdown()
+
+        # Reader task should be done or cancelled
+        if info._reader_task:
+            assert info._reader_task.done() or info._reader_task.cancelled()
+
+    @pytest.mark.asyncio
+    async def test_shutdown_services_closes_image_backend(self):
+        # shutdown_services must close the native image backend's own HTTP
+        # session (separate transport from the codex chat client) and tolerate
+        # its errors. Only `components` is set, so every other getattr-guarded
+        # block short-circuits to None.
+        from types import SimpleNamespace
+
+        from src.discord.wiring import shutdown_services
+
+        backend = SimpleNamespace(close=AsyncMock(side_effect=RuntimeError("boom")))
+        bot = SimpleNamespace(
+            components=SimpleNamespace(
+                media_tools=SimpleNamespace(image_selector=SimpleNamespace(openai=backend))
+            )
+        )
+        await shutdown_services(bot)  # must not raise despite close() erroring
+        backend.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_shutdown_skips_already_finished(self):
+        registry = ProcessRegistry()
+        # This record represents a session that was settled earlier. A leader
+        # exit by itself is not evidence that owned descendants are gone.
+        info = ProcessInfo(
+            pid=5, command="echo done", host="localhost", start_time=time.time(),
+            status="completed", session_confirmed_empty=True,
+        )
+        registry._processes[info.pid] = info
+
+        assert await registry.shutdown() == 0
+        assert info.session_confirmed_empty is True
+
+    @pytest.mark.asyncio
+    async def test_shutdown_skips_done_or_absent_reader_task(self):
+        # A record whose reaper already finished (or was never started) is
+        # simply skipped in the await-reapers pass — no error.
+        registry = ProcessRegistry()
+
+        done = asyncio.create_task(asyncio.sleep(0))
+        await done
+        info_done = ProcessInfo(
+            pid=1, command="x", host="localhost", start_time=time.time(),
+            status="completed", session_confirmed_empty=True,
+        )
+        info_done._reader_task = done
+        info_none = ProcessInfo(
+            pid=2, command="x", host="localhost", start_time=time.time(),
+            status="completed", session_confirmed_empty=True,
+        )
+        info_none._reader_task = None
+        registry._processes[1] = info_done
+        registry._processes[2] = info_none
+
+        assert await registry.shutdown() == 0  # nothing to do, no raise
+
+    @pytest.mark.asyncio
+    async def test_completed_status_alone_does_not_prove_descendant_cleanup(self, monkeypatch):
+        """A reaped leader's terminal status is not owned-session proof."""
+        registry = ProcessRegistry()
+        process = MagicMock(returncode=0, pid=5)
+        info = ProcessInfo(
+            pid=5, command="x", host="localhost", start_time=time.time(),
+            process=process, status="completed", session_confirmed_empty=False,
+        )
+        registry._processes[5] = info
+        cleanup = AsyncMock(return_value=False)
+        monkeypatch.setattr(registry, "_kill_group_until_gone", cleanup)
+        from src.tools import ssh
+
+        terminate = AsyncMock()
+        monkeypatch.setattr(ssh, "terminate_process_tree", terminate)
+
+        with pytest.raises(pm.ProcessCleanupError, match="PID\\(s\\) \\[5\\]"):
+            await registry.shutdown()
+
+        cleanup.assert_awaited_with(info)
+        assert cleanup.await_count >= 2  # initial termination plus final proof
+        terminate.assert_awaited_once_with(process, grace=5.0)
+        assert info.status == "completed"
+        assert info.session_confirmed_empty is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("settled", [True, False])
+    async def test_shutdown_cancels_wedged_reaper_after_timeout(self, monkeypatch, settled):
+        # A reaper that never finishes must not hang the in-place exec: after
+        # SHUTDOWN_REAP_TIMEOUT it is cancelled so shutdown can return.
+        monkeypatch.setattr(pm, "SHUTDOWN_REAP_TIMEOUT", 0.05)
+        registry = ProcessRegistry()
+
+        async def wedged():
+            await asyncio.sleep(30)
+
+        info = ProcessInfo(
+            pid=3, command="x", host="localhost", start_time=time.time(),
+            status="completed", session_confirmed_empty=settled,
+        )
+        info._reader_task = asyncio.create_task(wedged())
+        registry._processes[3] = info
+
+        if settled:
+            await registry.shutdown()
+        else:
+            with pytest.raises(pm.ProcessCleanupError, match="could not confirm"):
+                await registry.shutdown()
+
+        with pytest.raises(asyncio.CancelledError):
+            await info._reader_task
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("settled", [True, False])
+    async def test_shutdown_tolerates_reaper_that_raises(self, settled):
+        # A reader error is nonfatal only if execution settlement was proven.
+        # Error swallowing must not erase uncertain descendant authority.
+        registry = ProcessRegistry()
+
+        async def boom():
+            raise RuntimeError("reaper blew up")
+
+        info = ProcessInfo(
+            pid=4, command="x", host="localhost", start_time=time.time(),
+            status="completed", session_confirmed_empty=settled,
+        )
+        info._reader_task = asyncio.create_task(boom())
+        registry._processes[4] = info
+
+        if settled:
+            await registry.shutdown()
+        else:
+            with pytest.raises(pm.ProcessCleanupError, match="could not confirm"):
+                await registry.shutdown()
+
+
+class TestUnprovenCleanupEscalation:
+    """PR #244 round-7 #3: unprovable cleanup must reach the caller — the
+    re-exec decision belongs there, not to a swallowed log line."""
+
+    @pytest.mark.asyncio
+    async def test_wiring_reports_cleanup_error_without_raising(self, caplog):
+        from types import SimpleNamespace
+
+        from src.discord.wiring import shutdown_services
+        from src.tools.process_manager import ProcessCleanupError
+
+        registry = SimpleNamespace(
+            shutdown=AsyncMock(side_effect=ProcessCleanupError("PID [4242] unproven"))
+        )
+        bot = SimpleNamespace(
+            tool_executor=SimpleNamespace(_process_registry=registry)
+        )
+        with caplog.at_level("ERROR"):
+            await shutdown_services(bot)  # teardown continues
+        registry.shutdown.assert_awaited_once()
+        assert any(
+            "cleanup could not be verified" in r.message.lower()
+            or "cleanup could not be verified" in r.getMessage().lower()
+            for r in caplog.records
+        )
+
+
+@pytest.mark.asyncio
+async def test_shutdown_stops_usage_rollup():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from src.discord.wiring import shutdown_services
+
+    usage = SimpleNamespace(stop=AsyncMock())
+    await shutdown_services(SimpleNamespace(usage_rollup=usage))
+    usage.stop.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_shutdown_usage_failure_is_nonfatal(caplog):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from src.discord.wiring import shutdown_services
+
+    usage = SimpleNamespace(stop=AsyncMock(side_effect=RuntimeError("down")))
+    with caplog.at_level("ERROR"):
+        await shutdown_services(SimpleNamespace(usage_rollup=usage))
+    assert "Error stopping usage_rollup" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_shutdown_stops_codex_quota_check():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from src.discord.wiring import shutdown_services
+
+    quota_check = SimpleNamespace(close=AsyncMock())
+    await shutdown_services(SimpleNamespace(codex_quota_check=quota_check))
+    quota_check.close.assert_awaited_once()

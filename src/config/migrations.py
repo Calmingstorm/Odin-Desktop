@@ -1,0 +1,896 @@
+"""One-time configuration migrations.
+
+The context-budget campaign changes the historical soft-compaction default
+from a materialized ``max_context_chars: 750000`` to ``null`` (automatic,
+model-derived).  This module performs that rewrite exactly once without
+mistaking a later operator-authored 750000 for the shipped default.
+
+Only the exact scalar shipped in config.yml qualifies.  YAML construction is
+not evidence: it normalizes spellings such as ``750000.0``, ``0xB71B0``, and
+``750_000`` to values equal to 750000.  The gate therefore checks the original
+scalar's token, tag, and style.
+
+Completion is a versioned, validated record under the unresolved config path's
+sibling ``data`` directory.  Marker path existence alone proves nothing.  The
+record is committed by temp-file write, file fsync, and atomic replacement.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import hashlib
+import json
+import logging
+import os
+import tempfile
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from enum import Enum
+from pathlib import Path
+from typing import Any
+
+import yaml
+from yaml.nodes import MappingNode, Node, ScalarNode
+
+from .schema import LEGACY_MAX_CONTEXT_CHARS
+
+log = logging.getLogger("odin.config")
+
+LEGACY_CEILING_MARKER_NAME = "context_ceiling_migration.json"
+
+_CEILING_PATH = ("openai_codex", "context_compression", "max_context_chars")
+_MIGRATION_ID = "legacy_max_context_chars_to_auto"
+_MARKER_VERSION = 3
+_LEGACY_CLAIM_SUFFIX = ".claim"
+_COMPLETION_REASONS = frozenset(
+    {
+        "migrated",
+        "not_applicable",
+        "prior_operator_saved",
+        "upgraded_preversioned_completion",
+    }
+)
+
+
+class MigrationCompletionError(RuntimeError):
+    """The migration could not establish durable, unambiguous provenance."""
+
+
+class _MarkerKind(Enum):
+    MISSING = "missing"
+    COMPLETE = "complete"
+    ROUND1_LEGACY = "round1_legacy"
+    ROUND1_OPERATOR = "round1_operator"
+    PREVERSIONED_COMPLETE = "preversioned_complete"
+    EMPTY = "empty"
+    CORRUPT = "corrupt"
+    DIRECTORY = "directory"
+    UNKNOWN = "unknown"
+    UNREADABLE = "unreadable"
+
+
+@dataclass(frozen=True)
+class _ScalarLexeme:
+    value: str
+    tag: str
+    style: str | None
+    token: str
+
+
+def _config_identity(config_path: str | Path) -> str:
+    """Stable identity for the config rewrite target.
+
+    The canonical path survives atomic config replacement (unlike inode
+    identity), makes symlink aliases rendezvous on one identity, and keeps two
+    config files in one directory distinct.
+    """
+    target = Path(config_path).resolve()
+    material = b"odin-config-identity-v1\0" + os.fsencode(str(target))
+    return hashlib.sha256(material).hexdigest()
+
+
+def ceiling_marker_path(config_path: str | Path) -> Path:
+    """Return this config identity's marker in the unresolved data anchor."""
+    launch = Path(config_path).absolute()
+    return launch.parent / "data" / "config_migrations" / (
+        f"{_MIGRATION_ID}.{_config_identity(config_path)}.json"
+    )
+
+
+def _legacy_ceiling_marker_path(config_path: str | Path) -> Path:
+    """The pre-identity directory-wide marker, retained only for upgrade."""
+    return Path(config_path).absolute().parent / "data" / LEGACY_CEILING_MARKER_NAME
+
+
+def _shared_ceiling_marker_path(config_path: str | Path) -> Path:
+    """Alias rendezvous marker beside the canonical rewrite target.
+
+    Launch-local provenance remains in the durable data directory. This second
+    identity-bound record is what lets aliases in different launch directories
+    observe one completed migration.
+    """
+    target = Path(config_path).resolve()
+    return target.parent / ".odin-data" / "config_migrations" / (
+        f"{_MIGRATION_ID}.{_config_identity(config_path)}.json"
+    )
+
+
+def _mapping_value(node: Node, key: str) -> Node | None:
+    """Return one unambiguous mapping value; duplicate keys prove nothing."""
+    if not isinstance(node, MappingNode):
+        return None
+    matches = [
+        value_node
+        for key_node, value_node in node.value
+        if isinstance(key_node, ScalarNode)
+        and key_node.tag == "tag:yaml.org,2002:str"
+        and key_node.value == key
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _literal_ceiling_lexeme(original_raw: str) -> _ScalarLexeme | None:
+    """Return original token/tag/style evidence for the configured scalar."""
+    try:
+        node = yaml.compose(original_raw, Loader=yaml.SafeLoader)
+    except yaml.YAMLError:
+        return None
+    if node is None:
+        return None
+    current: Node | None = node
+    for segment in _CEILING_PATH:
+        if current is None:
+            return None
+        current = _mapping_value(current, segment)
+    if not isinstance(current, ScalarNode):
+        return None
+    return _ScalarLexeme(
+        value=current.value,
+        tag=current.tag,
+        style=current.style,
+        token=original_raw[current.start_mark.index : current.end_mark.index],
+    )
+
+
+def _is_shipped_legacy_literal(original_raw: str) -> bool:
+    """Only the shipped implicit, unstyled, plain-decimal token qualifies."""
+    scalar = _literal_ceiling_lexeme(original_raw)
+    return bool(
+        scalar is not None
+        and scalar.value == str(LEGACY_MAX_CONTEXT_CHARS)
+        and scalar.tag == "tag:yaml.org,2002:int"
+        and scalar.style is None
+        and scalar.token == str(LEGACY_MAX_CONTEXT_CHARS)
+    )
+
+
+def _is_utc_timestamp(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None and parsed.utcoffset() == timedelta(0)
+
+
+def _classify_record(record: object) -> _MarkerKind:
+    if not isinstance(record, dict):
+        return _MarkerKind.UNKNOWN
+
+    if set(record) == {
+        "version",
+        "migration",
+        "config_id",
+        "state",
+        "reason",
+        "completed_at",
+    }:
+        valid = (
+            type(record["version"]) is int
+            and record["version"] == _MARKER_VERSION
+            and record["migration"] == _MIGRATION_ID
+            and isinstance(record["config_id"], str)
+            and len(record["config_id"]) == 64
+            and record["state"] == "completed"
+            and isinstance(record["reason"], str)
+            and record["reason"] in _COMPLETION_REASONS
+            and _is_utc_timestamp(record["completed_at"])
+        )
+        return _MarkerKind.COMPLETE if valid else _MarkerKind.UNKNOWN
+
+    # Version 2 was validated but directory-wide. It can only be adopted when
+    # found at the legacy launch-local path, never mistaken for an identity-
+    # bound record at the new path.
+    if set(record) == {
+        "version",
+        "migration",
+        "state",
+        "reason",
+        "completed_at",
+    }:
+        valid = (
+            type(record["version"]) is int
+            and record["version"] == 2
+            and record["migration"] == _MIGRATION_ID
+            and record["state"] == "completed"
+            and isinstance(record["reason"], str)
+            and record["reason"] in _COMPLETION_REASONS
+            and _is_utc_timestamp(record["completed_at"])
+        )
+        return _MarkerKind.PREVERSIONED_COMPLETE if valid else _MarkerKind.UNKNOWN
+
+    # Round 1 recorded in-memory reinterpretation without rewriting config.yml.
+    if set(record) == {"migration", "legacy_value", "migrated_at"}:
+        valid = (
+            record["migration"] == _MIGRATION_ID
+            and type(record["legacy_value"]) is int
+            and record["legacy_value"] == LEGACY_MAX_CONTEXT_CHARS
+            and _is_utc_timestamp(record["migrated_at"])
+        )
+        return _MarkerKind.ROUND1_LEGACY if valid else _MarkerKind.UNKNOWN
+
+    # Round 1 could also affirm that a compression save was operator-authored.
+    if set(record) == {"migration", "operator_saved", "saved_at"}:
+        valid = (
+            record["migration"] == _MIGRATION_ID
+            and record["operator_saved"] is True
+            and _is_utc_timestamp(record["saved_at"])
+        )
+        return _MarkerKind.ROUND1_OPERATOR if valid else _MarkerKind.UNKNOWN
+
+    # The first R2 implementation emitted this unversioned completion shape.
+    if set(record) == {"migration", "reason", "completed_at"}:
+        valid = (
+            record["migration"] == _MIGRATION_ID
+            and isinstance(record["reason"], str)
+            and record["reason"] in {"migrated", "not_applicable"}
+            and _is_utc_timestamp(record["completed_at"])
+        )
+        return _MarkerKind.PREVERSIONED_COMPLETE if valid else _MarkerKind.UNKNOWN
+
+    return _MarkerKind.UNKNOWN
+
+
+def _read_marker(marker: Path) -> _MarkerKind:
+    try:
+        raw = marker.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return _MarkerKind.MISSING
+    except IsADirectoryError:
+        return _MarkerKind.DIRECTORY
+    except (OSError, UnicodeError):
+        return _MarkerKind.UNREADABLE
+    if not raw.strip():
+        return _MarkerKind.EMPTY
+    try:
+        record: Any = json.loads(raw)
+    except json.JSONDecodeError:
+        return _MarkerKind.CORRUPT
+    return _classify_record(record)
+
+
+def _atomic_write_marker(marker: Path, record: dict[str, object]) -> None:
+    """Commit one marker revision via temp-file, file fsync, and replace."""
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    encoded = json.dumps(record, indent=2, sort_keys=True) + "\n"
+    fd, temporary_name = tempfile.mkstemp(
+        dir=marker.parent,
+        prefix=f".{marker.name}.",
+        suffix=".tmp",
+    )
+    temporary = Path(temporary_name)
+    stream = None
+    try:
+        os.fchmod(fd, 0o600)
+        stream = os.fdopen(fd, "w", encoding="utf-8")
+        fd = -1
+        with stream:
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        stream = None
+        os.replace(temporary, marker)
+    except BaseException:
+        if stream is not None:
+            with contextlib.suppress(OSError):
+                stream.close()
+        if fd >= 0:
+            with contextlib.suppress(OSError):
+                os.close(fd)
+        with contextlib.suppress(OSError):
+            temporary.unlink()
+        raise
+
+    # The replace is already committed.  Directory fsync is best effort on
+    # filesystems that support it and cannot truthfully roll that commit back.
+    with contextlib.suppress(OSError):
+        directory_fd = os.open(marker.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+
+
+def _legacy_claim_path(legacy_marker: Path) -> Path:
+    """Exclusive ownership record for one directory-wide legacy marker."""
+    return legacy_marker.with_name(legacy_marker.name + _LEGACY_CLAIM_SUFFIX)
+
+
+def _read_claim_owner(claim: Path) -> str | None:
+    """Read one strict claim owner; malformed claims fail closed."""
+    try:
+        raw = claim.read_text(encoding="ascii")
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeError) as exc:
+        raise MigrationCompletionError(
+            "legacy ceiling-migration claim is invalid or unreadable; inspect it before retrying"
+        ) from exc
+    owner = raw.rstrip("\n")
+    if len(owner) != 64 or any(ch not in "0123456789abcdef" for ch in owner):
+        raise MigrationCompletionError(
+            "legacy ceiling-migration claim is invalid or unreadable; inspect it before retrying"
+        )
+    return owner
+
+
+def _claim_legacy_marker(legacy_marker: Path, config_id: str) -> bool:
+    """Atomically claim ambiguous legacy provenance for one config identity.
+
+    A fully written, fsynced temporary file is hard-linked into place. The
+    link is fail-if-exists, so losers can only observe the winner's complete
+    owner value — never a partially written O_EXCL destination. A crash may
+    conservatively strand the claim with its owner, but can never grant one
+    legacy completion to a second config identity.
+    """
+    claim = _legacy_claim_path(legacy_marker)
+    temporary: Path | None = None
+    fd = -1
+    stream = None
+    try:
+        claim.parent.mkdir(parents=True, exist_ok=True)
+        fd, temporary_name = tempfile.mkstemp(
+            dir=claim.parent,
+            prefix=f".{claim.name}.",
+            suffix=".tmp",
+        )
+        temporary = Path(temporary_name)
+        os.fchmod(fd, 0o600)
+        stream = os.fdopen(fd, "w", encoding="ascii")
+        fd = -1
+        with stream:
+            stream.write(config_id + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        stream = None
+        try:
+            os.link(temporary, claim)
+        except FileExistsError:
+            return _read_claim_owner(claim) == config_id
+        with contextlib.suppress(OSError):
+            directory_fd = os.open(claim.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        return True
+    except OSError as exc:
+        raise MigrationCompletionError(
+            "could not claim legacy ceiling-migration provenance"
+        ) from exc
+    finally:
+        if stream is not None:
+            with contextlib.suppress(OSError):
+                stream.close()
+        if fd >= 0:
+            with contextlib.suppress(OSError):
+                os.close(fd)
+        if temporary is not None:
+            with contextlib.suppress(OSError):
+                temporary.unlink()
+
+
+def _completion_record(reason: str, config_id: str) -> dict[str, object]:
+    return {
+        "version": _MARKER_VERSION,
+        "migration": _MIGRATION_ID,
+        "config_id": config_id,
+        "state": "completed",
+        "reason": reason,
+        "completed_at": datetime.now(UTC).isoformat(),
+    }
+
+
+def _write_required(marker: Path, reason: str, purpose: str, config_id: str) -> None:
+    try:
+        _atomic_write_marker(marker, _completion_record(reason, config_id))
+    except OSError as exc:
+        if exc.errno in {13, 30}:
+            # Completion/repair is bookkeeping, not a new prerequisite for an
+            # existing readable config mounted without adjacent write access.
+            log.warning("Could not %s on read-only storage; retrying next boot", purpose)
+            return
+        log.error("Could not %s at %s: %s", purpose, marker, exc)
+        raise MigrationCompletionError(
+            f"could not {purpose}; configuration was left unchanged"
+        ) from exc
+
+
+def _record_after_rewrite(marker: Path, config_id: str) -> None:
+    try:
+        _atomic_write_marker(marker, _completion_record("migrated", config_id))
+    except OSError as exc:
+        # The ambiguous value is already gone.  A later load takes the
+        # non-legacy branch and safely retries this completion write.
+        log.warning(
+            "Could not record ceiling-migration completion at %s: %s; "
+            "the rewritten config is safe and completion retries next boot.",
+            marker,
+            exc,
+        )
+
+
+def _read_identity_marker(marker: Path, config_id: str) -> _MarkerKind:
+    kind = _read_marker(marker)
+    if kind is not _MarkerKind.COMPLETE:
+        return kind
+    try:
+        record = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return _MarkerKind.UNREADABLE
+    return kind if record.get("config_id") == config_id else _MarkerKind.UNKNOWN
+
+
+def _write_completion_pair(
+    marker: Path,
+    shared_marker: Path,
+    reason: str,
+    purpose: str,
+    config_id: str,
+) -> None:
+    # Publish shared provenance first: once a launch-local marker says complete,
+    # every alias must already have a canonical rendezvous record to consult.
+    _write_required(shared_marker, reason, purpose, config_id)
+    _write_required(marker, reason, purpose, config_id)
+
+
+def _set_runtime_auto(data: dict) -> None:
+    codex = data.get("openai_codex")
+    if not isinstance(codex, dict):
+        return
+    compression = codex.get("context_compression")
+    if isinstance(compression, dict):
+        compression["max_context_chars"] = None
+
+
+def apply_compatible_timeout_migration(
+    data: dict, config_path: str | Path, original_raw: str
+) -> None:
+    """Replace the ambiguous compatible ``timeout`` leaf without disruption.
+
+    Its historical value bounded the whole request. Streaming needs separate
+    whole-request and silence bounds. Existing values become the stall bound,
+    while the total is widened to 3600 seconds. The rewrite is leaf-scoped and
+    atomic, preserving comments, placeholders, permissions and unrelated keys.
+    """
+    compatible = data.get("openai_compatible")
+    if not isinstance(compatible, dict) or "timeout" not in compatible:
+        return
+    legacy = compatible.get("timeout")
+    try:
+        from .persistence import (
+            DELETE_CONFIG_PATH,
+            _config_file_lock,
+            _load_document,
+            _patch_config_paths,
+        )
+
+        target = Path(config_path).resolve()
+        # Re-check under the writer's cross-process lock. A concurrent save or
+        # another starting process must never have its explicit fields replaced
+        # by values computed from our older startup snapshot.
+        with _config_file_lock(target):
+            document, _mode = _load_document(target)
+            current = document.get("openai_compatible", {})
+            original = (yaml.safe_load(original_raw) or {}).get("openai_compatible", {})
+            if not isinstance(current, dict) or current != original:
+                log.warning(
+                    "Compatible timeout migration deferred: section changed since load; "
+                    "runtime interpretation retained and newer file untouched."
+                )
+                return
+            changes: list[tuple[tuple[str, ...], Any]] = []
+            if "request_timeout_seconds" not in current:
+                changes.append((("openai_compatible", "request_timeout_seconds"), 3600))
+            if "stream_stall_timeout_seconds" not in current:
+                stall = current["timeout"]
+                if isinstance(legacy, int) and not 10 <= legacy <= 3600:
+                    stall = min(3600, max(10, legacy))
+                changes.append((
+                    ("openai_compatible", "stream_stall_timeout_seconds"), stall
+                ))
+            changes.append((("openai_compatible", "timeout"), DELETE_CONFIG_PATH))
+            _patch_config_paths(changes, path=target)
+    except Exception as exc:
+        log.warning(
+            "Compatible timeout migration could not persist (%s); runtime uses "
+            "request_timeout_seconds=%s, stream_stall_timeout_seconds=%s; "
+            "retrying migration on next load.",
+            type(exc).__name__,
+            compatible.get("request_timeout_seconds", 3600),
+            compatible.get("stream_stall_timeout_seconds", legacy),
+        )
+        return
+    log.warning(
+        "Migrated openai_compatible.timeout=%s: stream_stall_timeout_seconds=%s; "
+        "request_timeout_seconds=%s (explicit new fields preserved)",
+        legacy,
+        compatible.get("stream_stall_timeout_seconds", legacy),
+        compatible.get("request_timeout_seconds", 3600),
+    )
+
+
+def apply_legacy_ceiling_migration(data: dict, config_path: str | Path, original_raw: str) -> None:
+    """Apply the identity-bound one-time legacy-ceiling migration."""
+    config_id = _config_identity(config_path)
+    marker = ceiling_marker_path(config_path)
+    shared_marker = _shared_ceiling_marker_path(config_path)
+    marker_kind = _read_identity_marker(marker, config_id)
+    shared_kind = _read_identity_marker(shared_marker, config_id)
+
+    invalid = {
+        _MarkerKind.EMPTY,
+        _MarkerKind.CORRUPT,
+        _MarkerKind.DIRECTORY,
+        _MarkerKind.UNKNOWN,
+        _MarkerKind.UNREADABLE,
+    }
+    for path, kind in ((marker, marker_kind), (shared_marker, shared_kind)):
+        if kind in invalid:
+            log.error(
+                "Ceiling-migration record at %s is %s; refusing to guess at migration provenance.",
+                path,
+                kind.value,
+            )
+            raise MigrationCompletionError(
+                "ceiling-migration record is invalid or unreadable; inspect it before retrying"
+            )
+
+    if marker_kind is _MarkerKind.COMPLETE and shared_kind is _MarkerKind.COMPLETE:
+        return
+    if shared_kind is _MarkerKind.COMPLETE:
+        # A different symlink alias already completed this config identity.
+        _write_required(
+            marker,
+            "upgraded_preversioned_completion",
+            "record alias-local ceiling-migration completion",
+            config_id,
+        )
+        return
+    if marker_kind is _MarkerKind.COMPLETE:
+        _write_required(
+            shared_marker,
+            "upgraded_preversioned_completion",
+            "repair shared ceiling-migration completion",
+            config_id,
+        )
+        return
+    if marker_kind in {
+        _MarkerKind.ROUND1_OPERATOR,
+        _MarkerKind.PREVERSIONED_COMPLETE,
+    }:
+        reason = (
+            "prior_operator_saved"
+            if marker_kind is _MarkerKind.ROUND1_OPERATOR
+            else "upgraded_preversioned_completion"
+        )
+        _write_completion_pair(
+            marker,
+            shared_marker,
+            reason,
+            "upgrade the ceiling-migration completion record",
+            config_id,
+        )
+        return
+    if marker_kind is _MarkerKind.ROUND1_LEGACY:
+        log.info("Upgrading round-1 legacy migration provenance at %s.", marker)
+
+    # Upgrade the old launch-directory marker through an exclusive claim.
+    # Directory scans are not arbitration: debris is irrelevant, and two sibling
+    # processes must not both inherit one ambiguous v1/v2 completion record.
+    legacy_marker = _legacy_ceiling_marker_path(config_path)
+    claim_owner = _read_claim_owner(_legacy_claim_path(legacy_marker))
+    legacy_kind = _read_marker(legacy_marker)
+    if legacy_kind is _MarkerKind.COMPLETE:
+        # A v3 legacy-path record is already bound. A different config in the
+        # same launch directory must ignore it rather than inherit completion.
+        try:
+            legacy_record = json.loads(legacy_marker.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            legacy_kind = _MarkerKind.UNREADABLE
+        else:
+            if legacy_record.get("config_id") != config_id:
+                legacy_kind = _MarkerKind.MISSING
+    elif (
+        claim_owner is not None
+        and claim_owner != config_id
+        and legacy_kind
+        in {
+            _MarkerKind.ROUND1_LEGACY,
+            _MarkerKind.ROUND1_OPERATOR,
+            _MarkerKind.PREVERSIONED_COMPLETE,
+        }
+    ):
+        # Another config won valid pre-versioned provenance. This identity must
+        # evaluate and migrate its own literal rather than inherit completion.
+        # Invalid legacy material remains fail-closed; a foreign claim cannot
+        # launder a corrupt or unknown marker into "missing".
+        legacy_kind = _MarkerKind.MISSING
+    if legacy_kind in invalid:
+        raise MigrationCompletionError(
+            "legacy ceiling-migration record is invalid or unreadable; inspect it before retrying"
+        )
+    if legacy_kind in {
+        _MarkerKind.COMPLETE,
+        _MarkerKind.ROUND1_OPERATOR,
+        _MarkerKind.PREVERSIONED_COMPLETE,
+    }:
+        if legacy_kind is not _MarkerKind.COMPLETE and not _claim_legacy_marker(
+            legacy_marker, config_id
+        ):
+            # A sibling won between our read and claim. Its value is irrelevant
+            # to this config; proceed through the ordinary lexical migration.
+            legacy_kind = _MarkerKind.MISSING
+        else:
+            reason = (
+                "prior_operator_saved"
+                if legacy_kind is _MarkerKind.ROUND1_OPERATOR
+                else "upgraded_preversioned_completion"
+            )
+            _write_completion_pair(
+                marker,
+                shared_marker,
+                reason,
+                "upgrade the ceiling-migration completion record",
+                config_id,
+            )
+            # Bind the old marker after the exclusive claim. The claim remains
+            # durable as the arbitration record; replacing the marker cannot
+            # grant another sibling the already-consumed provenance.
+            _write_required(
+                legacy_marker,
+                reason,
+                "bind legacy ceiling-migration completion to its config",
+                config_id,
+            )
+            return
+    if legacy_kind is _MarkerKind.ROUND1_LEGACY:
+        log.info("Upgrading round-1 legacy migration provenance at %s.", legacy_marker)
+
+    if not _is_shipped_legacy_literal(original_raw):
+        try:
+            _write_completion_pair(marker, shared_marker, "not_applicable",
+                                   "record vacuous ceiling-migration completion", config_id)
+        except MigrationCompletionError:
+            log.warning("No ceiling migration needed; completion storage is unavailable")
+        return
+
+    try:
+        from .persistence import _config_file_lock, _patch_config_paths
+        from .schema import _substitute_env_vars
+
+        target = Path(config_path).resolve()
+        with _config_file_lock(target):
+            current_raw = target.read_text(encoding="utf-8")
+            if current_raw != original_raw:
+                current = yaml.safe_load(_substitute_env_vars(current_raw))
+                data.clear()
+                data.update(current)
+                log.warning("Ceiling migration deferred: config changed since load")
+                return
+            _patch_config_paths([(_CEILING_PATH, None)], path=target)
+    except Exception as exc:  # noqa: BLE001 — boot retains safe runtime behavior
+        _set_runtime_auto(data)
+        log.warning(
+            "Could not rewrite legacy max_context_chars to auto (%s); "
+            "interpreting as auto for this boot only — the migration retries next boot.",
+            exc,
+        )
+        return
+
+    _set_runtime_auto(data)
+    log.warning(
+        "Migrated legacy max_context_chars %d to auto (model-derived): the "
+        "config file now records null. Any later explicit value — including "
+        "%d — is honored verbatim.",
+        LEGACY_MAX_CONTEXT_CHARS,
+        LEGACY_MAX_CONTEXT_CHARS,
+    )
+    # Shared first, then launch-local. Failure after rewrite is self-healing:
+    # the unambiguous null takes the vacuous branch on the next boot.
+    _record_after_rewrite(shared_marker, config_id)
+    _record_after_rewrite(marker, config_id)
+
+
+def image_defaults_marker_path(config_path: str | Path) -> Path:
+    """Canonical identity rendezvous, shared by every symlink launch alias."""
+    target = Path(config_path).resolve()
+    return target.parent / ".odin-data" / "config_migrations" / (
+        f"image_model_defaults_v1.{_config_identity(target)}.json"
+    )
+
+
+def apply_image_defaults_migration(data: dict, config_path: str | Path, original_raw: str) -> None:
+    """Upgrade exact raw defaults once, preserving every other source byte.
+
+    A deliberate pin equal to an old shipped default is indistinguishable from
+    inheritance and is intentionally upgraded. Other literals are retained.
+    Prepared records fence interrupted commits; an ambiguous preimage requires
+    inspection, never a blind second rewrite of a possible later operator pin.
+    """
+    from .image_defaults import IMAGE_MODEL_DEFAULTS, LEGACY_IMAGE_MODEL_DEFAULTS
+    from .persistence import _assert_not_shared, _config_file_lock, _dump_atomic, _load_document
+    from .schema import _substitute_env_vars
+
+    def reconcile(raw):
+        # Expand the exact committed source, never a YAML reserialization: quoting
+        # around placeholders is part of the startup parsing contract.
+        committed = yaml.safe_load(_substitute_env_vars(raw))
+        if not isinstance(committed, dict):
+            raise MigrationCompletionError("committed config must be a mapping")
+        data.clear()
+        data.update(committed)
+
+    target = Path(config_path).resolve()
+    marker = image_defaults_marker_path(target)
+    config_id = _config_identity(target)
+    updates: dict[str, str] = {}
+    try:
+        with _config_file_lock(target):
+            with open(target, encoding="utf-8", newline="") as stream:
+                raw = stream.read()
+
+            def digest(text):
+                return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+            missing = object()
+            try:
+                record = json.loads(marker.read_text(encoding="utf-8"))
+            except FileNotFoundError:
+                record = missing
+            except (OSError, ValueError) as exc:
+                raise MigrationCompletionError("invalid image-default migration record") from exc
+            if record is not missing:
+                valid = (
+                    isinstance(record, dict)
+                    and set(record) == {
+                        "version", "migration", "config_id", "state", "after_sha256",
+                    }
+                    and type(record.get("version")) is int and record["version"] == 1
+                    and record.get("migration") == "image_model_defaults_v1"
+                    and record.get("config_id") == config_id
+                    and record.get("state") in {"prepared", "completed"}
+                    and isinstance(record.get("after_sha256"), str)
+                    and len(record["after_sha256"]) == 64
+                    and all(c in "0123456789abcdef" for c in record["after_sha256"])
+                )
+                if not valid:
+                    raise MigrationCompletionError("invalid image-default migration record")
+                if record["state"] == "prepared":
+                    if digest(raw) != record["after_sha256"]:
+                        raise MigrationCompletionError(
+                            "interrupted image-default migration; "
+                            "inspect config and record before retrying"
+                        )
+                    record["state"] = "completed"
+                    _atomic_write_marker(marker, record)
+                if raw != original_raw:
+                    reconcile(raw)
+                return
+
+            document, mode = _load_document(target)
+            root = yaml.compose(raw, Loader=yaml.SafeLoader)
+            scalar_tokens = {
+                token.end_mark.index: token
+                for token in yaml.scan(raw, Loader=yaml.SafeLoader)
+                if isinstance(token, yaml.tokens.ScalarToken)
+            }
+            edits = []
+            updates = {}
+            for leaf, old in LEGACY_IMAGE_MODEL_DEFAULTS.items():
+                scalar = root
+                for segment in ("image", "openai", leaf):
+                    scalar = _mapping_value(scalar, segment) if scalar is not None else None
+                if (
+                    not isinstance(scalar, ScalarNode)
+                    or scalar.tag != "tag:yaml.org,2002:str" or scalar.value != old
+                ):
+                    continue
+                node = document
+                for segment in ("image", "openai"):
+                    _assert_not_shared(node, ("image", "openai", leaf))
+                    node = node[segment]
+                _assert_not_shared(node, ("image", "openai"))
+                _assert_not_shared(node[leaf], ("image", "openai", leaf))
+                source_token = scalar_tokens[scalar.end_mark.index]
+                start = source_token.start_mark.index
+                token = raw[start:scalar.end_mark.index]
+                if scalar.style in {"|", ">"}:
+                    # A block token includes its header comment. Only its body
+                    # contains value bytes; never replace a match in the header.
+                    body_offset = len(token.splitlines(keepends=True)[0])
+                    start += body_offset
+                    token = token[body_offset:]
+                new = IMAGE_MODEL_DEFAULTS[leaf]
+                if old in token:
+                    replacement = token.replace(old, new, 1)
+                elif scalar.style == '"':
+                    replacement = token[:token.index('"')] + json.dumps(new)
+                else:
+                    raise MigrationCompletionError(
+                        "exact old image default uses unsupported scalar syntax; edit it directly"
+                    )
+                edits.append((start, scalar.end_mark.index, replacement))
+                updates[leaf] = new
+            rewritten = raw
+            for start, end, replacement in sorted(edits, reverse=True):
+                rewritten = rewritten[:start] + replacement + rewritten[end:]
+            # Prove the postimage's actual YAML values before writing either
+            # provenance or config. Planned replacements are not parsed values.
+            verified_root = yaml.compose(rewritten, Loader=yaml.SafeLoader)
+            for leaf, expected in updates.items():
+                verified = verified_root
+                for segment in ("image", "openai", leaf):
+                    verified = _mapping_value(verified, segment) if verified is not None else None
+                if (
+                    not isinstance(verified, ScalarNode)
+                    or verified.tag != "tag:yaml.org,2002:str"
+                    or verified.value != expected
+                ):
+                    raise MigrationCompletionError("image-default postimage validation failed")
+            record = {
+                "version": 1, "migration": "image_model_defaults_v1", "config_id": config_id,
+                "state": "prepared" if edits else "completed", "after_sha256": digest(rewritten),
+            }
+            if edits and (
+                not os.access(target.parent, os.W_OK) or os.path.ismount(target)
+            ):
+                reconcile(rewritten)
+                log.warning(
+                    "Image defaults migration uses runtime defaults on read-only config storage"
+                )
+                return
+            if not edits:
+                try:
+                    _atomic_write_marker(marker, record)
+                except OSError:
+                    log.warning("No image migration needed; completion storage is unavailable")
+                if raw != original_raw:
+                    reconcile(raw)
+                return
+            _atomic_write_marker(marker, record)
+            if edits:
+                _dump_atomic(document, target, mode, raw_text=rewritten)
+                record["state"] = "completed"
+                _atomic_write_marker(marker, record)
+            if raw != original_raw:
+                reconcile(rewritten)
+            else:
+                for leaf, value in updates.items():
+                    data["image"]["openai"][leaf] = value
+    except MigrationCompletionError:
+        raise
+    except Exception as exc:
+        if isinstance(exc, OSError) and exc.errno in {13, 30}:
+            section = data.get("image", {}).get("openai", {})
+            for leaf, value in updates.items():
+                section[leaf] = value
+            log.warning(
+                "Image defaults migration cannot persist on read-only storage; "
+                "using runtime defaults"
+            )
+            return
+        raise MigrationCompletionError(
+            "image-default migration could not commit safely; inspect config and record"
+        ) from exc

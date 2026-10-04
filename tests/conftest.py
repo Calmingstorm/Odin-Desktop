@@ -1,0 +1,247 @@
+"""Shared test fixtures for Odin."""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(config, items):
+    # Run before xdist appends @group to nodeids. Do not globally enable xdist:
+    # targeted debugging and the measurement baseline remain serial by default.
+    from tests.parallel_policy import NATIVE_DISPLAY_TESTS, PROCESS_GROUP, resource_modules
+
+    grouped = resource_modules(config.rootpath)
+    for item in items:
+        if item.path in grouped:
+            item.add_marker(pytest.mark.xdist_group(PROCESS_GROUP))
+    # Keep deadline-sensitive real display proofs behind the resource group's
+    # long tail, when the other workers have drained their CPU-heavy tests.
+    items.sort(key=lambda item: item.path.name in NATIVE_DISPLAY_TESTS)
+
+
+@pytest.fixture(autouse=True)
+def _native_display_runner_lock(request):
+    """One private native display proof at a time across both local CI jobs.
+
+    This is test orchestration only: never alters native deadlines, identity,
+    release checks or the active desktop. flock dies with its holder.
+    """
+    from tests.parallel_policy import NATIVE_DISPLAY_TESTS
+
+    if request.node.path.name not in NATIVE_DISPLAY_TESTS:
+        yield
+        return
+    import fcntl
+    import os
+    import stat
+
+    path = f"/tmp/odin-native-test-{os.getuid()}.lock"
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    try:
+        info = os.fstat(fd)
+        if info.st_uid != os.getuid() or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise RuntimeError("unsafe native-test lock")
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+
+@pytest.fixture
+def mock_bot():
+    """A mock OdinBot with common attributes."""
+    bot = MagicMock()
+    bot.user = MagicMock()
+    bot.user.id = 123456789
+    bot.user.__str__ = lambda self: "Odin#0001"
+    bot.guilds = []
+    bot.latency = 0.042
+    bot.wait_until_ready = AsyncMock()
+    bot.get_channel = MagicMock(return_value=None)
+    return bot
+
+
+@pytest.fixture
+def mock_ctx(mock_bot):
+    """A mock commands.Context with guild, author, channel."""
+    ctx = MagicMock()
+    ctx.bot = mock_bot
+    ctx.send = AsyncMock()
+
+    # Guild
+    ctx.guild = MagicMock()
+    ctx.guild.id = 111111111
+    ctx.guild.name = "Test Server"
+    ctx.guild.member_count = 50
+    ctx.guild.roles = []
+    ctx.guild.channels = []
+    ctx.guild.owner = MagicMock()
+    ctx.guild.icon = None
+    ctx.guild.me = MagicMock()
+    ctx.guild.me.guild_permissions = MagicMock()
+
+    # Author
+    ctx.author = MagicMock()
+    ctx.author.id = 222222222
+    ctx.author.__str__ = lambda self: "TestUser#0001"
+    ctx.author.mention = "<@222222222>"
+    ctx.author.guild_permissions = MagicMock()
+    ctx.author.guild_permissions.administrator = True
+    ctx.author.guild_permissions.ban_members = True
+    ctx.author.guild_permissions.kick_members = True
+    ctx.author.guild_permissions.manage_messages = True
+    ctx.author.top_role = MagicMock()
+    ctx.author.top_role.position = 10
+
+    # Channel
+    ctx.channel = MagicMock()
+    ctx.channel.id = 333333333
+    ctx.channel.mention = "<#333333333>"
+    ctx.channel.purge = AsyncMock(return_value=[MagicMock()] * 5)
+
+    return ctx
+
+
+@pytest.fixture
+def mock_member():
+    """A mock Discord member (target of moderation)."""
+    member = MagicMock()
+    member.id = 444444444
+    member.__str__ = lambda self: "TargetUser#0002"
+    member.mention = "<@444444444>"
+    member.top_role = MagicMock()
+    member.top_role.position = 5
+    member.ban = AsyncMock()
+    member.kick = AsyncMock()
+    member.timeout = AsyncMock()
+    member.display_avatar = MagicMock()
+    member.display_avatar.url = "https://example.com/avatar.png"
+    member.joined_at = None
+    member.created_at = MagicMock()
+    return member
+
+
+@pytest.fixture
+def odin_config():
+    """A test pydantic Config (executor-shape).
+
+    OdinBot now uses the full pydantic Config from src.config.schema, not the
+    legacy OdinConfig dataclass. Tests that just need a constructable bot
+    config should use this fixture. Tests that explicitly want the legacy
+    dataclass should import OdinConfig from src.config directly.
+    """
+    from src.config.schema import Config
+
+    return Config(discord={"token": "test-token-not-real"})
+
+@pytest.fixture(autouse=True)
+def _reset_restart_intent():
+    """Restart intent (src/restart.py) is process-global state — never let
+    one test's requested restart leak into another (or toward a real exec)."""
+    from src import restart
+
+    restart.reset()
+    yield
+    restart.reset()
+
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _test_local_workspace(tmp_path_factory):
+    """Provision a valid local command workspace for the whole test session.
+
+    ToolExecutor resolves ``tools.local_working_dir`` fail-closed before running
+    any local command — there is deliberately no fallback to the inherited cwd,
+    since that inheritance is what let a bare `rm -rf data` delete the live
+    install on 2026-07-27. Production provisions the directory at deploy time;
+    tests provision this one, so executor construction never depends on the
+    host having been deployed to.
+    """
+    from src.config.schema import ToolsConfig
+
+    workspace = tmp_path_factory.mktemp("odin-test-workspace")
+    workspace.chmod(0o700)
+    field = ToolsConfig.model_fields["local_working_dir"]
+    original = field.default
+    field.default = str(workspace)
+    ToolsConfig.model_rebuild(force=True)
+    yield workspace
+    field.default = original
+    ToolsConfig.model_rebuild(force=True)
+
+@pytest.fixture(scope="session", autouse=True)
+def _process_containment():
+    """Run the suite as a child subreaper, exactly like production.
+
+    ``src/__main__`` enables this at startup so escaped background
+    descendants stay attributable (PR #244). Without it here, cleanup
+    correctly refuses to claim success and every shutdown path raises —
+    tests would be exercising a mode production never runs in.
+    """
+    import os
+    import secrets
+
+    from src.tools.process_manager import (
+        DEFAULT_JOB_TOKEN,
+        JOB_TOKEN_ENV,
+        PROC_TOKEN_ENV,
+        set_child_subreaper,
+    )
+
+    previous = set_child_subreaper(True)
+    os.environ.setdefault(PROC_TOKEN_ENV, secrets.token_hex(8))
+    os.environ.setdefault(JOB_TOKEN_ENV, DEFAULT_JOB_TOKEN)
+    yield
+    set_child_subreaper(previous)
+
+
+@pytest.fixture(autouse=True)
+def _settle_test_foreground_owners(request, monkeypatch):
+    """A test ending is an application shutdown, not ordinary command return.
+
+    Production drains supervisors before closing its loop. Do the same here:
+    normal foreground return deliberately does not wait for settlement or kill
+    surviving descendants. Cancelling their monitors at pytest loop teardown
+    would otherwise leak worker zombies into later process-scan tests.
+    """
+    import asyncio
+    import inspect
+
+    # Do not introduce an asyncio Runner into synchronous low-level tests:
+    # they deliberately patch process-global signal/clock APIs.
+    runner = (request.getfixturevalue("_function_scoped_runner")
+              if inspect.iscoroutinefunction(request.function) else None)
+    yield
+    if runner is None:
+        return
+    # Fixture-only clocks/signals/subprocess mocks must be retired before
+    # scheduling cleanup, just as they were before ordinary loop shutdown.
+    monkeypatch.undo()
+
+    async def settle():
+        from src.tools.local_supervisor import _active
+
+        loop = asyncio.get_running_loop()
+        owners = [owner for owner in list(_active) if owner._settled.get_loop() is loop]
+        for owner in owners:
+            if owner._settled.done() and owner._settled.exception() is not None:
+                continue  # Broken protocol fixtures already assert their veto.
+            assert await owner.terminate_tree(grace=.05)
+
+    runner.run(settle())
+
+
+@pytest.fixture(autouse=True)
+def _isolated_account_key_path(tmp_path, monkeypatch):
+    """Keep the opaque-account-key material out of the working tree.
+
+    Provider stamping derives keys via ``DEFAULT_KEY_PATH`` (resolved at
+    call time); without this, any test whose auth fake returns a real
+    account id would materialize ``data/account_key.secret`` in the repo.
+    """
+    monkeypatch.setattr(
+        "src.llm.account_key.DEFAULT_KEY_PATH", tmp_path / "account_key.secret"
+    )

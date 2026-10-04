@@ -1,0 +1,344 @@
+"""Codex OAuth administration route registrars (RFC-003 P5 size split).
+
+Carved from llm_admin.py to honor the module-size gate; same verbatim
+section, same registrar shape, same composition position.
+"""
+
+from __future__ import annotations
+
+from aiohttp import web
+
+from ...odin_log import get_logger
+from ..api_common import _codex_creds_lock
+
+log = get_logger("web.api")
+
+
+def register_codex_oauth(routes: web.RouteTableDef, bot) -> None:
+    """Codex OAuth management (verbatim from the monolith)."""
+    # ------------------------------------------------------------------
+    # Codex OAuth management
+    # ------------------------------------------------------------------
+
+    @routes.get("/api/codex/status")
+    async def codex_status(_request: web.Request) -> web.Response:
+        pool = getattr(bot.llm_gateway, "codex_client", None)
+        pool = getattr(pool, "auth", None) if pool else None
+        if pool is None:
+            pool = getattr(bot, "_codex_auth_pool", None)
+        if pool is None:
+            return web.json_response({"configured": False, "accounts": []})
+
+        import time as _time
+
+        from ...llm.account_key import opaque_account_key
+        from ...llm.codex_auth import _decode_jwt_payload
+
+        accounts = []
+        for i, auth in enumerate(pool._accounts):
+            try:
+                creds = auth._load()
+                payload = _decode_jwt_payload(creds.get("access_token", ""))
+                account_id = creds.get("account_id", payload.get("chatgpt_account_id", ""))
+                snapshot = pool.quota.snapshot_for(opaque_account_key(account_id))
+                quota = ({
+                    "primary": (
+                        snapshot.primary.to_dict()
+                        if snapshot.primary and snapshot.primary.window_minutes else None
+                    ),
+                    "secondary": (
+                        snapshot.secondary.to_dict()
+                        if snapshot.secondary and snapshot.secondary.window_minutes else None
+                    ),
+                    "observed_at": snapshot.observed_at,
+                    "limit_reached_type": snapshot.limit_reached_type,
+                } if snapshot is not None else None)
+                failure_reader = getattr(pool, "quota_check_failure", None)
+                check_failure = failure_reader(i) if callable(failure_reader) else None
+                expires_at = creds.get("expires_at", 0)
+                accounts.append({
+                    "index": i,
+                    "label": creds.get("label", ""),
+                    "email": creds.get("email", payload.get("email", "unknown")),
+                    "account_id": account_id,
+                    "plan_type": creds.get("plan_type", payload.get("chatgpt_plan_type", "")),
+                    "expires_at": expires_at,
+                    "expired": _time.time() >= expires_at,
+                    "rate_limited": auth.is_rate_limited(),
+                    "is_current": i == pool._current_index,
+                    "quota": quota,
+                    "limit_reached": bool(snapshot and (
+                        any(window is not None and window.used_percent >= 100
+                            for window in (snapshot.primary, snapshot.secondary))
+                        or (snapshot.limit_reached_type and not any(
+                            window is not None for window in (snapshot.primary, snapshot.secondary)
+                        ))
+                    )),
+                    "quota_check_failed": check_failure,
+                })
+            except Exception as e:
+                accounts.append({"index": i, "error": str(e)})
+
+        return web.json_response({
+            "configured": True,
+            "account_count": pool.account_count,
+            "current_index": pool._current_index,
+            "accounts": accounts,
+        })
+
+    @routes.post("/api/codex/device-code")
+    async def codex_device_code(_request: web.Request) -> web.Response:
+        from ...llm.codex_auth import CodexAuth
+        try:
+            result = await CodexAuth.request_device_code()
+            return web.json_response(result)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    @routes.post("/api/codex/device-poll")
+    async def codex_device_poll(request: web.Request) -> web.Response:
+        from ...llm.codex_auth import CodexAuth
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+
+        device_auth_id = body.get("device_auth_id", "")
+        user_code = body.get("user_code", "")
+        interval = body.get("interval", 5)
+        if not device_auth_id or not user_code:
+            return web.json_response({"error": "device_auth_id and user_code required"}, status=400)
+
+        try:
+            creds = await CodexAuth.poll_device_auth(device_auth_id, user_code, interval=interval)
+        except TimeoutError:
+            return web.json_response({"error": "Authorization timed out"}, status=408)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+        creds_path = bot.config.openai_codex.credentials_path
+        save_index = body.get("save_index")
+        if save_index is not None:
+            try:
+                save_index = int(save_index)
+            except (TypeError, ValueError):
+                return web.json_response({"error": "save_index must be an integer"}, status=400)
+
+        import json as _json
+        from pathlib import Path as _Path
+
+        from ...llm.codex_auth import (
+            CodexAuthPool,
+            _atomic_write_secure,
+            mark_authorized_account,
+            merge_authorized_account,
+        )
+
+        path = _Path(creds_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        async with _codex_creds_lock:
+            try:
+                raw = _json.loads(path.read_text()) if path.exists() else []
+                if not isinstance(raw, (dict, list)):
+                    raise ValueError("invalid credentials shape")
+            except (ValueError, OSError):
+                bak = path.with_suffix(".bak")
+                if path.exists():
+                    try:
+                        import shutil
+                        shutil.copy2(path, bak)
+                    except OSError:
+                        return web.json_response(
+                            {"error": "failed to preserve existing credentials"}, status=500,
+                        )
+                raw = []
+            if save_index is not None:
+                creds = mark_authorized_account(creds)
+                try:
+                    canonical_index = CodexAuthPool.canonical_index(raw, save_index)
+                except ValueError:
+                    # Preserve legacy append behavior for a missing slot.
+                    if save_index < 0:
+                        return web.json_response({"error": "invalid account index"}, status=400)
+                    canonical_index = None
+                raw = list(raw) if isinstance(raw, list) else [raw]
+                if canonical_index is None:
+                    raw.append(creds)
+                else:
+                    if "label" in raw[canonical_index]:
+                        creds["label"] = raw[canonical_index]["label"]
+                    raw[canonical_index] = creds
+            else:
+                raw = merge_authorized_account(raw, creds)
+            try:
+                _atomic_write_secure(path, _json.dumps(raw, indent=2))
+            except OSError:
+                # A persistence error must never trigger a fresh-only overwrite.
+                return web.json_response({"error": "failed to save credentials"}, status=500)
+
+        await bot.llm_gateway.reload_codex()
+
+        return web.json_response({
+            "status": "authenticated",
+            "email": creds.get("email", "unknown"),
+            "account_id": creds.get("account_id", ""),
+        })
+
+    @routes.post("/api/codex/account/{index}/refresh")
+    async def codex_refresh_account(request: web.Request) -> web.Response:
+        try:
+            index = int(request.match_info["index"])
+        except ValueError:
+            return web.json_response({"error": "index must be an integer"}, status=400)
+
+        pool = getattr(bot.llm_gateway, "codex_client", None)
+        pool = getattr(pool, "auth", None) if pool else None
+        if pool is None:
+            return web.json_response({"error": "codex not configured"}, status=503)
+        if index < 0 or index >= len(pool._accounts):
+            return web.json_response({"error": f"index {index} out of range"}, status=400)
+
+        auth = pool._accounts[index]
+        try:
+            stale_token = auth._load().get("access_token")
+            if not await pool.force_refresh(index, stale_token):
+                return web.json_response({"error": "credential refresh failed"}, status=500)
+            creds = auth._load()
+
+            return web.json_response({
+                "status": "refreshed",
+                "email": creds.get("email", "unknown"),
+                "expired": False,
+            })
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    @routes.post("/api/codex/account/{index}/activate")
+    async def codex_activate_account(request: web.Request) -> web.Response:
+        try:
+            index = int(request.match_info["index"])
+        except ValueError:
+            return web.json_response({"error": "index must be an integer"}, status=400)
+
+        pool = getattr(bot.llm_gateway, "codex_client", None)
+        pool = getattr(pool, "auth", None) if pool else None
+        if pool is None:
+            return web.json_response({"error": "codex not configured"}, status=503)
+        try:
+            await pool.set_active(index)
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+        return web.json_response({"status": "activated", "active_index": index})
+
+    @routes.post("/api/codex/reload")
+    async def codex_reload(_request: web.Request) -> web.Response:
+        result = await bot.llm_gateway.reload_codex()
+        status = 200 if result.get("configured") else 503
+        return web.json_response(result, status=status)
+
+    @routes.put("/api/codex/account/{index}/label")
+    async def codex_set_label(request: web.Request) -> web.Response:
+        import json as _json
+        from pathlib import Path as _Path
+
+        from ...llm.codex_auth import CodexAuthPool, _atomic_write_secure
+
+        try:
+            index = int(request.match_info["index"])
+        except ValueError:
+            return web.json_response({"error": "index must be an integer"}, status=400)
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+
+        label = body.get("label", "")
+        if not isinstance(label, str):
+            return web.json_response({"error": "label must be a string"}, status=400)
+
+        path = _Path(bot.config.openai_codex.credentials_path)
+        if not path.exists():
+            return web.json_response({"error": "no credentials file"}, status=404)
+
+        async with _codex_creds_lock:
+            try:
+                raw = _json.loads(path.read_text())
+            except Exception:
+                return web.json_response({"error": "failed to read credentials"}, status=500)
+
+            if isinstance(raw, list):
+                try:
+                    canonical_index = CodexAuthPool.canonical_index(raw, index)
+                except ValueError:
+                    return web.json_response({"error": "invalid index"}, status=400)
+                raw[canonical_index]["label"] = label
+            elif isinstance(raw, dict) and index == 0:
+                raw["label"] = label
+            else:
+                return web.json_response({"error": "invalid index"}, status=400)
+
+            _atomic_write_secure(path, _json.dumps(raw, indent=2))
+
+        # A metadata-only update must not retire an in-flight token rotation.
+        pool = getattr(bot.llm_gateway, "codex_client", None)
+        pool = getattr(pool, "auth", None) if pool else None
+        if pool and 0 <= index < len(pool._accounts):
+            auth = pool._accounts[index]
+            try:
+                auth._save({**auth._load(), "label": label})
+            except Exception:
+                return web.json_response({"error": "failed to update account metadata"}, status=500)
+
+        return web.json_response({"status": "updated", "label": label})
+
+    @routes.delete("/api/codex/account/{index}")
+    async def codex_delete_account(request: web.Request) -> web.Response:
+        import json as _json
+        from pathlib import Path as _Path
+
+        from ...llm.codex_auth import CodexAuthPool, _atomic_write_secure
+
+        try:
+            index = int(request.match_info["index"])
+        except ValueError:
+            return web.json_response({"error": "index must be an integer"}, status=400)
+
+        path = _Path(bot.config.openai_codex.credentials_path)
+        if not path.exists():
+            return web.json_response({"error": "no credentials file"}, status=404)
+
+        async with _codex_creds_lock:
+            try:
+                raw = _json.loads(path.read_text())
+            except Exception:
+                return web.json_response({"error": "failed to read credentials"}, status=500)
+
+            if isinstance(raw, list):
+                try:
+                    canonical_index = CodexAuthPool.canonical_index(raw, index)
+                except ValueError:
+                    return web.json_response({"error": "invalid index"}, status=400)
+                removed = raw.pop(canonical_index)
+                _atomic_write_secure(path, _json.dumps(raw, indent=2))
+                email = removed.get("email", "unknown")
+            elif isinstance(raw, dict) and index == 0:
+                email = raw.get("email", "unknown")
+                _atomic_write_secure(path, _json.dumps([], indent=2))
+            else:
+                return web.json_response({"error": "invalid index"}, status=400)
+
+        pool = getattr(bot.llm_gateway, "codex_client", None)
+        pool = getattr(pool, "auth", None) if pool else None
+        if pool:
+            # reload() ignores the pool lock and can race in-flight token
+            # operations (account-mutation methods index the list after an
+            # await) — use the locked variant.
+            if hasattr(pool, "reload_async"):
+                await pool.reload_async()
+            else:
+                pool.reload()
+
+        return web.json_response({
+            "status": "deleted",
+            "email": email,
+        })

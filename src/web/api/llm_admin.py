@@ -1,0 +1,2138 @@
+"""LLM provider administration route registrars (RFC-003 P2 — carved verbatim from api/__init__).
+
+Each ``register_*`` moves one section of the old monolith unchanged; the
+composition root calls them at the sections' original positions, so the
+route REGISTRATION ORDER (aiohttp path precedence) is exactly what the
+parity contract pins.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import ipaddress as _ipaddress
+import time
+import urllib.parse as _urlparse
+from typing import Any
+
+import aiohttp
+from aiohttp import web
+from pydantic import TypeAdapter, ValidationError
+
+from ...config.persistence import (
+    config_transaction,
+    patch_config_paths,
+    persist_config_paths_locked,
+)
+from ...config.schema import (
+    AGENT_SETTING_AUTO,
+    CODEX_REASONING_EFFORTS,
+    allowed_efforts_for_model,
+    retired_codex_model_error,
+)
+from ...llm.window_observer import WindowObserverMutationError
+from ...odin_log import get_logger
+
+log = get_logger("web.api")
+
+_OPENROUTER_CACHE_TTL_SECONDS = 300
+_openrouter_cache: dict[str, Any] = {
+    "models": None,
+    "fetched_at": 0.0,
+    "error": None,
+    "details": {},
+}
+
+
+async def _openrouter_models(config) -> tuple[list[dict[str, Any]], bool, str | None]:
+    """Return fresh public catalogue, or bounded stale evidence on failure."""
+    from ...llm.openrouter import fetch_json, normalize_model_catalogue
+
+    now = time.time()
+    cached = _openrouter_cache.get("models")
+    fetched_at = float(_openrouter_cache.get("fetched_at") or 0)
+    if isinstance(cached, list) and now - fetched_at < _OPENROUTER_CACHE_TTL_SECONDS:
+        return cached, False, None
+    try:
+        async with aiohttp.ClientSession() as session:
+            payload = await fetch_json(session, "/api/v1/models")
+        models = normalize_model_catalogue(payload)
+        if not models:
+            raise ValueError("OpenRouter catalogue contains no usable models")
+        _openrouter_cache.update(models=models, fetched_at=now, error=None, details={})
+        return models, False, None
+    except Exception as exc:
+        error = f"{type(exc).__name__}: catalogue refresh failed"
+        _openrouter_cache["error"] = error
+        if isinstance(cached, list):
+            return cached, True, error
+        raise web.HTTPBadGateway(text=error) from None
+
+
+async def _openrouter_endpoint_rows(model_id: str, *, api_key: str = "") -> list[dict[str, Any]]:
+    """Fetch and cache route-level facts needed for truthful profiles and pins."""
+    from ...llm.openrouter import fetch_json, model_detail_path, normalize_endpoint_rows
+
+    now = time.time()
+    auth_scope = (
+        hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:16] if api_key else "anonymous"
+    )
+    cache_key = f"{model_id}\0{auth_scope}"
+    details = _openrouter_cache.setdefault("details", {})
+    cached = details.get(cache_key) if isinstance(details, dict) else None
+    if isinstance(cached, dict) and now - float(cached.get("fetched_at") or 0) < 300:
+        rows = cached.get("rows")
+        if isinstance(rows, list):
+            return rows
+    async with aiohttp.ClientSession() as session:
+        payload = await fetch_json(
+            session,
+            model_detail_path(model_id),
+            api_key=api_key or None,
+        )
+    rows = normalize_endpoint_rows(payload)
+    details[cache_key] = {"fetched_at": now, "rows": rows}
+    return rows
+
+
+_ALLOWED_OLLAMA_HOSTS = frozenset(
+    {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+        "0.0.0.0",
+    }
+)
+
+
+def _validate_ollama_url(url: str) -> str:
+    """Validate Ollama base_url — restrict to local/private networks to prevent SSRF."""
+    if not url.startswith(("http://", "https://")):
+        raise ValueError("base_url must start with http:// or https://")
+    parsed = _urlparse.urlparse(url)
+    host = parsed.hostname or ""
+    if host in _ALLOWED_OLLAMA_HOSTS:
+        return url
+    try:
+        addr = _ipaddress.ip_address(host)
+        if addr.is_link_local:
+            raise ValueError(f"Link-local addresses not allowed: {host}")
+        if addr.is_private or addr.is_loopback:
+            return url
+        raise ValueError(f"Public IP not allowed for Ollama: {host}")
+    except ValueError as e:
+        if "not allowed" in str(e) or "Public IP" in str(e):
+            raise
+    except Exception:
+        pass
+    try:
+        import socket
+
+        resolved = socket.getaddrinfo(host, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        if not resolved:
+            raise ValueError(f"Could not resolve hostname: {host}")
+        for _, _, _, _, sockaddr in resolved:
+            addr = _ipaddress.ip_address(sockaddr[0])
+            if addr.is_link_local:
+                raise ValueError(f"Link-local address not allowed: {sockaddr[0]}")
+            if not (addr.is_private or addr.is_loopback):
+                raise ValueError(
+                    f"All resolved addresses must be private/local, got public: {sockaddr[0]}"
+                )
+        return url
+    except ValueError:
+        raise
+    except Exception:
+        pass
+    raise ValueError(f"Ollama base_url must point to a local/private network address, got: {host}")
+
+
+def _parse_int(val, name: str, lo: int = 1, hi: int = 262000) -> int:
+    try:
+        v = int(val)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be an integer")
+    if v < lo or v > hi:
+        raise ValueError(f"{name} must be between {lo} and {hi}")
+    return v
+
+
+def _compatible_client(bot):
+    """Return the neutral client, tolerating the short-lived legacy member."""
+    gateway = getattr(bot, "llm_gateway", None)
+    # Read the instance dictionary first. Permissive test doubles manufacture
+    # arbitrary attributes via __getattr__, which must not count as a client.
+    values = getattr(gateway, "__dict__", {})
+    if "compatible_client" in values:
+        return values["compatible_client"]
+    if "kimi_client" in values:
+        return values["kimi_client"]
+    return getattr(gateway, "compatible_client", None)
+
+
+async def _reload_openai_compatible(bot) -> dict:
+    """Reload through the neutral gateway API, with a rolling-upgrade fallback."""
+    gateway = bot.llm_gateway
+    values = getattr(gateway, "__dict__", {})
+    reload_fn = values.get("reload_openai_compatible") or gateway.reload_openai_compatible
+    return await reload_fn()
+
+
+def register_connection_pools(routes: web.RouteTableDef, bot) -> None:
+    """Connection pool status (verbatim from the monolith)."""
+    # ------------------------------------------------------------------
+    # Connection pool status
+    # ------------------------------------------------------------------
+
+    @routes.get("/api/pools/ssh")
+    async def get_ssh_pool(_request: web.Request) -> web.Response:
+        executor = getattr(bot, "tool_executor", None)
+        if executor is None or not hasattr(executor, "ssh_pool") or executor.ssh_pool is None:
+            return web.json_response({"error": "SSH pool not available"}, status=503)
+        return web.json_response(executor.ssh_pool.get_metrics())
+
+    @routes.get("/api/pools/http")
+    async def get_http_pool(_request: web.Request) -> web.Response:
+        result = {}
+        codex = getattr(bot.llm_gateway, "codex_client", None)
+        if codex is not None and hasattr(codex, "get_pool_metrics"):
+            result["codex"] = codex.get_pool_metrics()
+        ollama = getattr(bot.llm_gateway, "ollama_client", None)
+        if ollama is not None:
+            result["ollama"] = ollama.pool_stats()
+        compatible = _compatible_client(bot)
+        if compatible is not None:
+            result["openai_compatible"] = compatible.pool_stats()
+        if not result:
+            return web.json_response({"error": "No HTTP pools available"}, status=503)
+        return web.json_response(result)
+
+    @routes.post("/api/pools/ssh/close")
+    async def close_ssh_pool_host(request: web.Request) -> web.Response:
+        executor = getattr(bot, "tool_executor", None)
+        if executor is None or not hasattr(executor, "ssh_pool") or executor.ssh_pool is None:
+            return web.json_response({"error": "SSH pool not available"}, status=503)
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        host = data.get("host")
+        if host:
+            ssh_user = data.get("ssh_user", "root")
+            closed = await executor.ssh_pool.close_host(host, ssh_user)
+            return web.json_response({"closed": closed, "host": host})
+        count = await executor.ssh_pool.close_all()
+        return web.json_response({"closed_count": count})
+
+
+def _auxiliary_status(bot) -> dict:
+    """Configured vs effective auxiliary state for /api/llm/status.
+
+    ``enabled``/``model`` are the persisted config; the ``effective_*`` fields
+    describe the live runtime wrapper (present only when config produced a
+    working client). ``unavailable_reason`` is set when enabled config could
+    NOT produce a live client (e.g. no auth). The four background jobs route
+    to this model when enabled — there is no per-task configuration.
+    """
+    aux_cfg = getattr(bot.config.openai_codex, "auxiliary", None)
+    live = getattr(bot.llm_gateway, "auxiliary_llm_client", None)
+    configured_enabled = bool(aux_cfg and aux_cfg.enabled)
+    unavailable_reason = None
+    if configured_enabled and live is None:
+        unavailable_reason = "enabled but selected auxiliary provider is unavailable"
+    return {
+        "enabled": configured_enabled,
+        "model": aux_cfg.model if aux_cfg else "",
+        "effective_enabled": live is not None,
+        "effective_model": getattr(live, "model", None)
+        or getattr(getattr(live, "aux_client", None), "model", None),
+        "effective_provider": getattr(live, "provider", None),
+        "unavailable_reason": unavailable_reason,
+    }
+
+
+def _model_catalogue(
+    bot: Any, *, codex_configured: bool, ollama_configured: bool
+) -> dict[str, list[dict[str, Any]]]:
+    """Build the model-first status contract without hiding broken config."""
+    compatible_cfg = getattr(bot.config, "openai_compatible", None)
+    ollama_cfg = getattr(bot.config, "ollama", None)
+    agents_cfg = getattr(bot.config, "agents", None)
+    codex_names = [
+        "gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna",
+        "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
+    ]
+    if bot.config.openai_codex.model not in codex_names:
+        codex_names.insert(0, bot.config.openai_codex.model)
+
+    policy_refs = [
+        item if isinstance(item, str) else item.model
+        for item in (getattr(agents_cfg, "auto_model_allowlist", []) or [])
+    ]
+    fixed_agent = getattr(agents_cfg, "model", None)
+    if fixed_agent not in (None, "auto"):
+        policy_refs.append(fixed_agent)
+    for ref in policy_refs:
+        if ref and ":" not in ref and ref not in codex_names:
+            codex_names.append(ref)
+
+    from ...llm.context_budget import (
+        compatible_agent_unavailable_reason,
+        compatible_model_profile,
+    )
+    from ...tools.model_hints import catalogue_hint_metadata
+
+    def entry(ref, provider, name, available, reason, capability, **extra):
+        return {
+            "ref": ref,
+            "provider": provider,
+            "name": name,
+            "available": available,
+            "unavailable_reason": reason,
+            "capability": capability,
+            "hint_metadata": catalogue_hint_metadata(ref, bot.config),
+            **extra,
+        }
+
+    compatible_names = list((compatible_cfg.model_profiles if compatible_cfg else {}).keys())
+    if compatible_cfg and compatible_cfg.preset == "openrouter":
+        for name in compatible_cfg.openrouter.catalogue_profiles:
+            if name not in compatible_names:
+                compatible_names.append(name)
+    if compatible_cfg and compatible_cfg.model not in compatible_names:
+        compatible_names.insert(0, compatible_cfg.model)
+    if compatible_cfg and compatible_cfg.preset == "openrouter":
+        cached_models = _openrouter_cache.get("models")
+        if isinstance(cached_models, list):
+            for item in cached_models:
+                name = item.get("id") if isinstance(item, dict) else None
+                if isinstance(name, str) and name not in compatible_names:
+                    compatible_names.append(name)
+    ollama_names = [ollama_cfg.model] if ollama_cfg and ollama_cfg.model else []
+    for ref in policy_refs:
+        if ref.startswith("compat:"):
+            name = ref.removeprefix("compat:")
+            if name not in compatible_names:
+                compatible_names.append(name)
+        elif ref.startswith("ollama:"):
+            name = ref.removeprefix("ollama:")
+            if name not in ollama_names:
+                ollama_names.append(name)
+    compatible_available = bool(
+        compatible_cfg and compatible_cfg.enabled and _compatible_client(bot)
+    )
+
+    def compatible_entry(name: str) -> dict[str, Any]:
+        from ...tools.agent_tool_policy import model_reasoning_dialect
+
+        agent_reason = compatible_agent_unavailable_reason(name, compatible_cfg)
+        profile = compatible_model_profile(name, compatible_cfg)
+        cached_model = next(
+            (
+                item
+                for item in (_openrouter_cache.get("models") or [])
+                if isinstance(item, dict) and item.get("id") == name
+            ),
+            None,
+        )
+        is_openrouter = bool(compatible_cfg and compatible_cfg.preset == "openrouter")
+        dialect = model_reasoning_dialect(bot.config, f"compat:{name}")
+        supports_openrouter_reasoning = bool(
+            cached_model and cached_model.get("supports_reasoning")
+        ) or getattr(profile, "supports_reasoning", False)
+        if is_openrouter and isinstance(cached_model, dict):
+            variant = cached_model.get("variant")
+            if variant != "standard":
+                agent_reason = f"{variant} variant is not offered for ordinary agents"
+            elif profile is None:
+                agent_reason = "select the model to auto-fill its route-derived profile"
+        return entry(
+            f"compat:{name}",
+            "compat",
+            name,
+            compatible_available,
+            None
+            if compatible_available
+            else (
+                "disabled" if compatible_cfg and not compatible_cfg.enabled else "not configured"
+            ),
+            (
+                "reasoning"
+                if dialect == "effort" and (not is_openrouter or supports_openrouter_reasoning)
+                else "thinking"
+                if dialect == "thinking"
+                else "none"
+            ),
+            agent_available=compatible_available and agent_reason is None,
+            agent_unavailable_reason=(None if not compatible_available else agent_reason),
+            profile=profile.model_dump() if profile is not None else None,
+            efforts=(cached_model or {}).get("supported_efforts")
+            or getattr(profile, "supported_efforts", None)
+            or [],
+        )
+
+    return {
+        "codex": [
+            entry(
+                name,
+                "codex",
+                name,
+                codex_configured,
+                None if codex_configured else "not configured",
+                "reasoning",
+                agent_available=codex_configured,
+                agent_unavailable_reason=None if codex_configured else "not configured",
+                efforts=list(CODEX_REASONING_EFFORTS),
+            )
+            for name in codex_names
+        ],
+        "compat": [compatible_entry(name) for name in compatible_names],
+        "ollama": [
+            entry(
+                f"ollama:{name}",
+                "ollama",
+                name,
+                ollama_configured,
+                None
+                if ollama_configured
+                else ("disabled" if ollama_cfg and not ollama_cfg.enabled else "not configured"),
+                "none",
+                agent_available=ollama_configured,
+                agent_unavailable_reason=None if ollama_configured else "not configured",
+            )
+            for name in ollama_names
+        ],
+    }
+
+
+def _boot_codex_group_status(
+    bot: Any,
+    group: str,
+    desired: dict[str, Any],
+) -> tuple[dict[str, Any] | None, bool | None]:
+    """Return boot-effective values and whether desired differs.
+
+    Connection-pool and context-compression objects are captured by runtime
+    components at boot. The desired config object is therefore not evidence
+    of what this process uses. ``None`` is deliberate when the boot snapshot
+    is unavailable: unknown is more honest than inventing an applied state.
+    """
+    # OdinClient records this once during construction. Read the concrete
+    # instance dictionary so permissive mocks/proxies cannot manufacture a
+    # pretend snapshot through __getattr__ and make status look authoritative.
+    boot = getattr(bot, "__dict__", {}).get("boot_config_snapshot")
+    if not isinstance(boot, dict):
+        return None, None
+    codex_boot = boot.get("openai_codex")
+    if not isinstance(codex_boot, dict):
+        return None, None
+    effective = codex_boot.get(group)
+    if not isinstance(effective, dict):
+        return None, None
+    # Only compare the public schema keys represented by desired. This keeps
+    # future boot-snapshot metadata from creating a false pending signal.
+    normalized = {key: effective.get(key) for key in desired}
+    return normalized, normalized != desired
+
+
+def register_llm_provider(routes: web.RouteTableDef, bot) -> None:
+    """LLM provider management (verbatim from the monolith)."""
+    # ------------------------------------------------------------------
+    # LLM provider management
+    # ------------------------------------------------------------------
+
+    @routes.get("/api/llm/status")
+    async def llm_status(_request: web.Request) -> web.Response:
+        provider_cfg = getattr(bot.config, "llm_provider", None)
+        active = provider_cfg.active_provider if provider_cfg else "codex"
+        main_model = getattr(provider_cfg, "model", bot.config.openai_codex.model)
+        serving = bot.llm_gateway.capture_serving_identity()
+
+        codex_configured = bot.llm_gateway.codex_client is not None
+        ollama_configured = bot.llm_gateway.ollama_client is not None
+
+        ollama_cfg = getattr(bot.config, "ollama", None)
+        compatible_cfg = getattr(bot.config, "openai_compatible", None)
+        from ...llm.openrouter import is_openrouter_base_url
+
+        if compatible_cfg and is_openrouter_base_url(compatible_cfg.base_url):
+            try:
+                await _openrouter_models(compatible_cfg)
+            except web.HTTPException:
+                # Status remains available during a third-party catalogue
+                # outage; the dedicated catalogue route carries that error.
+                pass
+        compatible_has_key = bool(compatible_cfg and compatible_cfg.api_key)
+
+        desired_pool = bot.config.openai_codex.connection_pool.model_dump()
+        desired_compression = bot.config.openai_codex.context_compression.model_dump()
+        effective_pool, pool_pending_restart = _boot_codex_group_status(
+            bot, "connection_pool", desired_pool
+        )
+        effective_compression, compression_pending_restart = _boot_codex_group_status(
+            bot, "context_compression", desired_compression
+        )
+
+        result = {
+            "active_provider": active,
+            "configured_provider": active,
+            "main_model": main_model,
+            "serving_provider": serving.provider if serving.client is not None else None,
+            "codex": {
+                "configured": codex_configured,
+                "enabled": bot.config.openai_codex.enabled,
+                "model": bot.config.openai_codex.model,
+                "reasoning_effort": bot.config.openai_codex.reasoning_effort,
+                "active_reasoning_effort": getattr(
+                    bot.llm_gateway.codex_client, "reasoning_effort", None
+                ),
+                # Configured agent policy (null = inherit) and what the next
+                # agent iteration will actually use (override, else the live
+                # client's own effort — mirrors the callback's resolution).
+                # configured may be "auto" (per-spawn selection); effective_*
+                # resolves "auto" (and null) to the inherited MAIN setting — it
+                # must never surface the "auto" sentinel, which is never sent to
+                # a provider.
+                "agent_reasoning_effort": bot.config.openai_codex.agent_reasoning_effort,
+                "effective_agent_reasoning_effort": (
+                    bot.config.openai_codex.agent_reasoning_effort
+                    if bot.config.openai_codex.agent_reasoning_effort not in (None, "auto")
+                    else getattr(bot.llm_gateway.codex_client, "reasoning_effort", None)
+                ),
+                # Codex-scoped configuration status (agent_model ?? model) —
+                # deliberately independent of whichever provider is active;
+                # trajectory stamps carry the runtime truth per iteration.
+                "agent_model": bot.config.openai_codex.agent_model,
+                "effective_agent_model": (
+                    bot.config.openai_codex.agent_model
+                    if bot.config.openai_codex.agent_model not in (None, "auto")
+                    else bot.config.openai_codex.model
+                ),
+                # Advanced transport/retry/pool/compression — the LLM page's
+                # Advanced panel populates exclusively from this endpoint;
+                # omitting these left it displaying schema defaults forever
+                # regardless of config.yml truth.
+                "request_timeout_seconds": bot.config.openai_codex.request_timeout_seconds,
+                "stream_stall_timeout_seconds": (
+                    bot.config.openai_codex.stream_stall_timeout_seconds
+                ),
+                "retry": {
+                    "max_retries": bot.config.openai_codex.retry.max_retries,
+                    "base_delay": bot.config.openai_codex.retry.base_delay,
+                    "max_delay": bot.config.openai_codex.retry.max_delay,
+                },
+                "connection_pool": desired_pool,
+                "effective_connection_pool": effective_pool,
+                "connection_pool_pending_restart": pool_pending_restart,
+                "context_compression": desired_compression,
+                "effective_context_compression": effective_compression,
+                "context_compression_pending_restart": compression_pending_restart,
+                "context_budget_overrides": dict(bot.config.openai_codex.context_budget_overrides),
+                "context_utilization": bot.config.openai_codex.context_utilization,
+            },
+            "ollama": {
+                "configured": ollama_configured,
+                "enabled": ollama_cfg.enabled if ollama_cfg else False,
+                "model": ollama_cfg.model if ollama_cfg else "",
+                "base_url": ollama_cfg.base_url if ollama_cfg else "",
+                "max_tokens": ollama_cfg.max_tokens if ollama_cfg else 4096,
+                "num_ctx": ollama_cfg.num_ctx if ollama_cfg else 32768,
+                "timeout": ollama_cfg.timeout if ollama_cfg else 300,
+                "has_api_key": bool(ollama_cfg and ollama_cfg.api_key),
+            },
+            "openai_compatible": {
+                "configured": _compatible_client(bot) is not None,
+                "enabled": compatible_cfg.enabled if compatible_cfg else False,
+                "model": compatible_cfg.model if compatible_cfg else "",
+                "base_url": compatible_cfg.base_url if compatible_cfg else "",
+                "max_tokens": compatible_cfg.max_tokens if compatible_cfg else 4096,
+                "request_timeout_seconds": (
+                    compatible_cfg.request_timeout_seconds if compatible_cfg else 3600
+                ),
+                "stream_stall_timeout_seconds": (
+                    compatible_cfg.stream_stall_timeout_seconds if compatible_cfg else 180
+                ),
+                "reasoning_effort": (
+                    getattr(compatible_cfg, "reasoning_effort", "medium")
+                    if compatible_cfg
+                    else "medium"
+                ),
+                "preset": compatible_cfg.preset if compatible_cfg else "deepseek",
+                "preset_catalogue": __import__(
+                    "src.llm.compatible_presets", fromlist=["HOSTED_PROVIDER_PRESETS"]
+                ).HOSTED_PROVIDER_PRESETS,
+                "local_base_url_examples": __import__(
+                    "src.llm.compatible_presets", fromlist=["LOCAL_BASE_URL_EXAMPLES"]
+                ).LOCAL_BASE_URL_EXAMPLES,
+                "model_profiles": (
+                    {
+                        name: profile.model_dump()
+                        for name, profile in compatible_cfg.model_profiles.items()
+                    }
+                    if compatible_cfg
+                    else {}
+                ),
+                "context_utilization": (
+                    compatible_cfg.context_utilization if compatible_cfg else 75
+                ),
+                "openrouter": (compatible_cfg.openrouter.model_dump() if compatible_cfg else {}),
+                "openrouter_recognized": bool(
+                    compatible_cfg
+                    and __import__(
+                        "src.llm.openrouter", fromlist=["is_openrouter_base_url"]
+                    ).is_openrouter_base_url(compatible_cfg.base_url)
+                ),
+                "has_api_key": compatible_has_key,
+            },
+            "auxiliary": _auxiliary_status(bot),
+            "model_choices": {
+                "codex": {
+                    "configured": codex_configured,
+                    "models": [bot.config.openai_codex.model],
+                },
+                "compat": {
+                    "configured": _compatible_client(bot) is not None,
+                    "models": ([f"compat:{compatible_cfg.model}"] if compatible_cfg else []),
+                },
+                "ollama": {
+                    "configured": ollama_configured,
+                    "models": ([f"ollama:{ollama_cfg.model}"] if ollama_cfg else []),
+                },
+            },
+        }
+
+        result["model_catalogue"] = _model_catalogue(
+            bot, codex_configured=codex_configured, ollama_configured=ollama_configured
+        )
+
+        client = serving.client
+        if client:
+            result["active_model"] = serving.model
+            result["active_provider_name"] = serving.provider
+
+        return web.json_response(result)
+
+    @routes.post("/api/llm/switch")
+    async def llm_switch(request: web.Request) -> web.Response:
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+
+        provider = body.get("provider", "")
+        if provider == "openai_compatible":
+            provider = "compat"
+        if provider not in ("codex", "ollama", "compat"):
+            return web.json_response(
+                {"error": "provider must be 'codex', 'ollama', or 'compat'"}, status=400
+            )
+        configured_model = {
+            "codex": bot.config.openai_codex.model,
+            "ollama": f"ollama:{bot.config.ollama.model}",
+            "compat": f"compat:{bot.config.openai_compatible.model}",
+        }[provider]
+        model_ref = body.get("model") or configured_model
+        from ...llm.model_ref import parse_model_ref
+
+        try:
+            parsed = parse_model_ref(model_ref, allow_auto=False)
+        except ValueError as exc:
+            return web.json_response({"error": str(exc)}, status=400)
+        if parsed.provider.value != provider:
+            return web.json_response(
+                {"error": "model provider does not match provider"}, status=400
+            )
+        model_ref = parsed.render()
+
+        # Mutation AND persistence happen under ONE provider_lock ownership:
+        # switch_provider runs the SYNC persist on an executor future inside
+        # its own lock (settled before the lock releases) and restores the
+        # prior provider on persist failure — no interleaving window.
+        async with config_transaction():
+            try:
+                values = bot.config.model_dump()
+                values["llm_provider"]["model"] = model_ref
+                type(bot.config).model_validate(values)
+            except ValueError as exc:
+                return web.json_response({"error": str(exc)}, status=400)
+            result = await bot.llm_gateway.switch_provider(
+                provider,
+                persist=lambda: patch_config_paths(
+                    [
+                        (("llm_provider", "model"), model_ref),
+                        (("llm_provider", "active_provider"), provider),
+                    ]
+                ),
+                model_ref=model_ref,
+            )
+        if "error" in result:
+            reason = result["error"]
+            status = 500 if "persist failed" in reason else 400
+            return web.json_response(result, status=status)
+        return web.json_response(result)
+
+    @routes.put("/api/llm/main-model")
+    async def llm_main_model(request: web.Request) -> web.Response:
+        """Set the main model and persist its provider derived from the ref."""
+        try:
+            body = await request.json()
+            from ...llm.model_ref import parse_model_ref
+
+            parsed = parse_model_ref(body.get("model"), allow_auto=False)
+            if not parsed.is_concrete:
+                raise ValueError("model must be a concrete model reference")
+            model_ref = parsed.render()
+            provider = parsed.provider.value
+            if provider not in ("codex", "ollama", "compat"):
+                raise ValueError("model provider must be codex, ollama, or compat")
+        except (ValueError, TypeError, AttributeError) as exc:
+            return web.json_response({"error": str(exc)}, status=400)
+        async with config_transaction():
+            try:
+                values = bot.config.model_dump()
+                values["llm_provider"]["model"] = model_ref
+                type(bot.config).model_validate(values)
+            except ValueError as exc:
+                return web.json_response({"error": str(exc)}, status=400)
+            result = await bot.llm_gateway.switch_provider(
+                provider,
+                persist=lambda: patch_config_paths(
+                    [
+                        (("llm_provider", "model"), model_ref),
+                        (("llm_provider", "active_provider"), provider),
+                    ]
+                ),
+                model_ref=model_ref,
+            )
+        if "error" in result:
+            return web.json_response(
+                result, status=500 if "persist failed" in result["error"] else 400
+            )
+        return web.json_response(
+            {**result, "main_model": model_ref, "configured_provider": provider}
+        )
+
+    # Compatibility endpoints reuse the canonical status and switch contracts.
+    @routes.get("/api/llm/data")
+    async def llm_data(request: web.Request) -> web.StreamResponse:
+        return await llm_status(request)
+
+    @routes.get("/api/llm/active")
+    async def llm_active(_request: web.Request) -> web.Response:
+        serving = bot.llm_gateway.capture_serving_identity()
+        configured = getattr(getattr(bot.config, "llm_provider", None), "active_provider", "codex")
+        return web.json_response(
+            {
+                "active_provider": configured,
+                "configured_provider": configured,
+                "serving_provider": serving.provider if serving.client is not None else None,
+                "active_model": serving.model if serving.client is not None else None,
+            }
+        )
+
+    @routes.put("/api/llm/active")
+    async def llm_active_switch(request: web.Request) -> web.StreamResponse:
+        return await llm_switch(request)
+
+
+def _set_fields(obj, values: dict[str, object]) -> None:
+    for key, value in values.items():
+        setattr(obj, key, value)
+
+
+def _provider_changes(
+    section: str, desired: dict[str, object], body: dict
+) -> list[tuple[tuple[str, ...], Any]]:
+    return [((section, key), desired[key]) for key in desired if key in body]
+
+
+async def _persist_or_response(changes: list, label: str) -> tuple[web.Response | None, bool]:
+    """Persist desired leaves and return explicit error/cancel outcomes."""
+    persist_exc, was_cancelled = await persist_config_paths_locked(changes)
+    if persist_exc is not None:
+        log.warning("%s config rejected — could not persist: %s", label, persist_exc)
+        if was_cancelled:
+            raise asyncio.CancelledError
+        return (
+            web.json_response({"error": f"{label} configuration not saved"}, status=500),
+            False,
+        )
+    return None, was_cancelled
+
+
+def _parse_codex_advanced(body: dict, cfg) -> tuple[list, list, bool] | web.Response:
+    """Validate the Advanced-panel keys out of a codex PUT body.
+
+    Returns ``(persist_changes, apply_ops, wants_reload)`` — persist tuples
+    for the config writer, ``(cfg attribute, new value)`` ops for live config,
+    and whether a live-appliable transport/retry key was present — or an error
+    Response.
+
+    Validation runs through the MERGED Pydantic models themselves, not a
+    hand-mirrored copy of their rules: the first cut re-implemented bounds and
+    got all four ways it can go wrong — int() truncated 1.9 to 1, bool()
+    turned the string "false" into True, a list where a dict belonged was
+    silently ignored with a 200, and an invented floor rejected values the
+    schema accepts. Constructing the real model gives schema-exact coercion
+    and rejection for free, forever.
+
+    Nested groups are applied by REPLACING the whole sub-model object, never
+    by mutating it in place: the boot-built context compressor holds the boot
+    config's nested object by identity, so in-place mutation made compression
+    thresholds live-before-rebind and stale-after — replacement makes
+    persist-only deterministic.
+    """
+    from ...config.schema import (
+        ConnectionPoolConfig,
+        ContextCompressionConfig,
+        RetryConfig,
+    )
+
+    integer_adapter = TypeAdapter(int)
+
+    def _schema_int(value: Any, name: str, lo: int, hi: int) -> int:
+        # Match Pydantic's lax integer coercion (for example "600" -> 600),
+        # except JSON booleans stay forbidden at this HTTP boundary. Pydantic
+        # accepts bool as int for compatibility, but an operator checkbox is
+        # never a meaningful timeout.
+        if isinstance(value, bool):
+            raise ValueError(f"{name} must be an integer")
+        try:
+            parsed = integer_adapter.validate_python(value)
+        except ValidationError as exc:
+            raise ValueError(f"{name} must be an integer") from exc
+        if not lo <= parsed <= hi:
+            raise ValueError(f"{name} must be between {lo} and {hi}")
+        return parsed
+
+    persist: list[tuple[tuple[str, ...], Any]] = []
+    ops: list[tuple[str, Any]] = []
+    wants_reload = False
+    try:
+        if "request_timeout_seconds" in body:
+            value = _schema_int(
+                body["request_timeout_seconds"], "request_timeout_seconds", 60, 86400
+            )
+            persist.append((("openai_codex", "request_timeout_seconds"), value))
+            ops.append(("request_timeout_seconds", value))
+            wants_reload = True
+        if "stream_stall_timeout_seconds" in body:
+            value = _schema_int(
+                body["stream_stall_timeout_seconds"],
+                "stream_stall_timeout_seconds",
+                10,
+                3600,
+            )
+            persist.append((("openai_codex", "stream_stall_timeout_seconds"), value))
+            ops.append(("stream_stall_timeout_seconds", value))
+            wants_reload = True
+    except ValueError as exc:
+        return web.json_response({"error": str(exc)}, status=400)
+
+    groups = (
+        ("retry", RetryConfig, True),
+        ("connection_pool", ConnectionPoolConfig, False),
+        ("context_compression", ContextCompressionConfig, False),
+    )
+    for group, model_cls, live in groups:
+        if group not in body:
+            continue
+        submitted = body[group]
+        if not isinstance(submitted, dict):
+            # A list here used to be silently ignored with a 200.
+            return web.json_response(
+                {"error": f"{group} must be an object of settings"}, status=400
+            )
+        unknown = set(submitted) - set(model_cls.model_fields)
+        if unknown:
+            return web.json_response(
+                {"error": f"unknown {group} field(s): {', '.join(sorted(unknown))}"},
+                status=400,
+            )
+        current = getattr(cfg, group)
+        try:
+            merged = model_cls(**{**current.model_dump(), **submitted})
+        except ValidationError as exc:
+            first = exc.errors()[0]
+            loc = ".".join(str(part) for part in first.get("loc", ()))
+            return web.json_response(
+                {"error": f"{group}.{loc}: {first.get('msg', 'invalid value')}"},
+                status=400,
+            )
+        ops.append((group, merged))
+        persist.extend((("openai_codex", group, key), getattr(merged, key)) for key in submitted)
+        wants_reload = wants_reload or live
+    try:
+        candidate_payload = cfg.model_dump()
+        if "context_budget_overrides" in body:
+            candidate_payload["context_budget_overrides"] = body["context_budget_overrides"]
+        if "context_utilization" in body:
+            candidate_payload["context_utilization"] = body["context_utilization"]
+        if "context_budget_overrides" in body or "context_utilization" in body:
+            from ...config.schema import OpenAICodexConfig
+
+            candidate = OpenAICodexConfig(**candidate_payload)
+            for field in ("context_budget_overrides", "context_utilization"):
+                if field not in body:
+                    continue
+                value = getattr(candidate, field)
+                persist.append((("openai_codex", field), value))
+                ops.append((field, value))
+    except ValidationError as exc:
+        first = exc.errors()[0]
+        loc = ".".join(str(part) for part in first.get("loc", ()))
+        return web.json_response(
+            {"error": f"{loc}: {first.get('msg', 'invalid value')}"},
+            status=400,
+        )
+    return persist, ops, wants_reload
+
+
+def _apply_ops(cfg: Any, ops: list[tuple[str, Any]]) -> list[tuple[str, Any]]:
+    """Apply ``(attribute, value)`` ops on cfg; return inverse ops.
+
+    Nested groups arrive as whole model objects and REPLACE the previous
+    object — the inverse holds the prior object by identity, so rollback
+    restores exactly what boot-time captors still reference.
+    """
+    inverse: list[tuple[str, Any]] = []
+    for attr, value in ops:
+        inverse.append((attr, getattr(cfg, attr)))
+        setattr(cfg, attr, value)
+    return inverse
+
+
+def register_provider_config(routes: web.RouteTableDef, bot) -> None:
+    """Provider config update (enable/disable, set keys, endpoints) (verbatim from the monolith)."""
+    # ------------------------------------------------------------------
+    # Provider config update (enable/disable, set keys, endpoints)
+    # ------------------------------------------------------------------
+
+    @routes.put("/api/llm/codex/config")
+    async def llm_codex_config(request: web.Request) -> web.Response:
+        try:
+            body = await request.json()
+            if "enabled" in body:
+                body["enabled"] = TypeAdapter(bool).validate_python(body["enabled"])
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+
+        lock = getattr(getattr(bot, "llm_gateway", None), "provider_lock", None)
+        if lock is None:
+            return web.json_response({"error": "provider lock not available"}, status=503)
+
+        try:
+            # config_transaction() is the OUTER lock everywhere; a generic
+            # /api/config save takes it too, so the two paths can no longer
+            # interleave between reading bot.config and rebinding it.
+            async with config_transaction(), lock:
+                cfg = bot.config.openai_codex
+                # Validate BEFORE any mutation — Literal does not validate
+                # direct assignment, and a rejected request must leave config,
+                # persisted YAML, and the live client untouched.
+                effort = body.get("reasoning_effort")
+                if effort is not None and str(effort) not in CODEX_REASONING_EFFORTS:
+                    return web.json_response(
+                        {
+                            "error": f"invalid reasoning_effort: {effort!r}",
+                            "allowed": sorted(CODEX_REASONING_EFFORTS),
+                        },
+                        status=400,
+                    )
+                # agent_reasoning_effort: JSON null (and "") mean INHERIT, so
+                # presence must be checked by key — .get() cannot distinguish
+                # "missing" from "explicitly null".
+                agent_effort_present = "agent_reasoning_effort" in body
+                agent_effort = body.get("agent_reasoning_effort")
+                if agent_effort in ("", None):
+                    agent_effort = None
+                elif (
+                    str(agent_effort) not in CODEX_REASONING_EFFORTS
+                    and str(agent_effort) != AGENT_SETTING_AUTO
+                ):
+                    # "auto" is a valid agent-axis value (per-spawn selection);
+                    # it is NOT a real effort and is never sent to a provider.
+                    return web.json_response(
+                        {
+                            "error": f"invalid agent_reasoning_effort: {agent_effort!r}",
+                            "allowed": [*sorted(CODEX_REASONING_EFFORTS), AGENT_SETTING_AUTO, None],
+                        },
+                        status=400,
+                    )
+                # agent_model: same inherit contract (null/""/whitespace);
+                # free string like model — the dropdown is the UI constraint.
+                agent_model_present = "agent_model" in body
+                agent_model = body.get("agent_model")
+                if agent_model is not None:
+                    agent_model = str(agent_model).strip() or None
+                # Merged desired state (PUT boundary): partial bodies mean an
+                # incompatible pair must be caught on the RESULT of the update
+                # — changing only model to gpt-5.4 under a persisted "max" is
+                # as invalid as changing only the effort. Checked before any
+                # mutation, in either update direction, on both axes.
+                desired_model = (
+                    str(body["model"]) if ("model" in body and body["model"]) else cfg.model
+                )
+                retired = retired_codex_model_error(desired_model)
+                if retired:
+                    return web.json_response({"error": retired}, status=400)
+                desired_agent_model = agent_model if agent_model_present else cfg.agent_model
+                retired = retired_codex_model_error(desired_agent_model)
+                if retired:
+                    return web.json_response({"error": retired}, status=400)
+                desired_agent_effort = (
+                    (None if agent_effort is None else str(agent_effort))
+                    if agent_effort_present
+                    else cfg.agent_reasoning_effort
+                )
+                desired = {
+                    "enabled": bool(body["enabled"]) if "enabled" in body else cfg.enabled,
+                    "model": str(body["model"]) if body.get("model") else cfg.model,
+                    "reasoning_effort": (
+                        str(effort) if effort is not None else cfg.reasoning_effort
+                    ),
+                    "agent_reasoning_effort": (
+                        (None if agent_effort is None else str(agent_effort))
+                        if agent_effort_present
+                        else cfg.agent_reasoning_effort
+                    ),
+                    "agent_model": agent_model if agent_model_present else cfg.agent_model,
+                }
+                effective_values = bot.config.model_dump()
+                effective_values["openai_codex"].update(desired)
+                try:
+                    type(bot.config).model_validate(effective_values)
+                except ValueError as exc:
+                    from ...tools.agent_tool_policy import configured_agent_model
+                    main = bot.config.llm_provider.model
+                    resolved = configured_agent_model(bot.config)
+                    pair_model = resolved if desired_agent_effort not in (None, "auto") else main
+                    return web.json_response(
+                        {
+                            "error": str(exc),
+                            "allowed": sorted(allowed_efforts_for_model(pair_model)),
+                        },
+                        status=400,
+                    )
+                advanced = _parse_codex_advanced(body, cfg)
+                if isinstance(advanced, web.Response):
+                    return advanced
+                adv_persist, adv_ops, adv_reload = advanced
+                changes = _provider_changes("openai_codex", desired, body)
+                changes = changes + adv_persist
+                persist_response, was_cancelled = await _persist_or_response(changes, "Codex")
+                if persist_response is not None:
+                    return persist_response
+                if changes:
+                    prior = {key: getattr(cfg, key) for key in desired}
+                    _set_fields(cfg, desired)
+                    # Advanced transport/retry apply live through the same
+                    # reload the primary knobs use; pool and compression
+                    # persist only and surface as pending-restart. The old
+                    # handler dropped all of these silently and returned 200.
+                    adv_inverse = _apply_ops(cfg, adv_ops)
+                    needs_reload = adv_reload or any(
+                        key in body for key in ("enabled", "model", "reasoning_effort")
+                    )
+                    try:
+                        if needs_reload:
+                            await bot.llm_gateway.reload_codex_inner()
+                    except BaseException:
+                        _set_fields(cfg, prior)
+                        _apply_ops(cfg, adv_inverse)  # restore prior objects
+                        adv_prior_persist: list[tuple[tuple[str, ...], Any]] = []
+                        for attr, prior_value in adv_inverse:
+                            if hasattr(prior_value, "model_dump"):
+                                adv_prior_persist.extend(
+                                    (("openai_codex", attr, key), val)
+                                    for key, val in prior_value.model_dump().items()
+                                )
+                            else:
+                                adv_prior_persist.append((("openai_codex", attr), prior_value))
+                        prior_persist: list[tuple[tuple[str, ...], Any]] = [
+                            (("openai_codex", key), value)
+                            for key, value in prior.items()
+                            if key in body
+                        ]
+                        rollback_exc, rollback_cancelled = await persist_config_paths_locked(
+                            prior_persist + adv_prior_persist
+                        )
+                        if rollback_exc is not None:
+                            log.critical(
+                                "Codex apply failed and persistence rollback failed: %s",
+                                rollback_exc,
+                            )
+                            _set_fields(cfg, desired)
+                            # Disk kept the DESIRED nested values (their
+                            # rollback failed too) — runtime must republish
+                            # them as well, or transport/retry/pool split
+                            # between disk and process.
+                            _apply_ops(cfg, adv_ops)
+                            if needs_reload:
+                                await bot.llm_gateway.reload_codex_inner()
+                        elif needs_reload:
+                            await bot.llm_gateway.reload_codex_inner()
+                        if was_cancelled or rollback_cancelled:
+                            raise asyncio.CancelledError
+                        raise
+                    catalog_changed = any(
+                        key in body
+                        for key in (
+                            "model",
+                            "reasoning_effort",
+                            "agent_reasoning_effort",
+                            "agent_model",
+                        )
+                    )
+                    if catalog_changed and getattr(bot, "tool_catalog", None):
+                        bot.tool_catalog.invalidate()
+                if was_cancelled:
+                    raise asyncio.CancelledError
+
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+        except Exception as e:
+            log.warning("Codex configuration apply failed: %s", e)
+            return web.json_response({"error": "Codex configuration not applied"}, status=500)
+
+        return web.json_response(
+            {
+                "status": "updated",
+                "enabled": cfg.enabled,
+                "model": cfg.model,
+                "reasoning_effort": cfg.reasoning_effort,
+                "agent_reasoning_effort": cfg.agent_reasoning_effort,
+                "agent_model": cfg.agent_model,
+                "configured": bot.llm_gateway.codex_client is not None,
+            }
+        )
+
+    @routes.put("/api/llm/auxiliary/config")
+    async def llm_auxiliary_config(request: web.Request) -> web.Response:
+        try:
+            body = await request.json()
+            if "enabled" in body:
+                body["enabled"] = TypeAdapter(bool).validate_python(body["enabled"])
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+
+        # Prepare under the global config transaction, then release it for
+        # candidate construction and the live model probe. reload_auxiliary()
+        # reacquires config_transaction() OUTER and provider_lock inner for a
+        # CAS-checked swap + persistence transaction.
+        try:
+            async with config_transaction():
+                aux_cfg = getattr(bot.config.openai_codex, "auxiliary", None)
+                if aux_cfg is None:
+                    return web.json_response({"error": "auxiliary config unavailable"}, status=503)
+
+                want_enabled = bool(body["enabled"]) if "enabled" in body else aux_cfg.enabled
+                want_model = aux_cfg.model
+                if "model" in body and str(body["model"]).strip():
+                    want_model = str(body["model"]).strip()
+                desired = {"enabled": want_enabled, "model": want_model}
+                retired = retired_codex_model_error(want_model)
+                if retired:
+                    return web.json_response({"error": retired}, status=400)
+                plan = bot.llm_gateway.prepare_auxiliary_reload(desired)
+
+            result = await bot.llm_gateway.reload_auxiliary(
+                plan=plan,
+                persist=lambda: patch_config_paths(
+                    [
+                        (("openai_codex", "auxiliary", "enabled"), desired["enabled"]),
+                        (("openai_codex", "auxiliary", "model"), desired["model"]),
+                    ]
+                ),
+            )
+        except Exception as e:
+            log.exception("Auxiliary reload raised")
+            return web.json_response({"error": f"reload failed: {e}"}, status=500)
+        if not result.get("committed"):
+            reason = result.get("reason", "auxiliary reload not committed")
+            if "concurrent" in reason:
+                status = 409
+            elif "persist failed" in reason:
+                status = 500
+            else:
+                status = 400
+            return web.json_response({"error": reason}, status=status)
+        return web.json_response({"status": "updated", **_auxiliary_status(bot)})
+
+    @routes.put("/api/llm/ollama/config")
+    async def llm_ollama_config(request: web.Request) -> web.Response:
+        try:
+            body = await request.json()
+            if "enabled" in body:
+                body["enabled"] = TypeAdapter(bool).validate_python(body["enabled"])
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+
+        lock = getattr(getattr(bot, "llm_gateway", None), "provider_lock", None)
+        if lock is None:
+            return web.json_response({"error": "provider lock not available"}, status=503)
+
+        try:
+            # config_transaction() is the OUTER lock everywhere; a generic
+            # /api/config save takes it too, so the two paths can no longer
+            # interleave between reading bot.config and rebinding it.
+            async with config_transaction(), lock:
+                cfg = bot.config.ollama
+                desired = {
+                    "enabled": bool(body["enabled"]) if "enabled" in body else cfg.enabled,
+                    "base_url": (
+                        _validate_ollama_url(str(body["base_url"]))
+                        if body.get("base_url")
+                        else cfg.base_url
+                    ),
+                    "model": str(body["model"]) if body.get("model") else cfg.model,
+                    "max_tokens": (
+                        _parse_int(body["max_tokens"], "max_tokens", 1, 128000)
+                        if "max_tokens" in body
+                        else cfg.max_tokens
+                    ),
+                    "num_ctx": (
+                        _parse_int(body["num_ctx"], "num_ctx", 4096, 2_000_000)
+                        if "num_ctx" in body
+                        else cfg.num_ctx
+                    ),
+                    "api_key": str(body["api_key"]) if "api_key" in body else cfg.api_key,
+                    "timeout": (
+                        _parse_int(body["timeout"], "timeout", 10, 3600)
+                        if "timeout" in body
+                        else cfg.timeout
+                    ),
+                }
+                changes = _provider_changes("ollama", desired, body)
+                persist_response, was_cancelled = await _persist_or_response(changes, "Ollama")
+                if persist_response is not None:
+                    return persist_response
+                if changes:
+                    prior = {key: getattr(cfg, key) for key in desired}
+                    prior_client = bot.llm_gateway.ollama_client
+                    _set_fields(cfg, desired)
+                    try:
+                        await bot.llm_gateway.reload_ollama_inner()
+                    except BaseException:
+                        _set_fields(cfg, prior)
+                        bot.llm_gateway.ollama_client = prior_client
+                        rollback_exc, rollback_cancelled = await persist_config_paths_locked(
+                            [
+                                (("ollama", key), value)
+                                for key, value in prior.items()
+                                if key in body
+                            ]
+                        )
+                        if rollback_exc is not None:
+                            log.critical(
+                                "Ollama apply failed and persistence rollback failed: %s",
+                                rollback_exc,
+                            )
+                            _set_fields(cfg, desired)
+                            await bot.llm_gateway.reload_ollama_inner()
+                        if was_cancelled or rollback_cancelled:
+                            raise asyncio.CancelledError
+                        raise
+                if was_cancelled:
+                    raise asyncio.CancelledError
+
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+        except Exception as e:
+            log.warning("Ollama configuration apply failed: %s", e)
+            return web.json_response({"error": "Ollama configuration not applied"}, status=500)
+
+        return web.json_response(
+            {
+                "status": "updated",
+                "enabled": cfg.enabled,
+                "model": cfg.model,
+                "base_url": cfg.base_url,
+                "configured": bot.llm_gateway.ollama_client is not None,
+            }
+        )
+
+    @routes.put("/api/openai-compatible/config")
+    async def openai_compatible_config(request: web.Request) -> web.Response:
+        try:
+            body = await request.json()
+            if "enabled" in body:
+                body["enabled"] = TypeAdapter(bool).validate_python(body["enabled"])
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+
+        # Legacy API callers get the same migration as persisted YAML. Explicit
+        # new fields take precedence. Never persist the ambiguous old spelling.
+        if "timeout" in body:
+            body = dict(body)
+            body.setdefault("stream_stall_timeout_seconds", body.pop("timeout"))
+            body.setdefault("request_timeout_seconds", 3600)
+
+        lock = getattr(getattr(bot, "llm_gateway", None), "provider_lock", None)
+        if lock is None:
+            return web.json_response({"error": "provider lock not available"}, status=503)
+
+        try:
+            # config_transaction() is the OUTER lock everywhere; a generic
+            # /api/config save takes it too, so the two paths can no longer
+            # interleave between reading bot.config and rebinding it.
+            async with config_transaction(), lock:
+                cfg = bot.config.openai_compatible
+                desired = {
+                    "enabled": bool(body["enabled"]) if "enabled" in body else cfg.enabled,
+                    "api_key": str(body["api_key"]) if "api_key" in body else cfg.api_key,
+                    "base_url": str(body["base_url"]).strip()
+                    if body.get("base_url")
+                    else cfg.base_url,
+                    "model": str(body["model"]) if body.get("model") else cfg.model,
+                    "max_tokens": (
+                        _parse_int(body["max_tokens"], "max_tokens", 1, 262000)
+                        if "max_tokens" in body
+                        else cfg.max_tokens
+                    ),
+                    "request_timeout_seconds": (
+                        _parse_int(
+                            body["request_timeout_seconds"], "request_timeout_seconds", 60, 86400
+                        )
+                        if "request_timeout_seconds" in body
+                        else cfg.request_timeout_seconds
+                    ),
+                    "stream_stall_timeout_seconds": (
+                        _parse_int(
+                            body["stream_stall_timeout_seconds"],
+                            "stream_stall_timeout_seconds", 10, 3600,
+                        )
+                        if "stream_stall_timeout_seconds" in body
+                        else cfg.stream_stall_timeout_seconds
+                    ),
+                    "preset": body["preset"] if body.get("preset") is not None else cfg.preset,
+                    "reasoning_effort": body.get("reasoning_effort", cfg.reasoning_effort),
+                    "thinking_mode": body.get("thinking_mode", cfg.thinking_mode),
+                    "model_profiles": (
+                        type(cfg)
+                        .model_validate(
+                            {**cfg.model_dump(), "model_profiles": body["model_profiles"]}
+                        )
+                        .model_profiles
+                        if "model_profiles" in body
+                        else cfg.model_profiles
+                    ),
+                    "context_utilization": (
+                        _parse_int(
+                            body["context_utilization"],
+                            "context_utilization",
+                            30,
+                            100,
+                        )
+                        if "context_utilization" in body
+                        else cfg.context_utilization
+                    ),
+                    "openrouter": (
+                        type(cfg.openrouter).model_validate(body["openrouter"])
+                        if "openrouter" in body
+                        else cfg.openrouter
+                    ),
+                }
+                changes = _provider_changes("openai_compatible", desired, body)
+                # Validate before persistence, including nullable UI fields.
+                type(cfg).model_validate({**cfg.model_dump(), **desired})
+                changes = [
+                    (
+                        path,
+                        (
+                            {name: profile.model_dump() for name, profile in value.items()}
+                            if path[-1] == "model_profiles"
+                            else value.model_dump()
+                            if path[-1] == "openrouter"
+                            else value
+                        ),
+                    )
+                    for path, value in changes
+                ]
+                persist_response, was_cancelled = await _persist_or_response(
+                    changes, "OpenAI-compatible"
+                )
+                if persist_response is not None:
+                    return persist_response
+                if changes:
+                    prior = {key: getattr(cfg, key) for key in desired}
+                    prior_client = _compatible_client(bot)
+                    _set_fields(cfg, desired)
+                    try:
+                        reload_result = await bot.llm_gateway.reload_openai_compatible_inner()
+                        if cfg.enabled and reload_result.get("reason"):
+                            raise RuntimeError(reload_result["reason"])
+                    except BaseException:
+                        _set_fields(cfg, prior)
+                        bot.llm_gateway.compatible_client = prior_client
+                        rollback_exc, rollback_cancelled = await persist_config_paths_locked(
+                            [
+                                (
+                                    ("openai_compatible", key),
+                                    (
+                                        {
+                                            name: profile.model_dump()
+                                            for name, profile in value.items()
+                                        }
+                                        if key == "model_profiles"
+                                        else value.model_dump()
+                                        if key == "openrouter"
+                                        else value
+                                    ),
+                                )
+                                for key, value in prior.items()
+                                if key in body
+                            ]
+                        )
+                        if rollback_exc is not None:
+                            log.critical(
+                                "OpenAI-compatible apply failed and persistence "
+                                "rollback failed: %s",
+                                rollback_exc,
+                            )
+                            _set_fields(cfg, desired)
+                            await bot.llm_gateway.reload_openai_compatible_inner()
+                        if was_cancelled or rollback_cancelled:
+                            raise asyncio.CancelledError
+                        raise
+                    if getattr(bot, "tool_catalog", None):
+                        bot.tool_catalog.invalidate()
+                if was_cancelled:
+                    raise asyncio.CancelledError
+
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+        except Exception as e:
+            log.warning("OpenAI-compatible configuration apply failed: %s", e)
+            return web.json_response(
+                {"error": "OpenAI-compatible configuration not applied"}, status=500
+            )
+
+        return web.json_response(
+            {
+                "status": "updated",
+                "enabled": cfg.enabled,
+                "model": cfg.model,
+                "base_url": cfg.base_url,
+                "configured": _compatible_client(bot) is not None,
+            }
+        )
+
+
+def register_context_windows(routes: web.RouteTableDef, bot) -> None:
+    """Per-model context-budget view + clamp management (campaign phase 5).
+
+    The GET serves canonical model keys with the built-in floor, configured
+    override, CONFIGURED resolution (no clamp) and EFFECTIVE resolution
+    (observer clamp applied) side by side, provenance for both, and the raw
+    per-account evidence (opaque account keys only). The POST clears clamps
+    for one account (optionally one model) — the manual, account-scoped
+    escape hatch; TTL expiry is otherwise the only way a clamp dies.
+    """
+
+    def _observer():
+        return getattr(getattr(bot, "services", None), "window_observer", None)
+
+    def _resolution(snapshot) -> dict:
+        return {
+            "base_budget": snapshot.base_budget,
+            "base_source": snapshot.base_source,
+            "effective_budget": snapshot.effective_budget,
+            "clamp_applied": snapshot.clamp_applied,
+            "working_budget": snapshot.working_budget,
+            "primary_chars": snapshot.primary_chars,
+            "ceiling_applied": snapshot.ceiling_applied,
+            "ladder": list(snapshot.ladder),
+            "density_milli": snapshot.density_milli,
+            "density_source": snapshot.density_source,
+        }
+
+    @routes.get("/api/context/windows")
+    async def get_context_windows(_request: web.Request) -> web.Response:
+        from ...config.schema import (
+            CODEX_MODEL_INPUT_BUDGETS,
+            canonical_codex_model,
+        )
+        from ...llm.context_budget import resolve_context_budget
+
+        observer = _observer()
+        codex_cfg = getattr(bot.config, "openai_codex", None)
+        overrides = {
+            canonical_codex_model(k): v
+            for k, v in (getattr(codex_cfg, "context_budget_overrides", None) or {}).items()
+            if not retired_codex_model_error(k)
+        }
+        utilization = getattr(codex_cfg, "context_utilization", 60)
+        cc = getattr(codex_cfg, "context_compression", None)
+        configured_ceiling = getattr(cc, "max_context_chars", None) if cc is not None else None
+        desired_compression = cc.model_dump() if cc is not None else {}
+        effective_compression, ceiling_pending_restart = _boot_codex_group_status(
+            bot, "context_compression", desired_compression
+        )
+        # The runtime compressor is boot-frozen. Prefer the shared boot snapshot
+        # used by /api/llm/status; a narrow embedding without it reports runtime
+        # truth directly from the compressor rather than pretending the saved
+        # restart-bound value is effective.
+        if effective_compression is not None:
+            # Disabled-at-boot means the runtime has no compressor and generation
+            # applies no explicit ceiling. The saved scalar remains configuration,
+            # not runtime policy, until compression is enabled by a restart.
+            runtime_ceiling = (
+                effective_compression.get("max_context_chars")
+                if effective_compression.get("enabled")
+                else None
+            )
+        else:
+            compressor = getattr(bot, "context_compressor", None)
+            # Production stores the boot-frozen ContextCompressionConfig object
+            # directly; a few embedders wrap it as ``.config``.
+            runtime_cfg = getattr(compressor, "config", compressor)
+            runtime_available = runtime_cfg is not None and hasattr(
+                runtime_cfg, "max_context_chars"
+            )
+            # With no boot snapshot and no runtime compressor, the only safe
+            # runtime ceiling is none: generation applies the model-derived
+            # target. Restart-pending provenance remains unknown rather than
+            # guessing from a mutable saved config object.
+            runtime_ceiling = (
+                getattr(runtime_cfg, "max_context_chars", None) if runtime_available else None
+            )
+            ceiling_pending_restart = (
+                runtime_ceiling != configured_ceiling if runtime_available else None
+            )
+        evidence: dict = observer.view() if observer is not None else {"version": 1, "accounts": {}}
+        # Resolve eligibility once for one internally-consistent management
+        # snapshot.  Re-reading a changing pool provider per model could pair a
+        # clamp from one account set with expiry rows from another.
+        clamp_rows = observer.account_clamps() if observer is not None else []
+        active_clamp_rows: dict[str, dict] = {}
+        for row in clamp_rows:
+            prior = active_clamp_rows.get(row["model"])
+            if (
+                prior is None
+                or row["value"] < prior["value"]
+                or (row["value"] == prior["value"] and row["expires_at"] > prior["expires_at"])
+            ):
+                active_clamp_rows[row["model"]] = row
+        # Density is WORKLOAD-LOCAL: there is no global calibrated value to
+        # report, and substituting a minimum, average, most-recent or
+        # current-account workload density would assert a runtime target no
+        # generation actually uses. The model row therefore describes the
+        # fixed prior and the FRESH-workload target, with active-workload
+        # calibration exposed separately as observability only.
+        workload_calibration: dict[str, dict] = {}
+        if observer is not None:
+            try:
+                workload_calibration = observer.workload_calibration_summary()
+            except Exception:
+                log.exception("workload calibration summary failed")
+        models = set(CODEX_MODEL_INPUT_BUDGETS) | set(overrides)
+        for account in evidence.get("accounts", {}).values():
+            models |= set(account.get("models", {}))
+        # A model may appear only in active workload calibration; the census
+        # must still describe it rather than omit a model that live work is
+        # currently calibrating.
+        models |= set(workload_calibration)
+        out = {}
+        for model in sorted(models):
+            # Historical evidence remains visible below, but a retired model
+            # has no active budget resolution. Never turn old records into a
+            # management-page 500 or silently assign an unknown-model budget.
+            if retired_codex_model_error(model):
+                continue
+            active_row = active_clamp_rows.get(model)
+            clamp = active_row["value"] if active_row is not None else None
+            # Configured resolution describes SAVED policy and therefore uses
+            # the uncalibrated default; only the runtime resolution consumes
+            # live calibration, so the two columns stay honestly different.
+            configured = resolve_context_budget(
+                model,
+                overrides=overrides,
+                utilization=utilization,
+                max_context_chars=configured_ceiling,
+            )
+            # The effective row is the FRESH-workload resolution: a workload
+            # with no samples yet uses the fixed prior, which is the only
+            # density this endpoint can honestly attribute to the model.
+            effective = resolve_context_budget(
+                model,
+                overrides=overrides,
+                utilization=utilization,
+                max_context_chars=runtime_ceiling,
+                observed_clamp=clamp,
+            )
+            out[model] = {
+                "floor": CODEX_MODEL_INPUT_BUDGETS.get(model),
+                "override": overrides.get(model),
+                "active_clamp": clamp,
+                "provenance": (
+                    "temporary learned clamp"
+                    if effective.clamp_applied
+                    else "override"
+                    if configured.base_source == "override"
+                    else "built-in"
+                ),
+                "configured": _resolution(configured),
+                "effective": _resolution(effective),
+                # Fixed prior + the fresh-workload target it produces. NOT a
+                # runtime calibrated value: calibration is per workload and
+                # this endpoint has no single one to report.
+                "density_prior_milli": effective.density_milli,
+                "density_scope": "workload-local calibration",
+                # Observability only — how many live workloads are calibrated
+                # on this model and the range they span. Never policy.
+                "workload_calibration": workload_calibration.get(
+                    model, {"active_workloads": 0, "min": None, "max": None}
+                ),
+                "clamp_expires_at": (
+                    active_row["expires_at"]
+                    if effective.clamp_applied and active_row is not None
+                    else None
+                ),
+            }
+        return web.json_response(
+            {
+                "utilization": utilization,
+                "max_context_chars": configured_ceiling,
+                "runtime_max_context_chars": runtime_ceiling,
+                "max_context_chars_pending_restart": ceiling_pending_restart,
+                "models": out,
+                "clamps": clamp_rows,
+                "evidence": evidence,
+            }
+        )
+
+    @routes.post("/api/context/windows/clear")
+    async def clear_context_window_clamp(request: web.Request) -> web.Response:
+        observer = _observer()
+        if observer is None:
+            return web.json_response({"error": "window observer not available"}, status=503)
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        if not isinstance(data, dict):
+            return web.json_response({"error": "JSON body must be an object"}, status=400)
+        account_key = data.get("account_key")
+        if not isinstance(account_key, str) or not account_key.strip():
+            return web.json_response({"error": "account_key is required"}, status=400)
+        model = data.get("model")
+        try:
+            cleared = await observer.clear_account(
+                account_key.strip(),
+                model=str(model).strip() if isinstance(model, str) and model.strip() else None,
+            )
+        except WindowObserverMutationError:
+            return web.json_response(
+                {"error": "context-window clear could not be persisted"}, status=503
+            )
+        return web.json_response({"cleared": cleared})
+
+
+def register_ollama_admin(routes: web.RouteTableDef, bot) -> None:
+    """Ollama provider management (verbatim from the monolith)."""
+    # ------------------------------------------------------------------
+    # Ollama provider management
+    # ------------------------------------------------------------------
+
+    @routes.get("/api/ollama/status")
+    async def ollama_status(_request: web.Request) -> web.Response:
+        client = getattr(getattr(bot, "llm_gateway", None), "ollama_client", None)
+        if client is None:
+            return web.json_response({"configured": False, "enabled": False})
+
+        health = await client.health_check()
+        return web.json_response(
+            {
+                "configured": True,
+                "enabled": True,
+                "model": client.model,
+                "base_url": client.base_url,
+                "health": health,
+                "stats": client.pool_stats(),
+            }
+        )
+
+    @routes.post("/api/ollama/reload")
+    async def ollama_reload(_request: web.Request) -> web.Response:
+        result = await bot.llm_gateway.reload_ollama()
+        status = 200 if result.get("configured") else 503
+        return web.json_response(result, status=status)
+
+    @routes.post("/api/ollama/probe-models")
+    async def ollama_probe_models(request: web.Request) -> web.Response:
+        """Fetch models from an arbitrary Ollama base_url — works even when client is disabled."""
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+
+        base_url = (body.get("base_url") or "").rstrip("/")
+        try:
+            base_url = _validate_ollama_url(base_url)
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+        if not base_url.startswith(("http://", "https://")):
+            return web.json_response(
+                {"error": "base_url must start with http:// or https://"}, status=400
+            )
+        try:
+            import aiohttp as _aio
+
+            async with _aio.ClientSession(timeout=_aio.ClientTimeout(total=10)) as sess:
+                async with sess.get(f"{base_url}/api/tags") as resp:
+                    if resp.status != 200:
+                        return web.json_response({"error": f"HTTP {resp.status}"}, status=502)
+                    data = await resp.json()
+                    return web.json_response({"models": data.get("models", [])})
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=502)
+
+    @routes.get("/api/ollama/models")
+    async def ollama_models(_request: web.Request) -> web.Response:
+        client = getattr(getattr(bot, "llm_gateway", None), "ollama_client", None)
+        if client is None:
+            return web.json_response({"error": "Ollama not configured"}, status=503)
+
+        try:
+            import aiohttp as _aiohttp
+
+            session = await client._get_session()
+            async with session.get(
+                f"{client.base_url}/api/tags",
+                headers=client._headers(),
+                timeout=_aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    return web.json_response({"error": f"HTTP {resp.status}"}, status=502)
+                data = await resp.json()
+                return web.json_response(
+                    {
+                        "models": data.get("models", []),
+                        "active_model": client.model,
+                    }
+                )
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=502)
+
+    @routes.post("/api/ollama/model")
+    async def ollama_set_model(request: web.Request) -> web.Response:
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+
+        model = body.get("model", "").strip()
+        if not model:
+            return web.json_response({"error": "model is required"}, status=400)
+
+        lock = getattr(getattr(bot, "llm_gateway", None), "provider_lock", None)
+        if lock is None:
+            return web.json_response({"error": "provider lock not available"}, status=503)
+
+        # config_transaction() is the OUTER lock everywhere (see the config
+        # routes) so a generic /api/config save cannot interleave with this one.
+        async with config_transaction(), lock:
+            client = getattr(getattr(bot, "llm_gateway", None), "ollama_client", None)
+            if client is None:
+                return web.json_response({"error": "Ollama not configured"}, status=503)
+
+            health = await client.health_check()
+            available = health.get("models", [])
+            if available and model not in available:
+                base = model.split(":")[0]
+                if not any(m.startswith(base + ":") for m in available):
+                    return web.json_response(
+                        {
+                            "error": (
+                                f"Model '{model}' not available. "
+                                f"Pulled models: {', '.join(available[:10])}"
+                            ),
+                        },
+                        status=400,
+                    )
+
+            persist_exc, was_cancelled = await persist_config_paths_locked(
+                [(("ollama", "model"), model)]
+            )
+            if persist_exc is not None:
+                if was_cancelled:
+                    raise asyncio.CancelledError
+                return web.json_response({"error": "Ollama model not saved"}, status=500)
+            client.model = model
+            bot.config.ollama.model = model
+            if was_cancelled:
+                raise asyncio.CancelledError
+        return web.json_response({"status": "updated", "model": model})
+
+
+def register_openai_compatible_admin(routes: web.RouteTableDef, bot) -> None:
+    """Administration routes for the configured OpenAI-compatible provider."""
+
+    def _client():
+        return _compatible_client(bot)
+
+    def _openrouter_config():
+        cfg = getattr(bot.config, "openai_compatible", None)
+        from ...llm.openrouter import is_openrouter_base_url
+
+        return cfg if cfg and is_openrouter_base_url(cfg.base_url) else None
+
+    @routes.get("/api/openrouter/catalogue")
+    async def openrouter_catalogue(_request: web.Request) -> web.Response:
+        from ...config.schema import OpenAICompatibleModelProfile
+        from ...llm.context_budget import compatible_agent_unavailable_reason
+
+        cfg = _openrouter_config()
+        if cfg is None:
+            return web.json_response({"error": "OpenRouter endpoint not recognized"}, status=404)
+        models, stale, error = await _openrouter_models(cfg)
+        configured = cfg.model_profiles
+        derived_profiles = cfg.openrouter.catalogue_profiles
+        requested_detail_ids = set(cfg.openrouter.model_pins)
+        requested_detail_ids.update(
+            ref.removeprefix("compat:")
+            for item in getattr(bot.config.agents, "auto_model_allowlist", [])
+            for ref in [item if isinstance(item, str) else item.model]
+            if ref.startswith("compat:")
+        )
+        requested_detail_ids.add(cfg.model)
+        requested_detail_ids = {
+            model_id
+            for model_id in requested_detail_ids
+            if any(model["id"] == model_id for model in models)
+        }
+        endpoint_details: dict[str, list[dict[str, Any]]] = {}
+        for model_id in requested_detail_ids:
+            try:
+                endpoint_details[model_id] = await _openrouter_endpoint_rows(
+                    model_id,
+                    api_key=cfg.api_key,
+                )
+            except Exception:
+                log.exception("OpenRouter endpoint details unavailable for %s", model_id)
+        projected = []
+        for model in models:
+            item = dict(model)
+            profile = configured.get(model["id"])
+            derived_profile = derived_profiles.get(model["id"])
+            derived = derived_profile.model_dump() if derived_profile is not None else None
+            override = profile.model_dump() if profile is not None else None
+            item["profile"] = override or derived
+            item["profile_source"] = (
+                "operator" if override else "openrouter_catalogue" if derived else None
+            )
+            item["profile_conflict"] = bool(
+                override
+                and derived
+                and (
+                    override["total_window_tokens"] != derived["total_window_tokens"]
+                    or override["max_output_tokens"] != derived["max_output_tokens"]
+                )
+            )
+            item["endpoints"] = endpoint_details.get(model["id"], [])
+            if item["variant"] == "standard" and item["supports_tools"]:
+                preview_profile = profile or derived_profile
+                if (
+                    preview_profile is None
+                    and model.get("context_length")
+                    and model.get("max_completion_tokens")
+                ):
+                    preview_profile = OpenAICompatibleModelProfile(
+                        total_window_tokens=model["context_length"],
+                        max_output_tokens=model["max_completion_tokens"],
+                    )
+                preview_cfg = (
+                    cfg.model_copy(
+                        update={"model_profiles": {**configured, model["id"]: preview_profile}}
+                    )
+                    if preview_profile is not None
+                    else cfg
+                )
+                reason = compatible_agent_unavailable_reason(model["id"], preview_cfg)
+                item["agent_eligible"] = reason is None
+                item["agent_unavailable_reason"] = reason
+            projected.append(item)
+        quick_refs: list[str] = []
+        catalogue = __import__(
+            "src.tools.model_hints", fromlist=["MODEL_HINT_CATALOGUE"]
+        ).MODEL_HINT_CATALOGUE
+        for key in catalogue:
+            if len(quick_refs) >= 8:
+                break
+            if any(
+                item["id"] == key and item["agent_eligible"] for item in projected
+            ) and key not in {
+                "openrouter/auto",
+                "openrouter/auto-beta",
+            }:
+                quick_refs.append(f"compat:{key}")
+        usage = getattr(bot, "usage_rollup", None)
+        measured_cache = []
+        if usage is not None:
+            try:
+                measured_cache = (await usage.summary("30d")).get("upstream_cache", [])
+            except Exception:
+                log.exception("OpenRouter measured cache summary failed")
+        return web.json_response(
+            {
+                "recognized": True,
+                "fetched_at": _openrouter_cache.get("fetched_at"),
+                "stale": stale,
+                "refresh_error": error,
+                "models": projected,
+                "quick_add": quick_refs,
+                "routing": cfg.openrouter.model_dump(),
+                "measured_cache": measured_cache,
+            }
+        )
+
+    @routes.get("/api/openrouter/models/{author}/{slug}/endpoints")
+    async def openrouter_model_endpoints(request: web.Request) -> web.Response:
+        cfg = _openrouter_config()
+        if cfg is None:
+            return web.json_response({"error": "OpenRouter endpoint not recognized"}, status=404)
+        from ...llm.openrouter import conservative_profile
+
+        model_id = f"{request.match_info['author']}/{request.match_info['slug']}"
+        try:
+            rows = await _openrouter_endpoint_rows(model_id, api_key=cfg.api_key)
+        except ValueError as exc:
+            return web.json_response({"error": str(exc)}, status=400)
+        profile = conservative_profile(rows, cfg.openrouter, model=model_id)
+        return web.json_response(
+            {"model": model_id, "endpoints": rows, "effective_profile": profile}
+        )
+
+    @routes.post("/api/openrouter/models/{author}/{slug}/select")
+    async def openrouter_select_model(request: web.Request) -> web.Response:
+        """Persist a route-derived profile and optional per-model provider pin."""
+        cfg = _openrouter_config()
+        if cfg is None:
+            return web.json_response({"error": "OpenRouter endpoint not recognized"}, status=404)
+        from ...config.schema import OpenAICompatibleModelProfile
+        from ...llm.openrouter import conservative_profile, openrouter_variant
+
+        model_id = f"{request.match_info['author']}/{request.match_info['slug']}"
+        if openrouter_variant(model_id) != "standard":
+            return web.json_response(
+                {"error": "free and batch variants are not eligible for ordinary agents"},
+                status=400,
+            )
+        try:
+            body = await request.json()
+            pin = str(body.get("provider_tag") or "").strip()
+            rows = await _openrouter_endpoint_rows(model_id, api_key=cfg.api_key)
+            tags = {str(row.get("tag")) for row in rows}
+            if pin and pin not in tags:
+                raise ValueError("provider_tag must be an endpoint tag returned by OpenRouter")
+            routing_values = cfg.openrouter.model_dump()
+            pins = dict(cfg.openrouter.model_pins)
+            if pin:
+                pins[model_id] = pin
+            else:
+                pins.pop(model_id, None)
+            routing_values["model_pins"] = pins
+            route_policy = type(cfg.openrouter).model_validate(routing_values)
+            profile = conservative_profile(
+                rows,
+                route_policy,
+                model=model_id,
+                require_reasoning=True,
+            )
+            if profile is None:
+                raise ValueError("no tool-capable endpoint can provide a safe model profile")
+            catalogue_models, _, _ = await _openrouter_models(cfg)
+            catalogue_model = next(
+                (item for item in catalogue_models if item["id"] == model_id), None
+            )
+            if catalogue_model is None:
+                raise ValueError("model is absent from the OpenRouter catalogue")
+            profile_value = OpenAICompatibleModelProfile(
+                total_window_tokens=profile["total_window_tokens"],
+                max_output_tokens=profile["max_output_tokens"],
+                supports_thinking_mode=False,
+                supports_reasoning=bool(catalogue_model.get("supports_reasoning")),
+                supported_efforts=catalogue_model.get("supported_efforts") or [],
+            )
+            derived = dict(cfg.openrouter.catalogue_profiles)
+            derived[model_id] = profile_value
+            routing_values["catalogue_profiles"] = {
+                name: value.model_dump() for name, value in derived.items()
+            }
+            candidate = type(cfg.openrouter).model_validate(routing_values)
+        except (ValueError, ValidationError) as exc:
+            return web.json_response({"error": str(exc)}, status=400)
+        async with config_transaction():
+            # Remote catalogue awaits above may overlap a config rebind or a
+            # policy save. Rebuild against the current owner before publication.
+            cfg = _openrouter_config()
+            if cfg is None:
+                return web.json_response({"error": "OpenRouter configuration changed"}, status=409)
+            routing_values = cfg.openrouter.model_dump()
+            pins = dict(cfg.openrouter.model_pins)
+            if pin:
+                pins[model_id] = pin
+            else:
+                pins.pop(model_id, None)
+            routing_values["model_pins"] = pins
+            route_policy = type(cfg.openrouter).model_validate(routing_values)
+            profile = conservative_profile(
+                rows, route_policy, model=model_id, require_reasoning=True
+            )
+            if profile is None:
+                return web.json_response(
+                    {"error": "no tool-capable endpoint can provide a safe model profile"},
+                    status=400,
+                )
+            profile_value = OpenAICompatibleModelProfile(
+                total_window_tokens=profile["total_window_tokens"],
+                max_output_tokens=profile["max_output_tokens"],
+                supports_thinking_mode=False,
+                supports_reasoning=bool(catalogue_model.get("supports_reasoning")),
+                supported_efforts=catalogue_model.get("supported_efforts") or [],
+            )
+            derived = dict(cfg.openrouter.catalogue_profiles)
+            derived[model_id] = profile_value
+            routing_values["catalogue_profiles"] = {
+                name: value.model_dump() for name, value in derived.items()
+            }
+            candidate = type(cfg.openrouter).model_validate(routing_values)
+            error, cancelled = await persist_config_paths_locked(
+                [(("openai_compatible", "openrouter"), candidate.model_dump())]
+            )
+            if error:
+                if cancelled:
+                    raise asyncio.CancelledError
+                return web.json_response({"error": "OpenRouter model policy not saved"}, status=500)
+            cfg.openrouter = candidate
+            client = _client()
+            if client is not None:
+                client.openrouter_routing = candidate
+            if getattr(bot, "tool_catalog", None):
+                bot.tool_catalog.invalidate()
+        return web.json_response(
+            {
+                "model": model_id,
+                "provider_tag": pin or None,
+                "profile": profile_value.model_dump(),
+                "effective_profile": profile,
+            }
+        )
+
+    @routes.get("/api/openai-compatible/status")
+    async def openai_compatible_status(_request: web.Request) -> web.Response:
+        client = _client()
+        cfg = getattr(getattr(bot, "config", None), "openai_compatible", None)
+        if client is None:
+            return web.json_response(
+                {
+                    "configured": False,
+                    "enabled": bool(cfg and cfg.enabled),
+                    "model": cfg.model if cfg else "",
+                    "base_url": cfg.base_url if cfg else "",
+                }
+            )
+        health = await client.health_check()
+        return web.json_response(
+            {
+                "configured": True,
+                "enabled": True,
+                "provider": getattr(client, "provider_name", "openai_compatible"),
+                "model": client.model,
+                "base_url": client.base_url,
+                "health": health,
+                "stats": client.pool_stats(),
+            }
+        )
+
+    @routes.post("/api/openai-compatible/reload")
+    async def openai_compatible_reload(_request: web.Request) -> web.Response:
+        result = await _reload_openai_compatible(bot)
+        # A retained old generation is still configured, but a rejected
+        # candidate is not a successful reload.  Surface that distinction to
+        # callers rather than declaring the failed change healthy.
+        return web.json_response(
+            result, status=200 if result.get("configured") and not result.get("reason") else 503
+        )
+
+    @routes.get("/api/openai-compatible/models")
+    async def openai_compatible_models(_request: web.Request) -> web.Response:
+        client = _client()
+        if client is None:
+            return web.json_response(
+                {"error": "OpenAI-compatible provider not configured"}, status=503
+            )
+        health = await client.health_check()
+        if not health.get("healthy"):
+            return web.json_response({"error": health.get("error", "unhealthy")}, status=502)
+        return web.json_response({"models": health.get("models", []), "active_model": client.model})
+
+    @routes.post("/api/openai-compatible/model")
+    async def openai_compatible_set_model(request: web.Request) -> web.Response:
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+        model = str(body.get("model", "")).strip()
+        if not model:
+            return web.json_response({"error": "model is required"}, status=400)
+        lock = getattr(getattr(bot, "llm_gateway", None), "provider_lock", None)
+        if lock is None:
+            return web.json_response({"error": "provider lock not available"}, status=503)
+        async with config_transaction(), lock:
+            client = _client()
+            if client is None:
+                return web.json_response(
+                    {"error": "OpenAI-compatible provider not configured"}, status=503
+                )
+            health = await client.health_check()
+            available = health.get("models", [])
+            if available and model not in available:
+                return web.json_response(
+                    {
+                        "error": (
+                            f"Model '{model}' not available. Models: {', '.join(available[:10])}"
+                        )
+                    },
+                    status=400,
+                )
+            persist_exc, was_cancelled = await persist_config_paths_locked(
+                [(("openai_compatible", "model"), model)]
+            )
+            if persist_exc is not None:
+                if was_cancelled:
+                    raise asyncio.CancelledError
+                return web.json_response({"error": "OpenAI-compatible model not saved"}, status=500)
+            client.model = model
+            bot.config.openai_compatible.model = model
+            if was_cancelled:
+                raise asyncio.CancelledError
+        return web.json_response({"status": "updated", "model": model})
+
+    @routes.get("/api/openai-compatible/diagnostic")
+    async def openai_compatible_diagnostic(_request: web.Request) -> web.Response:
+        """Return bounded connectivity evidence without exposing credentials."""
+        client = _client()
+        if client is None:
+            return web.json_response(
+                {"configured": False, "error": "OpenAI-compatible provider not configured"},
+                status=503,
+            )
+        health = await client.health_check()
+        return web.json_response(
+            {
+                "configured": True,
+                "provider": getattr(client, "provider_name", "openai_compatible"),
+                "base_url": client.base_url,
+                "model": client.model,
+                "health": health,
+                "stats": client.pool_stats(),
+            },
+            status=200 if health.get("healthy") else 502,
+        )
+
+
+# Python-level compatibility only. The old vendor-branded HTTP paths are not
+# registered, but external imports receive the neutral route set.
+register_kimi_admin = register_openai_compatible_admin

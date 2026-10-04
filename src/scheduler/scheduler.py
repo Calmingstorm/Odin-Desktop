@@ -1,0 +1,1758 @@
+from __future__ import annotations
+
+import asyncio
+import copy
+import json
+import os
+import time
+import uuid
+from collections.abc import Awaitable, Callable, Collection
+from contextvars import ContextVar
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from pathlib import Path
+from typing import Any, cast
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+import aiohttp
+from croniter import croniter
+
+from ..odin_log import get_logger
+from .history import ScheduleHistory
+
+log = get_logger("scheduler")
+
+
+def _utc_iso(dt: datetime) -> str:
+    """Ensure datetime is serialized with explicit UTC offset."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    else:
+        dt = dt.astimezone(UTC)
+    return dt.isoformat()
+
+
+def _cron_next_run(cron_expr: str, tz_name: str | None = None) -> str:
+    """Next cron occurrence as a UTC ISO string.
+
+    When *tz_name* is set the schedule fires on that timezone's wall clock
+    (so "0 9 * * *" means 9am local across DST), computed locally then stored
+    as UTC. Without it, cron is evaluated in UTC as before.
+    """
+    if tz_name:
+        try:
+            base = datetime.now(ZoneInfo(tz_name))
+            cr = croniter(cron_expr, base)
+            return _utc_iso(cr.get_next(datetime))
+        except (ZoneInfoNotFoundError, ValueError):
+            log.warning("Unknown schedule timezone %r; evaluating cron in UTC", tz_name)
+    cr = croniter(cron_expr, datetime.now(UTC))
+    return _utc_iso(cr.get_next(datetime))
+
+
+# Tools that can be scheduled for "check" actions
+ALLOWED_CHECK_TOOLS = {
+    "run_command", "run_command_multi", "run_script",
+}
+
+# Retry defaults
+DEFAULT_MAX_RETRIES = 0  # disabled by default
+DEFAULT_RETRY_BACKOFF_SECONDS = 60
+MAX_BACKOFF_SECONDS = 3600  # cap at 1 hour
+DEFAULT_FAILURE_ALERT_THRESHOLD = 3  # alert after N consecutive failures
+
+
+class NonRetryableScheduleError(RuntimeError):
+    """A failed scheduled effect that automation must never replay."""
+
+
+class ConnectionReason(StrEnum):
+    AVAILABLE = "available"
+    DISCONNECTED = "disconnected"
+    UNAVAILABLE = "unavailable"
+    PROVIDER_ERROR = "provider_error"
+
+
+@dataclass(frozen=True, slots=True)
+class ConnectionAvailability:
+    """The only scheduler admission contract supplied by the connection owner."""
+
+    available: bool
+    reason: ConnectionReason
+    epoch: int
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.available) is not bool
+            or not isinstance(self.reason, ConnectionReason)
+            or type(self.epoch) is not int
+        ):
+            raise TypeError("ConnectionAvailability requires bool, ConnectionReason, int")
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"available": self.available, "reason": self.reason.value, "epoch": self.epoch}
+
+
+class ScheduleConnectionUnavailableError(RuntimeError):
+    """Scheduling is deliberately unavailable while its owning connection is down."""
+
+    def __init__(self, snapshot: ConnectionAvailability) -> None:
+        self.availability = snapshot
+        self.snapshot = snapshot.as_dict()
+        super().__init__(snapshot.reason.value)
+
+
+# Webhook action defaults
+WEBHOOK_VALID_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"}
+WEBHOOK_DEFAULT_METHOD = "POST"
+WEBHOOK_DEFAULT_TIMEOUT = 30  # seconds
+WEBHOOK_MAX_TIMEOUT = 300  # 5 minutes
+WEBHOOK_MAX_URL_LEN = 2048
+WEBHOOK_MAX_BODY_LEN = 1_000_000  # 1 MB
+REMOVED_TRIGGER_SOURCES = frozenset({"discord_reaction", "discord_message", "grafana"})
+
+_execution_admission: ContextVar[tuple[object, str, str] | None] = ContextVar(
+    "scheduler_execution_admission", default=None
+)
+
+
+def _reject_multiple_timing_modes(
+    *, cron: str | None, run_at: str | None, trigger: dict | None
+) -> None:
+    """A schedule fires one way. Supplying several used to keep one silently.
+
+    ``add`` and ``update`` picked trigger, then cron, then run_at, and dropped
+    the rest without a word — so a form that left Cron populated while the
+    operator filled in a one-time date created a recurring schedule and said
+    it had succeeded.
+    """
+    supplied = [
+        name
+        for name, value in (("cron", cron), ("run_at", run_at), ("trigger", trigger))
+        if value
+    ]
+    if len(supplied) > 1:
+        raise ValueError(
+            "Specify exactly one of 'cron', 'run_at', or 'trigger' — got "
+            + ", ".join(sorted(supplied))
+        )
+
+
+def _reject_naive_run_at(run_at: str | None) -> None:
+    """An offsetless ``run_at`` names a wall clock, not an instant.
+
+    It used to be stamped UTC regardless, so on a New York install a schedule
+    fired five hours early, and on a fall-back night the same wall time
+    happened twice. Every caller has an offset available: the web API sends one
+    from the browser, and the schedule_task tool directs the model through
+    parse_time, which always returns an offset-aware value.
+    """
+    if not run_at or not isinstance(run_at, str):
+        return
+    try:
+        parsed = datetime.fromisoformat(run_at)
+    except ValueError:
+        return  # add()/update() report malformed input with their own message
+    if parsed.tzinfo is None:
+        raise ValueError(
+            f"run_at must carry a UTC 'Z' or an explicit offset — {run_at!r} "
+            "names a wall clock, which is ambiguous across timezones and "
+            "repeats on a daylight-saving fall-back. Use parse_time."
+        )
+
+
+class Scheduler:
+    """Manages scheduled tasks — recurring (cron), one-time, and webhook-triggered."""
+
+    def __init__(self, data_path: str, history_path: str | None = None) -> None:
+        self.data_path = Path(data_path)
+        self.data_path.parent.mkdir(parents=True, exist_ok=True)
+        self._schedules: list[dict] = []
+        self._task: asyncio.Task | None = None
+        self._callback: Callable[[dict], Awaitable[None]] | None = None
+        self._failure_callback: Callable[[dict, int], Awaitable[None]] | None = None
+        self._known_report_formats_provider: Callable[[], Collection[str]] | None = None
+        # Embedders without a connection authority retain standalone behavior.
+        # D1 replaces this provider with the current connection authority.
+        self._connection_provider: Callable[[], ConnectionAvailability] = (
+            lambda: ConnectionAvailability(True, ConnectionReason.AVAILABLE, 0)
+        )
+        self._connection_provider_installed = False
+        # Ephemeral only: reservation rollback metadata must never become a
+        # schedule-file schema field.
+        self._gate_reservations: dict[str, dict[str, Any]] = {}
+        self._active_execution_nonces: set[str] = set()
+        self._lock = asyncio.Lock()
+        self._wake = asyncio.Event()
+        # Schedule ids currently executing — prevents the same schedule from
+        # double-firing when a manual run_now overlaps a tick, a duplicate
+        # webhook arrives, or (defensively) two scheduler loops tick at once.
+        self._in_flight: set[str] = set()
+        # Execution history
+        _hist_path = history_path or str(self.data_path.parent / "schedule_history.jsonl")
+        self.history = ScheduleHistory(_hist_path)
+        self._http_session: aiohttp.ClientSession | None = None
+        self._load()
+        self._degrade_removed_trigger_sources()
+        for schedule in self._schedules:
+            self._resolve_interrupted_run(schedule)
+
+    REPLAY_SAFE_ONE_TIME_ACTIONS = frozenset({"reminder", "digest"})
+
+    @classmethod
+    def _tracks_run_start(cls, schedule: dict) -> bool:
+        return (
+            bool(schedule.get("one_time"))
+            and schedule.get("action") not in cls.REPLAY_SAFE_ONE_TIME_ACTIONS
+        )
+
+    def _resolve_interrupted_run(self, schedule: dict) -> bool:
+        started = schedule.pop("run_started_at", None)
+        if not started or not self._tracks_run_start(schedule):
+            return False
+        self._quarantine_schedule(
+            schedule,
+            f"One-time schedule started at {started!r} but its completion was never recorded "
+            "(Odin stopped or could not save the result); it may have partly run, so it was not "
+            "run again. Check what it did, then set a new run_at to re-arm it",
+        )
+        return True
+
+    async def _mark_run_started(self, schedule: dict) -> None:
+        started = datetime.now(UTC).isoformat()
+        sid = schedule.get("id")
+        async with self._lock:
+            candidate = copy.deepcopy(self._schedules)
+            for current in candidate:
+                if current.get("id") == sid:
+                    current["run_started_at"] = started
+                    await self._publish(candidate)
+                    schedule["run_started_at"] = started
+                    return
+
+    async def _admit_reserved_execution(self, schedule: dict) -> bool:
+        """Fence queued work against acknowledged CRUD before effects start.
+
+        A manual run can override an existing pause, but a new pause changes
+        execution identity. Publish the start marker under this same lock.
+        """
+        async with self._lock:
+            candidate = copy.deepcopy(self._schedules)
+            for current in candidate:
+                if current.get("id") != schedule.get("id"):
+                    continue
+                if self._execution_identity(current) != self._execution_identity(schedule):
+                    return False
+                if current.get("paused") and not schedule.get("paused"):
+                    return False
+                if self._tracks_run_start(schedule):
+                    started = datetime.now(UTC).isoformat()
+                    current["run_started_at"] = started
+                    await self._publish(candidate)
+                    schedule["run_started_at"] = started
+                return True
+            return False
+
+    def _load(self) -> None:
+        if self.data_path.exists():
+            try:
+                self._schedules = json.loads(self.data_path.read_text())
+                log.info("Loaded %d schedule(s)", len(self._schedules))
+                self._advance_stale_cron()
+            except Exception as e:
+                log.error("Failed to load schedules: %s", e)
+                # Preserve the corrupt file instead of silently discarding every
+                # schedule — a truncated/partial write must not erase persistence.
+                try:
+                    backup = self.data_path.with_suffix(self.data_path.suffix + ".corrupt")
+                    self.data_path.replace(backup)
+                    log.error("Backed up corrupt schedules file to %s", backup)
+                except Exception:
+                    log.exception("Could not back up corrupt schedules file")
+                self._schedules = []
+
+    def _degrade_removed_trigger_sources(self) -> None:
+        """Keep legacy removed-trigger schedules visible but inert.
+
+        Older stores may contain trigger sources whose Discord cogs no longer
+        exist. One obsolete entry must not fail the whole store load. These
+        runtime markers become durable on the next ordinary schedule write;
+        loading alone leaves the operator's file unchanged.
+        """
+        for schedule in self._schedules:
+            if not isinstance(schedule, dict):
+                continue
+            trigger = schedule.get("trigger")
+            source = trigger.get("source") if isinstance(trigger, dict) else None
+            removed_filter = isinstance(trigger, dict) and "alert_name" in trigger
+            removed_source = isinstance(source, str) and source in REMOVED_TRIGGER_SOURCES
+            if not removed_source and not removed_filter:
+                continue
+            schedule["paused"] = True
+            schedule["inert_reason"] = (
+                f"Trigger source '{source}' or its alert filter was removed; replace the timing "
+                "trigger before resuming this schedule."
+            )
+            log.warning(
+                "Loaded inert schedule %s with removed trigger source %s",
+                schedule.get("id"), source,
+            )
+
+    def _advance_stale_cron(self) -> None:
+        """Advance cron schedules whose next_run is in the past.
+
+        After downtime, a cron schedule's persisted next_run may be hours or
+        days old. Instead of firing immediately for a stale time, advance
+        next_run to the next future occurrence so the schedule resumes on
+        its normal cadence.
+        """
+        now = datetime.now(UTC).replace(tzinfo=None)
+        advanced = 0
+        for schedule in self._schedules:
+            cron_expr = schedule.get("cron")
+            next_run_str = schedule.get("next_run")
+            if not cron_expr or not next_run_str:
+                continue
+            try:
+                next_run = datetime.fromisoformat(next_run_str)
+                if next_run.tzinfo is not None:
+                    next_run = next_run.replace(tzinfo=None)
+                if next_run < now:
+                    schedule["next_run"] = _cron_next_run(cron_expr, schedule.get("timezone"))
+                    advanced += 1
+            except Exception:
+                continue
+        if advanced:
+            log.info("Advanced %d stale cron schedule(s) to next future run", advanced)
+
+    def _save(self) -> None:
+        # Atomic write: serialize to a temp file, fsync, then replace. A crash
+        # mid-write must never truncate schedules.json (which _load would then
+        # treat as corrupt). Mirrors the tmp+replace pattern used elsewhere.
+        tmp = self.data_path.with_suffix(self.data_path.suffix + ".tmp")
+        with open(tmp, "w") as f:
+            json.dump(self._schedules, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, self.data_path)
+
+    async def _publish(self, candidate: list[dict]) -> None:
+        """Caller holds _lock; persist detached state before making it visible."""
+        candidate = copy.deepcopy(candidate)
+        writer = copy.copy(self)
+        writer._schedules = candidate
+        write = asyncio.create_task(asyncio.to_thread(writer._save))
+        cancelled = False
+        while not write.done():
+            try:
+                await asyncio.shield(write)
+            except asyncio.CancelledError:
+                # Every wait must be shielded: repeated cancellation must not
+                # cancel the task wrapping the still-running writer thread.
+                cancelled = True
+        write.result()  # A failed write must never publish the candidate.
+        self._schedules = candidate
+        if cancelled:
+            raise asyncio.CancelledError
+
+    @staticmethod
+    def _execution_identity(schedule: dict) -> tuple:
+        return (
+            schedule.get("_generation", schedule.get("created_at")),
+            schedule.get("_execution_revision", 0),
+        )
+
+    def set_known_report_formats_provider(
+        self, provider: Callable[[], Collection[str]]
+    ) -> None:
+        """Install the composition-owned source of supported report formats."""
+        if not callable(provider):
+            raise TypeError("known report formats provider must be callable")
+        self._known_report_formats_provider = provider
+
+    def set_connection_state_provider(self, provider: Callable[[], ConnectionAvailability]) -> None:
+        """Install the synchronous authority used to admit scheduler work."""
+        if not callable(provider):
+            raise TypeError("connection provider must be callable")
+        self._connection_provider = provider
+        self._connection_provider_installed = True
+
+    # Compatibility for independent embedders. New composition code must use
+    # the strict name and ConnectionAvailability contract above.
+    def set_connection_provider(self, provider: Callable[[], ConnectionAvailability]) -> None:
+        self.set_connection_state_provider(provider)
+
+    def connection_status(self) -> dict[str, Any]:
+        """Return a safe public view; provider faults never leak implementation text."""
+        try:
+            value = self._connection_provider()
+            if not isinstance(value, ConnectionAvailability):
+                raise TypeError("connection provider returned invalid state")
+            return value.as_dict()
+        except Exception:
+            log.warning("Connection availability provider failed")
+            return ConnectionAvailability(False, ConnectionReason.PROVIDER_ERROR, -1).as_dict()
+
+    def _connection_availability(self) -> ConnectionAvailability:
+        status = self.connection_status()
+        return ConnectionAvailability(
+            status["available"], ConnectionReason(status["reason"]), status["epoch"]
+        )
+
+    def _require_connection(self) -> ConnectionAvailability:
+        snapshot = self._connection_availability()
+        if not snapshot.available:
+            raise ScheduleConnectionUnavailableError(snapshot)
+        return snapshot
+
+    @staticmethod
+    def _requires_connection(schedule: dict) -> bool:
+        """Whether this action needs the Discord-owned delivery connection."""
+        return schedule.get("action") != "webhook"
+
+    def _admitted_epoch(self, schedule: dict) -> int | None:
+        """Admit one effect, returning its Discord generation when required."""
+        if not self._requires_connection(schedule):
+            return None
+        return self._require_connection().epoch
+
+    @staticmethod
+    def _field_snapshot(schedule: dict, key: str) -> tuple[bool, Any]:
+        return key in schedule, copy.deepcopy(schedule.get(key))
+
+    def _capture_reservation_before_mutation(
+        self, schedule: dict, epoch: int | None
+    ) -> str:
+        key = uuid.uuid4().hex
+        self._gate_reservations[key] = {
+            "id": schedule["id"],
+            "identity": self._execution_identity(schedule),
+            "epoch": epoch,
+            "before": {
+                field: self._field_snapshot(schedule, field)
+                for field in ("last_run", "next_run")
+            },
+        }
+        return key
+
+    def _capture_reservation_after_mutation(self, key: str, schedule: dict) -> None:
+        self._gate_reservations[key]["after"] = {
+            field: self._field_snapshot(schedule, field)
+            for field in ("last_run", "next_run")
+        }
+
+    @staticmethod
+    def _parse_persisted_time(value: Any) -> datetime | None:
+        """Parse a persisted timestamp, returning ``None`` when unusable.
+
+        Persisted schedule state is untrusted input: it is JSON on disk that
+        an operator can edit and that an interrupted writer can damage. A
+        single unparseable stamp must not be allowed to raise, and the naive
+        UTC comparison form of the existing tick is preserved exactly.
+        """
+        if not isinstance(value, str):
+            return None
+        try:
+            parsed = datetime.fromisoformat(value)
+        except (ValueError, TypeError):
+            return None
+        if parsed.tzinfo is not None:
+            parsed = parsed.replace(tzinfo=None)
+        return parsed
+
+    def _rollback_reservation_in_place(self, schedule: dict, key: str) -> None:
+        """Undo an unfinished reservation on a candidate record.
+
+        Caller holds ``_lock``, so this must stay synchronous: it restores the
+        reserved fields from the before-snapshot on the detached candidate
+        that the caller is about to publish.
+        """
+        restore = self._gate_reservations.pop(key, None)
+        if restore is None:
+            return
+        for field, (present, value) in restore["before"].items():
+            if present:
+                schedule[field] = value
+            else:
+                schedule.pop(field, None)
+
+    def _quarantine_schedule(self, schedule: dict, reason: str) -> None:
+        """Make a record the tick cannot evaluate inert, with a visible reason.
+
+        Reuses the degraded-record surface established for removed trigger
+        sources (``paused`` + ``inert_reason``): the WebUI shows both, and
+        supplying new timing clears the marker and admits the schedule again.
+        """
+        reason = reason[:300]
+        schedule["paused"] = True
+        schedule["inert_reason"] = reason
+        log.error(
+            "Quarantined schedule %s: %s — supply new timing to recover",
+            schedule.get("id"), reason,
+        )
+
+    @staticmethod
+    def _is_usable_cron(expr: Any) -> bool:
+        """Whether a persisted cron expression can produce a next run.
+
+        ``add``/``update`` validate before writing, so an unusable value only
+        arrives through a hand-edited or damaged store; it is still the tick's
+        problem, because every fire would otherwise raise while advancing.
+        """
+        if not isinstance(expr, str) or not expr:
+            return False
+        try:
+            return bool(croniter.is_valid(expr))
+        except (TypeError, ValueError):
+            return False
+
+    def _admission_is_active(
+        self, admitted: tuple[object, str, str] | None, schedule: dict
+    ) -> bool:
+        return bool(
+            admitted
+            and admitted[0] is self
+            and admitted[1] == schedule.get("id")
+            and admitted[2] in self._active_execution_nonces
+        )
+
+    def _validate_report_format(self, report_format: str | None, action: str) -> None:
+        if report_format is not None and not isinstance(report_format, str):
+            raise ValueError("report_format must be a string")
+        if report_format and action != "check":
+            raise ValueError("report_format is only valid for 'check' actions")
+        if not report_format:
+            return
+
+        provider = self._known_report_formats_provider
+        if provider is None:
+            raise ValueError("No scheduled report formats are registered")
+        try:
+            known_formats = frozenset(provider())
+        except Exception as exc:
+            raise ValueError("Scheduled report formats are unavailable") from exc
+        if report_format not in known_formats:
+            raise ValueError(f"Unsupported scheduled report format: {report_format}")
+
+    async def add(
+        self,
+        description: str,
+        action: str,
+        channel_id: str,
+        cron: str | None = None,
+        run_at: str | None = None,
+        message: str | None = None,
+        tool_name: str | None = None,
+        tool_input: dict | None = None,
+        steps: list[dict] | None = None,
+        trigger: dict | None = None,
+        max_retries: int | None = None,
+        retry_backoff_seconds: int | None = None,
+        webhook_config: dict | None = None,
+        requester_id: str = "",
+        cron_timezone: str | None = None,
+        report_format: str | None = None,
+        nested_payload_validated: bool = False,
+    ) -> dict:
+        self._validate_report_format(report_format, action)
+        if action == "digest":
+            # Digest is a predefined action, no tool validation needed
+            pass
+        elif action == "check":
+            if not tool_name:
+                raise ValueError("tool_name is required for 'check' actions")
+            if tool_name not in ALLOWED_CHECK_TOOLS:
+                raise ValueError(
+                    f"Tool '{tool_name}' is not allowed for scheduled checks. "
+                    f"Allowed: {', '.join(sorted(ALLOWED_CHECK_TOOLS))}"
+                )
+        elif action == "webhook":
+            if not isinstance(webhook_config, dict):
+                raise ValueError("'webhook_config' (dict) is required for 'webhook' actions")
+            self._validate_webhook_config(webhook_config)
+        elif action == "workflow":
+            self._validate_workflow_steps(steps)
+
+        _reject_multiple_timing_modes(cron=cron, run_at=run_at, trigger=trigger)
+        _reject_naive_run_at(run_at)
+
+        if trigger is not None:
+            self._validate_trigger(trigger)
+        elif not cron and not run_at:
+            raise ValueError("Either 'cron', 'run_at', or 'trigger' is required")
+
+        if cron_timezone is not None:
+            self._validate_timezone(cron_timezone)
+
+        schedule: dict[str, Any] = {
+            "id": uuid.uuid4().hex[:8],
+            "_generation": uuid.uuid4().hex,
+            "_revision": 0,
+            "_execution_revision": 0,
+            "description": description,
+            "action": action,
+            "channel_id": channel_id,
+            "requester_id": requester_id,
+            "_nested_payload_validated": bool(nested_payload_validated),
+            "created_at": datetime.now(UTC).isoformat(),
+            "last_run": None,
+        }
+
+        if trigger is not None:
+            schedule["trigger"] = trigger
+            schedule["one_time"] = False
+        elif cron:
+            # Validate cron expression
+            if not croniter.is_valid(cron):
+                raise ValueError(f"Invalid cron expression: {cron}")
+            schedule["cron"] = cron
+            schedule["one_time"] = False
+            if cron_timezone:
+                schedule["timezone"] = cron_timezone
+            schedule["next_run"] = _cron_next_run(cron, cron_timezone)
+        else:
+            if run_at:
+                try:
+                    datetime.fromisoformat(run_at)
+                except (ValueError, TypeError):
+                    raise ValueError(f"Invalid ISO datetime for run_at: {run_at!r}")
+            # Validated above: a one-time schedule without run_at already
+            # raised; cast records the guarantee for the checker.
+            normalized = _utc_iso(datetime.fromisoformat(cast(str, run_at)))
+            schedule["run_at"] = normalized
+            schedule["next_run"] = normalized
+            schedule["one_time"] = True
+
+        if action == "reminder":
+            schedule["message"] = message or description
+        elif action == "check":
+            schedule["tool_name"] = tool_name
+            schedule["tool_input"] = tool_input or {}
+            if report_format:
+                schedule["report_format"] = report_format
+        elif action == "webhook":
+            # action == "webhook" already raised unless webhook_config is a dict.
+            schedule["webhook_config"] = self._normalize_webhook_config(
+                cast(dict, webhook_config)
+            )
+        elif action == "workflow":
+            schedule["steps"] = steps
+
+        # Retry configuration
+        retries = max_retries if max_retries is not None else DEFAULT_MAX_RETRIES
+        if retries < 0:
+            raise ValueError("max_retries must be >= 0")
+        backoff = (retry_backoff_seconds
+            if retry_backoff_seconds is not None else DEFAULT_RETRY_BACKOFF_SECONDS)
+        if backoff < 1:
+            raise ValueError("retry_backoff_seconds must be >= 1")
+        schedule["max_retries"] = retries
+        schedule["retry_backoff_seconds"] = backoff
+        # Runtime failure tracking
+        schedule["consecutive_failures"] = 0
+        schedule["retry_count"] = 0
+        schedule["last_error"] = None
+        schedule["last_error_at"] = None
+
+        async with self._lock:
+            self._admitted_epoch(schedule)
+            await self._publish([*self._schedules, schedule])
+        self._wake.set()
+        log_next = schedule.get("next_run", "on trigger")
+        log.info("Added schedule %s: %s (next: %s)", schedule["id"], description, log_next)
+        return schedule
+
+    @staticmethod
+    def _validate_timezone(tz_name: str) -> None:
+        """Validate an IANA timezone name (e.g. 'America/New_York')."""
+        if not isinstance(tz_name, str) or not tz_name:
+            raise ValueError("cron_timezone must be a non-empty string")
+        try:
+            ZoneInfo(tz_name)
+        except (ZoneInfoNotFoundError, ValueError) as e:
+            raise ValueError(f"Invalid timezone {tz_name!r}: {e}") from e
+
+    # Required inputs for the command-executing tools. A workflow step naming
+    # run_command with no command is not a workflow step, it is a silent no-op
+    # that reports success — and update used to accept it (adversarial review).
+    _STEP_REQUIRED_INPUTS = {
+        "run_command": "command",
+        "run_script": "script",
+        "run_command_multi": "command",
+    }
+
+    @classmethod
+    def _validate_workflow_steps(cls, steps: Any) -> None:
+        """THE workflow-steps contract, shared by add() and update().
+
+        Creation enforced this and update did not, so an existing workflow
+        could be updated to an empty list, or to steps missing the input their
+        tool requires, and the invalid version was persisted (adversarial
+        review of v3.65.1, reproduced with [], [{"tool_name": "run_command",
+        "tool_input": {}}] and [{"tool_name": "run_command"}]).
+        """
+        if not steps or not isinstance(steps, list):
+            raise ValueError("'steps' (list) is required for 'workflow' actions")
+        for i, step in enumerate(steps):
+            if not isinstance(step, dict) or "tool_name" not in step:
+                raise ValueError(f"Step {i}: must be a dict with 'tool_name'")
+            tool_name = step.get("tool_name")
+            required = cls._STEP_REQUIRED_INPUTS.get(str(tool_name))
+            if required:
+                tool_input = step.get("tool_input")
+                if not isinstance(tool_input, dict) or not str(
+                    tool_input.get(required, "")
+                ).strip():
+                    raise ValueError(
+                        f"Step {i}: {tool_name} requires "
+                        f"'tool_input.{required}'"
+                    )
+
+    @staticmethod
+    def _validate_trigger(trigger: dict) -> None:
+        """Validate a webhook trigger definition."""
+        if not isinstance(trigger, dict):
+            raise ValueError("'trigger' must be a dict")
+        valid_keys = {
+            "source", "event", "repo",
+        }
+        unknown = set(trigger.keys()) - valid_keys
+        if unknown:
+            raise ValueError(f"Unknown trigger keys: {', '.join(sorted(unknown))}")
+        for key, value in trigger.items():
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"Trigger {key} must be a string or null")
+        valid_sources = {
+            "gitea",
+            "generic",
+            "github",
+            "gitlab",
+        }
+        source = trigger.get("source")
+        if source and source not in valid_sources:
+            raise ValueError(
+                f"Invalid trigger source '{source}'. "
+                f"Valid: {', '.join(sorted(valid_sources))}"
+            )
+        if not any(trigger.values()):
+            raise ValueError("Trigger must have at least one condition")
+
+    @staticmethod
+    def _validate_webhook_config(config: dict) -> None:
+        """Validate a webhook action configuration."""
+        if not isinstance(config, dict):
+            raise ValueError("'webhook_config' must be a dict")
+
+        url = config.get("url")
+        if not url or not isinstance(url, str):
+            raise ValueError("webhook_config.url is required and must be a string")
+        if len(url) > WEBHOOK_MAX_URL_LEN:
+            raise ValueError(f"webhook_config.url exceeds maximum length ({WEBHOOK_MAX_URL_LEN})")
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("webhook_config.url must start with http:// or https://")
+
+        method = config.get("method", WEBHOOK_DEFAULT_METHOD)
+        if method.upper() not in WEBHOOK_VALID_METHODS:
+            raise ValueError(
+                f"Invalid webhook method '{method}'. "
+                f"Valid: {', '.join(sorted(WEBHOOK_VALID_METHODS))}"
+            )
+
+        headers = config.get("headers")
+        if headers is not None:
+            if not isinstance(headers, dict):
+                raise ValueError("webhook_config.headers must be a dict")
+            for k, v in headers.items():
+                if not isinstance(k, str) or not isinstance(v, str):
+                    raise ValueError("webhook_config.headers keys and values must be strings")
+
+        body = config.get("body")
+        if body is not None and isinstance(body, str) and len(body) > WEBHOOK_MAX_BODY_LEN:
+            raise ValueError(
+                f"webhook_config.body exceeds maximum length ({WEBHOOK_MAX_BODY_LEN})"
+            )
+
+        timeout = config.get("timeout")
+        if timeout is not None:
+            if not isinstance(timeout, (int, float)) or timeout <= 0:
+                raise ValueError("webhook_config.timeout must be a positive number")
+            if timeout > WEBHOOK_MAX_TIMEOUT:
+                raise ValueError(
+                    f"webhook_config.timeout exceeds maximum ({WEBHOOK_MAX_TIMEOUT}s)"
+                )
+
+        expected_status = config.get("expected_status_codes")
+        if expected_status is not None:
+            if not isinstance(expected_status, list):
+                raise ValueError("webhook_config.expected_status_codes must be a list")
+            for code in expected_status:
+                if not isinstance(code, int) or not (100 <= code <= 599):
+                    raise ValueError(
+                        "webhook_config.expected_status_codes must contain "
+                        "valid HTTP status codes (100-599)"
+                    )
+
+    @staticmethod
+    def _normalize_webhook_config(config: dict) -> dict:
+        """Return a webhook config with defaults filled in."""
+        return {
+            "url": config["url"],
+            "method": config.get("method", WEBHOOK_DEFAULT_METHOD).upper(),
+            "headers": config.get("headers") or {},
+            "body": config.get("body"),
+            "timeout": config.get("timeout", WEBHOOK_DEFAULT_TIMEOUT),
+            "expected_status_codes": config.get("expected_status_codes"),
+        }
+
+    async def _execute_webhook(self, config: dict) -> dict:
+        """Execute an outbound HTTP request for a webhook action.
+
+        Returns a dict with status_code, response body (truncated), and headers.
+        Raises on timeout, connection error, or unexpected status code.
+        """
+        method = config.get("method", WEBHOOK_DEFAULT_METHOD)
+        url = config["url"]
+        headers = config.get("headers") or {}
+        body = config.get("body")
+        timeout_sec = config.get("timeout", WEBHOOK_DEFAULT_TIMEOUT)
+        expected_codes = config.get("expected_status_codes")
+
+        timeout = aiohttp.ClientTimeout(total=timeout_sec)
+        if self._http_session is None or self._http_session.closed:
+            self._http_session = aiohttp.ClientSession()
+        session = self._http_session
+        kwargs: dict[str, Any] = {"headers": headers, "timeout": timeout}
+        if body is not None:
+            if isinstance(body, (dict, list)):
+                kwargs["json"] = body
+            else:
+                kwargs["data"] = str(body)
+
+        async with session.request(method, url, **kwargs) as resp:
+            resp_body = await resp.text()
+            result = {
+                "status_code": resp.status,
+                "body": resp_body[:4096],
+                "headers": dict(resp.headers),
+            }
+
+            if expected_codes and resp.status not in expected_codes:
+                raise RuntimeError(
+                    f"Webhook returned status {resp.status}, "
+                    f"expected one of {expected_codes}"
+                )
+
+            return result
+
+    @staticmethod
+    def _trigger_matches(trigger: dict, source: str, event_data: dict) -> bool:
+        """Check if webhook event data matches a trigger definition.
+
+        Matching rules:
+        - source: exact match (required if specified)
+        - event: exact match against event_data["event"]
+        - repo: case-insensitive substring match against event_data["repo"]
+        All specified fields must match (AND logic).
+        """
+        if trigger.get("source") in REMOVED_TRIGGER_SOURCES or "alert_name" in trigger:
+            return False
+        if trigger.get("source") and trigger["source"] != source:
+            return False
+        if trigger.get("event"):
+            if trigger["event"] != event_data.get("event"):
+                return False
+        if trigger.get("repo"):
+            repo = event_data.get("repo", "")
+            if trigger["repo"].lower() not in repo.lower():
+                return False
+        return True
+
+    async def fire_triggers(self, source: str, event_data: dict) -> int:
+        """Check all trigger-based schedules against an incoming webhook event.
+
+        Returns the number of triggers that fired.
+        Collects matches under lock, executes callbacks outside it
+        (same pattern as _tick) to prevent deadlock.
+        """
+        if source in REMOVED_TRIGGER_SOURCES:
+            return 0
+        matched: list[tuple[dict, str, int | None]] = []
+        async with self._lock:
+            availability = self._connection_availability()
+            now = datetime.now(UTC)
+            candidate = copy.deepcopy(self._schedules)
+            for schedule in candidate:
+                if schedule.get("paused"):
+                    continue
+                trigger = schedule.get("trigger")
+                if not trigger:
+                    continue
+                try:
+                    self._validate_trigger(trigger)
+                    matches = self._trigger_matches(trigger, source, event_data)
+                except (ValueError, TypeError, AttributeError) as exc:
+                    log.warning(
+                        "Skipping malformed trigger for schedule %s: %s", schedule.get("id"), exc,
+                    )
+                    continue
+                if not matches:
+                    continue
+                if self._requires_connection(schedule) and not availability.available:
+                    continue
+                if self._requires_connection(schedule) and not self._callback:
+                    continue
+
+                log.info(
+                    "Webhook trigger fired: schedule %s (%s) on %s event",
+                    schedule["id"], schedule["description"], source,
+                )
+                epoch = availability.epoch if self._requires_connection(schedule) else None
+                reservation = self._capture_reservation_before_mutation(schedule, epoch)
+                schedule["last_run"] = now.isoformat()
+                self._capture_reservation_after_mutation(reservation, schedule)
+                matched.append((copy.deepcopy(schedule), reservation, epoch))
+
+            if matched:
+                await self._publish(candidate)
+
+        executed = 0
+        for schedule, reservation, epoch in matched:
+            try:
+                if await self._execute_and_record(schedule, reservation, epoch):
+                    executed += 1
+            except ScheduleConnectionUnavailableError:
+                continue
+        return executed
+
+    def list_all(self) -> list[dict]:
+        return list(self._schedules)
+
+    async def reset_failures(self, schedule_id: str) -> dict | None:
+        """Reset failure counters and cancel pending retries for a schedule."""
+        async with self._lock:
+            candidate = copy.deepcopy(self._schedules)
+            for s in candidate:
+                if s["id"] == schedule_id:
+                    s["consecutive_failures"] = 0
+                    s["retry_count"] = 0
+                    s["last_error"] = None
+                    s["last_error_at"] = None
+                    s.pop("retry_at", None)
+                    s["_revision"] = s.get("_revision", 0) + 1
+                    s["_execution_revision"] = s.get("_execution_revision", 0) + 1
+                    await self._publish(candidate)
+                    log.info("Reset failure state for schedule %s", schedule_id)
+                    return dict(s)
+        return None
+
+    async def update(
+        self,
+        schedule_id: str,
+        *,
+        description: str | None = None,
+        cron: str | None = None,
+        run_at: str | None = None,
+        message: str | None = None,
+        tool_name: str | None = None,
+        tool_input: dict | None = None,
+        steps: list[dict] | None = None,
+        trigger: dict | None = None,
+        channel_id: str | None = None,
+        max_retries: int | None = None,
+        retry_backoff_seconds: int | None = None,
+        webhook_config: dict | None = None,
+        paused: bool | None = None,
+        cron_timezone: str | None = None,
+        report_format: str | None = None,
+        nested_payload_validated: bool = False,
+    ) -> dict | None:
+        """Update mutable fields on an existing schedule.
+
+        Returns the updated schedule dict, or ``None`` if *schedule_id* was
+        not found.  Only supplied (non-``None``) fields are changed.
+
+        Changing timing (cron/run_at/trigger) replaces the previous timing
+        mode entirely — e.g. passing ``cron`` on a one-time schedule converts
+        it to recurring.
+        """
+        if cron_timezone is not None:
+            self._validate_timezone(cron_timezone)
+        async with self._lock:
+            target_index: int | None = None
+            for i, schedule in enumerate(self._schedules):
+                if schedule["id"] == schedule_id:
+                    target_index = i
+                    break
+            if target_index is None:
+                return None
+
+            # Apply the complete update to a detached candidate. Validation of
+            # cron/trigger/webhook/timing fields occurs throughout this method;
+            # mutating the live dict first let ANY later ValueError leave
+            # rejected fields in memory, where a subsequent valid update would
+            # persist them. Commit only after every supplied field is valid.
+            original = self._schedules[target_index]
+            target = copy.deepcopy(original)
+            # Certify only replaced nested data, not unrelated legacy steps.
+            if nested_payload_validated and (
+                (target["action"] == "check" and tool_input is not None)
+                or (target["action"] == "workflow" and steps is not None)
+            ):
+                target["_nested_payload_validated"] = True
+            action = target["action"]
+            if steps is not None and action == "workflow":
+                self._validate_workflow_steps(steps)
+
+            # --- simple text fields ---
+            if description is not None:
+                target["description"] = description
+            if message is not None:
+                target["message"] = message
+            if channel_id is not None:
+                target["channel_id"] = channel_id
+            if paused is not None:
+                if (
+                    paused is False
+                    and target.get("inert_reason")
+                    and trigger is None
+                    and cron is None
+                    and run_at is None
+                ):
+                    raise ValueError(target["inert_reason"])
+                target["paused"] = paused
+
+            # --- action-specific payload fields ---
+            if tool_name is not None:
+                if action == "check":
+                    if tool_name not in ALLOWED_CHECK_TOOLS:
+                        raise ValueError(
+                            f"Tool '{tool_name}' is not allowed for scheduled checks. "
+                            f"Allowed: {', '.join(sorted(ALLOWED_CHECK_TOOLS))}"
+                        )
+                target["tool_name"] = tool_name
+            if tool_input is not None:
+                target["tool_input"] = tool_input
+            if report_format is not None:
+                self._validate_report_format(report_format, target.get("action", ""))
+                if report_format:
+                    target["report_format"] = report_format
+                else:
+                    target.pop("report_format", None)
+            if steps is not None:
+                target["steps"] = steps
+            if webhook_config is not None:
+                self._validate_webhook_config(webhook_config)
+                target["webhook_config"] = self._normalize_webhook_config(webhook_config)
+
+            # --- retry configuration ---
+            if max_retries is not None:
+                if max_retries < 0:
+                    raise ValueError("max_retries must be >= 0")
+                target["max_retries"] = max_retries
+            if retry_backoff_seconds is not None:
+                if retry_backoff_seconds < 1:
+                    raise ValueError("retry_backoff_seconds must be >= 1")
+                target["retry_backoff_seconds"] = retry_backoff_seconds
+
+            # A timezone change alone (no new cron) still needs next_run
+            # recomputed on the existing cron.
+            if cron_timezone is not None:
+                target["timezone"] = cron_timezone
+
+            # --- timing mode changes ---
+            _reject_multiple_timing_modes(cron=cron, run_at=run_at, trigger=trigger)
+            _reject_naive_run_at(run_at)
+            new_timing = trigger is not None or cron is not None or run_at is not None
+            # Supplying replacement timing is the documented recovery action
+            # for a quarantined schedule. Re-arm it unless the operator
+            # explicitly asks to keep it paused.
+            if new_timing and original.get("inert_reason") and paused is None:
+                target["paused"] = False
+            # Resuming is a fresh admission. A next_run preserved from before
+            # the pause names a slot that was deliberately skipped, so leaving
+            # it stale fires the schedule immediately on resume instead of on
+            # its cadence (operator ruling 2026-09-22: an unpaused schedule
+            # fires only at its next defined interval). Explicit new timing
+            # below wins; a one-time schedule keeps its single defined run_at.
+            resumed = bool(original.get("paused")) and target.get("paused") is False
+            if new_timing:
+                # Clear previous timing fields
+                for key in ("cron", "run_at", "next_run", "trigger"):
+                    target.pop(key, None)
+                # New timing supersedes any retry, including a malformed
+                # retry_at that caused this schedule to be quarantined.
+                target.pop("retry_at", None)
+                target.pop("inert_reason", None)
+                target.pop("run_started_at", None)
+
+                if trigger is not None:
+                    self._validate_trigger(trigger)
+                    target["trigger"] = trigger
+                    target["one_time"] = False
+                    target.pop("timezone", None)
+                elif cron is not None:
+                    if not croniter.is_valid(cron):
+                        raise ValueError(f"Invalid cron expression: {cron}")
+                    target["cron"] = cron
+                    target["one_time"] = False
+                    target["next_run"] = _cron_next_run(cron, target.get("timezone"))
+                elif run_at is not None:
+                    try:
+                        datetime.fromisoformat(run_at)
+                    except (ValueError, TypeError):
+                        raise ValueError(f"Invalid ISO datetime for run_at: {run_at!r}")
+                    normalized = _utc_iso(datetime.fromisoformat(run_at))
+                    target["run_at"] = normalized
+                    target["next_run"] = normalized
+                    target["one_time"] = True
+                    target.pop("timezone", None)
+            elif cron_timezone is not None and target.get("cron"):
+                # Timezone changed on an existing cron schedule — recompute.
+                target["next_run"] = _cron_next_run(target["cron"], cron_timezone)
+            elif resumed and target.get("cron") and not target.get("one_time"):
+                # Recompute on unpause so the schedule resumes on its cadence
+                # rather than firing once for a missed slot. Recurring only: a
+                # paused one-time schedule keeps the single run_at it already
+                # names, so resume does not silently move an operator's instant.
+                target["next_run"] = _cron_next_run(target["cron"], target.get("timezone"))
+
+            elif resumed and target.get("one_time"):
+                # A never-run instant elapsed while paused is spent. If the
+                # schedule ran and failed, its retry timestamp is authoritative
+                # instead, so the reason must not claim it never ran.
+                run_at_value = target.get("run_at")
+                parsed_run_at = self._parse_persisted_time(run_at_value)
+                now_naive = datetime.now(UTC).replace(tzinfo=None)
+                if target.get("last_run"):
+                    retry_value = target.get("retry_at")
+                    parsed_retry = self._parse_persisted_time(retry_value)
+                    if parsed_retry is not None and now_naive >= parsed_retry:
+                        self._quarantine_schedule(target, (
+                            "One-time schedule ran and failed, but its retry time "
+                            f"{retry_value!r} passed while paused; set a new run_at "
+                            "to re-arm it"
+                        ))
+                elif parsed_run_at is not None and now_naive >= parsed_run_at:
+                    self._quarantine_schedule(target, (
+                        f"One-time schedule was not run because run_at {run_at_value!r} "
+                        "passed while it was paused; set a new run_at to re-arm it"
+                    ))
+
+            # A recurring/trigger resume starts fresh rather than replaying a
+            # retry that was suspended by the pause. One-time schedules retain
+            # future retries, but an elapsed retry is spent and quarantined.
+            if resumed and not target.get("one_time"):
+                target.pop("retry_at", None)
+
+            target["_revision"] = original.get("_revision", 0) + 1
+            # Descriptive edits preserve outcomes; execution-affecting edits
+            # supersede the old run's retry/completion policy.
+            if any(target.get(key) != original.get(key) for key in
+                   set(target) | set(original) if key not in {"description", "_revision"}):
+                target["_execution_revision"] = original.get("_execution_revision", 0) + 1
+            # Resuming admits future effects, so it is an admission boundary
+            # just like creation. Pausing remains available while disconnected.
+            if original.get("paused") and target.get("paused") is False:
+                self._admitted_epoch(target)
+            candidate = list(self._schedules)
+            candidate[target_index] = target
+            await self._publish(candidate)
+            self._wake.set()
+            log.info("Updated schedule %s", schedule_id)
+            return dict(target)
+
+    def _skipped_run_result(self, schedule: dict) -> dict:
+        """Result shape for a manual run that never started."""
+        skipped_result: dict = {
+            "status": "skipped",
+            "schedule_id": schedule.get("id", ""),
+            "error": "schedule is already executing",
+        }
+        if schedule.get("paused"):
+            skipped_result["warning"] = "schedule is paused — this was a manual override"
+        return skipped_result
+
+    async def run_now(self, schedule_id: str) -> dict:
+        """Manually trigger a schedule immediately.
+
+        Returns a result dict with status, schedule info, and optional warning.
+        Raises ValueError if the schedule is not found or callback is not set.
+        """
+        schedule: dict | None = None
+        async with self._lock:
+            resolved = False
+            for s in self._schedules:
+                if s["id"] == schedule_id:
+                    if schedule_id not in self._in_flight:
+                        resolved = self._resolve_interrupted_run(s)
+                    schedule = copy.deepcopy(s)
+                    break
+            if resolved:
+                await self._publish(copy.deepcopy(self._schedules))
+            if schedule is None:
+                raise ValueError(f"Schedule '{schedule_id}' not found")
+            if schedule.get("inert_reason"):
+                raise ValueError(schedule["inert_reason"])
+            if self._requires_connection(schedule) and not self._callback:
+                raise ValueError("Scheduler callback not configured")
+            # Admission precedes mutation. The overlapping-run guard lives in
+            # _execute_and_record, but publishing last_run first made a skipped
+            # manual run look like a real one in durable state. Refuse here,
+            # before reserving or stamping anything, so an unstarted run leaves
+            # no trace at all. The guard is re-checked there for the race this
+            # pre-check cannot close.
+            if schedule_id in self._in_flight:
+                log.warning(
+                    "Manual run of %s refused — already executing", schedule_id,
+                )
+                return self._skipped_run_result(schedule)
+            admitted_epoch = self._admitted_epoch(schedule)
+            reservation = self._capture_reservation_before_mutation(
+                schedule, admitted_epoch
+            )
+            schedule["last_run"] = datetime.now(UTC).isoformat()
+            self._capture_reservation_after_mutation(reservation, schedule)
+            candidate = [schedule if s["id"] == schedule_id else s for s in self._schedules]
+            await self._publish(candidate)
+
+        log.info("Manual run: schedule %s (%s)", schedule_id, schedule.get("description", ""))
+        failures_before = schedule.get("consecutive_failures", 0)
+        executed = await self._execute_and_record(schedule, reservation, admitted_epoch)
+        if not executed:
+            return self._skipped_run_result(schedule)
+
+        failed = schedule.get("consecutive_failures", 0) > failures_before
+        result: dict = {
+            "status": "failure" if failed else "success",
+            "schedule_id": schedule_id,
+        }
+        if failed:
+            result["error"] = schedule.get("last_error", "unknown error")
+        if schedule.get("paused"):
+            result["warning"] = "schedule is paused — this was a manual override"
+
+        return result
+
+    async def delete(self, schedule_id: str) -> bool:
+        async with self._lock:
+            before = len(self._schedules)
+            candidate = [s for s in self._schedules if s["id"] != schedule_id]
+            if len(candidate) < before:
+                await self._publish(candidate)
+                log.info("Deleted schedule %s", schedule_id)
+                return True
+        return False
+
+    def start(
+        self,
+        callback: Callable[[dict], Awaitable[None]],
+        failure_callback: Callable[[dict, int], Awaitable[None]] | None = None,
+    ) -> None:
+        self._callback = callback
+        self._failure_callback = failure_callback
+        # Idempotent: Discord fires on_ready on every reconnect, and start()
+        # used to create_task() unconditionally, leaking a second _loop() that
+        # ticked independently and double-fired one-time/retry schedules.
+        if self._task is not None and not self._task.done():
+            log.info("Scheduler already running; refreshed callbacks without a second loop")
+            return
+        self._task = asyncio.create_task(self._loop())
+        log.info("Scheduler started with %d schedule(s)", len(self._schedules))
+
+    async def stop(self) -> None:
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+        if self._http_session and not self._http_session.closed:
+            await self._http_session.close()
+        log.info("Scheduler stopped")
+
+    async def _loop(self) -> None:
+        while True:
+            try:
+                self._wake.clear()
+                delay = self._compute_tick_delay()
+                try:
+                    await asyncio.wait_for(self._wake.wait(), timeout=delay)
+                except TimeoutError:
+                    pass
+                await self._tick()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log.error("Scheduler tick error: %s", e, exc_info=True)
+
+    def _compute_tick_delay(self) -> float:
+        """Sleep until the next schedule is due, capped at 60s.
+
+        Hardcoded 60s ticks meant a one-off scheduled 2s from now could
+        miss its run_at by up to 58s. Now we peek at the earliest pending
+        next_run and sleep that long (min 1s, max 60s)."""
+        try:
+            now = datetime.now(UTC).replace(tzinfo=None)
+            soonest: datetime | None = None
+            for schedule in self._schedules:
+                if schedule.get("paused"):
+                    continue
+                # An active manual execution owns this retry. Its due time
+                # cannot be serviced concurrently, and considering it here
+                # would pin the loop to one-second ticks until it finishes.
+                if schedule.get("id") in self._in_flight and schedule.get("retry_at"):
+                    continue
+                # A pending retry has its own due time; ignoring it here meant
+                # retries waited for the next 60s tick instead of firing on time.
+                nxt = schedule.get("retry_at") or schedule.get("next_run")
+                if not nxt:
+                    continue
+                try:
+                    parsed = datetime.fromisoformat(nxt)
+                    if parsed.tzinfo is not None:
+                        parsed = parsed.replace(tzinfo=None)
+                except Exception:
+                    continue
+                if soonest is None or parsed < soonest:
+                    soonest = parsed
+            if soonest is None:
+                return 60.0
+            delta = (soonest - now).total_seconds()
+            return max(1.0, min(60.0, delta))
+        except Exception:
+            return 60.0
+
+    def _compute_retry_at(self, schedule: dict) -> str:
+        """Compute the next retry time using exponential backoff.
+
+        ``attempt`` is 1-based (the retry_count that was just incremented),
+        so the first retry waits base·2⁰ = base, the second base·2¹, etc.
+        Using retry_count directly made the first retry wait 2·base.
+        """
+        attempt = schedule.get("retry_count", 1)
+        base = schedule.get("retry_backoff_seconds", DEFAULT_RETRY_BACKOFF_SECONDS)
+        delay = min(base * (2 ** max(0, attempt - 1)), MAX_BACKOFF_SECONDS)
+        retry_time = datetime.now(UTC) + timedelta(seconds=delay)
+        return retry_time.isoformat()
+
+    async def _execute_and_record(
+        self, schedule: dict, reservation: str | None = None,
+        admitted_epoch: int | None = None,
+    ) -> bool:
+        """Execute the schedule callback and record the result in history.
+
+        For 'webhook' actions, the built-in HTTP executor is used directly.
+        All other actions are dispatched through the registered callback.
+
+        A per-schedule in-flight guard drops overlapping executions (manual
+        run_now during a tick, duplicate webhook deliveries) so a schedule
+        never runs twice concurrently.
+        """
+        sid = schedule.get("id", "")
+        if sid in self._in_flight:
+            log.warning(
+                "Schedule %s is already executing — skipping overlapping fire", sid,
+            )
+            if reservation is not None:
+                # The caller already published its reservation (run_now and
+                # fire_triggers stamp last_run before calling here). Discarding
+                # only the reservation metadata would leave that published
+                # stamp looking like a run that never happened, so restore the
+                # pre-reservation fields through the same guarded path used for
+                # an unstarted connection-gate refusal. This branch returns
+                # before the try/finally below, so it must release the
+                # reservation entry itself.
+                # Tick reservations for due cron slots carry this marker: the
+                # cron slot has been consumed even though overlapping work is
+                # dropped. Manual and trigger reservations still roll back in
+                # full when they lose this race.
+                preserve_next_run = self._gate_reservations.get(
+                    reservation, {},
+                ).get("preserve_next_run_on_overlap", False)
+                await self._restore_unstarted_reservation(
+                    schedule, reservation, preserve_next_run=preserve_next_run,
+                )
+                self._gate_reservations.pop(reservation, None)
+            return False
+        self._in_flight.add(sid)
+        try:
+            # Recheck after durable reservation but before an executor sees it.
+            # An unavailable connection leaves no history for unstarted work.
+            if self._requires_connection(schedule):
+                snapshot = self._connection_availability()
+                if not snapshot.available or (
+                    admitted_epoch is not None and snapshot.epoch != admitted_epoch
+                ):
+                    await self._restore_unstarted_reservation(schedule, reservation)
+                    raise ScheduleConnectionUnavailableError(snapshot)
+            if reservation is not None:
+                if not await self._admit_reserved_execution(schedule):
+                    await self._restore_unstarted_reservation(schedule, reservation)
+                    return False
+            elif self._tracks_run_start(schedule):
+                await self._mark_run_started(schedule)
+            identity = self._execution_identity(schedule)
+            nonce = uuid.uuid4().hex
+            self._active_execution_nonces.add(nonce)
+            token = _execution_admission.set((self, sid, nonce))
+            try:
+                await self._execute_and_record_inner(schedule)
+            finally:
+                _execution_admission.reset(token)
+                self._active_execution_nonces.discard(nonce)
+            async with self._lock:
+                candidate = copy.deepcopy(self._schedules)
+                for current in candidate:
+                    if current["id"] != sid:
+                        continue
+                    if current.get("run_started_at") == schedule.get("run_started_at"):
+                        current.pop("run_started_at", None)
+                    if self._execution_identity(current) != identity:
+                        await self._publish(candidate)
+                        break
+                    for key in ("last_run", "consecutive_failures", "retry_count",
+                                "last_error", "last_error_at", "retry_at"):
+                        if key in schedule:
+                            current[key] = schedule[key]
+                        else:
+                            current.pop(key, None)
+                    if schedule.get("one_time"):
+                        if not schedule.get("last_error"):
+                            candidate.remove(current)
+                        elif "next_run" not in schedule:
+                            current.pop("next_run", None)
+                    await self._publish(candidate)
+                    break
+            return True
+        finally:
+            if reservation is not None:
+                self._gate_reservations.pop(reservation, None)
+            self._in_flight.discard(sid)
+            # Re-evaluate a due retry after the in-flight owner releases it.
+            self._wake.set()
+
+    async def _restore_unstarted_reservation(
+        self, schedule: dict, reservation: str | None, *, preserve_next_run: bool = False
+    ) -> None:
+        """Undo only this still-current reservation before an effect begins."""
+        if reservation is None:
+            return
+        restore = self._gate_reservations.get(reservation)
+        if restore is None:
+            return
+        sid = schedule.get("id")
+        identity = self._execution_identity(schedule)
+        async with self._lock:
+            candidate = copy.deepcopy(self._schedules)
+            for current in candidate:
+                if (
+                    current.get("id") != restore["id"]
+                    or self._execution_identity(current) != restore["identity"]
+                    or sid != restore["id"]
+                    or identity != restore["identity"]
+                ):
+                    continue
+                expected = restore.get("after")
+                if expected is None or any(
+                    self._field_snapshot(current, key) != value
+                    for key, value in expected.items()
+                ):
+                    return
+                for key, (present, value) in restore["before"].items():
+                    if preserve_next_run and key == "next_run":
+                        continue
+                    if not present:
+                        current.pop(key, None)
+                    else:
+                        current[key] = value
+                await self._publish(candidate)
+                return
+
+    async def _execute_and_record_inner(self, schedule: dict) -> None:
+        admitted = _execution_admission.get()
+        if self._connection_provider_installed and not self._admission_is_active(
+            admitted, schedule
+        ):
+            raise ScheduleConnectionUnavailableError(self._connection_availability())
+        if schedule.get("action") == "webhook":
+            await self._execute_and_record_webhook(schedule)
+            return
+        if not self._callback:
+            return
+        start = time.monotonic()
+        try:
+            await self._callback(schedule)
+            duration_ms = int((time.monotonic() - start) * 1000)
+            await self._handle_success(schedule)
+            await self.history.record(
+                schedule_id=schedule["id"],
+                description=schedule.get("description", ""),
+                action=schedule.get("action", ""),
+                status="success",
+                duration_ms=duration_ms,
+            )
+        except Exception as e:
+            duration_ms = int((time.monotonic() - start) * 1000)
+            retry_attempt = (
+                0
+                if isinstance(e, NonRetryableScheduleError)
+                else schedule.get("retry_count", 0) + 1
+            )
+            await self._handle_failure(schedule, e)
+            await self.history.record(
+                schedule_id=schedule["id"],
+                description=schedule.get("description", ""),
+                action=schedule.get("action", ""),
+                status="failure",
+                duration_ms=duration_ms,
+                error=str(e),
+                retry_attempt=(
+                    retry_attempt if retry_attempt and schedule.get("max_retries", 0) > 0 else 0
+                ),
+            )
+
+    async def _execute_and_record_webhook(self, schedule: dict) -> None:
+        """Execute a webhook action and record the result."""
+        admitted = _execution_admission.get()
+        if self._connection_provider_installed and not self._admission_is_active(
+            admitted, schedule
+        ):
+            raise ScheduleConnectionUnavailableError(self._connection_availability())
+        config = schedule.get("webhook_config", {})
+        start = time.monotonic()
+        try:
+            result = await self._execute_webhook(config)
+            duration_ms = int((time.monotonic() - start) * 1000)
+            await self._handle_success(schedule)
+            await self.history.record(
+                schedule_id=schedule["id"],
+                description=schedule.get("description", ""),
+                action="webhook",
+                status="success",
+                duration_ms=duration_ms,
+            )
+            log.info(
+                "Webhook schedule %s executed: %s %s -> %d",
+                schedule["id"], config.get("method", "POST"),
+                config.get("url", ""), result.get("status_code", 0),
+            )
+        except Exception as e:
+            duration_ms = int((time.monotonic() - start) * 1000)
+            retry_attempt = schedule.get("retry_count", 0) + 1
+            await self._handle_failure(schedule, e)
+            await self.history.record(
+                schedule_id=schedule["id"],
+                description=schedule.get("description", ""),
+                action="webhook",
+                status="failure",
+                duration_ms=duration_ms,
+                error=str(e),
+                retry_attempt=retry_attempt if schedule.get("max_retries", 0) > 0 else 0,
+            )
+
+    async def _handle_success(self, schedule: dict) -> None:
+        """Reset failure tracking after a successful execution."""
+        schedule["consecutive_failures"] = 0
+        schedule["retry_count"] = 0
+        schedule["last_error"] = None
+        schedule["last_error_at"] = None
+        schedule.pop("retry_at", None)
+
+    async def _handle_failure(self, schedule: dict, error: Exception) -> None:
+        """Track failure and schedule retry if within limits."""
+        now = datetime.now(UTC)
+        schedule["consecutive_failures"] = schedule.get("consecutive_failures", 0) + 1
+        schedule["last_error"] = str(error)[:500]
+        schedule["last_error_at"] = now.isoformat()
+
+        max_retries = schedule.get("max_retries", DEFAULT_MAX_RETRIES)
+        retry_count = schedule.get("retry_count", 0)
+
+        if isinstance(error, NonRetryableScheduleError):
+            schedule.pop("retry_at", None)
+            if schedule.get("one_time"):
+                schedule.pop("next_run", None)
+            log.error(
+                "Schedule %s requires manual resolution and will not be retried: %s",
+                schedule["id"],
+                error,
+            )
+        elif max_retries > 0 and retry_count < max_retries:
+            schedule["retry_count"] = retry_count + 1
+            schedule["retry_at"] = self._compute_retry_at(schedule)
+            log.warning(
+                "Schedule %s failed (attempt %d/%d), retry at %s: %s",
+                schedule["id"], retry_count + 1, max_retries,
+                schedule["retry_at"], error,
+            )
+        else:
+            schedule.pop("retry_at", None)
+            # A terminally failed one-time schedule must remain available for
+            # manual recovery without firing again on every scheduler tick.
+            if schedule.get("one_time"):
+                schedule.pop("next_run", None)
+            if max_retries > 0:
+                log.error(
+                    "Schedule %s exhausted all %d retries: %s",
+                    schedule["id"], max_retries, error,
+                )
+            else:
+                log.error("Schedule %s callback failed: %s", schedule["id"], error)
+
+        # Failure alerts are Discord-delivered even when the failed action is
+        # not. Admit that secondary effect against the current connection
+        # generation so an offline webhook keeps its failure/retry state
+        # without probing a stale Discord channel. Rechecking the epoch also
+        # prevents a reconnect transition from lending a new transport to an
+        # alert admitted by the retired generation.
+        consecutive = schedule["consecutive_failures"]
+        threshold = DEFAULT_FAILURE_ALERT_THRESHOLD
+        if self._failure_callback and consecutive >= threshold and consecutive % threshold == 0:
+            admitted = self._connection_availability()
+            current = self._connection_availability()
+            if admitted.available and current.available and current.epoch == admitted.epoch:
+                try:
+                    await self._failure_callback(schedule, consecutive)
+                except Exception as alert_err:
+                    log.error(
+                        "Failure alert callback error for %s: %s",
+                        schedule["id"], alert_err,
+                    )
+            else:
+                log.info(
+                    "Deferred failure alert for schedule %s: Discord connection unavailable",
+                    schedule["id"],
+                )
+
+    async def _tick(self) -> None:
+        to_fire: list[tuple[dict, str, int | None]] = []
+
+        async with self._lock:
+            availability = self._connection_availability()
+            now = datetime.now(UTC)
+            now_naive = now.replace(tzinfo=None)
+
+            candidate = copy.deepcopy(self._schedules)
+            quarantined = False
+            for schedule in candidate:
+                if schedule.get("paused"):
+                    continue
+                if (
+                    schedule.get("run_started_at")
+                    and schedule.get("id") not in self._in_flight
+                ):
+                    if self._resolve_interrupted_run(schedule):
+                        quarantined = True
+                    continue
+                # Do not persist/rollback a retry reservation on every tick
+                # while a manual run already owns this schedule.
+                if schedule.get("id") in self._in_flight and schedule.get("retry_at"):
+                    continue
+                if self._requires_connection(schedule) and not availability.available:
+                    continue
+
+                epoch = availability.epoch if self._requires_connection(schedule) else None
+                reservation: str | None = None
+                try:
+                    retry_at_str = schedule.get("retry_at")
+                    if retry_at_str:
+                        retry_at = self._parse_persisted_time(retry_at_str)
+                        if retry_at is None:
+                            quarantined = True
+                            self._quarantine_schedule(
+                                schedule,
+                                f"Unreadable retry_at {retry_at_str!r}; "
+                                "retry time could not be parsed",
+                            )
+                            continue
+                        if now_naive >= retry_at:
+                            log.info(
+                                "Retrying schedule %s: %s (attempt %d)",
+                                schedule["id"], schedule["description"],
+                                schedule.get("retry_count", 0),
+                            )
+                            reservation = self._capture_reservation_before_mutation(
+                                schedule, epoch
+                            )
+                            schedule["last_run"] = now.isoformat()
+                            self._capture_reservation_after_mutation(reservation, schedule)
+                            to_fire.append((copy.deepcopy(schedule), reservation, epoch))
+                        continue
+
+                    next_run_str = schedule.get("next_run")
+                    if not next_run_str:
+                        continue
+
+                    next_run = self._parse_persisted_time(next_run_str)
+                    if next_run is None:
+                        quarantined = True
+                        self._quarantine_schedule(
+                            schedule,
+                            f"Unreadable next_run {next_run_str!r}; "
+                            "next run time could not be parsed",
+                        )
+                        continue
+                    if now_naive < next_run:
+                        continue
+
+                    # Advancing a cron schedule needs a usable expression.
+                    # Checking it here (rather than letting _cron_next_run
+                    # raise below) keeps a damaged cron out of the
+                    # fire-then-raise path, which would repeat every tick
+                    # instead of surfacing once, like the rest of this class.
+                    if not schedule.get("one_time") and not self._is_usable_cron(
+                        schedule.get("cron")
+                    ):
+                        quarantined = True
+                        self._quarantine_schedule(
+                            schedule,
+                            f"Unreadable cron {schedule.get('cron')!r}; "
+                            "next run could not be computed",
+                        )
+                        continue
+
+                    log.info("Firing schedule %s: %s", schedule["id"], schedule["description"])
+                    reservation = self._capture_reservation_before_mutation(
+                        schedule, epoch
+                    )
+                    schedule["last_run"] = now.isoformat()
+
+                    if schedule.get("cron"):
+                        schedule["next_run"] = _cron_next_run(
+                            schedule["cron"], schedule.get("timezone"),
+                        )
+                    self._capture_reservation_after_mutation(reservation, schedule)
+                    # If this slot overlaps an already-running manual or
+                    # trigger invocation, discard the slot without rewinding
+                    # its next_run and turning every loop into a retry.
+                    self._gate_reservations[reservation][
+                        "preserve_next_run_on_overlap"
+                    ] = bool(schedule.get("cron"))
+                    to_fire.append((copy.deepcopy(schedule), reservation, epoch))
+                except Exception as exc:
+                    # One schedule must never abort the whole tick. Drop only
+                    # this record's unfinished reservation and keep going; an
+                    # unexpected fault is logged rather than fabricated into a
+                    # quarantine, which stays reserved for unreadable timing.
+                    if reservation is not None:
+                        self._rollback_reservation_in_place(schedule, reservation)
+                    log.error(
+                        "Scheduler tick skipped schedule %s after an error: %s",
+                        schedule.get("id"), exc,
+                        exc_info=True,
+                    )
+                    continue
+
+            if to_fire or quarantined:
+                await self._publish(candidate)
+
+        # Execute callbacks OUTSIDE the lock so callbacks can safely
+        # call add()/delete()/update() without deadlocking.  Keep only the
+        # executions this tick actually owned: an overlapping run_now may hold
+        # the in-flight guard, and a skipped one-time task is not completed.
+        for schedule, reservation, epoch in to_fire:
+            try:
+                await self._execute_and_record(schedule, reservation, epoch)
+            except ScheduleConnectionUnavailableError:
+                continue

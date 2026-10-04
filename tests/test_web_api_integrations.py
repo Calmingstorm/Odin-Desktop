@@ -1,0 +1,805 @@
+"""Route coverage for web/api/integrations.py (RFC-006 P4-continuation, CONT-1).
+
+Per Odin's advisory: fake the remote services hard. These tests validate request
+parsing, validation, and delegation/response shaping for MCP and
+outbound webhooks — never the network. Each service
+is a faked object; the "disabled" path is simply the attribute being absent.
+"""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+import yaml
+from aiohttp import web
+from aiohttp.test_utils import TestClient, TestServer
+
+from src.config.schema import load_config, set_active_config_path
+from src.notifications.outbound_webhooks import OutboundWebhookDispatcher
+from src.web.api.integrations import (
+    register_mcp_servers,
+    register_outbound_webhooks,
+)
+
+
+def _app(*registrars, bot):
+    routes = web.RouteTableDef()
+    for reg in registrars:
+        reg(routes, bot)
+    app = web.Application()
+    app.router.add_routes(routes)
+    return app
+
+
+def _bot(**attrs):
+    """A plain bot object — unset service attrs read as None (the disabled path)."""
+    bot = type("B", (), {})()
+    for k, v in attrs.items():
+        setattr(bot, k, v)
+    return bot
+
+
+# --------------------------------------------------------------------------- #
+# MCP servers
+# --------------------------------------------------------------------------- #
+class TestMcpServers:
+    """Route-shape pins for the live P4 management contract. Full
+    persistence round-trips (disk truth, secret patch ops, fake-server
+    reconciliation) live in tests/test_mcp_admin.py; these pin the thin
+    route behaviors against a real (empty) control plane."""
+
+    def _mcp_bot(self):
+        from types import SimpleNamespace
+
+        from src.config.schema import MCPConfig
+        from src.tools.mcp import MCPManager
+
+        bot = _bot()
+        bot.mcp_manager = MCPManager()
+        bot.config = SimpleNamespace(mcp=MCPConfig())
+        return bot
+
+    async def test_status_always_works_even_disabled(self):
+        async with TestClient(TestServer(_app(register_mcp_servers, bot=self._mcp_bot()))) as c:
+            response = await c.get("/api/mcp/status")
+            assert response.status == 200
+            body = await response.json()
+            assert body["enabled"] is False
+            assert body["servers"] == []
+
+    async def test_list_and_unknown_lookups(self):
+        async with TestClient(TestServer(_app(register_mcp_servers, bot=self._mcp_bot()))) as c:
+            assert (await c.get("/api/mcp/servers")).status == 200
+            assert (await c.get("/api/mcp/servers/ghost/tools")).status == 404
+            assert (await c.put("/api/mcp/servers/ghost", json={})).status == 404
+            assert (await c.delete("/api/mcp/servers/ghost")).status == 404
+            assert (await c.post("/api/mcp/servers/ghost/reconnect")).status == 404
+            assert (await c.post("/api/mcp/servers/ghost/refresh-tools")).status == 404
+
+    async def test_add_validates_before_any_persistence(self):
+        async with TestClient(TestServer(_app(register_mcp_servers, bot=self._mcp_bot()))) as c:
+            assert (await c.post("/api/mcp/servers", json={})).status == 400
+            response = await c.post(
+                "/api/mcp/servers", json={"name": "x", "transport": "carrier-pigeon"}
+            )
+            assert response.status == 400
+
+    async def test_mask_values_rejected(self):
+        async with TestClient(TestServer(_app(register_mcp_servers, bot=self._mcp_bot()))) as c:
+            response = await c.post(
+                "/api/mcp/servers",
+                json={
+                    "name": "x",
+                    "transport": "stdio",
+                    "command": "/bin/true",
+                    "headers_set": {"Authorization": "\u2022" * 8},
+                },
+            )
+            assert response.status == 400
+            assert "mask" in (await response.json())["error"]
+
+    async def test_enabled_requires_boolean(self):
+        async with TestClient(TestServer(_app(register_mcp_servers, bot=self._mcp_bot()))) as c:
+            assert (await c.post("/api/mcp/enabled", json={"enabled": "yes"})).status == 400
+
+
+# --------------------------------------------------------------------------- #
+# Outbound webhooks
+# --------------------------------------------------------------------------- #
+class TestOutboundWebhooks:
+    @pytest.fixture
+    def durable_bot(self, tmp_path):
+        path = tmp_path / "config.yml"
+        path.write_text(
+            "discord:\n  token: placeholder\noutbound_webhooks:\n  enabled: true\n  targets: []\n"
+        )
+        bot = _bot(
+            config=load_config(path),
+            outbound_webhook_dispatcher=OutboundWebhookDispatcher(),
+        )
+        yield bot, path
+        set_active_config_path(None)
+
+    def _dispatcher(self):
+        d = MagicMock()
+        d.get_status.return_value = {"count": 1}
+        target = MagicMock()
+        target.to_dict.return_value = {"id": "wh1", "name": "hook"}
+        d.register.return_value = target
+        d.update.return_value = target
+        d.unregister.return_value = True
+        d.send_test_event = AsyncMock(return_value=target)
+        d.stats.as_dict.return_value = {"sent": 5}
+        return d, target
+
+    async def test_failed_persistence_returns_503_without_swapping_state(
+        self, durable_bot, monkeypatch
+    ):
+        bot, _ = durable_bot
+        original = bot.outbound_webhook_dispatcher._webhooks
+
+        async def fail_persist(_targets, **_kwargs):
+            return OSError("disk full"), False
+
+        monkeypatch.setattr("src.config.persistence.persist_webhook_targets_locked", fail_persist)
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as c:
+            response = await c.post(
+                "/api/outbound-webhooks",
+                json={"name": "hook", "url": "https://example.test/hook"},
+            )
+            assert response.status == 503
+            assert (await response.json())["error"] == "could not save outbound webhook targets"
+        assert bot.outbound_webhook_dispatcher._webhooks is original
+
+    async def test_webhook_round_trip_preserves_config_owned_yaml(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOOK_URL_A", "http://127.0.0.1/alpha")
+        monkeypatch.setenv("HOOK_SECRET_A", "resolved-alpha-secret")
+        monkeypatch.setenv("HOOK_SECRET_B", "resolved-beta-secret")
+        path = tmp_path / "config.yml"
+        path.write_text(
+            "# top-level config comment\n"
+            "discord:\n  token: placeholder\n"
+            "outbound_webhooks:\n"
+            "  enabled: true\n"
+            "  # targets section comment\n"
+            "  targets:\n"
+            "    # alpha row comment\n"
+            "    - name: Alpha\n"
+            "      url: ${HOOK_URL_A}\n"
+            "      secret: ${HOOK_SECRET_A}\n"
+            "      events: [health, alert] # flow list comment\n"
+            "      enabled: true\n"
+            "      scrub_secrets: true\n"
+            "      verify_ssl: true\n"
+            "    # beta row comment\n"
+            "    - name: Beta\n"
+            "      url: http://127.0.0.1/beta\n"
+            "      secret: ${HOOK_SECRET_B}\n"
+            "  # section trailer\n"
+            "# # MCP server settings remain here\n"
+            "mcp:\n  enabled: false\n"
+        )
+        # Stable alphabetic IDs avoid YAML's numeric-scalar quoting ambiguity.
+        path.write_text(
+            path.read_text()
+            .replace("    - name: Alpha\n", "    - id: alpha-id\n      name: Alpha\n")
+            .replace("    - name: Beta\n", "    - id: beta-id\n      name: Beta\n")
+        )
+        config = load_config(path)
+        dispatcher = OutboundWebhookDispatcher()
+        import uuid
+
+        for index, configured in enumerate(config.outbound_webhooks.targets):
+            dispatcher.register(
+                name=configured.name,
+                url=configured.url,
+                secret=configured.secret,
+                events=configured.events or None,
+                enabled=configured.enabled,
+                scrub_secrets=configured.scrub_secrets,
+                verify_ssl=configured.verify_ssl,
+                webhook_id=configured.id or uuid.uuid5(
+                    uuid.NAMESPACE_URL,
+                    f"outbound-webhook:{index}:{configured.url}",
+                ).hex[:12],
+                created_at=configured.created_at,
+            )
+        bot = _bot(config=config, outbound_webhook_dispatcher=dispatcher)
+
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as client:
+            initial = dispatcher.list_webhooks()
+            alpha_id, beta_id = initial[0].id, initial[1].id
+            created_response = await client.post(
+                "/api/outbound-webhooks",
+                json={
+                    "name": "Created",
+                    "url": "http://127.0.0.1/created",
+                    "secret": "submitted-created-secret",
+                },
+            )
+            assert created_response.status == 201
+            created = await created_response.json()
+            after_create = path.read_text()
+            assert "${HOOK_URL_A}" in after_create
+            assert "${HOOK_SECRET_A}" in after_create
+            assert "${HOOK_SECRET_B}" in after_create
+            assert "resolved-alpha-secret" not in after_create
+            assert "resolved-beta-secret" not in after_create
+            assert after_create.count(f"id: {created['id']}") == 1
+            assert "&id" not in after_create and "*id" not in after_create
+            assert "events: [health, alert]" in after_create
+            assert "# flow list comment" in after_create
+            assert "# alpha row comment" in after_create
+            assert "# beta row comment" in after_create
+            assert "# # MCP server settings remain here" in after_create
+
+            # Update the legacy row without writing its resolved URL or secret,
+            # then rename its URL explicitly and keep the same stable identity.
+            renamed = await client.put(
+                f"/api/outbound-webhooks/{alpha_id}", json={"name": "Renamed Alpha"}
+            )
+            assert renamed.status == 200
+            assert "${HOOK_URL_A}" in path.read_text()
+            assert "${HOOK_SECRET_A}" in path.read_text()
+            moved = await client.put(
+                f"/api/outbound-webhooks/{alpha_id}",
+                json={"url": "http://127.0.0.1/alpha-renamed"},
+            )
+            assert moved.status == 200
+            assert (await moved.json())["id"] == alpha_id
+            assert "resolved-alpha-secret" not in path.read_text()
+
+            assert (await client.delete(f"/api/outbound-webhooks/{beta_id}")).status == 200
+            assert (await client.delete(f"/api/outbound-webhooks/{alpha_id}")).status == 200
+            assert (await client.delete(f"/api/outbound-webhooks/{created['id']}")).status == 200
+
+        final = path.read_text()
+        assert "targets: []" in final
+        assert "resolved-alpha-secret" not in final
+        assert "resolved-beta-secret" not in final
+        assert "# # MCP server settings remain here" in final
+        restarted = load_config(path)
+        assert restarted.outbound_webhooks.targets == []
+        set_active_config_path(None)
+
+    async def test_create_attaches_missing_targets_key(self, tmp_path):
+        path = tmp_path / "config.yml"
+        path.write_text("discord:\n  token: placeholder\noutbound_webhooks:\n  enabled: true\n")
+        bot = _bot(
+            config=load_config(path),
+            outbound_webhook_dispatcher=OutboundWebhookDispatcher(),
+        )
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as client:
+            response = await client.post(
+                "/api/outbound-webhooks",
+                json={"name": "hook", "url": "http://127.0.0.1/hook"},
+            )
+            assert response.status == 201
+            ident = (await response.json())["id"]
+        assert yaml.safe_load(path.read_text())["outbound_webhooks"]["targets"][0]["id"] == ident
+        assert any(target.id == ident for target in load_config(path).outbound_webhooks.targets)
+        set_active_config_path(None)
+
+    @pytest.mark.parametrize(
+        "layout", ["empty", "missing", "scalar", "block", "flow", "row-flow", "template"]
+    )
+    @pytest.mark.parametrize("operations", ["update-delete", "delete-both"])
+    async def test_webhook_crud_preserves_exact_trailing_template(
+        self, tmp_path, monkeypatch, layout, operations
+    ):
+        """Round-5 reproducer: verify the bytes and restart parity at EVERY save."""
+        import uuid
+        from dataclasses import asdict
+        from pathlib import Path
+
+        head = "discord:\n  token: x\noutbound_webhooks:\n  enabled: true\n"
+        row = "  targets:\n    - name: h\n      url: https://h.example.test/x\n"
+        layouts = {
+            "empty": "  targets: []\n",
+            "missing": "",
+            "scalar": row,
+            "block": row + "      events:\n        - alert\n",
+            "flow": row + "      events: [alert]\n",
+            "row-flow": '  targets:\n    - {name: h, url: "https://h.example.test/x"}\n',
+        }
+        tail = (
+            "\n# # MCP (Model Context Protocol) servers.\n# mcp:\n#   enabled: false\n\n"
+            "# # Graceful degradation thresholds\n# graceful_degradation:\n"
+            "#   degraded_threshold: 3\n"
+        )
+        if layout == "template":
+            monkeypatch.setenv("DISCORD_TOKEN", "test-only-unresolved-on-disk")
+            monkeypatch.setenv("MCP_API_KEY", "test-only-unresolved-on-disk")
+            monkeypatch.setenv("MCP_HTTP_TOKEN", "test-only-unresolved-on-disk")
+            template = (Path(__file__).resolve().parents[1] / "config.yml").read_text()
+            prefix, section = template.split("# outbound_webhooks:\n", 1)
+            section = "# outbound_webhooks:\n" + section
+            block, tail = section.split("\n# # MCP", 1)
+            tail = "\n# # MCP" + tail
+            # Activate the actual repository template, not a shortened imitation.
+            original = prefix + "\n".join(
+                line.removeprefix("# ") for line in block.split("\n")
+            ) + tail
+            assert sum(line.startswith("#") for line in tail.splitlines()) == 31
+        else:
+            original = head + layouts[layout] + tail
+        path = tmp_path / "config.yml"
+        path.write_text(original)
+
+        def restarted_dispatcher():
+            config = load_config(path)
+            dispatcher = OutboundWebhookDispatcher()
+            for index, target in enumerate(config.outbound_webhooks.targets):
+                fields = target.model_dump()
+                ident = fields.pop("id") or uuid.uuid5(
+                    uuid.NAMESPACE_URL, f"outbound-webhook:{index}:{target.url}"
+                ).hex[:12]
+                dispatcher.register(**fields, webhook_id=ident)
+            return config, dispatcher
+
+        config, dispatcher = restarted_dispatcher()
+        bot = _bot(config=config, outbound_webhook_dispatcher=dispatcher)
+        untouched_row = (
+            layouts[layout].removeprefix("  targets:\n")
+            if layout in {"scalar", "block", "flow", "row-flow"} else None
+        )
+
+        def verify():
+            text = path.read_text()
+            assert text.endswith(tail)
+            assert text.count("# # MCP") == 1
+            assert "test-only-unresolved-on-disk" not in text
+            assert text.startswith(original.split("outbound_webhooks:\n", 1)[0])
+            assert yaml.safe_load(text)
+            assert "&id" not in text and "*id" not in text
+            if untouched_row:
+                assert untouched_row in text
+            _, restarted = restarted_dispatcher()
+            live_rows = [asdict(target) for target in dispatcher.list_webhooks()]
+            restarted_rows = [asdict(target) for target in restarted.list_webhooks()]
+            # Legacy rows without created_at get a fresh timestamp on startup.
+            for target in live_rows + restarted_rows:
+                target.pop("created_at", None)
+            assert live_rows == restarted_rows
+
+        try:
+            async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as client:
+                ids = []
+                for number in (1, 2):
+                    response = await client.post("/api/outbound-webhooks", json={
+                        "name": f"c{number}", "url": f"http://10.0.0.{number}/h",
+                        **({"events": ["alert"]} if number == 2 else {}),
+                    })
+                    assert response.status == 201, await response.text()
+                    ids.append((await response.json())["id"])
+                    verify()
+                if operations == "update-delete":
+                    response = await client.put(
+                        f"/api/outbound-webhooks/{ids[-1]}", json={"enabled": False}
+                    )
+                    assert response.status == 200, await response.text()
+                    verify()
+                    ids = ids[-1:]
+                for ident in reversed(ids):
+                    response = await client.delete(f"/api/outbound-webhooks/{ident}")
+                    assert response.status == 200, await response.text()
+                    verify()
+        finally:
+            set_active_config_path(None)
+
+    async def test_delete_idless_duplicate_url_keeps_remaining_runtime_identity(self, tmp_path):
+        path = tmp_path / "config.yml"
+        path.write_text(
+            "discord:\n  token: placeholder\noutbound_webhooks:\n  enabled: true\n  targets:\n"
+            "    - name: first\n      url: https://same.invalid/hook\n"
+            "    - name: second\n      url: https://same.invalid/hook\n"
+        )
+        config = load_config(path)
+        dispatcher = OutboundWebhookDispatcher()
+        import uuid
+
+        for index, target in enumerate(config.outbound_webhooks.targets):
+            dispatcher.register(
+                name=target.name, url=target.url,
+                webhook_id=uuid.uuid5(
+                    uuid.NAMESPACE_URL, f"outbound-webhook:{index}:{target.url}"
+                ).hex[:12],
+            )
+        bot = _bot(config=config, outbound_webhook_dispatcher=dispatcher)
+        original_text = path.read_text()
+        original_rows = yaml.safe_load(original_text)["outbound_webhooks"]["targets"]
+        first_id, second_id = [target.id for target in dispatcher.list_webhooks()]
+
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as client:
+            removed = await client.delete(f"/api/outbound-webhooks/{first_id}")
+            assert removed.status == 200
+            after_delete = path.read_text()
+            rows_after_delete = yaml.safe_load(after_delete)["outbound_webhooks"]["targets"]
+            assert rows_after_delete == [original_rows[1]]
+            assert "id:" not in after_delete
+
+            # The surviving target's index-derived ID changes after deletion.
+            # Runtime lookup and disk identity must agree immediately, without
+            # writing an ID into the untouched legacy row.
+            remaining_id = dispatcher.list_webhooks()[0].id
+            expected_after_restart = uuid.uuid5(
+                uuid.NAMESPACE_URL, f"outbound-webhook:0:{original_rows[1]['url']}"
+            ).hex[:12]
+            assert remaining_id == expected_after_restart
+            updated = await client.put(
+                f"/api/outbound-webhooks/{remaining_id}", json={"enabled": False}
+            )
+            assert updated.status == 200
+            final_text = path.read_text()
+            final_rows = yaml.safe_load(final_text)["outbound_webhooks"]["targets"]
+            assert len(final_rows) == 1
+            assert final_rows[0]["name"] == "second"
+            assert final_rows[0]["enabled"] is False
+            assert "id:" not in final_text
+        set_active_config_path(None)
+
+    @pytest.mark.parametrize("layout", ["block", "flow", "basic-auth"])
+    async def test_edited_idless_row_rebinds_after_earlier_delete(self, tmp_path, layout):
+        """The runtime identity must match a restart after EACH scoped write."""
+        import uuid
+
+        url = (
+            "https://user:password@second.example.test/h"
+            if layout == "basic-auth" else "https://second.example.test/h"
+        )
+        first = "    - name: first\n      url: https://first.example.test/h\n"
+        second = (
+            f'    - {{name: second, url: "{url}"}}\n'
+            if layout == "flow" else
+            f"    - name: second\n      url: {url}\n"
+        )
+        path = tmp_path / "config.yml"
+        path.write_text(
+            "discord:\n  token: placeholder\noutbound_webhooks:\n"
+            "  enabled: true\n  targets:\n" + first + second
+            + "  # preserved trailer\n"
+        )
+        config = load_config(path)
+        dispatcher = OutboundWebhookDispatcher()
+        for index, target in enumerate(config.outbound_webhooks.targets):
+            dispatcher.register(
+                name=target.name, url=target.url,
+                webhook_id=uuid.uuid5(
+                    uuid.NAMESPACE_URL, f"outbound-webhook:{index}:{target.url}"
+                ).hex[:12],
+            )
+        bot = _bot(config=config, outbound_webhook_dispatcher=dispatcher)
+
+        def assert_restart_ids():
+            on_disk = load_config(path).outbound_webhooks.targets
+            expected = [
+                row.id or uuid.uuid5(
+                    uuid.NAMESPACE_URL, f"outbound-webhook:{index}:{row.url}"
+                ).hex[:12]
+                for index, row in enumerate(on_disk)
+            ]
+            assert [row.id for row in dispatcher.list_webhooks()] == expected
+            assert [row.id for row in bot.config.outbound_webhooks.targets] == [
+                row.id for row in on_disk
+            ]
+
+        try:
+            async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as client:
+                first_id, second_id = [row.id for row in dispatcher.list_webhooks()]
+                response = await client.put(
+                    f"/api/outbound-webhooks/{second_id}", json={"name": "second-renamed"}
+                )
+                assert response.status == 200, await response.text()
+                assert_restart_ids()
+                before_delete = path.read_text()
+                assert first in before_delete and "id:" not in before_delete
+
+                response = await client.delete(f"/api/outbound-webhooks/{first_id}")
+                assert response.status == 200, await response.text()
+                assert_restart_ids()
+                after_delete = path.read_text()
+                assert first not in after_delete
+                assert after_delete == before_delete.replace(first, "")
+
+                rebound_id = dispatcher.list_webhooks()[0].id
+                response = await client.put(
+                    f"/api/outbound-webhooks/{rebound_id}", json={"enabled": False}
+                )
+                assert response.status == 200, await response.text()
+                assert_restart_ids()
+                final = path.read_text()
+                assert "id:" not in final
+                assert "# preserved trailer" in final
+                assert yaml.safe_load(final)["outbound_webhooks"]["targets"][0]["enabled"] is False
+
+                # A URL change *does* persist a stable ID. Unlike a rename,
+                # it must not remap the runtime row to a fresh URL-derived ID.
+                response = await client.put(
+                    f"/api/outbound-webhooks/{rebound_id}",
+                    json={"url": url + "?changed=1"},
+                )
+                assert response.status == 200, await response.text()
+                assert_restart_ids()
+                assert dispatcher.list_webhooks()[0].id == rebound_id
+                saved = yaml.safe_load(path.read_text())
+                assert saved["outbound_webhooks"]["targets"][0]["id"] == rebound_id
+        finally:
+            set_active_config_path(None)
+
+    @pytest.mark.parametrize("field", ["enabled", "scrub_secrets", "verify_ssl"])
+    async def test_boolean_fields_reject_non_booleans_without_echoing_values(
+        self, durable_bot, field
+    ):
+        bot, _ = durable_bot
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as client:
+            response = await client.post(
+                "/api/outbound-webhooks",
+                json={"name": "hook", "url": "http://127.0.0.1/hook", field: "sensitive-value"},
+            )
+            text = await response.text()
+            assert response.status == 400
+            assert "sensitive-value" not in text
+            assert not bot.outbound_webhook_dispatcher.list_webhooks()
+
+    async def test_basic_auth_url_password_is_masked_in_all_crud_responses(self, durable_bot):
+        bot, _path = durable_bot
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as client:
+            response = await client.post("/api/outbound-webhooks", json={
+                "url": "https://user:sensitive%3Apass@example.test/hook", "name": "private"})
+            assert response.status == 201
+            created = await response.json()
+            assert "sensitive" not in str(created)
+            assert "[REDACTED]" in created["url"]
+            listing = await (await client.get("/api/outbound-webhooks")).text()
+            assert "sensitive" not in listing
+            response = await client.put(f"/api/outbound-webhooks/{created['id']}",
+                                        json={"name": "renamed"})
+            assert response.status == 200 and "sensitive" not in await response.text()
+        assert "sensitive%3Apass" in _path.read_text()
+
+    @pytest.mark.parametrize("field", ["enabled", "scrub_secrets", "verify_ssl"])
+    async def test_invalid_boolean_error_names_field_without_echo(self, durable_bot, field):
+        bot, _path = durable_bot
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as client:
+            response = await client.post("/api/outbound-webhooks", json={
+                "url": "https://example.test/", field: "secret-looking-invalid-value"})
+            assert response.status == 400
+            assert (await response.json())["error"] == f"{field} must be a boolean"
+
+    @pytest.mark.parametrize("field,value", [("url", []), ("name", 4)])
+    async def test_non_string_update_is_bad_request(self, durable_bot, field, value):
+        bot, path = durable_bot
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as client:
+            response = await client.post("/api/outbound-webhooks", json={
+                "url": "https://example.test/hook"})
+            ident = (await response.json())["id"]
+            before = path.read_bytes()
+            response = await client.put(f"/api/outbound-webhooks/{ident}", json={field: value})
+            assert response.status == 400
+            assert (await response.json())["error"] == f"{field} must be a string"
+            assert path.read_bytes() == before
+
+    @pytest.mark.parametrize("mutation", ["put", "delete"])
+    async def test_hand_deleted_target_conflicts_without_resurrecting_it(
+        self, durable_bot, mutation
+    ):
+        bot, path = durable_bot
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as client:
+            created = await (await client.post("/api/outbound-webhooks", json={
+                "url": "https://example.test/hook"})).json()
+            path.write_text(
+                "discord:\n  token: placeholder\n"
+                "outbound_webhooks:\n  enabled: true\n  targets: []\n"
+            )
+            before = path.read_bytes()
+            if mutation == "put":
+                response = await client.put(f"/api/outbound-webhooks/{created['id']}",
+                                            json={"name": "new"})
+            else:
+                response = await client.delete(f"/api/outbound-webhooks/{created['id']}")
+            assert response.status == 409
+            assert path.read_bytes() == before
+            assert bot.outbound_webhook_dispatcher.get(created["id"]) is not None
+
+    async def test_hand_edited_legacy_url_conflicts_without_reappending_old_url(
+        self, tmp_path
+    ):
+        import uuid
+
+        path = tmp_path / "config.yml"
+        path.write_text("discord:\n  token: placeholder\n"
+                        "outbound_webhooks:\n  enabled: true\n  targets:\n"
+                        "    - url: https://old.example.test/hook\n      name: old\n")
+        config = load_config(path)
+        dispatcher = OutboundWebhookDispatcher()
+        ident = uuid.uuid5(
+            uuid.NAMESPACE_URL, "outbound-webhook:0:https://old.example.test/hook"
+        ).hex[:12]
+        dispatcher.register(name="old", url="https://old.example.test/hook", webhook_id=ident)
+        bot = _bot(config=config, outbound_webhook_dispatcher=dispatcher)
+        try:
+            async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as client:
+                path.write_text(path.read_text().replace("old.example", "edited.example"))
+                before = path.read_bytes()
+                response = await client.put(f"/api/outbound-webhooks/{ident}",
+                                            json={"name": "renamed"})
+                assert response.status == 409
+                assert path.read_bytes() == before
+                assert dispatcher.get(ident).name == "old"
+        finally:
+            set_active_config_path(None)
+
+    async def test_cancelled_persistence_commit_propagates_after_swap(
+        self, durable_bot, monkeypatch
+    ):
+        bot, _ = durable_bot
+
+        async def cancelled_commit(_targets, **_kwargs):
+            return None, True
+
+        monkeypatch.setattr(
+            "src.config.persistence.persist_webhook_targets_locked", cancelled_commit
+        )
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as c:
+            with pytest.raises(Exception, match="Server disconnected"):
+                await c.post(
+                    "/api/outbound-webhooks",
+                    json={"name": "hook", "url": "https://example.test/hook"},
+                )
+        assert len(bot.outbound_webhook_dispatcher.list_webhooks()) == 1
+
+    async def test_unexpected_mutation_error_returns_503(self, durable_bot, monkeypatch):
+        bot, _ = durable_bot
+
+        def fail_register(*_args, **_kwargs):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(OutboundWebhookDispatcher, "register", fail_register)
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as c:
+            response = await c.post(
+                "/api/outbound-webhooks",
+                json={"name": "hook", "url": "https://example.test/hook"},
+            )
+            assert response.status == 503
+
+    async def test_update_and_delete_unexpected_errors_return_503(self, durable_bot, monkeypatch):
+        bot, _ = durable_bot
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as c:
+            created = await (
+                await c.post(
+                    "/api/outbound-webhooks",
+                    json={"name": "hook", "url": "https://example.test/hook"},
+                )
+            ).json()
+
+            def fail(*_args, **_kwargs):
+                raise RuntimeError("storage backend failed")
+
+            monkeypatch.setattr(OutboundWebhookDispatcher, "update", fail)
+            assert (await c.put(f"/api/outbound-webhooks/{created['id']}", json={})).status == 503
+            monkeypatch.setattr(OutboundWebhookDispatcher, "unregister", fail)
+            assert (await c.delete(f"/api/outbound-webhooks/{created['id']}")).status == 503
+
+    async def test_test_event_success_response(self, durable_bot, monkeypatch):
+        bot, _ = durable_bot
+        from src.notifications.outbound_webhooks import DeliveryResult
+
+        bot.outbound_webhook_dispatcher.register(
+            name="hook", url="https://example.test/hook", webhook_id="wh1"
+        )
+
+        async def send_test_event(_self, webhook_id):
+            assert webhook_id == "wh1"
+            return DeliveryResult(
+                webhook_id="wh1", webhook_name="hook", event_type="custom", success=True
+            )
+
+        monkeypatch.setattr(OutboundWebhookDispatcher, "send_test_event", send_test_event)
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as c:
+            result = await c.post("/api/outbound-webhooks/wh1/test")
+            assert result.status == 200
+            assert (await result.json())["success"] is True
+
+    async def test_disabled_503(self):
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=_bot()))) as c:
+            assert (await c.get("/api/outbound-webhooks")).status == 503
+            assert (await c.post("/api/outbound-webhooks", json={})).status == 503
+            assert (await c.put("/api/outbound-webhooks/x", json={})).status == 503
+            assert (await c.delete("/api/outbound-webhooks/x")).status == 503
+            assert (await c.post("/api/outbound-webhooks/x/test")).status == 503
+            assert (await c.get("/api/outbound-webhooks/stats")).status == 503
+
+    async def test_list_and_stats(self):
+        d, _ = self._dispatcher()
+        bot = _bot(outbound_webhook_dispatcher=d)
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as c:
+            assert (await (await c.get("/api/outbound-webhooks")).json())["count"] == 1
+            assert (await (await c.get("/api/outbound-webhooks/stats")).json())["sent"] == 5
+
+    async def test_create(self, durable_bot):
+        bot, path = durable_bot
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as c:
+            assert (await c.post("/api/outbound-webhooks", data="bad")).status == 400
+            # name is length-validated (max 128); an over-long name is rejected
+            assert (await c.post("/api/outbound-webhooks", json={"name": "n" * 200})).status == 400
+            r = await c.post(
+                "/api/outbound-webhooks", json={"name": "hook", "url": "https://example.test/x"}
+            )
+            assert r.status == 201
+            created = await r.json()
+            assert created["id"] and "secret" not in created
+            assert (
+                yaml.safe_load(path.read_text())["outbound_webhooks"]["targets"][0]["id"]
+                == created["id"]
+            )
+            assert (await c.post("/api/outbound-webhooks", json={"name": "hook2"})).status == 400
+
+    async def test_update(self, durable_bot):
+        bot, path = durable_bot
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as c:
+            created = await (
+                await c.post(
+                    "/api/outbound-webhooks",
+                    json={
+                        "name": "test",
+                        "url": "http://127.0.0.1/hook",
+                        "secret": "top-secret",
+                    },
+                )
+            ).json()
+            ident = created["id"]
+            assert (await c.put(f"/api/outbound-webhooks/{ident}", data="bad")).status == 400
+            response = await c.put(
+                f"/api/outbound-webhooks/{ident}",
+                json={
+                    "name": "new",
+                    "verify_ssl": False,
+                    "scrub_secrets": False,
+                },
+            )
+            assert response.status == 200
+            assert "top-secret" not in await response.text()
+            stored = yaml.safe_load(path.read_text())["outbound_webhooks"]["targets"][0]
+            assert stored["id"] == ident and stored["secret"] == "top-secret"
+            assert stored["verify_ssl"] is False and stored["scrub_secrets"] is False
+            restarted = load_config(path)
+            boot = OutboundWebhookDispatcher()
+            for target in restarted.outbound_webhooks.targets:
+                boot.register(
+                    name=target.name,
+                    url=target.url,
+                    secret=target.secret,
+                    events=target.events,
+                    enabled=target.enabled,
+                    scrub_secrets=target.scrub_secrets,
+                    verify_ssl=target.verify_ssl,
+                    webhook_id=target.id,
+                    created_at=target.created_at,
+                )
+            assert boot.get(ident).name == "new"
+            assert boot.get(ident).verify_ssl is False
+            assert boot.get(ident).created_at == created["created_at"]
+            assert (await c.put("/api/outbound-webhooks/ghost", json={})).status == 404
+            assert (
+                await c.put(
+                    f"/api/outbound-webhooks/{ident}", json={"url": "http://169.254.169.254/"}
+                )
+            ).status == 400
+
+    async def test_delete_and_test(self, durable_bot):
+        bot, path = durable_bot
+        async with TestClient(TestServer(_app(register_outbound_webhooks, bot=bot))) as c:
+            created = await (
+                await c.post(
+                    "/api/outbound-webhooks",
+                    json={
+                        "name": "hook",
+                        "url": "https://example.test/hook",
+                    },
+                )
+            ).json()
+            assert (await c.delete("/api/outbound-webhooks/" + created["id"])).status == 200
+            assert yaml.safe_load(path.read_text())["outbound_webhooks"]["targets"] == []
+            assert (await c.delete("/api/outbound-webhooks/ghost")).status == 404
+            assert (await c.post("/api/outbound-webhooks/ghost/test")).status == 404

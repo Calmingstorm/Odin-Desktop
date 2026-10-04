@@ -1,0 +1,343 @@
+"""Web chat processing — virtual message and shared chat logic.
+
+Provides a WebMessage class that mimics discord.Message with no-op Discord
+operations, and a process_web_chat() function that runs a message through the
+same Codex tool loop used by Discord messages.
+"""
+from __future__ import annotations
+
+import asyncio
+import itertools
+import time
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+from ..llm.secret_scrubber import scrub_output_secrets
+from ..odin_log import get_logger
+
+if TYPE_CHECKING:
+    from ..discord.client import OdinBot
+
+log = get_logger("web.chat")
+
+# Per-channel serialization for persistent web-chat channels — WEB-OWNED
+# state (RFC-002 P6: previously parked on the bot as _web_channel_locks).
+# One bot per process, so module scope ≡ the old bot scope.
+WEB_CHANNEL_LOCKS: dict[str, asyncio.Lock] = {}
+
+# Atomic monotonic counter for virtual message IDs (thread-safe via C impl)
+_msg_id_counter = itertools.count(int(time.time() * 1000))
+
+# Max content length for a single chat message
+MAX_CHAT_CONTENT_LEN = 32000
+
+
+class _NoOpContextManager:
+    """Async context manager that does nothing (replaces channel.typing)."""
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        pass
+
+
+class _WebSentMessage:
+    """A web-visible sent message whose edits replace its captured content."""
+
+    def __init__(self, channel: _WebChannel, index: int | None) -> None:
+        self._channel = channel
+        self._index = index
+
+    async def edit(self, **kwargs):
+        if self._index is not None and "content" in kwargs:
+            self._channel.captured_messages[self._index] = kwargs["content"] or ""
+        return self
+
+
+class WebChannelSendError(RuntimeError):
+    """A virtual attachment could not be represented to the web caller."""
+
+
+class _WebChannel:
+    """Minimal channel-like object for web messages.
+
+    Captures files posted via send(file=...) so they can be returned
+    to the web client as base64 data.
+    """
+
+    def __init__(self, channel_id: str):
+        self.id = channel_id
+        self.name = "web-chat"
+        self.guild = None
+        self.captured_files: list[dict] = []
+        # Keep message identity so streamed/progress updates replace rather
+        # than duplicate their initial text, just as Discord edits do.
+        self.captured_messages: list[str] = []
+
+    def typing(self):
+        return _NoOpContextManager()
+
+    async def send(self, content=None, **kwargs) -> _WebSentMessage:
+        import base64
+        pending_files = []
+        files = ([kwargs["file"]] if kwargs.get("file") is not None else [])
+        files.extend(kwargs.get("files") or [])
+        # Admit every attachment before recording the message. A failed
+        # capture must be visible to the tool as a failed send, never as an
+        # invented successful web delivery.
+        for file in files:
+            try:
+                fp = file.fp
+                filename = getattr(file, "filename", "file")
+                if hasattr(fp, "seek"):
+                    fp.seek(0)
+                data = fp.read(25 * 1024 * 1024 + 1)
+                if not isinstance(data, bytes):
+                    raise TypeError("attachment stream did not return bytes")
+                if len(data) > 25 * 1024 * 1024:
+                    raise ValueError("attachment exceeds 25MB web limit")
+                ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+                content_type = {
+                        "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                        "gif": "image/gif", "webp": "image/webp", "svg": "image/svg+xml",
+                        "pdf": "application/pdf", "txt": "text/plain", "json": "application/json",
+                        "mp4": "video/mp4", "webm": "video/webm", "mp3": "audio/mpeg",
+                        "wav": "audio/wav", "ogg": "audio/ogg", "zip": "application/zip",
+                        "tar": "application/x-tar", "gz": "application/gzip",
+                        "csv": "text/csv", "xml": "application/xml", "yaml": "application/yaml",
+                        "yml": "application/yaml", "md": "text/markdown",
+                }.get(ext, "application/octet-stream")
+                pending_files.append({
+                    "filename": filename,
+                    "content_type": content_type,
+                    "data": base64.b64encode(data).decode("ascii"),
+                    "size": len(data),
+                })
+            except Exception as e:
+                log.warning("Failed to capture web chat file: %s", e)
+                raise WebChannelSendError(f"Failed to capture web attachment: {e}") from e
+
+        self.captured_files.extend(pending_files)
+        index = None
+        if content is not None:
+            index = len(self.captured_messages)
+            self.captured_messages.append(str(content))
+        return _WebSentMessage(self, index)
+
+    async def fetch_message(self, message_id: int):
+        raise Exception("Cannot fetch messages in web chat")
+
+    async def history(self, **kwargs):
+        return []
+
+
+class _WebAuthor:
+    """Minimal author-like object for web messages."""
+
+    def __init__(self, user_id: str, username: str):
+        self.id = user_id
+        self.bot = False
+        self.display_name = username
+        self.name = username
+        self.mention = f"@{username}"
+
+    def __str__(self):
+        return self.display_name
+
+
+class WebMessage:
+    """Virtual Discord-like message for web chat.
+
+    Provides the minimum interface that _process_with_tools expects
+    from a discord.Message object.
+    """
+
+    _odin_source = "web"  # trajectory source marker (was recorded as "discord")
+    _computer_web_session_id: str | None = None
+    _computer_web_authorized: Callable[[], bool] | None = None
+
+    def __init__(self, channel_id: str, user_id: str, username: str, content: str = "",
+                 allowed_tools: list[str] | None = None):
+        self.id = next(_msg_id_counter)
+        self.content = content
+        self.channel = _WebChannel(channel_id)
+        self.author = _WebAuthor(user_id, username)
+        self.webhook_id = None
+        self.attachments: list = []
+        self.guild = None
+        self.allowed_tools = allowed_tools
+
+
+# Re-use the same scrubbing function applied to Discord responses.
+# It lives in client.py as a module-level function but depends only on
+# scrub_output_secrets plus a few compiled regexes.  To avoid importing
+# the entire client module (which pulls in discord.py), we apply
+# scrub_output_secrets here — the extra natural-language patterns are a
+# nice-to-have but not critical for the web endpoint.
+_scrub = scrub_output_secrets
+
+
+async def process_web_chat(
+    bot: OdinBot,
+    content: str,
+    channel_id: str,
+    user_id: str = "web-user",
+    username: str = "WebUser",
+    allowed_tools: list[str] | None = None,
+    tier: str | None = None,
+    token_allowed_hosts: list[str] | None = None,
+    token_default_host: str = "",
+    persist_channel_lock: bool = True,
+    computer_binding=None,
+) -> dict:
+    """Process a web chat message through the Codex tool loop.
+
+    persist_channel_lock: when True (default), concurrent calls sharing this
+        channel_id are serialized via a per-channel asyncio.Lock cached in
+        this module's WEB_CHANNEL_LOCKS (web-owned state — RFC-002 P6 moved
+        it off the bot; one app per bot per process makes the scopes
+        equivalent). Used by /api/chat and the WebSocket chat, where
+        channel_id == user_id and a user's overlapping requests must run one
+        at a time. Set False for single-use/ephemeral channels — e.g.
+        /api/execute's per-request UUID channels — which no other caller can
+        share: caching a lock there is pointless and leaks one permanent dict
+        entry per request, since the channel is reset and never reused.
+
+    Returns dict with:
+      - response: str — the LLM response text
+      - tools_used: list[str] — tool names called during processing
+      - is_error: bool — whether an error occurred
+    """
+    from ..permissions.host_access import HostAccessManager
+    from ..permissions.manager import PermissionManager
+
+    tier_token = PermissionManager.set_request_tier(tier) if tier else None
+    host_token = (HostAccessManager.set_request_host_scope(token_allowed_hosts)
+        if token_allowed_hosts is not None else None)
+    default_host_token = (HostAccessManager.set_request_default_host(token_default_host)
+        if token_default_host else None)
+
+    try:
+        if persist_channel_lock:
+            lock = WEB_CHANNEL_LOCKS.setdefault(channel_id, asyncio.Lock())
+            async with lock:
+                return await _do_process_web_chat(
+                    bot,
+                    content,
+                    channel_id,
+                    user_id,
+                    username,
+                    allowed_tools,
+                    computer_binding,
+                )
+        else:
+            return await _do_process_web_chat(
+                bot,
+                content,
+                channel_id,
+                user_id,
+                username,
+                allowed_tools,
+                computer_binding,
+            )
+    finally:
+        if tier_token is not None:
+            PermissionManager.reset_request_tier(tier_token)
+        if host_token is not None:
+            HostAccessManager.reset_request_host_scope(host_token)
+        if default_host_token is not None:
+            HostAccessManager.reset_request_default_host(default_host_token)
+
+
+async def _do_process_web_chat(
+    bot: OdinBot,
+    content: str,
+    channel_id: str,
+    user_id: str,
+    username: str,
+    allowed_tools: list[str] | None,
+    computer_binding=None,
+) -> dict:
+    msg = WebMessage(channel_id=channel_id, user_id=user_id, username=username, content=content,
+                     allowed_tools=allowed_tools)
+    if computer_binding is not None:
+        msg._computer_web_session_id, msg._computer_web_authorized = computer_binding
+    web_channel = msg.channel  # type: _WebChannel
+    tagged = f"[{username}]: {content}"
+    bot.sessions.add_message(channel_id, "user", tagged, user_id=user_id)
+
+    if not bot.llm_gateway.codex_client:
+        bot.sessions.remove_last_message(channel_id, "user")
+        return {
+            "response": "No LLM backend available.",
+            "tools_used": [],
+            "is_error": True,
+        }
+
+    try:
+        trace = bot.turn_recorder._new_context_trace()
+        sp = bot.prompt_builder.build_full_prompt(
+            channel=None, user_id=user_id, query=content, trace=trace,
+        )
+        history = await bot.sessions.get_task_history(
+            channel_id, max_messages=160, current_query=content, trace=trace,
+        )
+
+        try:
+            response, already_sent, is_error, tools_used, handoff = (
+                await bot.tool_loop.run(
+                    # WebMessage is the documented duck-typed stand-in
+                    # for discord.Message (see class docstring).
+                    msg,  # type: ignore[arg-type]
+                    history, system_prompt_override=sp, trace=trace,
+                )
+            )
+        finally:
+            await bot.delivery.set_status(None, task_end=True)
+
+        response = _scrub(response)
+        # A streamed/progress path has already delivered its own messages via
+        # the virtual channel. Returning the model's outer final as well would
+        # manufacture a duplicate which Discord callers never receive.
+        if already_sent:
+            response = "\n".join(web_channel.captured_messages)
+
+        if not is_error:
+            bot.sessions.add_message(channel_id, "assistant", response)
+            bot.sessions.prune()
+            try:
+                await asyncio.to_thread(bot.sessions.save)
+            except Exception:
+                log.warning("Failed to save session %s", channel_id, exc_info=True)
+        else:
+            if tools_used:
+                sanitized = (
+                    f"[Previous request used tools ({', '.join(tools_used[:5])}) "
+                    f"but encountered an error. The user may ask to retry.]"
+                )
+            else:
+                sanitized = "[Previous request encountered an error before tool execution.]"
+            bot.sessions.add_message(channel_id, "assistant", sanitized)
+            bot.sessions.prune()
+            try:
+                await asyncio.to_thread(bot.sessions.save)
+            except Exception:
+                log.warning("Failed to save session %s", channel_id, exc_info=True)
+
+        return {
+            "response": response,
+            "tools_used": tools_used,
+            "is_error": is_error,
+            "files": web_channel.captured_files,
+        }
+    except Exception as e:
+        log.error("Web chat error: %s", e, exc_info=True)
+        bot.sessions.remove_last_message(channel_id, "user")
+        return {
+            "response": "Something went wrong processing your message. "
+                        "Check server logs for details.",
+            "tools_used": [],
+            "is_error": True,
+            "files": [],
+        }

@@ -1,0 +1,307 @@
+"""Shared tool-output delivery budget and ranked snapshots."""
+from __future__ import annotations
+
+import base64
+import contextvars
+import hashlib
+import json
+import re
+import sqlite3
+from datetime import UTC, datetime
+
+from ..llm.secret_scrubber import iter_secret_spans, scrub_output_secrets
+from .output_retention import BinarySnapshot, RetentionError
+
+TOOL_OUTPUT_MAX_CHARS = 12000
+delivery_scope = contextvars.ContextVar("output_delivery_scope", default=("", ""))
+
+
+def get_delivery_budget(config=None) -> int:
+    value = getattr(getattr(config, "tools", config), "tool_output_max_chars", 12000)
+    return value if type(value) is int and value >= 1024 else 12000
+
+
+class RankedOutput(str):
+    matches: tuple[str, ...]
+    recovery_required: bool
+
+    def __new__(cls, text: str, *, matches: tuple[str, ...], recovery_required: bool = True):
+        obj = super().__new__(cls, text)
+        obj.matches = matches
+        obj.recovery_required = recovery_required
+        return obj
+
+
+class DeliveredOutput(str):
+    """Internal marker for canonical, scrubbed, serialization-bounded output.
+
+    Never infer this property from untrusted content or a JSON kind field.
+    """
+
+    truncated: bool = False
+    evidence_digest: str
+
+    def __new__(cls, text: str, *, evidence_digest: str = ""):
+        obj = super().__new__(cls, text)
+        obj.evidence_digest = evidence_digest
+        return obj
+
+
+def serialize(value: dict) -> str:
+    output = DeliveredOutput(json.dumps(value, ensure_ascii=True, separators=(",", ":")))
+    output.truncated = bool(value.get("truncated", False))
+    return output
+
+
+def evidence_digest(text: str) -> str:
+    """Stable full captured evidence identity from code-owned objects only."""
+    if isinstance(text, DeliveredOutput) and text.evidence_digest:
+        return text.evidence_digest
+    matches = text.matches if isinstance(text, RankedOutput) else ()
+    parts = matches or (text,)
+    if sum(len(part) for part in parts) + max(0, len(parts) - 1) * 2 > 4194304:
+        # Unretainable evidence must not trigger an unbounded scrub/copy before
+        # quota rejection. Hash the complete source in bounded chunks instead;
+        # only the digest is kept, and domain separation avoids equating it with
+        # a retained scrubbed snapshot. Hidden bodies still affect identity.
+        digest = hashlib.sha256(b"unretainable-source\0")
+        for index, part in enumerate(parts):
+            if index:
+                digest.update(b"\n\n")
+            for start in range(0, len(part), 65536):
+                digest.update(part[start:start + 65536].encode("utf-8"))
+        return digest.hexdigest()
+    canonical = "\n\n".join(scrub_output_secrets(str(m)) for m in matches) if matches else (
+        scrub_output_secrets(str(text)))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def delivery_failure(reason, status="unknown", *, text="", budget=12000):
+    """Keep bounded scrubbed evidence without a misleading continuation.
+
+    A bounded head lookahead covers secret-pattern minimum lengths before
+    clipping. Preserve a partial tail line when a bounded-state prefix scan can
+    rule out credential context; otherwise drop only that uncertain line.
+    """
+    digest = evidence_digest(text)
+
+    def captured(output):
+        result = DeliveredOutput(str(output), evidence_digest=digest)
+        # Even compact failure framing omitted the original captured evidence.
+        result.truncated = True
+        return result
+
+    text = str(text)
+    head, tail = text[:budget+256], text[-budget:]
+    if len(text) > budget:
+        if text[-budget-1] != "\n":
+            start = max(0, len(text)-budget-256)
+            line_start = text.rfind("\n", 0, start) + 1
+            # Scan without copying/scrubbing the unretained prefix, even for
+            # one enormous line. Ambiguous quoted/assigned/token context fails
+            # closed; context-free plain text keeps its newest output.
+            possible_context = re.compile(
+                r'''["'\\:=./]|sk-|gh[pousr]_|AKIA|AIza|[sr]k_(?:live|test)_|xox[boaprs]-|eyJ''')
+            if not possible_context.search(text, line_start, start):
+                tail = scrub_output_secrets(text[start:])[-budget:]
+            else:
+                newline = tail.find("\n")
+                tail = tail[newline+1:] if newline >= 0 else ""
+                tail = "[partial line omitted]\n" + tail
+    head, tail = scrub_output_secrets(head)[:budget], scrub_output_secrets(tail)
+
+    metadata = {"kind": "tool_output", "status": status, "retention": "failed",
+                "error": reason, "truncated": True, "cursor": None}
+
+    def envelope(count):
+        return serialize({**metadata, "head": head[:count],
+                          "tail": {"text": tail[-count:] if count else ""}})
+
+    if len(envelope(0)) > budget:
+        # Only compatibility callers can request less than the configured
+        # minimum (1024). Preserve valid framing rather than cut serialized JSON.
+        metadata = {"retention": "failed", "error": "no continuation exists", "cursor": None}
+        compact = serialize(metadata)
+        if len(compact) > budget:
+            compact = serialize({"retention": "failed", "cursor": None})
+        return captured(compact if len(compact) <= budget else "{}" if budget >= 2 else "")
+
+    low, high = 0, min(budget, max(len(head), len(tail)))
+    while low < high:
+        middle = (low+high+1)//2
+        if len(envelope(middle)) <= budget:
+            low = middle
+        else:
+            high = middle-1
+    return captured(envelope(low))
+
+
+def render_page(snapshot, *, offset=0, budget=12000, limit=4000, initial=False):
+    if isinstance(snapshot, BinarySnapshot):
+        return render_binary_page(snapshot, offset=offset, budget=budget, limit=limit)
+    text, total = snapshot.text, len(snapshot.text)
+    # Older persisted manifests may predate metadata scrubbing. Mask before
+    # slicing, preserving character offsets for already-issued text cursors.
+    # BinarySnapshot took the separate branch above: never scrub opaque bytes,
+    # their base64 representation, hashes, or binary cursor metadata.
+    spans = list(iter_secret_spans(text)) if text.startswith('{"attachments":') else []
+    if spans:
+        pieces: list[str] = []
+        start = 0
+        for left, right in spans:
+            pieces.extend((text[start:left], "*" * (right - left)))
+            start = right
+        text = "".join((*pieces, text[start:]))
+    total_bytes = len(text.encode("utf-8"))
+    expires = datetime.fromtimestamp(snapshot.expires_at, UTC).isoformat()
+
+    def envelope(end, tail=0):
+        cursor = f"{snapshot.result_id}:{end}" if end < total else None
+        value = {
+            "kind": "tool_output", "status": snapshot.status, "retention": "retained",
+            "result_id": snapshot.result_id, "expires_at": expires,
+            "total_chars": total, "total_bytes": total_bytes,
+            "offset_unit": "unicode_code_points", "start": offset, "end": end,
+            "head" if initial else "text": text[offset:end],
+            "truncated": end < total, "cursor": cursor,
+            "retrieval": {
+                "tool": "get_tool_output", "arguments": {"cursor": cursor, "limit": limit}}
+            if cursor else None,
+        }
+        if initial:
+            value["tail"] = {"start": total-tail, "end": total, "text": text[total-tail:]}
+            value["tail_is_context_only"] = True
+        if snapshot.boundaries:
+            before = sum(bound <= offset for bound in snapshot.boundaries)
+            shown = sum(offset < bound <= end for bound in snapshot.boundaries)
+            count = len(snapshot.boundaries)
+            value["matches"] = {
+                "showing": shown, "total_returned": count, "deferred": count-before-shown,
+                "first_index": before,
+                "fragment": ((offset > 0 and offset not in snapshot.boundaries)
+                             or (end not in snapshot.boundaries and end < total)),
+                "summary": (
+                    f"showing {shown} of {count} returned matches; {count-before-shown} deferred"),
+            }
+        return value
+
+    tail = min(1000, max(0, (budget-800)//8), total) if initial and not snapshot.boundaries else 0
+    while tail and len(serialize(envelope(offset, tail))) >= budget-32:
+        tail //= 2
+    low, high = offset, min(total, offset+limit)
+    # EOF removes cursor/retrieval metadata, a non-monotonic size drop. Test
+    # that candidate before searching the monotonic nonterminal interval.
+    if high == total and len(serialize(envelope(total, tail))) <= budget:
+        return serialize(envelope(total, tail))
+    while low < high:
+        middle = (low+high+1)//2
+        if len(serialize(envelope(middle, tail))) <= budget:
+            low = middle
+        else:
+            high = middle-1
+    if snapshot.boundaries:
+        whole = [end for end in snapshot.boundaries if offset < end <= low]
+        if whole:
+            low = whole[-1]
+    if low == offset and offset < total:
+        return delivery_failure(
+            "Budget cannot fit a complete code point and envelope.", snapshot.status,
+            text=text, budget=budget)
+    rendered = serialize(envelope(low, tail))
+    if len(rendered) > budget:
+        return delivery_failure("Budget cannot fit the complete envelope.", snapshot.status,
+                                text=text, budget=budget)
+    return rendered
+
+
+def binary_reference(snapshot):
+    """No payload in the initial tool result, only an authorized read cursor."""
+    cursor = f"{snapshot.result_id}:0"
+    return {
+        "kind": "tool_attachment", "retention": "retained",
+        "status": scrub_output_secrets(str(snapshot.status)),
+        "result_id": snapshot.result_id,
+        "content_index": snapshot.content_index,
+        "content_type": scrub_output_secrets(str(snapshot.kind)),
+        "media_type": scrub_output_secrets(str(snapshot.media_type)),
+        "total_bytes": len(snapshot.data),
+        "sha256": snapshot.sha256,
+        "expires_at": datetime.fromtimestamp(snapshot.expires_at, UTC).isoformat(),
+        "retrieval": {"tool": "get_tool_output", "arguments": {"cursor": cursor}},
+    }
+
+
+def render_binary_page(snapshot, *, offset=0, budget=12000, limit=4000):
+    """Bounded base64 pages with byte offsets and whole-file integrity metadata.
+
+    Decode each page's data_base64 and concatenate decoded bytes in order.
+    The text limit bounds encoded characters, not the decoded byte count.
+    No transcription, text extraction, URI fetching or automatic execution.
+    """
+    total = len(snapshot.data)
+
+    def envelope(end):
+        cursor = f"{snapshot.result_id}:{end}" if end < total else None
+        return serialize({
+            **binary_reference(snapshot), "kind": "tool_attachment_page",
+            "encoding": "base64", "offset_unit": "bytes", "start": offset, "end": end,
+            "data_base64": base64.b64encode(snapshot.data[offset:end]).decode("ascii"),
+            "truncated": end < total, "cursor": cursor,
+            "retrieval": {"tool": "get_tool_output", "arguments": {
+                "cursor": cursor, "limit": limit,
+            }} if cursor else None,
+        })
+
+    low, high = offset, min(total, offset + (limit // 4) * 3)
+    if high == total and len(envelope(high)) <= budget:
+        return envelope(high)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if len(envelope(middle)) <= budget:
+            low = middle
+        else:
+            high = middle - 1
+    if (low == offset and offset < total) or len(envelope(low)) > budget:
+        return delivery_failure("Budget cannot fit a binary page.", snapshot.status,
+                                budget=budget)
+    return envelope(low)
+
+
+def deliver(text, *, store=None, owner="", channel="", tool="", hosts=(),
+            status="succeeded", budget=12000):
+    matches = getattr(text, "matches", ())
+    recovery_required = getattr(text, "recovery_required", bool(matches))
+    # Hash the FULL canonical captured evidence, never the delivered envelope
+    # or a preview. Ranked search captures full matches rather than summaries.
+    digest = evidence_digest(text)
+
+    def captured(output):
+        result = DeliveredOutput(str(output), evidence_digest=digest)
+        result.truncated = bool(getattr(output, "truncated", False))
+        return result
+    if len(text) <= budget and (not recovery_required or all(match in text for match in matches)):
+        cleaned = scrub_output_secrets(str(text))
+        if len(cleaned) <= budget:
+            return text if cleaned == text else cleaned
+        text = cleaned
+    if store is None:
+        return captured(delivery_failure(
+            "Retention unavailable; output not retained; no continuation exists.", status,
+            text=text, budget=budget))
+    try:
+        snapshot = store.retain(
+            text, owner=owner, channel=channel, tool=tool, hosts=hosts, status=status)
+        if matches and len(text) <= budget:
+            pointer = f"\nfull matches: get_tool_output cursor={snapshot.result_id}:0"
+            preview = scrub_output_secrets(str(text))
+            available = budget-len(pointer)
+            if len(preview) > available:
+                preview = preview[:available-6] + "\n[...]"
+            output = DeliveredOutput(preview + pointer)
+            output.truncated = True  # Full ranked matches were deferred, not the summary.
+            return captured(output)
+        return captured(render_page(snapshot, budget=budget, initial=True))
+    except (RetentionError, OSError, sqlite3.Error, UnicodeError) as exc:
+        reason = str(exc) if isinstance(exc, RetentionError) else "Retention storage unavailable."
+        return captured(delivery_failure(
+            reason + " no continuation exists.", status, text=text, budget=budget))

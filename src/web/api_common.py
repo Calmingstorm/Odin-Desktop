@@ -1,0 +1,235 @@
+"""Shared helpers for the web API handlers (RFC-003 P1/P2).
+
+Moved verbatim from ``api.py`` — the single home for cross-domain helpers
+so the coming domain carve cannot fork copies (the RFC-001 lesson). The
+``api`` module re-imports every name, so existing import paths and patch
+targets keep working.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import re
+from pathlib import Path
+from typing import Any
+
+import yaml
+from aiohttp import web
+
+from ..config import sensitivity as _config_sensitivity
+from ..llm.secret_scrubber import scrub_output_secrets
+from ..odin_log import get_logger
+from ..setup_wizard import write_env_file
+
+log = get_logger("web.api")
+
+# One shared sensitivity rule protects both GET /api/config and the Config
+# Center metadata route. Preserve the historical private aliases because route
+# modules and compatibility tests import them from here.
+_SENSITIVE_FIELDS = _config_sensitivity.SENSITIVE_FIELDS
+_SENSITIVE_KEY_SUBSTRINGS = _config_sensitivity.SENSITIVE_KEY_SUBSTRINGS
+_is_sensitive_key = _config_sensitivity.is_sensitive_key
+
+
+# Input validation limits
+_MAX_NAME_LEN = 100
+_MAX_CODE_LEN = 50_000
+_MAX_CONTENT_LEN = 500_000
+_MAX_GOAL_LEN = 2000
+_MAX_DESCRIPTION_LEN = 500
+
+
+def _validate_string(value: str, field: str, max_len: int) -> str | None:
+    """Validate a string field. Returns error message or None."""
+    if len(value) > max_len:
+        return f"{field} exceeds maximum length ({max_len} chars)"
+    return None
+
+
+# Regex: keep only ASCII alphanumeric, hyphen, underscore, period
+_SAFE_FILENAME_RE = re.compile(r"[^a-zA-Z0-9_.\-]")
+
+
+def _safe_filename(name: str, max_len: int = 80) -> str:
+    """Sanitize a string for use in Content-Disposition filename."""
+    return _SAFE_FILENAME_RE.sub("_", name)[:max_len] or "export"
+
+
+# Caller-supplied chat session ids: opt-in, validated, and namespaced UNDER the
+# authenticated identity so one token can never address another token's history.
+# The charset is filename-safe (no path separators / control / whitespace) because
+# a channel id becomes a persisted session filename.
+_SESSION_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+
+
+def _scoped_chat_channel(user_id: str, session_id: str) -> str:
+    """Internal channel id for an authorized caller chat session. The
+    'web:{user}:session:' prefix keeps it owner-scoped and discoverable."""
+    return f"web:{user_id}:session:{session_id}"
+
+
+def _sanitize_error(msg: str | BaseException) -> str:
+    """Scrub secrets from error messages before returning to clients."""
+    return scrub_output_secrets(str(msg))
+
+
+def _safe_int_param(
+    request: web.Request, name: str, default: int, lo: int = 1, hi: int = 500
+) -> int:
+    """Parse an integer query parameter, clamping to [lo, hi]. Falls back to *default*."""
+    raw = request.query.get(name)
+    if raw is None:
+        return min(max(default, lo), hi)
+    try:
+        return min(max(int(raw), lo), hi)
+    except (ValueError, TypeError):
+        return min(max(default, lo), hi)
+
+
+def _contains_blocked_fields(d: Any, blocked: frozenset[str], *, _depth: int = 0) -> bool:
+    """Recursively check if any keys in *d* are in *blocked*.
+
+    Lists are traversed too. Descending only into dicts left every credential
+    inside a list unfenced — ``web.api_tokens[].token`` and
+    ``outbound_webhooks.targets[].secret`` reached the writer despite both
+    names being on the blocked list.
+    """
+    if _depth > 10:
+        return False
+    if isinstance(d, list):
+        return any(
+            _contains_blocked_fields(item, blocked, _depth=_depth + 1) for item in d
+        )
+    if not isinstance(d, dict):
+        return False
+    for key, value in d.items():
+        if key in blocked:
+            return True
+        if _contains_blocked_fields(value, blocked, _depth=_depth + 1):
+            return True
+    return False
+
+
+def contains_redaction_mask(obj: Any, *, _depth: int = 0) -> bool:
+    """Whether a submitted body carries the mask this API hands out.
+
+    A page that renders a masked secret as an editable control round-trips
+    ``••••••••`` back on save, overwriting the real credential with eight
+    bullets. Nobody sets a secret to that deliberately, so refusing it costs no
+    legitimate capability and closes the destruction path wherever it appears.
+    """
+    if _depth > 10:
+        return False
+    if isinstance(obj, str):
+        return obj == "••••••••"
+    if isinstance(obj, dict):
+        return any(
+            contains_redaction_mask(v, _depth=_depth + 1) for v in obj.values()
+        )
+    if isinstance(obj, list):
+        return any(contains_redaction_mask(v, _depth=_depth + 1) for v in obj)
+    return False
+
+
+def _deep_merge(base: dict, updates: dict, *, _depth: int = 0) -> None:
+    """Recursively merge *updates* into *base* in-place."""
+    if _depth > 10:
+        return
+    for key, value in updates.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            _deep_merge(base[key], value, _depth=_depth + 1)
+        else:
+            base[key] = value
+
+
+def _mask_subtree(obj: Any, *, _depth: int = 0) -> Any:
+    """Mask every scalar beneath *obj*, keeping the shape.
+
+    Used for containers whose child keys are operator-chosen. Keys survive so
+    the page can still show WHICH headers or webhooks exist; only values go.
+    """
+    if _depth > 10:
+        return "..."
+    if isinstance(obj, dict):
+        return {k: _mask_subtree(v, _depth=_depth + 1) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_mask_subtree(v, _depth=_depth + 1) for v in obj]
+    if obj is None or obj == "":
+        return obj
+    return "••••••••"
+
+
+def _redact_config(obj: Any, *, _depth: int = 0) -> Any:
+    """Recursively redact sensitive fields from config dicts.
+
+    Two rules, because one is not enough. A credential-shaped KEY masks its own
+    string value. A credential CONTAINER masks everything underneath it,
+    because its child keys are named by the operator — `headers.Authorization`
+    and `webhook_urls.ops` look ordinary and used to be served verbatim.
+    """
+    if _depth > 10:
+        return "..."
+    if isinstance(obj, dict):
+        out: dict[str, Any] = {}
+        for k, v in obj.items():
+            if _config_sensitivity.is_opaque_container_key(k):
+                out[k] = _mask_subtree(v, _depth=_depth + 1)
+            elif _is_sensitive_key(k) and isinstance(v, str) and v:
+                out[k] = "••••••••"
+            else:
+                out[k] = _redact_config(v, _depth=_depth + 1)
+        return out
+    if isinstance(obj, list):
+        return [_redact_config(v, _depth=_depth + 1) for v in obj]
+    return obj
+
+
+def _write_config(path: Path | str, data: dict) -> None:
+    """Write config dict to YAML file."""
+    with open(path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False)
+
+
+def _write_env_file(path: Path, content: str) -> None:
+    """Write .env file with restricted permissions.
+
+    Delegates to the shared ``write_env_file`` from ``setup_wizard``.
+    """
+    write_env_file(path, content)
+
+
+# Guards concurrent writes to the Codex credential files. Module-level so
+# every registrar (and the composition root) shares ONE lock — the same
+# semantics the old single-closure table provided (RFC-003 P2).
+_codex_creds_lock = asyncio.Lock()
+
+
+def admin_gate(bot):
+    """Build the per-bot admin gate the handlers call as ``_require_admin``.
+
+    Verbatim logic from the old closure pair (``_auth_configured`` +
+    ``_require_admin``): fail closed when any auth is configured, allow
+    only in dev mode (no tokens anywhere), and require the admin tier.
+    """
+
+    def _auth_configured() -> bool:
+        tm = getattr(bot, "api_token_manager", None)
+        return bool(
+            bot.config.web.api_token
+            or bot.config.web.api_tokens
+            or (tm and tm.list_tokens())
+        )
+
+    def _require_admin(request: web.Request) -> web.Response | None:
+        identity = getattr(request, "_api_identity", None)
+        if identity is None:
+            # Fail closed: a missing identity is allowed only in dev mode
+            # (no tokens configured, so auth is disabled wholesale).
+            if _auth_configured():
+                return web.json_response({"error": "admin access required"}, status=403)
+            return None
+        if getattr(identity, "tier", "admin") != "admin":
+            return web.json_response({"error": "admin access required"}, status=403)
+        return None
+
+    return _require_admin

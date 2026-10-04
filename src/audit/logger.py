@@ -1,0 +1,1084 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+from collections.abc import AsyncIterator, Callable
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import BinaryIO, Literal, cast
+
+import aiofiles
+
+from ..observability.correlation import get_turn
+from ..observability.diagnostics import scrub_diagnostic
+from ..observability.failure_classes import classify_failure
+from ..odin_log import get_logger
+from ..permissions.persistence import write_private_atomic
+from .signer import GENESIS_HASH, AuditSigner, verify_log, verify_segment
+
+log = get_logger("audit")
+
+
+DEFAULT_RESULT_CAP = 4000
+# Max serialized size of a single entry's tool_input. A full patch payload
+# was stored uncapped (68 KB lines observed); oversized inputs are replaced with
+# a truncation marker so one big call can't bloat the log.
+DEFAULT_TOOL_INPUT_CAP = 4000
+# Rotate the audit file once it exceeds this size, keeping this many old files.
+# Without rotation the file grew unbounded (48 MB / 65k lines observed).
+DEFAULT_MAX_BYTES = 100 * 1024 * 1024  # 100 MB
+DEFAULT_MAX_FILES = 5
+
+
+# Block size for reverse reads. Big enough that a limit-10 dashboard query
+# usually resolves inside one block of the newest log; small enough that a
+# match-poor filter walking deep never holds more than block + one line.
+_REVERSE_BLOCK_SIZE = 64 * 1024
+
+
+async def _iter_lines_reverse(
+    path: Path | int, block_size: int = _REVERSE_BLOCK_SIZE
+) -> AsyncIterator[bytes]:
+    """Yield the file's non-empty lines newest-first without a full scan.
+
+    Reads fixed-size blocks backwards from EOF, reassembling lines that
+    straddle block boundaries. The iteration anchors at the EOF observed on
+    open: entries appended afterwards are simply not seen (the forward scan
+    had the same exposure at its own moment of EOF), and rotation renames
+    the inode this handle already holds, so the anchored view stays intact.
+    A torn final line (no trailing newline) is yielded as-is — callers
+    already skip what fails to parse.
+    """
+    if isinstance(path, int):
+        opened = aiofiles.open(path, "rb", closefd=False)
+    else:
+        opened = aiofiles.open(path, "rb")
+    async with opened as f:
+        pos = await f.seek(0, os.SEEK_END)
+        tail = b""
+        while pos > 0:
+            read_size = min(block_size, pos)
+            pos -= read_size
+            await f.seek(pos)
+            block = await f.read(read_size)
+            lines = (block + tail).split(b"\n")
+            # lines[0] may be the tail of a line whose head lives in the
+            # not-yet-read earlier block — hold it until that block arrives
+            # (or BOF proves it complete).
+            tail = lines[0]
+            for raw in reversed(lines[1:]):
+                if raw.strip():
+                    yield raw
+        if tail.strip():
+            yield tail
+
+
+def _audit_preview(
+    text: str, cap: int, *, source: dict | None = None, original_chars: int | None = None,
+) -> dict:
+    """Bound the complete serialized preview, not just its text fragment.
+
+    ``audit_clipped`` describes this storage copy only. Source envelope flags
+    remain separately named under ``source`` and are never inferred from size.
+    """
+    preview = {
+        "kind": "audit_preview", "audit_clipped": True,
+        "original_chars": len(text) if original_chars is None else original_chars, "preview": "",
+    }
+    if source:
+        preview["source"] = source
+    def size(value):
+        return len(json.dumps(value, ensure_ascii=True))
+    if size(preview) > cap:
+        preview.pop("source", None)
+    if size(preview) > cap:
+        preview.pop("original_chars")
+    if size(preview) > cap:
+        preview.pop("preview")
+    if size(preview) > cap:
+        # Pathologically small configured caps cannot fit the full contract.
+        return {"audit_clipped": True} if cap >= 23 else {}
+    if "preview" in preview:
+        low, high = 0, min(len(text), cap)
+        while low < high:
+            mid = (low + high + 1) // 2
+            preview["preview"] = text[:mid]
+            if size(preview) <= cap:
+                low = mid
+            else:
+                high = mid - 1
+        preview["preview"] = text[:low]
+    return preview
+
+
+def _cap_audit_text(text: str, cap: int) -> str:
+    """Scrub parsed JSON structurally, then clip into valid bounded JSON."""
+    process_body = None
+    try:
+        parsed = json.loads(text)
+    except (ValueError, TypeError):
+        parsed = None
+        cleaned = scrub_diagnostic(text)
+        if isinstance(text, str) and "\n[output retention] " in text:
+            body, _, metadata = text.rpartition("\n[output retention] ")
+            try:
+                candidate = json.loads(metadata)
+            except ValueError:
+                pass
+            else:
+                if (isinstance(candidate, dict) and candidate.get("kind") == "process_output"
+                        and isinstance(candidate.get("pid"), int)
+                        and isinstance(candidate.get("retained_bytes"), int)):
+                    parsed = candidate
+                    process_body = scrub_diagnostic(body)
+                    cleaned = process_body + "\n[output retention] " + json.dumps(
+                        scrub_diagnostic(candidate), ensure_ascii=True,
+                    )
+    else:
+        scrubbed = scrub_diagnostic(parsed)
+        cleaned = text if scrubbed == parsed else json.dumps(scrubbed, ensure_ascii=True)
+    if len(cleaned) <= cap:
+        return cleaned
+    source = None
+    if isinstance(parsed, dict):
+        # Only bounded scalar envelope facts; never copy arbitrary nested payloads.
+        source = {
+            key: value for key, value in scrub_diagnostic(parsed).items()
+            if key in {
+                "kind", "status", "truncated", "retention", "capture_loss",
+                "capture_lost_bytes", "total_bytes", "total_chars", "retained_bytes",
+                "emitted_bytes", "shown_bytes", "offset_unit", "capture_error",
+                "dropped_bytes", "output_lost", "capture_truncated",
+                "capture_limit_loss_bytes", "not_retained_bytes", "pid", "exit_code",
+                "start", "end", "tail_status", "retention_seconds_after_exit",
+                "original_bytes", "result_bytes", "error_bytes", "offset",
+                "source_original_bytes", "id",
+            } and isinstance(value, (bool, int, float, type(None), str))
+            and (not isinstance(value, str) or len(value) <= 100)
+        }
+        if "cursor" in parsed:
+            source["cursor_present"] = isinstance(parsed["cursor"], str) and bool(parsed["cursor"])
+        if parsed.get("kind") == "process_output" or (
+            "original_bytes" in parsed and "result_bytes" in parsed
+        ):
+            source.setdefault("offset_unit", "utf8_bytes")
+    body = cleaned if process_body is None else process_body
+    if isinstance(parsed, dict):
+        envelope = scrub_diagnostic(parsed)
+        known = (
+            envelope.get("kind") == "tool_output"
+            and isinstance(envelope.get("status"), str)
+            and "retention" in envelope
+        ) or (
+            envelope.get("kind") == "process_output"
+            and isinstance(envelope.get("pid"), int)
+            and "retained_bytes" in envelope
+        ) or (
+            isinstance(envelope.get("id"), str)
+            and isinstance(envelope.get("truncated"), bool)
+            and isinstance(envelope.get("original_bytes"), int)
+            and isinstance(envelope.get("result_bytes"), int)
+        )
+        if known:
+            for key in ("head", "text", "preview", "output", "result"):
+                if isinstance(envelope.get(key), str):
+                    body = envelope[key]
+                    tail = envelope.get("tail")
+                    if isinstance(tail, dict) and isinstance(tail.get("text"), str):
+                        body = "[Head]\n" + body + "\n[Tail — context only]\n" + tail["text"]
+                    break
+    return json.dumps(
+        _audit_preview(body, cap, source=source, original_chars=len(cleaned)), ensure_ascii=True,
+    )
+
+
+def _cap_tool_input(tool_input: dict, cap: int) -> dict | str:
+    """Bound the serialized size of an audit entry's tool_input."""
+    try:
+        blob = json.dumps(tool_input, default=str)
+    except Exception:
+        return "<unserializable tool_input>"
+    if len(blob) <= cap:
+        return tool_input
+    return _audit_preview(blob, cap)
+
+
+class AuditLogger:
+    """Append-only JSON Lines audit log for tool executions."""
+
+    def __init__(
+        self, path: str = "./data/audit.jsonl", *,
+        hmac_key: str = "", classify_failures: bool = True,
+        result_cap: int = DEFAULT_RESULT_CAP,
+        tool_input_cap: int = DEFAULT_TOOL_INPUT_CAP,
+        max_bytes: int = DEFAULT_MAX_BYTES,
+        max_files: int = DEFAULT_MAX_FILES,
+    ) -> None:
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._event_callback: Callable | None = None
+        self._signer: AuditSigner | None = AuditSigner(hmac_key) if hmac_key else None
+        # Serializes every operation that reads/mutates the signer's chain
+        # state or rotates the active file. The HMAC chain records ORDER: each
+        # entry's _prev_hmac is the previous entry's _hmac. sign() advances that
+        # running hash, so sign→write must be atomic w.r.t. other persists —
+        # otherwise two concurrent audited actions sign in one order and write
+        # in another, and verify sees the file out of chain-order (they invented
+        # await so we could race ourselves in one thread). Invariant: _persist,
+        # _maybe_rotate (as called from persist), and initialize_chain all hold
+        # this lock.
+        self._persist_lock = asyncio.Lock()
+        self._repair_marker = self.path.with_name(self.path.name + ".repair-required")
+        self.repair_required = self._repair_marker.exists()
+        self.durability_degraded = self.repair_required
+        self._historical_break = False
+        self._chain_initialized = False
+        self._classify_failures = classify_failures
+        self._result_cap = result_cap
+        self._tool_input_cap = tool_input_cap
+        self._max_bytes = max_bytes
+        self._max_files = max_files
+        # Read-side, identity-keyed incremental counters.  Values are
+        # (consumed byte offset, unconsumed torn tail, counts).  Rotation keeps
+        # the inode, so an already-counted generation is reused under its new
+        # pathname; only appended bytes of the active inode are consumed.
+        self._tool_count_cache: dict[
+            tuple[int, int], tuple[int, bytes, dict[str, int]]
+        ] = {}
+        self._tool_count_lock = asyncio.Lock()
+
+    def _maybe_rotate(self) -> None:
+        """Rotate audit.jsonl → .1 → .2 … once it exceeds max_bytes.
+
+        Must be called with _persist_lock held (it resets the signer's chain
+        state; rotation + first-entry-signing must be atomic). Called before
+        each append. Bounds total growth to roughly
+        max_bytes * (max_files + 1). The HMAC chain (if enabled) starts fresh in
+        the new current file — the signer's prev-hash is reset to GENESIS after
+        rotation, so each file verifies independently from genesis instead
+        of chaining across the rotation boundary."""
+        try:
+            if not self.path.exists() or self.path.stat().st_size < self._max_bytes:
+                return
+        except OSError:
+            return
+        try:
+            oldest = self.path.with_name(self.path.name + f".{self._max_files}")
+            if oldest.exists():
+                oldest.unlink()
+            for i in range(self._max_files - 1, 0, -1):
+                src = self.path.with_name(self.path.name + f".{i}")
+                if src.exists():
+                    src.rename(self.path.with_name(self.path.name + f".{i + 1}"))
+            self.path.rename(self.path.with_name(self.path.name + ".1"))
+            if self._signer is not None:
+                # New file = new chain from genesis (the rotated .1 keeps its own
+                # self-consistent chain for offline verification).
+                self._signer.prev_hmac = GENESIS_HASH
+            log.info("Rotated audit log at %d bytes", self._max_bytes)
+        except OSError as e:
+            log.error("Audit log rotation failed: %s", e)
+
+    def _rotated_paths_newest_first(self) -> list[Path]:
+        """Current file plus existing rotated files, newest → oldest."""
+        paths = [self.path]
+        for i in range(1, self._max_files + 1):
+            p = self.path.with_name(self.path.name + f".{i}")
+            if p.exists():
+                paths.append(p)
+        return paths
+
+    async def _open_read_snapshot(self) -> list[tuple[BinaryIO, os.stat_result]]:
+        """Open one stable descriptor for every retained generation.
+
+        Pathnames are mutable during rotation; descriptors are not.  The lock
+        is held only while the descriptor set is opened, never while content is
+        scanned.  Identity de-duplication also makes an external rename race
+        fail closed rather than reading one inode twice.
+        """
+        opened: list[tuple[BinaryIO, os.stat_result]] = []
+        seen: set[tuple[int, int]] = set()
+        async with self._persist_lock:
+            for path in self._rotated_paths_newest_first():
+                try:
+                    handle = open(path, "rb")
+                    stat = os.fstat(handle.fileno())
+                except FileNotFoundError:
+                    continue
+                except OSError as exc:
+                    log.error("Failed to open audit log %s: %s", path, exc)
+                    continue
+                identity = (stat.st_dev, stat.st_ino)
+                if identity in seen:
+                    handle.close()
+                    continue
+                seen.add(identity)
+                opened.append((handle, stat))
+        return opened
+
+    async def open_read_snapshot(self) -> list[tuple[BinaryIO, os.stat_result]]:
+        """Return inode-deduplicated read descriptors for retained generations.
+
+        Callers own and must close the descriptors.  This is a read-only
+        observer seam; it never signs, appends, or mutates the HMAC chain.
+        """
+        return await self._open_read_snapshot()
+
+    async def _collect_matches(self, predicate: Callable[[dict], bool], limit: int) -> list[dict]:
+        """Return up to *limit* matching entries, most-recent first.
+
+        Reads blocks backwards from a stable descriptor snapshot and stops at
+        the limit.  Briefly serializing descriptor acquisition with rotation
+        prevents current→.1 from being read twice while the former .1 vanishes
+        to .2; scans themselves never hold the persistence lock.
+        """
+        if limit <= 0:
+            return []
+        collected: list[dict] = []
+        snapshot = await self._open_read_snapshot()
+        try:
+            for handle, _stat in snapshot:
+                try:
+                    async for raw in _iter_lines_reverse(handle.fileno()):
+                        try:
+                            entry = json.loads(raw)
+                        except json.JSONDecodeError:
+                            continue
+                        if predicate(entry):
+                            collected.append(entry)
+                            if len(collected) >= limit:
+                                return collected
+                except OSError as exc:
+                    log.error("Failed to read audit log snapshot: %s", exc)
+        finally:
+            for handle, _stat in snapshot:
+                handle.close()
+        return collected
+
+    def set_event_callback(self, callback: Callable) -> None:
+        """Set a callback to be invoked with each audit entry (for live WS events)."""
+        self._event_callback = callback
+
+    async def _persist(self, entry: dict) -> None:
+        """Rotate, sign, append, and fan out one entry.
+
+        Rotation happens BEFORE signing so that when a rotation occurs the entry
+        being written becomes the first line of the fresh file and its
+        _prev_hmac is GENESIS (the signer is reset in _maybe_rotate). Signing
+        after rotation was the bug: the first post-rotation entry chained to the
+        old file and verify_integrity() failed.
+
+        Rotate → sign → append run under _persist_lock so the chain's write
+        order matches its sign order (see __init__). The event fan-out is a
+        best-effort side effect and runs AFTER the lock — the signed append has
+        already durably happened, so a slow or failing callback can neither
+        stall other persists nor affect the persisted result."""
+        # Generic string scrubbing can invalidate JSON credential assignments.
+        # These fields are scrubbed structurally and serialized *after* that pass.
+        texts = {key: entry[key] for key in ("result_summary", "detail") if key in entry}
+        entry = scrub_diagnostic(entry)
+        for key, value in texts.items():
+            entry[key] = _cap_audit_text(value, self._result_cap)
+        if not self._chain_initialized:
+            await self.initialize_chain()
+        async with self._persist_lock:
+            if self.repair_required:
+                entry["audit_durability"] = "repair_required"
+            elif not self._chain_initialized:
+                entry["audit_durability"] = "not_persisted"
+            else:
+                self._maybe_rotate()
+                if self._signer:
+                    self._signer.prepare(entry)
+                line = json.dumps(entry, default=str) + "\n"
+                append = asyncio.create_task(self._append_durable(line))
+                cancelled = False
+                try:
+                    # aiofiles delegates writes to threads. Cancellation must not
+                    # release chain ownership while one can still append bytes.
+                    while not append.done():
+                        try:
+                            await asyncio.shield(append)
+                        except asyncio.CancelledError:
+                            cancelled = True
+                    append.result()
+                except BaseException as exc:
+                    self.durability_degraded = True
+                    entry["audit_durability"] = (
+                        "repair_required" if self.repair_required else "not_persisted"
+                    )
+                    log.error(
+                        "Audit append failed (%s); durability=%s",
+                        type(exc).__name__, entry["audit_durability"],
+                    )
+                    if not isinstance(exc, Exception):
+                        raise
+                else:
+                    if self._signer:
+                        self._signer.commit(entry)
+                    self.durability_degraded = self._historical_break
+                if cancelled:
+                    raise asyncio.CancelledError
+        if self._event_callback:
+            try:
+                await self._event_callback(entry)
+            except Exception:
+                pass
+
+    async def _append_durable(self, line: str) -> None:
+        """Persist intent before the first byte; remove it only after settlement."""
+        intent = False
+        try:
+            async with aiofiles.open(self.path, "a", encoding="utf-8") as f:
+                if not write_private_atomic(
+                    self._repair_marker,
+                    "Audit append pending or uncertain; operator repair required.\n",
+                ):
+                    self.repair_required = True
+                    raise OSError("Audit intent durability unproven")
+                intent = True
+                written = await f.write(line)
+                if written != len(line):
+                    raise OSError("Short audit append")
+                await f.flush()
+                os.fsync(f.fileno())
+            self._repair_marker.unlink()
+            directory = os.open(self.path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        except BaseException:
+            if intent:
+                self._quarantine_uncertain_append()
+            elif self._repair_marker.exists():
+                self.repair_required = True
+            raise
+
+    def _quarantine_uncertain_append(self) -> None:
+        """Fence further appends, preserving every uncertain byte for repair."""
+        self.repair_required = True
+        self.durability_degraded = True
+        try:
+            write_private_atomic(
+                self._repair_marker,
+                "Audit append outcome uncertain. Preserve log bytes; operator repair required.\n",
+            )
+        except OSError:
+            log.critical("Audit repair marker failed to persist; restart requires operator repair")
+
+    async def log_execution(
+        self,
+        *,
+        user_id: str,
+        user_name: str,
+        channel_id: str,
+        tool_name: str,
+        tool_input: dict,
+        approved: bool,
+        result_summary: str,
+        execution_time_ms: int,
+        error: str | None = None,
+        diff: str | None = None,
+        risk_level: str | None = None,
+        risk_reason: str | None = None,
+        audit_metadata: dict | None = None,
+        attribution: dict | None = None,
+        status: str | None = None,
+        count_as_tool: bool = True,
+        event_type: str | None = None,
+    ) -> None:
+        entry = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "user_id": user_id,
+            "user_name": user_name,
+            "channel_id": channel_id,
+            "tool_name": tool_name,
+            "tool_input": _cap_tool_input(scrub_diagnostic(tool_input), self._tool_input_cap),
+            "approved": approved,
+            "result_summary": _cap_audit_text(result_summary, self._result_cap),
+            "execution_time_ms": execution_time_ms,
+            "error": error,
+        }
+        if event_type:
+            # A canonical execution can also close a lifecycle card, without a
+            # second persisted terminal record. Keep the full execution schema.
+            entry.update(type=event_type, action=tool_name, actor=user_id)
+        if attribution:
+            entry.update(attribution)
+        if status:
+            entry["status"] = status
+        if not count_as_tool:
+            entry["audit_observer"] = True
+        if error and self._classify_failures:
+            # Write-time heuristic classification (observability). The raw
+            # error string is classified here; aggregates never re-store it.
+            entry["failure"] = classify_failure(error)
+        turn = get_turn()
+        if turn:
+            # Correlation: join audit entries to the trajectory turn (and
+            # loop iteration) they belong to. Metadata only.
+            entry["turn"] = turn
+        if diff:
+            entry["diff"] = diff
+        if risk_level:
+            entry["risk_level"] = risk_level
+        if risk_reason:
+            entry["risk_reason"] = risk_reason
+        if audit_metadata:
+            # Bounded structured metadata (e.g. image backend/route/dims) — the
+            # caller guarantees no prompts, IDs, or payloads.
+            entry["audit_metadata"] = audit_metadata
+        await self._persist(entry)
+
+    async def log_event(
+        self,
+        *,
+        event_type: str,
+        action: str,
+        actor: str = "",
+        detail: str = "",
+        channel_id: str = "",
+        metadata: dict | None = None,
+        tool_input: dict | None = None,
+        attribution: dict | None = None,
+        count_as_tool: bool = True,
+    ) -> None:
+        """Log a generic state-changing event (agents, schedules, permissions, etc.)."""
+        elapsed = (metadata or {}).get("elapsed_ms")
+        entry: dict = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "type": event_type,
+            "action": action,
+            "actor": actor,
+            "detail": _cap_audit_text(detail, self._result_cap),
+            "tool_name": action,
+            "user_id": actor,
+        }
+        if tool_input is not None:
+            entry["tool_input"] = _cap_tool_input(
+                scrub_diagnostic(tool_input), self._tool_input_cap,
+            )
+        if attribution:
+            entry.update(attribution)
+        if not count_as_tool:
+            entry["audit_observer"] = True
+        turn = get_turn()
+        if turn:
+            entry["turn"] = turn
+        if elapsed is not None:
+            entry["execution_time_ms"] = elapsed
+        if channel_id:
+            entry["channel_id"] = channel_id
+        if metadata:
+            entry["metadata"] = metadata
+        await self._persist(entry)
+
+    async def log_web_action(
+        self,
+        *,
+        method: str,
+        path: str,
+        status: int,
+        ip: str = "",
+        execution_time_ms: int = 0,
+        diff: str | None = None,
+        user_id: str = "",
+        username: str = "",
+        label: str = "",
+    ) -> None:
+        """Log a web UI API action (state-changing requests)."""
+        entry: dict = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "type": "web_action",
+            "method": method,
+            "path": path,
+            "status": status,
+            "success": status < 400,
+            "ip": ip,
+            "execution_time_ms": execution_time_ms,
+        }
+        if status >= 400:
+            entry["error"] = f"HTTP {status}"
+        if user_id:
+            entry["user_id"] = user_id
+            entry["actor"] = f"web:{user_id}"
+        if username:
+            entry["user_name"] = username
+        if label:
+            entry["label"] = label
+        if diff:
+            entry["diff"] = diff
+        await self._persist(entry)
+
+    async def count_by_tool(self) -> dict[str, int]:
+        """Return retained-history execution counts without rescanning history."""
+        async with self._tool_count_lock:
+            return await self._count_by_tool_unlocked()
+
+    async def _count_by_tool_unlocked(self) -> dict[str, int]:
+        """Consume each retained inode once, then only its appended bytes.
+
+        Each retained inode is consumed once and then only from its previous
+        EOF. Rotation renames an inode but does not invalidate its cached
+        counts; generations that age out are pruned after the snapshot.
+        """
+        snapshot = await self._open_read_snapshot()
+        if not snapshot:
+            self._tool_count_cache.clear()
+            return {}
+        try:
+            for handle, stat in snapshot:
+                identity = (stat.st_dev, stat.st_ino)
+                cached = self._tool_count_cache.get(identity)
+                if cached is None or cached[0] > stat.st_size:
+                    offset, tail = 0, b""
+                    counts: dict[str, int] = {}
+                else:
+                    offset, tail, counts = cached
+                    counts = dict(counts)
+                if offset < stat.st_size:
+                    await asyncio.to_thread(handle.seek, offset)
+                    chunk = await asyncio.to_thread(handle.read, stat.st_size - offset)
+                    data = tail + chunk
+                    lines = data.split(b"\n")
+                    tail = lines.pop()
+                    for raw in lines:
+                        if not raw.strip():
+                            continue
+                        try:
+                            entry = json.loads(raw)
+                        except json.JSONDecodeError:
+                            continue
+                        name = entry.get("tool_name")
+                        if (name and entry.get("type") not in {"token_change", "permission_change"}
+                                and not entry.get("audit_observer")):
+                            counts[name] = counts.get(name, 0) + 1
+                    offset = stat.st_size
+                self._tool_count_cache[identity] = (offset, tail, counts)
+        finally:
+            for handle, _stat in snapshot:
+                handle.close()
+        # Cache only COMPLETE retained generations. A descriptor can rotate
+        # out after the snapshot opens; it must not contribute forever merely
+        # because we saw it in this call. Current is allowed to grow beyond the
+        # snapshotted size; rotated generations must still have the same size.
+        retained: set[tuple[int, int]] = set()
+        async with self._persist_lock:
+            for index, path in enumerate(self._rotated_paths_newest_first()):
+                try:
+                    current_stat = path.stat()
+                except OSError:
+                    continue
+                identity = (current_stat.st_dev, current_stat.st_ino)
+                cached = self._tool_count_cache.get(identity)
+                if cached is None:
+                    continue
+                consumed = cached[0]
+                if index == 0 or current_stat.st_size == consumed:
+                    retained.add(identity)
+        self._tool_count_cache = {
+            identity: state
+            for identity, state in self._tool_count_cache.items()
+            if identity in retained
+        }
+        total: dict[str, int] = {}
+        for _offset, _tail, counts in self._tool_count_cache.values():
+            for name, count in counts.items():
+                total[name] = total.get(name, 0) + count
+        return dict(sorted(total.items(), key=lambda item: item[1], reverse=True))
+
+    async def search(
+        self,
+        *,
+        tool_name: str | None = None,
+        user: str | None = None,
+        host: str | None = None,
+        keyword: str | None = None,
+        date: str | None = None,
+        status: str | None = None,
+        has_error: bool | None = None,
+        min_duration_ms: int | None = None,
+        limit: int = 20,
+        include_agent_events: bool = True,
+    ) -> list[dict]:
+        """Search audit log (most recent first). Filters are ANDed.
+
+        New filters:
+        - status: match entries with this status value (e.g. "error", "success")
+        - has_error: True = only entries with non-empty error field
+        - min_duration_ms: only entries with duration_ms >= this value
+        """
+        def _match(entry: dict) -> bool:
+            if not include_agent_events and entry.get("agent_id") and entry.get("type") in {
+                "loop_tool_start", "loop_tool",
+            }:
+                return False
+            if tool_name and entry.get("tool_name") != tool_name:
+                return False
+            if user and user.lower() not in (
+                entry.get("user_name", "").lower() + entry.get("user_id", "")
+            ):
+                return False
+            if host:
+                inp = entry.get("tool_input", {})
+                if isinstance(inp, dict) and inp.get("host") != host:
+                    return False
+            if date and not entry.get("timestamp", "").startswith(date):
+                return False
+            if keyword:
+                blob = json.dumps(entry).lower()
+                if keyword.lower() not in blob:
+                    return False
+            if status:
+                entry_status = entry.get("status") or entry.get("metadata", {}).get("status", "")
+                if status.lower() != str(entry_status).lower():
+                    return False
+            if has_error is True:
+                err = entry.get("error") or entry.get("metadata", {}).get("error", "")
+                if not err:
+                    return False
+            if min_duration_ms is not None:
+                dur = (
+                    entry.get("execution_time_ms")
+                    or entry.get("metadata", {}).get("duration_ms")
+                    or entry.get("duration_ms")
+                    or entry.get("metadata", {}).get("elapsed_ms")
+                    or 0
+                )
+                if dur < min_duration_ms:
+                    return False
+            return True
+
+        return await self._collect_matches(_match, limit)
+
+    async def search_logs(
+        self,
+        *,
+        level: Literal["error", "info", "all"] | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        keyword: str | None = None,
+        tool_name: str | None = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        """Search audit log with level, time-range, and keyword filters.
+
+        Level is derived from the ``error`` field: entries with a non-null
+        ``error`` value are ``error``, everything else is ``info``.
+        ``start_time`` / ``end_time`` are ISO-8601 prefixes compared
+        lexicographically against the entry timestamp.
+        """
+        def _match(entry: dict) -> bool:
+            ts = entry.get("timestamp", "")
+            if start_time and ts < start_time:
+                return False
+            if end_time and ts > end_time:
+                return False
+            if level and level != "all":
+                has_error = bool(entry.get("error"))
+                if level == "error" and not has_error:
+                    return False
+                if level == "info" and has_error:
+                    return False
+            if tool_name and entry.get("tool_name") != tool_name:
+                return False
+            if keyword:
+                blob = json.dumps(entry).lower()
+                if keyword.lower() not in blob:
+                    return False
+            return True
+
+        results = await self._collect_matches(_match, limit)
+
+        return results
+
+    async def get_log_stats(self) -> dict:
+        """Summarize the same stable retained generations searched by history."""
+        total = 0
+        errors = 0
+        tools: set[str] = set()
+        web_actions = 0
+
+        snapshot = await self._open_read_snapshot()
+        try:
+            for handle, _stat in snapshot:
+                try:
+                    async for line in _iter_lines_reverse(handle.fileno()):
+                        try:
+                            entry = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if not isinstance(entry, dict):
+                            continue
+                        total += 1
+                        if entry.get("error"):
+                            errors += 1
+                        tn = entry.get("tool_name")
+                        if (tn and entry.get("type") not in {"token_change", "permission_change"}
+                                and not entry.get("audit_observer")):
+                            tools.add(tn)
+                        if entry.get("type") == "web_action":
+                            web_actions += 1
+                except OSError as exc:
+                    log.error("Failed to read audit log snapshot for stats: %s", exc)
+        finally:
+            for handle, _stat in snapshot:
+                handle.close()
+
+        return {
+            "total": total,
+            "errors": errors,
+            "tool_count": len(tools),
+            "tools": sorted(tools),
+            "web_actions": web_actions,
+        }
+
+    async def search_diffs(
+        self,
+        *,
+        tool_name: str | None = None,
+        user: str | None = None,
+        date: str | None = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        """Return audit entries that contain a diff, most recent first."""
+        def _match(entry: dict) -> bool:
+            if not entry.get("diff"):
+                return False
+            if tool_name and entry.get("tool_name") != tool_name:
+                return False
+            if user and user.lower() not in (
+                entry.get("user_name", "").lower() + entry.get("user_id", "")
+            ):
+                return False
+            if date and not entry.get("timestamp", "").startswith(date):
+                return False
+            return True
+
+        return await self._collect_matches(_match, limit)
+
+    async def search_by_risk(
+        self,
+        *,
+        risk_level: str | None = None,
+        tool_name: str | None = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        """Return audit entries that have a risk_level field, most recent first."""
+        def _match(entry: dict) -> bool:
+            if not entry.get("risk_level"):
+                return False
+            if risk_level and entry.get("risk_level") != risk_level:
+                return False
+            if tool_name and entry.get("tool_name") != tool_name:
+                return False
+            return True
+
+        return await self._collect_matches(_match, limit)
+
+    async def initialize_chain(self) -> None:
+        """Report historical breaks, but resume from the actual settled tail.
+
+        Integrity and append settlement are independent: old tamper evidence
+        must not stop recording new actions. Only an uncertain tail fences
+        writes. A restart can settle a stale intent without rewriting history.
+        """
+        async with self._persist_lock:
+            if self._chain_initialized:
+                return
+            if not self.path.exists():
+                self._chain_initialized = True
+                return
+            try:
+                async with aiofiles.open(self.path, encoding="utf-8") as f:
+                    lines = await f.readlines()
+                    if self.repair_required:
+                        os.fsync(f.fileno())
+            except Exception as exc:
+                # An unreadable file proves neither a broken chain nor a torn
+                # append. Retry initialization before the next persist.
+                self.durability_degraded = True
+                log.error("Audit tail unavailable (%s); durability=degraded", type(exc).__name__)
+                return
+
+            if self._signer:
+                result = await verify_log(self.path, self._signer._key.decode())
+                self._historical_break = not result["valid"]
+                if self._historical_break:
+                    log.error(
+                        "Audit historical chain break at line %s; durability=degraded; "
+                        "resuming from the actual tail", result["first_bad"],
+                    )
+            self.durability_degraded = self._historical_break
+            try:
+                predecessor = GENESIS_HASH
+                # Do not stop at the first historical verification failure: the
+                # next append links to the tail actually present on disk.
+                for line in reversed(lines):
+                    if not line.strip():
+                        continue
+                    if not line.endswith("\n"):
+                        raise ValueError("Unsettled audit tail")
+                    entry = json.loads(line)
+                    tail_hmac = entry.get("_hmac") if isinstance(entry, dict) else None
+                    if isinstance(tail_hmac, str) and tail_hmac:
+                        predecessor = tail_hmac
+                    break
+                if self._signer:
+                    self._signer.prev_hmac = predecessor
+            except Exception as exc:
+                log.error(
+                    "Audit tail unsettled (%s); durability=repair_required", type(exc).__name__,
+                )
+                self._quarantine_uncertain_append()
+            else:
+                if self.repair_required:
+                    try:
+                        self._repair_marker.unlink(missing_ok=True)
+                        directory = os.open(self.path.parent, os.O_RDONLY | os.O_DIRECTORY)
+                        try:
+                            os.fsync(directory)
+                        finally:
+                            os.close(directory)
+                    except OSError:
+                        self._quarantine_uncertain_append()
+                    else:
+                        self.repair_required = False
+                        log.info(
+                            "Cleared stale audit append marker; tail is complete and parseable",
+                        )
+            self._chain_initialized = True
+
+    async def _open_verify_snapshot(self) -> list[dict]:
+        """Open bounded descriptors of every retained generation under the append lock.
+
+        Unlike search, verification reports unreadable positions and interior
+        gaps. Scan outside the lock; descriptor identity survives rotation.
+        """
+        rows: list[dict] = []
+        seen: set[tuple[int, int]] = set()
+        try:
+            async with self._persist_lock:
+                present: list[int] = []
+                for index in range(self._max_files + 1):
+                    path = self.path if index == 0 else self.path.with_name(
+                        self.path.name + f".{index}")
+                    row = {"file": path.name, "position": index, "handle": None, "size": 0,
+                           "open_error": None, "absent": False}
+                    try:
+                        handle = open(path, "rb")
+                    except FileNotFoundError:
+                        row["absent"] = True
+                        rows.append(row)
+                        continue
+                    except OSError as exc:
+                        row["open_error"] = type(exc).__name__
+                        rows.append(row)
+                        present.append(index)
+                        continue
+                    try:
+                        stat = os.fstat(handle.fileno())
+                    except OSError as exc:
+                        handle.close()
+                        row["open_error"] = type(exc).__name__
+                        rows.append(row)
+                        present.append(index)
+                        continue
+                    identity = (stat.st_dev, stat.st_ino)
+                    if identity in seen:
+                        handle.close()
+                        continue
+                    seen.add(identity)
+                    row.update(handle=handle, size=stat.st_size)
+                    rows.append(row)
+                    present.append(index)
+            highest = max((index for index in present if index > 0), default=0)
+            return [
+                row for row in rows
+                if not row["absent"] or row["position"] == 0 or row["position"] < highest
+            ]
+        except BaseException:
+            for row in rows:
+                if row["handle"] is not None:
+                    cast(BinaryIO, row["handle"]).close()
+            raise
+
+    async def verify_integrity(self) -> dict:
+        """Check each retained file's independent HMAC chain without blocking appends."""
+        if not self._signer:
+            return {
+                "valid": False,
+                "total": 0,
+                "verified": 0,
+                "unsigned_prefix": 0,
+                "first_bad": None,
+                "first_bad_file": None,
+                "availability": "not_enabled",
+                "error": "Signing not enabled (no hmac_key configured)",
+                "segments": [],
+            }
+        rows = await self._open_verify_snapshot()
+        segments: list[dict] = []
+        try:
+            for row in rows:
+                seg = {"file": row["file"], "position": row["position"], "total": 0,
+                       "verified": 0, "unsigned_prefix": 0, "first_bad": None,
+                       "reason": None, "error": None}
+                if row["absent"]:
+                    if row["position"] == 0:
+                        seg["status"] = "verified"  # No active entries yet.
+                    else:
+                        seg.update(status="missing", error="expected file not found")
+                elif row["open_error"]:
+                    seg.update(status="unreadable", error=row["open_error"])
+                else:
+                    try:
+                        result = await asyncio.to_thread(
+                            verify_segment, row["handle"], row["size"], self._signer._key)
+                    except OSError as exc:
+                        seg.update(status="unreadable", error=type(exc).__name__)
+                    else:
+                        for field in ("total", "verified", "unsigned_prefix",
+                                      "first_bad", "reason", "error"):
+                            seg[field] = result[field]
+                        seg["status"] = (
+                            "broken" if not result["valid"]
+                            else "unsigned" if result["verified"] == 0 and result["total"] > 0
+                            else "verified"
+                        )
+                segments.append(seg)
+        finally:
+            for row in rows:
+                if row["handle"] is not None:
+                    row["handle"].close()
+        # Files are independent chains, but a wholly unsigned generation
+        # newer than a signed one is still a signing gap.
+        signed_seen = False
+        for seg in reversed(segments):
+            if seg["status"] == "unsigned" and signed_seen:
+                seg.update(status="broken", reason="signing_gap",
+                           error="no signatures although older files are signed")
+            if seg["verified"] > 0:
+                signed_seen = True
+        problems = [seg for seg in segments if seg["status"] in ("broken", "unreadable", "missing")]
+        first = problems[0] if problems else None
+        active = segments[0] if segments else {"status": "verified"}
+        return {
+            "valid": not problems,
+            "availability": "available",
+            "scope": "retained_files",
+            "total": sum(seg["total"] for seg in segments),
+            "verified": sum(seg["verified"] for seg in segments),
+            "unsigned_prefix": sum(seg["unsigned_prefix"] for seg in segments),
+            "first_bad": first["first_bad"] if first else None,
+            "first_bad_file": first["file"] if first else None,
+            "error": f"{first['file']}: {first['error']}" if first else None,
+            "durability": (
+                "repair_required" if self.repair_required
+                else "degraded" if self.durability_degraded or active["status"] == "broken"
+                else "durable"
+            ),
+            "segments": segments,
+        }

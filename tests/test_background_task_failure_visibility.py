@@ -1,0 +1,478 @@
+"""Background-task step failure visibility (soak finding, 2026-07-05).
+
+Before this fix, run_background_task collapsed the executor's ToolResult to
+a string and _is_error_output only recognized three literal prefixes — so a
+structurally-failed tool (ok=False, e.g. "Unknown or disallowed host: X")
+was recorded as a SUCCESSFUL step and the completion message claimed
+"All N steps succeeded."
+
+Now: ToolResult.ok is consumed directly (structured signal first), the
+failed output gets the canonical "Error (tool reported failure):" marking,
+and the string heuristic additionally recognizes the executor's own error
+prefixes for plain-string branches.
+"""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from src.discord.background_task import (
+    BackgroundTask,
+    _execute_tool_captured,
+    _is_error_output,
+    _send_progress,
+    create_task_id,
+    run_background_task,
+)
+from src.knowledge.store import IngestOutcome, KnowledgeStore
+from src.search.fts import FullTextIndex
+from src.tools.result_validator import ToolResult
+from tests.fakes import FakeChannel
+
+
+@pytest.fixture(autouse=True)
+def _isolated_cwd(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+
+def make_task(steps, channel=None):
+    return BackgroundTask(
+        task_id=create_task_id(),
+        description="failure visibility test",
+        steps=steps,
+        channel=channel or FakeChannel(id=555),
+        requester="tester",
+        requester_id="4242",
+    )
+
+
+class _FakeExecutor:
+    def __init__(self, results):
+        self.results = list(results)
+        self.calls = []
+
+    def check_permission(self, tool_name, user_id):
+        return None  # allow
+
+    async def execute(self, tool_name, tool_input, user_id=None):
+        self.calls.append((tool_name, tool_input, user_id))
+        return self.results.pop(0)
+
+
+class _FakeSkillManager:
+    def has_skill(self, name):
+        return False
+
+
+async def run(task, executor):
+    await run_background_task(task, executor, _FakeSkillManager())
+
+
+class TestStructuredFailureVisibility:
+    async def test_empty_workflow_progress_reports_no_steps(self):
+        channel = FakeChannel(id=555)
+        task = make_task([], channel=channel)
+
+        await _send_progress(task, None)
+
+        assert "No steps" in channel.sent_texts[0]
+
+    async def test_nested_validated_concrete_payload_is_rechecked_before_execution(self):
+
+        executor = _FakeExecutor([])
+        task = make_task([{"tool_name": "run_command", "tool_input": {"command": "x"}}])
+        task.nested_payload_validated = True
+        # A selected tool's required field was removed after adapter admission.
+        task.steps[0]["tool_input"] = {}
+        catalog = MagicMock()
+        catalog.merged_definitions.return_value = [
+            {
+                "name": "run_command",
+                "input_schema": {
+                    "type": "object",
+                    "required": ["command"],
+                    "properties": {"command": {"type": "string"}},
+                },
+            }
+        ]
+        executor._tool_catalog = catalog
+        await run_background_task(task, executor, _FakeSkillManager())
+        assert task.status == "failed"
+        assert "Invalid concrete step payload" in task.results[0].output
+        assert executor.calls == []
+
+    async def test_nested_validated_tool_permission_is_rechecked_before_execution(self):
+        executor = _FakeExecutor([])
+        executor.check_permission = MagicMock(return_value="Permission denied: run_command")
+        executor._tool_catalog = MagicMock()
+        executor._tool_catalog.merged_definitions.return_value = [
+            {
+                "name": "run_command",
+                "input_schema": {
+                    "type": "object",
+                    "required": ["command"],
+                    "properties": {"command": {"type": "string"}},
+                },
+            }
+        ]
+        task = make_task(
+            [{"tool_name": "run_command", "tool_input": {"command": "echo unsafe"}}]
+        )
+        task.nested_payload_validated = True
+
+        await run_background_task(task, executor, _FakeSkillManager())
+
+        assert task.status == "failed"
+        assert "Invalid concrete step payload: Permission denied" in task.results[0].output
+        executor.check_permission.assert_called_once_with("run_command", "4242")
+        assert executor.calls == []
+
+    async def test_nested_invoke_skill_permission_is_checked_for_selected_skill(self):
+        executor = _FakeExecutor([])
+        executor.check_permission = MagicMock(
+            side_effect=[None, "Permission denied: selected skill"]
+        )
+        executor._tool_catalog = MagicMock()
+        executor._tool_catalog.merged_definitions.return_value = [
+            {"name": "selected", "input_schema": {"type": "object"}},
+        ]
+        skill_manager = MagicMock()
+        skill_manager.execute = AsyncMock()
+        skill_manager.has_skill.return_value = True
+        task = make_task(
+            [{"tool_name": "invoke_skill", "tool_input": {"name": "selected"}}]
+        )
+        task.nested_payload_validated = True
+
+        await run_background_task(task, executor, skill_manager)
+
+        assert task.status == "failed"
+        assert "Invalid concrete step payload: Permission denied" in task.results[0].output
+        assert executor.check_permission.call_args_list == [
+            (("invoke_skill", "4242"),),
+            (("selected", "4242"),),
+        ]
+        skill_manager.execute.assert_not_awaited()
+
+    async def test_workflow_substitutes_outputs_and_skips_unmatched_condition(self):
+        executor = _FakeExecutor(["ready", "second result"])
+        task = make_task(
+            [
+                {
+                    "tool_name": "run_command",
+                    "tool_input": {"command": "first"},
+                    "store_as": "first_result",
+                },
+                {
+                    "tool_name": "run_command",
+                    "tool_input": {
+                        "command": "echo {var.first_result} then {prev_output}"
+                    },
+                    "condition": "not-present",
+                },
+            ]
+        )
+
+        await run_background_task(task, executor, _FakeSkillManager())
+
+        assert task.status == "completed"
+        assert [(r.status, r.output) for r in task.results] == [
+            ("ok", "ready"),
+            ("skipped", "Condition not met: not-present"),
+        ]
+        # The condition is evaluated after placeholder expansion; no second tool call.
+        assert executor.calls == [
+            ("run_command", {"command": "first"}, "4242"),
+        ]
+
+
+    async def test_disabled_builtin_is_rejected_before_executor_effect(self):
+        from types import SimpleNamespace
+
+        from src.tools.builtin_policy import BuiltinToolPolicy
+
+        executor = _FakeExecutor([])
+        executor._builtin_policy = BuiltinToolPolicy(
+            lambda: SimpleNamespace(tools=SimpleNamespace(disabled_tools=["run_command"]))
+        )
+        result = await _execute_tool_captured(
+            "run_command",
+            {"command": "must not run"},
+            executor,
+            _FakeSkillManager(),
+            None,
+            None,
+            "tester",
+            requester_id="4242",
+        )
+        assert "disabled" in str(result).lower()
+        assert executor.calls == []
+
+    @pytest.mark.parametrize(
+        ("outcome", "expected"),
+        [
+            (IngestOutcome(2, "unchanged", "doc.md"), "already stored, unchanged"),
+            (IngestOutcome(0, "duplicate", "canonical.md"), "identical content is already stored"),
+            (IngestOutcome(0, "conflict", "canonical.md"), "near-duplicate content conflicts"),
+        ],
+    )
+    async def test_dedup_outcomes_succeed_and_do_not_abort_workflow(
+        self,
+        outcome,
+        expected,
+    ):
+        store = MagicMock()
+        store.ingest = AsyncMock(return_value=outcome)
+        executor = _FakeExecutor([])
+        task = make_task(
+            [
+                {
+                    "tool_name": "ingest_document",
+                    "tool_input": {"source": "doc.md", "content": "document body"},
+                },
+                {
+                    "tool_name": "ingest_document",
+                    "tool_input": {"source": "next.md", "content": "next document body"},
+                },
+            ]
+        )
+
+        await run_background_task(
+            task,
+            executor,
+            _FakeSkillManager(),
+            knowledge_store=store,
+            embedder=object(),
+        )
+
+        assert task.status == "completed", task.results
+        assert [result.status for result in task.results] == ["ok", "ok"]
+        assert expected in task.results[0].output
+        assert "next.md" in task.results[1].output
+        assert store.ingest.await_count == 2
+        assert executor.calls == []
+
+    async def test_ok_false_steps_are_recorded_as_errors(self):
+        executor = _FakeExecutor(
+            [
+                ToolResult(
+                    output="Unknown or disallowed host: playground",
+                    ok=False,
+                    tool_name="run_command",
+                ),
+                ToolResult(
+                    output="Unknown or disallowed host: playground",
+                    ok=False,
+                    tool_name="run_command",
+                ),
+            ]
+        )
+        channel = FakeChannel(id=555)
+        task = make_task(
+            [
+                {
+                    "tool_name": "run_command",
+                    "tool_input": {"host": "playground", "command": "echo hi"},
+                    "on_failure": "continue",
+                },
+                {
+                    "tool_name": "run_command",
+                    "tool_input": {"host": "playground", "command": "date"},
+                    "on_failure": "continue",
+                },
+            ],
+            channel=channel,
+        )
+        await run(task, executor)
+        assert [r.status for r in task.results] == ["error", "error"]
+        # The completion message no longer lies
+        all_text = " ".join(channel.sent_texts)
+        assert "All 2 steps succeeded" not in all_text
+        assert "0 succeeded, 2 failed" in all_text
+
+    async def test_ok_true_steps_still_succeed(self):
+        executor = _FakeExecutor(
+            [
+                ToolResult(output="step1", tool_name="run_command"),
+                ToolResult(output="Sun Jul  5 12:00:00 AM EDT 2026", tool_name="run_command"),
+            ]
+        )
+        channel = FakeChannel(id=555)
+        task = make_task(
+            [
+                {
+                    "tool_name": "run_command",
+                    "tool_input": {"host": "localhost", "command": "echo step1"},
+                },
+                {
+                    "tool_name": "run_command",
+                    "tool_input": {"host": "localhost", "command": "date"},
+                },
+            ],
+            channel=channel,
+        )
+        await run(task, executor)
+        assert [r.status for r in task.results] == ["ok", "ok"]
+        assert "All 2 steps succeeded" in " ".join(channel.sent_texts)
+
+    async def test_failed_output_carries_canonical_error_marking(self):
+        executor = _FakeExecutor(
+            [
+                ToolResult(output="quietly wrong", ok=False, tool_name="run_command"),
+            ]
+        )
+        task = make_task(
+            [
+                {
+                    "tool_name": "run_command",
+                    "tool_input": {"host": "h", "command": "x"},
+                    "on_failure": "continue",
+                }
+            ],
+        )
+        await run(task, executor)
+        assert task.results[0].status == "error"
+        assert task.results[0].output.startswith("Error (tool reported failure):")
+
+    async def test_default_on_failure_abort_stops_on_ok_false(self):
+        executor = _FakeExecutor(
+            [
+                ToolResult(
+                    output="Unknown or disallowed host: playground",
+                    ok=False,
+                    tool_name="run_command",
+                ),
+                ToolResult(output="never runs", tool_name="run_command"),
+            ]
+        )
+        task = make_task(
+            [
+                {"tool_name": "run_command", "tool_input": {"host": "playground", "command": "a"}},
+                {"tool_name": "run_command", "tool_input": {"host": "playground", "command": "b"}},
+            ],
+        )
+        await run(task, executor)
+        assert task.status == "failed"
+        assert len(executor.calls) == 1  # second step never executed
+
+    async def test_audit_error_field_populated_for_ok_false(self):
+        executor = _FakeExecutor(
+            [
+                ToolResult(
+                    output="Unknown or disallowed host: playground",
+                    ok=False,
+                    tool_name="run_command",
+                ),
+            ]
+        )
+        audit = AsyncMock()
+        task = make_task(
+            [
+                {
+                    "tool_name": "run_command",
+                    "tool_input": {"host": "playground", "command": "a"},
+                    "on_failure": "continue",
+                }
+            ],
+        )
+        await run_background_task(task, executor, _FakeSkillManager(), audit_logger=audit)
+        audit.log_execution.assert_awaited()
+        kwargs = audit.log_execution.await_args.kwargs
+        assert kwargs.get("error"), "audit entry must carry the error field for a failed step"
+
+    async def test_mcp_audit_metadata_survives_background_path(self):
+        metadata = {
+            "mcp_server": "srv",
+            "mcp_tool": "write",
+            "config_generation": 3,
+            "negotiated_version": "2025-06-18",
+            "outcome": "failed",
+        }
+        executor = _FakeExecutor(
+            [
+                ToolResult(
+                    output="rejected",
+                    ok=False,
+                    tool_name="mcp_srv_write",
+                    audit_metadata=metadata,
+                )
+            ]
+        )
+        audit = AsyncMock()
+        task = make_task(
+            [
+                {
+                    "tool_name": "mcp_srv_write",
+                    "tool_input": {"password": "opaque-background-secret"},
+                    "on_failure": "continue",
+                }
+            ]
+        )
+        await run_background_task(task, executor, _FakeSkillManager(), audit_logger=audit)
+        assert task.results[0].audit_metadata == metadata
+        kwargs = audit.log_execution.await_args.kwargs
+        assert kwargs["audit_metadata"] == metadata
+        assert "opaque-background-secret" not in str(kwargs["tool_input"])
+        assert kwargs["tool_input"]["password"] == "[redacted:sensitive-key]"
+
+    async def test_ingest_durability_failure_fails_real_background_step(self, tmp_path):
+        fts = FullTextIndex(str(tmp_path / "fts.db"))
+        store = KnowledgeStore(str(tmp_path / "knowledge.db"), fts_index=fts)
+        embedder = AsyncMock()
+        embedder.embed.return_value = None
+        executor = _FakeExecutor([])
+        task = make_task(
+            [
+                {
+                    "tool_name": "ingest_document",
+                    "tool_input": {"source": "doc.md", "content": "body"},
+                },
+                {
+                    "tool_name": "run_command",
+                    "tool_input": {"command": "must not run"},
+                },
+            ]
+        )
+
+        try:
+            with patch.object(fts, "replace_knowledge_source", return_value=False) as failed:
+                await run_background_task(
+                    task,
+                    executor,
+                    _FakeSkillManager(),
+                    knowledge_store=store,
+                    embedder=embedder,
+                )
+
+            failed.assert_called_once()
+            assert task.status == "failed"
+            assert [result.status for result in task.results] == ["error"]
+            assert "Failed to ingest 'doc.md' durably." in task.results[0].output
+            assert executor.calls == []
+            assert store.get_source_content("doc.md") is None
+            assert store.get_versions("doc.md") == []
+        finally:
+            store.close()
+            if fts._conn is not None:
+                fts._conn.close()
+
+
+class TestStringHeuristic:
+    def test_canonical_executor_prefixes_detected(self):
+        assert _is_error_output("Unknown or disallowed host: playground") is True
+        assert _is_error_output("Command failed with exit code 1") is True
+        assert _is_error_output("Script failed: boom") is True
+        assert _is_error_output("Blocked by command governor") is True
+        assert _is_error_output("Error (tool reported failure):\nquietly wrong") is True
+
+    def test_legacy_prefixes_still_detected(self):
+        assert _is_error_output("Error executing run_command: boom") is True
+        assert _is_error_output("Unknown tool: frobnicate") is True
+        assert _is_error_output("Permission denied: tier too low") is True
+
+    def test_normal_output_not_flagged(self):
+        assert _is_error_output("Sun Jul  5 12:00:00 AM EDT 2026") is False
+        assert _is_error_output("step1") is False
+        assert _is_error_output("") is False

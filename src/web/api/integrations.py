@@ -1,0 +1,768 @@
+"""External integration route registrars (RFC-003 P5 — carved verbatim from api/__init__).
+
+Each ``register_*`` moves one section of the old monolith unchanged; the
+composition root calls them at the sections' original positions, so the
+route REGISTRATION ORDER (aiohttp path precedence) is exactly what the
+parity contract pins.
+"""
+
+from __future__ import annotations
+
+import asyncio
+
+from aiohttp import web
+
+from ...odin_log import get_logger
+from ..api_common import (
+    _validate_string,
+)
+
+log = get_logger("web.api")
+
+
+async def _drain_mcp_management(operation, *, commit_started: asyncio.Event):
+    """Abort a management operation while queued; drain it after commit starts."""
+    task = asyncio.create_task(operation, name="mcp-management-mutation")
+    cancelled = False
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            if not commit_started.is_set():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                raise
+            cancelled = True
+            current = asyncio.current_task()
+            if current is not None:
+                while current.cancelling():
+                    current.uncancel()
+    result = await task
+    if cancelled:
+        raise asyncio.CancelledError
+    return result
+
+
+def register_mcp_servers(routes: web.RouteTableDef, bot) -> None:
+    """MCP server management (MCP campaign P4).
+
+    The activation contract for ``mcp.*``: CRUD persists desired state to the
+    live config file through the shared transactional writer, then reconciles
+    the always-present control plane — validate → persist → adopt → reconcile,
+    with ``saved`` and ``connected`` reported as separate truths. Network work
+    never happens inside the config transaction. Secrets (header/env VALUES)
+    never leave the server: reads expose key names only; writes use explicit
+    ``headers_set``/``headers_remove`` and ``env_set``/``env_remove`` patch
+    ops, and redaction-mask values are rejected outright.
+    """
+    from ...config import persistence as config_persistence
+    from ...config.persistence import DELETE_CONFIG_PATH, config_transaction
+    from ...config.schema import MCPConfig, MCPServerConfig
+    from ...tools.mcp import MCPConfigError, validate_server_config
+    from ..api_common import contains_redaction_mask
+
+    def _manager(bot=bot):
+        return bot.mcp_manager
+
+    def _sanitized(text: str) -> str:
+        from ...error_presentation import sanitize_error_text
+
+        return sanitize_error_text(str(text))[:500]
+
+    def _server_row(name: str) -> dict | None:
+        for row in _manager().get_status()["servers"]:
+            if row["name"] == name:
+                return row
+        return None
+
+    def _live_servers() -> dict[str, dict]:
+        return {
+            name: config.model_dump() if hasattr(config, "model_dump") else dict(config)
+            for name, config in (bot.config.mcp.servers or {}).items()
+        }
+
+    def _leaf_changes(
+        path: tuple[str, ...], before: object, after: object
+    ) -> list[tuple[tuple[str, ...], object]]:
+        """Name only changed leaves so untouched placeholders remain opaque."""
+        if isinstance(before, dict) and isinstance(after, dict):
+            changes: list[tuple[tuple[str, ...], object]] = []
+            for key in before.keys() - after.keys():
+                changes.append(((*path, str(key)), DELETE_CONFIG_PATH))
+            for key in after.keys() - before.keys():
+                changes.append(((*path, str(key)), after[key]))
+            for key in before.keys() & after.keys():
+                changes.extend(_leaf_changes((*path, str(key)), before[key], after[key]))
+            return changes
+        return [] if before == after else [(path, after)]
+
+    async def _persist_desired(servers: dict[str, dict], enabled: bool | None = None) -> bool:
+        """Persist only changed MCP leaves, then rebind the live config.
+
+        A replacement of the whole server map would flatten untouched
+        ``${ENV}`` credentials into resolved plaintext.  Diffing from the
+        transaction-current live config lets the shared writer preserve those
+        leaves exactly and gives deletions an explicit path.
+        """
+        changes: list = _leaf_changes(("mcp", "servers"), _live_servers(), servers)
+        if enabled is not None and bot.config.mcp.enabled != bool(enabled):
+            changes.append((("mcp", "enabled"), bool(enabled)))
+        exc, cancelled = await config_persistence.persist_config_paths_locked(changes)
+        if exc is not None:
+            raise exc
+        # Rebind runtime config so restarts and readers agree with disk.
+        bot.config.mcp.servers = {
+            name: MCPServerConfig(**config) for name, config in servers.items()
+        }
+        if enabled is not None:
+            bot.config.mcp.enabled = bool(enabled)
+        return cancelled
+
+    # One route-level state machine orders every MCP read → durable write →
+    # manager adoption → reconcile.  This lock is separate from the shared
+    # config lock so slow transport teardown/connect never blocks unrelated
+    # configuration writers.
+    management_lock = asyncio.Lock()
+
+    async def _commit_desired(
+        servers: dict[str, dict],
+        *,
+        enabled: bool,
+        commit_started: asyncio.Event,
+    ):
+        """Commit all live truths, then do transport work outside config lock."""
+        commit_started.set()
+        writer_cancelled = await _persist_desired(servers, enabled=enabled)
+        transition = _manager().stage_desired_state(enabled=enabled, servers=servers)
+        return transition, writer_cancelled
+
+    def _apply_secret_patches(base: dict, body: dict, field: str) -> dict | web.Response:
+        mapping = dict(base.get(field) or {})
+        set_key = f"{field}_set"
+        remove_key = f"{field}_remove"
+        set_ops = body[set_key] if set_key in body else {}
+        remove_ops = body[remove_key] if remove_key in body else []
+        if not isinstance(set_ops, dict) or not isinstance(remove_ops, list):
+            return web.json_response(
+                {"error": f"{field}_set must be an object and {field}_remove a list"},
+                status=400,
+            )
+        if contains_redaction_mask(set_ops):
+            return web.json_response(
+                {"error": f"{field}_set contains a redaction mask; secrets must be re-entered"},
+                status=400,
+            )
+        for key, value in set_ops.items():
+            mapping[str(key)] = str(value)
+        for key in remove_ops:
+            mapping.pop(str(key), None)
+        return mapping
+
+    _plain_fields = (
+        "transport",
+        "command",
+        "args",
+        "url",
+        "cwd",
+        "timeout_seconds",
+        "enabled",
+        "tool_allowlist",
+    )
+
+    def _compose_config(base: dict, body: dict) -> dict | web.Response:
+        config = dict(base)
+        for field in _plain_fields:
+            if field in body:
+                config[field] = body[field]
+        headers = _apply_secret_patches(config, body, "headers")
+        if isinstance(headers, web.Response):
+            return headers
+        env = _apply_secret_patches(config, body, "env")
+        if isinstance(env, web.Response):
+            return env
+        config["headers"] = headers
+        config["env"] = env
+        try:
+            config = MCPServerConfig(**config).model_dump()
+        except Exception as exc:
+            return web.json_response({"error": _sanitized(str(exc))}, status=400)
+        return config
+
+    def _mutation_response(name: str, *, saved: bool) -> web.Response:
+        row = _server_row(name)
+        return web.json_response(
+            {
+                "saved": saved,
+                "connected": bool(row and row["state"] == "connected"),
+                "state": row["state"] if row else "unknown",
+                "last_error": _sanitized(row["last_error"]) if row else "",
+            },
+            status=201 if saved else 500,
+        )
+
+    # ------------------------------------------------------------------
+    # The four original paths keep their registration positions (parity).
+    # ------------------------------------------------------------------
+
+    @routes.get("/api/mcp/servers")
+    async def list_mcp_servers(_request: web.Request) -> web.Response:
+        return web.json_response({"servers": _manager().get_status()["servers"]})
+
+    @routes.get("/api/mcp/servers/{name}/tools")
+    async def list_mcp_server_tools(request: web.Request) -> web.Response:
+        try:
+            tools = _manager().server_tools(request.match_info["name"])
+        except MCPConfigError as exc:
+            return web.json_response({"error": _sanitized(str(exc))}, status=404)
+        return web.json_response({"server": request.match_info["name"], "tools": tools})
+
+    @routes.post("/api/mcp/servers")
+    async def add_mcp_server(request: web.Request) -> web.Response:
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON"}, status=400)
+        name = str(body.get("name", "")).strip()
+        if not name:
+            return web.json_response({"error": "name is required"}, status=400)
+        composed = _compose_config({}, body)
+        if isinstance(composed, web.Response):
+            return composed
+        try:
+            validate_server_config(name, composed)
+        except MCPConfigError as exc:
+            return web.json_response({"error": _sanitized(str(exc))}, status=400)
+
+        commit_started = asyncio.Event()
+
+        async def mutate():
+            async with management_lock:
+                async with config_transaction():
+                    servers = _live_servers()
+                    if name in servers or name in _manager().desired_servers():
+                        return (
+                            web.json_response(
+                                {"error": f"server '{name}' already exists"}, status=409
+                            ),
+                            False,
+                        )
+                    servers[name] = composed
+                    transition, writer_cancelled = await _commit_desired(
+                        servers,
+                        enabled=bool(bot.config.mcp.enabled),
+                        commit_started=commit_started,
+                    )
+                await _manager().finish_desired_state(transition)
+                return _mutation_response(name, saved=True), writer_cancelled
+
+        response, writer_cancelled = await _drain_mcp_management(
+            mutate(), commit_started=commit_started
+        )
+        if writer_cancelled:
+            raise asyncio.CancelledError
+        return response
+
+    @routes.delete("/api/mcp/servers/{name}")
+    async def remove_mcp_server(request: web.Request) -> web.Response:
+        name = request.match_info["name"]
+        commit_started = asyncio.Event()
+
+        async def mutate():
+            async with management_lock:
+                async with config_transaction():
+                    servers = _live_servers()
+                    if name not in servers:
+                        return web.json_response({"error": "server not found"}, status=404), False
+                    servers.pop(name)
+                    transition, writer_cancelled = await _commit_desired(
+                        servers,
+                        enabled=bool(bot.config.mcp.enabled),
+                        commit_started=commit_started,
+                    )
+                await _manager().finish_desired_state(transition)
+                return web.json_response({"saved": True, "removed": name}), writer_cancelled
+
+        response, writer_cancelled = await _drain_mcp_management(
+            mutate(), commit_started=commit_started
+        )
+        if writer_cancelled:
+            raise asyncio.CancelledError
+        return response
+
+    # ------------------------------------------------------------------
+    # P4 additions (appended after the original four paths).
+    # ------------------------------------------------------------------
+
+    @routes.put("/api/mcp/servers/{name}")
+    async def update_mcp_server(request: web.Request) -> web.Response:
+        name = request.match_info["name"]
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON"}, status=400)
+        commit_started = asyncio.Event()
+
+        async def mutate():
+            async with management_lock:
+                async with config_transaction():
+                    servers = _live_servers()
+                    base = servers.get(name)
+                    if base is None:
+                        return web.json_response({"error": "server not found"}, status=404), False
+                    composed = _compose_config(base, body)
+                    if isinstance(composed, web.Response):
+                        return composed, False
+                    try:
+                        validate_server_config(name, composed)
+                    except MCPConfigError as exc:
+                        return (
+                            web.json_response({"error": _sanitized(str(exc))}, status=400),
+                            False,
+                        )
+                    servers[name] = composed
+                    transition, writer_cancelled = await _commit_desired(
+                        servers,
+                        enabled=bool(bot.config.mcp.enabled),
+                        commit_started=commit_started,
+                    )
+                await _manager().finish_desired_state(transition)
+                return _mutation_response(name, saved=True), writer_cancelled
+
+        response, writer_cancelled = await _drain_mcp_management(
+            mutate(), commit_started=commit_started
+        )
+        if writer_cancelled:
+            raise asyncio.CancelledError
+        return response
+
+    @routes.post("/api/mcp/servers/{name}/reconnect")
+    async def reconnect_mcp_server(request: web.Request) -> web.Response:
+        try:
+            await _manager().reconnect_server(request.match_info["name"])
+        except MCPConfigError as exc:
+            return web.json_response({"error": _sanitized(str(exc))}, status=404)
+        return _mutation_response(request.match_info["name"], saved=True)
+
+    @routes.post("/api/mcp/servers/{name}/refresh-tools")
+    async def refresh_mcp_server_tools(request: web.Request) -> web.Response:
+        try:
+            await _manager().refresh_server_tools(request.match_info["name"])
+        except MCPConfigError as exc:
+            return web.json_response({"error": _sanitized(str(exc))}, status=404)
+        return _mutation_response(request.match_info["name"], saved=True)
+
+    @routes.get("/api/mcp/status")
+    async def mcp_status(_request: web.Request) -> web.Response:
+        # ALWAYS works — including globally disabled (the control plane is
+        # always present; disabled is a truthful state, not an error).
+        return web.json_response(_manager().get_status())
+
+    @routes.post("/api/mcp/enabled")
+    async def set_mcp_enabled(request: web.Request) -> web.Response:
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON"}, status=400)
+        if not isinstance(body.get("enabled"), bool):
+            return web.json_response({"error": "enabled must be a boolean"}, status=400)
+        enabled = body["enabled"]
+        commit_started = asyncio.Event()
+
+        async def mutate():
+            async with management_lock:
+                async with config_transaction():
+                    transition, writer_cancelled = await _commit_desired(
+                        _live_servers(), enabled=enabled, commit_started=commit_started
+                    )
+                await _manager().finish_desired_state(transition)
+                status = _manager().get_status()
+                return (
+                    web.json_response(
+                        {
+                            "saved": True,
+                            "enabled": status["enabled"],
+                            "connected_count": status["connected_count"],
+                        }
+                    ),
+                    writer_cancelled,
+                )
+
+        response, writer_cancelled = await _drain_mcp_management(
+            mutate(), commit_started=commit_started
+        )
+        if writer_cancelled:
+            raise asyncio.CancelledError
+        return response
+
+    @routes.post("/api/mcp/limits")
+    async def set_mcp_publication_limits(request: web.Request) -> web.Response:
+        """Persist only submitted limits; publication reads them live, without reconnecting."""
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON"}, status=400)
+        fields = {"max_published_tools_per_server", "max_published_tools_global"}
+        if not isinstance(body, dict) or not body or set(body) - fields:
+            return web.json_response(
+                {
+                    "error": "provide max_published_tools_per_server and/or "
+                    "max_published_tools_global only"
+                },
+                status=400,
+            )
+        if any(type(value) is not int for value in body.values()):
+            return web.json_response({"error": "publication limits must be integers"}, status=400)
+        try:
+            validated = MCPConfig(**body)
+        except ValueError as exc:
+            return web.json_response({"error": _sanitized(str(exc))}, status=400)
+        limits = {field: getattr(validated, field) for field in body}
+        commit_started = asyncio.Event()
+
+        async def mutate():
+            async with management_lock:
+                async with config_transaction():
+                    changes = [
+                        (("mcp", field), value)
+                        for field, value in limits.items()
+                        if getattr(bot.config.mcp, field) != value
+                    ]
+                    commit_started.set()
+                    exc, writer_cancelled = await config_persistence.persist_config_paths_locked(
+                        changes
+                    )
+                    if exc is not None:
+                        raise exc
+                    # Re-read the current root after the writer, preserving unrelated
+                    # config and all server credentials/placeholders. No transport work.
+                    for field, value in limits.items():
+                        setattr(bot.config.mcp, field, value)
+                    status = _manager().get_status()
+                return web.json_response({"saved": True, **status}), writer_cancelled
+
+        response, writer_cancelled = await _drain_mcp_management(
+            mutate(), commit_started=commit_started
+        )
+        if writer_cancelled:
+            raise asyncio.CancelledError
+        return response
+
+    @routes.post("/api/mcp/servers/{name}/enabled")
+    async def set_mcp_server_enabled(request: web.Request) -> web.Response:
+        """Single-purpose per-server switch (panel card toggle).
+
+        Mutates ONLY ``enabled`` from transaction-current configuration —
+        never transport or any other field, so a toggle can never overwrite a
+        concurrent edit. Repeating the current value is idempotent (no
+        reconnect). A server disabled here is unpublished before the response
+        reports it disabled. Returns the canonical refreshed status payload
+        so card and aggregate render from one source of truth.
+        """
+        name = request.match_info["name"]
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON"}, status=400)
+        if not isinstance(body, dict) or not isinstance(body.get("enabled"), bool):
+            return web.json_response({"error": "enabled must be a boolean"}, status=400)
+        extra = sorted(set(body) - {"enabled"})
+        if extra:
+            return web.json_response(
+                {"error": f"only 'enabled' is accepted on this route (got: {', '.join(extra)})"},
+                status=400,
+            )
+        enabled = body["enabled"]
+        commit_started = asyncio.Event()
+
+        async def mutate():
+            async with management_lock:
+                async with config_transaction():
+                    servers = _live_servers()
+                    current = servers.get(name)
+                    if current is None:
+                        return web.json_response({"error": "server not found"}, status=404), False
+                    if bool(current.get("enabled", True)) == enabled:
+                        # Idempotent repeat: no persist, no reconnect.
+                        return web.json_response(_manager().get_status()), False
+                    servers[name] = {**current, "enabled": enabled}
+                    transition, writer_cancelled = await _commit_desired(
+                        servers,
+                        enabled=bool(bot.config.mcp.enabled),
+                        commit_started=commit_started,
+                    )
+                await _manager().finish_desired_state(transition)
+                return web.json_response(_manager().get_status()), writer_cancelled
+
+        response, writer_cancelled = await _drain_mcp_management(
+            mutate(), commit_started=commit_started
+        )
+        if writer_cancelled:
+            raise asyncio.CancelledError
+        return response
+
+
+def register_outbound_webhooks(routes: web.RouteTableDef, bot) -> None:
+    """Outbound webhook CRUD. Persist before changing the running dispatcher."""
+    from copy import deepcopy
+
+    from ...config.persistence import (
+        ConfigPersistError,
+        config_transaction,
+        persist_webhook_targets_locked,
+    )
+    from ...config.schema import OutboundWebhookTarget
+    from ...notifications.outbound_webhooks import OutboundWebhookDispatcher
+
+    def _clone(dispatcher):
+        candidate = OutboundWebhookDispatcher()
+        for target in dispatcher.list_webhooks():
+            # Existing targets were already validated when adopted. Avoid a
+            # fresh DNS lookup of every sibling on an unrelated CRUD write.
+            candidate._webhooks[target.id] = deepcopy(target)
+        return candidate
+
+    async def _mutate(dispatcher, method, *args, **kwargs):
+        async with config_transaction():
+            original = {target.id: deepcopy(target) for target in dispatcher.list_webhooks()}
+            candidate = _clone(dispatcher)
+            result = getattr(candidate, method)(*args, **kwargs)
+            if result is None or result is False:
+                return result
+            rows_by_id = {
+                t.id: OutboundWebhookTarget(
+                    id=t.id,
+                    created_at=t.created_at,
+                    name=t.name,
+                    url=t.url,
+                    secret=t.secret,
+                    events=t.events,
+                    enabled=t.enabled,
+                    scrub_secrets=t.scrub_secrets,
+                    verify_ssl=t.verify_ssl,
+                )
+                for t in candidate.list_webhooks()
+            }
+            changed_fields: dict[str, tuple[set[str], set[str]]] = {}
+            delete_ids: set[str] = set()
+            if method == "register":
+                changed_fields[result.id] = (set(rows_by_id[result.id].model_dump()), set())
+                persist_rows = [rows_by_id[result.id].model_dump()]
+            elif method == "update":
+                ident = str(args[0])
+                persist_rows = [rows_by_id[ident].model_dump()]
+                before = original.get(ident)
+                if before is not None:
+                    after = candidate.get(ident)
+                    changed_fields[ident] = (
+                        {
+                            field for field in rows_by_id[ident].model_dump()
+                            if getattr(before, field) != getattr(after, field)
+                        },
+                        set(rows_by_id[ident].model_dump()),
+                    )
+            elif method == "unregister":
+                delete_ids.add(str(args[0]))
+                persist_rows = []
+            exc, cancelled = await persist_webhook_targets_locked(
+                persist_rows,
+                changed_fields=changed_fields,
+                delete_ids=delete_ids,
+                create_ids=[result.id] if method == "register" else (),
+            )
+            if exc is not None:
+                raise exc
+            dispatcher._webhooks = candidate._webhooks
+            # Rebind configured runtime rows without discarding entries that
+            # failed dispatcher registration at boot.
+            import uuid
+
+            configured = list(bot.config.outbound_webhooks.targets)
+            configured_runtime_ids = [
+                item.id or uuid.uuid5(
+                    uuid.NAMESPACE_URL, f"outbound-webhook:{index}:{item.url}"
+                ).hex[:12]
+                for index, item in enumerate(configured)
+            ]
+            for index, item in enumerate(configured):
+                ident = item.id or uuid.uuid5(
+                    uuid.NAMESPACE_URL, f"outbound-webhook:{index}:{item.url}"
+                ).hex[:12]
+                if ident in rows_by_id:
+                    updated = rows_by_id[ident]
+                    # An id-less row stays id-less on disk when only its name,
+                    # flags, etc. change. Keep that fact in the config snapshot:
+                    # the dispatcher's index-derived ID is not an explicit ID.
+                    # A URL edit is different: persistence writes an explicit
+                    # ID to keep the row addressable after the URL changes.
+                    if not item.id and "url" not in changed_fields.get(ident, (set(),))[0]:
+                        updated = updated.model_copy(update={"id": ""})
+                    configured[index] = updated
+                elif ident in delete_ids:
+                    configured[index] = None
+            active = [item for item in configured if item is not None]
+            remapped_dispatcher = {}
+            # Keep each row tied to its pre-mutation disk identity. URLs are
+            # not identities: duplicate legacy URLs are valid and otherwise
+            # cause a shifted row to inherit its sibling's runtime target.
+            active_runtime_ids = [
+                ident for ident, item in zip(configured_runtime_ids, configured)
+                if item is not None and ident not in delete_ids
+            ]
+            for index, item in enumerate(active):
+                old_runtime_id = (
+                    active_runtime_ids[index] if index < len(active_runtime_ids) else item.id
+                )
+                if not item.id:
+                    new_id = uuid.uuid5(
+                        uuid.NAMESPACE_URL, f"outbound-webhook:{index}:{item.url}"
+                    ).hex[:12]
+                    if old_runtime_id is not None:
+                        runtime_target = candidate._webhooks.pop(old_runtime_id, None)
+                        if runtime_target is not None:
+                            runtime_target.id = new_id
+                            remapped_dispatcher[new_id] = runtime_target
+                elif old_runtime_id in candidate._webhooks:
+                    remapped_dispatcher[old_runtime_id] = candidate._webhooks[old_runtime_id]
+            for ident, target in candidate._webhooks.items():
+                remapped_dispatcher.setdefault(ident, target)
+            dispatcher._webhooks = remapped_dispatcher
+            present = {item.id for item in active}
+            bot.config.outbound_webhooks.targets = active + [
+                row for ident, row in rows_by_id.items()
+                if ident not in present and ident not in active_runtime_ids
+            ]
+            if cancelled:
+                raise asyncio.CancelledError
+            return result
+
+    def _failure(exc):
+        log.warning("Outbound webhook persistence failed: %s", type(exc).__name__)
+        if isinstance(exc, ConfigPersistError) and "changed on disk" in str(exc):
+            return web.json_response({"error": "webhook target changed on disk"}, status=409)
+        return web.json_response({"error": "could not save outbound webhook targets"}, status=503)
+
+    # ------------------------------------------------------------------
+    # Outbound webhooks (CRUD + test + stats)
+    # ------------------------------------------------------------------
+
+    @routes.get("/api/outbound-webhooks")
+    async def list_outbound_webhooks(_request: web.Request) -> web.Response:
+        dispatcher = getattr(bot, "outbound_webhook_dispatcher", None)
+        if dispatcher is None:
+            return web.json_response({"error": "outbound webhooks not available"}, status=503)
+        return web.json_response(dispatcher.get_status())
+
+    @routes.post("/api/outbound-webhooks")
+    async def create_outbound_webhook(request: web.Request) -> web.Response:
+        dispatcher = getattr(bot, "outbound_webhook_dispatcher", None)
+        if dispatcher is None:
+            return web.json_response({"error": "outbound webhooks not available"}, status=503)
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+        if not isinstance(body, dict):
+            return web.json_response({"error": "invalid webhook configuration"}, status=400)
+        for field in ("enabled", "scrub_secrets", "verify_ssl"):
+            if field in body and type(body[field]) is not bool:
+                return web.json_response({"error": f"{field} must be a boolean"}, status=400)
+        url = body.get("url", "")
+        name = body.get("name", "")
+        for field, value in (("name", name), ("url", url)):
+            if not isinstance(value, str):
+                return web.json_response({"error": f"{field} must be a string"}, status=400)
+        if err := _validate_string(name, "name", 100):
+            return web.json_response({"error": err}, status=400)
+        if err := _validate_string(url, "url", 2048):
+            return web.json_response({"error": err}, status=400)
+        try:
+            target = await _mutate(
+                dispatcher,
+                "register",
+                name=name,
+                url=url,
+                secret=body.get("secret", ""),
+                events=body.get("events"),
+                enabled=body.get("enabled", True),
+                scrub_secrets=body.get("scrub_secrets", True),
+                verify_ssl=body.get("verify_ssl", True),
+            )
+        except ValueError:
+            return web.json_response({"error": "invalid webhook configuration"}, status=400)
+        except Exception as exc:
+            return _failure(exc)
+        return web.json_response(target.to_dict(), status=201)
+
+    @routes.put("/api/outbound-webhooks/{webhook_id}")
+    async def update_outbound_webhook(request: web.Request) -> web.Response:
+        dispatcher = getattr(bot, "outbound_webhook_dispatcher", None)
+        if dispatcher is None:
+            return web.json_response({"error": "outbound webhooks not available"}, status=503)
+        webhook_id = request.match_info["webhook_id"]
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+        if not isinstance(body, dict):
+            return web.json_response({"error": "invalid webhook configuration"}, status=400)
+        for field in ("enabled", "scrub_secrets", "verify_ssl"):
+            if field in body and body[field] is not None and type(body[field]) is not bool:
+                return web.json_response({"error": f"{field} must be a boolean"}, status=400)
+        for field in ("name", "url", "secret"):
+            if field in body and body[field] is not None and not isinstance(body[field], str):
+                return web.json_response({"error": f"{field} must be a string"}, status=400)
+        try:
+            target = await _mutate(
+                dispatcher,
+                "update",
+                webhook_id,
+                name=body.get("name"),
+                url=body.get("url"),
+                secret=body.get("secret"),
+                events=body.get("events"),
+                enabled=body.get("enabled"),
+                scrub_secrets=body.get("scrub_secrets"),
+                verify_ssl=body.get("verify_ssl"),
+            )
+        except ValueError:
+            return web.json_response({"error": "invalid webhook configuration"}, status=400)
+        except Exception as exc:
+            return _failure(exc)
+        if target is None:
+            return web.json_response({"error": "webhook not found"}, status=404)
+        return web.json_response(target.to_dict())
+
+    @routes.delete("/api/outbound-webhooks/{webhook_id}")
+    async def delete_outbound_webhook(request: web.Request) -> web.Response:
+        dispatcher = getattr(bot, "outbound_webhook_dispatcher", None)
+        if dispatcher is None:
+            return web.json_response({"error": "outbound webhooks not available"}, status=503)
+        webhook_id = request.match_info["webhook_id"]
+        try:
+            removed = await _mutate(dispatcher, "unregister", webhook_id)
+        except Exception as exc:
+            return _failure(exc)
+        if not removed:
+            return web.json_response({"error": "webhook not found"}, status=404)
+        return web.json_response({"status": "deleted", "webhook_id": webhook_id})
+
+    @routes.post("/api/outbound-webhooks/{webhook_id}/test")
+    async def test_outbound_webhook(request: web.Request) -> web.Response:
+        dispatcher = getattr(bot, "outbound_webhook_dispatcher", None)
+        if dispatcher is None:
+            return web.json_response({"error": "outbound webhooks not available"}, status=503)
+        webhook_id = request.match_info["webhook_id"]
+        result = await dispatcher.send_test_event(webhook_id)
+        if result is None:
+            return web.json_response({"error": "webhook not found"}, status=404)
+        return web.json_response(result.to_dict())
+
+    @routes.get("/api/outbound-webhooks/stats")
+    async def outbound_webhook_stats(_request: web.Request) -> web.Response:
+        dispatcher = getattr(bot, "outbound_webhook_dispatcher", None)
+        if dispatcher is None:
+            return web.json_response({"error": "outbound webhooks not available"}, status=503)
+        return web.json_response(dispatcher.stats.as_dict())

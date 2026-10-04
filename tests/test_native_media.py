@@ -1,0 +1,456 @@
+"""Coverage for src/discord/native_tools/media.py (RFC-006 P5).
+
+Drives the media/file handlers on MediaTools with every external boundary faked
+hard: no browser, no SSH subprocess, and no aiohttp fetch. discord.File
+is real (BytesIO), channel.send is an AsyncMock; the handlers return strings (or
+the __image_block__ marker dict for analyze_image).
+"""
+from __future__ import annotations
+
+import base64
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import discord
+from src.discord.native_tools.media import MediaTools, _safe_discord_attachment_url
+from src.tools.hosts import HostRegistry
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+
+class TestSafeDiscordAttachmentUrl:
+    def test_accepts_only_https_discord_attachment_hosts(self):
+        url = "https://cdn.discordapp.com/attachments/1/2/image.png?ex=abc"
+        assert _safe_discord_attachment_url(url) == url
+        assert _safe_discord_attachment_url(
+            "https://media.discordapp.net/attachments/1/2/image.png"
+        ) == "https://media.discordapp.net/attachments/1/2/image.png"
+
+    def test_rejects_invalid_values_and_unsafe_urls(self):
+        assert _safe_discord_attachment_url(None) is None
+        assert _safe_discord_attachment_url("x" * 4097) is None
+        for url in (
+            "http://cdn.discordapp.com/attachments/1/2/image.png",
+            "https://discordapp.com/attachments/1/2/image.png",
+            "https://cdn.discordapp.com.evil.example/image.png",
+            "https://user@cdn.discordapp.com/image.png",
+            "https://user:secret@cdn.discordapp.com/image.png",
+            "https://[invalid-ipv6/image.png",
+        ):
+            assert _safe_discord_attachment_url(url) is None
+
+
+def _http_exc(status=500):
+    return discord.HTTPException(
+        SimpleNamespace(status=status, reason="err"), "msg")  # type: ignore[arg-type]
+
+
+def _config():
+    return SimpleNamespace(
+        tools=SimpleNamespace(ssh_key_path="/k", ssh_known_hosts_path="/kh"),
+    )
+
+
+def _executor(resolve=("1.2.3.4", "root", "linux"), exec_ret=(0, "")):
+    ex = MagicMock()
+    ex._resolve_host = MagicMock(return_value=resolve)
+    if resolve is None:
+        ex.acquire_host_for_user = MagicMock(return_value=None)
+    else:
+        ex.acquire_host_for_user = MagicMock(
+            side_effect=lambda alias, _user_id=None: HostRegistry.unmanaged_lease(
+                alias, resolve
+            )
+        )
+    ex._exec_command = AsyncMock(return_value=exec_ret)
+    return ex
+
+
+def _tools(config=None, browser_manager=None, tool_executor=None, image_selector=None):
+    return MediaTools(
+        get_config=lambda: config or _config(),
+        browser_manager=browser_manager,
+        tool_executor=tool_executor or _executor(),
+        image_selector=image_selector,
+    )
+
+
+def _message():
+    m = MagicMock()
+    m.channel.send = AsyncMock()
+    return m
+
+
+class _Resp:
+    def __init__(self, status=200, ct="image/png", data=PNG):
+        self.status = status
+        self.headers = {"Content-Type": ct}
+        self._data = data
+
+    async def read(self):
+        return self._data
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+
+class _Session:
+    def __init__(self, resp):
+        self._resp = resp
+
+    def get(self, *a, **k):
+        return self._resp
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+
+class TestDetectImageType:
+    def test_all_formats(self):
+        assert MediaTools._detect_image_type(PNG) == "image/png"
+        assert MediaTools._detect_image_type(b"\xff\xd8abc") == "image/jpeg"
+        assert MediaTools._detect_image_type(b"GIF89a") == "image/gif"
+        assert MediaTools._detect_image_type(b"RIFF" + b"\x00" * 4 + b"WEBP") == "image/webp"
+        assert MediaTools._detect_image_type(b"nope1234") is None
+
+
+class TestBrowserScreenshot:
+    async def test_disabled(self):
+        assert "not enabled" in await _tools()._handle_browser_screenshot(_message(), {})
+
+    async def test_success_and_error(self):
+        t = _tools(browser_manager=MagicMock())
+        msg = _message()
+        with patch("src.tools.browser.handle_browser_screenshot",
+                   new=AsyncMock(return_value=("shot taken", PNG))):
+            assert await t._handle_browser_screenshot(msg, {}) == "shot taken"
+            msg.channel.send.assert_awaited_once()
+        with patch("src.tools.browser.handle_browser_screenshot",
+                   new=AsyncMock(side_effect=RuntimeError("x"))):
+            assert "failed" in await t._handle_browser_screenshot(msg, {})
+
+
+class TestGenerateFile:
+    async def test_success(self):
+        msg = _message()
+        out = await _tools()._handle_generate_file(
+            msg, {"filename": "a.txt", "content": "hello", "caption": "cap"})
+        assert "`a.txt`" in out and "5 bytes" in out
+        msg.channel.send.assert_awaited_once()
+
+    async def test_send_failure(self):
+        msg = _message()
+        msg.channel.send = AsyncMock(side_effect=RuntimeError("nope"))
+        assert "Failed to post file" in await _tools()._handle_generate_file(
+            msg, {"content": "x"})
+
+
+class TestPostFile:
+    async def test_validation_and_unknown_host(self):
+        assert "required" in await _tools()._handle_post_file(_message(), {"host": "h"})
+        t = _tools(tool_executor=_executor(resolve=None))
+        assert "Unknown or disallowed host" in await t._handle_post_file(
+            _message(), {"host": "h", "path": "/p"})
+
+    async def test_local_read(self, tmp_path):
+        f = tmp_path / "f.bin"
+        f.write_bytes(b"data")
+        msg = _message()
+        with patch("src.tools.ssh.is_local_address", return_value=True):
+            out = await _tools()._handle_post_file(msg, {"host": "localhost", "path": str(f)})
+        assert "Posted `f.bin`" in out
+
+    async def test_local_missing_and_errors(self, tmp_path):
+        with patch("src.tools.ssh.is_local_address", return_value=True):
+            assert "File not found" in await _tools()._handle_post_file(
+                _message(), {"host": "localhost", "path": str(tmp_path / "nope")})
+            with patch("builtins.open", side_effect=PermissionError):
+                assert "Permission denied" in await _tools()._handle_post_file(
+                    _message(), {"host": "localhost", "path": "/p"})
+            with patch("builtins.open", side_effect=OSError("io")):
+                assert "Failed to read file" in await _tools()._handle_post_file(
+                    _message(), {"host": "localhost", "path": "/p"})
+
+    async def test_remote_ssh(self, tmp_path):
+        b64 = base64.b64encode(b"remote-bytes")
+        proc = MagicMock()
+        proc.communicate = AsyncMock(return_value=(b64, b""))
+        proc.returncode = 0
+        with patch("src.tools.ssh.is_local_address", return_value=False), \
+             patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
+            out = await _tools()._handle_post_file(
+                _message(), {"host": "srv", "path": "/etc/x"})
+        assert "Posted `x`" in out
+
+    async def test_remote_ssh_failure(self):
+        proc = MagicMock()
+        proc.communicate = AsyncMock(return_value=(b"", b"denied"))
+        proc.returncode = 1
+        with patch("src.tools.ssh.is_local_address", return_value=False), \
+             patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
+            assert "Failed to fetch file" in await _tools()._handle_post_file(
+                _message(), {"host": "srv", "path": "/p"})
+
+    async def test_remote_timeout_and_generic_error(self):
+        proc = MagicMock()
+        proc.communicate = AsyncMock(side_effect=TimeoutError())
+        with patch("src.tools.ssh.is_local_address", return_value=False), \
+             patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
+            assert "timed out" in await _tools()._handle_post_file(
+                _message(), {"host": "srv", "path": "/p"})
+        proc.communicate = AsyncMock(side_effect=RuntimeError("boom"))
+        with patch("src.tools.ssh.is_local_address", return_value=False), \
+             patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=proc)):
+            assert "Failed to fetch file" in await _tools()._handle_post_file(
+                _message(), {"host": "srv", "path": "/p"})
+
+    async def test_empty_file(self, tmp_path):
+        empty = tmp_path / "empty.bin"
+        empty.write_bytes(b"")
+        with patch("src.tools.ssh.is_local_address", return_value=True):
+            assert "not found or empty" in await _tools()._handle_post_file(
+                _message(), {"host": "localhost", "path": str(empty)})
+
+    async def test_too_large(self, tmp_path):
+        big = tmp_path / "big.bin"
+        big.write_bytes(b"\x00" * (25 * 1024 * 1024 + 1))
+        with patch("src.tools.ssh.is_local_address", return_value=True):
+            out = await _tools()._handle_post_file(
+                _message(), {"host": "localhost", "path": str(big)})
+        assert "too large" in out
+
+    async def test_discord_http_error(self, tmp_path):
+        f = tmp_path / "f.bin"
+        f.write_bytes(b"data")
+        msg = _message()
+        msg.channel.send = AsyncMock(side_effect=_http_exc())
+        with patch("src.tools.ssh.is_local_address", return_value=True):
+            assert "Failed to upload to Discord" in await _tools()._handle_post_file(
+                msg, {"host": "localhost", "path": str(f)})
+
+
+def _binary_image(data: bytes = b"", error: str = ""):
+    """Patch the BINARY host-read path used by analyze_image.
+
+    Host images used to arrive as base64 through the text pipeline, which
+    truncates at 16,000 chars — so anything over ~12KB was corrupt on arrival
+    (adversarial review of v3.65.1).
+    """
+    async def _read(address, path, **kwargs):
+        return (None, error) if error else (data, "")
+
+    return patch("src.tools.ssh.read_binary_file", _read)
+
+
+class TestAnalyzeImage:
+    async def test_url_scheme_and_ssrf(self):
+        assert "http://" in await _tools()._handle_analyze_image(_message(), {"url": "ftp://x"})
+        with patch("src.tools.url_safety.is_url_blocked", return_value=True):
+            assert "URL blocked" in await _tools()._handle_analyze_image(
+                _message(), {"url": "http://169.254.169.254"})
+
+    async def test_url_fetch_variants(self):
+        # analyze_image now routes through the hardened safe_fetch transport
+        # (follow_redirects=False); patch it to return canned responses.
+        from src.tools.safe_fetch import SafeFetchResponse
+
+        def _ff(status=200, ct="image/png", data=PNG):
+            async def _f(url, **kw):
+                return SafeFetchResponse(status, {}, data, ct, url, "")
+            return _f
+
+        async def _raise(url, **kw):
+            raise RuntimeError("neterr")
+
+        with patch("src.tools.safe_fetch.safe_fetch", _ff(status=404)):
+            assert "HTTP 404" in await _tools()._handle_analyze_image(
+                _message(), {"url": "http://ok/img"})
+        with patch("src.tools.safe_fetch.safe_fetch", _ff(ct="text/html")):
+            assert "does not point to an image" in await _tools()._handle_analyze_image(
+                _message(), {"url": "http://ok/x"})
+        with patch("src.tools.safe_fetch.safe_fetch", _ff()):
+            out = await _tools()._handle_analyze_image(
+                _message(), {"url": "http://ok/img", "prompt": "what?"})
+            assert isinstance(out, dict) and "__image_block__" in out
+
+        from src.tools.safe_fetch import ResponseTooLargeError
+
+        async def _too_big(url, **kw):
+            raise ResponseTooLargeError("big")
+
+        with patch("src.tools.safe_fetch.safe_fetch", _too_big):
+            assert "too large" in await _tools()._handle_analyze_image(
+                _message(), {"url": "http://ok/img"})
+            assert out["__prompt__"] == "what?"
+        with patch("src.tools.safe_fetch.safe_fetch", _raise):
+            assert "Failed to fetch image" in await _tools()._handle_analyze_image(
+                _message(), {"url": "http://ok/x"})
+
+    async def test_host_path(self):
+        with _binary_image(PNG):
+            out = await _tools(tool_executor=_executor())._handle_analyze_image(
+                _message(), {"host": "srv", "path": "/img.png"})
+        assert isinstance(out, dict) and "__image_block__" in out
+
+    async def test_host_path_errors(self):
+        assert "Unknown or disallowed host" in await _tools(
+            tool_executor=_executor(resolve=None))._handle_analyze_image(
+                _message(), {"host": "h", "path": "/p"})
+        # Patched: without this the handler attempts a REAL ssh to the fake
+        # host and the test waits out a connection timeout.
+        with _binary_image(error="err"):
+            assert "Failed to read image" in await _tools(
+                tool_executor=_executor())._handle_analyze_image(
+                    _message(), {"host": "srv", "path": "/p"})
+
+    async def test_host_read_failure_and_empty(self):
+        # A read failure is reported with its reason (base64 decoding is gone:
+        # the binary path returns bytes, so there is nothing to mis-decode).
+        with _binary_image(error="permission denied"):
+            assert "Failed to read image from host" in await _tools(
+                tool_executor=_executor())._handle_analyze_image(
+                    _message(), {"host": "s", "path": "/p"})
+        with _binary_image(b""):
+            assert "No image data" in await _tools(
+                tool_executor=_executor())._handle_analyze_image(
+                    _message(), {"host": "s", "path": "/p"})
+
+    async def test_host_image_larger_than_the_text_transport(self):
+        """The defect: >12KB was truncated by the old base64-over-stdout path."""
+        png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 60_000
+        with _binary_image(png):
+            out = await _tools(tool_executor=_executor())._handle_analyze_image(
+                _message(), {"host": "s", "path": "/p"})
+        assert "Failed to read" not in out and "No image data" not in out
+
+    async def test_neither_source(self):
+        assert "Provide either" in await _tools()._handle_analyze_image(_message(), {})
+
+    async def test_size_and_format_limits(self):
+        big = b"\x89PNG\r\n\x1a\n" + b"\x00" * (5 * 1024 * 1024)
+        with _binary_image(big):
+            assert "exceeds 5MB" in await _tools(
+                tool_executor=_executor())._handle_analyze_image(
+                    _message(), {"host": "s", "path": "/p"})
+        with _binary_image(b"notanimage!!"):
+            assert "Unsupported image format" in await _tools(
+                tool_executor=_executor())._handle_analyze_image(
+                    _message(), {"host": "s", "path": "/p"})
+
+
+class TestGenerateImage:
+    """The handler dispatches to the image selector and owns Discord posting;
+    backend selection/wire behavior is covered in test_image_backends.py."""
+
+    @staticmethod
+    def _selector(result=None, error=None):
+        sel = MagicMock()
+        sel.generate = AsyncMock(return_value=result, side_effect=error)
+        return sel
+
+    @staticmethod
+    def _result(backend="openai"):
+        from src.tools.image import ImageResult
+
+        return ImageResult(PNG, "image/png", 1024, 1024, backend, "gpt-image-2")
+
+    async def test_no_selector_and_no_prompt(self):
+        # No backend wired at all -> not available.
+        no_sel = _tools()
+        assert "not available" in await no_sel._handle_generate_image(_message(), {"prompt": "x"})
+        # Selector present but missing prompt -> required.
+        t = _tools(image_selector=self._selector(result=self._result()))
+        assert "required" in await t._handle_generate_image(_message(), {})
+
+    async def test_success_posts_attachment(self):
+        sel = self._selector(result=self._result(backend="openai"))
+        msg = _message()
+        msg.channel.send.return_value = SimpleNamespace(attachments=[
+            SimpleNamespace(url="https://cdn.discordapp.com/attachments/123/456/generated.png?ex=abc")
+        ])
+        out = await _tools(image_selector=sel)._handle_generate_image(msg, {"prompt": "a cat"})
+        # Generic user-facing string — the backend name is NOT surfaced there...
+        assert "Image generated (1024x1024" in str(out)
+        assert "openai" not in str(out).lower()
+        msg.channel.send.assert_awaited_once()
+        # ...but IS recorded in the (non-model-facing) audit metadata.
+        assert out.audit_metadata["backend"] == "openai"
+        assert out.audit_metadata["delivery_status"] == "posted"
+        assert "https://cdn.discordapp.com/attachments/123/456/generated.png?ex=abc" in str(out)
+        assert out.audit_metadata["attachment_url_available"] is True
+
+    async def test_success_does_not_expose_non_discord_attachment_url(self):
+        sel = self._selector(result=self._result())
+        msg = _message()
+        msg.channel.send.return_value = SimpleNamespace(attachments=[
+            SimpleNamespace(url="https://attacker.example/image.png?token=secret")
+        ])
+        out = await _tools(image_selector=sel)._handle_generate_image(msg, {"prompt": "x"})
+        assert "attacker.example" not in str(out)
+        assert "token=secret" not in str(out)
+        assert out.audit_metadata["attachment_url_available"] is False
+
+    async def test_attachment_url_guard_rejects_lookalikes_and_credentials(self):
+        from src.discord.native_tools.media import _safe_discord_attachment_url
+
+        assert _safe_discord_attachment_url("https://cdn.discordapp.com/a.png")
+        assert _safe_discord_attachment_url("https://cdn.discordapp.com.evil/a.png") is None
+        assert _safe_discord_attachment_url("https://user@cdn.discordapp.com/a.png") is None
+        assert _safe_discord_attachment_url("http://cdn.discordapp.com/a.png") is None
+
+    async def test_backend_failure_and_http_error(self):
+        from src.tools.image import ImageGenError
+
+        sel = self._selector(error=ImageGenError("no backend"))
+        assert "failed" in await _tools(image_selector=sel)._handle_generate_image(
+            _message(), {"prompt": "x"}
+        )
+        # Upload failure: generation ran, so the metadata still records the
+        # backend with delivery_status=upload_failed.
+        sel = self._selector(result=self._result(backend="openai"))
+        msg = _message()
+        msg.channel.send = AsyncMock(side_effect=_http_exc())
+        out = await _tools(image_selector=sel)._handle_generate_image(msg, {"prompt": "x"})
+        assert "Failed to upload generated" in str(out)
+        assert out.audit_metadata["backend"] == "openai"
+        assert out.audit_metadata["delivery_status"] == "upload_failed"
+        assert not out.ok
+        assert out.error == "image_delivery_failed"
+        assert "do not regenerate" in out.output
+        sel.generate.assert_awaited_once()
+
+    async def test_removed_options_are_rejected_before_generation(self):
+        sel = self._selector(result=self._result())
+        out = await _tools(image_selector=sel)._handle_generate_image(
+            _message(), {"prompt": "x", "size": "1024x1024", "negative": "blur"}
+        )
+        assert out == "Unsupported image generation option(s): negative, size"
+        sel.generate.assert_not_awaited()
+
+    async def test_unexpected_error_is_contained(self):
+        # A non-ImageGenError must not leak a payload — generic catch-all.
+        sel = self._selector(error=RuntimeError("raw provider blob"))
+        out = await _tools(image_selector=sel)._handle_generate_image(
+            _message(), {"prompt": "x"}
+        )
+        assert "unexpectedly" in out and "raw provider blob" not in out
+
+
+def test_unwrap_native_result():
+    # generate_image returns a ToolResult (audit_metadata); other native tools
+    # return a plain string/dict. The tool_loop unwrapper handles both.
+    from src.discord.tool_loop import _unwrap_native_result
+    from src.tools.result_validator import ToolResult
+
+    tr = ToolResult(output="hi", audit_metadata={"backend": "openai"})
+    tool_result, out = _unwrap_native_result(tr)
+    assert tool_result is tr and out == "hi"
+    assert _unwrap_native_result("plain") == (None, "plain")
+    block = {"__image_block__": 1}
+    assert _unwrap_native_result(block) == (None, block)
