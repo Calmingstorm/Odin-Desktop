@@ -1,6 +1,6 @@
 # Prompt changes for Odin Desktop
 
-Owner: Claude. Draft 2, 2026-10-04. This implements decision **D1**: Odin Desktop's prompt, and the rest of its
+Owner: Claude. Draft 3, 2026-10-04. This implements decision **D1**: Odin Desktop's prompt, and the rest of its
 model-facing text, does not mention Discord.
 
 **The rule.** Only the Discord references change. Every other byte of the personality presets and system templates
@@ -78,16 +78,20 @@ destination, not a free-form ID. `read_conversation` loses its channel-ID input 
 
 ### Tool results and errors the model sees
 
-Every "Discord" or "channel" in delivery receipts and errors becomes "conversation", with every other clause intact.
+Apply only the named retained-receipt substitutions in round-3 sections C2 and C4. Remove the named Discord-only
+branches along with their features. Emit adapted store and HTTP diagnostics only for their actual conditions. Never
+mechanically rewrite arbitrary tool output, user skill text, source identifiers or historical material.
+
 Examples:
 - "Posted `{file}` (…) to channel." becomes "…to conversation."
 - "Failed to upload to Discord: {e}" becomes "Failed to upload to the conversation: {e}".
-- "…Generation already succeeded; do not regenerate automatically." keeps its no-regeneration clause.
+- The no-regeneration clause on image-upload failure stays.
 - The resume messages "Discord currently denies access…" and "Discord could not fetch…" become "The conversation store
   …", and are emitted only for the matching store condition.
-- "Discord API error: HTTP…" is removed. Where an adapter genuinely reports HTTP, it becomes "API error: HTTP…".
 
-The full list is in Odin's round-3 file (sections C2 and C4).
+**The approval inventory.** The tables in part C are abbreviated. The exact retained substitutions and dispositions
+are round-3 sections C1 to C7, including retained config and status metadata. Unchanged parts of each description
+stay intact. Schema and handler adaptations get their own ledger entries and tests.
 
 ### Skill documentation and the skill API
 

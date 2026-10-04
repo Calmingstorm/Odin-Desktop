@@ -1,6 +1,6 @@
 # Architecture
 
-Owner: Claude. Draft 3, 2026-10-04 (Odin's round-3 review applied). It consolidates what Claude and Odin agreed in rounds 1 and 2, and Aaron's
+Owner: Claude. Draft 4, 2026-10-04 (Odin's round-3 and round-4 reviews applied). It consolidates what Claude and Odin agreed in rounds 1 and 2, and Aaron's
 decisions D1 to D6 ([brief](00-brief.md#aarons-decisions-2026-10-04-after-round-1)). Detailed contracts
 live in [`core-contracts.md`](core-contracts.md), owned by Odin. The per-file reuse plan is in
 [`reuse-map.md`](reuse-map.md), also owned by Odin. Items marked **(round 2)** are being settled now.
@@ -113,8 +113,8 @@ runtime service and tool authority/platform service. See [`core-contracts.md`](c
 - **Shell: Electron for v1** (Claude and Odin, round 2), conditional on qualifying rendering, accessibility and
   security on Linux. The renderer lockdown requirements are in [`platform.md`](platform.md#2-ui-shell-options).
 - **IPC.** An owner-only Unix socket (a named pipe on Windows) held by the app's main process, never the renderer. It
-  uses a profile-scoped credential and a versioned, framed protocol with capability negotiation. There is no TCP
-  listener. The core contracts (section 7) cover the handshake, command IDs, event cursors and catch-up.
+  uses a profile-scoped credential and a versioned, framed protocol with capability negotiation. The core contracts
+  (section 7) cover the handshake, command IDs, event cursors and catch-up. App/core and chat/control IPC have no TCP listener. A separately activated, scoped inbound webhook integration listener may exist only under [core-contracts section 8](core-contracts.md#8-inbound-webhook-integration-ingress) and Aaron's selected option; it exposes no general client/control API.
 - **Committed text only.** Reply text reaches the UI only after the existing guard and classifier path accepts it.
   Provider deltas and rejected drafts are never shown. Live tool, task and control activity is shown, from code-owned
   facts.
@@ -130,18 +130,25 @@ runtime service and tool authority/platform service. See [`core-contracts.md`](c
 - **Phone and remote access:** not in the first versions (D6). The IPC protocol is versioned and has capability
   negotiation, so a remote client can be added later without reworking the core.
 
-## 7. Open design item: inbound webhook triggers
+## 7. Inbound webhook triggers
 
-Today, Odin's web server receives webhooks that fire schedules. D2 keeps that capability, but the desktop app has no
-general network listener, and D6 excludes remote access. Webhook triggers therefore need their own small, explicitly
-scoped ingress, separate from any future remote-client seam. The design must cover:
-- where it listens;
-- per-trigger authentication;
-- its lifetime, which follows the app;
-- that it publishes nothing until it is qualified.
+Today, Odin's web server receives webhooks that fire schedules. D2 keeps that capability. The desktop app has no
+general network listener, and D6 excludes remote access, so triggers get their own small, separately activated ingress.
+It is **specified in [`core-contracts.md` section 8](core-contracts.md#8-inbound-webhook-integration-ingress)** for both
+of Aaron's options: loopback only, or an opt-in LAN or tailnet bind.
 
-The scope is a question for Aaron; see [`decisions-for-aaron.md`](decisions-for-aaron.md). Until this is designed and
-qualified, trigger parity is unproven, and configured triggers are never silently dropped.
+The contract covers:
+- **Lifecycle:** app-owned, and only while eligible webhook-triggered schedules exist.
+- **Bind policy:** exact binds, with no fallback to a wider address.
+- **Authentication:** per-trigger credentials scoped to an authorized candidate set. Today's `fire_triggers` scans every
+  schedule, so a scope is required.
+- **Limits and replay:** bounds, saturation controls and durable replay receipts.
+- **Preserved behaviour:** today's matching and no-replay fences.
+- **Receipts:** separate receipts for admission, effect and publication.
+- **D6 separation:** no chat, control or config surface.
+
+**Still to come:** Aaron's scope decision, then implementation and qualification. Until then, trigger parity is
+unproven, and configured triggers are never silently dropped.
 
 ## 8. Portability seams (Windows and macOS later)
 

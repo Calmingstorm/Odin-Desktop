@@ -14,6 +14,9 @@ Odin recommend something, it says so.
   reactions, polls, purge) are removed.
 - **Guard file:** one comment and one docstring, listed separately because they sit in guard code. No logic changes.
 
+The exact approval inventory is Odin's round-3 sections C1 to C7. Approving wording does not lift the 25 MB file limit
+or change any guard behaviour; those would be separate decisions.
+
 ## 2. Shell: Electron (recommended)
 
 Claude and Odin both recommend Electron for v1. It renders reliably on Linux and reuses web UI work. It is conditional on

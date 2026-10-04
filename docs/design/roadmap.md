@@ -1,6 +1,6 @@
 # Roadmap
 
-Owner: Claude, reviewed by Odin. Draft 3, 2026-10-04 (Odin's round-3 review applied), built around D4: bring Odin's code over and maintain both
+Owner: Claude, reviewed by Odin. Draft 4, 2026-10-04 (Odin's round-3 and round-4 reviews applied), built around D4: bring Odin's code over and maintain both
 repositories. There is no shared package and no work in the Odin repository. Every phase has a gate, and nothing starts
 without Aaron's go for that phase.
 
@@ -11,7 +11,9 @@ without Aaron's go for that phase.
 
 ## Phase 1: bring over (this repository)
 
-Follow [`maintenance.md`](maintenance.md) section 3, steps 1 to 4.
+Follow [`maintenance.md`](maintenance.md) section 3: steps 1 to 3, plus only the profile, path, secret, authority
+and capability foundation from step 4. Step 4's request, control and durable-surface wiring, and its coupled
+integration gates, complete in Phase 2. Deferred gates are recorded explicitly; none is waived.
 
 - **Work:**
   - Freeze and record the **baseline**: a clean upstream Odin release chosen when this phase is approved.
@@ -26,8 +28,12 @@ Follow [`maintenance.md`](maintenance.md) section 3, steps 1 to 4.
     fake privileged shim is built to make them pass early.
   - **The drift report** shows shared modules matching the baseline, and every adaptation ledgered.
   - **Removed features leave no references.** No operative, model-facing or shipped references remain in source,
-    dependencies or the built package. There is a narrow, reviewed allowlist for provenance, legal notices and negative
-    test fixtures.
+    resolved dependencies or packaging inputs.
+    - There is a narrow, reviewed allowlist for provenance, legal notices and negative test fixtures.
+    - Credential-recognition patterns may keep the names and shapes of real third-party secrets. That exception permits
+      protection only, not a removed feature, transport dependency, registration or model-facing guidance.
+    - Scans of the built distribution and the offered runtime catalog are explicit later gates, run once those
+      artifacts exist (Phases 3 and 4).
 
 ## Phase 2: desktop engine (headless, Linux)
 
@@ -37,7 +43,7 @@ Follow [`maintenance.md`](maintenance.md) section 3, steps 1 to 4.
   - local IPC;
   - per-user paths and keyring secrets;
   - the missed-run policy;
-  - the inbound-webhook design, if Aaron includes it.
+  - the inbound webhook ingress ([`core-contracts.md`](core-contracts.md) section 8), if Aaron includes it.
 
   A test harness supervises the core during this phase. It is never a shippable daemon alternative to D3.
 - **Gate:** the core-contract suite passes headless. It covers:
@@ -51,7 +57,8 @@ Follow [`maintenance.md`](maintenance.md) section 3, steps 1 to 4.
   - storage failure;
   - revocation;
   - loss of the core or the app;
-  - running alongside a server install with fresh data and no shared state.
+  - running alongside a server install with fresh data and no shared state;
+  - if Aaron includes webhook triggers, the section-8 ingress acceptance cases.
 
 ## Phase 3: the app v1 (Linux)
 

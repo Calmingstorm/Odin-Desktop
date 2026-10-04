@@ -130,7 +130,7 @@ offered but not configured.
 |---|---|---|
 | Package and binary names | `odin`, `odin-server`, `/opt/odin`, `odin.service` (system) | `odin-desktop`; never touches `/opt/odin` |
 | Service | system unit, user `odin` | No service. Odin is a supervised child of the app's main process (D3). Start at login is an XDG autostart entry for the app. |
-| Network | HTTP on port 3002 (configurable), optionally on the LAN | No TCP listener. Local IPC is an owner-only socket. Inbound webhook triggers are a separate open design item ([architecture](architecture.md#7-open-design-item-inbound-webhook-triggers)). |
+| Network | HTTP on port 3002 (configurable), optionally on the LAN | Local IPC is an owner-only socket. App/core and chat/control IPC have no TCP listener. A separately activated, scoped inbound webhook integration listener may exist only under [core-contracts section 8](core-contracts.md#8-inbound-webhook-integration-ingress) and Aaron's selected option; it exposes no general client/control API. |
 | Data | `/opt/odin/data`, `config.yml` | Fresh per-user XDG paths and its own config schema version |
 | Credentials | `data/codex_auth_*.json` | Its own keyring entries, with fresh sign-in |
 
