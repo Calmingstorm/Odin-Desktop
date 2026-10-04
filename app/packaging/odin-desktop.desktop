@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Odin
+Comment=Odin, your execution agent
+Exec=odin-desktop %U
+Icon=odin-desktop
+Terminal=false
+Categories=Utility;
+StartupWMClass=Odin
+Actions=exit;
+
+[Desktop Action exit]
+Name=Exit Odin
+Exec=odin-desktop --exit
