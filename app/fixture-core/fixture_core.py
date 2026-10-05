@@ -26,7 +26,7 @@ import sys
 import uuid
 from datetime import datetime, timezone
 
-PROTOCOL = {"major": 0, "minor": 1}
+PROTOCOL = {"major": 0, "minor": 2}
 MAX_FRAME = 4 * 1024 * 1024
 EVENT_RETENTION = 5000
 RESULT_CACHE = 2000
@@ -93,6 +93,7 @@ class Core:
         self.active: dict[str, str] = {}  # conversation_id -> request_id
         self.queued: dict[str, list[str]] = {}
         self.recent: dict[str, list[dict]] = {}  # conversation_id -> latest terminal outcomes
+        self.unresolved: dict[str, list[dict]] = {}  # conversation_id -> outcomes with unreconciled effects
         self.tools: dict[str, list[dict]] = {}  # request_id -> tool entries
         self.controls: dict[str, dict] = {}  # control_command_id -> latest disposition
         self.submissions: dict[str, dict] = {}
@@ -244,9 +245,18 @@ class Core:
             reset = after_seq < 0 or after_seq > self.seq or (after_seq < oldest - 1)
         return {"event_high": str(self.seq), "reset_required": reset}
 
+    def activity(self, cid: str) -> dict:
+        running_id = self.active.get(cid)
+        running = None
+        if running_id:
+            running = {"request_id": running_id, "generation": self.requests[running_id]["generation"]}
+        queued = [{"request_id": rid, "generation": self.requests[rid]["generation"]} for rid in self.queued.get(cid, [])]
+        return {"running": running, "queued": queued}
+
     def m_conv_list(self, _params: dict, _writer) -> dict:
-        items = sorted(self.conversations.values(), key=lambda c: c["updated_at"])
-        return {"items": items}
+        items = [{**conv, "activity": self.activity(conv["id"])}
+                 for conv in sorted(self.conversations.values(), key=lambda c: c["updated_at"])]
+        return {"items": items, "watermark": str(self.seq)}
 
     def m_conv_create(self, params: dict, _writer) -> dict:
         title = str(params.get("title") or "Chat")[:200]
@@ -313,6 +323,7 @@ class Core:
             "running": running,
             "queued": queued,
             "recent": list(self.recent.get(cid, [])),
+            "unresolved": list(self.unresolved.get(cid, [])),
             "tools": {rid: [dict(t) for t in self.tools[rid]] for rid in sorted(shown) if self.tools.get(rid)},
             "controls": [dict(c) for c in self.controls.values() if c["request_id"] in bound],
         }
@@ -386,14 +397,15 @@ class Core:
     def record_control(self, command_id: str, kind: str, req: dict, disposition: str, *, emit: bool = True,
                        sequence: int | None = None) -> None:
         record = self.controls.setdefault(command_id, {"control_command_id": command_id, "kind": kind,
-                                                       "request_id": req["id"]})
+                                                       "request_id": req["id"], "generation": req["generation"]})
         record["disposition"] = disposition
         if sequence is not None:
             record["sequence"] = sequence
         if emit:
             self.emit("control.receipt", "control", command_id,
                       {"conversation_id": req["conversation_id"], "request_id": req["id"],
-                       "control_command_id": command_id, "kind": kind, "disposition": disposition})
+                       "generation": req["generation"], "control_command_id": command_id, "kind": kind,
+                       "disposition": disposition})
 
     def finish(self, req: dict, terminal: str) -> None:
         cid = req["conversation_id"]
@@ -402,6 +414,9 @@ class Core:
         recent = self.recent.setdefault(cid, [])
         recent.append(outcome)
         del recent[:-RECENT_OUTCOMES]
+        if outcome["unknown_effects"]:
+            # Kept until reconciled; later outcomes never push it out.
+            self.unresolved.setdefault(cid, []).append(dict(outcome))
         self.emit(terminal, "request", req["id"],
                   {"conversation_id": cid, "request_id": req["id"], "generation": req["generation"],
                    "unknown_effects": 0})

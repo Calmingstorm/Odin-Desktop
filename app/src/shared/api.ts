@@ -20,6 +20,16 @@ export interface Conversation {
   archived: boolean
 }
 
+export interface ConversationActivity {
+  running: RequestRef | null
+  queued: RequestRef[]
+}
+
+/** A `conversations.list` item: the record plus what is running or queued in it. */
+export interface ConversationListItem extends Conversation {
+  activity?: ConversationActivity
+}
+
 export type MessageRole = 'user' | 'assistant' | 'notice'
 
 export interface Message {
@@ -67,6 +77,7 @@ export interface ControlRecord {
   control_command_id: string
   kind: 'stop' | 'steer'
   request_id: string
+  generation: number
   disposition: string
   sequence?: number
 }
@@ -79,6 +90,8 @@ export interface ConversationSnapshot {
   running: RunningRequest | null
   queued: QueuedRequest[]
   recent: TerminalOutcome[]
+  /** Outcomes whose unknown effects aren't reconciled yet. Never trimmed by later outcomes. */
+  unresolved: TerminalOutcome[]
   tools: Record<string, ToolEntry[]>
   controls: ControlRecord[]
 }
@@ -133,7 +146,7 @@ export interface ControlTarget {
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
 export interface OdinApi {
   status(): Promise<Result<CoreStatus>>
-  listConversations(): Promise<Result<{ items: Conversation[] }>>
+  listConversations(): Promise<Result<{ items: ConversationListItem[]; watermark: string }>>
   createConversation(params: { title?: string; parent_id?: string }): Promise<Result<{ conversation: Conversation }>>
   listMessages(params: { conversation_id: string; before?: string; limit?: number }): Promise<Result<{ items: Message[]; has_more: boolean; watermark: string }>>
   snapshotConversation(params: { conversation_id: string; limit?: number }): Promise<Result<ConversationSnapshot>>

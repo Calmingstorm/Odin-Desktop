@@ -69,7 +69,7 @@ Every message has a type field `t`. An unknown `t` is a protocol error. Unknown 
 |---|---|---|
 | `status.get` | `{}` | `{phase, core_instance_id, version, capabilities}`. Phase is one of `starting`, `ready`, `degraded`, `quiescing`. |
 | `events.subscribe` | `{after: cursor or null}` | `{event_high, reset_required}`. If `after` is unknown or expired, `reset_required` is true: see **Reset** under the delivery rules. |
-| `conversations.list` | `{}` | `{items: [{id, title, rev, parent_id, updated_at, unread, archived}]}` |
+| `conversations.list` | `{}` | `{items, watermark}`. Each item is `{id, title, rev, parent_id, updated_at, unread, archived, activity}`, where `activity` is `{running: {request_id, generation} or null, queued: [{request_id, generation}]}`. The list is complete through `watermark`, under the same snapshot rules as below. |
 | `conversations.create` | `{title?, parent_id?}` | `{conversation}`. A `parent_id` makes a child seeded from the parent's current context. |
 | `conversations.update` | `{id, expected_rev, title?, archived?}` | `{conversation}`, or the error `stale_binding` if `expected_rev` doesn't match |
 | `messages.list` | `{conversation_id, before?, limit}` | `{items, has_more, watermark}`. Committed messages only, newest last. `limit` is at most 100. Used for older pages; the current state comes from `conversation.snapshot`. |
@@ -93,9 +93,10 @@ reconnect, a reset or a window reload, without relying on events it may have mis
 | `messages` | `{items, has_more}`: the latest committed messages (at most `limit`, default 100), newest last |
 | `running` | `{request_id, generation, started_at}` or `null`. The only valid Stop and Steer target. |
 | `queued` | `[{request_id, generation, message_id}]`, oldest first. Follow-ups waiting behind `running`. |
-| `recent` | The latest terminal outcomes, newest last: `[{request_id, generation, outcome, unknown_effects, at}]`. `outcome` is `completed`, `failed`, `cancelled`, `interrupted` or `suspended`. Unknown effects stay visible here even after the request ended. |
+| `recent` | The latest terminal outcomes, newest last, at most 20: `[{request_id, generation, outcome, unknown_effects, at}]`. `outcome` is `completed`, `failed`, `cancelled`, `interrupted` or `suspended`. |
+| `unresolved` | Every terminal outcome in the conversation whose unknown effects are not reconciled yet, oldest first, in the same shape as `recent`. Never trimmed and never cleared by later outcomes: a later success is not a reconciliation. An entry leaves only through `effects.resolved`. |
 | `tools` | `{<request_id>: [{invocation_id, tool, target?, summary, outcome?, exit_code?, duration_ms?}]}` for the running request and the requests behind the listed messages |
-| `controls` | `[{control_command_id, kind, request_id, disposition, sequence?}]`: every Stop and Steer bound to the running or queued requests, with its latest disposition |
+| `controls` | `[{control_command_id, kind, request_id, generation, disposition, sequence?}]`: every Stop and Steer bound to the running or queued requests, with its latest disposition. It replaces the app's projection of those controls. |
 
 ## Events
 
@@ -108,7 +109,8 @@ reconnect, a reset or a window reload, without relying on events it may have mis
 | `request.completed`, `request.failed`, `request.cancelled`, `request.interrupted`, `request.suspended` | `{conversation_id, request_id, generation, unknown_effects}` |
 | `tool.started` | `{conversation_id, request_id, invocation_id, tool, target?, summary}` (scrubbed) |
 | `tool.settled` | `{conversation_id, request_id, invocation_id, outcome, exit_code?, duration_ms, evidence_ref?}`. `outcome` is one of `success`, `failure`, `unknown`. |
-| `control.receipt` | `{conversation_id, request_id, control_command_id, kind, disposition}`. `kind` is `stop` or `steer`. `disposition` is one of `requested`, `confirmed`, `queued`, `consumed`, `closed`, `stale_binding`. |
+| `control.receipt` | `{conversation_id, request_id, generation, control_command_id, kind, disposition}`. `kind` is `stop` or `steer`. `disposition` is one of `requested`, `confirmed`, `queued`, `consumed`, `closed`, `stale_binding`. |
+| `effects.resolved` | `{conversation_id, request_id, generation, remaining}`. Unknown effects of that request were reconciled; when `remaining` is 0 it leaves `unresolved`. How effects are reconciled is defined in Phase 2. |
 
 **No event ever carries reply text that the guards have not accepted** (D9).
 
@@ -123,8 +125,13 @@ reconnect, a reset or a window reload, without relying on events it may have mis
   the app holds that conversation's events and replays the ones above the watermark when it arrives. A snapshot older
   than state the app has already applied is discarded, and so is the answer to a superseded snapshot request.
 - **Reset.** `reset_required` means the interval since the app's cursor is unknown, never empty. The app's event
-  cursor moves to `event_high`, every conversation projection is discarded, and each open view fetches a fresh
-  snapshot. Nothing from the old projections survives a reset.
+  cursor moves to `event_high`, every conversation projection is discarded, the conversation list is reloaded, and
+  each open view fetches a fresh snapshot. Nothing from the old projections survives a reset.
+- **Subscriptions are stream control, not commands.** The answer to `events.subscribe` is applied whenever it arrives,
+  even after the request timed out, and before any event that follows it. A subscription is never re-sent as an
+  unreceipted command: each connection makes exactly one new one.
+- **Acting on a view.** The app sends a message, Steer or Stop for a conversation only while that conversation's
+  projection is authoritative (its snapshot has arrived). While it loads, drafts are kept and nothing is routed.
 - **A lost receipt.** If a `req` gets no `res` (a timeout or disconnect), the app re-sends the **same `id`** after
   reconnecting. It never invents a new one. The core answers a known `id` with its original result. Until then the
   outcome is unknown, which the app shows as "waiting for confirmation", never as a failure.

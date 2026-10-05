@@ -1,8 +1,17 @@
 // The window's state store, driven through a fake bridge: snapshots, held events, control targets and receipts.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AppState, Conversation, ConversationSnapshot, CoreEvent, LateReceipt, Message, Result } from '../src/shared/api'
+import type {
+  AppState,
+  Conversation,
+  ConversationListItem,
+  ConversationSnapshot,
+  CoreEvent,
+  LateReceipt,
+  Message,
+  Result
+} from '../../src/shared/api'
 
-type Store = typeof import('../src/renderer/src/store')
+type Store = typeof import('../../src/renderer/src/store')
 
 const CONVERSATION: Conversation = {
   id: 'c1',
@@ -40,6 +49,7 @@ function snapshot(fields: Partial<ConversationSnapshot> & { watermark: string })
       running: null,
       queued: [],
       recent: [],
+      unresolved: [],
       tools: {},
       controls: [],
       ...fields
@@ -66,12 +76,15 @@ function fakeBridge() {
     reset: [] as Array<(r: { event_high: string }) => void>
   }
   const calls = {
+    submit: [] as Array<Record<string, unknown>>,
     snapshot: [] as unknown[],
     listMessages: [] as Array<Record<string, unknown>>,
     steer: [] as Array<Record<string, unknown>>,
     stop: [] as Array<Record<string, unknown>>
   }
   const control = {
+    list: [{ ...CONVERSATION, activity: { running: null, queued: [] } }] as ConversationListItem[],
+    listWatermark: '0',
     snapshots: [] as Array<Deferred<Result<ConversationSnapshot>>>,
     steerResult: { ok: true, result: { disposition: 'queued' } } as Result<{ disposition: string }>,
     stopResult: { ok: true, result: { disposition: 'requested' } } as Result<{ disposition: string }>,
@@ -86,7 +99,7 @@ function fakeBridge() {
     getAppState: async (): Promise<AppState> => ({ link: 'ready', coreInstanceId: 'core-1', noTray: false, unreceipted: 0 }),
     getSettings: async () => ({ ok: true, result: { autostart: false } }),
     setAutostart: async (enabled: boolean) => ({ ok: true, result: { autostart: enabled } }),
-    listConversations: async () => ({ ok: true, result: { items: [CONVERSATION] } }),
+    listConversations: async () => ({ ok: true, result: { items: control.list, watermark: control.listWatermark } }),
     createConversation: async () => ({ ok: true, result: { conversation: CONVERSATION } }),
     snapshotConversation: (params: unknown) => {
       calls.snapshot.push(params)
@@ -98,7 +111,10 @@ function fakeBridge() {
       calls.listMessages.push(params)
       return control.olderResult
     },
-    submit: async () => ({ ok: true, result: { disposition: 'accepted' } }),
+    submit: async (params: Record<string, unknown>) => {
+      calls.submit.push(params)
+      return { ok: true, result: { disposition: 'accepted' } }
+    },
     steer: async (params: Record<string, unknown>) => {
       calls.steer.push(params)
       return control.steerResult
@@ -141,7 +157,7 @@ beforeEach(async () => {
   vi.resetModules()
   bridge = fakeBridge()
   ;(globalThis as unknown as { window: unknown }).window = { odin: bridge.api }
-  store = await import('../src/renderer/src/store')
+  store = await import('../../src/renderer/src/store')
 })
 
 describe('snapshots and held events', () => {
@@ -182,13 +198,13 @@ describe('snapshots and held events', () => {
         running: { request_id: 'r-run', generation: 2, started_at: '2026-10-04T00:00:00Z' },
         queued: [{ request_id: 'r-q', generation: 1, message_id: 'm-q' }],
         recent: [{ request_id: 'r-old', generation: 1, outcome: 'interrupted', unknown_effects: 2, at: '2026-10-04T00:00:00Z' }],
-        controls: [{ control_command_id: 'k-1', kind: 'steer', request_id: 'r-run', disposition: 'queued', sequence: 1 }]
+        controls: [{ control_command_id: 'k-1', kind: 'steer', request_id: 'r-run', generation: 2, disposition: 'queued', sequence: 1 }]
       })
     )
     const view = store.state.views.c1!
     expect(view.queued.map((q) => q.request_id)).toEqual(['r-q'])
     expect(view.recent[0]).toMatchObject({ outcome: 'interrupted', unknown_effects: 2 })
-    expect(store.steersFor('r-run').map((s) => s.status)).toEqual(['queued'])
+    expect(store.steersFor('c1', 'r-run', 2).map((s) => s.status)).toEqual(['queued'])
     await store.stop()
     expect(bridge.calls.stop[0]).toMatchObject({ request_id: 'r-run', generation: 2 })
   })
@@ -228,15 +244,15 @@ describe('control targets', () => {
     expect(await store.send('check the logs', 'steer')).toBe(true) // the text leaves the composer
     expect(bridge.calls.steer).toHaveLength(1)
     const id = String(bridge.calls.steer[0]!.control_command_id)
-    expect(store.steersFor('r-run')[0]).toMatchObject({ control_command_id: id, status: 'awaiting-receipt' })
+    expect(store.steersFor('c1', 'r-run', 1)[0]).toMatchObject({ control_command_id: id, status: 'awaiting-receipt' })
     expect(store.state.notice).not.toMatch(/not delivered/i)
 
     receipt({ id, settled: { ok: true, result: { disposition: 'queued' } } })
-    expect(store.steersFor('r-run')[0]!.status).toBe('queued')
-    emit(event(3, 'control.receipt', { request_id: 'r-run', control_command_id: id, kind: 'steer', disposition: 'consumed' }))
-    expect(store.steersFor('r-run')[0]!.status).toBe('consumed')
+    expect(store.steersFor('c1', 'r-run', 1)[0]!.status).toBe('queued')
+    emit(event(3, 'control.receipt', { request_id: 'r-run', generation: 1, control_command_id: id, kind: 'steer', disposition: 'consumed' }))
+    expect(store.steersFor('c1', 'r-run', 1)[0]!.status).toBe('consumed')
     receipt({ id, settled: { ok: true, result: { disposition: 'queued' } } })
-    expect(store.steersFor('r-run')[0]!.status).toBe('consumed') // a stale receipt never moves it back
+    expect(store.steersFor('c1', 'r-run', 1)[0]!.status).toBe('consumed') // a stale receipt never moves it back
     expect(bridge.calls.steer).toHaveLength(1)
   })
 
@@ -245,7 +261,7 @@ describe('control targets', () => {
     emit(event(2, 'request.started', { request_id: 'r-run', generation: 1 }))
     bridge.control.steerResult = { ok: false, error: { code: 'not_connected', message: 'Odin is not connected yet.', disposition: 'not_dispatched' } }
     expect(await store.send('check the logs', 'steer')).toBe(false)
-    expect(store.steersFor('r-run')).toHaveLength(0)
+    expect(store.steersFor('c1', 'r-run', 1)).toHaveLength(0)
     expect(store.state.notice).toMatch(/not delivered/i)
   })
 
@@ -256,6 +272,110 @@ describe('control targets', () => {
     await store.stop()
     await store.stop()
     expect(bridge.calls.stop).toHaveLength(1)
-    expect(store.stopPending('r-run')).toBe(true)
+    expect(store.stopPending('r-run', 1)).toBe(true)
+  })
+
+  it('binds a pending Stop to its generation, and a reset replaces the core’s control projection', async () => {
+    await start(
+      snapshot({
+        watermark: '5',
+        running: { request_id: 'r-run', generation: 1, started_at: '2026-10-04T00:00:00Z' },
+        controls: [{ control_command_id: 'old-stop', kind: 'stop', request_id: 'r-run', generation: 1, disposition: 'requested' }]
+      })
+    )
+    expect(store.stopPending('r-run', 1)).toBe(true)
+    bridge.listeners.reset.forEach((l) => l({ event_high: '20' }))
+    await until(() => bridge.control.snapshots.length === 2)
+    bridge.control.snapshots[1]!.resolve(
+      snapshot({ watermark: '20', running: { request_id: 'r-run', generation: 2, started_at: '2026-10-04T00:00:00Z' }, controls: [] })
+    )
+    await until(() => store.state.views.c1?.hasData === true)
+    expect(store.state.views.c1!.running?.generation).toBe(2)
+    expect(store.stopPending('r-run', 2)).toBe(false)
+    expect(store.stopPending('r-run', 1)).toBe(false)
+    await store.stop()
+    expect(bridge.calls.stop[0]).toMatchObject({ request_id: 'r-run', generation: 2 })
+  })
+})
+
+describe('recovery windows', () => {
+  it('routes nothing while the open conversation is being rebuilt, and keeps the draft', async () => {
+    await start(snapshot({ watermark: '5', running: { request_id: 'r-run', generation: 1, started_at: '2026-10-04T00:00:00Z' } }))
+    bridge.listeners.reset.forEach((l) => l({ event_high: '20' }))
+    await until(() => bridge.control.snapshots.length === 2)
+    expect(store.canAct('c1')).toBe(false)
+    expect(await store.send('change the plan', 'steer')).toBe(false) // the draft stays in the composer
+    await store.stop()
+    expect(bridge.calls.submit).toHaveLength(0)
+    expect(bridge.calls.steer).toHaveLength(0)
+    expect(bridge.calls.stop).toHaveLength(0)
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '20', running: { request_id: 'r-run', generation: 1, started_at: '2026-10-04T00:00:00Z' } }))
+    await until(() => store.canAct('c1'))
+    expect(await store.send('change the plan', 'steer')).toBe(true)
+    expect(bridge.calls.steer).toHaveLength(1)
+    expect(bridge.calls.submit).toHaveLength(0)
+  })
+
+  it('routes nothing before the first snapshot of a conversation arrives', async () => {
+    const done = store.init()
+    await until(() => bridge.control.snapshots.length === 1)
+    expect(await store.send('hello', 'queue')).toBe(false)
+    expect(bridge.calls.submit).toHaveLength(0)
+    bridge.control.snapshots[0]!.resolve(snapshot({ watermark: '1' }))
+    await done
+    expect(await store.send('hello', 'queue')).toBe(true)
+  })
+
+  it('keeps unknown effects listed after any number of later successful tasks', async () => {
+    await start()
+    emit(event(2, 'request.interrupted', { request_id: 'r-unknown', generation: 1, unknown_effects: 1 }))
+    for (let n = 0; n < 25; n++) emit(event(3 + n, 'request.completed', { request_id: `r-ok-${n}`, generation: 1, unknown_effects: 0 }))
+    const view = store.state.views.c1!
+    expect(view.recent).toHaveLength(20)
+    expect(view.unresolved).toEqual([expect.objectContaining({ request_id: 'r-unknown', unknown_effects: 1 })])
+    emit(event(40, 'effects.resolved', { request_id: 'r-unknown', generation: 1, remaining: 0 }))
+    expect(view.unresolved).toHaveLength(0)
+  })
+
+  it('keeps every unresolved outcome a snapshot reports, however many there are', async () => {
+    const unresolved = Array.from({ length: 30 }, (_, n) => ({
+      request_id: `r-u${n}`,
+      generation: 1,
+      outcome: 'interrupted' as const,
+      unknown_effects: 1,
+      at: '2026-10-04T00:00:00Z'
+    }))
+    await start(snapshot({ watermark: '9', unresolved }))
+    expect(store.state.views.c1!.unresolved).toHaveLength(30)
+  })
+
+  it('rebuilds the sidebar activity of other conversations from the list after a reset', async () => {
+    const other = { ...CONVERSATION, id: 'c2', title: 'Other' }
+    bridge.control.list = [
+      { ...CONVERSATION, activity: { running: null, queued: [] } },
+      { ...other, activity: { running: { request_id: 'r-other', generation: 1 }, queued: [] } }
+    ]
+    bridge.control.listWatermark = '3'
+    await start()
+    expect(store.isBusy('c2')).toBe(true)
+    // During the missing interval r-other ended and r-new started; only the reloaded list can say so.
+    bridge.control.list = [
+      { ...CONVERSATION, activity: { running: null, queued: [] } },
+      { ...other, activity: { running: { request_id: 'r-new', generation: 1 }, queued: [] } }
+    ]
+    bridge.control.listWatermark = '20'
+    bridge.listeners.reset.forEach((l) => l({ event_high: '20' }))
+    await until(() => bridge.control.snapshots.length === 2)
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '20' }))
+    await until(() => store.state.views.c1?.hasData === true)
+    expect(store.state.busy.c2).toEqual(['r-new'])
+    const c2Event = (seq: number, type: string, requestId: string): CoreEvent => ({
+      ...event(seq, type, {}),
+      payload: { conversation_id: 'c2', request_id: requestId, generation: 1, unknown_effects: 0 }
+    })
+    emit(c2Event(21, 'request.completed', 'r-other'))
+    expect(store.isBusy('c2')).toBe(true)
+    emit(c2Event(22, 'request.completed', 'r-new'))
+    expect(store.isBusy('c2')).toBe(false)
   })
 })

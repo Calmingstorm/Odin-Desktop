@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { send, state, stop, stopPending, type ComposerMode } from '../store'
+import { canAct, send, state, stop, stopPending, type ComposerMode } from '../store'
 
 const text = ref('')
 const mode = ref<ComposerMode>('steer')
 const busy = ref(false)
 const runningRequest = computed(() => (state.activeId ? (state.views[state.activeId]?.running ?? null) : null))
 const running = computed(() => Boolean(runningRequest.value))
-const stopping = computed(() => Boolean(runningRequest.value && stopPending(runningRequest.value.request_id)))
-const ready = computed(() => state.app.link === 'ready' && Boolean(state.activeId))
+const stopping = computed(() =>
+  Boolean(runningRequest.value && stopPending(runningRequest.value.request_id, runningRequest.value.generation))
+)
+// Until the open conversation's snapshot arrives, nothing is routed; the draft can still be edited.
+const ready = computed(() => canAct(state.activeId))
+const loading = computed(() => state.app.link === 'ready' && Boolean(state.activeId) && !ready.value)
 const buttonLabel = computed(() => (running.value ? (mode.value === 'steer' ? 'Steer' : 'Queue') : 'Send'))
 const placeholder = computed(() =>
   running.value ? (mode.value === 'steer' ? 'Steer the current task…' : 'Queue a follow-up…') : 'Message Odin…'
@@ -46,7 +50,7 @@ function onKey(event: KeyboardEvent): void {
         rows="3"
         aria-label="Message"
         :placeholder="placeholder"
-        :disabled="!ready"
+        :disabled="!state.activeId"
         @keydown="onKey"
       />
       <div class="buttons">
@@ -56,6 +60,7 @@ function onKey(event: KeyboardEvent): void {
         </button>
       </div>
     </div>
-    <p v-if="state.notice" class="notice" role="status">{{ state.notice }}</p>
+    <p v-if="loading" class="notice" role="status">Loading this conversation…</p>
+    <p v-else-if="state.notice" class="notice" role="status">{{ state.notice }}</p>
   </form>
 </template>

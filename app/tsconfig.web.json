@@ -11,5 +11,5 @@
     "composite": true,
     "noEmit": true
   },
-  "include": ["src/renderer/src/**/*.ts", "src/renderer/src/**/*.vue", "src/shared/**/*.ts"]
+  "include": ["src/renderer/src/**/*.ts", "src/renderer/src/**/*.vue", "src/shared/**/*.ts", "test/renderer/**/*.ts"]
 }

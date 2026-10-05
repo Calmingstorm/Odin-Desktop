@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { renderMarkdown } from '../markdown'
-import { loadOlder, state, steersFor, stopPending, type ControlItem } from '../store'
+import { loadOlder, state, steersFor, stopPending, type SteerLine } from '../store'
 import ToolActivity from './ToolActivity.vue'
 
 const scroller = ref<HTMLElement | null>(null)
@@ -10,8 +10,10 @@ const messages = computed(() => view.value?.messages ?? [])
 const running = computed(() => view.value?.running ?? null)
 const queuedCount = computed(() => view.value?.queued.length ?? 0)
 const pending = computed(() => state.pending.filter((p) => p.conversation_id === state.activeId))
-const steers = computed(() => (running.value ? steersFor(running.value.request_id) : []))
-const stopping = computed(() => Boolean(running.value && stopPending(running.value.request_id)))
+const steers = computed(() =>
+  running.value && state.activeId ? steersFor(state.activeId, running.value.request_id, running.value.generation) : []
+)
+const stopping = computed(() => Boolean(running.value && stopPending(running.value.request_id, running.value.generation)))
 
 const OUTCOME_TEXT: Record<string, string> = {
   failed: 'The task failed.',
@@ -20,27 +22,20 @@ const OUTCOME_TEXT: Record<string, string> = {
   suspended: 'The task is suspended and can be resumed.'
 }
 
-/** The last task's outcome when it didn't simply complete, plus every recent task that left unknown effects. */
-const outcomeLines = computed(() => {
+/** The last task's outcome when it didn't simply complete. */
+const outcomeLine = computed(() => {
   const v = view.value
-  if (!v) return []
-  const lines: string[] = []
-  const last = v.recent[v.recent.length - 1]
-  const showLast = Boolean(last && !v.running && last.outcome !== 'completed')
-  if (last && showLast) {
-    const base = OUTCOME_TEXT[last.outcome] ?? `The task ended: ${last.outcome}.`
-    lines.push(last.unknown_effects ? `${base} ${unknownText(last.unknown_effects)}` : base)
-  }
-  for (const o of v.recent) {
-    if (o.unknown_effects <= 0 || (o === last && showLast)) continue
-    lines.push(o === last ? unknownText(o.unknown_effects) : `An earlier task: ${unknownText(o.unknown_effects)}`)
-  }
-  return lines
+  const last = v?.recent[v.recent.length - 1]
+  if (!v || !last || v.running || last.outcome === 'completed') return ''
+  return OUTCOME_TEXT[last.outcome] ?? `The task ended: ${last.outcome}.`
 })
 
-function unknownText(count: number): string {
-  return `${count} action(s) have an unknown outcome and will not be repeated.`
-}
+/** Every task whose unknown effects aren't reconciled yet, however long ago it ran. */
+const unresolvedLines = computed(() =>
+  (view.value?.unresolved ?? []).map(
+    (o) => `A task from ${time(o.at)} has ${o.unknown_effects} action(s) with an unknown outcome. They will not be repeated.`
+  )
+)
 
 const STEER_TEXT: Record<string, string> = {
   sending: 'sending…',
@@ -53,7 +48,7 @@ const STEER_TEXT: Record<string, string> = {
   'not-delivered': 'not delivered'
 }
 
-function steerState(item: ControlItem): string {
+function steerState(item: SteerLine): string {
   const text = STEER_TEXT[item.status] ?? item.status
   return item.detail ? `${text}: ${item.detail}` : text
 }
@@ -123,7 +118,8 @@ function older(): void {
           <span v-if="queuedCount" class="queued">{{ queuedCount }} follow-up{{ queuedCount === 1 ? '' : 's' }} queued</span>
         </div>
       </div>
-      <p v-for="(line, index) in outcomeLines" :key="index" class="outcome" role="status">{{ line }}</p>
+      <p v-if="outcomeLine" class="outcome" role="status">{{ outcomeLine }}</p>
+      <p v-for="(line, index) in unresolvedLines" :key="index" class="outcome unresolved" role="status">{{ line }}</p>
     </template>
   </section>
 </template>

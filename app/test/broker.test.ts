@@ -356,3 +356,88 @@ describe('fixture core snapshots and command identity', () => {
     expect(listed.result.items).toHaveLength(1)
   })
 })
+
+describe('subscription answers are stream control', () => {
+  const tail = (seq: number) => ({
+    t: 'evt',
+    seq,
+    cursor: String(seq),
+    type: 'request.completed',
+    entity: { kind: 'request', id: 'r1' },
+    at: '2026-10-05T00:00:00Z',
+    payload: { conversation_id: 'c1', request_id: 'r1', generation: 1, unknown_effects: 0 }
+  })
+
+  /** A fake core whose answer to each subscription is scripted per connection. */
+  async function scripted(answer: (socket: Socket, id: unknown, connection: number) => void) {
+    const dir = mkdtempSync(join(tmpdir(), 'odin-fake-core-'))
+    const socketPath = join(dir, 'core.sock')
+    const perConnection: number[] = []
+    const sockets: Socket[] = []
+    const server: Server = createServer((socket) => {
+      sockets.push(socket)
+      const connection = perConnection.push(0)
+      const decoder = new FrameDecoder()
+      socket.on('data', (chunk) => {
+        for (const frame of decoder.push(chunk)) {
+          if (frame.t === 'hello') {
+            socket.write(encodeFrame({ t: 'welcome', protocol: { major: 0, minor: 2 }, core: { instance_id: 'fake', version: '0' }, profile_id: 'default', capabilities: [], features: [], max_frame: 4194304, event_high: '1' }))
+          } else if (frame.t === 'req' && frame.method === 'events.subscribe') {
+            perConnection[connection - 1]! += 1
+            answer(socket, frame.id, connection)
+          }
+        }
+      })
+    })
+    await new Promise<void>((r) => server.listen(socketPath, () => r()))
+    const broker = new Broker({ socketPath, readToken: () => 'x'.repeat(64), profileId: 'default', clientVersion: 'test', requestTimeoutMs: 30, reconnectDelaysMs: [50] })
+    const observed: string[] = []
+    broker.on('event', (e: CoreEvent) => observed.push(`event:${e.seq}`))
+    broker.on('reset', (r: { event_high: string }) => observed.push(`reset:${r.event_high}`))
+    broker.on('receipt', () => observed.push('receipt'))
+    cleanups.push(() => {
+      broker.close()
+      for (const s of sockets) s.destroy()
+      server.close()
+      rmSync(dir, { recursive: true, force: true })
+    })
+    return { broker, observed, perConnection }
+  }
+
+  it('applies a reset that arrives after the subscription timed out, before the event that follows it', async () => {
+    const { broker, observed } = await scripted((socket, id) => {
+      setTimeout(() => socket.write(encodeFrame({ t: 'res', id, ok: true, result: { event_high: '100', reset_required: true } })), 120)
+      setTimeout(() => socket.write(encodeFrame(tail(101))), 140)
+    })
+    broker.connect()
+    broker.startEvents()
+    await waitFor(() => observed.includes('event:101'))
+    expect(observed).toEqual(['reset:100', 'event:101'])
+    expect(broker.cursor).toBe('101')
+    expect(broker.unreceiptedCount).toBe(0)
+  })
+
+  it('applies a reset coalesced with the first tail event in one write, in order', async () => {
+    const { broker, observed } = await scripted((socket, id) => {
+      socket.write(Buffer.concat([encodeFrame({ t: 'res', id, ok: true, result: { event_high: '100', reset_required: true } }), encodeFrame(tail(101))]))
+    })
+    broker.connect()
+    broker.startEvents()
+    await waitFor(() => observed.includes('event:101'))
+    expect(observed).toEqual(['reset:100', 'event:101'])
+  })
+
+  it('never re-sends a subscription whose answer was lost: the next connection makes exactly one', async () => {
+    const { broker, observed, perConnection } = await scripted((socket, id, connection) => {
+      if (connection === 1) setTimeout(() => socket.destroy(), 60) // the answer is lost with the connection
+      else socket.write(encodeFrame({ t: 'res', id, ok: true, result: { event_high: '1', reset_required: false } }))
+    })
+    broker.connect()
+    broker.startEvents()
+    await waitFor(() => perConnection.length === 2 && perConnection[1] === 1)
+    await new Promise((r) => setTimeout(r, 200))
+    expect(perConnection).toEqual([1, 1])
+    expect(broker.unreceiptedCount).toBe(0)
+    expect(observed).not.toContain('receipt')
+  })
+})

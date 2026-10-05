@@ -3,16 +3,21 @@
 // Consistency rules (docs/design/protocol.md, delivery rules):
 // - A conversation view is replaced only by a snapshot, and then advanced only by events above its watermark.
 // - While a snapshot is in flight, that conversation's events are held and replayed above the watermark when it
-//   arrives. The answer to a superseded snapshot request is dropped.
+//   arrives. The answer to a superseded snapshot request is dropped. The sidebar's activity works the same way
+//   against the conversation list.
 // - A reset discards every view: the interval it covers is unknown, never empty.
-// - Stop and Steer only ever target the running request. Queued follow-ups are tracked separately.
+// - Nothing is sent, steered or stopped in a conversation until its view is authoritative. Drafts are kept.
+// - Stop and Steer only ever target the running request and generation. Queued follow-ups are tracked separately.
 // - A command without a receipt has an unknown outcome, never a failure. It keeps its ID, and the late receipt or the
-//   core's events settle it.
+//   core's events settle it. Commands this window sent are kept apart from the core's authoritative control
+//   projection, which every snapshot replaces.
+// - Unknown effects stay listed until the core reports them reconciled; later outcomes never push them out.
 import { reactive } from 'vue'
 import type {
   AppState,
   ControlRecord,
   Conversation,
+  ConversationListItem,
   ConversationSnapshot,
   CoreError,
   CoreEvent,
@@ -48,11 +53,29 @@ export type ControlStatus =
   | 'stale_binding'
   | 'not-delivered'
 
+/** A Stop or Steer this window sent. */
 export interface ControlItem {
   control_command_id: string
   kind: 'stop' | 'steer'
   conversation_id: string
   request_id: string
+  generation: number
+  text?: string
+  status: ControlStatus
+  detail?: string
+}
+
+/** The core's authoritative view of a control, from snapshots, receipts and events. */
+export interface ControlProjection {
+  control_command_id: string
+  kind: 'stop' | 'steer'
+  request_id: string
+  generation: number
+  status: ControlStatus
+}
+
+export interface SteerLine {
+  control_command_id: string
   text?: string
   status: ControlStatus
   detail?: string
@@ -71,7 +94,9 @@ export interface ConversationView {
   running: RunningRequest | null
   queued: QueuedRequest[]
   recent: TerminalOutcome[]
+  unresolved: TerminalOutcome[]
   tools: Record<string, ToolEntry[]>
+  controls: Record<string, ControlProjection>
 }
 
 export type ComposerMode = 'steer' | 'queue'
@@ -85,7 +110,7 @@ export const state = reactive({
   conversations: [] as Conversation[],
   activeId: null as string | null,
   views: {} as Record<string, ConversationView | undefined>,
-  /** Requests queued or running per conversation, from events: the sidebar's view of conversations not loaded. */
+  /** Requests queued or running per conversation, for the sidebar: from the list, then from events. */
   busy: {} as Record<string, string[] | undefined>,
   pending: [] as PendingSubmission[],
   controls: [] as ControlItem[],
@@ -116,6 +141,9 @@ const CONTROL_RANK: Record<ControlStatus, number> = {
   'not-delivered': 3
 }
 
+/** Sent, but with no answer yet: only these local states stand in for the core's projection. */
+const UNRECEIPTED = new Set<ControlStatus>(['sending', 'awaiting-receipt', 'unknown'])
+
 function note(text: string): void {
   state.notice = text
 }
@@ -127,6 +155,15 @@ function errorText(result: Result<unknown>): string {
 /** No receipt, or a receipt that says the outcome is unknown: the command may have been admitted. */
 function isUnknownOutcome(error: CoreError): boolean {
   return error.code === 'no_receipt' || error.disposition === 'outcome_unknown'
+}
+
+function isAuthoritative(view: ConversationView | undefined): view is ConversationView {
+  return Boolean(view && view.status === 'ready' && view.hasData)
+}
+
+/** Whether a message, Steer or Stop may be routed to this conversation now. */
+export function canAct(conversationId: string | null): boolean {
+  return Boolean(conversationId && state.app.link === 'ready' && isAuthoritative(state.views[conversationId]))
 }
 
 export async function init(): Promise<void> {
@@ -146,6 +183,8 @@ export async function init(): Promise<void> {
 }
 
 let loadAllInFlight: Promise<void> | null = null
+let listLoading = false
+let listHeld: CoreEvent[] = []
 
 function loadAll(): Promise<void> {
   loadAllInFlight ??= loadAllOnce().finally(() => {
@@ -155,9 +194,16 @@ function loadAll(): Promise<void> {
 }
 
 async function loadAllOnce(): Promise<void> {
+  listLoading = true
   const listed = await window.odin.listConversations()
-  if (!listed.ok) return note(errorText(listed))
-  for (const conversation of listed.result.items) upsertConversation(conversation)
+  const held = listHeld.sort((a, b) => a.seq - b.seq)
+  listHeld = []
+  listLoading = false
+  if (!listed.ok) {
+    for (const event of held) trackBusy(event)
+    return note(errorText(listed))
+  }
+  applyList(listed.result.items, Number(listed.result.watermark) || 0, held)
   if (state.conversations.length === 0) {
     const created = await window.odin.createConversation({ title: 'Chat' })
     if (!created.ok) return note(errorText(created))
@@ -168,6 +214,21 @@ async function loadAllOnce(): Promise<void> {
   }
   if (state.activeId) await loadConversation(state.activeId)
   state.loaded = true
+}
+
+/** The list is complete through `watermark`: rebuild sidebar activity from it, then apply what came after. */
+function applyList(items: ConversationListItem[], watermark: number, held: CoreEvent[]): void {
+  for (const item of items) {
+    const { activity, ...conversation } = item
+    upsertConversation(conversation)
+    if (activity) {
+      state.busy[item.id] = [
+        ...(activity.running ? [activity.running.request_id] : []),
+        ...activity.queued.map((q) => q.request_id)
+      ]
+    }
+  }
+  for (const event of held) if (event.seq > watermark) trackBusy(event)
 }
 
 function viewFor(conversationId: string): ConversationView {
@@ -184,7 +245,9 @@ function viewFor(conversationId: string): ConversationView {
       running: null,
       queued: [],
       recent: [],
-      tools: {}
+      unresolved: [],
+      tools: {},
+      controls: {}
     }
   }
   return state.views[conversationId]!
@@ -218,7 +281,9 @@ function applySnapshot(conversationId: string, view: ConversationView, snapshot:
   view.running = snapshot.running
   view.queued = [...snapshot.queued]
   view.recent = [...snapshot.recent].slice(-RECENT_LIMIT)
+  view.unresolved = [...(snapshot.unresolved ?? [])]
   view.tools = Object.fromEntries(Object.entries(snapshot.tools).map(([id, entries]) => [id, entries.map((e) => ({ ...e }))]))
+  view.controls = Object.fromEntries(snapshot.controls.map((record) => [record.control_command_id, projection(record)]))
   view.watermark = watermark
   view.hasData = true
   upsertConversation(snapshot.conversation)
@@ -226,11 +291,24 @@ function applySnapshot(conversationId: string, view: ConversationView, snapshot:
     ...(snapshot.running ? [snapshot.running.request_id] : []),
     ...snapshot.queued.map((q) => q.request_id)
   ]
-  for (const record of snapshot.controls) mergeControl(conversationId, record)
+  for (const record of snapshot.controls) {
+    const local = state.controls.find((c) => c.control_command_id === record.control_command_id)
+    if (local) advance(local, record.disposition)
+  }
   for (const message of view.messages) {
     if (message.role === 'user' && message.client_submission_id) removePending(message.client_submission_id)
   }
   releaseHeld(view)
+}
+
+function projection(record: ControlRecord): ControlProjection {
+  return {
+    control_command_id: record.control_command_id,
+    kind: record.kind,
+    request_id: record.request_id,
+    generation: record.generation,
+    status: statusOf(record.disposition)
+  }
 }
 
 function releaseHeld(view: ConversationView): void {
@@ -244,8 +322,8 @@ function releaseHeld(view: ConversationView): void {
 async function resetViews(): Promise<void> {
   for (const view of Object.values(state.views)) if (view) view.loadToken += 1
   state.views = {}
-  state.busy = {}
-  // A load already in flight may have read the old views; run a fresh one after it.
+  // A load already in flight may have read the old views; run a fresh one after it. The sidebar's activity is
+  // rebuilt from the reloaded conversation list.
   if (loadAllInFlight) await loadAllInFlight.catch(() => undefined)
   await loadAll()
 }
@@ -282,7 +360,13 @@ export async function loadOlder(conversationId: string): Promise<void> {
 export async function send(text: string, mode: ComposerMode): Promise<boolean> {
   const conversationId = state.activeId
   if (!conversationId) return false
-  const running = state.views[conversationId]?.running
+  const view = state.views[conversationId]
+  if (!canAct(conversationId) || !isAuthoritative(view)) {
+    // Until the snapshot arrives we don't know what is running, so nothing is routed. The draft stays.
+    note('Odin is still loading this conversation. Your text is still in the box.')
+    return false
+  }
+  const running = view.running
   if (running && mode === 'steer') return steer(conversationId, running, text)
 
   state.pending.push({
@@ -318,6 +402,7 @@ async function steer(conversationId: string, running: RunningRequest, text: stri
     kind: 'steer',
     conversation_id: conversationId,
     request_id: running.request_id,
+    generation: running.generation,
     text,
     status: 'sending'
   })
@@ -329,12 +414,12 @@ async function steer(conversationId: string, running: RunningRequest, text: stri
     text
   })
   if (result.ok && result.result.disposition === 'queued') {
-    advanceControl(item, 'queued')
+    receipted(item, 'queued')
     return true
   }
   if (!result.ok && isUnknownOutcome(result.error)) {
     // Possibly delivered: it keeps its ID and its place, and the text leaves the composer so it isn't sent twice.
-    advanceControl(item, 'awaiting-receipt')
+    advance(item, 'awaiting-receipt')
     return true
   }
   // Definitely not used, so the text stays in the composer.
@@ -346,13 +431,16 @@ async function steer(conversationId: string, running: RunningRequest, text: stri
 
 export async function stop(): Promise<void> {
   const conversationId = state.activeId
-  const running = conversationId ? state.views[conversationId]?.running : null
-  if (!conversationId || !running || stopPending(running.request_id)) return
+  const view = conversationId ? state.views[conversationId] : undefined
+  if (!conversationId || !canAct(conversationId) || !isAuthoritative(view) || !view.running) return
+  const running = view.running
+  if (stopPending(running.request_id, running.generation)) return
   const item = addControl({
     control_command_id: crypto.randomUUID(),
     kind: 'stop',
     conversation_id: conversationId,
     request_id: running.request_id,
+    generation: running.generation,
     status: 'sending'
   })
   const result = await window.odin.stop({
@@ -361,31 +449,48 @@ export async function stop(): Promise<void> {
     request_id: running.request_id,
     generation: running.generation
   })
-  if (result.ok) advanceControl(item, result.result.disposition)
-  else if (isUnknownOutcome(result.error)) advanceControl(item, 'awaiting-receipt')
+  if (result.ok) receipted(item, result.result.disposition)
+  else if (isUnknownOutcome(result.error)) advance(item, 'awaiting-receipt')
   else {
     removeControl(item.control_command_id)
     note(`Stop not delivered: ${result.error.message}`)
   }
 }
 
-/** A Stop for this request is on its way or accepted, so another one would only be a duplicate. */
-export function stopPending(requestId: string): boolean {
-  return state.controls.some(
-    (c) =>
-      c.kind === 'stop' &&
-      c.request_id === requestId &&
-      (c.status === 'sending' || c.status === 'awaiting-receipt' || c.status === 'unknown' || c.status === 'requested')
+/**
+ * A Stop for exactly this request and generation is unanswered, or the core's projection says one is in progress.
+ * Another one would only be a duplicate. A Stop for an earlier generation never counts.
+ */
+export function stopPending(requestId: string, generation: number): boolean {
+  const matches = (c: { kind: string; request_id: string; generation: number }): boolean =>
+    c.kind === 'stop' && c.request_id === requestId && c.generation === generation
+  if (state.controls.some((c) => matches(c) && UNRECEIPTED.has(c.status))) return true
+  return Object.values(state.views).some((view) =>
+    Object.values(view?.controls ?? {}).some((c) => matches(c) && c.status === 'requested')
   )
 }
 
-export function steersFor(requestId: string): ControlItem[] {
-  return state.controls.filter((c) => c.kind === 'steer' && c.request_id === requestId)
+/** Steers for the running request and generation: this window's own, plus any the core reports that aren't ours. */
+export function steersFor(conversationId: string, requestId: string, generation: number): SteerLine[] {
+  const projected = state.views[conversationId]?.controls ?? {}
+  const matches = (c: { kind: string; request_id: string; generation: number }): boolean =>
+    c.kind === 'steer' && c.request_id === requestId && c.generation === generation
+  const lines: SteerLine[] = state.controls.filter(matches).map((c) => ({
+    control_command_id: c.control_command_id,
+    text: c.text,
+    status: higher(c.status, projected[c.control_command_id]?.status),
+    detail: c.detail
+  }))
+  const own = new Set(lines.map((l) => l.control_command_id))
+  for (const p of Object.values(projected)) {
+    if (matches(p) && !own.has(p.control_command_id)) lines.push({ control_command_id: p.control_command_id, status: p.status })
+  }
+  return lines
 }
 
 export function isBusy(conversationId: string): boolean {
   const view = state.views[conversationId]
-  if (view?.hasData) return Boolean(view.running || view.queued.length)
+  if (isAuthoritative(view)) return Boolean(view.running || view.queued.length)
   return Boolean(state.busy[conversationId]?.length)
 }
 
@@ -410,11 +515,29 @@ function applyReceipt(receipt: LateReceipt): void {
   const control = state.controls.find((c) => c.control_command_id === receipt.id)
   if (!control) return
   const settled = receipt.settled
-  if (settled.ok) advanceControl(control, String((settled.result as { disposition?: string }).disposition))
-  else if (isUnknownOutcome(settled.error)) advanceControl(control, 'unknown')
+  if (settled.ok) receipted(control, String((settled.result as { disposition?: string }).disposition))
+  else if (isUnknownOutcome(settled.error)) advance(control, 'unknown')
   else {
-    advanceControl(control, 'not-delivered')
+    advance(control, 'not-delivered')
     control.detail = settled.error.message
+  }
+}
+
+/** The core answered one of our commands: that answer is also authoritative for its conversation's projection. */
+function receipted(control: ControlItem, disposition: string): void {
+  advance(control, disposition)
+  const view = state.views[control.conversation_id]
+  if (!isAuthoritative(view)) return // the next snapshot carries it
+  const current = view.controls[control.control_command_id]
+  if (current) advance(current, disposition)
+  else {
+    view.controls[control.control_command_id] = {
+      control_command_id: control.control_command_id,
+      kind: control.kind,
+      request_id: control.request_id,
+      generation: control.generation,
+      status: statusOf(disposition)
+    }
   }
 }
 
@@ -431,23 +554,17 @@ function removeControl(id: string): void {
   state.controls = state.controls.filter((c) => c.control_command_id !== id)
 }
 
-function advanceControl(control: ControlItem, next: string): void {
-  const status = (next in CONTROL_RANK ? next : 'unknown') as ControlStatus
-  if (CONTROL_RANK[status] >= CONTROL_RANK[control.status]) control.status = status
+function statusOf(disposition: string): ControlStatus {
+  return (disposition in CONTROL_RANK ? disposition : 'unknown') as ControlStatus
 }
 
-function mergeControl(conversationId: string, record: ControlRecord): void {
-  const known = state.controls.find((c) => c.control_command_id === record.control_command_id)
-  const item =
-    known ??
-    addControl({
-      control_command_id: record.control_command_id,
-      kind: record.kind,
-      conversation_id: conversationId,
-      request_id: record.request_id,
-      status: 'awaiting-receipt'
-    })
-  advanceControl(item, record.disposition)
+function higher(a: ControlStatus, b: ControlStatus | undefined): ControlStatus {
+  return b !== undefined && CONTROL_RANK[b] > CONTROL_RANK[a] ? b : a
+}
+
+function advance(control: { status: ControlStatus }, next: string): void {
+  const status = statusOf(next)
+  if (CONTROL_RANK[status] >= CONTROL_RANK[control.status]) control.status = status
 }
 
 function removePending(id: string): void {
@@ -461,7 +578,9 @@ function upsertConversation(conversation: Conversation): void {
   else if (conversation.rev >= state.conversations[index]!.rev) state.conversations[index] = conversation
 }
 
-function trackBusy(event: CoreEvent, conversationId: string): void {
+function trackBusy(event: CoreEvent): void {
+  const conversationId = event.payload.conversation_id
+  if (typeof conversationId !== 'string') return
   const requestId = String(event.payload.request_id ?? '')
   if (event.type === 'request.queued' || event.type === 'request.started') {
     const list = state.busy[conversationId] ?? []
@@ -481,10 +600,14 @@ export function applyEvent(event: CoreEvent): void {
     const message = p.message as Message
     if (message.role === 'user' && message.client_submission_id) removePending(message.client_submission_id)
   }
-  if (event.type === 'control.receipt') applyControlReceipt(p)
+  if (event.type === 'control.receipt') {
+    const local = state.controls.find((c) => c.control_command_id === String(p.control_command_id))
+    if (local) advance(local, String(p.disposition))
+  }
+  if (listLoading) listHeld.push(event)
+  else trackBusy(event)
   const conversationId = typeof p.conversation_id === 'string' ? p.conversation_id : null
   if (!conversationId) return
-  trackBusy(event, conversationId)
   const view = state.views[conversationId]
   if (!view) return // Not loaded: its snapshot will include this.
   if (view.status === 'loading') {
@@ -494,27 +617,12 @@ export function applyEvent(event: CoreEvent): void {
   applyToView(view, event)
 }
 
-function applyControlReceipt(p: Record<string, unknown>): void {
-  const id = String(p.control_command_id)
-  let item = state.controls.find((c) => c.control_command_id === id)
-  if (!item) {
-    if (typeof p.conversation_id !== 'string' || typeof p.request_id !== 'string') return
-    item = addControl({
-      control_command_id: id,
-      kind: p.kind === 'stop' ? 'stop' : 'steer',
-      conversation_id: p.conversation_id,
-      request_id: p.request_id,
-      status: 'awaiting-receipt'
-    })
-  }
-  advanceControl(item, String(p.disposition))
-}
-
 function applyToView(view: ConversationView, event: CoreEvent): void {
   if (event.seq <= view.watermark) return
   view.watermark = event.seq
   const p = event.payload
   const requestId = String(p.request_id ?? '')
+  const generation = Number(p.generation) || 0
   switch (event.type) {
     case 'message.committed': {
       const message = p.message as Message
@@ -525,16 +633,12 @@ function applyToView(view: ConversationView, event: CoreEvent): void {
     }
     case 'request.queued':
       if (view.running?.request_id !== requestId && !view.queued.some((q) => q.request_id === requestId)) {
-        view.queued.push({
-          request_id: requestId,
-          generation: Number(p.generation) || 0,
-          message_id: String(p.message_id ?? '')
-        })
+        view.queued.push({ request_id: requestId, generation, message_id: String(p.message_id ?? '') })
       }
       return
     case 'request.started':
       view.queued = view.queued.filter((q) => q.request_id !== requestId)
-      view.running = { request_id: requestId, generation: Number(p.generation) || 0, started_at: event.at }
+      view.running = { request_id: requestId, generation, started_at: event.at }
       return
     case 'tool.started': {
       if (!view.tools[requestId]) view.tools[requestId] = []
@@ -557,17 +661,45 @@ function applyToView(view: ConversationView, event: CoreEvent): void {
       entry.duration_ms = typeof p.duration_ms === 'number' ? p.duration_ms : undefined
       return
     }
-    default:
+    case 'control.receipt': {
+      const id = String(p.control_command_id)
+      const current = view.controls[id]
+      if (current) advance(current, String(p.disposition))
+      else {
+        view.controls[id] = {
+          control_command_id: id,
+          kind: p.kind === 'stop' ? 'stop' : 'steer',
+          request_id: requestId,
+          generation,
+          status: statusOf(String(p.disposition))
+        }
+      }
+      return
+    }
+    case 'effects.resolved': {
+      const remaining = Number(p.remaining) || 0
+      const index = view.unresolved.findIndex((o) => o.request_id === requestId && o.generation === generation)
+      if (index < 0) return
+      if (remaining <= 0) view.unresolved.splice(index, 1)
+      else view.unresolved[index]!.unknown_effects = remaining
+      return
+    }
+    default: {
       if (!TERMINAL.has(event.type)) return
       if (view.running?.request_id === requestId) view.running = null
       view.queued = view.queued.filter((q) => q.request_id !== requestId)
-      view.recent.push({
+      const outcome: TerminalOutcome = {
         request_id: requestId,
-        generation: Number(p.generation) || 0,
+        generation,
         outcome: event.type.slice('request.'.length) as TerminalKind,
         unknown_effects: Number(p.unknown_effects) || 0,
         at: event.at
-      })
+      }
+      view.recent.push(outcome)
       if (view.recent.length > RECENT_LIMIT) view.recent.splice(0, view.recent.length - RECENT_LIMIT)
+      if (outcome.unknown_effects > 0 && !view.unresolved.some((o) => o.request_id === requestId && o.generation === generation)) {
+        view.unresolved.push({ ...outcome })
+      }
+    }
   }
 }

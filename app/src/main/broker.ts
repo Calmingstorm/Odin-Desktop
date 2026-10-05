@@ -2,7 +2,9 @@
 //
 // Delivery rules it enforces:
 // - Events are deduplicated by `seq`; the last received cursor is kept for catch-up after a reconnect.
-// - Exactly one event subscription per connection, renewed by the broker itself after every reconnect.
+// - Exactly one event subscription per connection, renewed by the broker itself after every reconnect. A
+//   subscription is stream control, not a command: its answer is applied whenever it arrives, even after the request
+//   timed out, and before the events that follow it. It is never re-sent as an unreceipted command.
 // - A reset (the core can't replay the interval since our cursor) is emitted as 'reset', so every view is rebuilt
 //   from snapshots. The missing interval is never treated as empty.
 // - A request with no receipt is never re-sent with a new ID. Its frame is kept and re-sent with the SAME ID after
@@ -42,6 +44,8 @@ interface Pending {
   frame: Record<string, unknown>
   resolve: (settled: Settled) => void
   timer: NodeJS.Timeout
+  /** Stream control (a subscription): never kept for a same-ID re-send. */
+  control: boolean
 }
 
 const NOT_CONNECTED: CoreError = {
@@ -66,6 +70,8 @@ export class Broker extends EventEmitter {
   private lastSeq = 0
   private lastCursor: string | null = null
   private wantEvents = false
+  /** The current connection's subscription request; its answer is applied even when it arrives late. */
+  private subscriptionId: string | null = null
   private closedByUs = false
   private reconnectAttempt = 0
   private reconnectTimer: NodeJS.Timeout | null = null
@@ -115,6 +121,10 @@ export class Broker extends EventEmitter {
 
   /** Sends a command and settles with its receipt. Never throws. */
   request(method: string, params: Record<string, unknown> = {}, id: string = randomUUID()): Promise<Settled> {
+    return this.send(method, params, id, false)
+  }
+
+  private send(method: string, params: Record<string, unknown>, id: string, control: boolean): Promise<Settled> {
     const socket = this.socket
     if (this.link !== 'ready' || !socket) return Promise.resolve({ ok: false, error: NOT_CONNECTED })
     const frame = { t: 'req', id, method, params }
@@ -127,10 +137,10 @@ export class Broker extends EventEmitter {
     return new Promise<Settled>((resolve) => {
       const timer = setTimeout(() => {
         if (!this.pending.delete(id)) return
-        this.unreceipted.set(id, frame)
+        if (!control) this.unreceipted.set(id, frame)
         resolve({ ok: false, error: NO_RECEIPT })
       }, this.requestTimeoutMs)
-      this.pending.set(id, { frame, resolve, timer })
+      this.pending.set(id, { frame, resolve, timer, control })
       socket.write(bytes)
     })
   }
@@ -142,19 +152,23 @@ export class Broker extends EventEmitter {
     if (this.link === 'ready') void this.subscribe()
   }
 
-  /** Subscribes on the current connection from the last received cursor. */
-  async subscribe(): Promise<Settled> {
+  /** Subscribes on the current connection from the last received cursor. Its answer is applied in onResponse. */
+  subscribe(): Promise<Settled> {
     this.wantEvents = true
-    const settled = await this.request('events.subscribe', { after: this.lastCursor })
-    if (settled.ok) {
-      const result = settled.result as { event_high?: string; reset_required?: boolean }
-      if (result.reset_required && typeof result.event_high === 'string') {
-        this.lastCursor = result.event_high
-        this.lastSeq = Number(result.event_high) || 0
-        this.emit('reset', { event_high: result.event_high })
-      }
+    const id = randomUUID()
+    this.subscriptionId = id
+    return this.send('events.subscribe', { after: this.lastCursor }, id, true)
+  }
+
+  /** Applies a subscription answer, in stream order, however late it arrives. */
+  private onSubscribed(settled: Settled): void {
+    if (!settled.ok) return
+    const result = settled.result as { event_high?: string; reset_required?: boolean }
+    if (result.reset_required && typeof result.event_high === 'string') {
+      this.lastCursor = result.event_high
+      this.lastSeq = Number(result.event_high) || 0
+      this.emit('reset', { event_high: result.event_high })
     }
-    return settled
   }
 
   private openSocket(): void {
@@ -256,6 +270,7 @@ export class Broker extends EventEmitter {
       frame.ok === true
         ? { ok: true, result: frame.result }
         : { ok: false, error: (frame.error as CoreError) ?? { code: 'internal', message: 'malformed error' } }
+    if (id === this.subscriptionId) this.onSubscribed(settled)
     const pending = this.pending.get(id)
     if (pending) {
       clearTimeout(pending.timer)
@@ -279,10 +294,11 @@ export class Broker extends EventEmitter {
     if (this.helloTimer) clearTimeout(this.helloTimer)
     this.helloTimer = null
     this.socket = null
+    this.subscriptionId = null // the next connection makes its own subscription
     // In-flight commands lost their receipt: keep their frames for same-ID re-send, settle callers honestly.
     for (const [id, pending] of this.pending) {
       clearTimeout(pending.timer)
-      this.unreceipted.set(id, pending.frame)
+      if (!pending.control) this.unreceipted.set(id, pending.frame)
       pending.resolve({ ok: false, error: NO_RECEIPT })
     }
     this.pending.clear()
