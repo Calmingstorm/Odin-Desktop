@@ -34,8 +34,8 @@ export const markReadSchema = z.object({ id: coreId, through_message_id: coreId 
 
 export const searchSchema = z
   .object({
-    // Odin sets no query limit; this bound only keeps one request inside a frame.
-    query: z.string().trim().min(1).max(200_000),
+    // Odin sets no query limit. The frame limit is the only bound, and the broker refuses a larger request by name.
+    query: z.string().trim().min(1),
     conversation_id: coreId.optional(),
     limit: z.number().int().min(1).max(50).optional(),
     cursor: z.string().max(64).optional()

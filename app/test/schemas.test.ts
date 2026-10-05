@@ -41,6 +41,10 @@ describe('review round 1: no limits Odin does not have', () => {
     expect(parseRequest(searchSchema, { query: 'x'.repeat(501) }).ok).toBe(true)
   })
 
+  it('puts no character cap on a search query: only the frame limit bounds it (D17)', () => {
+    expect(parseRequest(searchSchema, { query: 'x'.repeat(200_001) }).ok).toBe(true)
+  })
+
   it('requires the window to name each conversation command', () => {
     expect(parseRequest(createConversationSchema, { title: 'Chat' }).ok).toBe(false)
     expect(parseRequest(createConversationSchema, { command_id: crypto.randomUUID(), title: 'Chat' }).ok).toBe(true)
