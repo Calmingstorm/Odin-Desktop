@@ -43,13 +43,13 @@ def test_invalid_xdg(tmp_path):
             home=tmp_path,
         )
 
-def test_no_symlink_adoption_or_unrelated_permission_repair(tmp_path):
+def test_directory_symlink_followed_without_unrelated_permission_repair(tmp_path):
     target = tmp_path / "target"
     target.mkdir(mode=0o700)
     link = tmp_path / "link"
     link.symlink_to(target, target_is_directory=True)
-    with pytest.raises(OSError):
-        private_directory(link / "private")
+    private_directory(link / "private")
+    assert (target / "private").stat().st_mode & 0o777 == 0o700
     target.chmod(0o755)
     private_directory(target)
     assert target.stat().st_mode & 0o777 == 0o755

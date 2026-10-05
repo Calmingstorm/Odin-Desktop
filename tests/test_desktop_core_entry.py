@@ -490,6 +490,75 @@ async def test_parent_link_refuses_regular_files_and_datagram_sockets(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("linked_area", ["config", "data", "cache", "runtime"])
+async def test_real_core_starts_with_symlinked_xdg_or_socket_folder(linked_area):
+    import asyncio
+    import stat
+    import sys
+    import tempfile
+
+    from tests.test_desktop_core_lifecycle import request, wait_connected
+
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        disk = root / "disk"
+        disk.mkdir()
+        disk.chmod(0o775)
+        link = root / "linked"
+        link.symlink_to("disk", target_is_directory=True)
+        roots = {area: (link if area == linked_area else root) / area
+                 for area in ("config", "data", "cache", "runtime")}
+        paths = ProfilePaths.from_xdg("test", environ={
+            "XDG_CONFIG_HOME": str(roots["config"]),
+            "XDG_DATA_HOME": str(roots["data"]),
+            "XDG_CACHE_HOME": str(roots["cache"]),
+        }, home=root)
+        # App scaffolding, without calling the guards whose startup is under test.
+        paths.config_dir.mkdir(parents=True)
+        paths.config_dir.parent.chmod(0o775)
+        paths.config_dir.chmod(0o755)
+        token_file = paths.config_dir / "ipc.token"
+        token_file.write_text("ab" * 32)
+        token_file.chmod(0o600)
+        socket_path = roots["runtime"] / "core.sock"
+        environment = {
+            "PATH": os.environ["PATH"], "HOME": str(root), "LANG": "C.UTF-8",
+            "XDG_CONFIG_HOME": str(roots["config"]),
+            "XDG_DATA_HOME": str(roots["data"]),
+            "XDG_CACHE_HOME": str(roots["cache"]),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+        process = await asyncio.create_subprocess_exec(
+            sys.executable, "-m", "src", "--socket", str(socket_path),
+            "--token-file", str(token_file), "--profile", paths.profile_id,
+            "--data-dir", str(paths.data_dir), stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            env=environment, cwd=Path(__file__).resolve().parents[1],
+        )
+        writer = None
+        try:
+            reader, writer, welcome = await wait_connected(process, socket_path)
+            assert welcome["t"] == "welcome"
+            assert (await request(reader, writer, "status.get"))["result"]["phase"] == "ready"
+            for directory in (paths.config_dir, paths.data_dir, paths.cache_dir):
+                assert stat.S_IMODE(directory.stat().st_mode) == 0o700
+                assert stat.S_IMODE(directory.parent.stat().st_mode) == 0o700
+            assert stat.S_IMODE(disk.stat().st_mode) == 0o775
+            assert token_file.read_text() == "ab" * 32
+            process.stdin.close()
+            _, stderr = await asyncio.wait_for(process.communicate(), 10)
+            assert process.returncode == 0, stderr
+            assert not socket_path.exists()
+        finally:
+            if writer is not None:
+                writer.close()
+                await writer.wait_closed()
+            if process.returncode is None:
+                process.stdin.close()
+                await asyncio.wait_for(process.communicate(), 15)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("unsafe", [False, True])
 async def test_real_core_start_failure_names_credential_path_without_credential(unsafe):
     import asyncio

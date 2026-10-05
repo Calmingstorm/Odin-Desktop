@@ -130,7 +130,7 @@ def test_core_checks_namespace_owner_without_chmod_of_other_owners(
 
 
 @pytest.mark.parametrize("component", ["odin-desktop", "default"])
-def test_core_refuses_namespace_links_without_chmod(tmp_path, component):
+def test_core_follows_namespace_links_without_chmod_of_unrelated_target(tmp_path, component):
     outside = tmp_path / "outside"
     outside.mkdir(mode=0o700)
     outside.chmod(0o775)
@@ -138,8 +138,8 @@ def test_core_refuses_namespace_links_without_chmod(tmp_path, component):
     link = target.parent if component == "odin-desktop" else target
     link.parent.mkdir(exist_ok=True)
     link.symlink_to(outside, target_is_directory=True)
-    with pytest.raises(OSError):
-        private_directory(target)
+    private_directory(target)
+    assert target.is_dir()
     assert stat.S_IMODE(outside.stat().st_mode) == 0o775
 
 
@@ -161,16 +161,96 @@ def test_ssh_socket_parents_are_private_under_group_umask(tmp_path):
     assert ancestor.stat().st_mode == before
 
 
-def test_ssh_socket_parent_link_refused(tmp_path):
+def test_ssh_socket_parent_link_followed(tmp_path):
     from src.tools.ssh_pool import SSHConnectionPool
 
     outside = tmp_path / "outside"
     outside.mkdir(mode=0o700)
     link = tmp_path / "odin-desktop"
     link.symlink_to(outside, target_is_directory=True)
-    with pytest.raises(OSError):
-        SSHConnectionPool(socket_dir=str(link / "default" / "ssh-sockets"))
+    directory = link / "default" / "ssh-sockets"
+    pool = SSHConnectionPool(socket_dir=str(directory))
+    assert pool.socket_dir == str(directory)
+    assert (outside / "default" / "ssh-sockets").is_dir()
+    assert stat.S_IMODE(directory.stat().st_mode) == 0o700
+
+
+@pytest.mark.parametrize("existing", [False, True])
+@pytest.mark.parametrize("relative", [False, True])
+def test_configured_socket_directory_under_symlink_preserves_path_and_modes(
+    tmp_path, monkeypatch, existing, relative
+):
+    from src.tools.ssh_pool import SSHConnectionPool
+
+    parent = tmp_path / "disk"
+    parent.mkdir()
+    parent.chmod(0o775)
+    link = tmp_path / "linked"
+    link.symlink_to("disk", target_is_directory=True)
+    directory = parent / "sockets"
+    if existing:
+        directory.mkdir()
+        directory.chmod(0o755)
+    monkeypatch.chdir(tmp_path)
+    spelling = "linked/sockets" if relative else str(link / "sockets")
+    pool = SSHConnectionPool(socket_dir=spelling)
+    assert pool.socket_dir == spelling
+    assert pool.get_socket_path("lab", "operator") == f"{spelling}/operator@lab"
+    assert stat.S_IMODE(directory.stat().st_mode) == (0o755 if existing else 0o700)
+    assert stat.S_IMODE(parent.stat().st_mode) == 0o775
+
+
+@pytest.mark.parametrize("owner", ["foreign", "root"])
+def test_directory_symlink_uses_target_owner_not_link_owner(tmp_path, monkeypatch, owner):
+    target = tmp_path / "disk"
+    target.mkdir()
+    target.chmod(0o775)
+    link = tmp_path / "linked"
+    link.symlink_to(target, target_is_directory=True)
+    original = os.fstat
+    inode = target.stat().st_ino
+
+    def target_owner(fd):
+        info = original(fd)
+        if info.st_ino == inode:
+            values = list(info)
+            values[4] = 0 if owner == "root" else os.geteuid() + 1
+            return os.stat_result(values)
+        return info
+
+    monkeypatch.setattr(os, "fstat", target_owner)
+    if owner == "foreign":
+        with pytest.raises(PermissionError, match="foreign") as refusal:
+            private_directory(link / "private")
+        assert refusal.value.filename == str(target)
+        assert not (target / "private").exists()
+    else:
+        private_directory(link / "private")
+        assert stat.S_IMODE((target / "private").stat().st_mode) == 0o700
+    assert stat.S_IMODE(target.stat().st_mode) == 0o775
+
+
+def test_private_directory_refuses_link_substitution_after_resolution(tmp_path, monkeypatch):
+    from src.desktop import paths
+
+    directory = tmp_path / "folder"
+    directory.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outside.chmod(0o775)
+    realpath = os.path.realpath
+
+    def substitute_after_resolution(path):
+        resolved = realpath(path)
+        directory.rmdir()
+        directory.symlink_to(outside, target_is_directory=True)
+        return resolved
+
+    monkeypatch.setattr(paths.os.path, "realpath", substitute_after_resolution)
+    with pytest.raises(NotADirectoryError):
+        private_directory(directory / "private")
     assert list(outside.iterdir()) == []
+    assert stat.S_IMODE(outside.stat().st_mode) == 0o775
 
 
 @pytest.mark.parametrize("mode", [0o755, 0o775, 0o777])

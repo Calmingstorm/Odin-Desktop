@@ -256,7 +256,7 @@ def test_token_mode_privacy(tmp_path, mode):
         ipc_auth.load_token(path)
 
 
-def test_token_and_parent_nofollow(tmp_path):
+def test_token_leaf_nofollow_with_linked_parent_accepted(tmp_path):
     tmp_path.chmod(0o700)
     path = tmp_path / "ipc.token"
     for text in ("a" * 63, "g" * 64, "a" * 64 + "\n"):
@@ -272,8 +272,9 @@ def test_token_and_parent_nofollow(tmp_path):
         ipc_auth.load_token(link)
     linked_parent = tmp_path / "parent"
     linked_parent.symlink_to(tmp_path, target_is_directory=True)
+    assert ipc_auth.load_token(linked_parent / "ipc.token") == "a" * 64
     with pytest.raises(OSError):
-        ipc_auth.load_token(linked_parent / "ipc.token")
+        ipc_auth.load_token(linked_parent / "link")
     tmp_path.chmod(0o755)
     assert ipc_auth.load_token(path) == "a" * 64
     assert stat.S_IMODE(tmp_path.stat().st_mode) == 0o755
@@ -588,17 +589,71 @@ def test_private_parent_checks_unrelated_owners_without_chmod(
 
 
 @pytest.mark.parametrize("component", ["odin-desktop", "default"])
-def test_private_parent_refuses_namespace_link(tmp_path, component):
+def test_private_parent_follows_namespace_link_without_chmod_of_unrelated_target(
+    tmp_path, component
+):
     outside = tmp_path / "outside"
     outside.mkdir(mode=0o700)
+    outside.chmod(0o775)
     directory = tmp_path / "odin-desktop" / "default"
     link = directory.parent if component == "odin-desktop" else directory
     link.parent.mkdir(exist_ok=True)
     link.symlink_to(outside, target_is_directory=True)
-    with pytest.raises(OSError) as refusal:
-        ipc_auth.private_parent(directory / "ipc.token")
-    assert refusal.value.filename == str(link)
-    assert list(outside.iterdir()) == []
+    directory.mkdir(exist_ok=True)
+    path, fd = ipc_auth.private_parent(directory / "ipc.token")
+    try:
+        assert path == directory.resolve() / "ipc.token"
+        assert os.fstat(fd).st_ino == directory.stat().st_ino
+    finally:
+        os.close(fd)
+    assert stat.S_IMODE(outside.stat().st_mode) == 0o775
+
+
+@pytest.mark.parametrize("create", [False, True])
+@pytest.mark.parametrize("owner", ["foreign", "root"])
+def test_private_parent_symlink_checks_target_owner(tmp_path, monkeypatch, create, owner):
+    target = tmp_path / "disk"
+    target.mkdir()
+    target.chmod(0o775)
+    link = tmp_path / "linked"
+    link.symlink_to(target, target_is_directory=True)
+    inode = target.stat().st_ino
+    original = os.fstat
+
+    def target_owner(fd):
+        info = original(fd)
+        if info.st_ino == inode:
+            values = list(info)
+            values[4] = 0 if owner == "root" else os.geteuid() + 1
+            return os.stat_result(values)
+        return info
+
+    monkeypatch.setattr(os, "fstat", target_owner)
+    if owner == "foreign":
+        with pytest.raises(PermissionError, match="foreign") as refusal:
+            ipc_auth.private_parent(link / "ipc.token", create=create)
+        assert refusal.value.filename == str(target)
+    else:
+        path, fd = ipc_auth.private_parent(link / "ipc.token", create=create)
+        try:
+            assert path == target / "ipc.token"
+            assert os.fstat(fd).st_ino == inode
+        finally:
+            os.close(fd)
+    assert stat.S_IMODE(target.stat().st_mode) == 0o775
+    assert list(target.iterdir()) == []
+
+
+@pytest.mark.parametrize("create", [False, True])
+def test_private_parent_still_refuses_nondirectory_after_link_resolution(tmp_path, create):
+    target = tmp_path / "not-a-directory"
+    target.write_text("unchanged")
+    link = tmp_path / "linked"
+    link.symlink_to(target)
+    with pytest.raises(NotADirectoryError) as refusal:
+        ipc_auth.private_parent(link / "ipc.token", create=create)
+    assert refusal.value.filename == str(target)
+    assert target.read_text() == "unchanged"
 
 
 @pytest.mark.parametrize("kind", ["missing", "unsafe", "invalid"])

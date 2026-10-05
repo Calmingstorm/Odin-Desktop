@@ -14,10 +14,12 @@ from .paths import _namespace_directories, _repair_namespace_directory, private_
 
 
 def private_parent(path: Path | str, *, create: bool = False) -> tuple[Path, int]:
-    """Hold a no-follow parent; accept existing modes and repair only our namespace."""
+    """Resolve folder links, then hold the real parent without following leaf links."""
     path = Path(path)
     if not path.is_absolute() or ".." in path.parts or any(ord(c) < 32 for c in str(path)):
         raise ValueError("IPC path must be absolute")
+    # Resolve only directories. The token/socket itself retains no-follow checks.
+    path = Path(os.path.realpath(path.parent)) / path.name
     if create:
         private_directory(path.parent)
     namespace = _namespace_directories(path.parent)

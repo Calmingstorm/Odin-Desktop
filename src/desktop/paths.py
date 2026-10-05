@@ -41,11 +41,12 @@ def private_directory(path: Path, *, repair_namespace: bool = True) -> None:
     """Create missing folders 0700; accept existing modes under D17.
 
     Only owned Desktop namespace components are tightened, never unrelated
-    ancestors or configured socket folders. Links and foreign nonroot owners
-    remain refused through held descriptors.
+    ancestors or configured socket folders. Resolve directory links once, then
+    check real folders and their owners through held no-follow descriptors.
     """
     if not path.is_absolute() or ".." in path.parts:
         raise ValueError("private paths must be absolute")
+    path = Path(os.path.realpath(path))
     namespace = _namespace_directories(path) if repair_namespace else frozenset()
     current = Path("/")
     fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY)

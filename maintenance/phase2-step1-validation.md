@@ -163,3 +163,25 @@ Review baseline: `31a48c24d7d3535f0fff2659a5da50d807af7bc7`.
   `/home/odin/reviews/desktop-step1-round2-final/.test-state/qualification-{0..28}.xml`.
   Inherited unawaited-coroutine warnings remain visible. Only this evidence document changes after the verified
   code commit; no merge, live-service operation or attribution trailers.
+
+## PR #14 round 3: D17 symlinked directory parity
+
+Review baseline: `d1098b3025643bb6ecb0b6686fc0a181df447672`.
+
+- Profile provisioning resolves directory links before walking the real folders with held no-follow descriptors.
+  IPC resolves only parent folders; token/socket leaf no-follow checks, credential ownership/mode checks,
+  descriptor-relative bind and inode-bound cleanup remain unchanged. Configured SSH socket spellings are preserved.
+- Missing folders remain `0700`; existing modes remain accepted. Only real, owned Desktop namespace components
+  are repaired, never unrelated link targets. Foreign nonroot target owners refuse, root-owned targets are used
+  without chmod, and a directory substituted with a link after resolution still refuses.
+- Fail-before-fix selection on unchanged production source: **20 failed, 1 passed, 174 deselected**. This includes
+  real supervised core startup for all linked config/data/cache/socket locations, configured existing/new and
+  relative/absolute linked SSH socket paths, namespace links, and target-owner decisions.
+  Log: `/home/odin/reviews/desktop-step1-round3-before.log`.
+- Final touched suites: **198 passed**; paths/IPC-auth combined coverage **98%**, IPC-auth **100%**. The first
+  incremental run exposed one older parent-link refusal assertion, now updated to accept linked parents while
+  retaining token-leaf refusal. Nondirectory and post-resolution substitution refusals are also covered.
+  Log: `/home/odin/reviews/desktop-step1-round3-final-touched.log`.
+- Exact source-adaptation records and unchanged-source evidence pins are refreshed separately; no source
+  recapture or independent approval is implied. All execution uses sanitized PID/mount namespaces and temporary
+  HOME/XDG roots. Fresh-checkout full gate evidence follows after it completes.

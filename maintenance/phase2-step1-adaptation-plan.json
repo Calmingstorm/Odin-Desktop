@@ -36,9 +36,9 @@
     },
     {
       "path": "src/desktop/paths.py",
-      "reason": "Align app/XDG roots; create missing directories 0700 and repair only owned Desktop namespace components, accepting existing permission modes under D17.",
-      "contract": "Absolute nonoverlapping profile roots; held no-follow descriptors refuse foreign nonroot owners, allow root without chmod and preserve unrelated ancestor modes. Configured socket directories disable namespace repair.",
-      "invariant": "No legacy state adoption, symlink repair or path traversal.",
+      "reason": "Align app/XDG roots; follow directory symlinks under D17, create missing directories 0700 and repair only owned Desktop namespace components, accepting existing permission modes.",
+      "contract": "Resolve directory paths before traversing real folders with held no-follow descriptors; judge target owners, refuse foreign nonroot owners, allow root without chmod and preserve unrelated ancestor modes. Configured socket directories disable namespace repair.",
+      "invariant": "No legacy state adoption or chmod of unrelated link targets; substitutions after resolution remain refused.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_core_entry.py", "tests/test_desktop_core_paths.py"]
     },
@@ -76,8 +76,8 @@
     },
     {
       "path": "src/desktop/ipc_auth.py",
-      "reason": "Load the app token and authenticate OS peers under no-follow guards; repair owned namespace parents without refusing any directory permission mode under D17.",
-      "contract": "Token file owner, 0600 mode and constant-time comparison remain mandatory; foreign nonroot directory owners refuse, root owners are allowed without chmod and unrelated directory modes remain unchanged.",
+      "reason": "Load the app token and authenticate OS peers under leaf no-follow guards; follow folder symlinks and repair owned namespace parents without refusing any directory permission mode under D17.",
+      "contract": "Resolve only the parent folders, then traverse held real-directory descriptors. Token file owner, 0600 mode and constant-time comparison remain mandatory; foreign nonroot target owners refuse, root owners are allowed without chmod and unrelated directory modes remain unchanged.",
       "invariant": "Core never creates, repairs or logs the credential; payload identity cannot mint owner authority.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_ipc.py", "tests/test_desktop_core_lifecycle.py", "tests/test_desktop_core_entry.py"]
@@ -116,7 +116,7 @@
     },
     {
       "path": "tests/test_desktop_core_entry.py",
-      "reason": "Exercise selected roots, app bootstrap, identity lock and entry containment/finalization composition.",
+      "reason": "Exercise selected roots, app bootstrap, identity lock, entry containment/finalization and actual supervised core startup below linked config/data/cache/socket folders.",
       "contract": "Real temporary profile state plus isolated primitive mocks; no Markdown-wording assertions.",
       "invariant": "No live config/data, desktop input or unsafe process test literals.",
       "owner": "Odin",
@@ -148,7 +148,7 @@
     },
     {
       "path": "tests/test_desktop_ipc.py",
-      "reason": "Exercise actual local socket framing/authentication, private credential handling and delivery order.",
+      "reason": "Exercise actual local socket framing/authentication, linked folder target ownership, private leaf no-follow credential handling and delivery order.",
       "contract": "Real Unix peers, bounded frames and scrubbed failure paths in isolated temporary profiles.",
       "invariant": "No active desktop, live socket/config or destructive inputs.",
       "owner": "Odin",
@@ -156,7 +156,7 @@
     },
     {
       "path": "tests/test_desktop_foundation.py",
-      "reason": "Update app/protocol XDG namespace expectations and prove existing unrelated directory modes are preserved rather than refused under D17.",
+      "reason": "Update app/protocol XDG namespace expectations and prove directory symlinks are followed while unrelated directory modes are preserved under D17.",
       "contract": "Existing owner, persistence and host parity behavior tests remain retained.",
       "invariant": "No upstream original test corpus changes.",
       "owner": "Odin",
@@ -181,14 +181,14 @@
     {
       "path": "src/tools/ssh_pool.py",
       "reason": "Restore configured SSH socket-directory parity: normalize a guard-only absolute path, create missing folders 0700 and use existing folders without chmod or permission-mode refusal.",
-      "contract": "Relative configured paths including ../sockets remain unchanged for OpenSSH; existing modes are accepted, new folders are 0700, and no-follow foreign-nonroot-owner guards remain. Default profile socket directories are still created 0700.",
+      "contract": "Relative configured paths including ../sockets remain unchanged for OpenSSH; folder links are resolved by private_directory, existing modes are accepted, new folders are 0700 and real-folder foreign-nonroot-owner guards remain. Default profile socket directories are still created 0700.",
       "invariant": "No SSH protocol, foreground-master ownership, lease, cleanup or containment change.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_core_paths.py", "tests/test_desktop_final_distribution.py", "tests/test_desktop_capabilities_owner.py"]
     },
     {
       "path": "tests/test_desktop_core_paths.py",
-      "reason": "Exercise namespace repair, permission-mode parity, configured existing/new/relative socket paths, default 0700 creation under umask 002 and foreign-nonroot ownership refusal.",
+      "reason": "Exercise namespace repair, permission-mode and symlink parity, configured existing/new/relative linked socket paths, default 0700 creation under umask 002, target ownership refusal and post-resolution link substitution refusal.",
       "contract": "Behavior tests use temporary roots and inspect real permissions and ownership decisions.",
       "invariant": "No chmod of foreign or unrelated ancestors and no live state.",
       "owner": "Odin",
