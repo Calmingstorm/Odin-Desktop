@@ -169,6 +169,14 @@ Wayland.
 
 ## Smoke evidence, current PR
 
+Final evidence is checked in under
+`maintenance/evidence/phase3-lab-20261005/{cinnamon,gnome,kde,hyprland}/`:
+`proof.json`, the actual guest PNG, installed `packages.tsv`, and listener
+evidence. These runs used committed sources and hash-matched uploaded scripts.
+Cinnamon/GNOME ran at `dcb2d349`; KDE/Hyprland ran at `ff347abb` after KDE's native
+screen-reader setting fix. The original development paths below are retained
+for incident provenance, not substituted for the final evidence.
+
 | VM | Graphical boot | Orca starts | Guest screenshot | Verdict |
 |---|---|---|---|---|
 | `odq-cinnamon` | 1280x800 X11 active | Orca process present | Captured and visually inspected: `/home/odin/reviews/desktop-lab-storage-20261005/cinnamon-smoke/guest.png` | **Smoke passed** |
@@ -216,6 +224,13 @@ budget is an admission check, **not a kernel quota or continuous monitor**.
 Do not race this runner with manual Incus changes or unrelated storage writers.
 No snapshots were retained. These are lab smoke proofs, not P3.3-P3.6 acceptance.
 
+Final retained four-VM pool allocation is **15.91 GiB**, with **197.69 GiB**
+free on `/mnt/storage`. All four VMs are stopped with no snapshots. The old
+`default` pool remains Unavailable; its configuration and `bots` metadata match
+the original before-state byte-for-byte. No reboot was induced to test pool
+startup; the dir source is persistent Incus configuration, with no loop device
+to recreate or custom host startup service.
+
 ## Virtual GPU meaning
 
 No `gpu` device is added. Incus/QEMU's emulated display is rendered in the
@@ -224,7 +239,10 @@ native Wayland EGL path unsets `LIBGL_ALWAYS_SOFTWARE` and sets
 `GALLIUM_DRIVER=llvmpipe`; blindly forcing that variable caused a native EGL
 startup failure. KWin logs explicitly reported llvmpipe and DRM presentation.
 Hyprland/Aquamarine enumerated virtio_gpu and Virtual-1, and grim captured its
-native terminal. EGL device-query warnings remain; smoke success is not a
+native terminal. Its clean-source screenshot also shows startup notices for
+missing `hyprland-guiutils` and the direct Hyprland launcher; the terminal,
+Orca and capture work, but these notices are not hidden or called full session
+qualification. EGL device-query warnings remain; smoke success is not a
 blanket renderer qualification or hardware-performance claim.
 
 A passing smoke can prove graphical session startup, an Orca process,
@@ -244,7 +262,14 @@ service-policy restoration. Every engine/test invocation uses the repository's
 PID-namespace launcher; no VM/native receiver is involved in these tests.
 
 Final source and test counts are recorded in the PR. The engine drift/lint
-gates and existing qualification groups are rerun from a fresh checkout. No
+gates and existing qualification groups ran from a fresh checkout at `ff347abb`:
+**225 lab tests passed**, **28/28 engine groups passed** with **13,145 passing
+executions and 2 skips**. Drift has zero errors (review remains pending), lint
+has zero new findings, Ruff and ShellCheck are clean. App sources are unchanged
+from `f6d649a8`; a fresh checkout there passed typecheck, **281 tests**, build,
+and the isolated Xvfb fixture smoke. That fixture is not a VM/native proof.
+Evidence-only commits following those source commits do not alter executable
+code. No
 merge, deployment, host-service restart, host package installation or
 active-session input. Guest installs, graphical restarts and guest shutdowns
 are part of the isolated lab lifecycle.
