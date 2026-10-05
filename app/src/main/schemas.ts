@@ -189,7 +189,10 @@ export const LEAF_EDITORS = ['models.main.set', 'models.agents.set'] as const
 export const editLeafSchema = z
   .object({ method: z.enum(LEAF_EDITORS), params: z.record(z.string().regex(/^[A-Za-z0-9_]+$/), leafValue) })
   .strict()
-  .refine((v) => Object.keys(v.params).length === 1, 'one leaf at a time')
+  .refine((v) => Object.keys(v.params).filter((key) => key !== 'expected_revision').length === 1, 'one leaf at a time')
+  .refine((v) => v.params.expected_revision === undefined ||
+    (typeof v.params.expected_revision === 'string' && v.params.expected_revision.length > 0 && v.params.expected_revision.length <= 128),
+  'invalid settings revision')
 
 const accountIndex = z.number().int().min(0).max(63)
 export const codexIndexSchema = z.object({ index: accountIndex }).strict()
@@ -228,7 +231,8 @@ const fingerprint = z.string().regex(/^SHA256:[A-Za-z0-9+/]{20,64}$/)
 const scheduleId = z.string().min(1).max(64)
 const memoryScope = z.string().min(1).max(128)
 const memoryKey = z.string().min(1).max(256)
-const knowledgeSource = z.string().min(1).max(500)
+// Existing source labels are exact store identities. Only new ingestion trims and caps them.
+const knowledgeSource = z.string().refine((value) => value.trim().length > 0, 'source is required')
 const scheduleFields = {
   description: z.string().min(1).max(500).optional(),
   channel_id: z.string().max(128).optional(),
@@ -303,6 +307,7 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
       port: z.number().int().min(1).max(65_535).optional(),
       os: z.enum(['linux', 'macos']).optional(),
       description: z.string().max(200).optional(),
+      enabled: z.boolean().optional(),
       trust_mode: z.enum(['pinned', 'ca', 'tofu']),
       expected_fingerprints: z.array(fingerprint).max(16).optional(),
       candidate_fingerprints: z.array(fingerprint).max(16).optional(),
@@ -355,14 +360,15 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
   listsDelete: z.object({ name: z.string().min(1).max(200) }).strict(),
   knowledgeList: empty,
   knowledgeSearch: z.object({ q: z.string().trim().min(1), limit: z.number().int().min(1).max(100).optional() }).strict(),
-  knowledgeIngest: z.object({ source: knowledgeSource, content: z.string().min(1) }).strict(),
+  knowledgeIngest: z.object({ source: z.string().trim().min(1).max(100), content: z.string().trim().min(1).max(500_000) }).strict(),
   knowledgeReingest: z.object({ source: knowledgeSource }).strict(),
   knowledgeDelete: z.object({ source: knowledgeSource }).strict(),
   knowledgeVersions: z.object({ source: knowledgeSource }).strict(),
-  knowledgeRestore: z.object({ source: knowledgeSource, version: z.number().int().min(1) }).strict(),
+  knowledgeRestore: z.object({ source: knowledgeSource, version: z.number().int().min(0) }).strict(),
   auditQuery: z
     .object({
       tool: z.string().max(128).optional(),
+      user: z.string().max(128).optional(),
       host: z.string().max(128).optional(),
       q: z.string().max(1000).optional(),
       date: z.string().max(32).optional(),

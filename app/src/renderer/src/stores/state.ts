@@ -191,10 +191,16 @@ export async function loadKnowledge(): Promise<void> {
 }
 
 /** What an ingest did, in words: stored, unchanged, or why not. */
+function storedIngest(answer: KnowledgeIngest): boolean {
+  // Fresh durable success uses the pinned route's {source, chunks}, not the fixture's outcome tag.
+  return answer.outcome === 'created' || answer.outcome === 'unchanged' ||
+    (answer.outcome === undefined && typeof answer.chunks === 'number' && answer.chunks > 0)
+}
+
 export function ingestNote(answer: KnowledgeIngest): string {
-  if (answer.outcome === 'created') return `Stored as ${answer.chunks ?? 0} chunks.`
   if (answer.outcome === 'unchanged') return 'Already stored, unchanged.'
-  return answer.message ?? answer.status
+  if (storedIngest(answer)) return `Stored as ${answer.chunks ?? 0} chunks.`
+  return answer.message ?? answer.status ?? 'No durable storage result was reported.'
 }
 
 export async function ingest(source: string, content: string): Promise<boolean> {
@@ -204,7 +210,7 @@ export async function ingest(source: string, content: string): Promise<boolean> 
     'knowledge',
     () => command('knowledge', () => window.odin.knowledgeIngest({ source, content })),
     (answer) => {
-      stored = answer.outcome === 'created' || answer.outcome === 'unchanged'
+      stored = storedIngest(answer)
       return ingestNote(answer)
     },
     loadKnowledge

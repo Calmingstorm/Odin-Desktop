@@ -97,14 +97,12 @@ class StateService:
         async with backend._memory_lock:
             data = await to_thread_settled(backend._load_all_memory)
             if method == "memory.list":
-                return {name: {"keys": list(notes), "count": len(notes)}
-                        for name, notes in data.items()
-                        if name in {"global", f"user_{self.owner_id}"}}
+                return {name: {"keys": list(data.get(name, {})),
+                               "count": len(data.get(name, {}))}
+                        for name in ("global", f"user_{self.owner_id}")}
             if method == "memory.get":
                 if key is None:
-                    if scope not in data:
-                        raise MethodError("not_found", "scope not found")
-                    return {"scope": scope, "entries": data[scope]}
+                    return {"scope": scope, "entries": data.get(scope, {})}
                 if key not in data.get(scope, {}):
                     raise MethodError("not_found", "key not found")
                 return {"scope": scope, "key": key, "value": data[scope][key]}

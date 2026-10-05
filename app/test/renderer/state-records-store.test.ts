@@ -56,10 +56,10 @@ describe('state and records', () => {
     expect(calls.audit?.[1]).toEqual({ limit: 100, q: 'second' })
     void records.searchLogs({ q: 'a' })
     void records.searchLogs({ q: 'b', level: 'error' })
-    held[3]!(ok({ entries: [{ timestamp: 't', level: 'ERROR', message: 'b' }], count: 1 }))
-    held[2]!(ok({ entries: [{ timestamp: 't', level: 'INFO', message: 'a' }], count: 1 }))
+    held[3]!(ok({ entries: [{ timestamp: 't', tool_name: 'second', error: 'b' }], count: 1 }))
+    held[2]!(ok({ entries: [{ timestamp: 't', tool_name: 'first', result_summary: 'a' }], count: 1 }))
     await settle()
-    expect(records.records.logs.map((e) => e.message)).toEqual(['b'])
+    expect(records.records.logs.map(records.logMessage)).toEqual(['b'])
   })
 
   it('says what an ingest did, and keeps the text when nothing was stored', async () => {

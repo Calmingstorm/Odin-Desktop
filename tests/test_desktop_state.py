@@ -39,6 +39,46 @@ async def test_tool_and_management_share_memory_and_prompt(state):
 
 
 @pytest.mark.asyncio
+async def test_fresh_authorized_scopes_are_discoverable_without_creation(state, monkeypatch):
+    service, executor = state
+    path = service.paths.data_dir / "memory.json"
+    assert not path.exists()
+
+    def unexpected_save(data):
+        pytest.fail("Reading absent scopes must not persist memory")
+
+    monkeypatch.setattr(executor, "_save_all_memory", unexpected_save)
+    assert await service.handle("memory.list", {"owner_id": "other"}) == {
+        "global": {"keys": [], "count": 0},
+        "user_owner": {"keys": [], "count": 0},
+    }
+    for scope in ("global", "user_owner"):
+        assert await service.handle("memory.get", {"scope": scope}) == {
+            "scope": scope, "entries": {},
+        }
+    with pytest.raises(MethodError) as error:
+        await service.handle("memory.get", {"scope": "user_other"})
+    assert error.value.code == "forbidden"
+    assert not path.exists()
+
+
+@pytest.mark.asyncio
+async def test_absent_personal_scope_reads_leave_existing_memory_unchanged(state):
+    service, executor = state
+    executor._save_all_memory({"global": {"existing": "value"}})
+    path = service.paths.data_dir / "memory.json"
+    before = path.read_bytes()
+    assert await service.handle("memory.list", {}) == {
+        "global": {"keys": ["existing"], "count": 1},
+        "user_owner": {"keys": [], "count": 0},
+    }
+    assert await service.handle("memory.get", {"scope": "user_owner"}) == {
+        "scope": "user_owner", "entries": {},
+    }
+    assert path.read_bytes() == before
+
+
+@pytest.mark.asyncio
 async def test_profile_writes_leave_alongside_state_untouched(tmp_path):
     sentinel = tmp_path / "alongside-memory.json"
     sentinel.write_text('{"global":{"other":"untouched"}}')
