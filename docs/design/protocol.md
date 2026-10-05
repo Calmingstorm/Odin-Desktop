@@ -63,7 +63,7 @@ Every message has a type field `t`. An unknown `t` is a protocol error. Unknown 
    - **Otherwise,** it sends `bye` with a reason (`unauthorized`, `incompatible` or `wrong_profile`) and closes.
 3. After `welcome`, the app may send `req` frames. Events flow only after `events.subscribe`.
 
-## Methods (minor 2)
+## Methods (minor 1 and 2)
 
 | Method | Params | Result |
 |---|---|---|
@@ -97,6 +97,143 @@ reconnect, a reset or a window reload, without relying on events it may have mis
 | `unresolved` | Every terminal outcome in the conversation whose unknown effects are not reconciled yet, oldest first, in the same shape as `recent`. Never trimmed and never cleared by later outcomes: a later success is not a reconciliation. An entry leaves only through `effects.resolved`. |
 | `tools` | `{<request_id>: [{invocation_id, tool, target?, summary, outcome?, exit_code?, duration_ms?}]}` for the running request and the requests behind the listed messages |
 | `controls` | `[{control_command_id, kind, request_id, generation, disposition, sequence?}]`: every Stop and Steer bound to the running or queued requests, with its latest disposition. It replaces the app's projection of those controls. |
+
+## Methods (minor 3): the v1 interface surface
+
+Minor 3 adds what the app's v1 interface needs ([`chat-experience.md`](chat-experience.md), v1 column). Everything
+Odin can do today stays reachable (D2, D17). The app is a display and control surface for the same engine, never a
+second policy layer.
+
+### Conventions
+
+- **Names** are `<domain>.<verb>`. A method that changes nothing (listing, getting, searching, reading, paging,
+  validating, checking status) is a read and is answered fresh. Every other method is a command and follows **Command
+  identity** (durable receipt, `id_conflict`, `receipt_expired`), including `skills.test` and `codex.login.poll`,
+  which can have effects. Upload chunks are the one exception: `attachments.chunk` is idempotent by offset and keeps
+  no durable receipt.
+- **"Odin shape"** means the same request and result fields as the named route of Odin v4.13.0's web API. The core
+  adapts those handlers rather than inventing a parallel model, so the app and Odin stay at parity. A field that only
+  made sense for Discord or for multiple users is omitted.
+- **Revisions.** A mutation of a revisioned record takes `expected_rev`. A mismatch is `stale_binding`, and nothing is
+  applied.
+- **Secrets are write-only.** No result, event or log ever carries a secret value. Reads show `{set: true|false}`.
+- **Bytes move in bounded chunks** of at most `limits.chunk_bytes` (from `status.get`), base64-encoded, so a frame
+  never exceeds `max_frame`.
+- **Paths never come from the window.** File content reaches the core only through the upload methods below. The app's
+  main process reads only files the user picked or dropped.
+
+### Conversations
+
+| Method | Params | Result |
+|---|---|---|
+| `conversations.create` | `{title?, parent_id?, from_message_id?}` | `{conversation}`. With `parent_id`, a child seeded from the parent's context through `from_message_id` (default: its latest message), and labeled as inherited. |
+| `conversations.delete` | `{id, expected_rev}` | `{disposition: "deleted"}`, or `busy` while a request in it is running or queued (stop it first). The visible transcript and its artifacts go; admitted-ID tombstones stay. |
+| `conversations.reset_context` | `{id, expected_rev}` | `{conversation}`. Odin's model context restarts; the visible transcript stays. A `notice` message records it. |
+| `conversations.mark_read` | `{id, through_message_id}` | `{conversation}` with its new `unread` |
+
+### Search and jump
+
+| Method | Params | Result |
+|---|---|---|
+| `search.query` | `{query, conversation_id?, limit (max 50), cursor?}` | `{hits: [{conversation_id, message_id, role, snippet, created_at}], next_cursor?, watermark}`. The visible transcript and artifact names, deletion-aware. A malformed query is `bad_request`, never an empty result. |
+| `messages.around` | `{conversation_id, message_id, before (max 50), after (max 50)}` | `{items, has_before, has_after}`, newest last |
+
+### Attachments
+
+| Method | Params | Result |
+|---|---|---|
+| `attachments.begin` | `{client_attachment_id, conversation_id, name, size, mime}` | `{upload_id, chunk_bytes, expires_at}`, or `too_large` / `unsupported_type` before any byte moves |
+| `attachments.chunk` | `{upload_id, offset, data_b64}` | `{received}` (total bytes so far). Chunks arrive in order; a repeated `offset` is idempotent. |
+| `attachments.commit` | `{upload_id, sha256}` | `{attachment: {ref, name, mime, size, preview_ref?}}`. A digest mismatch is `bad_request`, and nothing is kept. |
+| `attachments.cancel` | `{upload_id}` | `{disposition: "cancelled"}` |
+
+`submission.send` gains `attachments: [{ref, add_to_knowledge}]`. Ingesting into knowledge happens only when the user
+chose it for that attachment; it is never automatic.
+
+### Results: artifacts and reports
+
+Messages gain `artifacts: [{ref, name, mime, size, kind, available}]`, where `kind` is `image`, `file` or `report`.
+
+| Method | Params | Result |
+|---|---|---|
+| `artifacts.read` | `{ref, offset, length (max chunk_bytes)}` | `{data_b64, size, eof}`, or `not_found` once deleted or expired |
+| `reports.page` | `{report_id, page}` | `{page, pages, text}`. Paging reads the stored result and never re-runs the check. Re-running is the separate command `schedules.run`. |
+
+The app never executes artifact content (no HTML or SVG rendering); it shows images and offers files to open or save.
+
+### Tool details
+
+| Method | Params | Result |
+|---|---|---|
+| `tool.detail` | `{request_id, invocation_id}` | `{tool, target?, arguments, previews: [{label, text, truncated}], output: {cursor?, expires_at?}}`. Arguments are scrubbed; previews are labeled as previews. |
+| `tool.output` | `{cursor, limit}` | `{text, next_cursor?, eof, expires_at}`. Retained output, fetched without re-running anything (Odin's `get_tool_output` contract). |
+
+### Running work and resume
+
+| Method | Params | Result |
+|---|---|---|
+| `work.list` | `{kind?, conversation_id?}` | `{items: [{kind, id, title, state, conversation_id?, request_id?, started_at?, detail}]}`. `kind` is `agent`, `task`, `loop`, `process`, `schedule` or `workflow`. |
+| `work.control` | `{control_command_id, kind, id, action}` | `{disposition}`. `action` is what Odin offers for that kind today: `stop`, `cancel`, `restart`, `pause`, `resume` or `run_now`. |
+| `control.resume` | `{control_command_id, conversation_id, request_id, generation}` | `{disposition: "admitted" or "rejected", reason?}`. Guarded resume binds the exact preserved request; unknown effects reject it. |
+
+### Status, usage and reload
+
+| Method | Params | Result |
+|---|---|---|
+| `status.get` | `{}` | Minor 1's fields plus `model: {main, effort, provider}`, `providers: [{name, health}]` and `limits: {chunk_bytes, attachment_bytes, attachments_per_turn}` |
+| `usage.get` | `{period}` (`session`, `day` or `week`) | Usage, quota and context, each value tagged `measured`, `estimated` or `unknown`. Never an invented number. |
+| `runtime.reload` | `{scope}` (`skills`, `config` or `context`) | `{disposition}`: Discord's `/reload` |
+
+### Notifications
+
+The core emits `notification.intent` events; the app decides how to show them from its own settings (previews on by
+default, D13; mute; quiet hours). `notifications.ack` `{dedupe_key, outcome}` (`shown`, `suppressed` or `failed`)
+records what happened. An outcome of `shown` means the OS accepted it, not that anyone saw it.
+
+### Settings and secrets
+
+| Method | Params | Result |
+|---|---|---|
+| `settings.schema` | `{}` | `{rev, sections: [{id, title, leaves: [{path, type, title, description, default, value, enum?, min?, max?, apply, sensitive}]}]}`. `apply` is `live` or `restart` (Odin's apply registry). A sensitive leaf's `value` is `{set}`. |
+| `settings.set` | `{expected_rev, changes: [{path, value} or {path, delete: true}]}` | `{rev, restart_required, applied}`. Partial: only the submitted leaves change. Validation errors name the leaf, and nothing is applied. |
+| `secrets.set` | `{path, value}` | `{set: true}`. The value is stored in the profile's keyring and never echoed. |
+| `secrets.clear` | `{path}` | `{set: false}` |
+
+### Management domains
+
+Each method has the Odin shape of the listed route.
+
+| Domain | Methods | Odin shape |
+|---|---|---|
+| Codex accounts | `codex.accounts.list`, `codex.accounts.activate`, `codex.accounts.remove`, `codex.accounts.label`, `codex.login.begin`, `codex.login.poll` | `GET /api/codex/status`, `POST /api/codex/account/{index}/activate`, `DELETE /api/codex/account/{index}`, `PUT /api/codex/account/{index}/label`, `POST /api/codex/device-code`, `POST /api/codex/device-poll` |
+| Models | `models.main.set`, `models.agents.get`, `models.agents.set` | `PUT /api/llm/main-model`, `GET` / `PUT /api/agents/model` |
+| Personality | `personality.get`, `personality.set`, `personality.presets.save`, `personality.presets.delete` | `/api/personality`, `/api/personality/presets` |
+| Tools | `tools.list`, `tools.set_enabled`, `tools.timeouts.get`, `tools.timeouts.set` | `GET /api/tools/builtins`, `POST /api/tools/builtins/{name}/enabled`, `/api/tools/timeouts` |
+| Skills | `skills.list`, `skills.get`, `skills.save`, `skills.validate`, `skills.test`, `skills.set_enabled`, `skills.delete`, `skills.config.get`, `skills.config.set` | `/api/skills` and its sub-routes |
+| MCP servers | `mcp.list`, `mcp.status`, `mcp.save`, `mcp.set_enabled`, `mcp.delete`, `mcp.reconnect`, `mcp.refresh_tools`, `mcp.tools` | `/api/mcp/*` |
+| Hosts and trust | `hosts.list`, `hosts.prepare`, `hosts.test`, `hosts.commit`, `hosts.set_enabled`, `hosts.references`, `hosts.delete`, `hosts.public_key` | `/api/hosts`, `/api/hosts/candidates`, `/candidates/{token}/test` and `/commit`, `/{alias}/references` and the rest |
+| Schedules | `schedules.list`, `schedules.save`, `schedules.delete`, `schedules.run`, `schedules.reset_failures`, `schedules.history`, `schedules.validate_cron` | `/api/schedules/*` |
+| Memory | `memory.list`, `memory.get`, `memory.set`, `memory.delete`, `memory.bulk_delete` | `/api/memory/*` |
+| Named lists | `lists.list` `{}` → `{items: [{name, count, updated_at}]}`; `lists.get` `{name}` → `{name, items}`; `lists.delete` `{name}` | No Odin route: the core reads and writes the same store as Odin's `manage_list` tool |
+| Knowledge | `knowledge.list`, `knowledge.search`, `knowledge.ingest`, `knowledge.reingest`, `knowledge.delete`, `knowledge.versions`, `knowledge.restore` | `/api/knowledge/*` |
+| Records | `audit.query`, `audit.verify`, `usage.get`, `health.get`, `logs.search`, `turn_state.list`, `computer.status`, `computer.reconcile` | `/api/audit*`, `/api/usage*`, `/api/health/components`, `/api/logs/search`, `/api/turn-state/*`, `/api/computer/*` |
+
+### New events and errors
+
+| Event | Payload |
+|---|---|
+| `conversation.deleted` | `{conversation_id}` |
+| `conversation.context_reset` | `{conversation_id, message_id}` (the recording notice) |
+| `artifact.unavailable` | `{conversation_id, message_id, ref, reason}` |
+| `work.updated` | `{kind, id, state, conversation_id?}` |
+| `notification.intent` | `{conversation_id, message_id, category, preview, dedupe_key}`. `preview` is scrubbed. |
+| `settings.changed` | `{rev, paths, restart_required}` |
+
+| Error | Meaning |
+|---|---|
+| `too_large` | Over a size limit. The limit is in `status.get` `limits`. |
+| `unsupported_type` | The core does not accept this type for this use |
+| `expired` | An upload, cursor or login code passed its expiry |
 
 ## Events
 
