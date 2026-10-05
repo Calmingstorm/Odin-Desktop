@@ -93,12 +93,14 @@ async def test_trigger_resumes_same_request_and_deduplicates_after_restart(tmp_p
         assert messages(core, cid)[-1]["text"] == "Completed preserved work."
         assert provider.calls == before + 1
         assert await request(reader, writer, "submission.send", params, envelope) == answer
-        assert (await request(reader, writer, "submission.send", params))["result"] == answer["result"]
+        replay = await request(reader, writer, "submission.send", params)
+        assert replay["result"] == answer["result"]
         assert provider.calls == before + 1
         conflict = await request(reader, writer, "submission.send", {**params, "text": "different"})
         assert conflict["error"]["code"] == "id_conflict"
     async with running(paths) as (core, provider, reader, writer):
-        assert (await request(reader, writer, "submission.send", params))["result"] == answer["result"]
+        replay = await request(reader, writer, "submission.send", params)
+        assert replay["result"] == answer["result"]
         assert await request(reader, writer, "submission.send", params, envelope) == answer
         await settled(core)
         assert provider.calls == 0
@@ -107,7 +109,8 @@ async def test_trigger_resumes_same_request_and_deduplicates_after_restart(tmp_p
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("op_state", [OpState.OUTCOME_UNKNOWN, OpState.PREPARED, OpState.RUNNING])
-async def test_unresolved_trigger_delivers_odin_notice_and_runs_nothing(tmp_path, monkeypatch, op_state):
+async def test_unresolved_trigger_delivers_odin_notice_and_runs_nothing(
+        tmp_path, monkeypatch, op_state):
     async with running(profile(tmp_path)) as (core, provider, reader, writer):
         cid, rid = await suspend(core, provider, reader, writer)
         ledger = core.engine.deps.turn_store
@@ -143,15 +146,19 @@ async def test_unresolved_trigger_delivers_odin_notice_and_runs_nothing(tmp_path
         assert notice["text"] == (
             "I can't safely continue that work: 1 interrupted operation(s) (test_effect) "
             "have UNKNOWN outcomes — they may or may not have applied, and I will not re-run "
-            "them automatically. Verify their current state, then ask fresh for whatever is still needed.")
+            "them automatically. Verify their current state, then ask fresh for whatever "
+            "is still needed.")
         assert provider.calls == calls
         assert core.requests.get_request(rid)["generation"] == 1
         assert ledger.turn_status_sync(key) == TurnStatus.TERMINAL_REJECTED
         expected_state = (OpState.MANUAL_RESOLUTION_REQUIRED
                           if op_state == OpState.OUTCOME_UNKNOWN else op_state)
-        assert ledger._conn.execute("SELECT state FROM operations WHERE message_id=?", (rid,)).fetchone()[0] == expected_state
+        stored_op = ledger._conn.execute(
+            "SELECT state FROM operations WHERE message_id=?", (rid,)).fetchone()
+        assert stored_op[0] == expected_state
         count = len(messages(core, cid))
-        assert (await request(reader, writer, "submission.send", params))["result"] == answer["result"]
+        replay = await request(reader, writer, "submission.send", params)
+        assert replay["result"] == answer["result"]
         assert len(messages(core, cid)) == count
         assert provider.calls == calls
 
@@ -164,7 +171,8 @@ async def test_nontrigger_and_no_preserved_work_are_ordinary(tmp_path, text, pre
         if preserved:
             cid, rid = await suspend(core, provider, reader, writer)
         else:
-            cid = (await request(reader, writer, "conversations.create", {}))["result"]["conversation"]["id"]
+            created = await request(reader, writer, "conversations.create", {})
+            cid = created["result"]["conversation"]["id"]
         before = provider.calls
         answer = await request(reader, writer, "submission.send", {
             "client_submission_id": "ordinary", "conversation_id": cid, "text": text})
@@ -184,7 +192,8 @@ async def test_recognized_failure_never_falls_through(tmp_path, monkeypatch, fai
         cid, rid = await suspend(core, provider, reader, writer)
         before = provider.calls
         if failure == "missing":
-            monkeypatch.setattr(core.resume_manager._store, "load_resumable_sync", lambda _key: None)
+            monkeypatch.setattr(core.resume_manager._store, "load_resumable_sync",
+                                lambda _key: None)
         elif failure == "exception":
             def broken(_key):
                 raise OSError("Isolated read failure")
@@ -198,14 +207,17 @@ async def test_recognized_failure_never_falls_through(tmp_path, monkeypatch, fai
         if failure == "missing":
             assert messages(core, cid)[-1]["text"] == (
                 "That preserved work is no longer resumable (it was just rejected as unreadable, "
-                "claimed by another resume, or expired). Nothing was resumed — ask fresh for what you need.")
+                "claimed by another resume, or expired). Nothing was resumed — ask fresh "
+                "for what you need.")
         elif failure == "exception":
             assert messages(core, cid)[-1]["text"] == (
                 "I recognized the resume command, but resuming failed internally while safely "
-                "checking the preserved work. Nothing was resumed or started fresh — try `resume` again later.")
+                "checking the preserved work. Nothing was resumed or started fresh — "
+                "try `resume` again later.")
         assert len([m for m in messages(core, cid) if m["role"] == "user"]) == 1
         assert provider.calls == before
-        assert (await request(reader, writer, "submission.send", params))["result"] == answer["result"]
+        replay = await request(reader, writer, "submission.send", params)
+        assert replay["result"] == answer["result"]
         assert core.requests.get_request(rid)["generation"] == 1
 
 
