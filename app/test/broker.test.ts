@@ -506,6 +506,12 @@ describe('fixture core conversation management (minor 3)', () => {
     expect(found.hits.length).toBe(2) // the user's message and the echoed reply
     expect(found.hits[0]!.snippet.toLowerCase()).toContain('harbour')
     expect(await broker.request('search.query', { query: '   ' })).toMatchObject({ ok: false, error: { code: 'bad_request' } })
+    // No character cap: a long query is searched, and only a request too big for one frame is refused, by name.
+    expect(await broker.request('search.query', { query: 'harbour '.repeat(25_001) })).toMatchObject({ ok: true })
+    expect(await broker.request('search.query', { query: 'x'.repeat(5 * 1024 * 1024) })).toMatchObject({
+      ok: false,
+      error: { code: 'bad_request', message: expect.stringMatching(/exceeds the 4194304-byte limit/) }
+    })
     const around = result<{ items: Array<{ id: string }>; has_before: boolean; has_after: boolean }>(
       await broker.request('messages.around', { conversation_id: conv.id, message_id: first.id, before: 0, after: 0 })
     )

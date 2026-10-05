@@ -6,6 +6,9 @@ type Composer = typeof import('../../src/renderer/src/stores/composer')
 
 let holdDrafts = false
 let heldDrafts: Array<() => void> = []
+let holdBytes = false
+let heldBytes: Array<() => void> = []
+let failBytes = false
 let drafts: Record<string, string> = {}
 let perTurn = 10
 
@@ -24,7 +27,9 @@ function fakeBridge() {
     }),
     attachBytes: async (p: { name: string; mime: string; data: Uint8Array }) => {
       calls.attachBytes.push({ name: p.name, mime: p.mime })
-      return { ok: true, result: { id: 'id-pasted', name: p.name, mime: p.mime, size: p.data.length } }
+      if (holdBytes) await new Promise<void>((resolve) => heldBytes.push(resolve))
+      if (failBytes) return { ok: false, error: { code: 'internal', message: `Couldn't keep ${p.name}.` } }
+      return { ok: true, result: { id: `id-pasted-${p.name}`, name: p.name, mime: p.mime, size: p.data.length } }
     },
     uploadAttachment: (p: { id: string }) => new Promise<Result<AttachmentRef>>((resolve) => uploads.push({ id: p.id, resolve })),
     cancelAttachment: async (id: string) => {
@@ -67,6 +72,9 @@ beforeEach(async () => {
   vi.resetModules()
   holdDrafts = false
   heldDrafts = []
+  holdBytes = false
+  heldBytes = []
+  failBytes = false
   drafts = {}
   perTurn = 10
   bridge = fakeBridge()
@@ -203,3 +211,79 @@ describe('review round 1: attachment limits and cleanup', () => {
   })
 })
 
+describe('review round 2: drafts and attachment places', () => {
+  const later = () => {
+    let finish!: (outcome: boolean) => void
+    const promise = new Promise<boolean>((resolve) => (finish = resolve))
+    return { promise, finish }
+  }
+
+  it('a command that finishes late clears only the draft it came from, and only if nobody touched it', async () => {
+    let open = 'cA'
+    drafts = { cA: '/status', cB: 'for B' }
+    await composer.showDraft('cA', () => open === 'cA')
+    // Newer text in the same conversation stays.
+    let command = later()
+    let running = composer.runBoxCommand(() => command.promise)
+    composer.edit('newer text')
+    command.finish(true)
+    await running
+    expect(composer.box.text).toBe('newer text')
+    expect(composer.composer.drafts.cA).toBe('newer text')
+    // Another conversation's box and draft are never the ones cleared.
+    composer.edit('/status')
+    command = later()
+    running = composer.runBoxCommand(() => command.promise)
+    open = 'cB'
+    await composer.showDraft('cB', () => open === 'cB')
+    composer.edit('B, edited')
+    command.finish(true)
+    await running
+    expect(composer.box).toMatchObject({ owner: 'cB', text: 'B, edited' })
+    expect(composer.composer.drafts.cA).toBe('') // untouched since, so the command consumed it
+    expect(composer.composer.drafts.cB).toBe('B, edited')
+  })
+
+  it('a refused command leaves its draft in place', async () => {
+    drafts = { cA: '/model nope' }
+    await composer.showDraft('cA', () => true)
+    await composer.runBoxCommand(async () => false)
+    expect(composer.box.text).toBe('/model nope')
+  })
+
+  it("typing while a draft loads wins, and is saved as that conversation's draft", async () => {
+    drafts = { cB: 'old B draft' }
+    holdDrafts = true
+    const showing = composer.showDraft('cB', () => true)
+    composer.edit('typed while loading')
+    heldDrafts.forEach((release) => release())
+    await showing
+    expect(composer.box).toMatchObject({ owner: 'cB', text: 'typed while loading' })
+    await until(() => bridge.calls.setDraft.some(([id, text]) => id === 'cB' && text === 'typed while loading'))
+  })
+
+  it('attachments added at the same time share the per-turn limit', async () => {
+    perTurn = 1
+    holdBytes = true
+    const image = (name: string) => file(name, 4, 'image/png')
+    const first = composer.addPasted('c1', [image('one.png')])
+    const second = composer.addPasted('c1', [image('two.png')])
+    await until(() => heldBytes.length === 1)
+    await second // nothing left for it: refused at once, with the reason
+    heldBytes.forEach((release) => release())
+    await first
+    expect(composer.attachmentsFor('c1').map((a) => a.name)).toEqual(['one.png'])
+    expect(bridge.calls.attachBytes.map((c) => c.name)).toEqual(['one.png'])
+    expect(composer.composer.errors.join(' ')).toMatch(/up to 1 attachment per message; 1 weren't added/)
+  })
+
+  it('a place is given back when its attachment fails to stage', async () => {
+    perTurn = 1
+    failBytes = true
+    await composer.addPasted('c1', [file('broken.png', 4, 'image/png')])
+    expect(composer.attachmentsFor('c1')).toHaveLength(0)
+    failBytes = false
+    await composer.addPasted('c1', [file('fine.png', 4, 'image/png')])
+    expect(composer.attachmentsFor('c1').map((a) => a.name)).toEqual(['fine.png'])
+  })
+})

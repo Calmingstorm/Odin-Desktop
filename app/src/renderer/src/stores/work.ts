@@ -2,19 +2,24 @@
 // controls Odin offers for each one now. The list is the authority: a work.updated event patches the state at once,
 // then the list is fetched again for the new controls and detail.
 import { reactive } from 'vue'
-import type { CoreEvent, WorkAction, WorkItem, WorkKind } from '../../../shared/api'
-import { onCoreEvent, onReady } from '../store'
+import type { CoreEvent, Result, WorkAction, WorkItem, WorkKind } from '../../../shared/api'
+import { isUnknownOutcome, onCoreEvent, onLateReceipt, onReady } from '../store'
 
 export const work = reactive({
   open: false,
   items: [] as WorkItem[],
   loaded: false,
   error: '',
-  /** What the last control on an item did, by item id. */
+  /** What the last control on an item did, by `workKey`. */
   notes: {} as Record<string, string | undefined>,
-  /** Items with a control on its way to the core. */
+  /** Items with a control on its way to the core, or not yet confirmed, by `workKey`. */
   busy: {} as Record<string, boolean | undefined>
 })
+
+/** An item's identity: its kind and id together, since items of different kinds may share an id. */
+export function workKey(item: Pick<WorkItem, 'kind' | 'id'>): string {
+  return `${item.kind}:${item.id}`
+}
 
 const ACTIVE = new Set(['running', 'starting', 'stopping'])
 
@@ -98,22 +103,41 @@ export function applyWorkEvent(event: CoreEvent): void {
   reloadSoon()
 }
 
-/** Sends one control. The note says what the core answered; the list then shows the result. */
+function answerNote(action: WorkAction, result: Result<{ disposition: string }>): string {
+  return result.ok ? `${actionLabel(action)}: ${DISPOSITIONS[result.result.disposition] ?? result.result.disposition}` : result.error.message
+}
+
+/** Controls with no answer yet, by command id. Each stays under its first command until its receipt settles it. */
+const uncertain = new Map<string, { key: string; action: WorkAction }>()
+
+/**
+ * Sends one control. The note says what the core answered; the list then shows the result. With no answer, the item
+ * takes no other control until the original command's receipt arrives, so nothing runs twice under two commands.
+ */
 export async function controlWork(item: WorkItem, action: WorkAction): Promise<void> {
-  if (work.busy[item.id]) return
-  work.busy[item.id] = true
-  const result = await window.odin.workControl({
-    control_command_id: crypto.randomUUID(),
-    kind: item.kind,
-    id: item.id,
-    action
-  })
-  work.busy[item.id] = false
-  work.notes[item.id] = result.ok
-    ? `${actionLabel(action)}: ${DISPOSITIONS[result.result.disposition] ?? result.result.disposition}`
-    : result.error.message
+  const key = workKey(item)
+  if (work.busy[key]) return
+  work.busy[key] = true
+  const commandId = crypto.randomUUID()
+  const result = await window.odin.workControl({ control_command_id: commandId, kind: item.kind, id: item.id, action })
+  if (!result.ok && isUnknownOutcome(result.error)) {
+    uncertain.set(commandId, { key, action })
+    work.notes[key] = `${actionLabel(action)}: waiting for Odin to confirm. It is never sent twice.`
+    return
+  }
+  work.busy[key] = false
+  work.notes[key] = answerNote(action, result)
   await loadWork()
 }
+
+onLateReceipt((receipt) => {
+  const pending = uncertain.get(receipt.id)
+  if (!pending || (!receipt.settled.ok && isUnknownOutcome(receipt.settled.error))) return
+  uncertain.delete(receipt.id)
+  work.busy[pending.key] = false
+  work.notes[pending.key] = answerNote(pending.action, receipt.settled as Result<{ disposition: string }>)
+  void loadWork()
+})
 
 onCoreEvent(applyWorkEvent)
 onReady(() => void loadWork())
