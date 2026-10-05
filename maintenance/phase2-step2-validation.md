@@ -17,16 +17,25 @@ step 3. Step 2 does not admit execution, claim runner parity, or fabricate reque
 activity. Native history ownership is supplied by step 3's trusted request
 binding, never a model-provided foreign conversation ID.
 
-Fixture difference: context reset is refused while work is running or queued,
-so context cannot be changed under an admitted runner. The fixture currently
-permits that reset. Delete follows the protocol: terminal unknown effects are
+Reset while work is active is a known production-core gap: the reset fence and
+admitted-context behavior intentionally land with step 3, where running/queued
+work exists. The fixture already permits reset during work; a behavioral test
+locks that parity. Delete follows the protocol: terminal unknown effects are
 not a new busy rule; later request storage retains their tombstones. Missing
-paging anchors return `not_found`, rather than silently using the latest page.
+fixture paging anchors now return `not_found`, rather than silently using the
+latest page.
+
+Search scaling: `search.query` currently linearly scans all visible messages
+and artifact names and scrubs them per query. That is acceptable at current
+history sizes. A persistent index is deferred as a maintenance improvement;
+preserve literal, case-insensitive substring semantics (do not substitute FTS
+unless it can prove exact parity) and keep indexed data non-authoritative.
 
 Targeted isolated verification before the gate: 73 conversation/search/core
 tests and 126 transport/core/command regressions passed. Full gates run once
 from a fresh group-writable worktree with a throwaway HOME and the required PID
 namespace launcher. Gate logs and counts are recorded in the PR after execution.
 
-No app or design-contract edits, live-service operations, active-desktop input,
-or deployment are part of this step. New drift records remain review-pending.
+No design-contract edits, live-service operations, active-desktop input, or
+deployment are part of this step. App fixture corrections and regression tests
+are included. New drift records remain review-pending.

@@ -49,6 +49,14 @@ def test_literal_search_all_owner_conversations_and_artifact_name(graph):
         "conversation_id", "message_id", "role", "snippet", "created_at"}
 
 
+def test_literal_search_case_insensitive_substring_and_newest_first(graph):
+    cid = create(graph)
+    earlier = graph[3].commit(cid, "user", "prefix needle suffix")
+    later = graph[3].commit(cid, "assistant", "NEEDLE again")
+    result = graph[4].query({"query": "Needle"})
+    assert [hit["message_id"] for hit in result["hits"]] == [later["id"], earlier["id"]]
+
+
 def test_snippets_whitespace_context_and_max_page(graph):
     cid = create(graph)
     text = "left " * 30 + "needle\n\ncontext" + " right" * 30
@@ -103,6 +111,26 @@ def test_around_is_chronological_with_exact_bounds_and_foreign_hit_refusal(graph
         assert failure.value.code == "not_found"
 
 
+def test_around_matches_public_payload_but_scrubs_derived_views(graph, monkeypatch):
+    cid = create(graph)
+    marker = "test-secret-marker"
+    monkeypatch.setattr("src.desktop.search.scrub_output_secrets",
+                        lambda value: value.replace(marker, "[REDACTED]"))
+    message = graph[3].commit(cid, "assistant", f"visible {marker}", artifacts=[{
+        "ref": "report", "name": f"report-{marker}.txt", "mime": "text/plain", "size": 1,
+        "kind": "file", "available": True}])
+    listed = graph[3].list(cid)["items"]
+    snapshot = graph[3].snapshot(cid)["messages"]["items"]
+    around = graph[4].around({"conversation_id": cid, "message_id": message["id"],
+                              "before": 0, "after": 0})["items"]
+    assert around == listed == snapshot
+    assert marker in around[0]["text"]
+    assert marker in around[0]["artifacts"][0]["name"]
+    assert marker not in graph[4].query({"query": "visible"})["hits"][0]["snippet"]
+    history = " ".join(asyncio.run(graph[4].read_visible_history({"bound": cid})))
+    assert marker not in history
+
+
 @pytest.mark.parametrize("extra", [
     {"before": -1}, {"after": 51}, {"before": "1"}, {"after": False}])
 def test_around_invalid_bounds_rejected(graph, extra):
@@ -122,7 +150,8 @@ def test_redaction_before_search_snippet_and_around(graph):
     hit = search.query({"query": "visible"})["hits"][0]
     assert "short" not in hit["snippet"] and "[REDACTED]" in hit["snippet"]
     result = search.around({"conversation_id": cid, "message_id": message["id"]})
-    assert "short" not in str(result)
+    assert "short" in result["items"][0]["text"]
+    assert "short" not in search.query({"query": "visible"})["hits"][0]["snippet"]
 
 
 def test_deleted_transcript_disappears_from_search_and_old_cursor(graph):

@@ -113,7 +113,10 @@ class TranscriptSearch:
         cid = _text(params.get("conversation_id"), "conversation_id")
         mid = _text(params.get("message_id"), "message_id")
         before, after = _count(params, "before", 20, 0, 50), _count(params, "after", 20, 0, 50)
-        messages, _ = self._snapshot(cid)
+        # Navigation is a transcript read, not a derived search result. Preserve
+        # the same public message payload as messages.list/snapshot; only search
+        # snippets and model history are scrubbed projections.
+        messages = self.transcript.all_messages(cid)
         index = next((index for index, message in enumerate(messages)
                       if message["id"] == mid), None)
         if index is None:
