@@ -5340,7 +5340,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "931d27a9f7eb57d9c59b978dc403d2764ecc3c608de659df5c552f526f721e11",
-      "contract": "Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does.",
+      "contract": "Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
@@ -5628,7 +5628,7 @@
         }
       ],
       "path": "src/discord/tool_loop.py",
-      "reason": "Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17.",
+      "reason": "Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
