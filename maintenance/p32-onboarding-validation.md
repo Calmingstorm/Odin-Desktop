@@ -109,6 +109,25 @@ ee9b665871c76e0e5da4b08c96c4dfe5eb726fd4d69abecfe4e8121c724e0029  p32-final-drif
 
 ## Cleanup and limits
 
+### Final all-section enumeration and repeated gate
+
+P3.1's smoke now awaits schema before navigation enumeration, requiring `Other`
+instead of racing its inclusion. P3.2 was rebased on that correction and repeated
+all four app gates from fresh `/home/odin/desktop-p32-final2` at
+`e438aa3f949834cf7b51612b2bca616880bcf5c1`: **575 unit/fixture tests**, **19 real
+contracts plus 5 onboarding E2E**, fixture smoke and real smoke **23 checkpoints
+including Other** all passed. E2E took 24.32 seconds; fresh checkout clean. Later
+base/evidence commits change documentation only. Final stack base is PR #27 head
+`06294d67`, not the earlier watermark recorded above.
+
+```text
+d51807b102d047d6bd9691e28ff0a978a28d5896cd34d3de5bdec19a5a590542  p32-final2-check.log
+0aca6a8a2dd6569e5c215c18b17695f67f262e70bf3891c26f771e5c45312b7d  p32-final2-fixture-smoke.log
+89c9fe6c7fc891fa7152347e55b7a71b67aef50b27417ff177352929003554e4  p32-final2-real-tests.log
+cc0c2119ccfdb691d0f018e8a9876a3bd75dd63dfca7ac0add89c8f2a0582d90  p32-final2-real-smoke.log
+e55ecee140304d1d1b0ac89e7f0624e77edc6900edb2c84889101c1a985f6b75  p32-final2-real-core-evidence.json
+```
+
 App exits used normal runtime shutdown/parent EOF. The isolation runner tears down
 namespace children and removes disposable HOME/XDG; E2E removes its control/result
 files. No live service restart/deploy/desktop interaction occurred. These are
