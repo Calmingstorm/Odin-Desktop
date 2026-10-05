@@ -63,6 +63,7 @@ const api: OdinApi = {
   toolDetail: (params) => ipcRenderer.invoke(IPC.toolDetail, params),
   toolOutput: (params) => ipcRenderer.invoke(IPC.toolOutput, params),
   fetchArtifact: (ref) => ipcRenderer.invoke(IPC.fetchArtifact, { ref }),
+  checkArtifact: (ref) => ipcRenderer.invoke(IPC.checkArtifact, { ref }),
   openArtifact: (params) => ipcRenderer.invoke(IPC.openArtifact, params),
   saveArtifact: (params) => ipcRenderer.invoke(IPC.saveArtifact, params),
   revealArtifact: (params) => ipcRenderer.invoke(IPC.revealArtifact, params),

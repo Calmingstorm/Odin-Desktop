@@ -166,17 +166,42 @@ export class Notifier {
 /** The conversations the main process knows about, for notification titles and the tray's unread count. */
 export class ConversationIndex {
   private readonly items = new Map<string, { title: string; unread: number }>()
+  /** The event sequence each entry was last learned at. A list complete only through an earlier point can't undo it. */
+  private readonly seqs = new Map<string, number>()
+  /** Deleted conversations. Their IDs are never reused, so nothing brings one back. */
+  private readonly deleted = new Set<string>()
+  /** The watermark of the newest list applied since the core started. */
+  private watermark = -1
 
-  reset(list: Array<{ id: string; title: string; unread: number }>): void {
-    this.items.clear()
-    for (const item of list) this.items.set(item.id, { title: item.title, unread: item.unread })
+  /** A new core starts its sequence again: what is known stays, ordered from now on by its lists and events. */
+  restart(): void {
+    this.seqs.clear()
+    this.watermark = -1
   }
 
-  upsert(conversation: { id: string; title: string; unread: number }): void {
+  /** A complete list through `watermark`. An older one changes nothing; a newer event or a deletion still wins. */
+  reset(list: Array<{ id: string; title: string; unread: number }>, watermark: number): void {
+    if (watermark < this.watermark) return
+    this.watermark = watermark
+    const listed = new Set(list.map((item) => item.id))
+    for (const item of list) {
+      if (this.deleted.has(item.id) || (this.seqs.get(item.id) ?? -1) > watermark) continue
+      this.items.set(item.id, { title: item.title, unread: item.unread })
+    }
+    for (const id of [...this.items.keys()]) {
+      if (!listed.has(id) && (this.seqs.get(id) ?? -1) <= watermark) this.items.delete(id)
+    }
+  }
+
+  upsert(conversation: { id: string; title: string; unread: number }, seq: number): void {
+    if (this.deleted.has(conversation.id)) return
+    this.seqs.set(conversation.id, seq)
     this.items.set(conversation.id, { title: conversation.title, unread: conversation.unread })
   }
 
-  remove(id: string): void {
+  remove(id: string, seq: number): void {
+    this.deleted.add(id)
+    this.seqs.set(id, seq)
     this.items.delete(id)
   }
 
