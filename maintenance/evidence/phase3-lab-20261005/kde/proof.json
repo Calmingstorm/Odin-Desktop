@@ -1,0 +1,130 @@
+{
+  "passed": true,
+  "session": {
+    "Desktop": "KDE",
+    "Type": "wayland",
+    "Active": "yes",
+    "State": "active"
+  },
+  "orca_pids": [
+    "1186"
+  ],
+  "desktop_identity": "KDE",
+  "screenshot_size": [
+    1280,
+    800
+  ],
+  "timestamp": 1791240188,
+  "capture_output": "",
+  "listeners": "udp UNCONN 0      0                             127.0.0.54:53  0.0.0.0:* users:((\"systemd-resolve\",pid=404,fd=16))\nudp UNCONN 0      0                          127.0.0.53%lo:53  0.0.0.0:* users:((\"systemd-resolve\",pid=404,fd=14))\nudp UNCONN 0      0                  10.150.152.190%enp5s0:68  0.0.0.0:* users:((\"systemd-network\",pid=363,fd=21))\nudp UNCONN 0      0      [fe80::1266:6aff:fe81:af7]%enp5s0:546    [::]:* users:((\"systemd-network\",pid=363,fd=23))\ntcp LISTEN 0      4096                       127.0.0.53%lo:53  0.0.0.0:* users:((\"systemd-resolve\",pid=404,fd=15))\ntcp LISTEN 0      4096                          127.0.0.54:53  0.0.0.0:* users:((\"systemd-resolve\",pid=404,fd=17))",
+  "limits": "Orca process start only, not verified speech or app accessibility",
+  "instance": "odq-kde",
+  "image": {
+    "name": "odq-kde",
+    "remote": "images",
+    "url": "https://images.linuxcontainers.org",
+    "product": "ubuntu:noble:amd64:default",
+    "alias": "ubuntu/24.04/default",
+    "architecture": "amd64",
+    "os": "Ubuntu",
+    "release": "noble",
+    "variant": "default",
+    "serial": "20261005_07:42",
+    "fingerprint": "7420d4416f4d8bfb3ad6098d2395f86ca5aaf298c2696283ee61200d0b5c9714",
+    "type": "virtual-machine",
+    "metadata": {
+      "path": "images/ubuntu/noble/amd64/default/20261005_07:42/incus.tar.xz",
+      "sha256": "445dd26112d73bf5df65d6bb1769aec57be204b4034689445a59249965b0d0e1",
+      "size": 668
+    },
+    "rootfs": {
+      "path": "images/ubuntu/noble/amd64/default/20261005_07:42/disk.qcow2",
+      "sha256": "3f5e2568f600c491aca4bb7512e27614ce3def2eeeb4118b61f0f21aee7a656d",
+      "size": 305733632
+    },
+    "guest_script": "guest/kde.sh",
+    "session": "wayland",
+    "session_desktop": "plasmawayland.desktop",
+    "display_manager": "sddm",
+    "user": "odq",
+    "packages": [
+      "kde-plasma-desktop",
+      "plasma-workspace-wayland",
+      "kwin-wayland",
+      "sddm",
+      "kde-spectacle",
+      "xdg-desktop-portal-kde",
+      "libgl1-mesa-dri",
+      "mesa-utils",
+      "qtwayland5",
+      "fonts-dejavu-core",
+      "speech-dispatcher",
+      "espeak-ng",
+      "at-spi2-core"
+    ],
+    "common_packages": [
+      "orca"
+    ],
+    "observed_package_versions": {
+      "kde-plasma-desktop": "5:146ubuntu3",
+      "plasma-workspace-wayland_amd64": "4:5.27.11-0ubuntu4.1",
+      "kde-spectacle": "23.08.5-0ubuntu3"
+    },
+    "package_pinning": "Image immutable; apt packages use current Ubuntu noble repositories, not an immutable package snapshot. Record dpkg versions after provisioning.",
+    "rendering": "Emulated virtual GPU only, no physical GPU/input/audio passthrough. Guest Mesa is configured for llvmpipe. Virtual GPU must expose a working DRM/KMS device for KWin Wayland.",
+    "capture": {
+      "helper": "/usr/local/lib/odq/capture",
+      "backend": "Spectacle 23.08 forced to Qt Wayland via KWin org.kde.KWin.ScreenShot2, never the XWayland screenshot backend",
+      "limitations": "Run as odq in the existing Plasma Wayland session with its session D-Bus and WAYLAND_DISPLAY. A root incus exec with fabricated environment is not equivalent. Spectacle is privileged by desktop identity; arbitrary clients lack generic Wayland screenshot access. Permission prompts, denial and timeout fail capture; no security-policy overrides or X11 fallback. PNG header validation is not proof of correct pixels: decode and inspect the returned image. Does not qualify host GPU, input, audio or arbitrary Wayland backends."
+    },
+    "sources": [
+      "https://images.linuxcontainers.org/streams/v1/images.json",
+      "https://packages.ubuntu.com/noble/kde-plasma-desktop",
+      "https://packages.ubuntu.com/noble/plasma-workspace-wayland",
+      "https://packages.ubuntu.com/noble/amd64/plasma-workspace-wayland/filelist",
+      "https://packages.ubuntu.com/noble/kde-spectacle",
+      "https://manpages.ubuntu.com/manpages/noble/en/man1/spectacle.1.html",
+      "https://manpages.ubuntu.com/manpages/noble/en/man5/sddm.conf.5.html",
+      "https://raw.githubusercontent.com/KDE/spectacle/v23.08.5/src/Platforms/PlatformKWinWayland.cpp"
+    ],
+    "researched_at": "2026-10-05",
+    "qualification_status": "Runtime smoke status and limits are tracked in maintenance/phase3-lab.md."
+  },
+  "screenshot_sha256": "5a242159653784aa95ebd4658a73d0588b04f2535cb839997497610d8ce21420",
+  "visual_inspection": "required",
+  "source_sha": "ff347abbbc4ea7ece168f49689e6e74bb50fd27f",
+  "source_dirty": false,
+  "host_files_sha256": {
+    "scripts/qualification/lab/lab.py": "d8c69bc6eecd35141834f7cac8386a3bf5d332b1a0764be1f02cbe8bab00f82c",
+    "scripts/qualification/lab/guest/common.sh": "d5f29f77f918814a35e76b388c2c98660b99c7ecbeed7417e40ade153f7fbe8d",
+    "scripts/qualification/lab/guest/smoke.py": "26b1eb215747c0cb93a1e6b8ca24eb43544d919a883644306c36fad2a88f3153",
+    "scripts/qualification/lab/guest/kde.sh": "c80344f96c6d31aaa70e1d51694f6ebcbf6b43e83b5f1a106959bd47510343e8",
+    "scripts/qualification/lab/images/kde.json": "1ac80e7605102618a4328b222a67eba529082b918e4e39059b34d10bcd2bd481"
+  },
+  "guest_files_sha256": {
+    "/root/odq/common.sh": "d5f29f77f918814a35e76b388c2c98660b99c7ecbeed7417e40ade153f7fbe8d",
+    "/root/odq/smoke.py": "26b1eb215747c0cb93a1e6b8ca24eb43544d919a883644306c36fad2a88f3153",
+    "/root/odq/kde.sh": "c80344f96c6d31aaa70e1d51694f6ebcbf6b43e83b5f1a106959bd47510343e8",
+    "/usr/local/lib/odq/capture": "208a50f0cfb416b1c267cecb7b262b5473070dca51d4893e98dcb42d40195ca2"
+  },
+  "source_comparison": {
+    "/root/odq/common.sh": {
+      "host_path": "scripts/qualification/lab/guest/common.sh",
+      "matches": true
+    },
+    "/root/odq/smoke.py": {
+      "host_path": "scripts/qualification/lab/guest/smoke.py",
+      "matches": true
+    },
+    "/root/odq/kde.sh": {
+      "host_path": "scripts/qualification/lab/guest/kde.sh",
+      "matches": true
+    },
+    "/usr/local/lib/odq/capture": {
+      "host_path": null,
+      "matches": null,
+      "reason": "Generated guest artifact; no host byte-equivalent comparison"
+    }
+  },
+  "source_matches": true
+}

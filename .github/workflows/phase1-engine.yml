@@ -28,6 +28,10 @@ jobs:
         run: .venv/bin/python scripts/maintenance/inventory.py report
       - name: No new lint findings
         run: .venv/bin/python scripts/maintenance/lint_gate.py
+      - name: Qualification lab orchestration (offline, no host daemon)
+        run: |
+          .venv/bin/ruff check scripts/qualification/lab tests/test_desktop_qualification_lab.py tests/test_lab_*.py
+          .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_qualification_lab.py tests/test_lab_cinnamon.py tests/test_lab_common.py tests/test_lab_gnome.py tests/test_lab_kde.py tests/test_lab_hyprland.py tests/test_lab_guest_smoke.py
       - name: Phase 2 planned ownership and checker behaviour
         run: |
           .venv/bin/python scripts/maintenance/phase2_plan.py
