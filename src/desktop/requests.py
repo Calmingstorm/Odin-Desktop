@@ -9,11 +9,13 @@ from dataclasses import dataclass, field
 from uuid import uuid4
 
 from ..discord.response_guards import scrub_response_secrets
+from ..error_presentation import format_user_facing_error
 from ..turn_state.codec import compute_content_digest
 from ..turn_state.durability import TurnDurability
 from ..turn_state.store import TurnKey, TurnStatus
 from .commands import canonical_json, response_error
 from .conversations import ConversationError, domain_transaction, now, require_string
+from .errors import NoLLMProviderError
 
 REQUEST_SCHEMA = {
     "desktop_requests": {"request_id", "conversation_id", "message_id", "owner", "generation",
@@ -502,8 +504,10 @@ class RequestService:
 
     async def _execute(self, message, st=None):
         token = _execution.set((self, asyncio.current_task(), message))
+        failure_notice = False
         try:
             self.assert_request(message)
+            failure_notice = True
             if st is None:
                 self._seed_session_context(message)
             images = []
@@ -546,6 +550,9 @@ class RequestService:
                                 + canonical_json(manifest))
             result = (await self.engine.runner.run_resumed(st) if st is not None
                       else await self.engine.run(message, content=content, image_blocks=images))
+            # A returned result owns its existing guarded reply. Publication or
+            # accounting failures must not add a contradictory execution notice.
+            failure_notice = False
             status = self.engine.deps.turn_store.turn_status_sync(message.turn_key)
             outcome = ("suspended" if status == TurnStatus.SUSPENDED else
                        "cancelled" if status == TurnStatus.TERMINAL_CANCELLED else
@@ -566,12 +573,24 @@ class RequestService:
             self._finish(message, "interrupted")
             raise
         except Exception as error:
-            # No invented model reply and no effect replay after storage or
-            # execution failure. Durable state reports the independent outcome.
+            # D17: Odin explains pre-reply failures in the conversation. This is
+            # typed core provenance, never an invented model reply or an effect retry.
             self._finish(message, "failed")
             from ..odin_log import get_logger
             get_logger("desktop.requests").error("Admitted request failed: %s",
                                                  type(error).__name__)
+            if failure_notice:
+                text = ("No LLM provider available. Please try again later."
+                        if isinstance(error, NoLLMProviderError) else
+                        f"Tool execution failed: {format_user_facing_error(error)}")
+                try:
+                    await self.delivery.send(message, text)
+                except Exception as publication_error:
+                    # Keep the terminal request fenced even if its notice cannot
+                    # be stored or published. Never retry the runner to repair it.
+                    get_logger("desktop.requests").error(
+                        "Request failure notice could not be published: %s",
+                        type(publication_error).__name__)
         finally:
             try:
                 self._fence_settled_context(message)
