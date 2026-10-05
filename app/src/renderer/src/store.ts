@@ -88,6 +88,8 @@ export interface ConversationView {
   hasData: boolean
   /** The recovery its snapshot belongs to; authoritative only while that is the current one. */
   epoch: number
+  /** The recovery the in-flight snapshot request belongs to. */
+  loadEpoch: number
   /** The highest event sequence this view reflects. */
   watermark: number
   loadToken: number
@@ -115,6 +117,8 @@ export const state = reactive({
   activeId: null as string | null,
   /** Bumped whenever the link is lost or the core changes. */
   recoveryEpoch: 0,
+  /** Why the latest snapshot of a conversation failed, until a retry starts. */
+  loadErrors: {} as Record<string, string | undefined>,
   views: {} as Record<string, ConversationView | undefined>,
   /** Requests queued or running per conversation, for the sidebar: from the list, then from events. */
   busy: {} as Record<string, string[] | undefined>,
@@ -258,6 +262,7 @@ function viewFor(conversationId: string): ConversationView {
       status: 'loading',
       hasData: false,
       epoch: -1,
+      loadEpoch: -1,
       watermark: 0,
       loadToken: 0,
       held: [],
@@ -281,14 +286,21 @@ export async function loadConversation(conversationId: string): Promise<void> {
   const view = viewFor(conversationId)
   const token = ++view.loadToken
   view.status = 'loading'
+  view.loadEpoch = epoch
+  state.loadErrors[conversationId] = undefined
   const result = await window.odin.snapshotConversation({ conversation_id: conversationId })
   if (state.views[conversationId] !== view || view.loadToken !== token) return
   if (!result.ok || epoch !== state.recoveryEpoch) {
     // A failure, or an answer from an earlier recovery: it never makes the view authoritative.
-    if (!result.ok) note(errorText(result))
     if (view.hasData) releaseHeld(view)
     else state.views[conversationId] = undefined
-    return // the current recovery's own load refreshes the open conversation
+    if (!result.ok) {
+      if (epoch === state.recoveryEpoch) state.loadErrors[conversationId] = result.error.message
+    } else if (conversationId === state.activeId && state.app.link === 'ready') {
+      // The open conversation must not be left without a load for the current recovery.
+      void loadConversation(conversationId)
+    }
+    return
   }
   applySnapshot(conversationId, view, result.result, epoch)
 }
@@ -356,10 +368,15 @@ async function resetViews(): Promise<void> {
 export async function select(conversationId: string): Promise<void> {
   state.activeId = conversationId
   const view = state.views[conversationId]
-  // A view from an earlier recovery is shown but must be refreshed before anything is routed to it.
-  if (!view || (view.status !== 'loading' && (!view.hasData || view.epoch !== state.recoveryEpoch))) {
-    await loadConversation(conversationId)
-  }
+  // A view from an earlier recovery is shown but must be refreshed before anything is routed to it, and so must one
+  // whose in-flight load belongs to an earlier recovery.
+  const stale = view && (view.status === 'loading' ? view.loadEpoch !== state.recoveryEpoch : !view.hasData || view.epoch !== state.recoveryEpoch)
+  if (!view || stale) await loadConversation(conversationId)
+}
+
+/** Fetches the open conversation's snapshot again after a failed load. */
+export async function retry(): Promise<void> {
+  if (state.activeId && state.app.link === 'ready') await loadConversation(state.activeId)
 }
 
 export async function newConversation(): Promise<void> {
