@@ -26,6 +26,7 @@ import type {
   CoreEvent,
   LateReceipt,
   Message,
+  NotificationSettings,
   QueuedRequest,
   Result,
   SearchHit,
@@ -138,8 +139,12 @@ export const state = reactive({
   highlightId: null as string | null,
   /** Output of a command such as /status, shown in the window and never sent to Odin. */
   panel: null as { title: string; text: string } | null,
+  /** The app's notification settings, from the main process. */
+  notifications: null as NotificationSettings | null,
   /** Resume requests by `request_id:generation`, until the resumed request starts or the core says no. */
-  resumes: {} as Record<string, ResumeState | undefined>
+  resumes: {} as Record<string, ResumeState | undefined>,
+  /** Counts each move to the latest messages, so the message list scrolls there once the view is on screen. */
+  latestScroll: 0
 })
 
 export interface ResumeState {
@@ -242,6 +247,8 @@ export async function init(): Promise<void> {
   window.odin.onEvent(applyEvent)
   window.odin.onReceipt(applyReceipt)
   window.odin.onReset(() => void resetViews())
+  // A clicked notification brings the window forward on its conversation, at the latest messages, where the news is.
+  window.odin.onOpenConversation((conversationId) => void openLatest(conversationId))
   if (typeof document !== 'undefined') {
     // Coming back to the window counts as reading what is on screen.
     const attend = (): void => {
@@ -253,7 +260,10 @@ export async function init(): Promise<void> {
   const app = await window.odin.getAppState()
   if (app) state.app = app
   const settings = await window.odin.getSettings()
-  if (settings.ok) state.autostart = settings.result.autostart
+  if (settings.ok) {
+    state.autostart = settings.result.autostart
+    state.notifications = settings.result.notifications
+  }
   if (state.app.link === 'ready') {
     notifyReady()
     await loadAll()
@@ -741,8 +751,11 @@ export async function moreResults(): Promise<void> {
   state.search.nextCursor = result.result.next_cursor ?? null
 }
 
-/** Each jump's generation: going back to the latest, another jump, a switch or a reset fences an older one. */
-let jumpGeneration = 0
+/**
+ * Each navigation's generation: a jump, going back to the latest, opening at the latest, a switch or a reset fences an
+ * older one.
+ */
+let navigationGeneration = 0
 /** The conversation a jump is opening. Until it lands, the latest messages aren't what the user is shown. */
 let jumpPending: string | null = null
 
@@ -750,9 +763,9 @@ let jumpPending: string | null = null
 export async function jumpTo(hit: SearchHit): Promise<void> {
   // Fence what came before, and hold back reading, before anything loads.
   clearNavigation()
-  const mine = jumpGeneration
+  const mine = navigationGeneration
   jumpPending = hit.conversation_id
-  const current = (): boolean => mine === jumpGeneration && state.activeId === hit.conversation_id
+  const current = (): boolean => mine === navigationGeneration && state.activeId === hit.conversation_id
   await open(hit.conversation_id)
   if (!current()) return
   const view = state.views[hit.conversation_id]
@@ -789,16 +802,26 @@ export async function jumpTo(hit: SearchHit): Promise<void> {
 
 /** Ends any jump or highlight, and fences a jump still on its way. */
 function clearNavigation(): void {
-  jumpGeneration += 1
+  navigationGeneration += 1
   jumpPending = null
   state.jump = null
   state.highlightId = null
+}
+
+/** Opens a conversation at its latest messages, ending any search window, even one in that conversation. */
+export async function openLatest(conversationId: string): Promise<void> {
+  clearNavigation()
+  const mine = navigationGeneration
+  await open(conversationId)
+  // A newer navigation, or another conversation opened meanwhile, owns the view now.
+  if (mine === navigationGeneration && state.activeId === conversationId) state.latestScroll += 1
 }
 
 /** The user went back to the latest messages, so they are on screen again. */
 export function backToLatest(): void {
   const wasJump = state.jump?.conversationId
   clearNavigation()
+  state.latestScroll += 1
   if (wasJump && wasJump === state.activeId) void markReadIfAttentive(wasJump)
 }
 
@@ -1276,3 +1299,15 @@ export async function resume(conversationId: string, outcome: TerminalOutcome): 
   if (!result.ok && isUnknownOutcome(result.error)) state.resumes[key] = { status: 'unknown', commandId }
   else state.resumes[key] = resumeAnswer(result)
 }
+
+export function isMuted(conversationId: string): boolean {
+  return Boolean(state.notifications?.muted.includes(conversationId))
+}
+
+/** Mutes or unmutes one conversation's notifications. Its unread count still shows. */
+export async function setMuted(conversationId: string, muted: boolean): Promise<void> {
+  const result = await window.odin.setConversationMuted({ conversation_id: conversationId, muted })
+  if (result.ok) state.notifications = result.result.notifications
+  else note(errorText(result))
+}
+

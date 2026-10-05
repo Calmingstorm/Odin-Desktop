@@ -75,7 +75,8 @@ function fakeBridge() {
     event: [] as Array<(e: CoreEvent) => void>,
     appState: [] as Array<(s: AppState) => void>,
     receipt: [] as Array<(r: LateReceipt) => void>,
-    reset: [] as Array<(r: { event_high: string }) => void>
+    reset: [] as Array<(r: { event_high: string }) => void>,
+    open: [] as Array<(conversationId: string) => void>
   }
   const calls = {
     update: [] as Array<Record<string, unknown>>,
@@ -102,6 +103,7 @@ function fakeBridge() {
     steerResult: { ok: true, result: { disposition: 'queued' } } as Result<{ disposition: string }>,
     stopResult: { ok: true, result: { disposition: 'requested' } } as Result<{ disposition: string }>,
     resumeResult: { ok: true, result: { disposition: 'admitted' } } as Result<{ disposition: 'admitted' | 'rejected'; reason?: string }>,
+    notifications: { enabled: true, previews: true, quietHours: { enabled: false, start: '22:00', end: '08:00' }, muted: [] as string[] },
     updateResult: null as Result<{ conversation: Conversation }> | null,
     deleteResult: { ok: true, result: { disposition: 'deleted' } } as Result<{ disposition: string }>,
     searchResults: [] as Array<Deferred<Result<SearchResult>>>,
@@ -127,7 +129,12 @@ function fakeBridge() {
     usage: async () => ({ ok: true, result: { period: '24h', tokens: { value: null, kind: 'unknown' }, context: { used: { value: null, kind: 'unknown' }, budget: { value: null, kind: 'unknown' } }, quota: [], summary: 'Usage unknown.' } }),
     reload: async () => ({ ok: true, result: { disposition: 'reloaded', summary: 'Context: none.' } }),
     getAppState: async (): Promise<AppState> => ({ link: 'ready', coreInstanceId: 'core-1', noTray: false, unreceipted: 0 }),
-    getSettings: async () => ({ ok: true, result: { autostart: false } }),
+    getSettings: async () => ({ ok: true, result: { autostart: false, notifications: control.notifications } }),
+    setConversationMuted: async (params: { conversation_id: string; muted: boolean }) => {
+      const rest = control.notifications.muted.filter((id) => id !== params.conversation_id)
+      control.notifications = { ...control.notifications, muted: params.muted ? [...rest, params.conversation_id] : rest }
+      return { ok: true, result: { autostart: false, notifications: control.notifications } }
+    },
     setAutostart: async (enabled: boolean) => ({ ok: true, result: { autostart: enabled } }),
     listConversations: () => {
       const answer: Result<{ items: ConversationListItem[]; watermark: string }> = {
@@ -216,7 +223,8 @@ function fakeBridge() {
     onEvent: (l: (e: CoreEvent) => void) => (listeners.event.push(l), () => undefined),
     onAppState: (l: (s: AppState) => void) => (listeners.appState.push(l), () => undefined),
     onReceipt: (l: (r: LateReceipt) => void) => (listeners.receipt.push(l), () => undefined),
-    onReset: (l: (r: { event_high: string }) => void) => (listeners.reset.push(l), () => undefined)
+    onReset: (l: (r: { event_high: string }) => void) => (listeners.reset.push(l), () => undefined),
+    onOpenConversation: (l: (conversationId: string) => void) => (listeners.open.push(l), () => undefined)
   }
   return { api, listeners, calls, control }
 }
@@ -836,6 +844,21 @@ describe('search highlights', () => {
   })
 })
 
+describe('notifications', () => {
+  it('loads the settings, mutes and unmutes one conversation, and opens the one a notification was for', async () => {
+    await start()
+    expect(store.state.notifications?.previews).toBe(true)
+    expect(store.isMuted('c1')).toBe(false)
+    await store.setMuted('c1', true)
+    expect(store.isMuted('c1')).toBe(true)
+    await store.setMuted('c1', false)
+    expect(store.isMuted('c1')).toBe(false)
+    store.state.activeId = null
+    bridge.listeners.open.forEach((l) => l('c1'))
+    expect(store.state.activeId).toBe('c1')
+  })
+})
+
 describe('review round 1: conversation commands are confirmed once', () => {
   it('never retries a lost thread as a second thread; its late receipt adds it without moving the view', async () => {
     await start()
@@ -1121,3 +1144,79 @@ describe('review round 2: an unconfirmed resume is never sent again', () => {
   })
 })
 
+describe('review round 2: a notification opens the news', () => {
+  it('shows the latest messages and reads them, even with a search window open in that conversation', async () => {
+    setAttention(true)
+    await start(snapshot({ watermark: '1', messages: { items: [message('m1')], has_more: false } }))
+    bridge.control.aroundResult = { ok: true, result: { items: [message('m-old')], has_before: false, has_after: true } }
+    await store.jumpTo({ conversation_id: 'c1', message_id: 'm-old', role: 'assistant', snippet: '', created_at: '2026-10-05T00:00:00Z' })
+    expect(store.state.jump?.messageId).toBe('m-old')
+    emit(event(2, 'message.committed', { message: message('m2') }))
+    emit(event(3, 'conversation.updated', { conversation: { ...CONVERSATION, unread: 1, rev: 2 } }))
+    const before = bridge.calls.markRead.length
+    bridge.listeners.open.forEach((l) => l('c1'))
+    await until(() => bridge.calls.markRead.length === before + 1)
+    expect(store.state.jump).toBeNull()
+    expect(store.state.highlightId).toBeNull()
+    expect(bridge.calls.markRead[before]).toMatchObject({ id: 'c1', through_message_id: 'm2' })
+  })
+})
+
+describe('review round 3: going to the latest messages scrolls there', () => {
+  it('signals the message list on a notification click and on Back to latest', async () => {
+    await start(snapshot({ watermark: '1', messages: { items: [message('m1')], has_more: false } }))
+    const before = store.state.latestScroll
+    await store.openLatest('c1')
+    expect(store.state.latestScroll).toBe(before + 1)
+    store.backToLatest()
+    expect(store.state.latestScroll).toBe(before + 2)
+  })
+})
+
+
+describe('review round 4: a late open at the latest messages yields to newer navigation', () => {
+  it("doesn't ask for a scroll when the user moved on while its snapshot loaded (11.R4.2)", async () => {
+    await start(snapshot({ watermark: '1', messages: { items: [message('m1')], has_more: false } }))
+    bridge.control.list.push({ ...CONVERSATION, id: 'c2', title: 'Other', activity: { running: null, queued: [] } })
+    const opening = store.openLatest('c2')
+    await until(() => bridge.control.snapshots.length === 2)
+    await store.select('c1')
+    await store.jumpTo({ conversation_id: 'c1', message_id: 'm1', role: 'assistant', snippet: '', created_at: '2026-10-05T00:00:00Z' })
+    const before = store.state.latestScroll
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '1', conversation: { ...CONVERSATION, id: 'c2' } }))
+    await opening
+    expect(store.state.latestScroll).toBe(before)
+    expect(store.state.activeId).toBe('c1')
+    expect(store.state.highlightId).toBe('m1')
+  })
+
+  it('yields to a search in the same conversation while its snapshot loads', async () => {
+    await start(snapshot({ watermark: '1', messages: { items: [message('m1')], has_more: false } }))
+    bridge.control.list.push({ ...CONVERSATION, id: 'c2', title: 'Other', activity: { running: null, queued: [] } })
+    bridge.control.aroundResult = { ok: true, result: { items: [message('m-old')], has_before: false, has_after: true } }
+    const opening = store.openLatest('c2')
+    await until(() => bridge.control.snapshots.length === 2)
+    await store.jumpTo({ conversation_id: 'c2', message_id: 'm-old', role: 'assistant', snippet: '', created_at: '2026-10-05T00:00:00Z' })
+    expect(store.state.highlightId).toBe('m-old')
+    const before = store.state.latestScroll
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '1', conversation: { ...CONVERSATION, id: 'c2' } }))
+    await opening
+    expect(store.state.latestScroll).toBe(before)
+    expect(store.state.jump?.messageId).toBe('m-old')
+  })
+
+  it("doesn't ask for a scroll when its conversation was deleted while the snapshot loaded", async () => {
+    await start(snapshot({ watermark: '1', messages: { items: [message('m1')], has_more: false } }))
+    bridge.control.list.push({ ...CONVERSATION, id: 'c2', title: 'Other', activity: { running: null, queued: [] } })
+    bridge.control.holdCreate = true // the replacement conversation stays on its way
+    const opening = store.openLatest('c2')
+    await until(() => bridge.control.snapshots.length === 2)
+    emit(event(5, 'conversation.deleted', { conversation_id: 'c1' }))
+    emit(event(6, 'conversation.deleted', { conversation_id: 'c2' }))
+    expect(store.state.activeId).toBeNull()
+    const before = store.state.latestScroll
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '1', conversation: { ...CONVERSATION, id: 'c2' } }))
+    await opening
+    expect(store.state.latestScroll).toBe(before)
+  })
+})

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { backToLatest, loadFailure, loadOlder, resumeTarget, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
 import Message from './Message.vue'
 import ResumeBanner from './ResumeBanner.vue'
@@ -58,21 +58,57 @@ function steerState(item: SteerLine): string {
   return item.detail ? `${text}: ${item.detail}` : text
 }
 
+/** The scroll to the end in progress. A newer one, a search result coming into view, or the list going away ends it. */
+let scrollRun = 0
+
+/**
+ * Scrolls to the latest message. Messages skipped while off screen (content-visibility) have estimated heights that
+ * settle as they render, so the end moves; keep going, a frame at a time, until it stays put.
+ */
+async function scrollToEnd(): Promise<void> {
+  const run = ++scrollRun
+  await nextTick()
+  const el = scroller.value
+  if (!el) return
+  let height = -1
+  let steady = 0
+  for (let frame = 0; frame < 60 && run === scrollRun; frame++) {
+    el.scrollTop = el.scrollHeight
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+    const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 2
+    // Done once the end hasn't moved for three frames: the messages scrolled into view have rendered.
+    steady = atEnd && el.scrollHeight === height ? steady + 1 : 0
+    if (steady >= 3) return
+    height = el.scrollHeight
+  }
+}
+
 watch(
   () => [messages.value.length, pending.value.length, running.value?.request_id, steers.value.length, state.activeId],
-  async () => {
-    await nextTick()
-    if (!state.highlightId) scroller.value?.scrollTo({ top: scroller.value.scrollHeight })
+  () => {
+    if (!state.highlightId) void scrollToEnd()
   }
+)
+
+// Back to the latest messages, from a search window or a notification: scroll there once they are on screen.
+watch(
+  () => state.latestScroll,
+  () => void scrollToEnd()
 )
 
 watch(
   () => [state.highlightId, jump.value?.messageId],
   async () => {
+    if (!state.highlightId) return
+    scrollRun += 1 // the search result owns the view now
     await nextTick()
     if (state.highlightId) document.getElementById(`m-${state.highlightId}`)?.scrollIntoView({ block: 'center' })
   }
 )
+
+onBeforeUnmount(() => {
+  scrollRun += 1
+})
 
 function time(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

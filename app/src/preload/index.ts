@@ -71,6 +71,13 @@ const api: OdinApi = {
   copyText: (text) => ipcRenderer.invoke(IPC.copyText, { text }),
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
   setAutostart: (enabled) => ipcRenderer.invoke(IPC.setAutostart, { enabled }),
+  setNotifications: (change) => ipcRenderer.invoke(IPC.setNotifications, change),
+  setConversationMuted: (params) => ipcRenderer.invoke(IPC.setConversationMuted, params),
+  onOpenConversation: (listener) => {
+    const handler = (_event: IpcRendererEvent, conversationId: string): void => listener(conversationId)
+    ipcRenderer.on(IPC.openConversation, handler)
+    return () => ipcRenderer.removeListener(IPC.openConversation, handler)
+  },
   getAppState: () => ipcRenderer.invoke(IPC.getAppState),
   onEvent: (listener) => {
     const handler = (_event: IpcRendererEvent, coreEvent: CoreEvent): void => listener(coreEvent)

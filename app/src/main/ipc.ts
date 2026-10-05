@@ -1,7 +1,15 @@
 // The named bridge methods. Each one validates its sender and its payload, then maps to exactly one core method.
 import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { z } from 'zod'
-import { IPC, type AppState, type Result, type Settings, type StagedAttachment, type StagedBatch } from '../shared/api'
+import {
+  IPC,
+  type AppState,
+  type NotificationChange,
+  type Result,
+  type Settings,
+  type StagedAttachment,
+  type StagedBatch
+} from '../shared/api'
 import type { AttachmentManager } from './attachments'
 import type { ArtifactStore } from './artifacts'
 import type { Broker, Settled } from './broker'
@@ -33,6 +41,8 @@ import {
   updateConversationSchema,
   parseRequest,
   setAutostartSchema,
+  setMutedSchema,
+  setNotificationsSchema,
   snapshotConversationSchema,
   steerSchema,
   submitSchema
@@ -54,6 +64,8 @@ export interface IpcDeps {
   copyText: (text: string) => void
   getSettings: () => Settings
   setAutostart: (enabled: boolean) => Settings
+  setNotifications: (change: NotificationChange) => Settings
+  setConversationMuted: (conversationId: string, muted: boolean) => Settings
   appState: () => AppState
 }
 
@@ -172,6 +184,11 @@ export function registerIpc(deps: IpcDeps): void {
   })
   handle(IPC.getSettings, null, () => ({ ok: true, result: deps.getSettings() }))
   handle(IPC.setAutostart, setAutostartSchema, (v) => ({ ok: true, result: deps.setAutostart(v.enabled) }))
+  handle(IPC.setNotifications, setNotificationsSchema, (v) => ({ ok: true, result: deps.setNotifications(v) }))
+  handle(IPC.setConversationMuted, setMutedSchema, (v) => ({
+    ok: true,
+    result: deps.setConversationMuted(v.conversation_id, v.muted)
+  }))
 
   ipcMain.handle(IPC.getAppState, (event) => (trusted(event) ? deps.appState() : null))
 }
