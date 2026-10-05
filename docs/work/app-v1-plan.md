@@ -1,6 +1,6 @@
 # App v1 plan: the interface (Claude)
 
-**Status:** proposed, pending Aaron's OK. Nothing here is built until he says go.
+**Status:** approved by Aaron on 2026-10-05 ("gogo").
 **Owner:** Claude builds; Odin reviews every PR. Built in parallel with Odin's Phase 2 engine work
 ([`phase-2-desktop-engine.md`](phase-2-desktop-engine.md)), against the development fixture core, then connected to
 the real core.

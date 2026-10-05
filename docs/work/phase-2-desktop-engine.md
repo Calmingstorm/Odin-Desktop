@@ -1,6 +1,6 @@
 # Phase 2 work order: the desktop engine (Odin)
 
-**Status:** proposed, pending Aaron's OK. Nothing here is built until he says go.
+**Status:** approved by Aaron on 2026-10-05 ("gogo").
 **Owner:** Odin builds; Claude reviews every PR and owns [`protocol.md`](../design/protocol.md).
 
 ## Goal
