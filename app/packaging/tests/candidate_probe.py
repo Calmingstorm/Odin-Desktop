@@ -201,6 +201,23 @@ def core(resources):
             assert {'status.get', 'events.subscribe', 'runtime.shutdown'} <= set(welcome['capabilities'])
             status = request('status.get')
             assert status['phase'] == 'ready' and status['core_instance_id'] == instance
+            # Observe real first-start provisioning, never preseed config/keys
+            # or swap secret backends to make the startup gate pass.
+            from src.desktop.paths import ProfilePaths
+            from src.config.schema import load_config
+            paths = ProfilePaths.from_app('qualification', token_file=token_file,
+                                          data_dir=Path('/work/profile/data'))
+            config = load_config(paths.config_file)
+            key = paths.secrets_dir / 'id_ed25519'
+            assert config.tools.ssh_key_path == str(key)
+            assert key.is_file() and not key.is_symlink()
+            assert key.stat().st_uid == os.getuid() and key.stat().st_mode & 0o777 == 0o600
+            public = subprocess.run(['ssh-keygen', '-y', '-f', str(key)],
+                                    capture_output=True, timeout=10, check=True)
+            assert public.stdout.startswith(b'ssh-ed25519 ')
+            workspace = paths.data_dir.parent / '.odin-desktop-workspaces' / paths.profile_id
+            assert config.tools.local_working_dir == str(workspace) and workspace.is_dir()
+            assert workspace.stat().st_uid == os.getuid()
             send({'t': 'ping', 'n': 17})
             assert receive() == {'t': 'pong', 'n': 17}
             subscription = request('events.subscribe', {'after': '0'})
@@ -219,7 +236,9 @@ def core(resources):
                   'executable': sys.executable, 'engine': src.__file__, 'instance': instance,
                   'handshake': 'pass', 'status': 'pass', 'events': 'pass', 'ping': 'pass',
                   'shutdown': 'pass', 'offline': 'network namespace',
-                  'system_python': 'masked', 'checkout': 'not mounted', 'd14': resources_proof}))
+                  'system_python': 'masked', 'checkout': 'not mounted',
+                  'first_start': {'fresh_config': True, 'ssh_key': 'real ed25519, private profile',
+                                  'workspace': 'real profile default'}, 'd14': resources_proof}))
         finally:
             sock.close()
             if child.poll() is None:

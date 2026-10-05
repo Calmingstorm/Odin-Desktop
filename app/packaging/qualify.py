@@ -150,12 +150,25 @@ def run(command, timeout=180):
 
 def sandbox(root, work, user, command, root_user=False, pdf_fixture=None):
     account = pwd.getpwnam(user)
+    # OpenSSH resolves the effective UID even when HOME is explicit. Do not
+    # expose the workstation account database: provide only namespace identities.
+    identity = work / '.namespace-etc'
+    identity.mkdir(mode=0o755, exist_ok=True)
+    identity.chmod(0o755)
+    identity.joinpath('passwd').write_text(
+        'root:x:0:0:Namespace root:/root:/bin/sh\n' +
+        f'{account.pw_name}:x:{account.pw_uid}:{account.pw_gid}:Qualification:/work/home:/bin/sh\n')
+    identity.joinpath('group').write_text(
+        'root:x:0:\n' + f'{account.pw_name}:x:{account.pw_gid}:\n')
+    for name in ('passwd', 'group'):
+        identity.joinpath(name).chmod(0o644)
     args = ['sudo', '-n', 'bwrap', '--unshare-pid', '--unshare-net', '--unshare-ipc', '--unshare-uts',
             '--die-with-parent', '--new-session',
             '--ro-bind', '/usr', '/usr', '--proc', '/proc', '--dev', '/dev',
             '--perms', '1777', '--tmpfs', '/dev/shm',
             '--perms', '1777', '--tmpfs', '/tmp', '--perms', '1777', '--dir', '/tmp/.X11-unix',
-            '--tmpfs', '/home', '--dir', '/etc', '--dir', '/run']
+            '--tmpfs', '/home', '--perms', '0755', '--dir', '/etc',
+            '--perms', '0755', '--dir', '/run']
     for path in ['/lib', '/lib64', '/bin', '/sbin']:
         if Path(path).is_symlink():
             args += ['--symlink', os.readlink(path), path]
@@ -170,7 +183,11 @@ def sandbox(root, work, user, command, root_user=False, pdf_fixture=None):
         args += ['--tmpfs', str(path)] if path.is_dir() else ['--ro-bind', '/dev/null', str(path)]
     args += ['--tmpfs', '/usr/local', '--ro-bind', str(root.resolve()), '/candidate with spaces',
              '--ro-bind', str(Path(__file__).with_name('tests').joinpath('candidate_probe.py').resolve()), '/probe.py',
-             '--bind', str(work.resolve()), '/work', '--chdir', '/work', '--clearenv',
+             '--bind', str(work.resolve()), '/work',
+             '--ro-bind', str(identity.resolve()), '/work/.namespace-etc',
+             '--ro-bind', str(identity.joinpath('passwd').resolve()), '/etc/passwd',
+             '--ro-bind', str(identity.joinpath('group').resolve()), '/etc/group',
+             '--chdir', '/work', '--clearenv',
              '--setenv', 'HOME', '/work/home', '--setenv', 'PATH', '/usr/bin:/bin',
              '--setenv', 'XDG_CONFIG_HOME', '/work/home/config', '--setenv', 'XDG_DATA_HOME', '/work/home/data',
              '--setenv', 'XDG_CACHE_HOME', '/work/home/cache', '--setenv', 'XDG_RUNTIME_DIR', '/work/run']

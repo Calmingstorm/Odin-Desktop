@@ -2,10 +2,11 @@
 
 ## Review round 1 changes and open Ubuntu gate
 
-PR #24 is rebased onto `main@566b7954`, including #19's validated development
+PR #24 is rebased onto `main@cbda9ba3`, including #19's validated development
 override/visible launch failure and #21's selected-profile runtime management.
 Packaged resolution retains the immutable absolute interpreter, isolated flags
-and no development fallback. PR #22 is still open at this rebase watermark;
+and no development fallback, #29's accessibility app and #26's inherited-suite
+qualification corrections. PR #22 is still open at this rebase watermark;
 its additional `analyze_pdf` readiness check remains with that lane.
 
 **Aaron's Decision F:** PyMuPDF/MuPDF is not distributed in either candidate.
@@ -29,6 +30,68 @@ If the browser fails, add an AppArmor profile for its installed headless-shell
 path. If AppImage sandbox startup fails, present a plain message recommending
 the `.deb` on Ubuntu 24.04 instead of a crash. Never silently disable the sandbox.
 The gate stays open until actual default-setting VM execution passes.
+
+### Revised candidate identity and final gates
+
+Shipped-byte build source: `cc76db0f8286e38192dbb200a87912ecd6af7457`.
+Fresh checkout: `/home/odin/desktop-pr24-r1-fresh`; candidates remain local in
+its `.packaging-candidates/` directory. Subsequent changes preserve original
+test corpus, record exact deltas and correct qualification isolation only;
+they do not change shipped bytes and therefore require no further rebuild.
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `odin-desktop-0.1.0-candidate-amd64.deb` | 341673184 | `6cf1f69ec4487d1242158b537f1f794a737634d82cfc7d8b3f5b1d08c1884379` |
+| `odin-desktop-0.1.0-candidate-x86_64.AppImage` | 489579075 | `437f826be0ab725c70c95084058baebee1c581a1f14c1b4b61dc491eb0e1ed98` |
+
+All three extracted/installed resource trees have **8,469 inventoried files/links,
+975,343,784 bytes**, with identical manifest SHA-256
+`f322e680b1b03f27d88265753f95fc10fe5c4f9c4c702ecf1ab3d1da0a506477`.
+
+- Fresh `npm ci --ignore-scripts`, pinned Electron provisioning and
+  `npm run check`: **582 tests**, typecheck and production build passed.
+- `npm run test:packaging`: **39 behavior tests passed**, including real namespace
+  identity and first-start `ssh-keygen`. An initial sanitized PATH omitted uv;
+  rerunning with the existing build uv supplied removes that skip.
+- Focused engine/resource/PDF cases: **131 passed** in the prescribed isolated
+  PID namespace. Local HTTP fixtures cover absence, digest mismatch, thread and
+  process concurrency, shared failure, retry, all three call sites and unchanged
+  offered tool wording. A separate real pinned-wheel proof executes every PDF
+  call site with network disconnected and private user state.
+- Full inherited-corpus qualification at `317e354e`: **all 30 groups passed,
+  14,041 passing executions, zero failures/errors and two existing skips**.
+  The review's 29 groups became 30 after #21; #26 added inherited process cases.
+  No original test bytes/assertions/hashes were changed to manufacture a pass.
+  The obsolete hide-PDF case is explicitly replaced under Decision F, not passed.
+- Engine lint: zero new findings, seven inherited findings. Exact byte-drift
+  inventory: zero errors, independent review still pending. Ownership-plan
+  checker and diff checks passed.
+- Extracted `.deb`, extracted AppImage and disposable-installed `.deb`: all
+  manifest, complete package/ASAR scan, real-core and GUI checks passed. Scans
+  report **zero PyMuPDF/MuPDF payload files**. Each lane proves real first-start
+  config, private ed25519 SSH key and default workspace provisioning, authenticated
+  core status/events/shutdown, browser sandbox, model embeddings and one verified
+  PDF first-use installation outside immutable runtime. Fixture wheel is a separate
+  read-only test input, never part of the candidates; external networking is off.
+- Private bwrap/Xvfb/DBus development-fixture smoke passed; packaged GUI ignored
+  the poisoned development override. No sandbox-disabling flags were used.
+
+Final package evidence: `/home/odin/desktop-p41-evidence/review1-fixed-full-candidates/`
+and `review1-fixed-full-qualification.log`. Final package report SHA-256:
+`3f0f965a597af91af8c73b53c8d5c7d42905ed901a994c40f0b2408b8fd6d07c`.
+Fresh app/focused/full-suite logs
+use the `review1-final-*` prefix; fixture proof is `review1-development-fixture-smoke.*`.
+Failed provisional logs remain: missing development pip was installed into the
+private venv; obsolete Desktop PDF assertions were updated while frozen inherited
+tests were restored. The first rebuilt candidate run exposed a harness omission:
+OpenSSH needs a UID entry. The corrected namespace supplies only synthetic,
+read-only passwd/group identities, not workstation account data, and proves real
+key generation. No core startup guard or secret backend was bypassed.
+
+Dependency-install output reports **11 npm audit findings (10 high, one critical)**
+in the locked dependency graph; no broad dependency upgrade or audit fix is
+smuggled into this review. Clean-distro dependency resolution, restricted Ubuntu
+user namespaces, mounted AppImage behavior and native acceptance remain open.
 
 ## Historical pre-review candidate evidence
 
