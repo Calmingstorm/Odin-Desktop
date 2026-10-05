@@ -4,8 +4,8 @@
 
 Branch `app/p33-lifecycle-part1` started from pulled `origin/main`
 `2acdbc70212b93d1603c532a150d0eb812bf009e` on 2026-10-05, then rebased onto reviewed
-`f536fb34e15a9c1a3dcae79da96214e9991c71cc` before fresh final gates. Main advanced during this task with merged
-runtime management #21 and keyboard/accessibility #29; their reviewed behavior is retained. No unmerged Phase 2,
+`cbda9ba316c5f3460bed79ec311b55a5c8032bbd` before fresh final gates. Main advanced during this task with merged
+runtime management #21, keyboard/accessibility #29 and qualification accounting #26; their reviewed behavior is retained. No unmerged Phase 2,
 qualification-lab or packaging PR is adopted. This is a source-build lifecycle slice, **not completed P3.3 or full
 Phase 2 execution qualification**. This PR makes no `src/` changes relative to its reviewed base.
 D9/D12/D13/D17 policy is not replaced or tightened by an owner execution approval layer.
@@ -37,7 +37,8 @@ not convert that missing graph into successful work/descendant/native-release cl
 ## Measured routes
 
 The integrated source-tree run passed **17 E2E cases** (12 lifecycle, 5 notification), without retries/skips,
-in 1.7 minutes. Final fresh-checkout results are recorded below after completion.
+in 1.7 minutes, and passed again after the reviewed runtime/accessibility rebase. The final fresh-checkout gate
+report pins its exact source commit and artifact hashes outside Git.
 
 | Route | Observed evidence | Status / limit |
 |---|---|---|
@@ -97,6 +98,8 @@ in 1.7 minutes. Final fresh-checkout results are recorded below after completion
 
 Before final fresh gates: initial app check 526 tests passed; real-core contract 8 passed; retained core
 entry/lifetime/journal/durability/IPC selection 169 passed; driver behavior 3 passed. Focused post-change checks
-passed and the complete integrated E2E run passed 17/17. Final counts, source commit and artifact hashes are in
-the external evidence and final verification appendix. Neither a clean lineage report nor these passing cases
+passed and the complete integrated E2E run passed 17/17. After the reviewed main handoff, app check passed 601,
+core/driver regression passed 172, real-core contract passed 8 and management-aware real smoke passed 37 screen
+checkpoints. Final counts, source commit and artifact hashes are in the external fresh-checkout evidence.
+Neither a clean lineage report nor these passing cases
 constitutes independent Claude review or release/native-matrix qualification.
