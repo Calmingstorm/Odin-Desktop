@@ -4,6 +4,8 @@ import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { z } from 'zod'
 import {
   IPC,
+  SETTINGS_SHAPED,
+  type SettingsShapedMethod,
   type AppState,
   type NotificationChange,
   type Result,
@@ -47,6 +49,7 @@ import {
   codexLabelSchema,
   codexPollSchema,
   editLeafSchema,
+  imageIntentSchema,
   secretClearSchema,
   secretSetSchema,
   settingsSetSchema,
@@ -199,6 +202,11 @@ export function registerIpc(deps: IpcDeps): void {
     const id = randomUUID()
     return fromSettled(await deps.broker.request('settings.set', v, id))
   })
+  // Each settings-shaped method has its own channel, with settings.set's schema, and reaches exactly that method.
+  for (const method of Object.keys(SETTINGS_SHAPED) as SettingsShapedMethod[]) {
+    handle(SETTINGS_SHAPED[method].channel, settingsSetSchema, async (v) => fromSettled(await deps.broker.request(method, v, randomUUID())))
+  }
+  handle(IPC.imageModelIntent, imageIntentSchema, async (v) => fromSettled(await deps.broker.request('models.image.intent', v, randomUUID())))
   handle(IPC.secretsSet, secretSetSchema, async (v) => {
     const id = randomUUID()
     return fromSettled(await deps.broker.request('secrets.set', v, id))

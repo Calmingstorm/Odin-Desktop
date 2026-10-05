@@ -15,18 +15,41 @@ function field(path: string, extra: Partial<ConfigField> = {}): ConfigField {
 
 let store: SettingsStore
 let meta: ConfigMeta
-let calls: { set: Array<Record<string, unknown>>; edit: Array<Record<string, unknown>>; schema: number }
+let calls: {
+  set: Array<Record<string, unknown>>
+  edit: Array<Record<string, unknown>>
+  schema: number
+  shaped: Array<[string, Record<string, unknown>]>
+  intent: Array<Record<string, unknown>>
+}
 let setAnswer: Result<{ revision: string; fields: ConfigField[] }> | null
 
 beforeEach(async () => {
   vi.resetModules()
-  calls = { set: [], edit: [], schema: 0 }
+  calls = { set: [], edit: [], schema: 0, shaped: [], intent: [] }
   setAnswer = null
   meta = {
     schema_version: 1,
     revision: 'rev-1',
-    fields: [field('timezone'), field('llm_provider.model', { apply_handler: 'models.main.set', apply_mode: 'live_apply' })],
-    status: { counts: {}, desired_revision: 'rev-1', effective_revision: null }
+    fields: [
+      field('timezone'),
+      field('llm_provider.model', { apply_handler: 'models.main.set', apply_mode: 'live_apply' }),
+      field('ollama.base_url', { apply_handler: 'providers.ollama.set', apply_mode: 'live_apply' }),
+      field('image.openai.image_model', { desired: 'gpt-image-2.5-flare' })
+    ],
+    status: { counts: {}, desired_revision: 'rev-1', effective_revision: null },
+    image_models: {
+      image_model: { effective: 'gpt-image-2.5-flare', default: 'gpt-image-2.5-flare', status: 'follow' },
+      outer_model: { effective: 'gpt-6-astra', default: 'gpt-6-astra', status: 'follow' }
+    },
+    image_models_revision: 'img-1'
+  }
+  const shaped = (name: string) => async (params: Record<string, unknown>) => {
+    calls.shaped.push([name, params])
+    return {
+      ok: true,
+      result: { revision: 'rev-2', fields: [field('ollama.base_url', { desired: 'http://gpu:11434', apply_handler: 'providers.ollama.set', apply_mode: 'live_apply' })] }
+    }
   }
   ;(globalThis as unknown as { window: unknown }).window = {
     odin: {
@@ -41,6 +64,15 @@ beforeEach(async () => {
       editLeaf: async (params: Record<string, unknown>) => {
         calls.edit.push(params)
         return { ok: true, result: { status: 'switched' } }
+      },
+      providersCodexSet: shaped('providers.codex.set'),
+      providersAuxiliarySet: shaped('providers.auxiliary.set'),
+      providersOllamaSet: shaped('providers.ollama.set'),
+      providersCompatSet: shaped('providers.compat.set'),
+      computerActivationSet: shaped('computer.activation.set'),
+      imageModelIntent: async (params: Record<string, unknown>) => {
+        calls.intent.push(params)
+        return { ok: true, result: { image_models: meta.image_models, image_models_revision: 'img-2', revision: 'rev-2' } }
       }
     }
   }
@@ -79,3 +111,25 @@ describe('saving a setting', () => {
     expect(store.settings.fields.timezone).toEqual({ status: 'error', message: 'timezone: must be text' })
   })
 })
+
+describe('review round 2: each field saves through the method that owns it', () => {
+  it("saves a provider field through its owner's settings-shaped method, with settings.set's params", async () => {
+    const ollama = store.settings.meta!.fields.find((f) => f.path === 'ollama.base_url')!
+    expect(await store.saveField(ollama, 'http://gpu:11434')).toBe(true)
+    expect(calls.shaped).toEqual([
+      ['providers.ollama.set', { expected_revision: 'rev-1', changes: [{ path: 'ollama.base_url', value: 'http://gpu:11434' }] }]
+    ])
+    expect(calls.set).toEqual([])
+    expect(store.settings.meta!.revision).toBe('rev-2')
+    await store.resetField(store.settings.meta!.fields.find((f) => f.path === 'ollama.base_url')!)
+    expect(calls.shaped[1]).toEqual(['providers.ollama.set', { expected_revision: 'rev-2', changes: [{ path: 'ollama.base_url', delete: true }] }])
+  })
+
+  it("pins or follows an image model with the intent's own revision, then rereads the records", async () => {
+    const before = calls.schema
+    expect(await store.setImageIntent('image_model', 'pin')).toBe(true)
+    expect(calls.intent).toEqual([{ expected_revision: 'img-1', operations: { image_model: 'pin' } }])
+    expect(calls.schema).toBe(before + 1)
+  })
+})
+

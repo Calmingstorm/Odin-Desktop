@@ -175,6 +175,16 @@ export const secretSetSchema = z.object({ path: settingsPath, value: z.string().
 export const secretClearSchema = z.object({ path: settingsPath }).strict()
 
 /** The dedicated desktop methods a field may name as its apply handler. Nothing else passes. */
+export const imageIntentSchema = z
+  .object({
+    expected_revision: z.string().min(1).max(128),
+    operations: z
+      .object({ image_model: z.enum(['follow', 'pin']).optional(), outer_model: z.enum(['follow', 'pin']).optional() })
+      .strict()
+      .refine((ops) => Object.keys(ops).length > 0, 'name image_model and/or outer_model')
+  })
+  .strict()
+
 export const LEAF_EDITORS = ['models.main.set', 'models.agents.set'] as const
 export const editLeafSchema = z
   .object({ method: z.enum(LEAF_EDITORS), params: z.record(z.string().regex(/^[A-Za-z0-9_]+$/), leafValue) })

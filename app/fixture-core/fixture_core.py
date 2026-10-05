@@ -84,16 +84,33 @@ SETTINGS = [
     field("llm_provider.model", "string", "Main model", "gpt-6.1-sol", "The model that serves chat.",
           "live_apply", enum=MODELS, apply_handler="models.main.set"),
     field("openai_codex.reasoning_effort", "string", "Reasoning effort", "medium", apply_mode="live_apply",
-          enum=EFFORTS, apply_handler="settings.set"),
+          enum=EFFORTS, apply_handler="providers.codex.set"),
     field("openai_codex.context_utilization", "integer", "Context utilization (%)", 60,
           "How much of the model's input budget a turn may use.", "live_for_new_work",
-          constraints={"minimum": 30, "maximum": 100}),
-    field("openai_codex.request_timeout_seconds", "integer", "Request timeout (s)", 600, apply_mode="restart",
-          constraints={"minimum": 30, "maximum": 7200},
-          restart_reason="The Codex client reads its timeouts when it starts."),
-    field("openai_compatible.enabled", "boolean", "Enabled", False),
-    field("openai_compatible.base_url", "string", "Base URL", "https://openrouter.ai/api/v1"),
-    field("openai_compatible.api_key", "string", "API key", None, sensitivity="sensitive"),
+          constraints={"minimum": 30, "maximum": 100}, apply_handler="providers.codex.set"),
+    field("openai_codex.request_timeout_seconds", "integer", "Request timeout (s)", 600, apply_mode="live_apply",
+          constraints={"minimum": 30, "maximum": 7200}, apply_handler="providers.codex.set"),
+    field("openai_codex.auxiliary.enabled", "boolean", "Auxiliary model", True,
+          "A second model for compaction, reflection and the completion judge.", "live_apply",
+          apply_handler="providers.auxiliary.set"),
+    field("openai_codex.auxiliary.model", "string", "Auxiliary model name", "gpt-6-sol", apply_mode="live_apply",
+          enum=MODELS, apply_handler="providers.auxiliary.set"),
+    field("ollama.enabled", "boolean", "Enabled", False, apply_mode="live_apply", apply_handler="providers.ollama.set"),
+    field("ollama.base_url", "string", "Base URL", "http://localhost:11434", apply_mode="live_apply",
+          apply_handler="providers.ollama.set"),
+    field("ollama.model", "string", "Model", "qwen3:8b", apply_mode="live_apply", apply_handler="providers.ollama.set"),
+    field("openai_compatible.enabled", "boolean", "Enabled", False, apply_mode="live_apply",
+          apply_handler="providers.compat.set"),
+    field("openai_compatible.base_url", "string", "Base URL", "https://openrouter.ai/api/v1", apply_mode="live_apply",
+          apply_handler="providers.compat.set"),
+    field("openai_compatible.api_key", "string", "API key", None, sensitivity="sensitive",
+          apply_handler="providers.compat.set"),
+    field("image.openai.image_model", "string", "Image model", "gpt-image-2.5-flare",
+          "Follows Odin's default unless pinned.", "live_read"),
+    field("image.openai.outer_model", "string", "Image host model", "gpt-6-astra",
+          "The model that hosts image generation. Follows Odin's default unless pinned.", "live_read"),
+    field("context.directory", "string", "Context files", "data/context", "Files added to every prompt.", "restart",
+          restart_reason="Prompt sources are assembled when the prompt builder starts."),
     field("agents.model", "string", "Agent model", "inherit", "inherit, auto, or a fixed model.", "live_apply",
           enum=["inherit", "auto", *MODELS], apply_handler="models.agents.set"),
     field("agents.auto_model_allowlist", "array", "Models agents may choose", [], apply_mode="live_apply",
@@ -104,12 +121,17 @@ SETTINGS = [
           enum=["auto", "bash", "sh"]),
     field("tools.tool_timeouts", "object", "Per-tool timeouts (s)", {}, 'For example {"run_command": 900}.',
           "live_for_new_work"),
-    field("computer.enabled", "boolean", "Computer use", False, apply_mode="restart",
-          restart_reason="Computer use is wired at startup."),
+    field("computer.enabled", "boolean", "Computer use", False, apply_mode="activation_required",
+          apply_handler="computer.activation.set",
+          activation_policy="On activates computer use for the running core; off revokes it."),
     field("graceful_degradation.enabled", "boolean", "Enabled", True, apply_mode="dormant",
           activation_policy="A legacy setting this version keeps loading but does not use."),
 ]
 SETTINGS_FIELDS = {f["path"]: f for f in SETTINGS}
+# The settings-shaped methods (protocol.md, Dedicated settings methods): settings.set's params, the owner's transaction.
+SETTINGS_SHAPED = ("providers.codex.set", "providers.auxiliary.set", "providers.ollama.set", "providers.compat.set",
+                   "computer.activation.set")
+IMAGE_LEAVES = ("image_model", "outer_model")
 
 
 def check_field_value(spec: dict, value) -> str | None:
@@ -238,6 +260,7 @@ class Core:
         self.notification_acks: dict[str, str] = {}  # dedupe_key -> what the app did
         self.settings_values = {path: spec["default"] for path, spec in SETTINGS_FIELDS.items()}
         self.boot_values = dict(self.settings_values)  # what restart-mode settings run with until a restart
+        self.image_pinned: set[str] = set()  # image model leaves saved explicitly; the rest follow Odin's defaults
         self.secret_values: dict[str, str] = {}  # never echoed
         self.agent_hints: dict[str, str] = {}
         self.codex_accounts = [
@@ -508,8 +531,17 @@ class Core:
     # ------------------------------------------------------------- settings
     def settings_revision(self) -> str:
         """A hash of every saved value and secret, as Odin's config_revision hashes the whole configuration."""
-        state = {"values": self.settings_values, "secrets": sorted(self.secret_values)}
+        state = {"values": self.settings_values, "secrets": sorted(self.secret_values), "pins": sorted(self.image_pinned)}
         return hashlib.sha256(json.dumps(state, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+    def image_models(self) -> dict:
+        """Odin's image_model_defaults: each leaf's effective value, shipped default, and follow or pin."""
+        return {leaf: {"effective": self.settings_values[f"image.openai.{leaf}"],
+                       "default": SETTINGS_FIELDS[f"image.openai.{leaf}"]["default"],
+                       "status": "pin" if leaf in self.image_pinned else "follow"} for leaf in IMAGE_LEAVES}
+
+    def image_models_revision(self) -> str:
+        return hashlib.sha256(json.dumps(self.image_models(), sort_keys=True).encode()).hexdigest()[:16]
 
     def field_record(self, path: str) -> dict:
         spec = SETTINGS_FIELDS[path]
@@ -526,7 +558,7 @@ class Core:
                 effective, pending = desired, False
         if pending:
             state = "pending_restart"
-        elif mode in ("activation_required", "dormant"):
+        elif mode == "dormant":
             state = "dormant"
         else:
             state = "applied"
@@ -543,7 +575,8 @@ class Core:
             counts[record["apply_state"]] = counts.get(record["apply_state"], 0) + 1
         revision = self.settings_revision()
         return {"schema_version": 1, "revision": revision, "fields": fields,
-                "status": {"counts": counts, "desired_revision": revision, "effective_revision": None}}
+                "status": {"counts": counts, "desired_revision": revision, "effective_revision": None},
+                "image_models": self.image_models(), "image_models_revision": self.image_models_revision()}
 
     def effort_problem(self, model: str, effort: str) -> str | None:
         if effort in UNSUPPORTED_EFFORTS.get(model, set()):
@@ -551,10 +584,15 @@ class Core:
         return None
 
     def m_settings_set(self, params: dict, _writer) -> dict:
+        return self.save_settings(params, "settings.set")
+
+    def save_settings(self, params: dict, owner: str) -> dict:
+        """settings.set and every settings-shaped method: validate as a whole, save, apply; all or nothing."""
         if params.get("expected_revision") != self.settings_revision():
             raise CoreError("stale_binding", "settings changed since you loaded them", "stale_binding")
         changes = params.get("changes") or []
         staged = dict(self.settings_values)
+        pins = set(self.image_pinned)
         for change in changes:
             path = change.get("path")
             spec = SETTINGS_FIELDS.get(path)
@@ -562,21 +600,48 @@ class Core:
                 raise CoreError("bad_request", f"{path}: no such setting")
             if spec["sensitivity"] != "public":
                 raise CoreError("bad_request", f"{path}: a secret; use secrets.set")
-            if spec["apply_handler"] not in (None, "settings.set"):
-                raise CoreError("bad_request", f"{path}: changed through {spec['apply_handler']}")
+            if (spec["apply_handler"] or "settings.set") != owner:
+                raise CoreError("bad_request", f"{path}: changed through {spec['apply_handler'] or 'settings.set'}")
+            leaf = path.removeprefix("image.openai.") if path.startswith("image.openai.") else None
             if change.get("delete"):
                 staged[path] = spec["default"]
+                pins.discard(leaf)
                 continue
             problem = check_field_value(spec, change.get("value"))
             if problem:
                 raise CoreError("bad_request", f"{path}: {problem}")
             staged[path] = change["value"]
+            # Odin's rule for image models: writing the default keeps following it; anything else pins.
+            if leaf and (leaf in pins or change["value"] != spec["default"]):
+                pins.add(leaf)
         problem = self.effort_problem(staged["llm_provider.model"], staged["openai_codex.reasoning_effort"])
         if problem:
             raise CoreError("bad_request", f"openai_codex.reasoning_effort: {problem}")
+        unreachable = staged.get("ollama.base_url", "") if owner == "providers.ollama.set" else ""
+        if "unreachable" in unreachable:
+            # The owner's transaction: saved, then applied; a failed apply restores the saved values.
+            raise CoreError("bad_request", f"ollama.base_url: couldn't reach {unreachable}; the saved settings were restored")
         self.settings_values = staged  # validated as a whole: all or nothing
+        self.image_pinned = pins
         return {"revision": self.settings_revision(),
                 "fields": [self.field_record(c["path"]) for c in changes]}
+
+    def m_image_intent(self, params: dict, _writer) -> dict:
+        if params.get("expected_revision") != self.image_models_revision():
+            raise CoreError("stale_binding", "Image model intent changed; refresh before retrying", "stale_binding")
+        operations = params.get("operations")
+        if (not isinstance(operations, dict) or not operations or set(operations) - set(IMAGE_LEAVES)
+                or any(v not in ("follow", "pin") for v in operations.values())):
+            raise CoreError("bad_request", "operations must map image_model and/or outer_model to follow or pin")
+        for leaf, operation in operations.items():
+            path = f"image.openai.{leaf}"
+            if operation == "follow":
+                self.image_pinned.discard(leaf)
+                self.settings_values[path] = SETTINGS_FIELDS[path]["default"]
+            else:
+                self.image_pinned.add(leaf)  # the value in effect now, even when it equals the default
+        return {"image_models": self.image_models(), "image_models_revision": self.image_models_revision(),
+                "revision": self.settings_revision()}
 
     def require_secret_leaf(self, params: dict) -> str:
         path = params.get("path")
@@ -1233,6 +1298,8 @@ METHODS = {
     "notifications.ack": Core.m_notification_ack,
     "settings.schema": Core.m_settings_schema,
     "settings.set": Core.m_settings_set,
+    **{name: (lambda owner: lambda core, params, writer: core.save_settings(params, owner))(name) for name in SETTINGS_SHAPED},
+    "models.image.intent": Core.m_image_intent,
     "secrets.set": Core.m_secret_set,
     "secrets.clear": Core.m_secret_clear,
     "models.main.set": Core.m_models_main_set,

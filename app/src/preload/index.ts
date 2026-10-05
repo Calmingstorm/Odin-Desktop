@@ -3,6 +3,8 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import {
   IPC,
+  SETTINGS_SHAPED,
+  type SettingsShapedApi,
   type AppState,
   type AttachmentProgress,
   type CoreEvent,
@@ -13,7 +15,13 @@ import {
   type StagedBatch
 } from '../shared/api'
 
+// One named function per settings-shaped method, each on its own channel.
+const settingsShaped = Object.fromEntries(
+  Object.values(SETTINGS_SHAPED).map(({ call, channel }) => [call, (params: unknown) => ipcRenderer.invoke(channel, params)])
+) as SettingsShapedApi
+
 const api: OdinApi = {
+  ...settingsShaped,
   status: () => ipcRenderer.invoke(IPC.status),
   listConversations: () => ipcRenderer.invoke(IPC.listConversations),
   createConversation: (params) => ipcRenderer.invoke(IPC.createConversation, params),
@@ -74,6 +82,7 @@ const api: OdinApi = {
   setNotifications: (change) => ipcRenderer.invoke(IPC.setNotifications, change),
   settingsSchema: () => ipcRenderer.invoke(IPC.settingsSchema),
   settingsSet: (params) => ipcRenderer.invoke(IPC.settingsSet, params),
+  imageModelIntent: (params) => ipcRenderer.invoke(IPC.imageModelIntent, params),
   secretsSet: (params) => ipcRenderer.invoke(IPC.secretsSet, params),
   secretsClear: (params) => ipcRenderer.invoke(IPC.secretsClear, params),
   editLeaf: (params) => ipcRenderer.invoke(IPC.editLeaf, params),
