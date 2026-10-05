@@ -157,6 +157,7 @@ class RequestService:
             return error.response()
 
     def submit(self, params):
+        """Ordinary admission; transport intake must use handle_async first."""
         if type(params) is not dict:
             raise ConversationError("bad_request", "Method params must be an object")
         owner = self._owner()
@@ -203,6 +204,74 @@ class RequestService:
             db.execute("INSERT INTO desktop_submissions VALUES (?,?,?)",
                        (sid, binding, canonical_json(response)))
             return response
+
+    async def handle_async(self, method, params, *, controls):
+        """Consume bare resume before attachments, prompt construction or history.
+
+        Reserve a submission receipt before awaited checks. Lost ACKs and
+        restarts cannot reinterpret recognized commands as fresh execution.
+        """
+        if method != "submission.send":
+            return self.handle(method, params)
+        try:
+            if type(params) is not dict:
+                raise ConversationError("bad_request", "Method params must be an object")
+            owner = self._owner()
+            sid = require_string(params.get("client_submission_id"), "client_submission_id")
+            cid = require_string(params.get("conversation_id"), "conversation_id")
+            text, attachments = params.get("text"), params.get("attachments", [])
+            binding = canonical_json(params)
+            from ..discord.turn_resume import TurnResumeManager
+            with domain_transaction(self.store) as db:
+                old = db.execute("SELECT binding,response FROM desktop_submissions "
+                                 "WHERE client_submission_id=?", (sid,)).fetchone()
+                if old is not None:
+                    if old[0] != binding:
+                        raise ConversationError("id_conflict", "Submission ID is already bound")
+                    return {"ok": True, "result": json.loads(old[1])}
+                self.conversations.get(cid)
+                if type(text) is not str or type(attachments) is not list:
+                    raise ConversationError("bad_request", "Invalid text or attachments")
+                if not TurnResumeManager.is_resume_trigger(text):
+                    return {"ok": True, "result": self.submit(params)}
+                row = db.execute("""SELECT * FROM desktop_requests WHERE conversation_id=?
+                    AND state IN ('suspended','interrupted')
+                    ORDER BY (owner=?) DESC, COALESCE(ended_at,created_at) DESC,
+                    request_id DESC LIMIT 1""", (cid, owner)).fetchone()
+                if row is None:
+                    return {"ok": True, "result": self.submit(params)}
+                row = dict(row)
+                pending = {"disposition": "outcome_unknown", "request_id": row["request_id"],
+                           "message_id": row["message_id"]}
+                db.execute("INSERT INTO desktop_submissions VALUES (?,?,?)",
+                           (sid, binding, canonical_json(pending)))
+            noticed = False
+
+            def notice(body):
+                nonlocal noticed
+                self._owner()
+                self.transcript.commit(cid, "notice", body, request_id=row["request_id"],
+                                       client_submission_id=sid)
+                noticed = True
+
+            try:
+                answer = await controls.dispatch("control.resume", {
+                    "control_command_id": "submission-resume:" + sid,
+                    "conversation_id": cid, "request_id": row["request_id"],
+                    "generation": row["generation"]}, on_notice=notice)
+            except Exception:
+                answer = response_error("internal", "Control outcome is unknown", "outcome_unknown")
+            result = {**pending, **answer.get("result", {})}
+            if not noticed and result["disposition"] != "admitted":
+                notice("I recognized the resume command, but resuming failed internally "
+                       "while safely checking the preserved work. Nothing was resumed or "
+                       "started fresh — try `resume` again later.")
+            with self.store.transaction() as db:
+                db.execute("UPDATE desktop_submissions SET response=? WHERE client_submission_id=?",
+                           (canonical_json(result), sid))
+            return {"ok": True, "result": result}
+        except ConversationError as error:
+            return error.response()
 
     def snapshot(self, conversation_id):
         rows = [dict(row) for row in self.store.connection.execute(

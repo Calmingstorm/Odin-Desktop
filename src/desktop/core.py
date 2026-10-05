@@ -418,17 +418,22 @@ class CoreService:
         owner = self.permissions.set_request_owner(connection.owner_context)
         committed = []
         try:
-            if request["method"] in CONTROL_METHODS:
+            if request["method"] in CONTROL_METHODS or request["method"] == "submission.send":
                 async def admit_control():
                     invalid = validate_params(request["method"], request["params"])
                     if invalid:
                         return invalid
                     if not self.lifetime.admitting:
                         return failure("busy", "Core is quiescing")
+                    if request["method"] == "submission.send":
+                        return await self.requests.handle_async(
+                            request["method"], request["params"], controls=self.controls)
                     return await self.controls.dispatch(request["method"], request["params"])
 
                 result = await self.commands.execute_async(
                     request["id"], request["method"], request["params"], admit_control)
+                if request["method"] == "submission.send":
+                    await self._after_command_commit(request["method"], request["params"], result)
                 async with self._serial:
                     await self._flush_publications()
                 return {"t": "res", "id": request["id"], **result}
