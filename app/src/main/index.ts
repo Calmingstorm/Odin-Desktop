@@ -580,13 +580,26 @@ async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
   const sections: Array<[string, string]> = [
     ['Tools', 'settings-tools'],
     ['Skills', 'settings-skills'],
-    ['MCP servers', 'settings-mcp']
+    ['MCP servers', 'settings-mcp'],
+    ['Hosts and trust', 'settings-hosts'],
+    ['Scheduled and running work', 'settings-work']
   ]
   for (const [section, name] of sections) {
     await run(`[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.trim() === ${JSON.stringify(section)}).click()`)
     await pause(800)
     await shoot(name)
   }
+  // The schedule form, then the host wizard's first step.
+  await run(`[...document.querySelectorAll('.panel-head button')].find((b) => b.textContent.trim() === 'New schedule').click()`)
+  await pause(500)
+  await run(`document.querySelector('[aria-label="Schedule form"]').scrollIntoView({ block: 'start' })`)
+  await shoot('settings-schedule-form')
+  await run(`[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.trim() === 'Hosts and trust').click()`)
+  await pause(600)
+  await run(`[...document.querySelectorAll('.panel-head button')].find((b) => b.textContent.trim() === 'Add host').click()`)
+  await pause(500)
+  await run(`document.querySelector('[aria-label="Host enrollment"]').scrollIntoView({ block: 'start' })`)
+  await shoot('settings-host-wizard')
   await run(`document.querySelector('.settings-nav .back').click()`)
   await pause(300)
   // A very long reply, as a regression signal: how long reopening its conversation takes (fetch, render, paint), and

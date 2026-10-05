@@ -6,12 +6,22 @@ import { NAV, groupsFor, sectionTitle } from '../settings-form'
 import { state } from '../store'
 import { loadSettings, settings } from '../stores/settings'
 import General from './settings/General.vue'
+import Hosts from './settings/Hosts.vue'
 import Mcp from './settings/Mcp.vue'
 import Skills from './settings/Skills.vue'
 import Tools from './settings/Tools.vue'
+import Work from './settings/Work.vue'
 
 /** Panels for what isn't a plain setting: the app's own settings, accounts, tools, skills and MCP servers. */
-const PANELS: Record<string, Component> = { general: General, models: CodexAccounts, tools: Tools, skills: Skills, mcp: Mcp }
+const PANELS: Record<string, Component> = {
+  general: General,
+  models: CodexAccounts,
+  tools: Tools,
+  skills: Skills,
+  mcp: Mcp,
+  hosts: Hosts,
+  work: Work
+}
 
 const active = ref('general')
 const fields = computed(() => settings.meta?.fields ?? [])
