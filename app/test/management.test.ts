@@ -139,9 +139,10 @@ describe('MCP servers', () => {
 
   it('switches servers and MCP itself on and off, sets limits, and removes a server', async () => {
     const { read, command } = await connect()
-    expect(await command('mcp.set_enabled', { name: 'Grafana', enabled: true })).toMatchObject({ ok: true, result: { state: 'connected' } })
-    const off = (await command('mcp.set_global_enabled', { enabled: false })) as Ok<McpStatus>
-    expect(off.result).toMatchObject({ enabled: false, connected_count: 0, published_tool_count: 0 })
+    const switched = (await command('mcp.set_enabled', { name: 'Grafana', enabled: true })) as Ok<McpStatus>
+    expect(switched.result.servers.find((s) => s.name === 'Grafana')).toMatchObject({ state: 'connected' }) // the whole status, as Odin
+    expect(await command('mcp.set_global_enabled', { enabled: false })).toEqual({ ok: true, result: { saved: true, enabled: false, connected_count: 0 } })
+    expect(await read('mcp.status')).toMatchObject({ enabled: false, connected_count: 0, published_tool_count: 0 })
     await command('mcp.set_global_enabled', { enabled: true })
     expect(await command('mcp.set_limits', { max_published_tools_per_server: 128 })).toMatchObject({ ok: true, result: { max_published_tools_per_server: 128, max_published_tools_global: 40 } })
     expect(await read('mcp.tools', { name: 'LMMS' })).toMatchObject({
@@ -152,3 +153,21 @@ describe('MCP servers', () => {
     expect((await read<McpStatus>('mcp.status')).server_count).toBe(1)
   })
 })
+
+describe('review round 3: Odin-shaped answers the window relies on', () => {
+  it('has no detail for a skill that failed to load, as in Odin', async () => {
+    const { read } = await connect()
+    expect(await read('skills.list')).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'broken_sync', status: 'error' })]))
+    const { command } = await connect()
+    expect(await command('skills.get', { name: 'broken_sync' })).toMatchObject({ ok: false, error: { code: 'not_found' } })
+  })
+
+  it("narrows a server's tools with an allowlist, and offers them all again when it is cleared", async () => {
+    const { read, command } = await connect()
+    await command('mcp.save', { name: 'LMMS', create: false, tool_allowlist: ['create_track'] })
+    expect((await read<McpStatus>('mcp.status')).servers.find((s) => s.name === 'LMMS')!.published_count).toBe(1)
+    await command('mcp.save', { name: 'LMMS', create: false, tool_allowlist: null })
+    expect((await read<McpStatus>('mcp.status')).servers.find((s) => s.name === 'LMMS')!.published_count).toBe(3)
+  })
+})
+

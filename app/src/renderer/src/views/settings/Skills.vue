@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ask } from '../../dialog'
+import { configValue } from '../../skill-config'
+import { adoptSkill, type Loaded } from '../../skill-editor'
 import {
   closeSkill,
   deleteSkill,
@@ -33,13 +35,20 @@ async def execute(inp, context):
 const editing = ref<{ name: string; code: string; create: boolean } | null>(null)
 const config = reactive<Record<string, unknown>>({})
 
+/** What the editor last loaded for its skill, so a reload replaces only what the user hasn't changed since. */
+let loaded: Loaded | null = null
+
 watch(
   () => management.skill,
   (skill) => {
     if (!skill) return
-    editing.value = { name: skill.name, code: skill.code ?? '', create: false }
-    for (const key of Object.keys(config)) delete config[key]
-    Object.assign(config, skill.config)
+    const adopted = adoptSkill(editing.value, loaded, JSON.stringify(config), skill)
+    editing.value = adopted.editor
+    if (adopted.replaceConfig) {
+      for (const key of Object.keys(config)) delete config[key]
+      Object.assign(config, skill.config)
+    }
+    loaded = adopted.loaded
   }
 )
 
@@ -49,11 +58,13 @@ const configFields = computed(() =>
 
 function startNew(): void {
   closeSkill()
+  loaded = null
   editing.value = { name: '', code: TEMPLATE, create: true }
 }
 
 function close(): void {
   editing.value = null
+  loaded = null
   closeSkill()
 }
 
@@ -73,10 +84,8 @@ async function remove(name: string): Promise<void> {
   if (confirmed) await deleteSkill(name)
 }
 
-function setConfig(key: string, spec: Record<string, unknown>, raw: string | boolean): void {
-  if (spec.type === 'boolean') config[key] = raw === true
-  else if (spec.type === 'integer' || spec.type === 'number') config[key] = Number(raw)
-  else config[key] = raw
+function setConfig(key: string, spec: Record<string, unknown>, raw: string | boolean, optionIndex?: number): void {
+  config[key] = configValue(spec, raw, optionIndex)
 }
 </script>
 
@@ -96,7 +105,7 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
           <span :class="['state-chip', skill.status]">{{ STATUS[skill.status] ?? skill.status }}</span>
           <span class="manage-count">{{ skill.execution_count ?? skill.total_executions ?? 0 }} runs</span>
           <span class="manage-actions">
-            <button class="ghost" @click="openSkill(skill.name)">Open</button>
+            <button v-if="skill.status !== 'error'" class="ghost" @click="openSkill(skill.name)">Open</button>
             <button v-if="skill.status !== 'error'" class="ghost" :disabled="management.busy[`skill:${skill.name}`]" @click="setSkillEnabled(skill.name, skill.status !== 'loaded')">
               {{ skill.status === 'loaded' ? 'Turn off' : 'Turn on' }}
             </button>
@@ -138,8 +147,11 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
       <h4 class="sub-head">Its settings</h4>
       <label v-for="[key, spec] in configFields" :key="key" class="field-input">
         <span class="config-key">{{ key }}</span>
-        <select v-if="Array.isArray(spec.enum)" :value="config[key]" @change="setConfig(key, spec, ($event.target as HTMLSelectElement).value)">
-          <option v-for="option in spec.enum as string[]" :key="option" :value="option">{{ option }}</option>
+        <select
+          v-if="Array.isArray(spec.enum)"
+          @change="setConfig(key, spec, ($event.target as HTMLSelectElement).value, ($event.target as HTMLSelectElement).selectedIndex)"
+        >
+          <option v-for="(option, index) in spec.enum as unknown[]" :key="index" :selected="config[key] === option">{{ String(option) }}</option>
         </select>
         <input
           v-else-if="spec.type === 'boolean'"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import type { McpSave, McpServer } from '../../../../shared/api'
+import type { McpServer } from '../../../../shared/api'
+import { blank, mcpBody, type Form } from '../../mcp-form'
 import { ask } from '../../dialog'
 import {
   deleteMcp,
@@ -20,85 +21,29 @@ onMounted(loadMcp)
 const shownTools = reactive<Record<string, boolean | undefined>>({})
 const limits = reactive({ perServer: '', global: '' })
 
-interface Form {
-  create: boolean
-  name: string
-  transport: 'stdio' | 'http'
-  command: string
-  args: string
-  url: string
-  cwd: string
-  timeout: string
-  allowlist: string
-  /** Names whose stored values go; values are never shown. */
-  removeHeaders: string[]
-  removeEnv: string[]
-  headers: Array<{ key: string; value: string }>
-  env: Array<{ key: string; value: string }>
-  headerKeys: string[]
-  envKeys: string[]
-}
 
 const form = ref<Form | null>(null)
 const formError = ref('')
 
-function blank(server?: McpServer): Form {
-  return {
-    create: !server,
-    name: server?.name ?? '',
-    transport: server?.transport ?? 'stdio',
-    command: '',
-    args: '',
-    url: '',
-    cwd: '',
-    timeout: '',
-    allowlist: '',
-    removeHeaders: [],
-    removeEnv: [],
-    headers: [],
-    env: [],
-    headerKeys: server?.header_keys ?? [],
-    envKeys: server?.env_keys ?? []
-  }
-}
 
 function toggleTools(name: string): void {
   shownTools[name] = !shownTools[name]
   if (shownTools[name]) void loadMcpTools(name)
 }
 
-/** Odin's body: only what the form filled in; anything left blank keeps its current value. */
-function body(f: Form): McpSave | string {
-  const change: McpSave = { name: f.name.trim(), create: f.create, transport: f.transport }
-  if (f.command.trim()) change.command = f.command.trim()
-  if (f.args.trim()) change.args = f.args.split('\n').map((a) => a.trim()).filter(Boolean)
-  if (f.url.trim()) change.url = f.url.trim()
-  if (f.cwd.trim()) change.cwd = f.cwd.trim()
-  if (f.timeout.trim()) {
-    const seconds = Number(f.timeout)
-    if (!(seconds > 0)) return 'The timeout is a number of seconds above zero.'
-    change.timeout_seconds = seconds
-  }
-  if (f.allowlist.trim()) change.tool_allowlist = f.allowlist.split('\n').map((t) => t.trim()).filter(Boolean)
-  const headers = Object.fromEntries(f.headers.filter((h) => h.key.trim()).map((h) => [h.key.trim(), h.value]))
-  const env = Object.fromEntries(f.env.filter((e) => e.key.trim()).map((e) => [e.key.trim(), e.value]))
-  if (Object.keys(headers).length) change.headers_set = headers
-  if (Object.keys(env).length) change.env_set = env
-  if (f.removeHeaders.length) change.headers_remove = f.removeHeaders
-  if (f.removeEnv.length) change.env_remove = f.removeEnv
-  return change
-}
 
 async function save(): Promise<void> {
   const f = form.value
   if (!f) return
   formError.value = ''
-  const change = body(f)
+  const change = mcpBody(f)
   if (typeof change === 'string') {
     formError.value = change
     return
   }
-  if (await saveMcp(change)) form.value = null
+  // Closes only this form, and only if nothing was changed in it while the save was on its way.
+  const sent = JSON.stringify(f)
+  if ((await saveMcp(change)) && form.value === f && JSON.stringify(f) === sent) form.value = null
 }
 
 async function remove(server: McpServer): Promise<void> {
@@ -200,12 +145,17 @@ async function saveLimits(): Promise<void> {
     </label>
     <template v-if="form.transport === 'stdio'">
       <label class="field-input">Executable <input v-model="form.command" placeholder="/usr/local/bin/my-mcp-server" /></label>
-      <label class="field-input">Arguments, one per line <textarea v-model="form.args" rows="3" /></label>
+      <label class="field-input">Arguments, one per line <textarea v-model="form.args" rows="3" :disabled="form.clearArgs" /></label>
+      <label v-if="!form.create" class="toggle-inline"><input v-model="form.clearArgs" type="checkbox" /> Clear its arguments</label>
       <label class="field-input">Working directory <input v-model="form.cwd" /></label>
     </template>
     <label v-else class="field-input">URL <input v-model="form.url" placeholder="https://…" /></label>
     <label class="field-input">Timeout, in seconds <input v-model="form.timeout" type="number" min="1" /></label>
-    <label class="field-input">Only these tools, one per line (blank: all) <textarea v-model="form.allowlist" rows="3" /></label>
+    <label class="field-input">
+      Only these tools, one per line ({{ form.create ? 'blank: all' : 'blank keeps the current list' }})
+      <textarea v-model="form.allowlist" rows="3" :disabled="form.allTools" />
+    </label>
+    <label v-if="!form.create" class="toggle-inline"><input v-model="form.allTools" type="checkbox" /> Offer all its tools again</label>
     <fieldset class="secret-set">
       <legend>Headers and environment</legend>
       <p class="panel-hint">Values are stored for the server and never read back. To change one, enter it again.</p>
