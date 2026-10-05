@@ -71,6 +71,17 @@ const api: OdinApi = {
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
   setAutostart: (enabled) => ipcRenderer.invoke(IPC.setAutostart, { enabled }),
   setNotifications: (change) => ipcRenderer.invoke(IPC.setNotifications, change),
+  settingsSchema: () => ipcRenderer.invoke(IPC.settingsSchema),
+  settingsSet: (params) => ipcRenderer.invoke(IPC.settingsSet, params),
+  secretsSet: (params) => ipcRenderer.invoke(IPC.secretsSet, params),
+  secretsClear: (params) => ipcRenderer.invoke(IPC.secretsClear, params),
+  editLeaf: (params) => ipcRenderer.invoke(IPC.editLeaf, params),
+  codexAccounts: () => ipcRenderer.invoke(IPC.codexAccounts),
+  codexActivate: (params) => ipcRenderer.invoke(IPC.codexActivate, params),
+  codexLabel: (params) => ipcRenderer.invoke(IPC.codexLabel, params),
+  codexRemove: (params) => ipcRenderer.invoke(IPC.codexRemove, params),
+  codexLoginBegin: () => ipcRenderer.invoke(IPC.codexLoginBegin),
+  codexLoginPoll: (params) => ipcRenderer.invoke(IPC.codexLoginPoll, params),
   setConversationMuted: (params) => ipcRenderer.invoke(IPC.setConversationMuted, params),
   onOpenConversation: (listener) => {
     const handler = (_event: IpcRendererEvent, conversationId: string): void => listener(conversationId)

@@ -150,6 +150,41 @@ export const setNotificationsSchema = z
 
 export const setMutedSchema = z.object({ conversation_id: coreId, muted: z.boolean() }).strict()
 
+const settingsPath = z.string().min(1).max(200).regex(/^[A-Za-z0-9_]+(\.[A-Za-z0-9_-]+)*$/)
+/** Any JSON value a settings leaf can hold, bounded so one change can't flood the core. */
+const leafValue = z.json().refine((v) => JSON.stringify(v).length <= 64 * 1024, 'value too large')
+
+export const settingsSetSchema = z
+  .object({
+    // Odin's revision is a hash of the whole configuration, so any change elsewhere changes it.
+    expected_revision: z.string().min(1).max(128),
+    changes: z
+      .array(
+        z.union([
+          z.object({ path: settingsPath, value: leafValue }).strict(),
+          z.object({ path: settingsPath, delete: z.literal(true) }).strict()
+        ])
+      )
+      .min(1)
+      .max(200)
+  })
+  .strict()
+
+export const secretSetSchema = z.object({ path: settingsPath, value: z.string().min(1).max(16_384) }).strict()
+export const secretClearSchema = z.object({ path: settingsPath }).strict()
+
+/** The dedicated desktop methods a field may name as its apply handler. Nothing else passes. */
+export const LEAF_EDITORS = ['models.main.set', 'models.agents.set'] as const
+export const editLeafSchema = z
+  .object({ method: z.enum(LEAF_EDITORS), params: z.record(z.string().regex(/^[A-Za-z0-9_]+$/), leafValue) })
+  .strict()
+  .refine((v) => Object.keys(v.params).length === 1, 'one leaf at a time')
+
+const accountIndex = z.number().int().min(0).max(63)
+export const codexIndexSchema = z.object({ index: accountIndex }).strict()
+export const codexLabelSchema = z.object({ index: accountIndex, label: z.string().max(80) }).strict()
+export const codexPollSchema = z.object({ device_auth_id: z.string().min(1).max(512), user_code: z.string().min(1).max(64) }).strict()
+
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: CoreError }
 
 export function parseRequest<T>(schema: z.ZodType<T>, raw: unknown): ParseResult<T> {

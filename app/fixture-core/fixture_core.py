@@ -37,12 +37,106 @@ RECENT_OUTCOMES = 20
 # Read methods are answered fresh every time; only commands that admit or change something keep a receipt.
 READ_METHODS = {"status.get", "events.subscribe", "conversations.list", "messages.list", "conversation.snapshot",
                 "search.query", "messages.around", "usage.get", "artifacts.read", "reports.page", "work.list",
-                "tool.detail", "tool.output"}
+                "tool.detail", "tool.output", "settings.schema", "codex.accounts.list", "codex.login.poll",
+                "models.agents.get"}
 # Idempotent by offset, so it keeps no durable receipt (protocol.md, Conventions).
 NO_RECEIPT_METHODS = READ_METHODS | {"attachments.chunk"}
 CHUNK_BYTES = 512 * 1024
 ATTACHMENT_BYTES = 25 * 1024 * 1024
 ATTACHMENTS_PER_TURN = 10
+MODELS = ["gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-terra"]
+EFFORTS = ["none", "low", "medium", "high", "xhigh", "max"]
+# Odin rejects these effort levels for these models (schema.CODEX_MODEL_UNSUPPORTED_EFFORTS).
+UNSUPPORTED_EFFORTS = {"gpt-6.1-sol": {"none"}, "gpt-6-astra": {"none"}}
+
+
+REDACTED = "•" * 8
+
+
+def field(path: str, kind: str, label: str, default, description: str = "", apply_mode: str = "live_read",
+          **extra) -> dict:
+    """One setting as Odin's apply registry describes it (GET /api/config/meta), minus its live values."""
+    return {"path": path, "type": kind, "label": label, "description": description, "default": default,
+            "enum": extra.pop("enum", None), "constraints": extra.pop("constraints", {}), "nullable": False,
+            "sensitivity": extra.pop("sensitivity", "public"), "apply_mode": apply_mode,
+            "apply_handler": extra.pop("apply_handler", None), "restart_reason": extra.pop("restart_reason", None),
+            "activation_policy": extra.pop("activation_policy", None), "consumers": [], **extra}
+
+
+# Odin's plain sentences for each apply mode (apply_registry._plain_effects), with config.yml read as the profile.
+EFFECTS = {
+    "live_read": ("Saving updates the profile's settings and takes effect immediately.",
+                  "Odin reads this value on its next use."),
+    "live_apply": ("Saving updates the profile's settings and reconfigures the running core.", None),
+    "live_for_new_work": ("Saving updates the profile's settings and applies to the next spawn or turn.",
+                          "Work already running keeps the values it started with."),
+    "restart": ("Saving updates the profile's settings. Odin keeps its startup value until restarted.", None),
+    "activation_required": ("Saving records your choice, but Odin continues using current behavior until you apply "
+                            "it explicitly.", None),
+    "dormant": ("Saving updates the profile's settings. This version of Odin does not use this setting. "
+                "Restarting will not activate it.", None),
+}
+
+# A realistic subset of Odin's configuration.
+SETTINGS = [
+    field("timezone", "string", "Time zone", "UTC", "IANA name, used by the prompt clock and parse_time."),
+    field("learning.enabled", "boolean", "Automatic learning", False, "Lets Odin record lessons from failures."),
+    field("llm_provider.model", "string", "Main model", "gpt-6.1-sol", "The model that serves chat.",
+          "live_apply", enum=MODELS, apply_handler="models.main.set"),
+    field("openai_codex.reasoning_effort", "string", "Reasoning effort", "medium", apply_mode="live_apply",
+          enum=EFFORTS, apply_handler="settings.set"),
+    field("openai_codex.context_utilization", "integer", "Context utilization (%)", 60,
+          "How much of the model's input budget a turn may use.", "live_for_new_work",
+          constraints={"minimum": 30, "maximum": 100}),
+    field("openai_codex.request_timeout_seconds", "integer", "Request timeout (s)", 600, apply_mode="restart",
+          constraints={"minimum": 30, "maximum": 7200},
+          restart_reason="The Codex client reads its timeouts when it starts."),
+    field("openai_compatible.enabled", "boolean", "Enabled", False),
+    field("openai_compatible.base_url", "string", "Base URL", "https://openrouter.ai/api/v1"),
+    field("openai_compatible.api_key", "string", "API key", None, sensitivity="sensitive"),
+    field("agents.model", "string", "Agent model", "inherit", "inherit, auto, or a fixed model.", "live_apply",
+          enum=["inherit", "auto", *MODELS], apply_handler="models.agents.set"),
+    field("agents.auto_model_allowlist", "array", "Models agents may choose", [], apply_mode="live_apply",
+          apply_handler="models.agents.set"),
+    field("agents.max_concurrent_agents", "integer", "Agents at once, per conversation", 5,
+          constraints={"minimum": 1, "maximum": 25}),
+    field("tools.command_shell", "string", "Command shell", "auto", apply_mode="live_for_new_work",
+          enum=["auto", "bash", "sh"]),
+    field("tools.tool_timeouts", "object", "Per-tool timeouts (s)", {}, 'For example {"run_command": 900}.',
+          "live_for_new_work"),
+    field("computer.enabled", "boolean", "Computer use", False, apply_mode="restart",
+          restart_reason="Computer use is wired at startup."),
+    field("graceful_degradation.enabled", "boolean", "Enabled", True, apply_mode="dormant",
+          activation_policy="A legacy setting this version keeps loading but does not use."),
+]
+SETTINGS_FIELDS = {f["path"]: f for f in SETTINGS}
+
+
+def check_field_value(spec: dict, value) -> str | None:
+    """Why `value` doesn't fit the field, or None."""
+    kind = spec["type"]
+    if value is None:
+        return None if spec["nullable"] else "can't be empty"
+    if kind == "boolean" and not isinstance(value, bool):
+        return "must be true or false"
+    if kind in ("integer", "number"):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or (kind == "integer" and not isinstance(value, int)):
+            return "must be a whole number" if kind == "integer" else "must be a number"
+        low, high = spec["constraints"].get("minimum"), spec["constraints"].get("maximum")
+        if low is not None and value < low or high is not None and value > high:
+            return f"must be between {low} and {high}"
+    if kind == "string":
+        if not isinstance(value, str):
+            return "must be text"
+        if spec["enum"] and value not in spec["enum"]:
+            return "must be one of " + ", ".join(spec["enum"])
+    if kind == "array" and not isinstance(value, list):
+        return "must be a list"
+    if kind == "object" and not isinstance(value, dict):
+        return "must be an object"
+    return None
+
+
 # A 24x24 PNG in the app's accent colour, for "image" requests.
 SAMPLE_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAIAAABvFaqvAAAAH0lEQVR4nGO4u8KfKohh1KBRg0YNGjVo1KBRgwbeIABVkx09d147dQAAAABJRU5ErkJggg=="
@@ -142,6 +236,16 @@ class Core:
             "detail": "Every day at 09:00", "actions": ["pause", "run_now"]}}
         self.background: set[asyncio.Task] = set()
         self.notification_acks: dict[str, str] = {}  # dedupe_key -> what the app did
+        self.settings_values = {path: spec["default"] for path, spec in SETTINGS_FIELDS.items()}
+        self.boot_values = dict(self.settings_values)  # what restart-mode settings run with until a restart
+        self.secret_values: dict[str, str] = {}  # never echoed
+        self.agent_hints: dict[str, str] = {}
+        self.codex_accounts = [
+            {"label": "Primary", "email": "primary@example.com", "account_id": "acct_1", "plan_type": "pro", "used": 23},
+            {"label": "Secondary", "email": "second@example.com", "account_id": "acct_2", "plan_type": "plus", "used": 100},
+        ]
+        self.codex_current = 0
+        self.logins: dict[str, dict] = {}
         self.attachments: dict[str, dict] = {}
         self.results: dict[str, tuple[str, dict]] = {}  # command ID -> (binding, response)
         self.tombstones: dict[str, str] = {}  # pruned command ID -> binding
@@ -400,6 +504,198 @@ class Core:
             raise CoreError("bad_request", "an acknowledgement needs a dedupe_key and an outcome")
         self.notification_acks[str(params["dedupe_key"])] = outcome
         return {"disposition": "recorded"}
+
+    # ------------------------------------------------------------- settings
+    def settings_revision(self) -> str:
+        """A hash of every saved value and secret, as Odin's config_revision hashes the whole configuration."""
+        state = {"values": self.settings_values, "secrets": sorted(self.secret_values)}
+        return hashlib.sha256(json.dumps(state, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+    def field_record(self, path: str) -> dict:
+        spec = SETTINGS_FIELDS[path]
+        mode = spec["apply_mode"]
+        if spec["sensitivity"] != "public":
+            desired = REDACTED if path in self.secret_values else None
+            effective, pending = desired, False
+        else:
+            desired = self.settings_values[path]
+            if mode == "restart":
+                effective = self.boot_values[path]
+                pending = effective != desired
+            else:
+                effective, pending = desired, False
+        if pending:
+            state = "pending_restart"
+        elif mode in ("activation_required", "dormant"):
+            state = "dormant"
+        else:
+            state = "applied"
+        save_effect, runtime_effect = EFFECTS[mode]
+        runtime_effect = spec["restart_reason"] or spec["activation_policy"] or runtime_effect
+        return {**spec, "save_effect": save_effect, "runtime_effect": runtime_effect, "desired": desired,
+                "effective": effective, "configured": desired not in (None, spec["default"]),
+                "pending_restart": pending, "apply_state": state}
+
+    def m_settings_schema(self, _params: dict, _writer) -> dict:
+        fields = [self.field_record(path) for path in SETTINGS_FIELDS]
+        counts: dict[str, int] = {}
+        for record in fields:
+            counts[record["apply_state"]] = counts.get(record["apply_state"], 0) + 1
+        revision = self.settings_revision()
+        return {"schema_version": 1, "revision": revision, "fields": fields,
+                "status": {"counts": counts, "desired_revision": revision, "effective_revision": None}}
+
+    def effort_problem(self, model: str, effort: str) -> str | None:
+        if effort in UNSUPPORTED_EFFORTS.get(model, set()):
+            return f"{model} doesn't accept effort {effort}"
+        return None
+
+    def m_settings_set(self, params: dict, _writer) -> dict:
+        if params.get("expected_revision") != self.settings_revision():
+            raise CoreError("stale_binding", "settings changed since you loaded them", "stale_binding")
+        changes = params.get("changes") or []
+        staged = dict(self.settings_values)
+        for change in changes:
+            path = change.get("path")
+            spec = SETTINGS_FIELDS.get(path)
+            if spec is None:
+                raise CoreError("bad_request", f"{path}: no such setting")
+            if spec["sensitivity"] != "public":
+                raise CoreError("bad_request", f"{path}: a secret; use secrets.set")
+            if spec["apply_handler"] not in (None, "settings.set"):
+                raise CoreError("bad_request", f"{path}: changed through {spec['apply_handler']}")
+            if change.get("delete"):
+                staged[path] = spec["default"]
+                continue
+            problem = check_field_value(spec, change.get("value"))
+            if problem:
+                raise CoreError("bad_request", f"{path}: {problem}")
+            staged[path] = change["value"]
+        problem = self.effort_problem(staged["llm_provider.model"], staged["openai_codex.reasoning_effort"])
+        if problem:
+            raise CoreError("bad_request", f"openai_codex.reasoning_effort: {problem}")
+        self.settings_values = staged  # validated as a whole: all or nothing
+        return {"revision": self.settings_revision(),
+                "fields": [self.field_record(c["path"]) for c in changes]}
+
+    def require_secret_leaf(self, params: dict) -> str:
+        path = params.get("path")
+        spec = SETTINGS_FIELDS.get(path)
+        if spec is None or spec["sensitivity"] == "public":
+            raise CoreError("bad_request", f"{path}: not a secret setting")
+        return path
+
+    def m_secret_set(self, params: dict, _writer) -> dict:
+        path = self.require_secret_leaf(params)
+        value = params.get("value")
+        if not isinstance(value, str) or not value:
+            raise CoreError("bad_request", f"{path}: a secret can't be empty")
+        self.secret_values[path] = value
+        return {"set": True}
+
+    def m_secret_clear(self, params: dict, _writer) -> dict:
+        path = self.require_secret_leaf(params)
+        self.secret_values.pop(path, None)
+        return {"set": False}
+
+    def m_models_main_set(self, params: dict, _writer) -> dict:
+        model = params.get("model")
+        if model not in MODELS:
+            raise CoreError("bad_request", "model must be a concrete model reference")
+        problem = self.effort_problem(model, self.settings_values["openai_codex.reasoning_effort"])
+        if problem:
+            raise CoreError("bad_request", f"{problem}; choose another effort first")
+        self.settings_values["llm_provider.model"] = model
+        return {"status": "switched", "main_model": model, "configured_provider": "codex"}
+
+    def agents_config(self) -> dict:
+        return {"model": self.settings_values["agents.model"], "thinking_mode": None,
+                "auto_model_allowlist": list(self.settings_values["agents.auto_model_allowlist"]),
+                "model_selection_hints": dict(self.agent_hints)}
+
+    def m_models_agents_get(self, _params: dict, _writer) -> dict:
+        return self.agents_config()
+
+    def m_models_agents_set(self, params: dict, _writer) -> dict:
+        if "model" in params:
+            problem = check_field_value(SETTINGS_FIELDS["agents.model"], params["model"])
+            if problem:
+                raise CoreError("bad_request", f"agents.model: {problem}")
+            self.settings_values["agents.model"] = params["model"]
+        if "auto_model_allowlist" in params:
+            allowlist = params["auto_model_allowlist"]
+            if check_field_value(SETTINGS_FIELDS["agents.auto_model_allowlist"], allowlist) or \
+                    any(m not in MODELS for m in allowlist):
+                raise CoreError("bad_request", "agents.auto_model_allowlist: only known models")
+            self.settings_values["agents.auto_model_allowlist"] = list(allowlist)
+        return self.agents_config()
+
+    # -------------------------------------------------------- codex accounts
+    def codex_index(self, params: dict) -> int:
+        index = params.get("index")
+        if not isinstance(index, int) or not 0 <= index < len(self.codex_accounts):
+            raise CoreError("bad_request", "invalid account index")
+        return index
+
+    def m_codex_list(self, _params: dict, _writer) -> dict:
+        observed = datetime.now(timezone.utc).timestamp()
+        accounts = []
+        for i, account in enumerate(self.codex_accounts):
+            window = {"used_percent": account["used"], "window_minutes": 10080, "resets_at": observed + 3 * 86400}
+            accounts.append({
+                "index": i, "label": account["label"], "email": account["email"], "account_id": account["account_id"],
+                "plan_type": account["plan_type"], "expires_at": observed + 86400, "expired": False,
+                "rate_limited": False, "is_current": i == self.codex_current,
+                "quota": {"primary": window, "secondary": None, "observed_at": observed, "limit_reached_type": None},
+                "limit_reached": account["used"] >= 100, "quota_check_failed": None,
+            })
+        return {"configured": True, "account_count": len(accounts), "current_index": self.codex_current,
+                "accounts": accounts}
+
+    def m_codex_activate(self, params: dict, _writer) -> dict:
+        self.codex_current = self.codex_index(params)
+        return {"status": "activated", "active_index": self.codex_current}
+
+    def m_codex_label(self, params: dict, _writer) -> dict:
+        index = self.codex_index(params)
+        label = params.get("label")
+        if not isinstance(label, str):
+            raise CoreError("bad_request", "label must be a string")
+        self.codex_accounts[index]["label"] = label
+        return {"status": "updated", "label": label}
+
+    def m_codex_remove(self, params: dict, _writer) -> dict:
+        index = self.codex_index(params)
+        removed = self.codex_accounts.pop(index)
+        if self.codex_current >= len(self.codex_accounts):
+            self.codex_current = max(0, len(self.codex_accounts) - 1)
+        return {"status": "deleted", "email": removed["email"]}
+
+    def m_codex_login_begin(self, _params: dict, _writer) -> dict:
+        auth_id = new_id("dev")
+        code = f"FIX-{uuid.uuid4().hex[:4].upper()}"
+        expires, _ = iso_in(900)
+        self.logins[auth_id] = {"user_code": code, "polls": 0, "expires": expires, "done": None}
+        return {"device_auth_id": auth_id, "user_code": code, "interval": 1,
+                "verify_url": "https://auth.openai.com/codex/device"}
+
+    def m_codex_login_poll(self, params: dict, _writer) -> dict:
+        login = self.logins.get(str(params.get("device_auth_id")))
+        if login is None or login["user_code"] != params.get("user_code"):
+            raise CoreError("not_found", "no such login")
+        if login["done"]:
+            return login["done"]  # the same answer again, so a lost reply can be asked for
+        if login["expires"] <= datetime.now(timezone.utc):
+            raise CoreError("expired", "The login code expired. Start again.")
+        login["polls"] += 1
+        if login["polls"] < 2:
+            return {"status": "pending"}  # the user approves in the browser on the second check
+        number = len(self.codex_accounts) + 1
+        account = {"label": "", "email": f"account{number}@example.com", "account_id": f"acct_{number}",
+                   "plan_type": "plus", "used": 0}
+        self.codex_accounts.append(account)
+        login["done"] = {"status": "authenticated", "email": account["email"], "account_id": account["account_id"]}
+        return login["done"]
 
     def m_resume(self, params: dict, _writer) -> dict:
         req = self.requests.get(str(params.get("request_id")))
@@ -935,6 +1231,19 @@ METHODS = {
     "tool.output": Core.m_tool_output,
     "control.resume": Core.m_resume,
     "notifications.ack": Core.m_notification_ack,
+    "settings.schema": Core.m_settings_schema,
+    "settings.set": Core.m_settings_set,
+    "secrets.set": Core.m_secret_set,
+    "secrets.clear": Core.m_secret_clear,
+    "models.main.set": Core.m_models_main_set,
+    "models.agents.get": Core.m_models_agents_get,
+    "models.agents.set": Core.m_models_agents_set,
+    "codex.accounts.list": Core.m_codex_list,
+    "codex.accounts.activate": Core.m_codex_activate,
+    "codex.accounts.label": Core.m_codex_label,
+    "codex.accounts.remove": Core.m_codex_remove,
+    "codex.login.begin": Core.m_codex_login_begin,
+    "codex.login.poll": Core.m_codex_login_poll,
     "runtime.reload": Core.m_reload,
     "attachments.begin": Core.m_attach_begin,
     "attachments.chunk": Core.m_attach_chunk,

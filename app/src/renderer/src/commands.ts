@@ -1,7 +1,8 @@
-// The composer's slash commands: Discord's /stop, /steer, /status, /usage and /reload, plus /new and /search.
-// Each one says what it affects before it runs. Model and effort shortcuts come with the settings screens.
+// The composer's slash commands: Discord's /stop, /steer, /status, /usage and /reload, plus /new, /search, and the
+// /model and /effort shortcuts. Each one says what it affects before it runs.
 import { newConversation, runSearch, send, showPanel, state, stop } from './store'
 import { attachmentsFor } from './stores/composer'
+import { loadSettings, saveField, settings } from './stores/settings'
 
 /** Odin's /usage ranges; 7d when none is given, as in Odin. */
 export const USAGE_RANGES = ['24h', '7d', '30d', 'all'] as const
@@ -115,6 +116,41 @@ export async function dispatch(command: PaletteCommand, arg: string): Promise<bo
     inFlight = null
   }
 }
+
+/** A shortcut for one setting: with no argument it shows the current value and choices; otherwise it saves the choice
+ *  exactly as the settings menu does, through the field's own apply path. */
+async function settingShortcut(path: string, title: string, arg: string): Promise<boolean | void> {
+  await loadSettings()
+  const field = settings.meta?.fields.find((f) => f.path === path)
+  if (!field) return note(`${title} isn't available here.`)
+  const choice = arg.trim()
+  if (!choice) {
+    showPanel(title, `${title}: ${String(field.desired)}.` + (field.enum ? ` Choices: ${field.enum.join(', ')}.` : ''))
+    return
+  }
+  if (field.enum && !field.enum.includes(choice)) {
+    note(`Choose one of ${field.enum.join(', ')}.`)
+    return false
+  }
+  const saved = await saveField(field, choice)
+  if (!saved) return note(settings.fields[path]?.message ?? `${title} wasn't changed.`)
+  note(`${title} is now ${choice}.`)
+}
+
+COMMANDS.push(
+  {
+    name: 'model',
+    usage: '/model [name]',
+    affects: "Shows or switches Odin's main model, the one that serves chat. A switch applies from the next turn.",
+    run: (arg) => settingShortcut('llm_provider.model', 'Main model', arg)
+  },
+  {
+    name: 'effort',
+    usage: '/effort [level]',
+    affects: "Shows or sets the main model's reasoning effort.",
+    run: (arg) => settingShortcut('openai_codex.reasoning_effort', 'Reasoning effort', arg)
+  }
+)
 
 export function matchCommands(line: string): PaletteCommand[] {
   const name = line.replace(/^\//, '').split(/\s/, 1)[0]?.toLowerCase() ?? ''

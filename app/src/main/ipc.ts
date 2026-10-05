@@ -1,4 +1,5 @@
 // The named bridge methods. Each one validates its sender and its payload, then maps to exactly one core method.
+import { randomUUID } from 'node:crypto'
 import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { z } from 'zod'
 import {
@@ -42,6 +43,13 @@ import {
   parseRequest,
   setAutostartSchema,
   setMutedSchema,
+  codexIndexSchema,
+  codexLabelSchema,
+  codexPollSchema,
+  editLeafSchema,
+  secretClearSchema,
+  secretSetSchema,
+  settingsSetSchema,
   setNotificationsSchema,
   snapshotConversationSchema,
   steerSchema,
@@ -184,6 +192,42 @@ export function registerIpc(deps: IpcDeps): void {
   handle(IPC.getSettings, null, () => ({ ok: true, result: deps.getSettings() }))
   handle(IPC.setAutostart, setAutostartSchema, (v) => ({ ok: true, result: deps.setAutostart(v.enabled) }))
   handle(IPC.setNotifications, setNotificationsSchema, (v) => ({ ok: true, result: deps.setNotifications(v) }))
+  // The core's settings and Codex accounts: each a named method, validated here; nothing passes through generically.
+  handle(IPC.settingsSchema, null, async () => fromSettled(await deps.broker.request('settings.schema')))
+  handle(IPC.settingsSet, settingsSetSchema, async (v) => {
+    const id = randomUUID()
+    return fromSettled(await deps.broker.request('settings.set', v, id))
+  })
+  handle(IPC.secretsSet, secretSetSchema, async (v) => {
+    const id = randomUUID()
+    return fromSettled(await deps.broker.request('secrets.set', v, id))
+  })
+  handle(IPC.secretsClear, secretClearSchema, async (v) => {
+    const id = randomUUID()
+    return fromSettled(await deps.broker.request('secrets.clear', v, id))
+  })
+  handle(IPC.editLeaf, editLeafSchema, async (v) => {
+    const id = randomUUID()
+    return fromSettled(await deps.broker.request(v.method, v.params, id))
+  })
+  handle(IPC.codexAccounts, null, async () => fromSettled(await deps.broker.request('codex.accounts.list')))
+  handle(IPC.codexActivate, codexIndexSchema, async (v) => {
+    const id = randomUUID()
+    return fromSettled(await deps.broker.request('codex.accounts.activate', v, id))
+  })
+  handle(IPC.codexLabel, codexLabelSchema, async (v) => {
+    const id = randomUUID()
+    return fromSettled(await deps.broker.request('codex.accounts.label', v, id))
+  })
+  handle(IPC.codexRemove, codexIndexSchema, async (v) => {
+    const id = randomUUID()
+    return fromSettled(await deps.broker.request('codex.accounts.remove', v, id))
+  })
+  handle(IPC.codexLoginBegin, null, async () => {
+    const id = randomUUID()
+    return fromSettled(await deps.broker.request('codex.login.begin', {}, id))
+  })
+  handle(IPC.codexLoginPoll, codexPollSchema, async (v) => fromSettled(await deps.broker.request('codex.login.poll', v)))
   handle(IPC.setConversationMuted, setMutedSchema, (v) => ({
     ok: true,
     result: deps.setConversationMuted(v.conversation_id, v.muted)

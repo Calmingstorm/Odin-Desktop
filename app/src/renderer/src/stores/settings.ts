@@ -1,0 +1,186 @@
+// The settings menu's state: Odin's settings as the core describes them (GET /api/config/meta shape), saved one field
+// at a time through settings.set or the field's dedicated method, plus the Codex accounts with their device login.
+import { reactive } from 'vue'
+import type { CodexStatus, ConfigField, ConfigMeta, Result } from '../../../shared/api'
+import { dedicatedMethod, isSecret } from '../settings-form'
+
+export interface FieldState {
+  status: 'saving' | 'saved' | 'error'
+  message?: string
+}
+
+export interface LoginState {
+  code: string
+  url: string
+  deviceAuthId: string
+  interval: number
+  status: 'waiting' | 'done' | 'expired' | 'failed' | 'stopped'
+  message?: string
+}
+
+export const settings = reactive({
+  meta: null as ConfigMeta | null,
+  error: '',
+  notice: '',
+  fields: {} as Record<string, FieldState | undefined>,
+  codex: {
+    status: null as CodexStatus | null,
+    error: '',
+    busy: false,
+    notes: {} as Record<number, string | undefined>,
+    login: null as LoginState | null
+  }
+})
+
+function message(result: Result<unknown>): string {
+  return result.ok ? '' : result.error.message
+}
+
+export async function loadSettings(): Promise<void> {
+  const result = await window.odin.settingsSchema()
+  if (!result.ok) {
+    settings.error = result.error.message
+    return
+  }
+  settings.error = ''
+  settings.meta = result.result
+}
+
+/** Replaces the records a save returned, so each field shows what saving did and what runs now. */
+function adopt(revision: string, records: readonly ConfigField[]): void {
+  if (!settings.meta) return
+  settings.meta.revision = revision
+  for (const record of records) {
+    const index = settings.meta.fields.findIndex((f) => f.path === record.path)
+    if (index >= 0) settings.meta.fields[index] = record
+  }
+}
+
+/** The core refused because settings changed elsewhere: show the current ones and say so. */
+async function changedElsewhere(path: string): Promise<void> {
+  await loadSettings()
+  settings.fields[path] = { status: 'error', message: 'Settings changed elsewhere, so they were reloaded. Check, then save again.' }
+}
+
+/** Saves one field: through its dedicated method when Odin applies it that way, otherwise settings.set. */
+export async function saveField(field: ConfigField, value: unknown): Promise<boolean> {
+  if (!settings.meta || isSecret(field)) return false
+  settings.fields[field.path] = { status: 'saving' }
+  const method = dedicatedMethod(field)
+  if (method) {
+    const key = field.path.split('.').pop() as string
+    const result = await window.odin.editLeaf({ method, params: { [key]: value } })
+    if (!result.ok) {
+      settings.fields[field.path] = { status: 'error', message: message(result) }
+      return false
+    }
+    await loadSettings() // a dedicated method returns its own shape; the records come from the core
+    settings.fields[field.path] = { status: 'saved' }
+    return true
+  }
+  const result = await window.odin.settingsSet({ expected_revision: settings.meta.revision, changes: [{ path: field.path, value }] })
+  if (!result.ok) {
+    if (result.error.code === 'stale_binding') await changedElsewhere(field.path)
+    else settings.fields[field.path] = { status: 'error', message: message(result) }
+    return false
+  }
+  adopt(result.result.revision, result.result.fields)
+  settings.fields[field.path] = { status: 'saved' }
+  return true
+}
+
+/** Back to Odin's default for that field. */
+export async function resetField(field: ConfigField): Promise<boolean> {
+  if (!settings.meta || isSecret(field) || dedicatedMethod(field)) return false
+  settings.fields[field.path] = { status: 'saving' }
+  const result = await window.odin.settingsSet({ expected_revision: settings.meta.revision, changes: [{ path: field.path, delete: true }] })
+  if (!result.ok) {
+    if (result.error.code === 'stale_binding') await changedElsewhere(field.path)
+    else settings.fields[field.path] = { status: 'error', message: message(result) }
+    return false
+  }
+  adopt(result.result.revision, result.result.fields)
+  settings.fields[field.path] = { status: 'saved' }
+  return true
+}
+
+/** Secrets are write-only: the window sends a new value or clears it, and never reads one back. */
+export async function setSecret(field: ConfigField, value: string): Promise<boolean> {
+  settings.fields[field.path] = { status: 'saving' }
+  const result = await window.odin.secretsSet({ path: field.path, value })
+  settings.fields[field.path] = result.ok ? { status: 'saved' } : { status: 'error', message: message(result) }
+  if (result.ok) await loadSettings()
+  return result.ok
+}
+
+export async function clearSecret(field: ConfigField): Promise<boolean> {
+  settings.fields[field.path] = { status: 'saving' }
+  const result = await window.odin.secretsClear({ path: field.path })
+  settings.fields[field.path] = result.ok ? { status: 'saved' } : { status: 'error', message: message(result) }
+  if (result.ok) await loadSettings()
+  return result.ok
+}
+
+// ---- Codex accounts ------------------------------------------------------------------------------------------------
+
+export async function loadCodex(): Promise<void> {
+  const result = await window.odin.codexAccounts()
+  if (!result.ok) {
+    settings.codex.error = result.error.message
+    return
+  }
+  settings.codex.error = ''
+  settings.codex.status = result.result
+}
+
+async function accountAction(index: number, run: () => Promise<Result<unknown>>, done: string): Promise<void> {
+  if (settings.codex.busy) return
+  settings.codex.busy = true
+  const result = await run()
+  settings.codex.busy = false
+  settings.codex.notes[index] = result.ok ? done : message(result)
+  await loadCodex()
+}
+
+export const activateAccount = (index: number): Promise<void> =>
+  accountAction(index, () => window.odin.codexActivate({ index }), 'Now the active account.')
+export const labelAccount = (index: number, label: string): Promise<void> =>
+  accountAction(index, () => window.odin.codexLabel({ index, label }), 'Label saved.')
+export const removeAccount = (index: number): Promise<void> =>
+  accountAction(index, () => window.odin.codexRemove({ index }), 'Removed.')
+
+let loginRun = 0
+
+/** Starts a device-code login: the user approves in the browser, and the window checks at the code's interval. */
+export async function beginLogin(): Promise<void> {
+  const begun = await window.odin.codexLoginBegin()
+  if (!begun.ok) {
+    settings.codex.error = begun.error.message
+    return
+  }
+  const run = ++loginRun
+  const { device_auth_id: deviceAuthId, user_code: code, interval, verify_url: url } = begun.result
+  settings.codex.login = { code, url, deviceAuthId, interval, status: 'waiting' }
+  for (;;) {
+    await new Promise((resolve) => setTimeout(resolve, Math.max(1, interval) * 1000))
+    if (run !== loginRun || settings.codex.login?.status !== 'waiting') return
+    const polled = await window.odin.codexLoginPoll({ device_auth_id: deviceAuthId, user_code: code })
+    if (run !== loginRun) return
+    if (!polled.ok) {
+      const expired = polled.error.code === 'expired'
+      settings.codex.login = { ...settings.codex.login, status: expired ? 'expired' : 'failed', message: polled.error.message }
+      return
+    }
+    if (polled.result.status === 'authenticated') {
+      settings.codex.login = { ...settings.codex.login, status: 'done', message: `Signed in as ${polled.result.email}.` }
+      await loadCodex()
+      return
+    }
+  }
+}
+
+/** Stops waiting here. A login the user still completes in the browser is added by the core all the same, as in Odin. */
+export function stopLogin(): void {
+  loginRun += 1
+  if (settings.codex.login?.status === 'waiting') settings.codex.login = { ...settings.codex.login, status: 'stopped' }
+}

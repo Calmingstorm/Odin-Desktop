@@ -565,6 +565,15 @@ async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
   await run(`document.querySelector('.resume-banner').scrollIntoView({ block: 'end' })`)
   await pause(300)
   await shoot('resume')
+  // The settings menu: General, then Models and providers with the Codex accounts.
+  await run(`[...document.querySelectorAll('.topbar button')].find((b) => b.textContent.trim() === 'Settings').click()`)
+  await pause(800)
+  await shoot('settings')
+  await run(`[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.includes('Models')).click()`)
+  await pause(800)
+  await shoot('settings-models')
+  await run(`document.querySelector('.settings-nav .back').click()`)
+  await pause(300)
   // A very long reply, as a regression signal: how long reopening its conversation takes (fetch, render, paint), and
   // how long narrowing it by a pixel takes to re-lay it out, as a window resize does.
   const timing = await run(`(async () => {
