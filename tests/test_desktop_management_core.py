@@ -112,6 +112,21 @@ async def test_keyring_secret_and_memory_share_core_owners(connected):
     assert not refused["ok"]
 
 
+async def test_locked_keyring_list_returns_distinct_safe_error_over_transport(connected):
+    service, reader, writer, backend, _ = connected
+    backend.locked = True
+    response = await request(reader, writer, "codex.accounts.list")
+    assert not response["ok"]
+    assert response["error"]["code"] == "keyring_unavailable"
+    assert response["error"]["message"] == "The system keyring is locked or unavailable"
+    assert response["error"]["disposition"] == "rejected"
+    assert service.store.connection.execute(
+        "SELECT COUNT(*) FROM command_receipts").fetchone()[0] == 0
+    backend.locked = False
+    retry = await request(reader, writer, "codex.accounts.list")
+    assert retry["ok"] and retry["result"] == {"configured": False, "accounts": []}
+
+
 async def test_fresh_host_usage_and_health_are_real_reads(connected):
     service, reader, writer, _, _ = connected
     hosts = (await request(reader, writer, "hosts.list"))["result"]
@@ -123,6 +138,44 @@ async def test_fresh_host_usage_and_health_are_real_reads(connected):
     assert any(component["name"] == "open_files" for component in health["components"])
     assert service.store.connection.execute(
         "SELECT COUNT(*) FROM command_receipts").fetchone()[0] == 0
+
+
+async def test_fresh_public_key_survives_real_core_restart(tmp_path):
+    from src.tools.hosts.trust import fingerprint_public_key
+
+    paths, socket_path, token_file = profile(tmp_path)
+    read_fd, write_fd = os.pipe()
+    backend = TemporaryKeyring()
+    original_public = None
+    original_private = None
+    try:
+        for _ in range(2):
+            core = CoreService(paths, socket_path, token_file, secret_backend=backend)
+            writer = None
+            try:
+                await core.start(read_fd)
+                reader, writer, _ = await connect(socket_path)
+                response = await request(reader, writer, "hosts.public_key")
+                assert response["ok"], response
+                public = response["result"]
+                assert public["public_key"].startswith("ssh-ed25519 ")
+                assert public["fingerprint"] == fingerprint_public_key(public["public_key"])
+                key = paths.secrets_dir / "id_ed25519"
+                assert core.management.settings.config.tools.ssh_key_path == str(key)
+                assert key.stat().st_mode & 0o777 == 0o600
+                if original_public is None:
+                    original_public, original_private = public, key.read_bytes()
+                else:
+                    assert public == original_public
+                    assert key.read_bytes() == original_private
+            finally:
+                if writer is not None:
+                    writer.close()
+                    await writer.wait_closed()
+                await core.close()
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
 
 
 async def test_unknown_extras_do_not_become_event_paths_and_shell_applies(connected):

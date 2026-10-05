@@ -1,6 +1,9 @@
 """Fresh, independent Desktop state, never an import of a server installation."""
 from __future__ import annotations
 
+import os
+import subprocess
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -58,20 +61,60 @@ def fresh_config(paths: ProfilePaths) -> Config:
     return Config.model_validate(fresh_config_document(paths))
 
 
+def _ensure_ssh_key(paths: ProfilePaths, authority: OwnerAuthority, config: Config) -> None:
+    """Provision only the profile-owned key, under the shared authority lock.
+
+    Generate in a private temporary directory, then publish with a no-replace
+    link. An existing key (including a symlink) is never modified, even if a
+    different writer creates it during generation. Hosts derives the public key
+    from this private key, so no independently published .pub file is needed.
+    """
+    key = paths.secrets_dir / "id_ed25519"
+    if config.tools.ssh_key_path != str(key) or key.exists() or key.is_symlink():
+        return
+    with tempfile.TemporaryDirectory(prefix=".ssh-key-", dir=paths.secrets_dir) as temporary:
+        candidate = Path(temporary) / "id_ed25519"
+        try:
+            subprocess.run(
+                ["ssh-keygen", "-t", "ed25519", "-f", str(candidate), "-N", "", "-q",
+                 "-C", f"odin-desktop:{paths.profile_id}"],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                check=True, timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            raise RuntimeError("Could not provision the profile SSH key") from None
+        with candidate.open("rb") as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            os.fsync(stream.fileno())
+        try:
+            os.link(candidate, key)
+        except FileExistsError:
+            return
+        directory = os.open(paths.secrets_dir, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            try:
+                os.fsync(directory)
+            except OSError:
+                authority.durability_degraded = True
+        finally:
+            os.close(directory)
+
+
 def ensure_profile(paths: ProfilePaths, *, authority: OwnerAuthority | None = None) -> Config:
-    """Create a config only when absent; existing profiles are not rewritten.
+    """Create absent config/key state; existing config and keys are not rewritten.
 
     Callers holding the runtime authority pass it here so durability uncertainty
     is exposed on that same authority. No global profile selection is required.
     """
-    if paths.config_file.exists() or paths.config_file.is_symlink():
-        return load_config(paths.config_file)
     authority = authority or OwnerAuthority(paths)
     paths.create_private()
     with authority._locked():
         if paths.config_file.exists() or paths.config_file.is_symlink():
-            return load_config(paths.config_file)
+            config = load_config(paths.config_file)
+            _ensure_ssh_key(paths, authority, config)
+            return config
         config = fresh_config(paths)
+        _ensure_ssh_key(paths, authority, config)
         # Workspace is independent of protected profile state. Existing modes
         # are accepted, as in Odin; command execution validates its own fence.
         Path(config.tools.local_working_dir).mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -93,6 +136,7 @@ def provision_fresh_profile(paths: ProfilePaths) -> OwnerAuthority:
         if paths.config_file.exists() or paths.config_file.is_symlink():
             raise FileExistsError("profile configuration already exists")
         config = fresh_config(paths)
+        _ensure_ssh_key(paths, authority, config)
         Path(config.tools.local_working_dir).mkdir(parents=True, exist_ok=True, mode=0o700)
         durable = write_private_atomic(
             paths.config_file, yaml.safe_dump(fresh_config_document(paths), sort_keys=False)

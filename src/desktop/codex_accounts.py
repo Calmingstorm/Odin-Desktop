@@ -27,6 +27,7 @@ from ..llm.codex_auth import (
     merge_authorized_account,
 )
 from ..llm.errors import LLMAuthError
+from .secrets import SecretStoreError
 
 METHODS = frozenset({
     "codex.accounts.list", "codex.accounts.activate", "codex.accounts.remove",
@@ -230,6 +231,11 @@ class CodexAccountsService:
                 "rejected" if method in READ_METHODS or method == "codex.login.begin"
                 else "outcome_unknown"
             )
+            if isinstance(exc, SecretStoreError):
+                raise _error(
+                    "keyring_unavailable", "The system keyring is locked or unavailable",
+                    disposition,
+                ) from None
             raise _error("unavailable", "Codex account operation failed", disposition) from None
         finally:
             self._tasks.discard(task)

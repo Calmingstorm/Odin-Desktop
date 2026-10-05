@@ -4,6 +4,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from keyring.errors import KeyringLocked, NoKeyringError
 
 from src.desktop.codex_accounts import (
     METHODS,
@@ -13,7 +14,7 @@ from src.desktop.codex_accounts import (
 )
 from src.desktop.management import MethodError
 from src.desktop.paths import ProfilePaths
-from src.desktop.secrets import ProfileSecretStore
+from src.desktop.secrets import ProfileSecretStore, SecretStoreError
 from src.llm.account_key import opaque_account_key
 from src.llm.codex_auth import CodexAuth, CodexAuthPool
 from src.llm.errors import LLMAuthError
@@ -38,7 +39,7 @@ class Secrets:
 
     def set(self, name, value):
         if self.fail:
-            raise OSError("keyring locked secret-access-a")
+            raise SecretStoreError("keyring locked secret-access-a")
         self.values[name] = value
         self.writes += 1
         return True
@@ -62,6 +63,28 @@ class Device:
         return result
 
 
+class TempKeyring:
+    """In-memory Secret Service adapter; never contacts the system keyring."""
+
+    def __init__(self):
+        self.values = {}
+        self.read_error = None
+        self.write_error = None
+
+    def get_password(self, service, name):
+        if self.read_error is not None:
+            raise self.read_error
+        return self.values.get((service, name))
+
+    def set_password(self, service, name, value):
+        if self.write_error is not None:
+            raise self.write_error
+        self.values[service, name] = value
+
+    def delete_password(self, service, name):
+        self.values.pop((service, name), None)
+
+
 @pytest.fixture
 def make_service(monkeypatch):
     # Catch any accidental use of retained canonical/shadow file operations.
@@ -73,10 +96,13 @@ def make_service(monkeypatch):
     clock = [1000.0]
     monkeypatch.setattr("src.desktop.codex_accounts.time.monotonic", lambda: clock[0])
 
-    def make(rows=None, device=None):
-        secrets = Secrets()
+    def make(rows=None, device=None, secrets=None):
+        secrets = Secrets() if secrets is None else secrets
         if rows is not None:
-            secrets.values["codex_accounts"] = json.dumps(rows)
+            if isinstance(secrets, ProfileSecretStore):
+                secrets.set("codex_accounts", json.dumps(rows))
+            else:
+                secrets.values["codex_accounts"] = json.dumps(rows)
         settings = SimpleNamespace(secrets=secrets)
         service = CodexAccountsService(settings, client=device or Device())
         return service, secrets, clock
@@ -146,9 +172,11 @@ async def test_failed_keyring_write_does_not_acknowledge_or_publish(make_service
     for method in ("codex.accounts.label", "codex.accounts.remove"):
         with pytest.raises(MethodError) as exc:
             await service.handle(method, {"index": 0, "label": "new"})
+        assert exc.value.code == "keyring_unavailable"
+        assert exc.value.disposition == "outcome_unknown"
         assert "secret-access" not in str(exc.value)
     auth = service.pool.current
-    with pytest.raises(OSError):
+    with pytest.raises(SecretStoreError):
         auth._save(credential(access_token="rotation"))
     assert auth._load()["access_token"] == "secret-access-a"
     assert secrets.values == before
@@ -171,8 +199,10 @@ async def test_device_once_interval_expiry_and_durable_retry(make_service):
     assert device.calls == 1
     clock[0] += 5
     secrets.fail = True
-    with pytest.raises(MethodError):
+    with pytest.raises(MethodError) as exc:
         await service.handle("codex.login.poll", begin)
+    assert exc.value.code == "keyring_unavailable"
+    assert exc.value.disposition == "outcome_unknown"
     assert device.calls == 2 and service.pool.account_count == 0
     secrets.fail = False
     result = await service.handle("codex.login.poll", begin)
@@ -322,22 +352,9 @@ async def test_real_device_transport_one_request_and_exchange(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_actual_secret_store_temp_backend_and_alongside_sentinel(tmp_path, monkeypatch):
-    class Backend:
-        def __init__(self):
-            self.values = {}
-
-        def get_password(self, service, name):
-            return self.values.get((service, name))
-
-        def set_password(self, service, name, value):
-            self.values[service, name] = value
-
-        def delete_password(self, service, name):
-            self.values.pop((service, name), None)
-
     monkeypatch.setenv("HOME", str(tmp_path))
     paths = ProfilePaths.from_xdg("codex-test", environ={}, home=tmp_path)
-    backend = Backend()
+    backend = TempKeyring()
     secrets = ProfileSecretStore(paths, backend=backend)
     secrets.set("codex_accounts", json.dumps([credential()]))
     sentinel = tmp_path / "alongside.txt"
@@ -357,14 +374,104 @@ async def test_actual_secret_store_temp_backend_and_alongside_sentinel(tmp_path,
 async def test_lazy_locked_keyring_does_not_block_constructor_or_begin():
     class Locked(Secrets):
         def get(self, name):
-            raise OSError("secret-keyring-message")
+            raise SecretStoreError("secret-keyring-message")
 
     service = CodexAccountsService(SimpleNamespace(secrets=Locked()), client=Device())
     assert service._pool is None
     assert (await service.handle("codex.login.begin", {}))["device_auth_id"] == "dev"
     with pytest.raises(MethodError) as exc:
         await service.handle("codex.accounts.list", {})
-    assert exc.value.code == "unavailable" and "secret-" not in str(exc.value)
+    assert exc.value.code == "keyring_unavailable" and "secret-" not in str(exc.value)
+    assert exc.value.disposition == "rejected"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [KeyringLocked, NoKeyringError, RuntimeError])
+@pytest.mark.parametrize("method,operation", [
+    ("codex.accounts.list", "read"),
+    ("codex.accounts.activate", "read"),
+    ("codex.accounts.label", "read"),
+    ("codex.accounts.label", "write"),
+    ("codex.accounts.remove", "read"),
+    ("codex.accounts.remove", "write"),
+    ("codex.login.poll", "read"),
+    ("codex.login.poll", "write"),
+])
+async def test_real_keyring_failures_are_distinct_safe_and_retryable(
+    make_service, tmp_path, caplog, failure, method, operation,
+):
+    paths = ProfilePaths.from_xdg("keyring-failure", environ={}, home=tmp_path)
+    backend = TempKeyring()
+    store = ProfileSecretStore(paths, backend=backend)
+    device = Device([credential("b")])
+    service, _, clock = make_service([credential(label="old")], device, secrets=store)
+    before = dict(backend.values)
+    params = {"index": 0, "label": "new"}
+    if method == "codex.login.poll":
+        params = await service.handle("codex.login.begin", {})
+        clock[0] += 5
+    if operation == "write":
+        # Exercise persistence after a pool has loaded, not a failed initial read.
+        await service.handle("codex.accounts.list", {})
+    setattr(backend, operation + "_error", failure("secret-access-a secret-refresh-a"))
+
+    with pytest.raises(MethodError) as exc:
+        await service.handle(method, params)
+    error = exc.value
+    assert error.code == "keyring_unavailable"
+    assert error.message == "The system keyring is locked or unavailable"
+    assert error.disposition == ("rejected" if method in READ_METHODS else "outcome_unknown")
+    assert error.__cause__ is None and error.__suppress_context__
+    outward = json.dumps(error.response()) + str(error) + caplog.text
+    assert "secret-access-a" not in outward and "secret-refresh-a" not in outward
+    assert backend.values == before
+
+    # Unlocking/recovering permits an explicit retry; failed writes published nothing.
+    setattr(backend, operation + "_error", None)
+    assert (await service.handle("codex.accounts.list", {}))["accounts"][0]["label"] == "old"
+    await service.handle(method, params)
+    if method == "codex.login.poll":
+        assert device.calls == 1  # Reuse exchanged credentials, never exchange twice.
+    assert not list(tmp_path.rglob("*.json"))
+    assert not list(tmp_path.rglob("codex_auth*"))
+
+
+@pytest.mark.asyncio
+async def test_corrupt_keyring_data_is_generic_not_keyring_unavailable(make_service, tmp_path):
+    paths = ProfilePaths.from_xdg("corrupt-credentials", environ={}, home=tmp_path)
+    store = ProfileSecretStore(paths, backend=TempKeyring())
+    store.set("codex_accounts", '{"secret-access-a":')
+    service, _, _ = make_service(secrets=store)
+    with pytest.raises(MethodError) as exc:
+        await service.handle("codex.accounts.list", {})
+    assert exc.value.code == "unavailable"
+    assert exc.value.message == "Codex account operation failed"
+    assert exc.value.disposition == "rejected"
+    assert "secret-access-a" not in json.dumps(exc.value.response())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["codex.login.begin", "codex.login.poll"])
+async def test_non_keyring_provider_failure_remains_generic(make_service, method):
+    class FailedDevice(Device):
+        async def request_device_code(self):
+            if method == "codex.login.begin":
+                raise OSError("secret-access-a secret-refresh-a keyring locked")
+            return await super().request_device_code()
+
+    device = FailedDevice([OSError("secret-access-a secret-refresh-a keyring locked")])
+    service, _, clock = make_service(device=device)
+    params = {}
+    if method == "codex.login.poll":
+        params = await service.handle("codex.login.begin", {})
+        clock[0] += 5
+    with pytest.raises(MethodError) as exc:
+        await service.handle(method, params)
+    assert exc.value.code == "unavailable"
+    assert exc.value.message == "Codex account operation failed"
+    expected = "rejected" if method == "codex.login.begin" else "outcome_unknown"
+    assert exc.value.disposition == expected
+    assert "secret-" not in json.dumps(exc.value.response())
 
 
 @pytest.mark.asyncio

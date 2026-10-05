@@ -14,6 +14,7 @@ from src.permissions.host_access import HostAccessManager
 from src.permissions.manager import PermissionManager
 from src.tools.builtin_policy import BuiltinToolPolicy
 from src.tools.executor import ToolExecutor
+from src.tools.hosts.trust import fingerprint_public_key
 
 
 @pytest.fixture
@@ -62,6 +63,121 @@ def test_group_writable_parent_is_not_refused(profile, tmp_path):
     config = ensure_profile(profile.paths, authority=profile.authority)
     assert config.tools.default_host == "localhost"
     assert tmp_path.stat().st_mode & 0o777 == 0o775
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("entrypoint", ["ensure", "provision"])
+async def test_fresh_profile_public_key_is_usable_and_preserved(profile, entrypoint):
+    from src.desktop.hosts import HostsService
+    from src.desktop.secrets import ProfileSecretStore
+    from src.desktop.settings import SettingsService
+
+    if entrypoint == "provision":
+        provision_fresh_profile(profile.paths)
+        config = load_config(profile.paths.config_file)
+    else:
+        config = ensure_profile(profile.paths, authority=profile.authority)
+    key = profile.paths.secrets_dir / "id_ed25519"
+    assert config.tools.ssh_key_path == str(key)
+    assert key.stat().st_mode & 0o777 == 0o600
+    private = key.read_bytes()
+    before = key.stat()
+    settings = SettingsService(
+        profile.paths, ProfileSecretStore(profile.paths, backend=SimpleNamespace()), config=config
+    )
+    public = await HostsService(settings).handle("hosts.public_key", {})
+    assert public["public_key"].startswith("ssh-ed25519 ")
+    assert public["fingerprint"] == fingerprint_public_key(public["public_key"])
+    assert not public["restart_pending"]
+    # A second provisioning/start path must use the identical key, not just its type.
+    config = ensure_profile(profile.paths, authority=profile.authority)
+    settings = SettingsService(profile.paths, settings.secrets, config=config)
+    assert await HostsService(settings).handle("hosts.public_key", {}) == public
+    assert key.read_bytes() == private
+    assert key.stat().st_ino == before.st_ino
+    assert key.stat().st_mtime_ns == before.st_mtime_ns
+    assert not list(profile.paths.secrets_dir.glob(".ssh-key-*"))
+
+
+def test_existing_profile_repairs_absent_default_key_without_rewriting_config(profile):
+    config = ensure_profile(profile.paths, authority=profile.authority)
+    key = Path(config.tools.ssh_key_path)
+    saved = profile.paths.config_file.read_bytes()
+    key.unlink()
+    ensure_profile(profile.paths, authority=profile.authority)
+    assert key.read_bytes().startswith(b"-----BEGIN OPENSSH PRIVATE KEY-----")
+    assert key.stat().st_mode & 0o777 == 0o600
+    assert profile.paths.config_file.read_bytes() == saved
+
+
+def test_existing_key_is_never_overwritten_during_first_provisioning(profile):
+    key = profile.paths.secrets_dir / "id_ed25519"
+    key.write_bytes(b"pre-existing-key-sentinel")
+    before = key.stat()
+    ensure_profile(profile.paths, authority=profile.authority)
+    assert key.read_bytes() == b"pre-existing-key-sentinel"
+    assert key.stat().st_ino == before.st_ino
+    assert key.stat().st_mode == before.st_mode
+
+
+def test_existing_config_custom_key_path_is_not_provisioned(profile, tmp_path):
+    import yaml
+
+    config = fresh_config(profile.paths)
+    custom = tmp_path / "external-key"
+    config.tools.ssh_key_path = str(custom)
+    profile.paths.config_file.write_text(yaml.safe_dump(config.model_dump(mode="json")))
+    profile.paths.config_file.chmod(0o600)
+    saved = profile.paths.config_file.read_bytes()
+    loaded = ensure_profile(profile.paths, authority=profile.authority)
+    assert loaded.tools.ssh_key_path == str(custom)
+    assert not custom.exists()
+    assert not (profile.paths.secrets_dir / "id_ed25519").exists()
+    assert profile.paths.config_file.read_bytes() == saved
+
+
+def test_existing_key_symlink_is_not_replaced(profile, tmp_path):
+    target = tmp_path / "external-key"
+    key = profile.paths.secrets_dir / "id_ed25519"
+    key.symlink_to(target)
+    ensure_profile(profile.paths, authority=profile.authority)
+    assert key.is_symlink() and key.readlink() == target
+    assert not target.exists()
+
+
+def test_key_created_during_generation_is_not_overwritten(profile, monkeypatch):
+    import src.desktop.provisioning as provisioning
+
+    key = profile.paths.secrets_dir / "id_ed25519"
+    generate = provisioning.subprocess.run
+
+    def racing_generation(*args, **kwargs):
+        result = generate(*args, **kwargs)
+        key.write_bytes(b"concurrent-key-sentinel")
+        key.chmod(0o600)
+        return result
+
+    monkeypatch.setattr(provisioning.subprocess, "run", racing_generation)
+    ensure_profile(profile.paths, authority=profile.authority)
+    assert key.read_bytes() == b"concurrent-key-sentinel"
+    assert not list(profile.paths.secrets_dir.glob(".ssh-key-*"))
+
+
+def test_failed_key_generation_can_retry_without_publishing_config(profile, monkeypatch):
+    import subprocess
+
+    def fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, args[0], stderr="dummy-secret")
+
+    with monkeypatch.context() as patch:
+        patch.setattr("src.desktop.provisioning.subprocess.run", fail)
+        with pytest.raises(RuntimeError, match="^Could not provision the profile SSH key$"):
+            ensure_profile(profile.paths, authority=profile.authority)
+    assert not profile.paths.config_file.exists()
+    assert not (profile.paths.secrets_dir / "id_ed25519").exists()
+    assert not list(profile.paths.secrets_dir.glob(".ssh-key-*"))
+    ensure_profile(profile.paths, authority=profile.authority)
+    assert load_config(profile.paths.config_file).tools.default_host == "localhost"
 
 
 def test_fresh_settings_image_intent_follows_defaults(profile):
