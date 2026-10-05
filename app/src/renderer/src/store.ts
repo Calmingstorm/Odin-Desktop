@@ -751,8 +751,11 @@ export async function moreResults(): Promise<void> {
   state.search.nextCursor = result.result.next_cursor ?? null
 }
 
-/** Each jump's generation: going back to the latest, another jump, a switch or a reset fences an older one. */
-let jumpGeneration = 0
+/**
+ * Each navigation's generation: a jump, going back to the latest, opening at the latest, a switch or a reset fences an
+ * older one.
+ */
+let navigationGeneration = 0
 /** The conversation a jump is opening. Until it lands, the latest messages aren't what the user is shown. */
 let jumpPending: string | null = null
 
@@ -760,9 +763,9 @@ let jumpPending: string | null = null
 export async function jumpTo(hit: SearchHit): Promise<void> {
   // Fence what came before, and hold back reading, before anything loads.
   clearNavigation()
-  const mine = jumpGeneration
+  const mine = navigationGeneration
   jumpPending = hit.conversation_id
-  const current = (): boolean => mine === jumpGeneration && state.activeId === hit.conversation_id
+  const current = (): boolean => mine === navigationGeneration && state.activeId === hit.conversation_id
   await open(hit.conversation_id)
   if (!current()) return
   const view = state.views[hit.conversation_id]
@@ -799,7 +802,7 @@ export async function jumpTo(hit: SearchHit): Promise<void> {
 
 /** Ends any jump or highlight, and fences a jump still on its way. */
 function clearNavigation(): void {
-  jumpGeneration += 1
+  navigationGeneration += 1
   jumpPending = null
   state.jump = null
   state.highlightId = null
@@ -808,8 +811,10 @@ function clearNavigation(): void {
 /** Opens a conversation at its latest messages, ending any search window, even one in that conversation. */
 export async function openLatest(conversationId: string): Promise<void> {
   clearNavigation()
+  const mine = navigationGeneration
   await open(conversationId)
-  state.latestScroll += 1
+  // A newer navigation, or another conversation opened meanwhile, owns the view now.
+  if (mine === navigationGeneration && state.activeId === conversationId) state.latestScroll += 1
 }
 
 /** The user went back to the latest messages, so they are on screen again. */
