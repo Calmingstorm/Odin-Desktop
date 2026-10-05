@@ -141,6 +141,7 @@ class Core:
             "kind": "schedule", "id": "s_daily", "title": "Daily health report", "state": "active",
             "detail": "Every day at 09:00", "actions": ["pause", "run_now"]}}
         self.background: set[asyncio.Task] = set()
+        self.notification_acks: dict[str, str] = {}  # dedupe_key -> what the app did
         self.attachments: dict[str, dict] = {}
         self.results: dict[str, tuple[str, dict]] = {}  # command ID -> (binding, response)
         self.tombstones: dict[str, str] = {}  # pruned command ID -> binding
@@ -388,6 +389,13 @@ class Core:
         if not result["eof"]:
             result["next_cursor"] = f"out:{invocation_id}:{end}"
         return result
+
+    def m_notification_ack(self, params: dict, _writer) -> dict:
+        outcome = params.get("outcome")
+        if outcome not in ("shown", "suppressed", "failed") or not params.get("dedupe_key"):
+            raise CoreError("bad_request", "an acknowledgement needs a dedupe_key and an outcome")
+        self.notification_acks[str(params["dedupe_key"])] = outcome
+        return {"disposition": "recorded"}
 
     def m_resume(self, params: dict, _writer) -> dict:
         req = self.requests.get(str(params.get("request_id")))
@@ -884,6 +892,11 @@ class Core:
             if artifacts:
                 message["artifacts"] = artifacts
             self.commit_message(cid, message)
+            # Only a committed, guarded reply is announced (D9), and the preview is cut short, never the full text.
+            self.emit("notification.intent", "notification", message["id"],
+                      {"conversation_id": cid, "message_id": message["id"], "category": "reply",
+                       "preview": re.sub(r"(?i)\b(password|token|secret)=\S+", r"\1=•••", reply)[:240],
+                       "dedupe_key": f"reply:{message['id']}"})
             req["state"] = "completed"
             self.finish(req, "request.completed")
         self.active.pop(cid, None)
@@ -915,6 +928,7 @@ METHODS = {
     "tool.detail": Core.m_tool_detail,
     "tool.output": Core.m_tool_output,
     "control.resume": Core.m_resume,
+    "notifications.ack": Core.m_notification_ack,
     "runtime.reload": Core.m_reload,
     "attachments.begin": Core.m_attach_begin,
     "attachments.chunk": Core.m_attach_chunk,

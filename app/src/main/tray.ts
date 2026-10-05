@@ -49,6 +49,11 @@ export class OdinTray {
     this.render()
   }
 
+  /** Unread counts, so a glance at the tray says whether anything is waiting. */
+  setTooltip(text: string): void {
+    this.tray.setToolTip(text)
+  }
+
   destroy(): void {
     this.tray.destroy()
   }

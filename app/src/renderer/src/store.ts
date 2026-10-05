@@ -25,6 +25,7 @@ import type {
   CoreEvent,
   LateReceipt,
   Message,
+  NotificationSettings,
   QueuedRequest,
   Result,
   SearchHit,
@@ -137,6 +138,8 @@ export const state = reactive({
   highlightId: null as string | null,
   /** Output of a command such as /status, shown in the window and never sent to Odin. */
   panel: null as { title: string; text: string } | null,
+  /** The app's notification settings, from the main process. */
+  notifications: null as NotificationSettings | null,
   /** Resume requests by `request_id:generation`, until the resumed request starts or the core says no. */
   resumes: {} as Record<string, ResumeState | undefined>
 })
@@ -233,6 +236,8 @@ export async function init(): Promise<void> {
   window.odin.onEvent(applyEvent)
   window.odin.onReceipt(applyReceipt)
   window.odin.onReset(() => void resetViews())
+  // A clicked notification brings the window forward on its conversation.
+  window.odin.onOpenConversation((conversationId) => void select(conversationId))
   if (typeof document !== 'undefined') {
     // Coming back to the window counts as reading what is on screen.
     const attend = (): void => {
@@ -244,7 +249,10 @@ export async function init(): Promise<void> {
   const app = await window.odin.getAppState()
   if (app) state.app = app
   const settings = await window.odin.getSettings()
-  if (settings.ok) state.autostart = settings.result.autostart
+  if (settings.ok) {
+    state.autostart = settings.result.autostart
+    state.notifications = settings.result.notifications
+  }
   if (state.app.link === 'ready') {
     notifyReady()
     await loadAll()
@@ -1063,3 +1071,15 @@ export async function resume(conversationId: string, outcome: TerminalOutcome): 
     state.resumes[key] = { status: 'rejected', reason: result.result.reason ?? 'Odin declined to resume it.' }
   } else state.resumes[key] = { status: 'admitted' }
 }
+
+export function isMuted(conversationId: string): boolean {
+  return Boolean(state.notifications?.muted.includes(conversationId))
+}
+
+/** Mutes or unmutes one conversation's notifications. Its unread count still shows. */
+export async function setMuted(conversationId: string, muted: boolean): Promise<void> {
+  const result = await window.odin.setConversationMuted({ conversation_id: conversationId, muted })
+  if (result.ok) state.notifications = result.result.notifications
+  else note(errorText(result))
+}
+

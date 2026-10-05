@@ -249,8 +249,31 @@ export interface AppState {
   unreceipted: number
 }
 
+export interface QuietHours {
+  enabled: boolean
+  /** Local time, "HH:MM". The window may cross midnight. */
+  start: string
+  end: string
+}
+
+/** How desktop notifications behave (D13: previews on by default). Stored by the app, not the core. */
+export interface NotificationSettings {
+  enabled: boolean
+  previews: boolean
+  quietHours: QuietHours
+  /** Conversations whose notifications are muted. Their unread state still counts. */
+  muted: string[]
+}
+
+export interface NotificationChange {
+  enabled?: boolean
+  previews?: boolean
+  quietHours?: Partial<QuietHours>
+}
+
 export interface Settings {
   autostart: boolean
+  notifications: NotificationSettings
 }
 
 export interface SubmitParams {
@@ -315,6 +338,10 @@ export interface OdinApi {
   copyText(text: string): Promise<Result<{ copied: boolean }>>
   getSettings(): Promise<Result<Settings>>
   setAutostart(enabled: boolean): Promise<Result<Settings>>
+  setNotifications(change: NotificationChange): Promise<Result<Settings>>
+  setConversationMuted(params: { conversation_id: string; muted: boolean }): Promise<Result<Settings>>
+  /** A notification was clicked: the window should show that conversation. */
+  onOpenConversation(listener: (conversationId: string) => void): () => void
   getAppState(): Promise<AppState>
   onEvent(listener: (event: CoreEvent) => void): () => void
   onAppState(listener: (state: AppState) => void): () => void
@@ -371,6 +398,9 @@ export const IPC = {
   copyText: 'odin:clipboard:copy',
   getSettings: 'odin:settings:get',
   setAutostart: 'odin:settings:set-autostart',
+  setNotifications: 'odin:settings:set-notifications',
+  setConversationMuted: 'odin:settings:set-muted',
+  openConversation: 'odin:open-conversation',
   getAppState: 'odin:app-state:get',
   event: 'odin:event',
   appState: 'odin:app-state',

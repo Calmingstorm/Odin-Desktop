@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import type { Conversation } from '../../../shared/api'
 import { ask } from '../dialog'
-import { deleteConversation, renameConversation, resetContext, setArchived, startThread } from '../store'
+import { deleteConversation, isMuted, renameConversation, resetContext, setArchived, setMuted, startThread } from '../store'
 
 const props = defineProps<{ conversation: Conversation; top: number; left: number }>()
 const MENU_WIDTH = 200
@@ -34,6 +34,11 @@ async function rename(): Promise<void> {
 async function thread(): Promise<void> {
   emit('close')
   await startThread(props.conversation.id)
+}
+
+async function mute(): Promise<void> {
+  emit('close')
+  await setMuted(props.conversation.id, !isMuted(props.conversation.id))
 }
 
 async function archive(): Promise<void> {
@@ -71,6 +76,7 @@ async function remove(): Promise<void> {
     <div ref="menu" class="menu" role="menu" :style="position" @keydown.escape="emit('close')">
       <button role="menuitem" @click="rename">Rename…</button>
       <button role="menuitem" @click="thread">New thread from here</button>
+      <button role="menuitem" @click="mute">{{ isMuted(conversation.id) ? 'Unmute notifications' : 'Mute notifications' }}</button>
       <button role="menuitem" @click="archive">{{ conversation.archived ? 'Unarchive' : 'Archive' }}</button>
       <button role="menuitem" @click="reset">Reset context…</button>
       <button role="menuitem" class="danger-item" @click="remove">Delete…</button>

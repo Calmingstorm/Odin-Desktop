@@ -122,6 +122,18 @@ export const steerSchema = controlSchema.extend({ text: z.string().min(1).max(4_
 
 export const setAutostartSchema = z.object({ enabled: z.boolean() }).strict()
 
+const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+
+export const setNotificationsSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    previews: z.boolean().optional(),
+    quietHours: z.object({ enabled: z.boolean().optional(), start: clock.optional(), end: clock.optional() }).strict().optional()
+  })
+  .strict()
+
+export const setMutedSchema = z.object({ conversation_id: coreId, muted: z.boolean() }).strict()
+
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: CoreError }
 
 export function parseRequest<T>(schema: z.ZodType<T>, raw: unknown): ParseResult<T> {

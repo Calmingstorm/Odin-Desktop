@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { BrowserWindow, Menu, Notification, app, clipboard, dialog, shell } from 'electron'
-import { IPC, type AppState, type LinkState, type Settings } from '../shared/api'
+import { IPC, type AppState, type CoreEvent, type LinkState, type NotificationSettings, type Settings } from '../shared/api'
 import { ArtifactStore, safeFileName } from './artifacts'
 import { AttachmentManager, type AttachmentLimits } from './attachments'
 import { isAutostartEnabled, setAutostart } from './autostart'
@@ -15,6 +15,7 @@ import { CoreSupervisor } from './core-supervisor'
 import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
 import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type LifecycleState } from './lifecycle'
+import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
@@ -43,6 +44,9 @@ function run(): void {
     trayAvailable: false,
     noTrayNoticeShown: persisted.noTrayNoticeShown === true
   }
+  let notificationSettings = loadSettings(persisted.notifications)
+  const savePersisted = (): void =>
+    writePersisted(appStateFile, { noTrayNoticeShown: lifecycle.noTrayNoticeShown, notifications: notificationSettings })
 
   const resources = join(app.getAppPath(), 'resources')
   const iconPath = join(resources, 'icon.png')
@@ -62,6 +66,55 @@ function run(): void {
     clientVersion: app.getVersion()
   })
 
+  // Titles and unread counts for notifications and the tray. Cosmetic: the window keeps the authoritative view.
+  const conversations = new ConversationIndex()
+  const refreshTray = (): void => tray?.setTooltip(conversations.tooltip())
+  const listConversations = (): void => {
+    void broker.request('conversations.list').then((listed) => {
+      if (!listed.ok) return
+      conversations.reset((listed.result as { items: Array<{ id: string; title: string; unread: number }> }).items)
+      refreshTray()
+    })
+  }
+  const liveNotifications = new Set<Notification>()
+  const notifier = new Notifier({
+    settings: () => notificationSettings,
+    windowFocused: () => Boolean(win?.isVisible() && win.isFocused()),
+    titleOf: (id) => conversations.titleOf(id),
+    show: (notification) => showNotification(notification, liveNotifications, iconPath),
+    open: (id) => {
+      showWindow()
+      win?.webContents.send(IPC.openConversation, id)
+    },
+    ack: (dedupeKey, outcome) => {
+      const id = randomUUID()
+      void broker.request('notifications.ack', { dedupe_key: dedupeKey, outcome }, id)
+    },
+    now: () => new Date()
+  })
+  const onCoreEvent = (event: CoreEvent): void => {
+    const p = event.payload
+    switch (event.type) {
+      case 'notification.intent':
+        void notifier.handle(p as unknown as NotificationIntent, new Date(event.at))
+        return
+      case 'conversation.created':
+      case 'conversation.updated':
+        conversations.upsert(p.conversation as { id: string; title: string; unread: number })
+        refreshTray()
+        return
+      case 'conversation.deleted': {
+        const id = String(p.conversation_id)
+        conversations.remove(id)
+        if (notificationSettings.muted.includes(id)) {
+          notificationSettings = setMuted(notificationSettings, id, false)
+          savePersisted()
+        }
+        refreshTray()
+      }
+    }
+  }
+
   const drafts = new DraftStore(join(paths.dataDir, 'drafts.json'))
   // Until the core announces its own limits. A chunk stays well inside one frame after base64.
   let limits: AttachmentLimits = { attachment_bytes: 25 * 1024 * 1024, chunk_bytes: 512 * 1024 }
@@ -72,6 +125,7 @@ function run(): void {
     showItemInFolder: (path) => shell.showItemInFolder(path)
   })
   broker.on('welcome', () => {
+    listConversations()
     void broker.request('status.get').then((status) => {
       const announced = status.ok ? (status.result as { limits?: Partial<AttachmentLimits> }).limits : undefined
       if (announced?.attachment_bytes && announced.chunk_bytes) {
@@ -94,13 +148,19 @@ function run(): void {
   }
 
   broker.on('state', publishAppState)
-  broker.on('event', (event) => win?.webContents.send(IPC.event, event))
+  broker.on('event', (event) => {
+    win?.webContents.send(IPC.event, event)
+    onCoreEvent(event)
+  })
   broker.on('receipt', (receipt) => {
     win?.webContents.send(IPC.receipt, receipt)
     publishAppState()
   })
   // The interval since our cursor is unknown: the window rebuilds every view from fresh snapshots.
-  broker.on('reset', (reset) => win?.webContents.send(IPC.reset, reset))
+  broker.on('reset', (reset) => {
+    win?.webContents.send(IPC.reset, reset)
+    listConversations()
+  })
 
   supervisor.on('restarting', () => {
     supervisorLink = 'core-restarting'
@@ -122,7 +182,7 @@ function run(): void {
     win.focus()
   }
 
-  const settings = (): Settings => ({ autostart: isAutostartEnabled() })
+  const settings = (): Settings => ({ autostart: isAutostartEnabled(), notifications: notificationSettings })
 
   let exiting: Promise<void> | null = null
   const exitOdin = (): Promise<void> => {
@@ -196,11 +256,24 @@ function run(): void {
         setAutostart(enabled, launchCommand())
         return settings()
       },
+      setNotifications: (change) => {
+        notificationSettings = mergeSettings(notificationSettings, change)
+        savePersisted()
+        return settings()
+      },
+      setConversationMuted: (conversationId, muted) => {
+        notificationSettings = setMuted(notificationSettings, conversationId, muted)
+        savePersisted()
+        return settings()
+      },
       appState
     })
 
     lifecycle.trayAvailable = flags.smokeTest ? false : await detectTray()
-    if (lifecycle.trayAvailable) tray = new OdinTray(trayIconPath, { onOpen: showWindow, onExit: () => void exitOdin() })
+    if (lifecycle.trayAvailable) {
+      tray = new OdinTray(trayIconPath, { onOpen: showWindow, onExit: () => void exitOdin() })
+      refreshTray()
+    }
 
     Menu.setApplicationMenu(
       Menu.buildFromTemplate([
@@ -236,7 +309,7 @@ function run(): void {
       win?.hide()
       if (decision.showNoTrayNotice) {
         lifecycle.noTrayNoticeShown = true
-        writePersisted(appStateFile, { noTrayNoticeShown: true })
+        savePersisted()
         new Notification({
           title: 'Odin is still running',
           body: 'Reopen Odin from your app launcher. To stop Odin, choose Exit Odin in the window menu (Ctrl+Q) or in the launcher’s menu.'
@@ -292,20 +365,57 @@ function statusLabel(link: LinkState): string {
   }
 }
 
-function readPersisted(path: string): { noTrayNoticeShown?: boolean } {
+interface PersistedState {
+  noTrayNoticeShown: boolean
+  notifications: NotificationSettings
+}
+
+function readPersisted(path: string): { noTrayNoticeShown?: boolean; notifications?: unknown } {
   try {
-    return JSON.parse(readFileSync(path, 'utf8')) as { noTrayNoticeShown?: boolean }
+    return JSON.parse(readFileSync(path, 'utf8')) as { noTrayNoticeShown?: boolean; notifications?: unknown }
   } catch {
     return {}
   }
 }
 
-function writePersisted(path: string, state: { noTrayNoticeShown: boolean }): void {
+/** Writes the whole state every time, so saving one setting never drops another. */
+function writePersisted(path: string, state: PersistedState): void {
   try {
     writeFileSync(path, JSON.stringify(state), { mode: 0o600 })
   } catch {
-    /* a lost notice flag only means the notice may show once more */
+    /* a lost write only means the notice may show once more, or a setting reverts at the next start */
   }
+}
+
+/** Shows one OS notification. It counts as shown only when the OS reports that it accepted it. */
+function showNotification(
+  notification: { title: string; body: string; onClick: () => void },
+  live: Set<Notification>,
+  icon: string
+): Promise<'shown' | 'failed'> {
+  return new Promise((resolve) => {
+    if (!Notification.isSupported()) return resolve('failed')
+    const os = new Notification({ title: notification.title, body: notification.body, icon })
+    // Electron drops the handlers of a notification nothing references.
+    live.add(os)
+    if (live.size > 50) live.delete(live.values().next().value as Notification)
+    const timer = setTimeout(() => resolve('failed'), 5000)
+    os.once('show', () => {
+      clearTimeout(timer)
+      resolve('shown')
+    })
+    os.once('failed', () => {
+      clearTimeout(timer)
+      live.delete(os)
+      resolve('failed')
+    })
+    os.on('click', () => {
+      live.delete(os)
+      notification.onClick()
+    })
+    os.on('close', () => live.delete(os))
+    os.show()
+  })
 }
 
 /**

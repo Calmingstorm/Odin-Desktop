@@ -75,7 +75,8 @@ function fakeBridge() {
     event: [] as Array<(e: CoreEvent) => void>,
     appState: [] as Array<(s: AppState) => void>,
     receipt: [] as Array<(r: LateReceipt) => void>,
-    reset: [] as Array<(r: { event_high: string }) => void>
+    reset: [] as Array<(r: { event_high: string }) => void>,
+    open: [] as Array<(conversationId: string) => void>
   }
   const calls = {
     update: [] as Array<Record<string, unknown>>,
@@ -102,6 +103,7 @@ function fakeBridge() {
     steerResult: { ok: true, result: { disposition: 'queued' } } as Result<{ disposition: string }>,
     stopResult: { ok: true, result: { disposition: 'requested' } } as Result<{ disposition: string }>,
     resumeResult: { ok: true, result: { disposition: 'admitted' } } as Result<{ disposition: 'admitted' | 'rejected'; reason?: string }>,
+    notifications: { enabled: true, previews: true, quietHours: { enabled: false, start: '22:00', end: '08:00' }, muted: [] as string[] },
     updateResult: null as Result<{ conversation: Conversation }> | null,
     deleteResult: { ok: true, result: { disposition: 'deleted' } } as Result<{ disposition: string }>,
     searchResults: [] as Array<Deferred<Result<SearchResult>>>,
@@ -117,7 +119,12 @@ function fakeBridge() {
     usage: async () => ({ ok: true, result: { period: 'session', tokens: { value: null, kind: 'unknown' }, context: { used: { value: null, kind: 'unknown' }, budget: { value: null, kind: 'unknown' } }, quota: [], summary: 'Usage unknown.' } }),
     reload: async () => ({ ok: true, result: { disposition: 'reloaded', summary: 'Context: none.' } }),
     getAppState: async (): Promise<AppState> => ({ link: 'ready', coreInstanceId: 'core-1', noTray: false, unreceipted: 0 }),
-    getSettings: async () => ({ ok: true, result: { autostart: false } }),
+    getSettings: async () => ({ ok: true, result: { autostart: false, notifications: control.notifications } }),
+    setConversationMuted: async (params: { conversation_id: string; muted: boolean }) => {
+      const rest = control.notifications.muted.filter((id) => id !== params.conversation_id)
+      control.notifications = { ...control.notifications, muted: params.muted ? [...rest, params.conversation_id] : rest }
+      return { ok: true, result: { autostart: false, notifications: control.notifications } }
+    },
     setAutostart: async (enabled: boolean) => ({ ok: true, result: { autostart: enabled } }),
     listConversations: () => {
       const answer: Result<{ items: ConversationListItem[]; watermark: string }> = {
@@ -189,7 +196,8 @@ function fakeBridge() {
     onEvent: (l: (e: CoreEvent) => void) => (listeners.event.push(l), () => undefined),
     onAppState: (l: (s: AppState) => void) => (listeners.appState.push(l), () => undefined),
     onReceipt: (l: (r: LateReceipt) => void) => (listeners.receipt.push(l), () => undefined),
-    onReset: (l: (r: { event_high: string }) => void) => (listeners.reset.push(l), () => undefined)
+    onReset: (l: (r: { event_high: string }) => void) => (listeners.reset.push(l), () => undefined),
+    onOpenConversation: (l: (conversationId: string) => void) => (listeners.open.push(l), () => undefined)
   }
   return { api, listeners, calls, control }
 }
@@ -797,6 +805,21 @@ describe('search highlights', () => {
     expect(store.state.highlightId).toBe('m1') // staying in the same conversation keeps it
     void store.select('c2')
     expect(store.state.highlightId).toBeNull()
+  })
+})
+
+describe('notifications', () => {
+  it('loads the settings, mutes and unmutes one conversation, and opens the one a notification was for', async () => {
+    await start()
+    expect(store.state.notifications?.previews).toBe(true)
+    expect(store.isMuted('c1')).toBe(false)
+    await store.setMuted('c1', true)
+    expect(store.isMuted('c1')).toBe(true)
+    await store.setMuted('c1', false)
+    expect(store.isMuted('c1')).toBe(false)
+    store.state.activeId = null
+    bridge.listeners.open.forEach((l) => l('c1'))
+    expect(store.state.activeId).toBe('c1')
   })
 })
 
