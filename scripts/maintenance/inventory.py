@@ -29,7 +29,8 @@ PINNED_DOCS = {
     # D17 owner-admin parity and byte-identical safety selections, main 8a4b7e27.
     "docs/design/reuse-map.md": "5d63d2982bcca0c45714f94152deb94082151e19239007b5de3a3586d5c9f111",
     "docs/design/prompt-changes.md": (
-        "0c08cbb5f81a6ea9e2445bfb61fdda9ff0ba80906e0c18730735f5add2520ae5"
+        # D19 part E approved on main 3fac196e; D7/D18 bytes remain unchanged.
+        "3e685af175e5195c489ae4af3f4d08fe2fcfbd20050002428047573d972f4b12"
     ),
     "docs/discussion/06-odin-round3.md": (
         "20899b40218b801d5ff3373bde716bee4a1a9738452c90a9f3728d4721a939c0"

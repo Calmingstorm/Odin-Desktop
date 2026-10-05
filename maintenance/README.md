@@ -10,9 +10,20 @@ System prompt allows exactly nine D7 substitutions; guards exactly two non-runti
 
 PR 2 item A's complete wording/disposition table is
 [`pr2-model-facing-string-approvals.md`](pr2-model-facing-string-approvals.md).
-It includes the merged D18 request preamble approval and explicitly lists new/changed
-model-facing diagnostics without an exact D7/C1-C7/part-D entry. Inventory completion
-is not a claim that those uncovered strings have been approved.
+It includes the merged D18 request preamble and D19 part-E approvals from main
+`3fac196eadf75f7bb34349c5c5fc8320d811d3e9`, plus explicit SkillContext docstring coverage.
+Only named part-E rows are marked D19. Corrected C4 labels retain part-C coverage;
+the restored `http_probe` omitted-host local fallback is baseline parity under D17,
+not new wording approval. Source/runtime proofs remain separate from this table.
+Section 4 still inventories remaining **NONE** rows, including Phase 2 unavailable/
+not-implemented gates, readiness backstops, lost attachment suffixes/image URLs, skill
+dependency installation and resume empty-read disposition. Section 5 also retains
+unapproved non-runtime documentation. Inventory completion is not blanket approval.
+Phase 2 must remove every remaining section-4 NONE row with Odin's behavior restored
+or explicitly disposition it under D19: mechanical wording swaps to Claude, any
+behavior/instruction change to Aaron. A fresh profile must receive the same local host
+and default host as an Odin install, with runtime parity proofs at the Phase 2 exit gate.
+No model request path is wired in Phase 1; these requirements remain deferred, not passed.
 
 Conservative safety manifest protects all retained source/native/helper/test bytes and therefore includes transitive safety helpers whose names do not advertise danger. Native assets/historical isolated runners are provenance, not authorization to execute or package installers. Full archive and original license stay immutable and excluded from installed package content. Repository private, product distribution/license decision pending.
 

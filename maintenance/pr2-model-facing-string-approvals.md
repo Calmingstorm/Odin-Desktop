@@ -1,8 +1,8 @@
 # PR 2 item A: changed model-facing strings and approval coverage
 
-Compared **Phase 1 `phase-1/bring-over` after merge `6862c257b3c7fc75b40f3767d18b195e68a54582`**
+Compared **Phase 1 `phase-1/bring-over` after merging main `3fac196eadf75f7bb34349c5c5fc8320d811d3e9`**
 with immutable Odin v4.13.0 `cd7530906e9cfa10a0fa900247d7ce2a8bb33e25`.
-Approval documents are from main **`ae8aaebb`**, including Aaron's **D18**.
+Approval documents are from main **`3fac196eadf75f7bb34349c5c5fc8320d811d3e9`**, including Aaron's **D18 and D19**.
 Main contains the app/design, not the engine; the audited engine is on the Phase 1 branch.
 
 This is the requested **string-to-approval table**, not a new approval. The implementation
@@ -39,6 +39,8 @@ Approval keys:
 | D7-B chat | [prompt-changes, Chat-routed system template](../docs/design/prompt-changes.md#chat-routed-system-template) |
 | D7-C / C1-C7 | [prompt-changes part C](../docs/design/prompt-changes.md#c-tool-descriptions-and-other-model-facing-text), incorporating the exact [round-3 C1-C7 inventory](../docs/discussion/06-odin-round3.md#c-discord-mentions-outside-system_promptpy) |
 | D18 / part D | [prompt-changes part D](../docs/design/prompt-changes.md#d-request-preamble-approved-2026-10-05) |
+| D19 / part E | [prompt-changes part E](../docs/design/prompt-changes.md#e-tool-results-and-diagnostics-approved-2026-10-05), only its named substitutions; mechanical follow-up swaps go to Claude, behavior/instruction changes to Aaron |
+| D17 restored baseline | Odin behavior restored, not a new wording approval; runtime parity requires separate tests |
 | NONE | No exact entry in those approved wording inventories. Requires disposition/review, not presumed approval. |
 
 ## 1. Personality, system prompt and request preamble
@@ -63,7 +65,7 @@ are exact; the maintenance gate still protects every surrounding byte.
 The preamble still passes `channel_description=channel_ctx` to
 `build_request_preamble`; renaming an internal parameter is unnecessary. This named
 change is now explicitly recorded in the `src/discord/tool_loop.py` delta reason and
-contract. D18 does not approve the other inherited-context wrapper in section 4.
+contract. D18 does not approve the inherited-context wrapper; D19 now covers that separate section-4 row.
 
 ## 2. Offered/documentation tool catalog, names and parameter descriptions
 
@@ -126,24 +128,24 @@ and `input_schema` remain user-provided (C6), not rewritten bundled defaults.
 Success bodies behind unavailable publishers are retained code, **not observed durable
 publication**. Phase 1 does not publish files or claim those success receipts were emitted.
 
-## 4. Changed/new model-facing strings WITHOUT an exact approval entry
+## 4. Changed/new model-facing strings: D19 coverage and remaining NONE inventory
 
-**NONE means none in D7 A-C, round-3 C1-C7 or part D.** Many are truthful implementation
+**NONE means none in D7 A-C, round-3 C1-C7 or parts D/E.** Many are truthful implementation
 diagnostics, but truthfulness and functional adaptation approval are not exact wording
-approval. This table deliberately does not retroactively extend D18 or hide them as logs.
+approval. D19 covers only the named part-E rows below, not every owner/conversation phrase.
 Some are currently gated/hidden; they remain in scope for eventual engine wiring.
 
 | Source / selector | Baseline or previous behavior | Current changed string | Approved entry / disposition |
 |---|---|---|---|
-| `src/discord/intake_pipeline.py`, inherited context tag | `[INHERITED FROM #{parent_name}]` | `[INHERITED FROM {parent_name}]` | **NONE**; actual model-context wrapper, not D18's preamble |
-| Same function, context block | `Parent channel context:\n{parent_context}` | `Parent conversation context:\n{parent_context}` | **NONE** |
-| `channel_ops.py`, unexpected history arguments | Foreign-channel lookup accepted | `Only 'limit' is accepted; the conversation is the one this request came from.` | **NONE** for this new error; C2 approves selector removal, not exact sentence |
+| `src/discord/intake_pipeline.py`, inherited context tag | `[INHERITED FROM #{parent_name}]` | `[INHERITED FROM {parent_name}]` | D19 / part E, Inherited context; separate from D18's preamble |
+| Same function, context block | `Parent channel context:\n{parent_context}` | `Parent conversation context:\n{parent_context}` | D19 / part E, Inherited context |
+| `channel_ops.py`, unexpected history arguments | Foreign-channel lookup accepted | `Only 'limit' is accepted; the conversation is the one this request came from.` | D19 / part E, History tool; C2 separately covers selector removal |
 | Same handler, absent history reader | No Phase 2-specific diagnostic | `Conversation history is unavailable: Phase 2 admission and transcript wiring is not implemented.` | **NONE** |
 | `media.py`, publisher missing (`_DELIVERY_UNAVAILABLE`) | Gateway attachment send | `Conversation artifact publication is unavailable until Phase 2.` | **NONE**; can enter existing caught tool-error wrappers |
-| Same file, generate_file success | `File {filename} ({len(file_bytes)} bytes) attached to channel.` | `File {filename} ({len(file_bytes)} bytes) attached to conversation.` | **NONE**; C4 names post_file receipt, not this separate success string; backticks retained |
-| Same file, post_file/analyze_image caller denial | Gateway author identity | `Permission denied: authenticated owner identity is required.` | **NONE**; both consuming handlers |
+| Same file, generate_file success | `File {filename} ({len(file_bytes)} bytes) attached to channel.` | `File {filename} ({len(file_bytes)} bytes) attached to conversation.` | D19 / part E, File result; backticks retained |
+| Same file, post_file/analyze_image caller denial | Gateway author identity | `Permission denied: authenticated owner identity is required.` | D19 / part E, File and image caller; both consuming handlers |
 | `src/discord/native_tools/agents_tasks.py`, delegate_task admission | Prior background admission | `Phase 2 background request admission and delivery is not implemented.` | **NONE** |
-| Same file, delegate_task success | `Progress will be posted to this channel.` | `Progress will be posted to this conversation.` | **NONE**; C1 approves catalog progress text, not this separate result |
+| Same file, delegate_task success | `Progress will be posted to this channel.` | `Progress will be posted to this conversation.` | D19 / part E, Task result |
 | Same file, start_loop admission | Prior loop admission | `Phase 2 autonomous request admission and delivery is not implemented.` | **NONE** |
 | Same file, spawn_agent admission | Prior agent admission | `Phase 2 agent request admission and invocation context is not implemented.` | **NONE** |
 | Same file, collect/agent invocation context | Prior invocation context | `Phase 2 agent invocation context is not implemented.` | **NONE** |
@@ -151,7 +153,7 @@ Some are currently gated/hidden; they remain in scope for eventual engine wiring
 | Same file, update destination | Original channel destination authorization | `Phase 2 scheduled destination authorization is not implemented.` | **NONE** |
 | `src/discord/native_tools/skills_tools.py`, skill delivery | Immediate/staged gateway delivery | `Conversation skill delivery is unavailable until Phase 2.` | **NONE** |
 | Same file, export_skill unstaged result | `Skill '{name}' exported as {filename}.` | `Skill '{name}' export prepared as {filename} ({len(file_bytes)} bytes), but not staged. {staging_error}` | **NONE**; explicit prepared-versus-published diagnostic |
-| `src/tools/executor.py`, unavailable owner capability | Tier permission wording | `Permission denied: tool '{tool_name}' is not available for this authenticated owner request.` | **NONE** |
+| `src/tools/executor.py`, unavailable owner capability | Tier permission wording | `Permission denied: tool '{tool_name}' is not available for this authenticated owner request.` | D19 / part E, Tool permission; not blanket approval of new admission result paths |
 | Same file, newly propagated permission codes | Existing denial prose, now an additional admission result path | `permission_denied` | **NONE** for new result path; `Permission denied: a requester identity is required.` itself is **unchanged**, not a wording delta |
 | Same file, retention live capability check | No equivalent capability sentence | `Output capability unavailable.` | **NONE** |
 | `src/tools/builtin_policy.py`, unavailable_rejection | New rejection distinct from unchanged disabled_rejection | `Tool unavailable: '{name}' has no ready handler for this installation and was not executed.`; `tool_unavailable` | **NONE** |
@@ -167,12 +169,12 @@ Some are currently gated/hidden; they remain in scope for eventual engine wiring
 | Same file, schedule_task/update_schedule/delete_schedule | Scheduler result or unavailable defaults | `Validated conversation scheduling is unavailable until Phase 2 wiring.` | **NONE**; three consumers |
 | `src/tools/skill_manager.py`, dependency installer | pip output / `pip install timed out after {timeout}s` | `Approved isolated skill dependency installation is unavailable in Phase 1.` | **NONE**; named D14 functionality is not wording approval |
 | Same file, failed dependency diagnostic | Previous dependency setup path | `DependencyError: skill dependencies unavailable` | **NONE**; skill-status failure reason can expose it |
-| `src/tools/browser.py`, missing browser path | Ambient browser discovery | `Browser unavailable: required bundled Chromium is not configured.` | **NONE** |
-| Same file, missing Playwright | `playwright is not installed. Run: pip install playwright && playwright install chromium` | `Browser unavailable: required bundled Playwright dependency is missing.` | **NONE** |
-| Same file, failed launch | `Failed to launch Chromium. Run 'playwright install chromium' to install browser binaries. ({e})` | `Failed to launch required bundled Chromium. Repair the desktop installation. ({e})` | **NONE** |
-| `src/tools/handlers/browser_web.py`, http_probe without target host | Implicit local host path | `http_probe unavailable: an authorized managed host is required.` | **NONE** |
-| `src/tools/handlers/files_docs.py`, PDF dependency failure tail | `Install the 'pdf' extra (pip install '.[pdf]') and restart Odin.` | `The required bundled dependency is unavailable; repair the desktop installation.` | **NONE**; original error prefix/type retained |
-| `src/knowledge/importer.py`, file/directory root denial | `file/directory not in allowed import roots: {SAFE_IMPORT_ROOTS}` | `{kind} not in allowed import roots: {actual admitted roots}`, or `none admitted` | **NONE** for changed dynamic diagnostic; original prefix remains |
+| `src/tools/browser.py`, missing browser path | Ambient browser discovery | `Browser unavailable: required bundled Chromium is not configured.` | D19 / part E, Browser |
+| Same file, missing Playwright | `playwright is not installed. Run: pip install playwright && playwright install chromium` | `Browser unavailable: required bundled Playwright dependency is missing.` | D19 / part E, Browser |
+| Same file, failed launch | `Failed to launch Chromium. Run 'playwright install chromium' to install browser binaries. ({e})` | `Failed to launch required bundled Chromium. Repair the desktop installation. ({e})` | D19 / part E, Browser |
+| `src/tools/handlers/browser_web.py`, http_probe without target host | Implicit local host path (`127.0.0.1` through `_exec_command`) | Restored local fallback for the authenticated owner when `host` is omitted; the prior `http_probe unavailable: an authorized managed host is required.` refusal is removed | D17 restored baseline, not a new approval; test explicit-host and omitted-host paths separately |
+| `src/tools/handlers/files_docs.py`, PDF dependency failure tail | `Install the 'pdf' extra (pip install '.[pdf]') and restart Odin.` | `The required bundled dependency is unavailable; repair the desktop installation.` | D19 / part E, PDF; original error prefix/type retained |
+| `src/knowledge/importer.py`, file/directory root denial | `file/directory not in allowed import roots: {SAFE_IMPORT_ROOTS}` | `{kind} not in allowed import roots: {actual admitted roots}`, or `none admitted` | D19 / part E, Knowledge import; original prefix remains |
 | `src/discord/turn_resume.py`, empty adapter read | A returned `None` previously led to `the original message is gone` | `the original message could not be fetched yet` | **NONE** for changed disposition on an empty read; this sentence itself is unchanged on generic/transient exception paths |
 | `src/discord/tool_loop.py`, shared Phase 2 gate (also used by resume) | No Phase 2 entrypoint guard | `Desktop tool-loop intake, durable admission and delivery require Phase 2 wiring` | **NONE**; retained engine entrypoint error, not D18's context line |
 | `src/discord/delivery.py`, DeliveryService construction | Gateway delivery service | `Durable conversation delivery is deferred to Phase 2` | **NONE**; control/startup error, not successful model delivery |
@@ -180,13 +182,13 @@ Some are currently gated/hidden; they remain in scope for eventual engine wiring
 | Same file, stop_channel/operator context | Original stop/operator context construction | `Desktop computer control admission is unavailable until Phase 2` | **NONE**; both consumers |
 | `media.py`, generated-image URL suffix and status metadata | Conditional ` Attachment URL: {attachment_url}` and detected URL metadata | Suffix removed; `attachment_url_available` remains present but false | **NONE** for changed result/metadata shape; no renderer URL or durable publication fabricated |
 | `src/discord/intake_pipeline.py`, shared intake gate | Original gateway admission path | `Phase 2 authenticated owner/conversation admission, secret rejection, revision-bound request ownership and durable delivery are not wired` | **NONE** |
-| `src/discord/channel_state.py`, steer denial | `Access denied. Only the turn's requester or an admin may steer it.` | `Access denied. Only the turn's requester may steer it.` | **NONE**; control receipt |
-| `src/discord/delivery.py`, history status label | `Reading the channel` | `Reading the conversation` | **NONE** exact, retained presentation/status text |
+| `src/discord/channel_state.py`, steer denial | `Access denied. Only the turn's requester or an admin may steer it.` | `Access denied. Only the turn's requester may steer it.` | D19 / part E, Steer denial |
+| `src/discord/delivery.py`, history status label | `Reading the channel` | `Reading the conversation` | D19 / part E, Status label |
 | `src/discord/scheduled_events.py`, execution gate | Operational scheduled work | `Scheduled execution requires Phase 2 durable admission, conversation authority and delivery.` | **NONE** |
 | Same module, publication gate | Gateway publication | `Conversation publication is unavailable until Phase 2; do not replay the producer.` | **NONE** |
 | Same module, scheduled report recovery | No corresponding fixed exception | `Scheduled report publication unavailable; preserve producer output and recover delivery without rerunning the check` | **NONE** |
-| Same module, digest destination diagnostic | `Digest {schedule['id']} has no channel_id` | `Digest {schedule['id']} has no conversation_id` | **NONE** exact; diagnostic destination noun |
-| Same module, scheduled task diagnostic | `Scheduled task {schedule['id']} has no channel_id` | `Scheduled task {schedule['id']} has no conversation_id` | **NONE** exact |
+| Same module, digest destination diagnostic | `Digest {schedule['id']} has no channel_id` | `Digest {schedule['id']} has no conversation_id` | D19 / part E, Schedule diagnostics |
+| Same module, scheduled task diagnostic | `Scheduled task {schedule['id']} has no channel_id` | `Scheduled task {schedule['id']} has no conversation_id` | D19 / part E, Schedule diagnostics |
 | `src/discord/scheduled_report.py`, post gate | Operational gateway report post | `Scheduled report conversation publication is unavailable until Phase 2.` | **NONE** |
 | `src/discord/slash_commands.py`, command registration gate | Gateway command registration | `Native command registration and owner-bound stop/steer/reload controls require Phase 2 admission, control and durable delivery wiring` | **NONE** |
 | `src/discord/wiring.py`, build_services | Original service composition | `Phase 2 core service composition is not implemented.` | **NONE** |
@@ -213,13 +215,13 @@ is not silently equated with the specific C4 wording.
 
 | Source / selector | Odin text | Actual Desktop text | Approved entry |
 |---|---|---|---|
-| `src/config/apply_registry.py`, prompt consumer label | `Chat, Discord, and loop prompts` | `Conversational turns and loop prompts` | **NONE for actual text**; C4 instead proposes `Chat, conversation, and loop prompts` |
-| Same file, checkpoint description | `Checkpoint Discord chat turns so they survive an outage.` | `Checkpoint conversational turns so they survive an outage.` | **NONE for actual text**; C4 instead proposes `Checkpoint conversation turns so they survive an outage.` |
-| Same file, owner override description | `Let admins proceed past a governor refusal.` | `Let the authorized owner proceed past a governor refusal.` | **NONE in wording inventory**; D17 governs behavior, not this exact description |
+| `src/config/apply_registry.py`, prompt consumer label | `Chat, Discord, and loop prompts` | `Chat, conversation, and loop prompts` | D7-C, C4 exact settings wording restored |
+| Same file, checkpoint description | `Checkpoint Discord chat turns so they survive an outage.` | `Checkpoint conversation turns so they survive an outage.` | D7-C, C4 exact settings wording restored |
+| Same file, owner override description | `Let admins proceed past a governor refusal.` | `Let the authorized owner proceed past a governor refusal.` | D19 / part E, Settings text; D17 separately governs behavior |
 | `src/config/schema.py`, invalid mapping guidance | `It must contain a YAML mapping with at least a 'discord' section.` | `It must contain a YAML mapping.` | D7-C, C7 schema guidance |
-| Same diagnostic, documentation pointer | `See config.yml comments for examples.` | `See the desktop configuration documentation for examples.` | **NONE** |
+| Same diagnostic, documentation pointer | `See config.yml comments for examples.` | `See the desktop configuration documentation for examples.` | D19 / part E, Settings text |
 | Same module, unknown top-level fields | Baseline unknown-field compatibility path | `Config validation failed: unsupported top-level configuration fields` | **NONE**; startup diagnostic, not prompt policy |
-| `src/search/embedder.py`, missing configured/bundled model | Ambient/cached-model selection | `no bundled embedding model roots configured`; `bundled embedding model unavailable: {details}` | **NONE**; may be surfaced through knowledge/search failure wrappers |
+| `src/search/embedder.py`, missing configured/bundled model | Ambient/cached-model selection | `no bundled embedding model roots configured`; `bundled embedding model unavailable: {details}` | D19 / part E, Search models; may surface through knowledge/search failure wrappers |
 
 ### Internal control/storage and lifecycle diagnostics, not established model prose
 
@@ -255,9 +257,13 @@ not catalog instructions; no approval is manufactured for those paragraphs.
 | Same document, post_message | `Send to invoking channel` | `Send to invoking conversation` | D7-C, C6 |
 | Same document, schedule_task signature | `channel_id` | `conversation_id` | D7-C, C6 explicit signature adaptation |
 | Same document, skill configuration help | `Set via web UI or skill_status API.` | `Desktop settings and delivery wiring are Phase 2 work; skill_status remains the tool-side inspection contract.` | **NONE** for new documentation sentence |
-| `src/tools/skill_context.py`, class/post_message/post_file docstrings | `channel messaging`; `channel that invoked this skill` | `conversation messaging`; `conversation that invoked this skill` | D7-C, C6 |
+| `src/tools/skill_context.py`, class docstring | `channel messaging`; `conversation history search` | `conversation messaging`; `conversation history search` unchanged | D7-C, C6 SkillContext rule |
+| Same file, post_message docstring | `Send a message to the channel that invoked this skill.` | `Send a message to the conversation that invoked this skill.` | D7-C, C6 SkillContext rule |
+| Same file, post_file docstring | `Send a binary file to the channel that invoked this skill.` | `Send a binary file to the conversation that invoked this skill.` | D7-C, C6 SkillContext rule |
 | Same file, schedule_task parameter | `channel_id` | `conversation_id` | D7-C, C6 |
-| Same file, search_history result field docstring | `channel_id` | `conversation_id` | **NONE exact**; C2/C6 destination semantics explain the adaptation but do not quote this API result field |
+| Same file, search_history docstring | `Search conversation history. Returns list of {type, content, timestamp, channel_id}.` | `Search conversation history. Returns list of {type, content, timestamp, conversation_id}.` | D19 / part E, Skill API text; opening sentence already says conversation in the baseline, only the result field changes |
+| Same file, search_history result field docstring | `channel_id` | `conversation_id` in `Returns list of {type, content, timestamp, conversation_id}.` | D19 / part E, Skill API text |
+| Same file, get_hosts docstring (part E calls it list_hosts) | `List available host aliases.` | `List host aliases admitted by the authenticated owner context.` | D19 / part E, Skill API text; actual Python method is get_hosts, no method rename |
 | Same file, schedule_task docstring | `Add a scheduled task. Returns the schedule dict, or None if scheduler unavailable. Keyword args are passed to Scheduler.add() ...` | `Add a task to an authenticated, validated conversation destination. Phase 1 has no destination authority. No caller-supplied ID is admitted or forwarded to the upstream scheduler. Phase 2 must bind the owner, profile and conversation before this surface can schedule delivery.` | **NONE exact**, non-runtime API documentation |
 | Same file, list_schedules docstring | Prior scheduler list documentation | `List schedules when owner/conversation intake is available.` | **NONE exact**, non-runtime API documentation |
 | `src/discord/native_tools/skills_tools.py`, staging notes | `posts to the channel now`; `per-channel pending-files queue` | `posts to the conversation now`; `per-conversation pending-files queue` | D7-C, C6 |
@@ -293,13 +299,49 @@ is unwired, not that a Desktop gateway exists.
 
 ## Validation and remaining disposition
 
+Round 3 applies the named part-E approvals from main `3fac196` and
+[PR review comment 5993851093](https://github.com/Calmingstorm/Odin-Desktop/pull/2#issuecomment-5993851093).
+The corrected C4 labels and D17 local fallback above record the round-3 restoration
+contract. Parent-owned source changes and runtime tests establish those restorations;
+these documentation/static checks do not prove execution or host parity.
+`tests/test_desktop_round3_approval_docs.py` checks exact D19 coverage, the remaining
+NONE inventory, SkillContext documentation rows and the Phase 2 exit requirements.
+
 `tests/test_desktop_round2_acceptance.py` statically checks the merged D18 record,
 exact request context construction and table coverage, compares every retained catalog
 schema/string with the frozen baseline plus only the named C1-C3 transformations,
 and protects the explicit uncovered list. No Phase 2 loop, model endpoint, native helper
 or active desktop is exercised by those checks.
 
-Observed local validation on 2026-10-05:
+Observed round-3 local validation on 2026-10-05:
+
+- Focused documentation/approval/owner acceptance: **84 passed**, including **44** new
+  static document cases, in the sanitized non-root PID/mount namespace.
+- `tests/test_desktop_capabilities_owner.py` dispatches through a real disposable
+  authenticated owner and executor with a stubbed transport. No host, null and empty
+  host select `127.0.0.1` independently of the configured default. Explicit hosts use
+  a real registry generation lease and release it. Unknown hosts do not fall back;
+  missing, unsealed and foreign identities do not dispatch either form. Curl failure
+  codes and empty-result handling retain the original structured outcomes.
+- The **entire** `src/tools/handlers/browser_web.py` module is now byte-identical to
+  the frozen upstream baseline; the obsolete exact delta and adaptation-plan entry
+  were removed rather than retaining a fictitious divergence. Both C4 labels have
+  exact AST assertions.
+- Complete qualification: **28/28 groups**, **13,190 passed executions, 2 skipped,
+  0 failures/errors**. This is not full inherited-suite or Phase 2 runtime parity.
+  Existing AsyncMock warnings remain visible.
+- Qualification selection changed only to add the new static documentation file to
+  the existing Desktop-boundary group. Current plan SHA-256:
+  `fa8dfa89c1168285d9b7fa95187d1915f685aa2684fa0328b3e2a12512dd8859`.
+- Offline byte drift: **1,237 shared paths, 197 exact ledgered paths, 202 pending
+  independent reviews, zero unexplained errors**. Updated the D19 approval-document
+  pin and named test-evidence digests. Baseline, frozen inherited test corpus, case
+  accounting and safety policy remain unchanged.
+- Lint: **zero new findings**, seven inherited findings; `git diff --check` clean.
+- Local qualification log: `.test-logs-pr2-round3-qualified.txt`, with isolated
+  `.test-state/qualification-{0..27}.xml` receipts. Hosted CI is a separate result.
+
+Historical round-2 local validation on 2026-10-05 (not round-3 execution evidence):
 
 - Focused acceptance/maintenance/catalog/strip-loop selection: **43 passed** in the
   sanitized non-root PID/mount namespace. The new missing-D18-ledger regression first
@@ -319,5 +361,14 @@ Observed local validation on 2026-10-05:
 
 **Outstanding wording entries are explicitly NONE above.** They must be reviewed,
 approved separately, restored or otherwise dispositioned before an assertion of complete
-wording approval. This change does not rewrite them, relax any safety policy, claim
-native qualification, deploy an engine, restart a service or merge PR 2 into main.
+wording approval. At the **Phase 2 exit gate, every remaining NONE row in section 4**
+must be removed with Odin's behavior restored or explicitly dispositioned under D19.
+Mechanical wording swaps go to Claude; any behavior/instruction change, including
+anything that changes what Odin is told to do, goes to Aaron. This includes unavailable/
+not-implemented gates, readiness backstops, lost attachment suffixes/image URLs, skill
+dependency installation and the resume empty-read disposition. Section 5's non-runtime
+NONE entries also remain honestly listed, not retroactively approved by that exit rule.
+No model request path is wired in Phase 1; deferred work is not qualified behavior.
+Round 3 restores the two approved C4 labels and Odin's existing local probe behavior;
+it does not relax any safety policy, claim native qualification, deploy an engine,
+restart a service or merge PR 2 into main.

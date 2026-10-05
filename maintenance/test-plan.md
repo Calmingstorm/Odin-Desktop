@@ -46,6 +46,38 @@ need reviewed harmless/pure-case qualification and explicit accounting, not sile
 This requirement is mirrored in `docs/design/roadmap.md`'s Phase 2 exit criteria. A Phase 1 passing aggregate does
 not satisfy it. No Phase 2 result is claimed here.
 
+## Phase 2 exit: remaining wording dispositions and fresh-profile host parity
+
+Every remaining **NONE row in section 4** of `pr2-model-facing-string-approvals.md`
+must be removed with Odin's behavior restored or explicitly dispositioned under D19
+before Phase 2 exits. Mechanical wording swaps go to Claude; any behavior/instruction
+change, including anything that changes what Odin is told to do, goes to Aaron.
+The required inventory explicitly includes:
+- Phase 2 "unavailable" and "not implemented" gates;
+- readiness backstops;
+- results that lost an attachment suffix or image URL;
+- skill dependency installation;
+- the resume empty-read disposition.
+
+Account for every row with its removal/restoration or explicit disposition, approval
+where required, and qualified runtime parity evidence. Test actual delivery, result
+shape, dependency setup, readiness and resume conditions through reviewed disposable
+fixtures; a noun substitution or static passing count does not prove behavior restored.
+Part E's named D19 approvals do not approve these remaining NONE rows. Section 5's
+unapproved non-runtime documentation remains separately listed.
+
+A fresh profile must receive the **same local host and default host as an Odin install**.
+Use disposable profile onboarding/runtime fixtures and harmless/stubbed execution to
+prove runtime parity for actual host admission/selection, explicit-host and omitted-host
+paths, and `http_probe`'s authenticated-owner local fallback. D17 restores baseline
+behavior; it is not new wording approval. Static configuration comparisons alone are
+insufficient. No real endpoint or live profile is authorized by this requirement.
+
+These exit gates are mirrored in `docs/design/roadmap.md`. No model request path is
+wired in Phase 1; deferred work is not qualified behavior and no Phase 2 runtime parity
+result is claimed here. `tests/test_desktop_round3_approval_docs.py` supplies static
+documentation acceptance only, not completion of these runtime exit gates.
+
 ## Safety/manual future gates
 
 Only explicit safe list through PID namespace with clean HOME/XDG/DBus. Native computer, lifecycle and installer proofs require Phase3 hard-isolated qualification, never the active desktop. No real endpoints/live `/opt/odin` tests. Prohibited destructive/attack literal inputs remain unexecuted even when classifier-only or subprocess mocked. Original fixtures/cases remain unchanged; harmless stub primitive qualification needs separate reviewed new tests.

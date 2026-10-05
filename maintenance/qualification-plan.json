@@ -1449,6 +1449,7 @@
         "tests/test_desktop_qualified_collection.py",
         "tests/test_desktop_qualified_runner.py",
         "tests/test_desktop_round2_acceptance.py",
+        "tests/test_desktop_round3_approval_docs.py",
         "tests/test_desktop_runtime_retirement.py",
         "tests/test_desktop_strip_loop.py",
         "tests/test_desktop_strip_native.py",

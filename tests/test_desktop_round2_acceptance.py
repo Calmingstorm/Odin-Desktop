@@ -192,11 +192,11 @@ def test_d18_preamble_covers_normal_and_thread_without_other_changes():
 def test_string_approval_table_preserves_explicit_unapproved_inventory():
     table = (ROOT / "maintenance/pr2-model-facing-string-approvals.md").read_text()
     for required in (
-        "D7-A", "D7-B executor", "D7-B chat", "C1-C7", "D18 / part D",
-        "WITHOUT an exact approval entry", "not silently declared approved",
+        "D7-A", "D7-B executor", "D7-B chat", "C1-C7", "D18 / part D", "D19 / part E",
+        "D19 coverage and remaining NONE inventory", "not silently declared approved",
         "Parent conversation context",
         "Conversation artifact publication is unavailable until Phase 2.",
-        "Tool unavailable:", "Do not replay the tool.", "Checkpoint conversational turns",
+        "Tool unavailable:", "Do not replay the tool.", "Checkpoint conversation turns",
         "The required bundled dependency is unavailable; repair the desktop installation.",
         "Outstanding wording entries are explicitly NONE",
     ):
@@ -211,3 +211,19 @@ def test_d18_is_named_in_the_exact_tool_loop_delta_not_generic_adaptation():
     assert "Conversation: <name>" in entry["contract"]
     assert "Channel: #<parent>" in entry["contract"]
     assert "tests/test_desktop_round2_acceptance.py" in entry["tests"]
+
+
+def test_config_prompt_and_checkpoint_labels_are_exact_approved_c4():
+    tree = ast.parse((ROOT / "src/config/apply_registry.py").read_text())
+    strings = {node.value for node in ast.walk(tree)
+               if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+    assert "Chat, conversation, and loop prompts" in strings
+    assert "Checkpoint conversation turns so they survive an outage." in strings
+    assert "Conversational turns and loop prompts" not in strings
+    assert "Checkpoint conversational turns so they survive an outage." not in strings
+
+
+def test_http_probe_handler_restores_entire_upstream_module_without_new_policy():
+    path = "src/tools/handlers/browser_web.py"
+    with tarfile.open(ROOT / "maintenance/odin-v4.13.0.tar.gz") as archive:
+        assert (ROOT / path).read_bytes() == archive.extractfile(path).read()

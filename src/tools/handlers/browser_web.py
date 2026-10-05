@@ -102,15 +102,18 @@ class BrowserWebTools(HandlerBase):
         except ValueError as e:
             return f"http_probe error: {e}", 1
 
-        host = inp.get("host") or self._resolve_default_host(self._current_user_id)
-        if not host:
-            return "http_probe unavailable: an authorized managed host is required.", 1
+        host = inp.get("host", "")
         if host:
             lease = self._acquire_host(host)
             if not lease:
                 return f"Unknown or disallowed host: {host}"
             target = lease.target
             address, ssh_user = target.address, target.ssh_user
+        else:
+            lease = None
+            target = None
+            address = "127.0.0.1"
+            ssh_user = "root"
 
         if lease is not None:
             with lease:

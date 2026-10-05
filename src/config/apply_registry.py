@@ -356,7 +356,7 @@ GROUP_DESCRIPTIONS: dict[str, str] = {
 #: the identity it started with. Shared by the four identity leaves.
 _IDENTITY_CONSUMERS: tuple[Consumer, ...] = (
     Consumer(
-        "Conversational turns and loop prompts",
+        "Chat, conversation, and loop prompts",
         "live_read",
         "Every prompt is assembled fresh and reads the current value.",
     ),
@@ -1434,7 +1434,7 @@ FIELDS: dict[str, FieldSpec] = {
     # ---------------- turn_state ----------------
     "turn_state.enabled": FieldSpec(
         apply_mode="restart",
-        description="Checkpoint conversational turns so they survive an outage.",
+        description="Checkpoint conversation turns so they survive an outage.",
         restart_reason="The checkpoint store is opened at startup, and every "
         "consumer tests whether it exists rather than re-reading this flag.",
     ),

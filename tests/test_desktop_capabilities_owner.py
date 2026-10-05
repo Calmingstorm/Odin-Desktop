@@ -4,9 +4,11 @@ import os
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
+from src.config.schema import ToolHost, ToolsConfig
 from src.desktop.authority import OwnerAuthority
 from src.desktop.errors import CapabilityUnavailable
 from src.desktop.paths import ProfilePaths
@@ -221,19 +223,149 @@ def test_lists_do_not_import_legacy_user_data(tmp_path):
     assert not (tmp_path / "lists.json").exists()
 
 
-@pytest.mark.asyncio
-async def test_probe_missing_host_has_no_root_default():
-    from src.tools.handlers.browser_web import BrowserWebTools
-    deps = SimpleNamespace(
-        resolve_host=lambda *args: None,
-        acquire_host=lambda *args: pytest.fail("probe acquired unmanaged host"),
-        resolve_default_host=lambda owner: "",
-        govern_command=lambda *args: None,
-        exec_command=lambda *args, **kwargs: pytest.fail("probe executed without target"),
-        run_on_host=lambda *args: None,
-        annotate_with_freshness=lambda *args: None,
-        current_user_id=lambda: "owner",
+def probe_executor(owner, tmp_path, monkeypatch):
+    """Real owner, real registry and dispatch; only the transport is stubbed."""
+    authority, manager, _ = owner
+    paths = ProfilePaths.from_xdg(environ={
+        "XDG_CONFIG_HOME": str(tmp_path / "config"),
+        "XDG_DATA_HOME": str(tmp_path / "data"),
+        "XDG_CACHE_HOME": str(tmp_path / "cache"),
+    }, home=tmp_path)
+    executor = ToolExecutor(
+        config=ToolsConfig(
+            hosts={"lab": ToolHost(address="::1", ssh_user="operator")},
+            default_host="lab",
+            audit_log_path=str(tmp_path / "audit.jsonl"),
+        ),
+        permission_manager=manager,
+        profile_paths=paths,
+        memory_path=str(tmp_path / "memory.json"),
     )
-    tools = BrowserWebTools(deps)
-    output, code = await tools._handle_http_probe({"url": "https://example.com"})
-    assert code == 1 and "authorized managed host" in output
+    executor._builtin_policy = BuiltinToolPolicy(
+        lambda: SimpleNamespace(tools=executor.config), lambda: {"http_probe": True}
+    )
+    transport = AsyncMock(return_value=(0, "HTTP/1.1 200 OK"))
+    monkeypatch.setattr(executor, "_exec_command", transport)
+    assert executor.check_permission("http_probe", authority.owner_id)
+    return executor, transport
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host_input", [{}, {"host": None}, {"host": ""}])
+async def test_probe_no_host_matches_upstream_local_fallback(
+    owner, tmp_path, monkeypatch, host_input
+):
+    authority, manager, context = owner
+    executor, transport = probe_executor(owner, tmp_path, monkeypatch)
+    monkeypatch.setattr(executor, "_resolve_default_host", lambda *_: pytest.fail(
+        "http_probe omission must not select a configured/default host"
+    ))
+    monkeypatch.setattr(executor, "_acquire_host", lambda *_: pytest.fail(
+        "http_probe local fallback must not acquire a managed-host generation"
+    ))
+    token = manager.set_request_owner(context)
+    try:
+        result = await executor.execute(
+            "http_probe", {"url": "https://example.invalid", **host_input},
+            user_id=authority.owner_id,
+        )
+    finally:
+        manager.reset_request_owner(token)
+    assert result.ok and result.exit_code == 0
+    call = transport.await_args
+    assert call.args[0] == "127.0.0.1" and call.args[2] == "root"
+    assert call.kwargs == {}
+    transport.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_probe_explicit_host_uses_authorized_generation(owner, tmp_path, monkeypatch):
+    authority, manager, context = owner
+    executor, transport = probe_executor(owner, tmp_path, monkeypatch)
+    acquired = []
+    acquire = executor._acquire_host
+
+    def acquire_recorded(alias):
+        lease = acquire(alias)
+        acquired.append(lease)
+        return lease
+
+    monkeypatch.setattr(executor, "_acquire_host", acquire_recorded)
+    token = manager.set_request_owner(context)
+    try:
+        result = await executor.execute(
+            "http_probe", {"url": "https://example.invalid", "host": "lab"},
+            user_id=authority.owner_id,
+        )
+    finally:
+        manager.reset_request_owner(token)
+    assert result.ok and result.exit_code == 0
+    transport.assert_awaited_once()
+    call = transport.await_args
+    assert call.args[0] == "::1" and call.args[2] == "operator"
+    assert call.kwargs == {"target": acquired[0].target}
+    assert acquired[0].target.alias == "lab"
+    assert acquired[0]._released
+
+
+@pytest.mark.asyncio
+async def test_probe_unknown_explicit_host_never_falls_back_locally(owner, tmp_path, monkeypatch):
+    authority, manager, context = owner
+    executor, transport = probe_executor(owner, tmp_path, monkeypatch)
+    token = manager.set_request_owner(context)
+    try:
+        result = await executor.execute(
+            "http_probe", {"url": "https://example.invalid", "host": "missing"},
+            user_id=authority.owner_id,
+        )
+    finally:
+        manager.reset_request_owner(token)
+    assert not result.ok and "Unknown or disallowed host: missing" in result.output
+    transport.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host_input", [{}, {"host": "lab"}])
+@pytest.mark.parametrize("identity", ["missing", "unsealed", "foreign"])
+async def test_probe_requires_authenticated_owner_before_either_transport(
+    owner, tmp_path, monkeypatch, host_input, identity
+):
+    authority, manager, context = owner
+    executor, transport = probe_executor(owner, tmp_path, monkeypatch)
+    user_id = None if identity == "missing" else authority.owner_id
+    if identity == "foreign":
+        user_id = "another-owner"
+    token = manager.set_request_owner(context if identity != "unsealed" else None)
+    try:
+        result = await executor.execute(
+            "http_probe", {"url": "https://example.invalid", **host_input}, user_id=user_id,
+        )
+    finally:
+        manager.reset_request_owner(token)
+    assert not result.ok and result.error == "permission_denied"
+    transport.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("response, expected_code, expected_output", [
+    ((7, ""), 7, "http_probe failed (exit 7): curl returned no output"),
+    ((7, "curl: connection failed"), 7, "curl: connection failed"),
+    ((0, ""), 1, "http_probe: no response received"),
+])
+async def test_local_probe_keeps_curl_failure_ground_truth(
+    owner, tmp_path, monkeypatch, response, expected_code, expected_output
+):
+    authority, manager, context = owner
+    executor, transport = probe_executor(owner, tmp_path, monkeypatch)
+    transport.return_value = response
+    executor._recovery_enabled = False
+    token = manager.set_request_owner(context)
+    try:
+        result = await executor.execute(
+            "http_probe", {"url": "https://example.invalid"}, user_id=authority.owner_id,
+        )
+    finally:
+        manager.reset_request_owner(token)
+    assert not result.ok and result.exit_code == expected_code
+    assert result.output == expected_output
+    transport.assert_awaited_once()
