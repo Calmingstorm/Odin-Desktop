@@ -29,7 +29,8 @@ def recover_capacity(core):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("mode", ["automatic", "newer_request", "queued_during_rebuild", "disabled"])
+@pytest.mark.parametrize("mode", [
+    "automatic", "newer_request", "queued_during_rebuild", "disabled"])
 async def test_capacity_recovery_retains_checkpoint_generation_and_reply(
         tmp_path, monkeypatch, mode):
     monkeypatch.setattr(turn_resume, "_AUTO_POLL_SECONDS", 0.01)
@@ -82,7 +83,8 @@ async def test_capacity_recovery_retains_checkpoint_generation_and_reply(
             deadline_seconds=0.05, backoff_base=0.001, backoff_cap=0.002,
             retry_after_cap=0.005)
         reader, writer, _ = await connect(socket_path)
-        cid = (await request(reader, writer, "conversations.create", {}))["result"]["conversation"]["id"]
+        cid = (await request(reader, writer, "conversations.create", {}))[
+            "result"]["conversation"]["id"]
         result = await request(reader, writer, "submission.send", {
             "client_submission_id": "capacity", "conversation_id": cid,
             "text": "Complete this original request"})
@@ -138,7 +140,8 @@ async def test_capacity_recovery_retains_checkpoint_generation_and_reply(
             # The ledger preserves logical lineage with a fresh lease; the
             # Desktop execution/delivery generation is the one that advances.
             assert row["ledger_generation"] == before_generation
-            assert core.engine.deps.turn_store.turn_status_sync(key) == TurnStatus.TERMINAL_COMPLETED
+            assert core.engine.deps.turn_store.turn_status_sync(key) == (
+                TurnStatus.TERMINAL_COMPLETED)
             assert admitted == [(rid, 2)]
             assert provider.calls == calls_before + 1
             # A reconstructed checkpoint keeps the original model transcript,
