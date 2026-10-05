@@ -81,6 +81,27 @@ let latestHealth = 0
 let latestTurns = 0
 let latestComputer = 0
 
+/** A successful read is not necessarily a signed verdict, nor proof of unsigned history. */
+export function auditVerificationNote(answer: AuditVerify): string {
+  if (answer.availability === 'not_enabled') return 'Signing is not enabled. The record is unverified, not known to be broken.'
+  if (!answer.valid) return `Not intact: ${answer.reason ?? answer.error ?? 'the chain is broken'}.`
+  const verified = typeof answer.verified === 'number' ? answer.verified : 0
+  const unsigned = typeof answer.unsigned_prefix === 'number' ? answer.unsigned_prefix : 0
+  if (unsigned > 0) return `${verified} signed entries verified; ${unsigned} unsigned entries remain unverified.`
+  if (verified === 0 && (answer.total ?? 0) > 0) return 'No signed entries were verified. The record remains unverified.'
+  if ((answer.total ?? 0) === 0 && verified === 0) return 'No entries to verify.'
+  return `Intact: ${verified} signed entries verified.`
+}
+
+// Log search reads the same audit rows. It does not produce synthetic level/message fields.
+export function logLevel(entry: LogEntry): string {
+  return entry.error ? 'ERROR' : 'INFO'
+}
+
+export function logMessage(entry: LogEntry): string {
+  return entry.error || entry.result_summary || entry.detail || entry.tool_name || ''
+}
+
 export async function loadUsage(period: '24h' | '7d' | '30d' | 'all'): Promise<void> {
   const mine = ++latestUsage
   const result = await window.odin.usage(period)

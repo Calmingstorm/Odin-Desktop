@@ -122,6 +122,8 @@ export function imageLeafOf(field: ConfigField): ImageLeaf | null {
 
 /** False for a field a section's own controls change (for example tool timeouts): the form shows it, read-only. */
 export function editableHere(field: ConfigField): boolean {
+  // The core derives the provider from the main model. main.set accepts model, not active_provider.
+  if (field.path === 'llm_provider.active_provider') return false
   const handler = field.apply_handler
   return isSecret(field) || !handler || handler === 'settings.set' || dedicatedMethod(field) !== null || settingsShapedMethod(field) !== null
 }

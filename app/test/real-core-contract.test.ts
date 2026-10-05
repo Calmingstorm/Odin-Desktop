@@ -3,16 +3,12 @@ import { statSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import type { CoreEvent } from '../src/shared/api'
 import { PROTOCOL, type Settled, type Welcome } from '../src/main/broker'
-import { assertIsolated, onceEvent, RealCoreHarness, waitFor } from './real-core-harness'
+import { assertIsolated, onceEvent, RealCoreHarness, waitFor, SERVED_CAPABILITIES } from './real-core-harness'
 
 // Intentional module-level hard failure if someone invokes this file with the normal/unisolated Vitest gate.
 assertIsolated()
 
-const capabilities = ['status.get', 'events.subscribe', 'runtime.shutdown', ...[
-  'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
-  'conversations.reset_context', 'conversations.mark_read', 'messages.list',
-  'conversation.snapshot', 'search.query', 'messages.around'
-].sort()]
+const capabilities = SERVED_CAPABILITIES
 function successful<T>(answer: Settled): T {
   expect(answer.ok).toBe(true)
   if (!answer.ok) throw new Error(`Expected a real-core receipt, got ${answer.error.code}`)
@@ -43,8 +39,11 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(statSync(core.paths.socketPath).mode & 0o777).toBe(0o600)
     expect(statSync(core.paths.tokenPath).mode & 0o777).toBe(0o600)
     const status = successful<Status>(await broker.request('status.get'))
-    expect(status).toEqual({ phase: 'ready', core_instance_id: welcome.core.instance_id,
+    expect(status).toMatchObject({ phase: 'ready', core_instance_id: welcome.core.instance_id,
       version: welcome.core.version, capabilities })
+    // A configured model label is not provider readiness. No client is available on a fresh profile.
+    expect(status).toMatchObject({ model: { main: expect.any(String), provider: 'codex' },
+      providers: expect.arrayContaining([{ name: 'codex', health: 'unavailable' }]) })
 
     const events: CoreEvent[] = []
     broker.on('event', (event: CoreEvent) => events.push(event))
@@ -121,7 +120,7 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '999999' }, id)).reset_required).toBe(true)
     expect(successful<{ items: unknown[] }>(await broker.request('conversations.list', {}, id)).items).toEqual([])
     refused(await broker.request('work.list', {}, id), 'capability_unavailable')
-    refused(await broker.request('settings.schema', {}, id), 'capability_unavailable')
+    refused(await broker.request('schedules.list', {}, id), 'capability_unavailable')
     expect(await broker.request('runtime.shutdown', { reason: 'read ID is still available' }, id)).toEqual({
       ok: true, result: { disposition: 'accepted' }
     })
