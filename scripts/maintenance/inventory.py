@@ -537,7 +537,7 @@ def report(root, require_review=False):
                 continue
             if not file.is_file():
                 continue
-            if path.startswith("scripts/maintenance/"):
+            if path.startswith("scripts/maintenance/") and path not in deltas:
                 continue  # checker implementation independently reviewed, not self-approved
             if path in blobs:
                 continue

@@ -1424,6 +1424,7 @@
         "tests/test_desktop_capabilities_owner.py",
         "tests/test_desktop_capabilities_publication.py",
         "tests/test_desktop_capabilities_skills_hosts.py",
+        "tests/test_desktop_ci_interpreter.py",
         "tests/test_desktop_collection_refresh.py",
         "tests/test_desktop_core_computer.py",
         "tests/test_desktop_core_durability.py",
@@ -1431,9 +1432,11 @@
         "tests/test_desktop_core_privacy.py",
         "tests/test_desktop_core_search.py",
         "tests/test_desktop_distribution.py",
+        "tests/test_desktop_disposition_merge.py",
         "tests/test_desktop_exception_aliases.py",
         "tests/test_desktop_executor_profile.py",
         "tests/test_desktop_fixture_corpus.py",
+        "tests/test_desktop_fts_read_lock.py",
         "tests/test_desktop_foundation.py",
         "tests/test_desktop_foundation_config.py",
         "tests/test_desktop_isolated_runner.py",
@@ -1647,6 +1650,29 @@
       "name": "faithful-retirement-corpus",
       "files": ["tests/test_desktop_shared_retirement.py"],
       "reason": "Frozen model-retirement cases keep assertions and parameter data; only exact inert transport YAML and genuine selected-profile setup are changed. Retired WebUI source inspection stays excluded."
+    },
+    {
+      "name": "final-historical-cases",
+      "files": [
+        "tests/test_desktop_final_history.py",
+        "tests/test_evaluative_discipline_prompt.py::test_system_prompt_and_workspace_share_runtime_install_root"
+      ],
+      "reason": "Exact final historical mappings preserve neutral shutdown, lease, strict-schema and error cases; actual Phase 2 admission/delivery boundaries remain refused."
+    },
+    {
+      "name": "final-helper-cases",
+      "files": ["tests/test_desktop_final_helpers.py"],
+      "reason": "Exact retained schema, error, knowledge and documentation behavior; removed route/intake claims receive named effect-free boundary evidence."
+    },
+    {
+      "name": "final-distribution-cases",
+      "files": ["tests/test_desktop_final_distribution.py"],
+      "reason": "Exact retired server packaging and native dispatch dispositions; private wheel and current disabled/unready capability boundaries verified without native input."
+    },
+    {
+      "name": "final-config-cases",
+      "files": ["tests/test_desktop_final_config.py"],
+      "reason": "Exact remaining configuration, evidence digest, model identity, skill listing and timeout definitions with real profile boundaries; removed schema/intake contracts receive named replacements."
     }
   ],
   "acceptance": {
@@ -1660,19 +1686,20 @@
   "case_accounting": "maintenance/case-accounting.json",
   "accounting_summary": {
     "historical_failures": {
-      "executable": 179,
-      "unmapped-neutral-blocker": 20,
-      "removed-surface-replacement": 60
+      "executable": 185,
+      "unmapped-neutral-blocker": 0,
+      "removed-surface-replacement": 66,
+      "phase2-admission-wiring": 8
     },
     "foundation_definitions": {
-      "executable": 701,
-      "removed-surface-replacement": 65,
-      "unmapped-neutral-blocker": 82,
-      "phase2-admission-wiring": 12,
-      "native-prohibited-scope": 16
+      "executable": 725,
+      "removed-surface-replacement": 129,
+      "unmapped-neutral-blocker": 0,
+      "phase2-admission-wiring": 7,
+      "native-prohibited-scope": 15
     },
-    "historical_blockers": 20,
-    "foundation_blockers": 110,
+    "historical_blockers": 8,
+    "foundation_blockers": 22,
     "status": "pending-review-not-accepted"
   }
 }

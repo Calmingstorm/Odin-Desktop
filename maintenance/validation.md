@@ -1,5 +1,11 @@
 # Phase 1 implementation evidence and open blockers
 
+**Current result:** see `qualification-closure.md`. All 20 historical and 82
+foundation neutral mapping gaps below have been resolved individually. Final
+28-group local run: 13,081 passed, zero failures/errors, two skips. Earlier
+snapshots below remain historical evidence. Independent review and hosted CI
+confirmation remain separate gates.
+
 2026-10-04, branch phase-1/bring-over; independent Claude review pending.
 
 - `USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_maintenance.py`: **14 passed in 2.63s**. Parent runner invokes sudo unshare mount/PID namespace, non-root odin and env-i fresh HOME/XDG; no native desktop or engine runtime imported by these cases.

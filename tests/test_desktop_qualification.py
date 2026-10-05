@@ -164,3 +164,22 @@ def test_foundation_accounting_covers_every_original_definition():
         assert all(row["reason"] for row in suite["cases"])
         assert all(row["blocks_phase1"] for row in suite["cases"]
                    if row["disposition"] == "unmapped-neutral-blocker")
+
+
+def test_final_gate_has_no_unmapped_neutral_cases_or_stale_totals():
+    from collections import Counter
+
+    accounting = json.loads((ROOT / "maintenance/case-accounting.json").read_text())
+    plan = json.loads((ROOT / "maintenance/qualification-plan.json").read_text())
+    historical = accounting["historical_failures"]
+    foundation = [case for suite in accounting["foundation_suites"] for case in suite["cases"]]
+    assert not [case["original"] for case in historical + foundation
+                if case["disposition"] == "unmapped-neutral-blocker"]
+    summary = plan["accounting_summary"]
+    assert {key: value for key, value in summary["historical_failures"].items() if value} == dict(
+        Counter(case["disposition"] for case in historical))
+    foundation_counts = {key: value for key, value in summary["foundation_definitions"].items()
+                         if value}
+    assert foundation_counts == dict(Counter(case["disposition"] for case in foundation))
+    assert summary["historical_blockers"] == len(accounting["historical_failure_blockers"])
+    assert summary["foundation_blockers"] == len(accounting["foundation_blockers"])

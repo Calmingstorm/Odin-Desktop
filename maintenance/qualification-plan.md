@@ -1,5 +1,10 @@
 # Phase 1 inherited-corpus qualification
 
+**Current gate:** 28 groups completed locally with 13,081 passing executions,
+zero failures/errors and two skips. All historical/foundation neutral mapping
+gaps are closed. Deferred request/delivery/native scope remains explicit, not
+implemented parity. `qualification-closure.md` records the final distinction.
+
 `qualification-plan.json` is the executable group/case disposition artifact. `test-plan.json` retains all 869 frozen upstream paths and original hashes. Eligibility and new smoke tests never replace original assertions/case data.
 
 Historical failed runs remain visible: **116 failed, 5,824 passed, 3 skipped** in the interrupted 781.08-second run; **259 failed, 10,169 passed, 4 skipped** in the complete bounded 460.54-second run. No selection change makes these passing evidence.

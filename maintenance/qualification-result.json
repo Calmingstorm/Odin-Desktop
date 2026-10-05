@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "superseded_by": "maintenance/qualification-closure.md",
   "artifact": "Final Phase 1 selected-corpus execution receipt",
   "acceptance": "blocked-pending-neutral-case-closure-and-independent-review",
   "plan": "maintenance/qualification-plan.json",

@@ -1,5 +1,11 @@
 # Exact Phase 1 case accounting
 
+**Current:** zero unmapped neutral rows. Historical population: 185 executable,
+66 exact replacements, eight actual Phase 2 wiring obligations. Foundation:
+725 executable definitions, 129 exact replacements, seven actual Phase 2 wiring
+and 15 native/prohibited-scope obligations. See `qualification-closure.md`.
+The lists and counts below are retained historical snapshots, not current gaps.
+
 Pending review, not accepted.
 
 All 259 failed historical rows and 876 definitions across 38 foundation suites

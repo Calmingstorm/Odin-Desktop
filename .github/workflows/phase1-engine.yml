@@ -17,7 +17,11 @@ jobs:
           python-version: '3.12'
       - name: Repository-only locked environment
         run: |
-          python -m venv .venv
+          # Fake-peer identity tests pin the real test interpreter. Hosted
+          # toolcache binaries can be group-writable, which the unchanged
+          # executable trust guard correctly refuses. A repository-owned 0755
+          # copy is an explicit trusted fixture, not a relaxed production check.
+          python -m venv --copies .venv
           .venv/bin/python -m pip install uv==0.12.23
           .venv/bin/uv sync --locked --extra dev --active
       - name: Offline lineage and safety drift
