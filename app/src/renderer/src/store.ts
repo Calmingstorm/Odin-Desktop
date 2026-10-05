@@ -119,6 +119,8 @@ export const state = reactive({
   recoveryEpoch: 0,
   /** Why the latest snapshot of a conversation failed, until a retry starts. */
   loadErrors: {} as Record<string, string | undefined>,
+  /** Why the current recovery couldn't load the conversation list (or create the first chat), until a retry. */
+  recoveryError: undefined as string | undefined,
   views: {} as Record<string, ConversationView | undefined>,
   /** Requests queued or running per conversation, for the sidebar: from the list, then from events. */
   busy: {} as Record<string, string[] | undefined>,
@@ -217,6 +219,7 @@ function loadAll(): Promise<void> {
 
 async function loadAllOnce(epoch: number): Promise<void> {
   if (epoch !== state.recoveryEpoch) return
+  state.recoveryError = undefined
   listLoading = true
   const listed = await window.odin.listConversations()
   const held = listHeld.sort((a, b) => a.seq - b.seq)
@@ -225,13 +228,16 @@ async function loadAllOnce(epoch: number): Promise<void> {
   if (!listed.ok || epoch !== state.recoveryEpoch) {
     // A failed list, or one answered for an earlier recovery, never replaces the sidebar.
     for (const event of held) trackBusy(event)
-    if (!listed.ok) note(errorText(listed))
+    if (!listed.ok && epoch === state.recoveryEpoch) state.recoveryError = listed.error.message
     return
   }
   applyList(listed.result.items, Number(listed.result.watermark) || 0, held)
   if (state.conversations.length === 0) {
     const created = await window.odin.createConversation({ title: 'Chat' })
-    if (!created.ok) return note(errorText(created))
+    if (!created.ok) {
+      if (epoch === state.recoveryEpoch) state.recoveryError = created.error.message
+      return
+    }
     upsertConversation(created.result.conversation)
   }
   if (!state.activeId || !state.conversations.some((c) => c.id === state.activeId)) {
@@ -374,9 +380,16 @@ export async function select(conversationId: string): Promise<void> {
   if (!view || stale) await loadConversation(conversationId)
 }
 
-/** Fetches the open conversation's snapshot again after a failed load. */
+/** The error that keeps the open conversation from loading, if any: the recovery's own first, then its snapshot's. */
+export function loadFailure(): string | undefined {
+  return state.recoveryError ?? (state.activeId ? state.loadErrors[state.activeId] : undefined)
+}
+
+/** Retries whatever failed: the whole recovery (list, then snapshot), or just the open conversation's snapshot. */
 export async function retry(): Promise<void> {
-  if (state.activeId && state.app.link === 'ready') await loadConversation(state.activeId)
+  if (state.app.link !== 'ready') return
+  if (state.recoveryError) await loadAll()
+  else if (state.activeId) await loadConversation(state.activeId)
 }
 
 export async function newConversation(): Promise<void> {

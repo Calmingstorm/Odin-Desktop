@@ -515,4 +515,43 @@ describe('reconnect recovery', () => {
     await until(() => store.canAct('c2'))
     expect(store.state.views.c2!.epoch).toBe(store.state.recoveryEpoch)
   })
+
+  it('shows a failed conversation list as an error, routes nothing, and Retry restarts the whole recovery', async () => {
+    await start(snapshot({ watermark: '1' }))
+    bridge.control.holdLists = true
+    setApp({ ...READY, link: 'reconnecting' })
+    setApp(READY)
+    await until(() => bridge.control.lists.length === 1)
+    bridge.control.lists[0]!.resolve({ ok: false, error: { code: 'storage_unavailable', message: 'Odin’s storage is unavailable.' } })
+    await until(() => store.state.recoveryError !== undefined)
+    expect(store.loadFailure()).toBe('Odin’s storage is unavailable.')
+    expect(store.canAct('c1')).toBe(false)
+    expect(await store.send('hello', 'queue')).toBe(false)
+    expect(bridge.calls.submit).toHaveLength(0)
+
+    void store.retry() // the list first, then the open conversation's snapshot
+    await until(() => bridge.control.lists.length === 2)
+    expect(store.loadFailure()).toBeUndefined()
+    bridge.control.lists[1]!.resolve({ ok: true, result: { items: bridge.control.list, watermark: '9' } })
+    await until(() => bridge.control.snapshots.length === 2)
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '9' }))
+    await until(() => store.canAct('c1'))
+    expect(await store.send('hello', 'queue')).toBe(true)
+  })
+
+  it('shows a failed first load the same way, before anything was ever loaded', async () => {
+    bridge.control.holdLists = true
+    const done = store.init()
+    await until(() => bridge.control.lists.length === 1)
+    bridge.control.lists[0]!.resolve({ ok: false, error: { code: 'busy', message: 'Odin is starting.' } })
+    await done
+    expect(store.loadFailure()).toBe('Odin is starting.')
+    void store.retry()
+    await until(() => bridge.control.lists.length === 2)
+    bridge.control.lists[1]!.resolve({ ok: true, result: { items: bridge.control.list, watermark: '1' } })
+    await until(() => bridge.control.snapshots.length === 1)
+    bridge.control.snapshots[0]!.resolve(snapshot({ watermark: '1' }))
+    await until(() => store.canAct('c1'))
+    expect(store.loadFailure()).toBeUndefined()
+  })
 })
