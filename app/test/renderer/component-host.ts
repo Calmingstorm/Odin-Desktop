@@ -35,6 +35,25 @@ export class Host {
     return undefined
   }
 
+  /** Every element below this one that matches, depth first. */
+  findAll(match: (host: Host) => boolean): Host[] {
+    return this.children.flatMap((child) => [...(match(child) ? [child] : []), ...child.findAll(match)])
+  }
+
+  /** The button that reads exactly this text. */
+  button(text: string): Host {
+    const found = this.findAll((host) => host.tag === 'button' && host.textContent().trim() === text)
+    if (found.length !== 1) throw new Error(`expected one "${text}" button, found ${found.length}`)
+    return found[0]!
+  }
+
+  /** Calls the listener Vue set for an event, as the element firing it would. */
+  fire(event: string, detail: Record<string, unknown> = {}): unknown {
+    const listener = this.props[`on${event[0]!.toUpperCase()}${event.slice(1)}`] as ((e: unknown) => unknown) | undefined
+    if (!listener) throw new Error(`no ${event} listener on <${this.tag}>`)
+    return listener({ target: this, ...detail })
+  }
+
   /** The text a reader would see. */
   textContent(): string {
     if (this.tag === '#comment') return ''

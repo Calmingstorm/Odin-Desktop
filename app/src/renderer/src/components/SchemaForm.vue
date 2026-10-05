@@ -1,34 +1,32 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
 import type { ConfigField } from '../../../shared/api'
-import { dedicatedMethod, differenceNote, effectText, FieldDrafts, imageLeafOf, isSecret, STATE_LABELS } from '../settings-form'
+import { dedicatedMethod, differenceNote, effectText, FieldDrafts, imageLeafOf, isSecret, SecretDrafts, STATE_LABELS } from '../settings-form'
 import { clearSecret, resetField, saveField, setImageIntent, setSecret, settings } from '../stores/settings'
 
 defineProps<{ fields: ConfigField[] }>()
 
-/** What the user changed, per field, until it is saved: one save per field at a time, never clearing newer typing. */
-const form = new FieldDrafts()
+/** What the user changed, per field, until it is saved: one write per field at a time, never clearing newer typing. */
+const form = new FieldDrafts({
+  save: saveField,
+  reset: resetField,
+  latest: (path) => settings.meta?.fields.find((f) => f.path === path)
+})
 const errors = form.errors
-const secrets = reactive<Record<string, string | undefined>>({})
+const secrets = new SecretDrafts((path, value) => {
+  const field = settings.meta?.fields.find((f) => f.path === path)
+  return field ? setSecret(field, value) : Promise.resolve(false)
+})
 
 const current = (field: ConfigField): string | boolean => form.current(field)
 const edit = (field: ConfigField, value: string | boolean): void => form.edit(field, value)
-const save = (field: ConfigField): Promise<void> => form.save(field, saveField)
+const save = (field: ConfigField): Promise<void> => form.save(field)
+const reset = (field: ConfigField): Promise<void> => form.reset(field)
+const saving = (field: ConfigField): boolean => settings.fields[field.path]?.status === 'saving'
 
 /** Toggles and choices save at once; typed values save on Enter or when the field loses focus. */
 async function pick(field: ConfigField, value: string | boolean): Promise<void> {
   edit(field, value)
   await save(field)
-}
-
-async function saveSecret(field: ConfigField): Promise<void> {
-  const value = secrets[field.path]
-  if (!value) return
-  if (await setSecret(field, value)) secrets[field.path] = undefined
-}
-
-async function reset(field: ConfigField): Promise<void> {
-  if (await resetField(field)) form.clear(field)
 }
 
 const inputId = (field: ConfigField): string => `field-${field.path.replace(/\W/g, '-')}`
@@ -48,14 +46,14 @@ const inputId = (field: ConfigField): string => `field-${field.path.replace(/\W/
         <span class="secret-state">{{ field.desired ? 'Set' : 'Not set' }}</span>
         <input
           :id="inputId(field)"
-          :value="secrets[field.path] ?? ''"
+          :value="secrets.values[field.path] ?? ''"
           type="password"
           autocomplete="off"
           placeholder="New value"
-          @input="secrets[field.path] = ($event.target as HTMLInputElement).value"
-          @keydown.enter="saveSecret(field)"
+          @input="secrets.values[field.path] = ($event.target as HTMLInputElement).value"
+          @keydown.enter="secrets.save(field.path)"
         />
-        <button class="ghost" :disabled="!secrets[field.path]" @click="saveSecret(field)">Save</button>
+        <button class="ghost" :disabled="!secrets.values[field.path]" @click="secrets.save(field.path)">Save</button>
         <button v-if="field.desired" class="ghost" @click="clearSecret(field)">Clear</button>
       </div>
       <label v-else-if="field.type === 'boolean'" class="field-input toggle">
@@ -119,7 +117,12 @@ const inputId = (field: ConfigField): string => `field-${field.path.replace(/\W/
       <p v-if="errors[field.path]" class="warn">{{ errors[field.path] }}</p>
       <p v-else-if="settings.fields[field.path]?.status === 'error'" class="warn">{{ settings.fields[field.path]?.message }}</p>
       <p v-else-if="settings.fields[field.path]?.status === 'saved'" class="field-saved">Saved.</p>
-      <button v-if="!isSecret(field) && !dedicatedMethod(field) && field.configured" class="ghost field-reset" @click="reset(field)">
+      <button
+        v-if="!isSecret(field) && !dedicatedMethod(field) && field.configured"
+        class="ghost field-reset"
+        :disabled="saving(field)"
+        @click="reset(field)"
+      >
         Reset to default
       </button>
     </div>
