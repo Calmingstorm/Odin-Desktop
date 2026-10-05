@@ -308,6 +308,47 @@
       ]
     },
     {
+      "after_sha256": "8d4376123a94a384356477cfad85a45069369a0c923cccf7da30f4ae3bc7a0a8",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Run or verify sanitized nonroot PID-namespace private-bus/Xvfb source-build lifecycle and native notification receiver; record exact outcomes",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "No workstation endpoints, no unreviewed engine changes, no fake native input/real delivery qualification; failed or unavailable services remain explicit",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwoiIiJSdW4gaXNvbGF0ZWQgc291cmNlLWJ1aWxkIGxpZmVjeWNsZSBFMkUgYW5kIHJldGFpbiByZXByb2R1Y2libGUgZXZpZGVuY2UuCgpUaGlzIGRyaXZlciBuZXZlciBpbXBvcnRzIGFuIGVuZ2luZS4gYXBwL3NjcmlwdHMvbGlmZWN5Y2xlLWUyZS5tanMgb3ducyB0aGUKZmFpbC1jbG9zZWQgbmFtZXNwYWNlL2J1cy9ncmFwaGljcyBsYXVuY2hlcjsgbmF0aXZlIEQxMS9wYWNrYWdlIHJvd3Mgc3RheSBvcGVuLgoiIiIKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGFyZ3BhcnNlCmltcG9ydCBoYXNobGliCmltcG9ydCBqc29uCmltcG9ydCBvcwppbXBvcnQgc3VicHJvY2VzcwppbXBvcnQgdGltZQpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCgpkZWYgbWFpbigpIC0+IGludDoKICAgIHBhcnNlciA9IGFyZ3BhcnNlLkFyZ3VtZW50UGFyc2VyKGRlc2NyaXB0aW9uPV9fZG9jX18pCiAgICBwYXJzZXIuYWRkX2FyZ3VtZW50KCItLW91dHB1dCIsIHR5cGU9UGF0aCwgcmVxdWlyZWQ9VHJ1ZSkKICAgIHBhcnNlci5hZGRfYXJndW1lbnQoImNhc2VzIiwgbmFyZ3M9IioiLCBoZWxwPSJQbGF5d3JpZ2h0IGZpbGUvdGVzdCBmaWx0ZXJzIikKICAgIGFyZ3MgPSBwYXJzZXIucGFyc2VfYXJncygpCiAgICByZXBvc2l0b3J5ID0gUGF0aChfX2ZpbGVfXykucmVzb2x2ZSgpLnBhcmVudHNbMl0KICAgIG91dHB1dCA9IGFyZ3Mub3V0cHV0LnJlc29sdmUoKQogICAgb3V0cHV0Lm1rZGlyKHBhcmVudHM9VHJ1ZSwgZXhpc3Rfb2s9VHJ1ZSwgbW9kZT0wbzcwMCkKICAgIGlmIG91dHB1dCA9PSByZXBvc2l0b3J5IG9yIHJlcG9zaXRvcnkgaW4gb3V0cHV0LnBhcmVudHM6CiAgICAgICAgcGFyc2VyLmVycm9yKCJFdmlkZW5jZSBvdXRwdXQgbXVzdCBiZSBvdXRzaWRlIHRoZSBzb3VyY2UgY2hlY2tvdXQiKQogICAgY29tbWFuZCA9IFsiL3Vzci9iaW4vbm9kZSIsIHN0cihyZXBvc2l0b3J5IC8gImFwcC9zY3JpcHRzL2xpZmVjeWNsZS1lMmUubWpzIiksICphcmdzLmNhc2VzXQogICAgIyBUaGUgaW5uZXIgbGF1bmNoZXIgaW5kZXBlbmRlbnRseSBkaXNjYXJkcyBhbGwgYW1iaWVudCBzdGF0ZS4gRG8gdGhlIHNhbWUKICAgICMgaGVyZSBzbyB0aGUgZHJpdmVyIGNhbm5vdCBhY2NpZGVudGFsbHkgcnVuIHRvb2xpbmcgYWdhaW5zdCBhIGxpdmUgcHJvZmlsZS4KICAgIGVudmlyb25tZW50ID0gewogICAgICAgICJQQVRIIjogIi91c3IvbG9jYWwvYmluOi91c3IvYmluOi9iaW4iLCAiTEFORyI6ICJDLlVURi04IiwKICAgICAgICAiSE9NRSI6IHN0cihQYXRoLmhvbWUoKSksICJPRElOX0FQUF9FMkVfT1VUIjogc3RyKG91dHB1dCksCiAgICB9CiAgICBweXRob24gPSBvcy5lbnZpcm9uLmdldCgiT0RJTl9ERVNLVE9QX0VOR0lORV9QWVRIT04iKQogICAgaWYgcHl0aG9uOgogICAgICAgIGVudmlyb25tZW50WyJPRElOX0RFU0tUT1BfRU5HSU5FX1BZVEhPTiJdID0gcHl0aG9uCiAgICBzdGFydGVkID0gdGltZS50aW1lKCkKICAgIHdpdGggKG91dHB1dCAvICJxdWFsaWZpY2F0aW9uLmxvZyIpLm9wZW4oInciKSBhcyBsb2c6CiAgICAgICAgY2hpbGQgPSBzdWJwcm9jZXNzLlBvcGVuKGNvbW1hbmQsIGN3ZD1yZXBvc2l0b3J5LCBlbnY9ZW52aXJvbm1lbnQsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHN0ZG91dD1zdWJwcm9jZXNzLlBJUEUsIHN0ZGVycj1zdWJwcm9jZXNzLlNURE9VVCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdGV4dD1UcnVlLCBidWZzaXplPTEpCiAgICAgICAgYXNzZXJ0IGNoaWxkLnN0ZG91dCBpcyBub3QgTm9uZQogICAgICAgIGZvciBsaW5lIGluIGNoaWxkLnN0ZG91dDoKICAgICAgICAgICAgcHJpbnQobGluZSwgZW5kPSIiLCBmbHVzaD1UcnVlKQogICAgICAgICAgICBsb2cud3JpdGUobGluZSkKICAgICAgICAgICAgbG9nLmZsdXNoKCkKICAgICAgICBjb2RlID0gY2hpbGQud2FpdCgpCiAgICBhcnRpZmFjdHMgPSB7fQogICAgZm9yIHJlbGF0aXZlIGluICgKICAgICAgICAiYXBwL291dC9tYWluL2luZGV4LmpzIiwgImFwcC9vdXQvcHJlbG9hZC9pbmRleC5qcyIsICJhcHAvcGFja2FnZS1sb2NrLmpzb24iLCAidXYubG9jayIsCiAgICApOgogICAgICAgIHBhdGggPSByZXBvc2l0b3J5IC8gcmVsYXRpdmUKICAgICAgICBhcnRpZmFjdHNbcmVsYXRpdmVdID0gaGFzaGxpYi5zaGEyNTYocGF0aC5yZWFkX2J5dGVzKCkpLmhleGRpZ2VzdCgpCiAgICBmb3IgcGF0aCBpbiBzb3J0ZWQoKHJlcG9zaXRvcnkgLyAiYXBwL291dC9yZW5kZXJlciIpLnJnbG9iKCIqIikpOgogICAgICAgIGlmIHBhdGguaXNfZmlsZSgpOgogICAgICAgICAgICBkaWdlc3QgPSBoYXNobGliLnNoYTI1NihwYXRoLnJlYWRfYnl0ZXMoKSkuaGV4ZGlnZXN0KCkKICAgICAgICAgICAgYXJ0aWZhY3RzW3N0cihwYXRoLnJlbGF0aXZlX3RvKHJlcG9zaXRvcnkpKV0gPSBkaWdlc3QKICAgIGV2aWRlbmNlID0gewogICAgICAgICJzY29wZSI6ICJQMy4zIHBhcnQgMSwgc291cmNlIGJ1aWxkLCBpc29sYXRlZCBYdmZiL3ByaXZhdGUgbm90aWZpY2F0aW9uIHRlc3QgYnVzIiwKICAgICAgICAic291cmNlX3NoYSI6IHN1YnByb2Nlc3MuY2hlY2tfb3V0cHV0KAogICAgICAgICAgICBbImdpdCIsICJyZXYtcGFyc2UiLCAiSEVBRCJdLCBjd2Q9cmVwb3NpdG9yeSwgdGV4dD1UcnVlLAogICAgICAgICkuc3RyaXAoKSwKICAgICAgICAic291cmNlX2RpcnR5Ijogc3VicHJvY2Vzcy5jaGVja19vdXRwdXQoCiAgICAgICAgICAgIFsiZ2l0IiwgInN0YXR1cyIsICItLXBvcmNlbGFpbiJdLCBjd2Q9cmVwb3NpdG9yeSwgdGV4dD1UcnVlLAogICAgICAgICksCiAgICAgICAgImFydGlmYWN0c19zaGEyNTYiOiBhcnRpZmFjdHMsICJjb21tYW5kIjogY29tbWFuZCwKICAgICAgICAic3RhcnRlZF9hdF91bml4Ijogc3RhcnRlZCwgImZpbmlzaGVkX2F0X3VuaXgiOiB0aW1lLnRpbWUoKSwgImV4aXRfY29kZSI6IGNvZGUsCiAgICAgICAgIm5hdGl2ZV9kMTEiOiAib3Blbjogbm8gbmF0aXZlIHRyYXkvbG9naW4vY29tcG9zaXRvciBpbnB1dC9odW1hbiB2aXNpYmlsaXR5IHF1YWxpZmljYXRpb24iLAogICAgICAgICJwYWNrYWdlX3BhdGhzIjogIm9wZW46IG5vIGluc3RhbGxlZCBwYWNrYWdlIGV4ZXJjaXNlZCIsCiAgICAgICAgInByb2Nlc3NfY2xlYW51cCI6ICgKICAgICAgICAgICAgIktlcm5lbCBQSUQtbmFtZXNwYWNlIHRlYXJkb3duOyBzZWUgcGVyLWNhc2UgZXhhY3QgcHJvY2VzcyBpZGVudGl0aWVzL3JlY2VpcHRzLiAiCiAgICAgICAgICAgICJOb3QgbmF0aXZlIGlucHV0IHJlbGVhc2UgcHJvb2YuIgogICAgICAgICksCiAgICB9CiAgICAob3V0cHV0IC8gInF1YWxpZmljYXRpb24uanNvbiIpLndyaXRlX3RleHQoanNvbi5kdW1wcyhldmlkZW5jZSwgaW5kZW50PTIpICsgIlxuIikKICAgIHJldHVybiBjb2RlCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHJhaXNlIFN5c3RlbUV4aXQobWFpbigpKQo=",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "scripts/qualification/lifecycle.py",
+      "reason": "P3.3 part1 isolated source-build lifecycle qualification and owned fixtures",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "app/test/e2e/lifecycle.spec.ts": "707f8d1689297eb9717848e69f700d6697dd17db6fbf9796feab619ec9ff91f1",
+        "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
+        "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
+      },
+      "tests": [
+        "app/test/e2e/lifecycle.spec.ts",
+        "app/test/e2e/notifications.spec.ts",
+        "tests/test_desktop_lifecycle_qualification.py"
+      ]
+    },
+    {
       "after_sha256": "548d672c60c0812ef6c421800a7b6896326cefd077dfebaadf00edeaa23bc883",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
@@ -12058,6 +12099,170 @@
       ]
     },
     {
+      "after_sha256": "edca97f6067453a0a4d22c403e7f3ce5c7a872426c8e2cda5b76c3d4f3bcfb2a",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Run or verify sanitized nonroot PID-namespace private-bus/Xvfb source-build lifecycle and native notification receiver; record exact outcomes",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "No workstation endpoints, no unreviewed engine changes, no fake native input/real delivery qualification; failed or unavailable services remain explicit",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiSGFybWxlc3MsIHBhcmVudC1saW5rZWQgVW5peCBzb2NrZXQgb2NjdXBhbnQgZm9yIGlzb2xhdGVkIGxpZmVjeWNsZSBFMkUuIiIiCmltcG9ydCBqc29uCmltcG9ydCBvcwppbXBvcnQgc29ja2V0CmltcG9ydCBzeXMKCnBhdGgsIG1vZGUgPSBzeXMuYXJndlsxOl0Kc29jayA9IHNvY2tldC5zb2NrZXQoc29ja2V0LkFGX1VOSVgsIHNvY2tldC5TT0NLX1NUUkVBTSkKc29jay5iaW5kKHBhdGgpCnNvY2subGlzdGVuKDgpCmluZm8gPSBvcy5zdGF0KHBhdGgpCnByaW50KGpzb24uZHVtcHMoeyJwaWQiOiBvcy5nZXRwaWQoKSwgImlub2RlIjogaW5mby5zdF9pbm8sICJkZXZpY2UiOiBpbmZvLnN0X2RldiwKICAgICAgICAgICAgICAgICAgIm5hbWVzcGFjZSI6IG9zLnJlYWRsaW5rKCIvcHJvYy9zZWxmL25zL3BpZCIpLCAibW9kZSI6IG1vZGV9KSwgZmx1c2g9VHJ1ZSkKaWYgbW9kZSA9PSAic3RhbGUiOgogICAgc29jay5jbG9zZSgpCmVsaWYgbW9kZSA9PSAibGl2ZSI6CiAgICBzeXMuc3RkaW4uYnVmZmVyLnJlYWQoKQogICAgc29jay5jbG9zZSgpCmVsc2U6CiAgICByYWlzZSBWYWx1ZUVycm9yKCJPbmx5IGhhcm1sZXNzIGxpdmUvc3RhbGUgc29ja2V0IG9jY3VwYW50cyBhcmUgc3VwcG9ydGVkIikK",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/desktop_fixtures/lifecycle_owned_socket.py",
+      "reason": "P3.3 part1 isolated source-build lifecycle qualification and owned fixtures",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "app/test/e2e/lifecycle.spec.ts": "707f8d1689297eb9717848e69f700d6697dd17db6fbf9796feab619ec9ff91f1",
+        "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
+        "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
+      },
+      "tests": [
+        "app/test/e2e/lifecycle.spec.ts",
+        "app/test/e2e/notifications.spec.ts",
+        "tests/test_desktop_lifecycle_qualification.py"
+      ]
+    },
+    {
+      "after_sha256": "c03b9b43f5e4888d31ff71a0b8b8e15fa3b47a610498d1e9689684c338733ce8",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Run or verify sanitized nonroot PID-namespace private-bus/Xvfb source-build lifecycle and native notification receiver; record exact outcomes",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "No workstation endpoints, no unreviewed engine changes, no fake native input/real delivery qualification; failed or unavailable services remain explicit",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiRml4dHVyZS1vbmx5IGNvbnZlcnNhdGlvbi9hY2sgc2VydmljZS4gTk9UIGEgcmVhbC1jb3JlIGRlbGl2ZXJ5IHByb29mLgoKVGhlIHN0ZXAtb25lIHJlYWwgY29yZSBoYXMgbm8gbm90aWZpY2F0aW9uL2NvbnZlcnNhdGlvbiBzZXJ2aWNlcy4gUXVhbGlmaWNhdGlvbgptZXRob2RzIGFyZSBkZWxpYmVyYXRlbHkgYWJzZW50IGZyb20gcHJvZHVjdGlvbiBjb3JlIGFuZCByZW5kZXJlciBJUEMuCiIiIgppbXBvcnQgYXN5bmNpbwppbXBvcnQgaW1wb3J0bGliLnV0aWwKaW1wb3J0IHN5cwpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCmZyb20gcHJpdmF0ZV9ub3RpZmljYXRpb25fc2VydmVyIGltcG9ydCBhc3NlcnRfaXNvbGF0ZWQKCmFzc2VydF9pc29sYXRlZCgpCnNvdXJjZSA9IFBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRzWzJdIC8gImFwcC9maXh0dXJlLWNvcmUvZml4dHVyZV9jb3JlLnB5IgpzcGVjID0gaW1wb3J0bGliLnV0aWwuc3BlY19mcm9tX2ZpbGVfbG9jYXRpb24oIm5vdGlmaWNhdGlvbl9maXh0dXJlX2NvcmUiLCBzb3VyY2UpCmZpeHR1cmUgPSBpbXBvcnRsaWIudXRpbC5tb2R1bGVfZnJvbV9zcGVjKHNwZWMpCnNwZWMubG9hZGVyLmV4ZWNfbW9kdWxlKGZpeHR1cmUpCgoKY2xhc3MgTm90aWZpY2F0aW9uQ29yZShmaXh0dXJlLkNvcmUpOgogICAgZGVmIF9faW5pdF9fKHNlbGYsICphcmdzLCAqKmt3YXJncyk6CiAgICAgICAgc3VwZXIoKS5fX2luaXRfXygqYXJncywgKiprd2FyZ3MpCiAgICAgICAgc2VsZi5yZWFkX3JlY2VpcHRzID0gW10KICAgICAgICBzZWVkZWQgPSBbKCJub3RpZnktbWFpbiIsICJOb3RpZmljYXRpb24gdGFyZ2V0IiksICgibm90aWZ5LW90aGVyIiwgIk90aGVyIGNvbnZlcnNhdGlvbiIpXQogICAgICAgIGZvciBjaWQsIHRpdGxlIGluIHNlZWRlZDoKICAgICAgICAgICAgc2VsZi5jb252ZXJzYXRpb25zW2NpZF0gPSB7ImlkIjogY2lkLCAidGl0bGUiOiB0aXRsZSwgInJldiI6IDEsICJwYXJlbnRfaWQiOiBOb25lLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAidXBkYXRlZF9hdCI6IGZpeHR1cmUubm93KCksICJ1bnJlYWQiOiA3LCAiYXJjaGl2ZWQiOiBGYWxzZX0KICAgICAgICAgICAgc2VsZi5tZXNzYWdlc1tjaWRdID0gWwogICAgICAgICAgICAgICAgeyJpZCI6IGYie2NpZH0te2l9IiwgInJvbGUiOiAiYXNzaXN0YW50IiwgInRleHQiOiBmIkNvbW1pdHRlZCBmaXh0dXJlIGhpc3Rvcnkge2l9IiwKICAgICAgICAgICAgICAgICAiY3JlYXRlZF9hdCI6IGZpeHR1cmUubm93KCl9IGZvciBpIGluIHJhbmdlKDEyMCkKICAgICAgICAgICAgXQoKICAgIGRlZiBxdWFsaWZpY2F0aW9uKHNlbGYsIF9wYXJhbXMsIF93cml0ZXIpOgogICAgICAgIHJldHVybiB7CiAgICAgICAgICAgICJhY2tzIjogZGljdChzZWxmLm5vdGlmaWNhdGlvbl9hY2tzKSwgInJlYWRzIjogbGlzdChzZWxmLnJlYWRfcmVjZWlwdHMpLAogICAgICAgICAgICAiZml4dHVyZV9vbmx5IjogVHJ1ZSwKICAgICAgICB9CgogICAgZGVmIG1hcmtfcmVhZChzZWxmLCBwYXJhbXMsIHdyaXRlcik6CiAgICAgICAgcmVzdWx0ID0gc3VwZXIoKS5tX2NvbnZfbWFya19yZWFkKHBhcmFtcywgd3JpdGVyKQogICAgICAgIHNlbGYucmVhZF9yZWNlaXB0cy5hcHBlbmQoZGljdChwYXJhbXMpKQogICAgICAgIHJldHVybiByZXN1bHQKCgpmaXh0dXJlLkNvcmUgPSBOb3RpZmljYXRpb25Db3JlCmZpeHR1cmUuTUVUSE9EU1sibm90aWZpY2F0aW9uLnF1YWxpZmljYXRpb24iXSA9IE5vdGlmaWNhdGlvbkNvcmUucXVhbGlmaWNhdGlvbgpmaXh0dXJlLlJFQURfTUVUSE9EUy5hZGQoIm5vdGlmaWNhdGlvbi5xdWFsaWZpY2F0aW9uIikKZml4dHVyZS5OT19SRUNFSVBUX01FVEhPRFMuYWRkKCJub3RpZmljYXRpb24ucXVhbGlmaWNhdGlvbiIpCmZpeHR1cmUuTUVUSE9EU1siY29udmVyc2F0aW9ucy5tYXJrX3JlYWQiXSA9IE5vdGlmaWNhdGlvbkNvcmUubWFya19yZWFkCnN5cy5leGl0KGFzeW5jaW8ucnVuKGZpeHR1cmUubWFpbigpKSkK",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/desktop_fixtures/notification_core.py",
+      "reason": "P3.3 part1 isolated source-build lifecycle qualification and owned fixtures",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "app/test/e2e/lifecycle.spec.ts": "707f8d1689297eb9717848e69f700d6697dd17db6fbf9796feab619ec9ff91f1",
+        "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
+        "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
+      },
+      "tests": [
+        "app/test/e2e/lifecycle.spec.ts",
+        "app/test/e2e/notifications.spec.ts",
+        "tests/test_desktop_lifecycle_qualification.py"
+      ]
+    },
+    {
+      "after_sha256": "2aad427d8df16fe84879a5d9d50ce0b6cd6b51ec6c47958ce480d486bb2a4072",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Run or verify sanitized nonroot PID-namespace private-bus/Xvfb source-build lifecycle and native notification receiver; record exact outcomes",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "No workstation endpoints, no unreviewed engine changes, no fake native input/real delivery qualification; failed or unavailable services remain explicit",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "PCFET0NUWVBFIGJ1c2NvbmZpZyBQVUJMSUMgIi0vL2ZyZWVkZXNrdG9wLy9EVEQgRC1CdXMgQnVzIENvbmZpZ3VyYXRpb24gMS4wLy9FTiIKICJodHRwOi8vd3d3LmZyZWVkZXNrdG9wLm9yZy9zdGFuZGFyZHMvZGJ1cy8xLjAvYnVzY29uZmlnLmR0ZCI+CjwhLS0gRGlzcG9zYWJsZSBxdWFsaWZpY2F0aW9uIGJ1cy4gTm8gd29ya3N0YXRpb24gc2VydmljZSBhY3RpdmF0aW9uIGRpcmVjdG9yaWVzLAogICAgIHBvcnRhbCwga2V5cmluZywgdHJheSBvciBub3RpZmljYXRpb24gZGFlbW9uIGFyZSBpbXBvcnRlZCBpbnRvIHRoaXMgc2Vzc2lvbi4gLS0+CjxidXNjb25maWc+CiAgPHR5cGU+c2Vzc2lvbjwvdHlwZT4KICA8bGlzdGVuPnVuaXg6dG1wZGlyPS90bXA8L2xpc3Rlbj4KICA8YXV0aD5FWFRFUk5BTDwvYXV0aD4KICA8cG9saWN5IGNvbnRleHQ9ImRlZmF1bHQiPgogICAgPGFsbG93IHNlbmRfZGVzdGluYXRpb249IioiIGVhdmVzZHJvcD0idHJ1ZSIvPgogICAgPGFsbG93IGVhdmVzZHJvcD0idHJ1ZSIvPgogICAgPGFsbG93IG93bj0iKiIvPgogIDwvcG9saWN5Pgo8L2J1c2NvbmZpZz4K",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/desktop_fixtures/private-session.conf",
+      "reason": "P3.3 part1 isolated source-build lifecycle qualification and owned fixtures",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "app/test/e2e/lifecycle.spec.ts": "707f8d1689297eb9717848e69f700d6697dd17db6fbf9796feab619ec9ff91f1",
+        "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
+        "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
+      },
+      "tests": [
+        "app/test/e2e/lifecycle.spec.ts",
+        "app/test/e2e/notifications.spec.ts",
+        "tests/test_desktop_lifecycle_qualification.py"
+      ]
+    },
+    {
+      "after_sha256": "0027023e72a5991ebbdb7d7443d6302fc44afe7a2bb95bf47de09324c029b816",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Run or verify sanitized nonroot PID-namespace private-bus/Xvfb source-build lifecycle and native notification receiver; record exact outcomes",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "No workstation endpoints, no unreviewed engine changes, no fake native input/real delivery qualification; failed or unavailable services remain explicit",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiT3duZWQgb3JnLmZyZWVkZXNrdG9wLk5vdGlmaWNhdGlvbnMgcmVjZWl2ZXIsIG5ldmVyIGEgZGVza3RvcCBub3RpZmljYXRpb24gZGFlbW9uLgoKVGhpcyByZWNvcmRzIEVsZWN0cm9uJ3MgKm5hdGl2ZSogRC1CdXMgY2FsbHMgYW5kIGVtaXRzIGEgcmVhbCBBY3Rpb25JbnZva2VkIHNpZ25hbC4KSXQgZG9lcyBub3QgcGFpbnQgbm90aWZpY2F0aW9ucywgcHJvdmUgaHVtYW4gYXBwZWFyYW5jZSwgb3IgaW1wbGVtZW50IGNvcmUgZGVsaXZlcnkuCkNvbnRyb2wgcmVxdWVzdHMgdXNlIGEgcHJpdmF0ZSBVbml4IHNvY2tldCwgbm90IGEgcmVuZGVyZXIgSVBDIGNhcGFiaWxpdHkuCiIiIgojIEV4YWN0IGZyZWVkZXNrdG9wIG5hbWVzL3NpZ25hdHVyZXMgYXJlIHJlcXVpcmVkIGJ5IGRidXMtbmV4dDsgdGhlc2UgYXJlIG5vdCBQeXRob24gdHlwZSBoaW50cy4KIyBydWZmOiBub3FhOiBOODAyLCBGNzIyLCBGODIxCmltcG9ydCBhcmdwYXJzZQppbXBvcnQgYXN5bmNpbwppbXBvcnQganNvbgppbXBvcnQgb3MKaW1wb3J0IHNpZ25hbCBhcyBvc19zaWduYWwKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpmcm9tIGRidXNfbmV4dCBpbXBvcnQgREJ1c0Vycm9yLCBOYW1lRmxhZywgUmVxdWVzdE5hbWVSZXBseQpmcm9tIGRidXNfbmV4dC5haW8gaW1wb3J0IE1lc3NhZ2VCdXMKZnJvbSBkYnVzX25leHQuc2VydmljZSBpbXBvcnQgU2VydmljZUludGVyZmFjZSwgbWV0aG9kLCBzaWduYWwKCgpkZWYgYXNzZXJ0X2lzb2xhdGVkKCk6CiAgICByb290ID0gb3MuZW52aXJvbi5nZXQoIk9ESU5fUkVBTF9DT1JFX1JPT1QiLCAiIikKICAgIG91dGVyID0gb3MuZW52aXJvbi5nZXQoIk9ESU5fUkVBTF9DT1JFX09VVEVSX1BJRF9OUyIpCiAgICBpZiAob3MuZ2V0dWlkKCkgPT0gMCBvciBub3Qgb3V0ZXIgb3Igb3MucmVhZGxpbmsoIi9wcm9jL3NlbGYvbnMvcGlkIikgPT0gb3V0ZXIKICAgICAgICAgICAgb3Igbm90IHJvb3Quc3RhcnRzd2l0aCgiL3RtcC9vZHJjLSIpIG9yIG9zLmVudmlyb24uZ2V0KCJIT01FIikgIT0gcm9vdAogICAgICAgICAgICBvciBvcy5lbnZpcm9uLmdldCgiT0RJTl9BUFBfRTJFIikgIT0gIjEiCiAgICAgICAgICAgIG9yIG5vdCBvcy5lbnZpcm9uLmdldCgiREJVU19TRVNTSU9OX0JVU19BRERSRVNTIikpOgogICAgICAgIHJhaXNlIFJ1bnRpbWVFcnJvcigiTm90aWZpY2F0aW9uIHJlY2VpdmVyIHJlcXVpcmVzIHRoZSBwcml2YXRlIGFwcCBFMkUgUElEL0hPTUUvYnVzIHJ1bm5lciIpCiAgICByZXR1cm4gUGF0aChyb290KQoKCmNsYXNzIE5vdGlmaWNhdGlvbnMoU2VydmljZUludGVyZmFjZSk6CiAgICBkZWYgX19pbml0X18oc2VsZik6CiAgICAgICAgc3VwZXIoKS5fX2luaXRfXygib3JnLmZyZWVkZXNrdG9wLk5vdGlmaWNhdGlvbnMiKQogICAgICAgIHNlbGYucmVxdWVzdHMgPSBbXQogICAgICAgIHNlbGYuYWN0aW9ucyA9IFtdCiAgICAgICAgc2VsZi5jbG9zZXMgPSBbXQogICAgICAgIHNlbGYucmVqZWN0ID0gRmFsc2UKICAgICAgICBzZWxmLm5leHRfaWQgPSAxCgogICAgQG1ldGhvZCgpCiAgICBkZWYgR2V0Q2FwYWJpbGl0aWVzKHNlbGYpIC0+ICdhcyc6CiAgICAgICAgcmV0dXJuIFsiYWN0aW9ucyIsICJib2R5IiwgImJvZHktbWFya3VwIiwgInBlcnNpc3RlbmNlIl0KCiAgICBAbWV0aG9kKCkKICAgIGRlZiBHZXRTZXJ2ZXJJbmZvcm1hdGlvbihzZWxmKSAtPiAnc3Nzcyc6CiAgICAgICAgcmV0dXJuIFsiT2RpbiBwcml2YXRlIHF1YWxpZmljYXRpb24gcmVjZWl2ZXIiLCAiT2RpbiBEZXNrdG9wIHRlc3RzIiwgIjEuMCIsICIxLjIiXQoKICAgIEBtZXRob2QoKQogICAgZGVmIE5vdGlmeShzZWxmLCBhcHBfbmFtZTogJ3MnLCByZXBsYWNlc19pZDogJ3UnLCBhcHBfaWNvbjogJ3MnLCBzdW1tYXJ5OiAncycsCiAgICAgICAgICAgICAgIGJvZHk6ICdzJywgYWN0aW9uczogJ2FzJywgaGludHM6ICdhe3N2fScsIGV4cGlyZV90aW1lb3V0OiAnaScpIC0+ICd1JzoKICAgICAgICBpZGVudGl0eSA9IHNlbGYubmV4dF9pZAogICAgICAgIHNlbGYubmV4dF9pZCArPSAxCiAgICAgICAgc2VsZi5yZXF1ZXN0cy5hcHBlbmQoeyJpZCI6IGlkZW50aXR5LCAiYXBwX25hbWUiOiBhcHBfbmFtZSwgInJlcGxhY2VzX2lkIjogcmVwbGFjZXNfaWQsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICJzdW1tYXJ5Ijogc3VtbWFyeSwgImJvZHkiOiBib2R5LCAiYWN0aW9ucyI6IGFjdGlvbnMsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICJleHBpcmVfdGltZW91dCI6IGV4cGlyZV90aW1lb3V0LCAiYWNjZXB0ZWQiOiBub3Qgc2VsZi5yZWplY3R9KQogICAgICAgIGlmIHNlbGYucmVqZWN0OgogICAgICAgICAgICByYWlzZSBEQnVzRXJyb3IoCiAgICAgICAgICAgICAgICAib3JnLmZyZWVkZXNrdG9wLk5vdGlmaWNhdGlvbnMuRXJyb3IuRmFpbGVkIiwgIk93bmVkIGZpeHR1cmUgcmVqZWN0ZWQgTm90aWZ5IgogICAgICAgICAgICApCiAgICAgICAgcmV0dXJuIGlkZW50aXR5CgogICAgQG1ldGhvZCgpCiAgICBkZWYgQ2xvc2VOb3RpZmljYXRpb24oc2VsZiwgaWRlbnRpdHk6ICd1Jyk6CiAgICAgICAgc2VsZi5jbG9zZXMuYXBwZW5kKGlkZW50aXR5KQogICAgICAgIHNlbGYuTm90aWZpY2F0aW9uQ2xvc2VkKGlkZW50aXR5LCAzKQoKICAgIEBzaWduYWwoKQogICAgZGVmIEFjdGlvbkludm9rZWQoc2VsZiwgaWRlbnRpdHksIGFjdGlvbikgLT4gJ3VzJzoKICAgICAgICByZXR1cm4gW2lkZW50aXR5LCBhY3Rpb25dCgogICAgQHNpZ25hbCgpCiAgICBkZWYgTm90aWZpY2F0aW9uQ2xvc2VkKHNlbGYsIGlkZW50aXR5LCByZWFzb24pIC0+ICd1dSc6CiAgICAgICAgcmV0dXJuIFtpZGVudGl0eSwgcmVhc29uXQoKICAgIGRlZiBzbmFwc2hvdChzZWxmKToKICAgICAgICByZXR1cm4geyJwaWQiOiBvcy5nZXRwaWQoKSwgInBpZF9uYW1lc3BhY2UiOiBvcy5yZWFkbGluaygiL3Byb2Mvc2VsZi9ucy9waWQiKSwKICAgICAgICAgICAgICAgICJyZXF1ZXN0cyI6IHNlbGYucmVxdWVzdHMsICJhY3Rpb25zIjogc2VsZi5hY3Rpb25zLCAiY2xvc2VzIjogc2VsZi5jbG9zZXN9CgoKYXN5bmMgZGVmIHJ1bihzb2NrZXRfcGF0aCk6CiAgICByb290ID0gYXNzZXJ0X2lzb2xhdGVkKCkKICAgIHBhdGggPSBQYXRoKHNvY2tldF9wYXRoKQogICAgaWYgbm90IHBhdGguaXNfcmVsYXRpdmVfdG8ocm9vdCkgb3IgcGF0aC5leGlzdHMoKToKICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoIkNvbnRyb2wgc29ja2V0IG11c3QgYmUgYSBmcmVzaCBvd25lZCBwYXRoIGluIHRocm93YXdheSBIT01FIikKICAgIG5vdGlmaWNhdGlvbnMgPSBOb3RpZmljYXRpb25zKCkKICAgIGJ1cyA9IGF3YWl0IE1lc3NhZ2VCdXMoKS5jb25uZWN0KCkKICAgIGJ1cy5leHBvcnQoIi9vcmcvZnJlZWRlc2t0b3AvTm90aWZpY2F0aW9ucyIsIG5vdGlmaWNhdGlvbnMpCiAgICBjbGFpbWVkID0gYXdhaXQgYnVzLnJlcXVlc3RfbmFtZSgib3JnLmZyZWVkZXNrdG9wLk5vdGlmaWNhdGlvbnMiLCBOYW1lRmxhZy5ET19OT1RfUVVFVUUpCiAgICBpZiBjbGFpbWVkICE9IFJlcXVlc3ROYW1lUmVwbHkuUFJJTUFSWV9PV05FUjoKICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoIlByaXZhdGUgbm90aWZpY2F0aW9uIG5hbWUgYWxyZWFkeSBvY2N1cGllZDsgcmVmdXNpbmcgcmVwbGFjZW1lbnQiKQogICAgc3RvcHBlZCA9IGFzeW5jaW8uRXZlbnQoKQoKICAgIGFzeW5jIGRlZiBjb250cm9sKHJlYWRlciwgd3JpdGVyKToKICAgICAgICB0cnk6CiAgICAgICAgICAgIHJlcXVlc3QgPSBqc29uLmxvYWRzKGF3YWl0IGFzeW5jaW8ud2FpdF9mb3IocmVhZGVyLnJlYWRsaW5lKCksIHRpbWVvdXQ9NSkpCiAgICAgICAgICAgIGFjdGlvbiA9IHJlcXVlc3QuZ2V0KCJhY3Rpb24iKQogICAgICAgICAgICBpZiBhY3Rpb24gPT0gInNuYXBzaG90IjoKICAgICAgICAgICAgICAgIHJlc3VsdCA9IG5vdGlmaWNhdGlvbnMuc25hcHNob3QoKQogICAgICAgICAgICBlbGlmIGFjdGlvbiA9PSAicmVqZWN0IjoKICAgICAgICAgICAgICAgIG5vdGlmaWNhdGlvbnMucmVqZWN0ID0gYm9vbChyZXF1ZXN0WyJlbmFibGVkIl0pCiAgICAgICAgICAgICAgICByZXN1bHQgPSB7InJlamVjdCI6IG5vdGlmaWNhdGlvbnMucmVqZWN0fQogICAgICAgICAgICBlbGlmIGFjdGlvbiA9PSAicmVsZWFzZV9uYW1lIjoKICAgICAgICAgICAgICAgIGF3YWl0IGJ1cy5yZWxlYXNlX25hbWUoIm9yZy5mcmVlZGVza3RvcC5Ob3RpZmljYXRpb25zIikKICAgICAgICAgICAgICAgIHJlc3VsdCA9IHsicmVsZWFzZWQiOiBUcnVlfQogICAgICAgICAgICBlbGlmIGFjdGlvbiA9PSAiY2xpY2siOgogICAgICAgICAgICAgICAgaWRlbnRpdHkgPSBpbnQocmVxdWVzdFsiaWQiXSkKICAgICAgICAgICAgICAgIGl0ZW0gPSBuZXh0KAogICAgICAgICAgICAgICAgICAgIGl0ZW0gZm9yIGl0ZW0gaW4gbm90aWZpY2F0aW9ucy5yZXF1ZXN0cwogICAgICAgICAgICAgICAgICAgIGlmIGl0ZW1bImlkIl0gPT0gaWRlbnRpdHkgYW5kIGl0ZW1bImFjY2VwdGVkIl0KICAgICAgICAgICAgICAgICkKICAgICAgICAgICAgICAgICMgQWN0aW9uIElEcyB3ZXJlIHJlY2VpdmVkIGZyb20gRWxlY3Ryb24sIG5ldmVyIGludmVudGVkIHRvIGRyaXZlIG1haW4gSlMgZGlyZWN0bHkuCiAgICAgICAgICAgICAgICBrZXlzID0gaXRlbVsiYWN0aW9ucyJdWzo6Ml0KICAgICAgICAgICAgICAgIGtleSA9IHJlcXVlc3QuZ2V0KCJrZXkiLCAiZGVmYXVsdCIpCiAgICAgICAgICAgICAgICBpZiBrZXkgbm90IGluIGtleXM6CiAgICAgICAgICAgICAgICAgICAgcmFpc2UgVmFsdWVFcnJvcihmIkFjdGlvbiB7a2V5fSBub3Qgb2ZmZXJlZCBieSBFbGVjdHJvbjoge2tleXN9IikKICAgICAgICAgICAgICAgIG5vdGlmaWNhdGlvbnMuYWN0aW9ucy5hcHBlbmQoeyJpZCI6IGlkZW50aXR5LCAia2V5Ijoga2V5fSkKICAgICAgICAgICAgICAgIG5vdGlmaWNhdGlvbnMuQWN0aW9uSW52b2tlZChpZGVudGl0eSwga2V5KQogICAgICAgICAgICAgICAgcmVzdWx0ID0geyJlbWl0dGVkIjogVHJ1ZX0KICAgICAgICAgICAgZWxpZiBhY3Rpb24gPT0gInN0b3AiOgogICAgICAgICAgICAgICAgcmVzdWx0ID0geyJjbGVhbnVwIjogImJ1cyBkaXNjb25uZWN0IGFuZCBvd25lZCBzb2NrZXQgdW5saW5rIHJlcXVlc3RlZCJ9CiAgICAgICAgICAgICAgICBzdG9wcGVkLnNldCgpCiAgICAgICAgICAgIGVsc2U6CiAgICAgICAgICAgICAgICByYWlzZSBWYWx1ZUVycm9yKCJVbmtub3duIHJlY2VpdmVyIGNvbnRyb2wiKQogICAgICAgICAgICByZXNwb25zZSA9IHsib2siOiBUcnVlLCAicmVzdWx0IjogcmVzdWx0fQogICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZXJyb3I6CiAgICAgICAgICAgIHJlc3BvbnNlID0geyJvayI6IEZhbHNlLCAiZXJyb3IiOiBzdHIoZXJyb3IpfQogICAgICAgIHdyaXRlci53cml0ZShqc29uLmR1bXBzKHJlc3BvbnNlKS5lbmNvZGUoKSArIGIiXG4iKQogICAgICAgIGF3YWl0IHdyaXRlci5kcmFpbigpCiAgICAgICAgd3JpdGVyLmNsb3NlKCkKICAgICAgICBhd2FpdCB3cml0ZXIud2FpdF9jbG9zZWQoKQoKICAgIHNlcnZlciA9IGF3YWl0IGFzeW5jaW8uc3RhcnRfdW5peF9zZXJ2ZXIoY29udHJvbCwgcGF0aD1wYXRoKQogICAgb3MuY2htb2QocGF0aCwgMG82MDApCiAgICBmb3Igc2lnIGluIChvc19zaWduYWwuU0lHSU5ULCBvc19zaWduYWwuU0lHVEVSTSk6CiAgICAgICAgYXN5bmNpby5nZXRfcnVubmluZ19sb29wKCkuYWRkX3NpZ25hbF9oYW5kbGVyKHNpZywgc3RvcHBlZC5zZXQpCiAgICBwcmludChqc29uLmR1bXBzKHsicmVhZHkiOiBUcnVlLCAqKm5vdGlmaWNhdGlvbnMuc25hcHNob3QoKX0pLCBmbHVzaD1UcnVlKQogICAgdHJ5OgogICAgICAgIGF3YWl0IHN0b3BwZWQud2FpdCgpCiAgICBmaW5hbGx5OgogICAgICAgIHNlcnZlci5jbG9zZSgpCiAgICAgICAgYXdhaXQgc2VydmVyLndhaXRfY2xvc2VkKCkKICAgICAgICBhd2FpdCBidXMucmVsZWFzZV9uYW1lKCJvcmcuZnJlZWRlc2t0b3AuTm90aWZpY2F0aW9ucyIpCiAgICAgICAgYnVzLmRpc2Nvbm5lY3QoKQogICAgICAgIGF3YWl0IGJ1cy53YWl0X2Zvcl9kaXNjb25uZWN0KCkKICAgICAgICBwYXRoLnVubGluayhtaXNzaW5nX29rPVRydWUpCiAgICAgICAgcHJpbnQoanNvbi5kdW1wcyh7ImNsZWFudXAiOiAiY29uZmlybWVkIiwgIm93bmVkX3NvY2tldF9yZW1vdmVkIjogbm90IHBhdGguZXhpc3RzKCksCiAgICAgICAgICAgICAgICAgICAgICAgICAgImJ1c19kaXNjb25uZWN0ZWQiOiBUcnVlLCAicGlkIjogb3MuZ2V0cGlkKCl9KSwgZmx1c2g9VHJ1ZSkKCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgcGFyc2VyID0gYXJncGFyc2UuQXJndW1lbnRQYXJzZXIoKQogICAgcGFyc2VyLmFkZF9hcmd1bWVudCgiLS1zb2NrZXQiLCByZXF1aXJlZD1UcnVlKQogICAgYXN5bmNpby5ydW4ocnVuKHBhcnNlci5wYXJzZV9hcmdzKCkuc29ja2V0KSkK",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/desktop_fixtures/private_notification_server.py",
+      "reason": "P3.3 part1 isolated source-build lifecycle qualification and owned fixtures",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "app/test/e2e/lifecycle.spec.ts": "707f8d1689297eb9717848e69f700d6697dd17db6fbf9796feab619ec9ff91f1",
+        "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
+        "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
+      },
+      "tests": [
+        "app/test/e2e/lifecycle.spec.ts",
+        "app/test/e2e/notifications.spec.ts",
+        "tests/test_desktop_lifecycle_qualification.py"
+      ]
+    },
+    {
       "after_sha256": "3b03ac4efeef21de6ae6d8df053443af3b28fa7f22aa69b154a4f5f00d36325d",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
@@ -13430,6 +13635,47 @@
       },
       "tests": [
         "tests/test_desktop_knowledge.py"
+      ]
+    },
+    {
+      "after_sha256": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Run or verify sanitized nonroot PID-namespace private-bus/Xvfb source-build lifecycle and native notification receiver; record exact outcomes",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "No workstation endpoints, no unreviewed engine changes, no fake native input/real delivery qualification; failed or unavailable services remain explicit",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiRHJpdmVyIGV2aWRlbmNlIGlzIGRhdGEsIG5vdCBuYXRpdmUvZW5naW5lIGFjY2VwdGFuY2Ugb3IgZG9jdW1lbnQgd29yZGluZy4iIiIKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGhhc2hsaWIKaW1wb3J0IGltcG9ydGxpYi51dGlsCmltcG9ydCBpbwppbXBvcnQganNvbgpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCmltcG9ydCBweXRlc3QKCkRSSVZFUiA9IFBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRzWzFdIC8gInNjcmlwdHMvcXVhbGlmaWNhdGlvbi9saWZlY3ljbGUucHkiCgoKZGVmIGRyaXZlcigpOgogICAgc3BlYyA9IGltcG9ydGxpYi51dGlsLnNwZWNfZnJvbV9maWxlX2xvY2F0aW9uKCJsaWZlY3ljbGVfcXVhbGlmaWNhdGlvbl9kcml2ZXIiLCBEUklWRVIpCiAgICBtb2R1bGUgPSBpbXBvcnRsaWIudXRpbC5tb2R1bGVfZnJvbV9zcGVjKHNwZWMpCiAgICBzcGVjLmxvYWRlci5leGVjX21vZHVsZShtb2R1bGUpCiAgICByZXR1cm4gbW9kdWxlCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJjb2RlIiwgWzAsIDFdKQpkZWYgdGVzdF9kcml2ZXJfcmV0YWluc19mYWlsZWRfb3Jfc3VjY2Vzc2Z1bF9nYXRlX2FuZF9oYXNoZXNfd2l0aG91dF9pbmhlcml0aW5nX3Nlc3Npb24oCiAgICB0bXBfcGF0aCwgbW9ua2V5cGF0Y2gsIGNvZGUsCik6CiAgICBtb2R1bGUgPSBkcml2ZXIoKQogICAgcmVwb3NpdG9yeSA9IHRtcF9wYXRoIC8gInJlcG8iCiAgICBmYWtlX3NjcmlwdCA9IHJlcG9zaXRvcnkgLyAic2NyaXB0cy9xdWFsaWZpY2F0aW9uL2xpZmVjeWNsZS5weSIKICAgIGZha2Vfc2NyaXB0LnBhcmVudC5ta2RpcihwYXJlbnRzPVRydWUpCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKG1vZHVsZSwgIl9fZmlsZV9fIiwgc3RyKGZha2Vfc2NyaXB0KSkKICAgIGZpbGVzID0gewogICAgICAgICJhcHAvb3V0L21haW4vaW5kZXguanMiOiBiIm1haW4iLAogICAgICAgICJhcHAvb3V0L3ByZWxvYWQvaW5kZXguanMiOiBiInByZWxvYWQiLAogICAgICAgICJhcHAvb3V0L3JlbmRlcmVyL2luZGV4Lmh0bWwiOiBiInJlbmRlcmVyIiwKICAgICAgICAiYXBwL3BhY2thZ2UtbG9jay5qc29uIjogYiJsb2NrIiwKICAgICAgICAidXYubG9jayI6IGIicHl0aG9uIGxvY2siLAogICAgfQogICAgZm9yIHJlbGF0aXZlLCBjb250ZW50IGluIGZpbGVzLml0ZW1zKCk6CiAgICAgICAgcGF0aCA9IHJlcG9zaXRvcnkgLyByZWxhdGl2ZQogICAgICAgIHBhdGgucGFyZW50Lm1rZGlyKHBhcmVudHM9VHJ1ZSwgZXhpc3Rfb2s9VHJ1ZSkKICAgICAgICBwYXRoLndyaXRlX2J5dGVzKGNvbnRlbnQpCiAgICBvdXRwdXQgPSB0bXBfcGF0aCAvICJldmlkZW5jZSIKICAgIG1vbmtleXBhdGNoLnNldGF0dHIoInN5cy5hcmd2IiwgW3N0cihEUklWRVIpLCAiLS1vdXRwdXQiLCBzdHIob3V0cHV0KSwgImxpZmVjeWNsZSJdKQogICAgbW9ua2V5cGF0Y2guc2V0ZW52KCJESVNQTEFZIiwgIjphY3RpdmUtc2Vzc2lvbiIpCiAgICBtb25rZXlwYXRjaC5zZXRlbnYoIkRCVVNfU0VTU0lPTl9CVVNfQUREUkVTUyIsICJ1bml4OnBhdGg9L2FjdGl2ZS1zZXNzaW9uIikKICAgIG1vbmtleXBhdGNoLnNldGVudigiT0RJTl9ERVNLVE9QX0NPUkVfQ01EIiwgImFtYmllbnQgY29yZSBvdmVycmlkZSIpCiAgICBtb25rZXlwYXRjaC5zZXRlbnYoIk5PREVfT1BUSU9OUyIsICJhbWJpZW50IGZsYWdzIikKICAgIGNhcHR1cmVkID0ge30KCiAgICBjbGFzcyBQcm9jZXNzOgogICAgICAgIHN0ZG91dCA9IGlvLlN0cmluZ0lPKCJjYXNlIGV2aWRlbmNlXG4iKQoKICAgICAgICBkZWYgd2FpdChzZWxmKToKICAgICAgICAgICAgcmV0dXJuIGNvZGUKCiAgICBkZWYgbGF1bmNoKGNvbW1hbmQsICoqa3dhcmdzKToKICAgICAgICBjYXB0dXJlZC51cGRhdGUoY29tbWFuZD1jb21tYW5kLCAqKmt3YXJncykKICAgICAgICByZXR1cm4gUHJvY2VzcygpCgogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihtb2R1bGUuc3VicHJvY2VzcywgIlBvcGVuIiwgbGF1bmNoKQogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihtb2R1bGUuc3VicHJvY2VzcywgImNoZWNrX291dHB1dCIsIGxhbWJkYSAqYSwgKiprdzogInRlc3Qtc2hhXG4iKQogICAgYXNzZXJ0IG1vZHVsZS5tYWluKCkgPT0gY29kZQogICAgYXNzZXJ0IGNhcHR1cmVkWyJjd2QiXSA9PSByZXBvc2l0b3J5CiAgICBhc3NlcnQgY2FwdHVyZWRbImNvbW1hbmQiXVstMV0gPT0gImxpZmVjeWNsZSIKICAgIGZvciBrZXkgaW4gKCJESVNQTEFZIiwgIkRCVVNfU0VTU0lPTl9CVVNfQUREUkVTUyIsICJPRElOX0RFU0tUT1BfQ09SRV9DTUQiLCAiTk9ERV9PUFRJT05TIik6CiAgICAgICAgYXNzZXJ0IGtleSBub3QgaW4gY2FwdHVyZWRbImVudiJdCiAgICBldmlkZW5jZSA9IGpzb24ubG9hZHMoKG91dHB1dCAvICJxdWFsaWZpY2F0aW9uLmpzb24iKS5yZWFkX3RleHQoKSkKICAgIGFzc2VydCBldmlkZW5jZVsiZXhpdF9jb2RlIl0gPT0gY29kZQogICAgYXNzZXJ0IGV2aWRlbmNlWyJzb3VyY2Vfc2hhIl0gPT0gInRlc3Qtc2hhIgogICAgYXNzZXJ0IGV2aWRlbmNlWyJhcnRpZmFjdHNfc2hhMjU2Il0gPT0gewogICAgICAgIHJlbGF0aXZlOiBoYXNobGliLnNoYTI1Nihjb250ZW50KS5oZXhkaWdlc3QoKSBmb3IgcmVsYXRpdmUsIGNvbnRlbnQgaW4gZmlsZXMuaXRlbXMoKQogICAgfQogICAgYXNzZXJ0IChvdXRwdXQgLyAicXVhbGlmaWNhdGlvbi5sb2ciKS5yZWFkX3RleHQoKSA9PSAiY2FzZSBldmlkZW5jZVxuIgogICAgYXNzZXJ0IGV2aWRlbmNlWyJuYXRpdmVfZDExIl0uc3RhcnRzd2l0aCgib3BlbjoiKQogICAgYXNzZXJ0IGV2aWRlbmNlWyJwYWNrYWdlX3BhdGhzIl0uc3RhcnRzd2l0aCgib3BlbjoiKQoKCmRlZiB0ZXN0X2RyaXZlcl9yZWplY3RzX2V2aWRlbmNlX2luc2lkZV9jaGVja291dF9iZWZvcmVfbGF1bmNoKHRtcF9wYXRoLCBtb25rZXlwYXRjaCk6CiAgICBtb2R1bGUgPSBkcml2ZXIoKQogICAgZmFrZV9zY3JpcHQgPSB0bXBfcGF0aCAvICJzY3JpcHRzL3F1YWxpZmljYXRpb24vbGlmZWN5Y2xlLnB5IgogICAgZmFrZV9zY3JpcHQucGFyZW50Lm1rZGlyKHBhcmVudHM9VHJ1ZSkKICAgIG1vbmtleXBhdGNoLnNldGF0dHIobW9kdWxlLCAiX19maWxlX18iLCBzdHIoZmFrZV9zY3JpcHQpKQogICAgbW9ua2V5cGF0Y2guc2V0YXR0cigic3lzLmFyZ3YiLCBbc3RyKERSSVZFUiksICItLW91dHB1dCIsIHN0cih0bXBfcGF0aCAvICJhcHAvZXZpZGVuY2UiKV0pCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKAogICAgICAgIG1vZHVsZS5zdWJwcm9jZXNzLCAiUG9wZW4iLCBsYW1iZGEgKmEsICoqa3c6IHB5dGVzdC5mYWlsKCJtdXN0IHJlamVjdCBiZWZvcmUgbGF1bmNoIiksCiAgICApCiAgICB3aXRoIHB5dGVzdC5yYWlzZXMoU3lzdGVtRXhpdCkgYXMgZXJyb3I6CiAgICAgICAgbW9kdWxlLm1haW4oKQogICAgYXNzZXJ0IGVycm9yLnZhbHVlLmNvZGUgPT0gMgo=",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/test_desktop_lifecycle_qualification.py",
+      "reason": "P3.3 part1 isolated source-build lifecycle qualification and owned fixtures",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "app/test/e2e/lifecycle.spec.ts": "707f8d1689297eb9717848e69f700d6697dd17db6fbf9796feab619ec9ff91f1",
+        "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
+        "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
+      },
+      "tests": [
+        "app/test/e2e/lifecycle.spec.ts",
+        "app/test/e2e/notifications.spec.ts",
+        "tests/test_desktop_lifecycle_qualification.py"
       ]
     },
     {

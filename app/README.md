@@ -20,6 +20,7 @@ npm run smoke          # launches the built app on an isolated xvfb display with
 npm run test:real-core  # separate real engine contract gate; never included in npm run check
 npm run smoke:real-core # built Electron app + real engine, isolated PID namespace and xvfb
 npm run test:a11y     # real Electron keyboard/axe/Chromium AX gate, fixture + real step-one core
+npm run test:e2e       # source lifecycle + private native notification receiver, same isolation
 ```
 
 `npm run smoke` never touches the real desktop session, the user's Odin Desktop profile or their autostart entries. Set
@@ -79,6 +80,35 @@ management. Neither a fixture pass nor a Chromium AX dump proves Orca/AT-SPI spe
 Reports, full Chromium AX dumps, axe violations **and incomplete checks**, sandbox/cleanup receipts and screenshots
 are written under ignored `test-results/`. Set `ODIN_APP_A11Y_REPORT` to an absolute JSON path to retain a report
 outside the checkout. Review `../maintenance/phase3-accessibility.md` for findings, dispositions and open native rows.
+
+## Source-build lifecycle qualification (P3.3 part 1)
+
+`test:e2e` uses the shared pinned Playwright 1.63.0 without downloading or substituting a browser. It launches the pinned
+Electron source build inside the real-core isolation runner, on Xvfb and a disposable D-Bus session that has no
+service-activation directories. The notification receiver is an explicitly started `dbus-next` fixture using the
+project Python environment. No installed app, user tray, login autostart, workstation bus or native input is used.
+Run through the wrapper, not `playwright test` directly: the harness rejects an unisolated/root invocation.
+
+Set `ODIN_APP_E2E_OUT` to an external directory to retain Playwright JSON and per-case PID/start-tick/namespace,
+socket, acknowledgement and cleanup evidence. For source/artifact hashes plus the streamed gate log, build first,
+then run `../.venv/bin/python ../scripts/qualification/lifecycle.py --output /absolute/external/evidence` from
+`app/`. The driver reports failed gates unchanged. Default evidence and private profiles are discarded.
+
+Close/relaunch, menu/Ctrl+Q/launcher Exit, no-instance `--exit`, parent EOF/abrupt app loss, renderer recovery,
+stale/live/non-socket occupancy and startup restart budgets are exercised against the actual step-one core.
+Unexpected loss of an already authenticated core stops automatic replacement: a process exit cannot establish
+effect/native-resource release. Exit freezes admission and reconnect reconciliation before persisting state and
+requesting one shutdown. Process escalation has a separate unknown receipt, never an "undone" result.
+Cleanup evidence is fsynced in an app-only sibling file `config/odin-desktop/default-cleanup-state.json`, not in
+the identity-checked engine profile. Previous unknown evidence remains visible on subsequent starts and is not
+cleared by a later ordinary Exit.
+
+Notification tests exercise actual Electron D-Bus requests, acceptance/refusal and native `ActionInvoked`, then
+inspect the exact older conversation/message in the renderer, including renderer loss. Their conversation and
+acknowledgement service is explicitly a fixture: step one does not serve real delivery, requests, background work,
+notifications or computer input. D11 trays/login, installed package paths, admitted work/descendant cleanup and
+native input release remain open, not silently qualified by these tests. See
+[`../maintenance/phase3-lifecycle.md`](../maintenance/phase3-lifecycle.md).
 
 ## Layout
 

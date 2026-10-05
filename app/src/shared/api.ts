@@ -1098,8 +1098,8 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   codexLoginBegin(): Promise<Result<DeviceCode>>
   codexLoginPoll(params: { device_auth_id: string; user_code: string }): Promise<Result<LoginPoll>>
   setConversationMuted(params: { conversation_id: string; muted: boolean }): Promise<Result<Settings>>
-  /** A notification was clicked: the window should show that conversation. */
-  onOpenConversation(listener: (conversationId: string) => void): () => void
+  /** A notification was clicked: open its exact committed message, including older history. Main-to-window only. */
+  onOpenConversation(listener: (target: { conversationId: string; messageId: string }) => void): () => void
   getAppState(): Promise<AppState>
   onEvent(listener: (event: CoreEvent) => void): () => void
   onAppState(listener: (state: AppState) => void): () => void
@@ -1172,6 +1172,8 @@ export const IPC = {
   codexLoginPoll: 'odin:codex:login-poll',
   setConversationMuted: 'odin:settings:set-muted',
   openConversation: 'odin:open-conversation',
+  /** Preload listener readiness only. No payload, target, command or renderer-controlled core operation. */
+  notificationRouteReady: 'odin:notification-route-ready',
   getAppState: 'odin:app-state:get',
   event: 'odin:event',
   appState: 'odin:app-state',

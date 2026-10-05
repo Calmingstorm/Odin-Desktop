@@ -66,6 +66,8 @@ import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-pol
 
 export interface IpcDeps {
   broker: Broker
+  /** Exit quiesces local app writes as well as core requests before persistence. */
+  admitting?: () => boolean
   windowId: () => number | null
   /** The window's top frame; requests from any other frame are refused. */
   mainFrame: () => FrameIdentity | null
@@ -105,6 +107,11 @@ export function registerIpc(deps: IpcDeps): void {
   ): void {
     ipcMain.handle(channel, async (event, raw: unknown) => {
       if (!trusted(event)) return UNTRUSTED
+      if (deps.admitting && !deps.admitting()) {
+        return { ok: false, error: {
+          code: 'busy', message: 'Odin is stopping.', disposition: 'not_dispatched'
+        } }
+      }
       let value: z.infer<S> = undefined as z.infer<S>
       if (schema) {
         const parsed = parseRequest(schema, raw)

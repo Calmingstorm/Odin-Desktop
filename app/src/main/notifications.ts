@@ -124,8 +124,8 @@ export interface NotifierDeps {
   titleOf(conversationId: string): string | null
   /** Shows one OS notification; resolves with whether the OS accepted it. */
   show(notification: { title: string; body: string; onClick: () => void }): Promise<'shown' | 'failed'>
-  /** Brings the window forward on that conversation. */
-  open(conversationId: string): void
+  /** Brings the window forward on the exact committed message, not whichever message happens to be latest. */
+  open(conversationId: string, messageId: string): void
   /** Tells the core what happened, through notifications.ack. */
   ack(dedupeKey: string, outcome: Outcome): void
   now(): Date
@@ -156,7 +156,7 @@ export class Notifier {
     const outcome = await this.deps.show({
       title: decision.title,
       body: decision.body,
-      onClick: () => this.deps.open(intent.conversation_id)
+      onClick: () => this.deps.open(intent.conversation_id, intent.message_id)
     })
     this.deps.ack(intent.dedupe_key, outcome)
     return outcome

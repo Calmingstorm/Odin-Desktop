@@ -106,8 +106,10 @@ const api: OdinApi = {
   codexLoginPoll: (params) => ipcRenderer.invoke(IPC.codexLoginPoll, params),
   setConversationMuted: (params) => ipcRenderer.invoke(IPC.setConversationMuted, params),
   onOpenConversation: (listener) => {
-    const handler = (_event: IpcRendererEvent, conversationId: string): void => listener(conversationId)
+    const handler = (_event: IpcRendererEvent, target: { conversationId: string; messageId: string }): void => listener(target)
     ipcRenderer.on(IPC.openConversation, handler)
+    // Main may be holding an OS click across renderer recreation. Signal only after its listener exists.
+    ipcRenderer.send(IPC.notificationRouteReady)
     return () => ipcRenderer.removeListener(IPC.openConversation, handler)
   },
   getAppState: () => ipcRenderer.invoke(IPC.getAppState),
