@@ -432,8 +432,10 @@ class RequestService:
         self.assert_request(message)
         store = self.engine.deps.turn_store
         handle = TurnDurability.disabled()
+        if store is None:
+            return handle
         handle.blocked = "admission_error"
-        if store is None or not store.available:
+        if not store.available:
             return handle
         def digest(text):
             return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -553,7 +555,8 @@ class RequestService:
             # A returned result owns its existing guarded reply. Publication or
             # accounting failures must not add a contradictory execution notice.
             failure_notice = False
-            status = self.engine.deps.turn_store.turn_status_sync(message.turn_key)
+            ledger = self.engine.deps.turn_store
+            status = ledger.turn_status_sync(message.turn_key) if ledger is not None else None
             outcome = ("suspended" if status == TurnStatus.SUSPENDED else
                        "cancelled" if status == TurnStatus.TERMINAL_CANCELLED else
                        "failed" if result[2] else "completed")
@@ -606,7 +609,10 @@ class RequestService:
                 return
             unknown = json.loads(row["unknown_effects"])
             ledger = self.engine.deps.turn_store
-            if ledger is not None:
+            # A dead store may refuse before obtaining a ledger lease. There
+            # are no admitted effects to project in that case. If a lease did
+            # exist, preserve fail-closed projection instead of losing unknowns.
+            if ledger is not None and (ledger.available or row["ledger_generation"] is not None):
                 # This projection is complete for the bound request, unlike
                 # the deliberately bounded diagnostics observer. Terminal
                 # unknown effects cannot disappear behind its page limit.
