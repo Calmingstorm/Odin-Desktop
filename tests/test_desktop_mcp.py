@@ -139,6 +139,11 @@ async def test_empty_disabled_control_plane_needs_no_transport(harness):
 
 async def test_lifecycle_publication_tools_and_reconnect(harness):
     service, _, _, invalidations = harness
+    assert service.METHODS == {
+        "mcp.list", "mcp.status", "mcp.tools", "mcp.save", "mcp.set_enabled",
+        "mcp.delete", "mcp.reconnect", "mcp.refresh_tools", "mcp.set_global_enabled",
+        "mcp.set_limits",
+    }
     result = await save(service, tool_allowlist=["echo"])
     assert result["saved"] and result["connected_count"] == 1
     assert service.has_tool("mcp_stub_echo") and not service.has_tool("mcp_stub_other")
@@ -428,7 +433,9 @@ async def test_failed_after_effect_config_write_restores_source(harness, monkeyp
     assert not backend.values and not service.manager.server_names
 
 
-async def test_locked_keyring_only_blocks_credentialed_server_and_reconnect_recovers(harness, monkeypatch):
+async def test_locked_keyring_only_blocks_credentialed_server_and_reconnect_recovers(
+    harness, monkeypatch,
+):
     service, backend, _, _ = harness
     await save(service, env_set={"TEMP": "private-test-value"})
     await service.handle("mcp.save", {"name": "free", "command": "stub-program"})
@@ -470,7 +477,9 @@ async def test_locked_keyring_only_blocks_credentialed_server_and_reconnect_reco
         await second.close()
 
 
-async def test_credential_free_save_clear_delete_and_restart_skip_locked_keyring(harness, monkeypatch):
+async def test_credential_free_save_clear_delete_and_restart_skip_locked_keyring(
+    harness, monkeypatch,
+):
     service, backend, _, _ = harness
     backend.locked = True
     await save(service)
@@ -499,7 +508,7 @@ async def test_credential_free_save_clear_delete_and_restart_skip_locked_keyring
         await second.close()
 
 
-async def test_legacy_markers_migrate_without_discarding_credentials(harness):
+async def test_legacy_reconnect_migrates_adopted_servers(harness, monkeypatch):
     service, backend, _, _ = harness
     await save(service, headers_set={"Authorization": "private-header"})
     await service.handle("mcp.save", {"name": "free", "command": "stub-program"})
@@ -507,33 +516,72 @@ async def test_legacy_markers_migrate_without_discarding_credentials(harness):
     service._marker_path("free").unlink()
     await service.close()
     backend.locked = True
+    reads = []
+    original = backend.get_password
+
+    def counted(namespace, name):
+        reads.append(name)
+        return original(namespace, name)
+
+    monkeypatch.setattr(backend, "get_password", counted)
     second = MCPService(service.settings, manager=MCPManager(connection_factory=StubConnection))
     try:
         await second.start(wait_for_first_attempt=True)
+        assert reads == []
         assert second.has_tool("mcp_stub_echo") and second.has_tool("mcp_free_echo")
-        assert all("credential_migration" in row for row in second._status()["servers"])
+        assert all("mcp.reconnect" in row["credential_migration"]
+                   for row in second._status()["servers"])
         assert not second._marker_path("stub").exists()
         with pytest.raises(MethodError) as failed:
-            await second.handle("mcp.migrate_credentials", {"name": "stub"})
+            await second.handle("mcp.reconnect", {"name": "stub"})
         assert failed.value.code == "capability_unavailable"
+        assert "keyring" in failed.value.message
+        assert second.has_tool("mcp_stub_echo") and second.has_tool("mcp_free_echo")
         assert not second._marker_path("stub").exists()
         assert backend.values
         before = backend.values.copy()
         await second.handle("mcp.save", {"name": "stub", "args": ["public-edit"]})
         assert backend.values == before and not second._marker_path("stub").exists()
-        with pytest.raises(MethodError):
+        with pytest.raises(MethodError) as edit:
             await second.handle("mcp.save", {"name": "stub", "headers_remove": ["Authorization"]})
+        assert "mcp.reconnect" in edit.value.message
         assert backend.values == before
         backend.locked = False
-        await second.handle("mcp.migrate_credentials", {"name": "stub"})
-        await second.handle("mcp.migrate_credentials", {"name": "free"})
+        adopted_before = next(
+            conn for conn in reversed(StubConnection.instances) if conn.name == "stub"
+        )
+
+        def unavailable_marker(*args):
+            raise OSError("private fixture failure must not escape")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(second, "_write_marker", unavailable_marker)
+            with pytest.raises(MethodError) as marker:
+                await second.handle("mcp.reconnect", {"name": "stub"})
+            assert marker.value.code == "capability_unavailable"
+            assert "private fixture" not in marker.value.message
+        assert not second._marker_path("stub").exists()
+        assert not adopted_before.disconnected and backend.values == before
+        reads.clear()
+        await second.handle("mcp.reconnect", {"name": "stub"})
+        assert reads == [f"mcp.servers.stub.{field}" for field in ("headers", "env", "url")]
+        free_before = next(
+            conn for conn in reversed(StubConnection.instances) if conn.name == "free"
+        )
+        await second.handle("mcp.reconnect", {"name": "free"})
+        assert free_before.disconnected
         assert second.has_tool("mcp_stub_echo") and second.has_tool("mcp_free_echo")
         assert second._credential_fields("stub") == {"headers"}
         assert second._credential_fields("free") == set()
-        with pytest.raises(MethodError) as repeated:
-            await second.handle("mcp.migrate_credentials", {"name": "stub"})
-        assert repeated.value.code == "bad_request"
-        assert next(conn for conn in reversed(StubConnection.instances) if conn.name == "stub").kwargs["headers"] == {"Authorization": "private-header"}
+        reads.clear()
+        await second.handle("mcp.reconnect", {"name": "stub"})
+        assert reads == []
+        assert all("credential_migration" not in row for row in second._status()["servers"])
+        adopted = next(conn for conn in reversed(StubConnection.instances) if conn.name == "stub")
+        assert adopted.kwargs["headers"] == {"Authorization": "private-header"}
+        assert "private-header" not in json.dumps(second._status())
+        await second.handle("mcp.save", {"name": "stub", "headers_remove": ["Authorization"]})
+        assert not backend.values and second._credential_fields("stub") == set()
     finally:
         await second.close()
 
@@ -600,7 +648,9 @@ async def test_marker_failure_rolls_back_vault_and_existing_marker(harness, monk
     assert failed.value.code == "internal_error" and failed.value.disposition != "outcome_unknown"
     assert service._marker_path("stub").read_text() == before
     assert service.settings.paths.config_file.read_text() == config_before
-    assert service.settings.secrets.get("mcp.servers.stub.env") == json.dumps({"TEMP": "original-private"})
+    assert service.settings.secrets.get("mcp.servers.stub.env") == json.dumps({
+        "TEMP": "original-private",
+    })
     assert service.has_tool("mcp_stub_echo")
 
 
@@ -686,7 +736,9 @@ async def test_reload_public_endpoint_and_unavailable_snapshot_rollback(harness)
         await second.close()
 
 
-async def test_fresh_marker_free_config_starts_and_publishes_without_keyring_access(harness, monkeypatch):
+async def test_fresh_marker_free_config_starts_and_publishes_without_keyring_access(
+    harness, monkeypatch,
+):
     """Public config is sufficient when no credential presence is recorded."""
     from src.config.schema import MCPServerConfig
 
@@ -709,7 +761,6 @@ async def test_fresh_marker_free_config_starts_and_publishes_without_keyring_acc
         assert second.has_tool("mcp_direct_echo")
         assert second.get_tool_definitions()
         assert not second._marker_path("direct").exists()
-        await second.handle("mcp.reconnect", {"name": "direct"})
         assert second.has_tool("mcp_direct_echo") and second._credential_fields("direct") is None
     finally:
         await second.close()

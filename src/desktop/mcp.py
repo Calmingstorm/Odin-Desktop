@@ -12,7 +12,7 @@ keyring at mcp.servers.<name>.headers/env, not plaintext config. Endpoint secret
 use mcp.servers.<name>.url; the saved URL is credential-free recognition data.
 Profile-local mcp-credentials/<name>.json records only credential field presence.
 Unmarked servers also bypass the keyring. Older keyring-only credentials are
-retained, never inferred or deleted: mcp.migrate_credentials explicitly imports
+retained, never inferred or deleted: mcp.reconnect explicitly imports
 their presence once unlocked. Status exposes this migration boundary.
 Only the section controls write these containers. Generic secrets.set is not a
 container-JSON API. prepare_settings is the reload composition seam: adoption is
@@ -30,17 +30,17 @@ from pydantic import ValidationError
 
 from ..config.persistence import DELETE_CONFIG_PATH, _config_file_lock, _patch_config_paths
 from ..config.schema import MCPConfig, MCPServerConfig
+from ..permissions.persistence import write_private_atomic
 from ..tools.mcp.errors import MCPConfigError
 from ..tools.mcp.manager import MCPManager, validate_server_config
 from ..tools.mcp.outcomes import OUTCOME_FAILED, MCPToolOutcome
-from ..permissions.persistence import write_private_atomic
 from .management import MethodError
 from .secrets import SecretStoreError
 
 METHODS = frozenset({
     "mcp.list", "mcp.status", "mcp.tools", "mcp.save", "mcp.set_enabled",
     "mcp.delete", "mcp.reconnect", "mcp.refresh_tools", "mcp.set_global_enabled",
-    "mcp.set_limits", "mcp.migrate_credentials",
+    "mcp.set_limits",
 })
 READ_METHODS = frozenset({"mcp.list", "mcp.status", "mcp.tools"})
 _PUBLIC_FIELDS = frozenset(MCPServerConfig.model_fields) - {"headers", "env"}
@@ -164,9 +164,14 @@ class MCPService:
             try:
                 servers[name] = self._hydrate_server(name, row)
             except SecretStoreError:
-                unavailable[name] = "MCP credentials are unavailable: profile keyring is unavailable or locked"
+                unavailable[name] = (
+                    "MCP credentials are unavailable: profile keyring is unavailable or locked"
+                )
             except Exception:
-                unavailable[name] = "MCP configuration or credential marker is unavailable; explicit migration may be required"
+                unavailable[name] = (
+                    "MCP configuration or credential marker is unavailable; "
+                    "explicit migration may be required"
+                )
         return servers, unavailable
 
     async def start(self, *, wait_for_first_attempt=False):
@@ -230,7 +235,7 @@ class MCPService:
                 if self._credential_fields(row["name"]) is None:
                     row["credential_migration"] = (
                         "No stored credentials recorded; legacy keyring-only credentials "
-                        "require explicit mcp.migrate_credentials before use"
+                        "require explicit mcp.reconnect with an unlocked keyring before use"
                     )
             except Exception:
                 row["credential_migration"] = "Credential marker is unavailable"
@@ -285,49 +290,44 @@ class MCPService:
                 self._require_server(name)
                 return {"name": name, "tools": self.manager.server_tools(name)}
             self._check_revision(params)
-            if method == "mcp.migrate_credentials":
-                if set(params) - {"name", "expected_revision"}:
-                    raise MethodError("bad_request", "Unexpected MCP migration field")
-                name = self._name(params)
-                if name not in self.settings.config.mcp.servers:
-                    raise MethodError("not_found", "MCP server not found")
-                try:
-                    if self._credential_fields(name) is not None:
-                        raise MethodError("bad_request", "MCP credential presence is already recorded")
-                    row = self._hydrate_server(
-                        name, self.settings.config.mcp.servers[name], migrate=True,
-                    )
-                except MethodError:
-                    raise
-                except SecretStoreError:
-                    raise MethodError("capability_unavailable", "MCP credential migration requires an available, unlocked profile keyring") from None
-                except Exception:
-                    raise MethodError("capability_unavailable", "MCP credential migration or marker persistence is unavailable") from None
-                transition = self.manager.stage_desired_state(
-                    enabled=self.settings.config.mcp.enabled,
-                    servers=self.manager.desired_servers() | {name: row},
-                )
-                self._unavailable.pop(name, None)
-                await self.manager.finish_desired_state(transition)
-                return self._status()
             if method in {"mcp.reconnect", "mcp.refresh_tools"}:
                 if set(params) - {"name", "expected_revision"}:
                     raise MethodError("bad_request", "Unexpected MCP operation field")
                 name = self._name(params)
-                if name in self._unavailable and method == "mcp.reconnect":
+                if name not in self.settings.config.mcp.servers:
+                    raise MethodError("not_found", "MCP server not found")
+                if method == "mcp.reconnect":
                     try:
-                        row = self._hydrate_server(name, self.settings.config.mcp.servers[name])
+                        unmarked = self._credential_fields(name) is None
+                        if name in self._unavailable or unmarked:
+                            # Explicit reconnect is the legacy import boundary,
+                            # even for a public-only server already adopted at boot.
+                            row = self._hydrate_server(
+                                name, self.settings.config.mcp.servers[name], migrate=unmarked,
+                            )
+                        else:
+                            row = None
                     except SecretStoreError:
-                        raise MethodError("capability_unavailable", self._unavailable[name]) from None
+                        raise MethodError("capability_unavailable", self._unavailable.get(
+                            name, "MCP reconnect requires an available, unlocked profile keyring",
+                        )) from None
                     except Exception:
-                        raise MethodError("capability_unavailable", "MCP configuration or credential marker is unavailable") from None
-                    transition = self.manager.stage_desired_state(
-                        enabled=self.settings.config.mcp.enabled,
-                        servers=self.manager.desired_servers() | {name: row},
-                    )
-                    self._unavailable.pop(name)
-                    await self.manager.finish_desired_state(transition)
-                    return self._status()
+                        raise MethodError(
+                            "capability_unavailable",
+                            "MCP configuration, credential migration or marker "
+                            "persistence is unavailable",
+                        ) from None
+                    if row is not None:
+                        servers = self.manager.desired_servers()
+                        changed = servers.get(name) != row
+                        transition = self.manager.stage_desired_state(
+                            enabled=self.settings.config.mcp.enabled,
+                            servers=servers | {name: row},
+                        )
+                        self._unavailable.pop(name, None)
+                        await self.manager.finish_desired_state(transition)
+                        if changed:
+                            return self._status()
                 self._require_server(name)
                 if not self._started:
                     raise MethodError(
@@ -406,10 +406,14 @@ class MCPService:
                         except SecretStoreError:
                             raise MethodError("capability_unavailable", unavailable[name]) from None
                         except Exception:
-                            raise MethodError("capability_unavailable", "MCP configuration or credential marker is unavailable") from None
+                            raise MethodError(
+                                "capability_unavailable",
+                                "MCP configuration or credential marker is unavailable",
+                            ) from None
                         unavailable.pop(name, None)
                 else:
-                    value = copy.deepcopy(runtime[name]) if existing else MCPServerConfig().model_dump()
+                    value = (copy.deepcopy(runtime[name]) if existing
+                             else MCPServerConfig().model_dump())
                 unmarked = existing and self._credential_fields(name) is None
                 if unmarked and method == "mcp.save" and (
                     any(field + suffix in params for field in ("headers", "env")
@@ -418,7 +422,8 @@ class MCPService:
                 ):
                     raise MethodError(
                         "capability_unavailable",
-                        "Import legacy credential presence with mcp.migrate_credentials before credential edits",
+                        "Reconnect with mcp.reconnect and an unlocked profile keyring "
+                        "before credential edits",
                     )
                 self._patch_server(method, params, value)
                 try:
@@ -540,7 +545,9 @@ class MCPService:
                             self._write_marker(marker_name, set(_CREDENTIAL_FIELDS))
                         elif marker_before is None:
                             self._marker_path(marker_name).unlink(missing_ok=True)
-                        elif not write_private_atomic(self._marker_path(marker_name), marker_before):
+                        elif not write_private_atomic(
+                            self._marker_path(marker_name), marker_before,
+                        ):
                             self.settings.secrets.durability_degraded = True
                             failed = True
                     except Exception:
