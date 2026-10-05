@@ -209,6 +209,14 @@
       "invariant": "No blanket byte-equivalence exemption or changed upstream test corpus.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_capabilities_owner.py", "tests/test_desktop_core_paths.py"]
+    },
+    {
+      "path": "tests/test_desktop_strip_web.py",
+      "reason": "Replace the obsolete data-diagnostic permission-mode refusal expectation with D17 owned-namespace repair and unchanged unrelated ancestor modes.",
+      "contract": "Real startup diagnostics accept 0755/0775/0777 ancestors, tighten only owned namespace components to 0700 and retain the remaining neutral health/security behavior assertions.",
+      "invariant": "No changed upstream test corpus, imported state or diagnostic-success execution authority.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_strip_web.py"]
     }
   ]
 }

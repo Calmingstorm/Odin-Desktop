@@ -146,5 +146,13 @@ Review baseline: `31a48c24d7d3535f0fff2659a5da50d807af7bc7`.
   Log: `/home/odin/reviews/desktop-step1-round2-final-touched.log`.
 - Exact source-adaptation records and unchanged-source evidence pins are refreshed separately; no source
   recapture or independent approval is implied. Drift, lint and file-plan ownership checks pass.
-- Full qualification will run from a new checkout created after `umask 002`, with its root verified `0775`,
-  locked dependencies and the repository's unchanged sanitized PID/mount-namespace launcher.
+- First new checkout, created after `umask 002` and verified `0775`: all 29 groups ran, with **13,426 passed,
+  2 skipped, 1 failed, 0 errors**. The sole failure was the older data-diagnostic test expecting an owned `0755`
+  namespace to be refused rather than repaired. That expectation contradicts this review's D17 requirement;
+  replaced it with real `0755`/`0775`/`0777` diagnostics that prove namespace repair and untouched ancestors.
+  Diagnostic suite: **37 passed**. Only that Desktop test and its evidence records change; production source
+  remains the tested `c1204d9a` implementation. Logs:
+  `/home/odin/reviews/desktop-step1-round2-fresh-gates.log` and
+  `/home/odin/reviews/desktop-step1-round2-diagnostics.log`.
+- Final qualification is rerun from another clean `0775` checkout, with locked dependencies and the unchanged
+  sanitized PID/mount-namespace launcher. The first failed run remains recorded above, not rewritten as green.
