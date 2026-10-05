@@ -47,7 +47,9 @@ describe('actual app Broker ↔ repository real core', () => {
     const status = successful<Status>(await broker.request('status.get'))
     expect(status).toEqual({ phase: 'ready', core_instance_id: welcome.core.instance_id,
       version: welcome.core.version, capabilities,
-      limits: { attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10, chunk_bytes: 512 * 1024 } })
+      limits: { attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10, chunk_bytes: 512 * 1024 },
+      diagnostics: { turn_durability: { state: 'on', reason: null },
+        compatible_provider: { state: 'off', reason: null } } })
 
     const events: CoreEvent[] = []
     broker.on('event', (event: CoreEvent) => events.push(event))
