@@ -2,19 +2,27 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
+import json
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from ..permissions.manager import PermissionManager
+from .artifacts import ArtifactStore, ResultReadError
+from .attachments import AttachmentError, AttachmentService
 from .authority import OwnerAuthority
 from .commands import CommandJournal, JournalStorageError, JournalStore
 from .conversations import ConversationError, ConversationStore
-from .events import EventJournal
+from .delivery import ArtifactPublisher, DurableDelivery, PublicationEventJournal
 from .ipc import IpcServer
 from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .paths import ProfilePaths
+from .requests import RequestService
 from .search import TranscriptSearch
+from .services import build_engine_services
+from .tool_details import ToolDetailsStore
 from .transcript import TranscriptStore
 
 VERSION = "0.1.0.dev1"
@@ -24,8 +32,13 @@ CONVERSATION_METHODS = frozenset({
 })
 TRANSCRIPT_METHODS = frozenset({"messages.list", "conversation.snapshot"})
 SEARCH_METHODS = frozenset({"search.query", "messages.around"})
+ATTACHMENT_METHODS = frozenset({"attachments.begin", "attachments.chunk",
+                                "attachments.commit", "attachments.cancel"})
+RESULT_METHODS = frozenset({"artifacts.read", "tool.detail", "tool.output"})
 CAPABILITIES = ("status.get", "events.subscribe", "runtime.shutdown",
-                *sorted(CONVERSATION_METHODS | TRANSCRIPT_METHODS | SEARCH_METHODS))
+                "submission.send", "notifications.ack",
+                *sorted(CONVERSATION_METHODS | TRANSCRIPT_METHODS | SEARCH_METHODS
+                        | ATTACHMENT_METHODS | RESULT_METHODS))
 READ_METHODS = frozenset({
     "status.get", "events.subscribe", "conversations.list", "messages.list",
     "conversation.snapshot", "usage.get", "work.list", "settings.schema", "search.query",
@@ -42,6 +55,75 @@ READ_METHODS = frozenset({
 # Receipt bodies are bounded by age; identities and unresolved outcomes are not.
 RECEIPT_RETENTION = 7 * 24 * 60 * 60
 RECEIPT_PRUNE_INTERVAL = 60 * 60
+
+
+class _PublicationStore(JournalStore):
+    """Wake publication after a root transaction containing event writes commits.
+
+    SQLite is event-loop confined and transactions never cross an await.
+    The rollback-safe delivery outbox, not this wake signal, owns event content.
+    """
+
+    def __init__(self, *args, committed, **kwargs):
+        self._frames = None
+        self._committed = committed
+        super().__init__(*args, **kwargs)
+
+    @contextmanager
+    def transaction(self):
+        outer = self._depth == 0
+        if outer:
+            self._frames = []
+        frames = self._frames
+        try:
+            with super().transaction() as db:
+                yield db
+            if outer and frames:
+                self._committed()
+        finally:
+            if outer:
+                self._frames = None
+
+
+class _CoreEvents(PublicationEventJournal):
+    def _append(self, *args, **kwargs):
+        frame = super()._append(*args, **kwargs)
+        self.store._frames.append(frame)
+        return frame
+
+
+def profile_config(paths: ProfilePaths):
+    """Profile-bound defaults without loading ambient files or credentials.
+
+    Step five supplies configured settings through config_provider. Its explicit
+    operator paths are not narrowed by this default-binding helper.
+    """
+    from ..config import Config
+
+    return Config.model_validate({
+        "context": {"directory": str(paths.data_dir / "context")},
+        "sessions": {"persist_directory": str(paths.data_dir / "sessions")},
+        "tools": {
+            "ssh_key_path": str(paths.secrets_dir / "id_ed25519"),
+            "ssh_known_hosts_path": str(paths.secrets_dir / "known_hosts"),
+            "audit_log_path": str(paths.data_dir / "audit.jsonl"),
+            "trajectory_path": str(paths.data_dir / "trajectories"),
+            "local_working_dir": str(paths.data_dir.parent.parent / "odin-desktop-workspaces"
+                                     / paths.profile_id),
+            "ssh_pool": {"socket_dir": str(paths.cache_dir / "ssh-sockets")},
+        },
+        "logging": {"directory": str(paths.data_dir / "logs")},
+        "usage": {"directory": str(paths.data_dir / "usage")},
+        "openai_codex": {"credentials_path": str(paths.secrets_dir / "codex_auth.json")},
+        "search": {"search_db_path": str(paths.data_dir / "search")},
+        "turn_state": {"db_path": str(paths.data_dir / "turn_state" / "turns.sqlite3")},
+        "attachments": {"temp_directory": str(paths.cache_dir / "attachments")},
+        "computer": {"storage_dir": str(paths.data_dir / "computer")},
+    })
+
+
+async def _resolve(value):
+    return await value if inspect.isawaitable(value) else value
 
 
 def failure(code: str, message: str) -> dict:
@@ -62,6 +144,10 @@ def validate_params(method: str, params: object) -> dict | None:
         "messages.list": {"conversation_id": str, "limit": int},
         "conversation.snapshot": {"conversation_id": str},
         "submission.send": {"client_submission_id": str, "conversation_id": str, "text": str},
+        "artifacts.read": {"ref": str, "offset": int, "length": int},
+        "tool.detail": {"request_id": str, "invocation_id": str},
+        "tool.output": {"cursor": str, "limit": int},
+        "notifications.ack": {"dedupe_key": str, "outcome": str},
         "control.stop": {
             "control_command_id": str, "conversation_id": str,
             "request_id": str, "generation": int,
@@ -97,7 +183,7 @@ class CoreService:
 
     def __init__(
         self, paths: ProfilePaths, socket_path: Path, token_file: Path,
-        *, release_runtime_on_close: bool = True,
+        *, release_runtime_on_close: bool = True, config_provider=None, runtime_provider=None,
     ) -> None:
         self.paths = paths
         self.socket_path = Path(socket_path)
@@ -106,18 +192,30 @@ class CoreService:
         self.authority: OwnerAuthority | None = None
         self.store: JournalStore | None = None
         self.commands: CommandJournal | None = None
-        self.events: EventJournal | None = None
+        self.events: PublicationEventJournal | None = None
         self.conversations: ConversationStore | None = None
         self.transcript: TranscriptStore | None = None
         self.search: TranscriptSearch | None = None
         self.server: IpcServer | None = None
         self.permissions: PermissionManager | None = None
+        self.config_provider = config_provider or profile_config
+        self.runtime_provider = runtime_provider
+        self.config = None
+        self.engine = None
+        self.requests = None
+        self.delivery = None
+        self.attachments = None
+        self.artifacts = None
+        self.tool_details = None
         self.lifetime = CoreLifetime()
         self._serial = asyncio.Lock()
         self._closed = False
         self._quiescing_persisted = False
         self._release_runtime_on_close = release_runtime_on_close
         self._receipt_pruner: asyncio.Task | None = None
+        self._publication_task: asyncio.Task | None = None
+        self._publication_ready = asyncio.Event()
+        self._published_seq = 0
 
     def status(self) -> dict:
         return {
@@ -125,6 +223,7 @@ class CoreService:
             "core_instance_id": self.authority.runtime_id,
             "version": VERSION,
             "capabilities": list(CAPABILITIES),
+            "limits": self.attachments.limits,
         }
 
     def welcome(self) -> dict:
@@ -141,15 +240,48 @@ class CoreService:
         self.authority = OwnerAuthority(self.paths, app_bootstrap=True)
         self.authority.acquire_runtime()
         self.permissions = PermissionManager(self.authority)
-        self.store = JournalStore(
+        self.store = _PublicationStore(
             self.paths.data_dir / "transport.sqlite3", self.paths.profile_id,
             identity=f"{self.authority.installation_id}:{self.authority.owner_id}",
+            committed=self._committed,
         )
         self.commands = CommandJournal(self.store)
-        self.events = EventJournal(self.store)
+        self.events = _CoreEvents(self.store)
         self.conversations = ConversationStore(self.store, self.events)
         self.transcript = TranscriptStore(self.store, self.events, self.conversations)
         self.search = TranscriptSearch(self.transcript, self.events)
+        self.attachments = AttachmentService(
+            self.store, self._require_attachment_conversation)
+        self.delivery = DurableDelivery(
+            self.store, self.events, transcript_commit=self.transcript.commit,
+            assert_context=self._assert_delivery_context)
+        self.config = await _resolve(self.config_provider(self.paths))
+        runtime = (await _resolve(self.runtime_provider(self.config, self.paths, self.permissions))
+                   if self.runtime_provider is not None else None)
+        self.engine = build_engine_services(self.config, self.paths, self.permissions,
+                                            delivery=self.delivery, runtime_context=runtime)
+        executor = self.engine.deps.tool_executor
+        output_store = executor._ensure_output_store()
+        self.artifacts = ArtifactStore(self.store, output_store=output_store,
+                                       authorize=executor._authorize_output,
+                                       chunk_bytes=self.attachments.chunk_bytes)
+        self.tool_details = ToolDetailsStore(self.store, output_store=output_store,
+                                             artifacts=self.artifacts,
+                                             authorize=executor._authorize_output)
+        self.delivery.artifact_converter = ArtifactPublisher(self.artifacts, self.events)
+        self.delivery.tool_details = self.tool_details
+        self.requests = RequestService(
+            self.store, self.conversations, self.transcript, engine=self.engine,
+            permissions=self.permissions, authority=self.authority, delivery=self.delivery,
+            attachments=self.attachments)
+        self.engine.bind_requests(self.requests)
+        self.conversations.delete_hooks += (
+            self.requests.delete_conversation, self.delivery.delete_conversation,
+            self.artifacts.delete_conversation, self.tool_details.delete_conversation,
+            lambda cid: self.attachments.delete_conversation(self.store.connection, cid),
+        )
+        self.requests.recover_interrupted()
+        await self.delivery.recover()
         self.server = IpcServer(
             self.socket_path, self.token_file, self.paths.profile_id,
             self.authority, self.welcome, self.dispatch,
@@ -161,7 +293,50 @@ class CoreService:
         async with self._serial:
             self.commands.prune(time.time() - RECEIPT_RETENTION)
             await self._status_event()
+            await self._flush_publications()
         self._receipt_pruner = asyncio.create_task(self._prune_receipts())
+        self._publication_task = asyncio.create_task(self._publication_loop())
+        await self.requests.after_commit()
+
+    def _assert_delivery_context(self, context):
+        if self.requests is None:
+            raise PermissionError("Delivery requires the admitted request service")
+        self.requests.assert_delivery_context(context)
+
+    def _require_attachment_conversation(self, _db, cid):
+        # No nested domain transaction: its exception would poison the upload
+        # transaction before AttachmentService can persist a typed refusal.
+        try:
+            return self.conversations._row(cid)
+        except ConversationError as error:
+            raise AttachmentError(error.code, str(error), error.disposition) from None
+
+    def _committed(self):
+        self._publication_ready.set()
+
+    async def _flush_publications(self):
+        # The journal trigger captures every frame in the originating domain
+        # transaction, even with max_events=0. Savepoint rollback removes it.
+        # IPC is volatile: don't mark the durable sink's records as delivered.
+        while True:
+            row = self.store.connection.execute(
+                "SELECT event_seq,payload FROM desktop_delivery_outbox "
+                "WHERE event_seq>? ORDER BY event_seq LIMIT 1", (self._published_seq,)
+            ).fetchone()
+            if row is None:
+                break
+            await self._publish(json.loads(row["payload"]))
+            self._published_seq = row["event_seq"]
+        self._publication_ready.clear()
+
+    async def _publication_loop(self):
+        try:
+            while True:
+                await self._publication_ready.wait()
+                async with self._serial:
+                    await self._flush_publications()
+        except JournalStorageError:
+            self.lifetime.request_stop("storage_unavailable")
 
     async def _prune_receipts(self) -> None:
         """Serialize periodic retention with admission, and fail closed on storage loss."""
@@ -176,10 +351,10 @@ class CoreService:
             self.lifetime.request_stop("storage_unavailable")
 
     async def _status_event(self) -> None:
-        event = self.events.append(
+        self.events.append(
             "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id}, self.status(),
         )
-        await self._publish(event)
+        await self._flush_publications()
 
     async def _publish(self, event: dict) -> None:
         await self.server.publish(event)
@@ -192,28 +367,61 @@ class CoreService:
                 result = self.transcript.handle(method, params)
             elif method in SEARCH_METHODS:
                 result = self.search.handle(method, params)
+            elif method == "submission.send":
+                return self.requests.handle(method, params)
+            elif method in ATTACHMENT_METHODS:
+                return self.attachments.handle(method, params)
+            elif method == "notifications.ack":
+                result = self.delivery.notifications.ack(**params)
+            elif method in RESULT_METHODS:
+                owner = self.authority.owner_id
+                if method == "artifacts.read":
+                    result = self.artifacts.read(**params, owner=owner)
+                elif method == "tool.detail":
+                    result = self.tool_details.detail(**params, owner=owner)
+                else:
+                    result = self.tool_details.output(**params, owner=owner)
             else:
                 return failure("capability_unavailable", "Service is not available yet")
             return {"ok": True, "result": result}
         except ConversationError as error:
             return error.response()
+        except ResultReadError as error:
+            return failure(error.code, str(error))
+        except TypeError:
+            return failure("bad_request", "Invalid method parameters")
 
     async def dispatch(self, connection, request: dict) -> dict | None:
         owner = self.permissions.set_request_owner(connection.owner_context)
+        committed = []
         try:
-            return await self._dispatch(connection, request)
+            response = await self._dispatch(connection, request, committed=committed)
+            # Fresh commands alone run this seam, after journal/event commit
+            # and outside _serial. Step four can attach asynchronous controls
+            # without blocking reads or Stop behind engine/provider effects.
+            for method, params, result in committed:
+                await self._after_command_commit(method, params, result)
+            return response
         finally:
             self.permissions.reset_request_owner(owner)
 
-    async def _dispatch(self, connection, request: dict) -> dict | None:
+    async def _after_command_commit(self, method, params, result):
+        if method == "submission.send" and result.get("ok") and self.lifetime.admitting:
+            await self.requests.after_commit()
+
+    async def _dispatch(self, connection, request: dict, *, committed=None) -> dict | None:
         async with self._serial:
             command_id, method, params = request["id"], request["method"], request["params"]
             if not self.permissions.is_owner(self.authority.owner_id):
                 raise PermissionError("profile owner authority is no longer current")
             # Existing identities win even if their method is no longer served.
             # Unknown capabilities must not reserve IDs or persist refusal bodies.
+            fresh_read = method in READ_METHODS or method == "attachments.chunk"
             bound = self.commands.check(command_id, method, params)
-            if bound is not None:
+            # Existing command IDs still conflict with differently-bound reads.
+            # A read/chunk result itself is never replayed from a receipt.
+            if bound is not None and (not fresh_read
+                                      or bound.get("error", {}).get("code") == "id_conflict"):
                 return {"t": "res", "id": command_id, **bound}
             if method not in CAPABILITIES:
                 return {"t": "res", "id": command_id, **failure(
@@ -223,6 +431,7 @@ class CoreService:
                 invalid = validate_params(method, params)
                 if invalid:
                     return {"t": "res", "id": command_id, **invalid}
+                await self._flush_publications()
                 reset, high, frames = self.events.catchup(params.get("after"))
                 await connection.send({
                     "t": "res", "id": command_id, "ok": True,
@@ -245,12 +454,17 @@ class CoreService:
                         result = self._domain(method, params)
                 return {"t": "res", "id": command_id, **result}
 
+            if method == "attachments.chunk":
+                result = (self.attachments.handle(method, params) if self.lifetime.admitting
+                          else failure("busy", "Core is quiescing"))
+                return {"t": "res", "id": command_id, **result}
+
             fresh_shutdown = False
-            shutdown_event = None
-            before = self.events.high
+            fresh_command = False
 
             def execute() -> dict:
-                nonlocal fresh_shutdown, shutdown_event
+                nonlocal fresh_shutdown, fresh_command
+                fresh_command = True
                 invalid = validate_params(method, params)
                 if invalid:
                     return invalid
@@ -258,7 +472,7 @@ class CoreService:
                     return failure("busy", "Core is quiescing")
                 if method == "runtime.shutdown":
                     fresh_shutdown = True
-                    shutdown_event = self.events.append(
+                    self.events.append(
                         "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id},
                         {**self.status(), "phase": "quiescing"},
                     )
@@ -266,6 +480,8 @@ class CoreService:
                 return self._domain(method, params)
 
             result = self.commands.execute(command_id, method, params, execute)
+            if fresh_command and committed is not None:
+                committed.append((method, params, result))
             response = {"t": "res", "id": command_id, **result}
             if fresh_shutdown and result.get("ok"):
                 # Only new acceptance is an effect. Replayed receipt never stops a new runtime.
@@ -275,12 +491,11 @@ class CoreService:
                 try:
                     await connection.send(response)
                 finally:
-                    await self._publish(shutdown_event)
+                    await self._flush_publications()
                 return None
             # Publish only after the domain, event and receipt transaction committed.
             # A duplicate receipt has appended nothing and cannot repeat an event.
-            for event in self.events.between(before):
-                await self._publish(event)
+            await self._flush_publications()
             return response
 
     async def close(self) -> None:
@@ -315,6 +530,20 @@ class CoreService:
                 finally:
                     await self.server.shutdown()
         finally:
+            # Failed cleanup must not release ownership beneath a surviving
+            # execution task. The caller's containment exit remains the barrier.
+            try:
+                if self.requests is not None:
+                    await self.requests.close()
+                if self.engine is not None:
+                    await self.engine.close()
+            finally:
+                if self._publication_task is not None:
+                    self._publication_task.cancel()
+                    try:
+                        await self._publication_task
+                    except asyncio.CancelledError:
+                        pass
             try:
                 if self.store is not None:
                     self.store.close()
