@@ -246,13 +246,16 @@ class EngineServices:
                      "but encountered an error. The user may ask to retry.]")
         else:
             saved = "[Previous request encountered an error before tool execution.]"
-        d.sessions.add_message(cid, "assistant", saved)
-        d.sessions.prune()
+        current_context = self.requests.context_is_current(message)
+        if current_context:
+            d.sessions.add_message(cid, "assistant", saved)
+            d.sessions.prune()
         self._recorded.add(identity)
-        try:
-            await asyncio.to_thread(d.sessions.save)
-        except Exception as error:
-            log.warning("Session save failed after committed delivery: %s", error)
+        if current_context:
+            try:
+                await asyncio.to_thread(d.sessions.save)
+            except Exception as error:
+                log.warning("Session save failed after committed delivery: %s", error)
         d.housekeeping.maybe_cleanup()
         if tools:
             details = d.channel_state.last_op_details.pop(cid, None)

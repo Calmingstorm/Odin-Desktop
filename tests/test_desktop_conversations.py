@@ -89,7 +89,7 @@ def test_reset_context_visible_notice_and_child_reset(graph):
 
 
 @pytest.mark.parametrize("busy_key", ["running", "queued"])
-@pytest.mark.parametrize("method", ["conversations.delete", "conversations.reset_context"])
+@pytest.mark.parametrize("method", ["conversations.delete"])
 def test_busy_final_refusal_not_retargeted_after_work_clears(graph, busy_key, method):
     _, events, conversations, transcript = graph
     cid = conversations.create()["conversation"]["id"]
@@ -125,6 +125,27 @@ def test_unread_watermark_monotonic_and_foreign_message_refused(graph):
     with pytest.raises(ConversationError, match="Message not found"):
         conversations.mark_read(cid, foreign["id"])
     assert conversations.get(cid)["unread"] == 0
+
+
+@pytest.mark.parametrize("busy_key", ["running", "queued"])
+def test_reset_allowed_during_work_commits_notice_and_replays_once(graph, busy_key):
+    _, events, conversations, transcript = graph
+    cid = conversations.create()["conversation"]["id"]
+    transcript.commit(cid, "user", "Old")
+    state = {"running": None, "queued": [], "recent": [], "unresolved": [],
+             "tools": {}, "controls": []}
+    state[busy_key] = ({"request_id": "r", "generation": 1} if busy_key == "running"
+                       else [{"request_id": "r", "generation": 1}])
+    conversations.state_provider = lambda _: state
+    params = {"id": cid, "expected_rev": conversations.get(cid)["rev"]}
+    command_id = str(uuid4())
+    result = command(graph, "conversations.reset_context", params, command_id)
+    assert result["ok"]
+    high = events.high
+    assert command(graph, "conversations.reset_context", params, command_id) == result
+    assert events.high == high
+    assert transcript.model_context(cid) == []
+    assert [item["role"] for item in transcript.list(cid)["items"]] == ["user", "notice"]
 
 
 def test_delete_preserves_command_identity(graph):

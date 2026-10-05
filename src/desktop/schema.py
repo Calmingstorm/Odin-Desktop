@@ -10,6 +10,7 @@ DOMAIN_COLUMNS = {
     "desktop_messages": {"position", "message_id", "conversation_id", "role", "text",
                          "created_at", "record"},
     "desktop_inheritance": {"conversation_id", "ordinal", "record"},
+    "desktop_request_context": {"request_id", "conversation_id", "context_position"},
 }
 
 # Keep the storage validator independent of service imports: commands imports

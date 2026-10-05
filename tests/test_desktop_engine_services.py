@@ -7,7 +7,7 @@ from src.config.schema import Config
 from src.desktop.artifacts import ArtifactStore
 from src.desktop.authority import OwnerAuthority
 from src.desktop.commands import JournalStore
-from src.desktop.conversations import ConversationStore
+from src.desktop.conversations import ConversationError, ConversationStore
 from src.desktop.delivery import ArtifactPublisher, DurableDelivery, PublicationEventJournal
 from src.desktop.paths import ProfilePaths
 from src.desktop.requests import RequestService
@@ -168,3 +168,218 @@ async def test_composed_shutdown_drains_real_owners_once(graph):
     await engine.close()
     await engine.close()
     assert engine.deps.turn_store.available is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("repeat_reset", [False, True])
+async def test_reset_running_retains_real_context_but_fences_next_turn(graph, repeat_reset):
+    """Exercise runner/native file delivery, retained history, prompt and save paths."""
+    import copy
+
+    from src.sessions.manager import SessionManager
+
+    requests, engine, provider, transcript, cid = graph
+    transcript.commit(cid, "user", "OLD QUESTION")
+    transcript.commit(cid, "assistant", "OLD ANSWER")
+    started, release = asyncio.Event(), asyncio.Event()
+    original = provider.chat_with_tools
+    admitted_session = []
+    observations = []
+
+    async def blocked(**kwargs):
+        # Snapshot the real physical provider context before the runner mutates it.
+        observations.append(copy.deepcopy(kwargs))
+        if len(observations) == 1:
+            admitted_session.append(engine.deps.sessions.get(cid))
+            started.set()
+            await release.wait()
+            assert engine.deps.sessions.get(cid) is admitted_session[0]
+            assert "OLD ANSWER" in str(engine.deps.sessions.get_history(cid))
+        return await original(**kwargs)
+
+    provider.chat_with_tools = blocked
+    provider.responses = [LLMResponse(tool_calls=[ToolCall("late-file", "generate_file", {
+        "filename": "old-result.txt", "content": "OLD FILE"})], stop_reason="tool_use"),
+        LLMResponse(text="OLD LATE ANSWER"), LLMResponse(text="NEW ANSWER"),
+        LLMResponse(text="AFTER RELOAD ANSWER")]
+    artifacts = ArtifactStore(requests.store, authorize=engine.deps.tool_executor._authorize_output)
+    requests.delivery.artifact_converter = ArtifactPublisher(artifacts, requests.events)
+    first = requests.submit({"client_submission_id": "running", "conversation_id": cid,
+                             "text": "OLD RUNNING INPUT"})
+    await requests.after_commit()
+    try:
+        await asyncio.wait_for(started.wait(), 5)
+        queued = requests.submit({"client_submission_id": "queued-before-reset",
+                                  "conversation_id": cid, "text": "NEW QUEUED INPUT"})
+        revision = requests.conversations.get(cid)["rev"]
+        with pytest.raises(ConversationError, match="active work"):
+            requests.conversations.delete(cid, revision)
+        reset = requests.conversations.reset_context(cid, revision)
+        assert reset["conversation"]["rev"] == revision + 1
+        if repeat_reset:
+            transcript.commit(cid, "user", "BETWEEN RESETS")
+            requests.conversations.reset_context(cid, requests.conversations.get(cid)["rev"])
+        assert transcript.model_context(cid) == []
+        assert engine.deps.sessions.get(cid) is admitted_session[0]
+        transcript.commit(cid, "user", "NEW CONTEXT MARKER")
+    finally:
+        release.set()
+        await asyncio.wait_for(asyncio.gather(*requests._tasks), 15)
+
+    assert requests.get_request(first["request_id"])["state"] == "completed"
+    assert requests.get_request(queued["request_id"])["state"] == "completed"
+    assert len(observations) == 3
+    assert "OLD ANSWER" in str(observations[0]["messages"])
+    assert "OLD ANSWER" in str(observations[1]["messages"])
+    fresh = str(observations[2])
+    assert "NEW QUEUED INPUT" in fresh and "NEW CONTEXT MARKER" in fresh
+    assert "OLD" not in str(observations[2]["messages"])
+    assert "BETWEEN RESETS" not in fresh
+    assert "## Recent Actions" not in observations[2]["system"]
+    visible = transcript.list(cid)["items"]
+    assert any(item.get("artifacts") for item in visible)
+    assert any(item["text"] == "OLD LATE ANSWER" for item in visible)
+    context = transcript.model_context(cid)
+    assert {item["text"] for item in context} == {
+        "NEW CONTEXT MARKER", "NEW QUEUED INPUT", "NEW ANSWER"}
+    assert all("context_position" not in item for item in visible)
+    assert "OLD" not in str(engine.deps.sessions.get_history(cid))
+
+    # Reload both durable transcript storage and real SessionManager cache. The
+    # request lineage is durable, not an in-memory exclusion list.
+    paths = requests.authority.paths
+    reloaded_sessions = SessionManager(160, 24, str(paths.data_dir / "sessions"))
+    reloaded_sessions.load()
+    assert "OLD" not in str(reloaded_sessions.get_history(cid))
+    reopened = JournalStore(paths.data_dir / "transport.sqlite3", "test")
+    try:
+        events = PublicationEventJournal(reopened)
+        conversations = ConversationStore(reopened, events)
+        restored = TranscriptStore(reopened, events, conversations)
+        assert restored.model_context(cid) == context
+        engine.deps.sessions = reloaded_sessions
+        reloaded = RequestService(reopened, conversations, restored, engine=engine,
+            permissions=requests.permissions, authority=requests.authority,
+            delivery=requests.delivery)
+        engine.requests = reloaded
+        reloaded.submit({"client_submission_id": "after-reload", "conversation_id": cid,
+                         "text": "RELOAD INPUT"})
+        await reloaded.after_commit()
+        await asyncio.wait_for(asyncio.gather(*reloaded._tasks), 15)
+        assert "OLD" not in str(observations[-1]["messages"])
+        assert "NEW ANSWER" in str(observations[-1]["messages"])
+        assert "RELOAD INPUT" in str(observations[-1]["messages"])
+    finally:
+        engine.requests = requests
+        reopened.close()
+
+
+@pytest.mark.asyncio
+async def test_reset_real_handoff_retains_history_and_retires_cache(graph, monkeypatch):
+    requests, engine, provider, transcript, cid = graph
+    transcript.commit(cid, "assistant", "ADMITTED HANDOFF CONTEXT")
+    entered, release = asyncio.Event(), asyncio.Event()
+    observed = []
+
+    async def handoff(**kwargs):
+        observed.append(kwargs)
+        entered.set()
+        await release.wait()
+        assert "ADMITTED HANDOFF CONTEXT" in str(engine.deps.sessions.get_history(cid))
+        return "LATE HANDOFF RESPONSE"
+
+    monkeypatch.setattr(engine.deps.skill_manager, "should_handoff_to_codex", lambda _: True)
+    provider.chat = handoff
+    provider.responses = [LLMResponse(tool_calls=[ToolCall("time", "parse_time", {
+        "expression": "in 1 hour"})], stop_reason="tool_use")]
+    requests.submit({"client_submission_id": "handoff", "conversation_id": cid,
+                     "text": "Convert one hour"})
+    await requests.after_commit()
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        session = engine.deps.sessions.get(cid)
+        requests.conversations.reset_context(cid, requests.conversations.get(cid)["rev"])
+        assert engine.deps.sessions.get(cid) is session
+        assert "ADMITTED HANDOFF CONTEXT" in str(observed[0]["messages"])
+    finally:
+        release.set()
+        await asyncio.wait_for(asyncio.gather(*requests._tasks), 10)
+    assert transcript.list(cid)["items"][-1]["text"] == "LATE HANDOFF RESPONSE"
+    assert transcript.model_context(cid) == []
+    assert engine.deps.sessions.get(cid) is None
+    assert cid not in engine.deps.channel_state.recent_actions
+    from src.sessions.manager import SessionManager
+
+    loaded = SessionManager(160, 24, str(requests.authority.paths.data_dir / "sessions"))
+    loaded.load()
+    assert loaded.get_history(cid) == []
+
+
+@pytest.mark.asyncio
+async def test_preserved_generation_two_stays_fenced_after_new_lineage_turn(graph, monkeypatch):
+    """Restore a real retained checkpoint, not a fake resume runner."""
+    import copy
+
+    from src.discord.response_guards import StuckLoopTracker
+    from src.discord.tool_loop import CHAT_POLICY, _ChatTurn
+    from src.llm.errors import LLMCapacityError
+    from src.llm.model_breaker import ModelBreakerRegistry
+    from src.llm.recovery import RecoveryPolicy
+    from src.turn_state.codec import restore_field_values
+    from src.turn_state.durability import TurnDurability
+
+    requests, engine, provider, transcript, cid = graph
+    original = provider.chat_with_tools
+
+    async def overloaded(**kwargs):
+        if not provider.responses:
+            raise LLMCapacityError("scripted capacity", provider="compat", model="test")
+        return await original(**kwargs)
+
+    provider.chat_with_tools = overloaded
+    monkeypatch.setattr(engine.deps.llm_gateway, "_recovery_policy_source", lambda: RecoveryPolicy(
+        deadline_seconds=0.05, backoff_base=0.005, backoff_cap=0.01, retry_after_cap=0.01))
+    provider.responses = [LLMResponse(tool_calls=[ToolCall("parse", "parse_time", {
+        "expression": "in 1 hour"})], stop_reason="tool_use")]
+    first = requests.submit({"client_submission_id": "preserved", "conversation_id": cid,
+                             "text": "OLD PRESERVED INPUT"})
+    await requests.after_commit()
+    await asyncio.wait_for(asyncio.gather(*requests._tasks), 10)
+    assert requests.get_request(first["request_id"])["state"] == "suspended"
+    old_message = requests.fetch_request(cid, first["request_id"])
+    ledger = engine.deps.turn_store
+    row = ledger.load_resumable_sync(old_message.turn_key)
+    assert row is not None
+    fields = restore_field_values(row["payload"], load_blob=ledger.load_blob_sync,
+                                  stuck_tracker_cls=StuckLoopTracker)
+    monkeypatch.setattr(engine.deps.llm_gateway, "model_breakers", ModelBreakerRegistry())
+    requests.conversations.reset_context(cid, requests.conversations.get(cid)["rev"])
+    provider.responses = [LLMResponse(text="NEW LINEAGE ANSWER")]
+    requests.submit({"client_submission_id": "new", "conversation_id": cid,
+                     "text": "NEW LINEAGE INPUT"})
+    await requests.after_commit()
+    await asyncio.wait_for(asyncio.gather(*requests._tasks), 10)
+    session = engine.deps.sessions.get(cid)
+    before_resume = copy.deepcopy(engine.deps.sessions.get_history(cid))
+    lease = ledger.acquire_resume_lease_sync(old_message.turn_key, row["generation"])
+    assert lease is not None
+    with requests.store.transaction() as db:
+        db.execute("UPDATE desktop_requests SET state='running',generation=2 WHERE request_id=?",
+                   (first["request_id"],))
+    st = _ChatTurn(message=requests.fetch_request(cid, first["request_id"]), policy=CHAT_POLICY,
+        trace=None, tools=engine.deps.tool_catalog.merged_definitions(), _cancel=asyncio.Event(),
+        durability=TurnDurability.resumed(ledger, lease, 1), **fields)
+    provider.responses = [LLMResponse(text="OLD RESUMED ANSWER")]
+    await requests.launch_resume(requests.get_request(first["request_id"]), st)
+    await asyncio.wait_for(asyncio.gather(*requests._tasks), 10)
+    assert requests.get_request(first["request_id"])["state"] == "completed"
+    assert "OLD RESUMED ANSWER" in str(transcript.list(cid))
+    assert "OLD" not in str(transcript.model_context(cid))
+    assert engine.deps.sessions.get(cid) is session
+    assert engine.deps.sessions.get_history(cid) == before_resume
+    provider.responses = [LLMResponse(text="NEXT ANSWER")]
+    requests.submit({"client_submission_id": "next", "conversation_id": cid, "text": "NEXT INPUT"})
+    await requests.after_commit()
+    await asyncio.wait_for(asyncio.gather(*requests._tasks), 10)
+    assert "NEW LINEAGE ANSWER" in str(provider.calls[-1]["messages"])
+    assert "OLD" not in str(provider.calls[-1]["messages"])

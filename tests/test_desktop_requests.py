@@ -208,6 +208,63 @@ async def test_branch_seed_reset_and_compaction_preservation(service, tmp_path):
     assert observed[-1] == []
 
 
+@pytest.mark.asyncio
+async def test_queued_before_reset_without_running_turn_uses_new_lineage(service, tmp_path):
+    from src.sessions.manager import SessionManager
+
+    requests, cid, engine, _delivery, _store = service
+    engine.deps.sessions = sessions = SessionManager(160, 24, str(tmp_path / "sessions"))
+    requests.transcript.commit(cid, "assistant", "OLD HISTORY")
+    first = requests.submit(params(cid, text="QUEUED FIRST"))
+    second = requests.submit(params(cid, client_submission_id="second", text="QUEUED SECOND"))
+    requests.conversations.reset_context(cid, requests.conversations.get(cid)["rev"])
+    requests.transcript.commit(cid, "assistant", "NEW HISTORY")
+    seen = []
+
+    async def run(message, **kwargs):
+        seen.append(sessions.get_history(cid))
+        sessions.add_message(cid, "user", kwargs["content"])
+        return ("answer", False, False, [], False)
+
+    engine.run = run
+    await requests.after_commit()
+    await asyncio.gather(*requests._tasks)
+    assert seen[0] == [{"role": "assistant", "content": "NEW HISTORY"}]
+    assert seen[1] == seen[0] + [{"role": "user", "content": "QUEUED FIRST"}]
+    epoch = requests.conversations._row(cid)["context_position"]
+    assert [row[0] for row in requests.store.connection.execute(
+        "SELECT context_position FROM desktop_request_context WHERE request_id IN (?,?)",
+        (first["request_id"], second["request_id"]))] == [epoch, epoch]
+
+
+def test_old_profile_upgrade_pins_started_work_but_not_queued_work(service):
+    requests, cid, engine, delivery, store = service
+    requests.transcript.commit(cid, "assistant", "old")
+    old = requests.submit(params(cid))
+    with store.transaction() as db:
+        db.execute("UPDATE desktop_requests SET state='completed',started_at=? WHERE request_id=?",
+                   ("2026-10-05T00:00:00Z", old["request_id"]))
+    requests.conversations.reset_context(cid, requests.conversations.get(cid)["rev"])
+    queued = requests.submit(params(cid, client_submission_id="queued"))
+    # This is the exact pre-fix domain schema: no private lineage table.
+    with store.transaction() as db:
+        db.execute("DROP TABLE desktop_request_context")
+    store.close()
+    reopened = JournalStore(requests.authority.paths.data_dir / "transport.sqlite3", "test")
+    try:
+        events = EventJournal(reopened)
+        conversations = ConversationStore(reopened, events)
+        transcript = TranscriptStore(reopened, events, conversations)
+        upgraded = RequestService(reopened, conversations, transcript, engine=engine,
+            permissions=requests.permissions, authority=requests.authority, delivery=delivery)
+        assert upgraded.get_request(queued["request_id"])["state"] == "queued"
+        assert [tuple(row) for row in reopened.connection.execute(
+            "SELECT request_id,context_position FROM desktop_request_context")
+        ] == [(old["request_id"], 0)]
+    finally:
+        reopened.close()
+
+
 def test_all_unknown_effects_preserved_as_wire_count(service):
     requests, cid, engine, _delivery, store = service
     admitted = requests.submit(params(cid))

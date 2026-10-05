@@ -99,6 +99,16 @@ class RequestService:
             db.execute("""CREATE TABLE IF NOT EXISTS desktop_submissions (
                 client_submission_id TEXT PRIMARY KEY, binding TEXT NOT NULL,
                 response TEXT NOT NULL)""")
+            # Upgrade step-three profiles made before execution lineage existed.
+            # Those profiles refused reset while work ran, so the most recent
+            # notice at start time is unambiguous. Queued work stays unbound.
+            db.execute("""INSERT OR IGNORE INTO desktop_request_context
+                SELECT r.request_id,r.conversation_id,COALESCE((
+                    SELECT MAX(m.position) FROM desktop_messages m
+                    WHERE m.conversation_id=r.conversation_id AND m.created_at<=r.started_at
+                    AND json_extract(m.record,'$.context_reset')=1),0)
+                FROM desktop_requests r JOIN desktop_conversations c ON c.id=r.conversation_id
+                WHERE r.started_at IS NOT NULL""")
         conversations.state_provider = self
         audit = getattr(engine.deps, "audit", None)
         if audit is not None and hasattr(audit, "set_event_callback"):
@@ -368,15 +378,48 @@ class RequestService:
         epoch = self.conversations._row(cid)["context_position"]
         if self._session_epochs.get(cid) == epoch:
             return
-        # Seed once per context lineage. Rebuilding on each request would
-        # discard compaction; reading through this request would include queued
-        # follow-ups the model has not been admitted to execute yet.
-        cutoff = self.transcript.position(cid, message.message_id) - 1
-        history = self.transcript.model_context(cid, through_position=cutoff)
+        # Seed once per execution lineage, preserving retained compaction. Use
+        # today's context, not this input's historical position: it may have
+        # been queued before a reset. Exclude inputs not yet executed (including
+        # this one, which EngineServices adds with processed attachments).
+        excluded = {message.request_id} | {row[0] for row in self.store.connection.execute(
+            "SELECT request_id FROM desktop_requests WHERE conversation_id=? AND state='queued'",
+            (cid,))}
+        history = [item for item in self.transcript.model_context(cid)
+                   if item.get("request_id") not in excluded]
         sessions.reset(cid)
+        self.engine.deps.channel_state.recent_actions.pop(cid, None)
         for item in history:
             sessions.add_message(cid, item["role"], item["text"], user_id=message.owner_id)
         self._session_epochs[cid] = epoch
+
+    def _fence_settled_context(self, message):
+        """Retire old cache only after runner, handoff and accounting settle.
+
+        Resetting SessionManager mid-turn would make handoff/history and result
+        accounting create a new session with old writes. The durable transcript
+        fence takes effect immediately; keep the admitted cache until settlement.
+        """
+        if self.context_is_current(message):
+            return
+        cid = message.conversation_id
+        epoch = self.conversations._row(cid)["context_position"]
+        sessions = getattr(self.engine.deps, "sessions", None)
+        # A preserved old checkpoint can resume after newer turns. Its runner
+        # owns its checkpoint messages, not today's compacted session cache.
+        if self._session_epochs.get(cid) != epoch:
+            if sessions is not None:
+                sessions.reset(cid)
+            self._session_epochs.pop(cid, None)
+        self.engine.deps.channel_state.recent_actions.pop(cid, None)
+
+    def context_is_current(self, message):
+        """Internal accounting fence; request generations never change lineage."""
+        row = self.store.connection.execute(
+            "SELECT context_position FROM desktop_request_context WHERE request_id=?",
+            (message.request_id,)).fetchone()
+        return (row is None or row[0] ==
+                self.conversations._row(message.conversation_id)["context_position"])
 
     async def fetch_message(self, conversation_id, request_id):
         message = self.fetch_request(conversation_id, request_id)
@@ -446,6 +489,9 @@ class RequestService:
                         db.execute("UPDATE desktop_requests SET state='running',started_at=? "
                                    "WHERE request_id=? AND state='queued'",
                                    (now(), row["request_id"]))
+                        db.execute("INSERT OR IGNORE INTO desktop_request_context VALUES (?,?,?)",
+                                   (row["request_id"], cid,
+                                    self.conversations._row(cid)["context_position"]))
                         self.events.append("request.started",
                                            {"kind": "request", "id": row["request_id"]},
                                            {"conversation_id": cid, "request_id": row["request_id"],
@@ -527,7 +573,10 @@ class RequestService:
             get_logger("desktop.requests").error("Admitted request failed: %s",
                                                  type(error).__name__)
         finally:
-            _execution.reset(token)
+            try:
+                self._fence_settled_context(message)
+            finally:
+                _execution.reset(token)
 
     def _finish(self, message, outcome):
         with self.store.transaction() as db:
