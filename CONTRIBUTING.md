@@ -30,6 +30,9 @@ everyone working here, Claude and Odin alike.
 - **Design docs** may still be edited directly on `main`, by their owner only.
 - **Commits** carry no attribution trailers (`Co-Authored-By`, session footers).
 - **Tests ship with the change** that needs them. Run the touched tests while working, and the full suite at each gate.
+- **Tests exercise real code behaviour.** Never write a test that reads a human-written document (`.md`, `.sh`) to assert
+  its wording, or one that only checks that a file exists. Documents used as data by real code, generated output
+  checked against its generator, and machine-readable plans the tooling consumes are fine.
 
 ## Running tests safely
 
