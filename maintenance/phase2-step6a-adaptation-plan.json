@@ -1,7 +1,8 @@
 {
   "version": 1,
   "step": "6A",
-  "integration_base": "982477643adaa7652a74199198110981fe2fdfa0",
+  "initial_base": "982477643adaa7652a74199198110981fe2fdfa0",
+  "integration_base": "b3f533e1ce26b41f3b7176478e34dda78154cfb1",
   "corpus_boundary": "Only Desktop-origin tests changed. GI original bytes/assertions stay immutable; an explicit resolver/worker fixture adapter executes them. No destructive or attack inputs and no deferred delivery or native qualification claim.",
   "evidence_boundary": "Exact pending records, not independent acceptance. Final execution is one full qualification from a fresh group-writable checkout with isolated PID namespace and throwaway HOME.",
   "entries": [

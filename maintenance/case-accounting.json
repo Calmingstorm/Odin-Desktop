@@ -69713,6 +69713,114 @@
       "executable": "tests/test_desktop_codex_accounts.py::test_lazy_locked_keyring_does_not_block_constructor_or_begin"
     },
     {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.list-read-KeyringLocked]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.list-read-KeyringLocked]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.list-read-NoKeyringError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.list-read-NoKeyringError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.list-read-RuntimeError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.list-read-RuntimeError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.activate-read-KeyringLocked]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.activate-read-KeyringLocked]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.activate-read-NoKeyringError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.activate-read-NoKeyringError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.activate-read-RuntimeError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.activate-read-RuntimeError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-read-KeyringLocked]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-read-KeyringLocked]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-read-NoKeyringError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-read-NoKeyringError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-read-RuntimeError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-read-RuntimeError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-write-KeyringLocked]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-write-KeyringLocked]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-write-NoKeyringError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-write-NoKeyringError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-write-RuntimeError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.label-write-RuntimeError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-read-KeyringLocked]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-read-KeyringLocked]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-read-NoKeyringError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-read-NoKeyringError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-read-RuntimeError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-read-RuntimeError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-write-KeyringLocked]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-write-KeyringLocked]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-write-NoKeyringError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-write-NoKeyringError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-write-RuntimeError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.accounts.remove-write-RuntimeError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-read-KeyringLocked]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-read-KeyringLocked]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-read-NoKeyringError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-read-NoKeyringError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-read-RuntimeError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-read-RuntimeError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-write-KeyringLocked]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-write-KeyringLocked]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-write-NoKeyringError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-write-NoKeyringError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-write-RuntimeError]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_real_keyring_failures_are_distinct_safe_and_retryable[codex.login.poll-write-RuntimeError]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_corrupt_keyring_data_is_generic_not_keyring_unavailable",
+      "executable": "tests/test_desktop_codex_accounts.py::test_corrupt_keyring_data_is_generic_not_keyring_unavailable"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_non_keyring_provider_failure_remains_generic[codex.login.begin]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_non_keyring_provider_failure_remains_generic[codex.login.begin]"
+    },
+    {
+      "original": "tests/test_desktop_codex_accounts.py::test_non_keyring_provider_failure_remains_generic[codex.login.poll]",
+      "executable": "tests/test_desktop_codex_accounts.py::test_non_keyring_provider_failure_remains_generic[codex.login.poll]"
+    },
+    {
       "original": "tests/test_desktop_codex_accounts.py::test_quota_status_and_manual_activation_reuse_retained_policy",
       "executable": "tests/test_desktop_codex_accounts.py::test_quota_status_and_manual_activation_reuse_retained_policy"
     },
@@ -70009,8 +70117,16 @@
       "executable": "tests/test_desktop_management_core.py::test_keyring_secret_and_memory_share_core_owners"
     },
     {
+      "original": "tests/test_desktop_management_core.py::test_locked_keyring_list_returns_distinct_safe_error_over_transport",
+      "executable": "tests/test_desktop_management_core.py::test_locked_keyring_list_returns_distinct_safe_error_over_transport"
+    },
+    {
       "original": "tests/test_desktop_management_core.py::test_fresh_host_usage_and_health_are_real_reads",
       "executable": "tests/test_desktop_management_core.py::test_fresh_host_usage_and_health_are_real_reads"
+    },
+    {
+      "original": "tests/test_desktop_management_core.py::test_fresh_public_key_survives_real_core_restart",
+      "executable": "tests/test_desktop_management_core.py::test_fresh_public_key_survives_real_core_restart"
     },
     {
       "original": "tests/test_desktop_management_core.py::test_unknown_extras_do_not_become_event_paths_and_shell_applies",
@@ -70311,6 +70427,42 @@
     {
       "original": "tests/test_desktop_provisioning.py::test_group_writable_parent_is_not_refused",
       "executable": "tests/test_desktop_provisioning.py::test_group_writable_parent_is_not_refused"
+    },
+    {
+      "original": "tests/test_desktop_provisioning.py::test_fresh_profile_public_key_is_usable_and_preserved[ensure]",
+      "executable": "tests/test_desktop_provisioning.py::test_fresh_profile_public_key_is_usable_and_preserved[ensure]"
+    },
+    {
+      "original": "tests/test_desktop_provisioning.py::test_fresh_profile_public_key_is_usable_and_preserved[provision]",
+      "executable": "tests/test_desktop_provisioning.py::test_fresh_profile_public_key_is_usable_and_preserved[provision]"
+    },
+    {
+      "original": "tests/test_desktop_provisioning.py::test_existing_profile_repairs_absent_default_key_without_rewriting_config",
+      "executable": "tests/test_desktop_provisioning.py::test_existing_profile_repairs_absent_default_key_without_rewriting_config"
+    },
+    {
+      "original": "tests/test_desktop_provisioning.py::test_existing_config_load_does_not_hold_identity_lock",
+      "executable": "tests/test_desktop_provisioning.py::test_existing_config_load_does_not_hold_identity_lock"
+    },
+    {
+      "original": "tests/test_desktop_provisioning.py::test_existing_key_is_never_overwritten_during_first_provisioning",
+      "executable": "tests/test_desktop_provisioning.py::test_existing_key_is_never_overwritten_during_first_provisioning"
+    },
+    {
+      "original": "tests/test_desktop_provisioning.py::test_existing_config_custom_key_path_is_not_provisioned",
+      "executable": "tests/test_desktop_provisioning.py::test_existing_config_custom_key_path_is_not_provisioned"
+    },
+    {
+      "original": "tests/test_desktop_provisioning.py::test_existing_key_symlink_is_not_replaced",
+      "executable": "tests/test_desktop_provisioning.py::test_existing_key_symlink_is_not_replaced"
+    },
+    {
+      "original": "tests/test_desktop_provisioning.py::test_key_created_during_generation_is_not_overwritten",
+      "executable": "tests/test_desktop_provisioning.py::test_key_created_during_generation_is_not_overwritten"
+    },
+    {
+      "original": "tests/test_desktop_provisioning.py::test_failed_key_generation_can_retry_without_publishing_config",
+      "executable": "tests/test_desktop_provisioning.py::test_failed_key_generation_can_retry_without_publishing_config"
     },
     {
       "original": "tests/test_desktop_provisioning.py::test_fresh_settings_image_intent_follows_defaults",

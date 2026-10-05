@@ -1,6 +1,8 @@
 # Phase 2 step 6A: qualified local service owners
 
-This branch is stacked on step 5 PR #21 at `982477643adaa7652a74199198110981fe2fdfa0`.
+This branch started on step 5 PR #21 at `982477643adaa7652a74199198110981fe2fdfa0`,
+then rebased bottom-up onto its review-1 fixes at
+`b3f533e1ce26b41f3b7176478e34dda78154cfb1` before final qualification.
 It implements only the services in `/home/odin/reviews/desktop-step6a.md`. No request
 delivery, background work, schedules, reports, native packaging or foreground computer
 admission is claimed. D17 behavior is restored through retained managers, not a new
