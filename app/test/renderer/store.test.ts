@@ -85,6 +85,9 @@ function fakeBridge() {
   const control = {
     list: [{ ...CONVERSATION, activity: { running: null, queued: [] } }] as ConversationListItem[],
     listWatermark: '0',
+    /** When set, list answers wait here until the test releases them. */
+    holdLists: false,
+    lists: [] as Array<Deferred<Result<{ items: ConversationListItem[]; watermark: string }>>>,
     snapshots: [] as Array<Deferred<Result<ConversationSnapshot>>>,
     steerResult: { ok: true, result: { disposition: 'queued' } } as Result<{ disposition: string }>,
     stopResult: { ok: true, result: { disposition: 'requested' } } as Result<{ disposition: string }>,
@@ -99,7 +102,16 @@ function fakeBridge() {
     getAppState: async (): Promise<AppState> => ({ link: 'ready', coreInstanceId: 'core-1', noTray: false, unreceipted: 0 }),
     getSettings: async () => ({ ok: true, result: { autostart: false } }),
     setAutostart: async (enabled: boolean) => ({ ok: true, result: { autostart: enabled } }),
-    listConversations: async () => ({ ok: true, result: { items: control.list, watermark: control.listWatermark } }),
+    listConversations: () => {
+      const answer: Result<{ items: ConversationListItem[]; watermark: string }> = {
+        ok: true,
+        result: { items: control.list, watermark: control.listWatermark }
+      }
+      if (!control.holdLists) return Promise.resolve(answer)
+      const next = deferred<Result<{ items: ConversationListItem[]; watermark: string }>>()
+      control.lists.push(next)
+      return next.promise
+    },
     createConversation: async () => ({ ok: true, result: { conversation: CONVERSATION } }),
     snapshotConversation: (params: unknown) => {
       calls.snapshot.push(params)
@@ -377,5 +389,86 @@ describe('recovery windows', () => {
     expect(store.isBusy('c2')).toBe(true)
     emit(c2Event(22, 'request.completed', 'r-new'))
     expect(store.isBusy('c2')).toBe(false)
+  })
+})
+
+describe('reconnect recovery', () => {
+  const READY: AppState = { link: 'ready', coreInstanceId: 'core-1', noTray: false, unreceipted: 0 }
+  const setApp = (app: AppState): void => bridge.listeners.appState.forEach((l) => l(app))
+  const live = { request_id: 'r-live', generation: 1, started_at: '2026-10-04T00:00:00Z' }
+
+  it('routes nothing on a same-core reconnect until the refreshed snapshot applies, then targets the live task', async () => {
+    await start(snapshot({ watermark: '1' }))
+    expect(store.canAct('c1')).toBe(true)
+    bridge.control.holdLists = true
+    setApp({ ...READY, link: 'reconnecting' })
+    expect(store.canAct('c1')).toBe(false)
+    setApp(READY)
+    await until(() => bridge.control.lists.length === 1)
+    expect(store.canAct('c1')).toBe(false) // the retained projection is from before the outage
+    expect(await store.send('change the plan', 'steer')).toBe(false) // the draft stays in the composer
+    await store.stop()
+    expect([bridge.calls.submit, bridge.calls.steer, bridge.calls.stop].map((c) => c.length)).toEqual([0, 0, 0])
+
+    // A task started during the outage: the list and the snapshot both say so.
+    bridge.control.lists[0]!.resolve({
+      ok: true,
+      result: { items: [{ ...CONVERSATION, activity: { running: { request_id: 'r-live', generation: 1 }, queued: [] } }], watermark: '20' }
+    })
+    await until(() => bridge.control.snapshots.length === 2)
+    expect(store.canAct('c1')).toBe(false)
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '20', running: live }))
+    await until(() => store.canAct('c1'))
+    expect(await store.send('change the plan', 'steer')).toBe(true)
+    expect(bridge.calls.submit).toHaveLength(0)
+    expect(bridge.calls.steer[0]).toMatchObject({ request_id: 'r-live', generation: 1 })
+  })
+
+  it('treats a changed core as a new recovery even when the link never looked down', async () => {
+    await start(snapshot({ watermark: '1' }))
+    setApp({ ...READY, coreInstanceId: 'core-2' })
+    expect(store.canAct('c1')).toBe(false)
+    await until(() => bridge.control.snapshots.length === 2)
+    expect(await store.send('hello', 'queue')).toBe(false)
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '3' }))
+    await until(() => store.canAct('c1'))
+    expect(await store.send('hello', 'queue')).toBe(true)
+    expect(bridge.calls.submit).toHaveLength(1)
+  })
+
+  it('holds events that arrive during recovery and applies those above the snapshot watermark', async () => {
+    await start(snapshot({ watermark: '1' }))
+    setApp({ ...READY, link: 'reconnecting' })
+    setApp(READY)
+    await until(() => bridge.control.snapshots.length === 2)
+    // Caught-up events, one already covered by the snapshot and one after it.
+    emit(event(20, 'request.queued', { request_id: 'r-old', generation: 1, message_id: 'm-old' }))
+    emit(event(21, 'request.started', { request_id: 'r-live', generation: 1 }))
+    expect(store.canAct('c1')).toBe(false)
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '20' }))
+    await until(() => store.canAct('c1'))
+    const view = store.state.views.c1!
+    expect(view.running?.request_id).toBe('r-live')
+    expect(view.queued).toHaveLength(0) // event 20 was already reflected in the snapshot
+    await store.stop()
+    expect(bridge.calls.stop[0]).toMatchObject({ request_id: 'r-live', generation: 1 })
+  })
+
+  it('never lets an answer from an earlier recovery restore authority', async () => {
+    await start(snapshot({ watermark: '1' }))
+    setApp({ ...READY, link: 'reconnecting' })
+    setApp(READY)
+    await until(() => bridge.control.snapshots.length === 2)
+    // A second outage starts before the first recovery's snapshot is answered.
+    setApp({ ...READY, link: 'reconnecting' })
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '10' }))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(store.canAct('c1')).toBe(false)
+    setApp(READY)
+    await until(() => bridge.control.snapshots.length === 3)
+    expect(store.canAct('c1')).toBe(false)
+    bridge.control.snapshots[2]!.resolve(snapshot({ watermark: '30', running: live }))
+    await until(() => store.canAct('c1'))
+    expect(store.state.views.c1!.running?.request_id).toBe('r-live')
   })
 })

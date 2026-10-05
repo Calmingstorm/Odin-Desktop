@@ -6,6 +6,8 @@
 //   arrives. The answer to a superseded snapshot request is dropped. The sidebar's activity works the same way
 //   against the conversation list.
 // - A reset discards every view: the interval it covers is unknown, never empty.
+// - Losing the link or changing core starts a new recovery: from that moment no view is authoritative until a
+//   snapshot taken during the current recovery has applied. Answers from an earlier recovery never restore it.
 // - Nothing is sent, steered or stopped in a conversation until its view is authoritative. Drafts are kept.
 // - Stop and Steer only ever target the running request and generation. Queued follow-ups are tracked separately.
 // - A command without a receipt has an unknown outcome, never a failure. It keeps its ID, and the late receipt or the
@@ -84,6 +86,8 @@ export interface SteerLine {
 export interface ConversationView {
   status: 'loading' | 'ready'
   hasData: boolean
+  /** The recovery its snapshot belongs to; authoritative only while that is the current one. */
+  epoch: number
   /** The highest event sequence this view reflects. */
   watermark: number
   loadToken: number
@@ -109,6 +113,8 @@ export const state = reactive({
   loaded: false,
   conversations: [] as Conversation[],
   activeId: null as string | null,
+  /** Bumped whenever the link is lost or the core changes. */
+  recoveryEpoch: 0,
   views: {} as Record<string, ConversationView | undefined>,
   /** Requests queued or running per conversation, for the sidebar: from the list, then from events. */
   busy: {} as Record<string, string[] | undefined>,
@@ -158,7 +164,7 @@ function isUnknownOutcome(error: CoreError): boolean {
 }
 
 function isAuthoritative(view: ConversationView | undefined): view is ConversationView {
-  return Boolean(view && view.status === 'ready' && view.hasData)
+  return Boolean(view && view.status === 'ready' && view.hasData && view.epoch === state.recoveryEpoch)
 }
 
 /** Whether a message, Steer or Stop may be routed to this conversation now. */
@@ -168,7 +174,12 @@ export function canAct(conversationId: string | null): boolean {
 
 export async function init(): Promise<void> {
   window.odin.onAppState((app) => {
-    const becameReady = app.link === 'ready' && (state.app.link !== 'ready' || app.coreInstanceId !== state.app.coreInstanceId)
+    const previous = state.app
+    const lostLink = previous.link === 'ready' && app.link !== 'ready'
+    const coreChanged = Boolean(previous.coreInstanceId && app.coreInstanceId && app.coreInstanceId !== previous.coreInstanceId)
+    // Synchronously, before a ready link can make any view routable again.
+    if (lostLink || coreChanged) state.recoveryEpoch += 1
+    const becameReady = app.link === 'ready' && (previous.link !== 'ready' || coreChanged)
     state.app = app
     if (becameReady) void loadAll()
   })
@@ -182,26 +193,36 @@ export async function init(): Promise<void> {
   if (state.app.link === 'ready') await loadAll()
 }
 
-let loadAllInFlight: Promise<void> | null = null
+let loadAllInFlight: { epoch: number; promise: Promise<void> } | null = null
 let listLoading = false
 let listHeld: CoreEvent[] = []
 
+/** One load per recovery. A load started for an earlier recovery is followed by a fresh one, never reused. */
 function loadAll(): Promise<void> {
-  loadAllInFlight ??= loadAllOnce().finally(() => {
-    loadAllInFlight = null
+  const epoch = state.recoveryEpoch
+  if (loadAllInFlight?.epoch === epoch) return loadAllInFlight.promise
+  const run = (): Promise<void> => loadAllOnce(epoch)
+  // Start at once when nothing is loading; otherwise after the earlier recovery's load has settled.
+  const entry = { epoch, promise: loadAllInFlight ? loadAllInFlight.promise.catch(() => undefined).then(run) : run() }
+  loadAllInFlight = entry
+  void entry.promise.finally(() => {
+    if (loadAllInFlight === entry) loadAllInFlight = null
   })
-  return loadAllInFlight
+  return entry.promise
 }
 
-async function loadAllOnce(): Promise<void> {
+async function loadAllOnce(epoch: number): Promise<void> {
+  if (epoch !== state.recoveryEpoch) return
   listLoading = true
   const listed = await window.odin.listConversations()
   const held = listHeld.sort((a, b) => a.seq - b.seq)
   listHeld = []
   listLoading = false
-  if (!listed.ok) {
+  if (!listed.ok || epoch !== state.recoveryEpoch) {
+    // A failed list, or one answered for an earlier recovery, never replaces the sidebar.
     for (const event of held) trackBusy(event)
-    return note(errorText(listed))
+    if (!listed.ok) note(errorText(listed))
+    return
   }
   applyList(listed.result.items, Number(listed.result.watermark) || 0, held)
   if (state.conversations.length === 0) {
@@ -236,6 +257,7 @@ function viewFor(conversationId: string): ConversationView {
     state.views[conversationId] = {
       status: 'loading',
       hasData: false,
+      epoch: -1,
       watermark: 0,
       loadToken: 0,
       held: [],
@@ -255,21 +277,23 @@ function viewFor(conversationId: string): ConversationView {
 
 /** Rebuilds a conversation view from the core's authoritative snapshot, holding events until it applies. */
 export async function loadConversation(conversationId: string): Promise<void> {
+  const epoch = state.recoveryEpoch
   const view = viewFor(conversationId)
   const token = ++view.loadToken
   view.status = 'loading'
   const result = await window.odin.snapshotConversation({ conversation_id: conversationId })
   if (state.views[conversationId] !== view || view.loadToken !== token) return
-  if (!result.ok) {
-    note(errorText(result))
+  if (!result.ok || epoch !== state.recoveryEpoch) {
+    // A failure, or an answer from an earlier recovery: it never makes the view authoritative.
+    if (!result.ok) note(errorText(result))
     if (view.hasData) releaseHeld(view)
     else state.views[conversationId] = undefined
-    return
+    return // the current recovery's own load refreshes the open conversation
   }
-  applySnapshot(conversationId, view, result.result)
+  applySnapshot(conversationId, view, result.result, epoch)
 }
 
-function applySnapshot(conversationId: string, view: ConversationView, snapshot: ConversationSnapshot): void {
+function applySnapshot(conversationId: string, view: ConversationView, snapshot: ConversationSnapshot, epoch: number): void {
   const watermark = Number(snapshot.watermark) || 0
   if (view.hasData && watermark < view.watermark) {
     // Older than what this view already shows: keep the view.
@@ -286,6 +310,7 @@ function applySnapshot(conversationId: string, view: ConversationView, snapshot:
   view.controls = Object.fromEntries(snapshot.controls.map((record) => [record.control_command_id, projection(record)]))
   view.watermark = watermark
   view.hasData = true
+  view.epoch = epoch
   upsertConversation(snapshot.conversation)
   state.busy[conversationId] = [
     ...(snapshot.running ? [snapshot.running.request_id] : []),
@@ -320,18 +345,21 @@ function releaseHeld(view: ConversationView): void {
 
 /** The core couldn't replay the interval since our cursor, so nothing in the current views can be trusted. */
 async function resetViews(): Promise<void> {
+  // A reset is a recovery of its own: earlier answers can't restore anything. The sidebar's activity is rebuilt
+  // from the reloaded conversation list.
+  state.recoveryEpoch += 1
   for (const view of Object.values(state.views)) if (view) view.loadToken += 1
   state.views = {}
-  // A load already in flight may have read the old views; run a fresh one after it. The sidebar's activity is
-  // rebuilt from the reloaded conversation list.
-  if (loadAllInFlight) await loadAllInFlight.catch(() => undefined)
   await loadAll()
 }
 
 export async function select(conversationId: string): Promise<void> {
   state.activeId = conversationId
   const view = state.views[conversationId]
-  if (!view || (!view.hasData && view.status !== 'loading')) await loadConversation(conversationId)
+  // A view from an earlier recovery is shown but must be refreshed before anything is routed to it.
+  if (!view || (view.status !== 'loading' && (!view.hasData || view.epoch !== state.recoveryEpoch))) {
+    await loadConversation(conversationId)
+  }
 }
 
 export async function newConversation(): Promise<void> {
