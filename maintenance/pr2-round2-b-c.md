@@ -6,6 +6,12 @@ https://github.com/Calmingstorm/Odin-Desktop/pull/2#issuecomment-5987058604.
 prompt approval or safety policy was changed by this follow-up. Its required complete string-to-approval table
 is still outstanding with A; this document does not claim that blocker is closed.
 
+**Later follow-up, 2026-10-05:** Aaron approved the preamble as D18 on main
+`ae8aaebb`, merged into the Phase 1 branch. The required item-A table is now
+[`pr2-model-facing-string-approvals.md`](pr2-model-facing-string-approvals.md).
+It maps covered text and explicitly lists wording without an exact approval entry;
+the historical pending status above describes this B/C handoff, not today's inventory.
+
 ## B: Phase 2 corpus acceptance
 
 `docs/design/roadmap.md` and `maintenance/test-plan.md` now require all **326 Phase-2-deferred suites** to return
