@@ -395,4 +395,6 @@ textarea:focus { border-color: var(--accent-dim); outline: none; }
 .provider.ok { color: var(--ok); }
 .provider.degraded, .provider.unknown { color: var(--warn); }
 .provider.down, .provider.failed { color: var(--bad); }
+.file-card.actions-only { border: 0; background: transparent; padding: 4px 0 0; margin-top: 0; }
+.file-card.actions-only .file-status { color: var(--muted); font-size: 12px; margin-right: auto; }
 

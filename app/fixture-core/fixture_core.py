@@ -287,10 +287,13 @@ class Core:
         }
 
     def m_usage(self, params: dict, _writer) -> dict:
+        period = params.get("period") or "7d"
+        if period not in ("24h", "7d", "30d", "all"):
+            raise CoreError("bad_request", "usage ranges are 24h, 7d, 30d and all")
         sent = sum(len(r["text"]) for r in self.requests.values())
         tokens = {"value": sent // 4, "kind": "estimated"}
         return {
-            "period": params.get("period") or "session",
+            "period": period,
             "tokens": tokens,
             "context": {"used": tokens, "budget": {"value": 272000, "kind": "measured"}},
             "quota": [{"account": "fixture", "window": "weekly", "used_percent": {"value": None, "kind": "unknown"},
@@ -385,7 +388,8 @@ class Core:
         limit = max(1, min(int(params.get("limit") or 65536), 65536))
         text = retained["text"][offset:offset + limit]
         end = offset + len(text)
-        result = {"text": text, "eof": end >= len(retained["text"]), "expires_at": retained["expires_at"]}
+        result = {"text": text, "attachments": [], "eof": end >= len(retained["text"]),
+                  "expires_at": retained["expires_at"]}
         if not result["eof"]:
             result["next_cursor"] = f"out:{invocation_id}:{end}"
         return result
@@ -434,12 +438,14 @@ class Core:
 
     def make_artifacts(self, cid: str, text: str) -> list[dict]:
         """Scripted results for tests: whole words in the request ask for a file, an image, a script or a report."""
-        words = {w.rstrip("s") for w in re.findall(r"\b(files?|images?|scripts?|reports?)\b", text.lower())}
+        words = {w.rstrip("s") for w in re.findall(r"\b(files?|images?|scripts?|reports?|tiffs?)\b", text.lower())}
         made = []
         if "file" in words:
             made.append(("notes.txt", "text/plain", "file", b"Generated notes\nline two\n"))
         if "image" in words:
             made.append(("chart.png", "image/png", "image", SAMPLE_PNG))
+        if "tiff" in words:  # a format Chromium can't decode: the window falls back to a file card
+            made.append(("scan.tiff", "image/tiff", "image", b"II*\x00not really a tiff"))
         if "script" in words:
             made.append(("cleanup.sh", "text/x-shellscript", "file", b"#!/bin/sh\necho hello\n"))
         result = []
@@ -458,8 +464,8 @@ class Core:
     def m_attach_begin(self, params: dict, _writer) -> dict:
         self.require_conversation(params.get("conversation_id"))
         size = int(params.get("size") or 0)
-        if size <= 0:
-            raise CoreError("bad_request", "an attachment needs a size")
+        if size < 0:
+            raise CoreError("bad_request", "an attachment's size can't be negative")  # empty files are fine
         if size > ATTACHMENT_BYTES:
             raise CoreError("too_large", f"attachments are limited to {ATTACHMENT_BYTES // (1024 * 1024)} MiB")
         mime = str(params.get("mime") or "application/octet-stream")

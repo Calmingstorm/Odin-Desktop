@@ -106,18 +106,13 @@ export function registerIpc(deps: IpcDeps): void {
 
   handle(IPC.status, null, async () => fromSettled(await deps.broker.request('status.get')))
   handle(IPC.listConversations, null, async () => fromSettled(await deps.broker.request('conversations.list')))
-  handle(IPC.createConversation, createConversationSchema, async (v) =>
-    fromSettled(await deps.broker.request('conversations.create', v))
-  )
-  handle(IPC.updateConversation, updateConversationSchema, async (v) =>
-    fromSettled(await deps.broker.request('conversations.update', v))
-  )
-  handle(IPC.deleteConversation, conversationRevisionSchema, async (v) =>
-    fromSettled(await deps.broker.request('conversations.delete', v))
-  )
-  handle(IPC.resetContext, conversationRevisionSchema, async (v) =>
-    fromSettled(await deps.broker.request('conversations.reset_context', v))
-  )
+  // Conversation commands carry the window's command ID, so their late receipts can be matched (store.ts).
+  const command = async (method: string, { command_id: id, ...params }: { command_id: string }) =>
+    fromSettled(await deps.broker.request(method, params, id))
+  handle(IPC.createConversation, createConversationSchema, (v) => command('conversations.create', v))
+  handle(IPC.updateConversation, updateConversationSchema, (v) => command('conversations.update', v))
+  handle(IPC.deleteConversation, conversationRevisionSchema, (v) => command('conversations.delete', v))
+  handle(IPC.resetContext, conversationRevisionSchema, (v) => command('conversations.reset_context', v))
   handle(IPC.markRead, markReadSchema, async (v) => fromSettled(await deps.broker.request('conversations.mark_read', v)))
   handle(IPC.search, searchSchema, async (v) => fromSettled(await deps.broker.request('search.query', v)))
   handle(IPC.messagesAround, messagesAroundSchema, async (v) =>

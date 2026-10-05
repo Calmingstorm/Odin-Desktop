@@ -4,6 +4,11 @@ import type { AttachmentProgress, AttachmentRef, Result } from '../../src/shared
 
 type Composer = typeof import('../../src/renderer/src/stores/composer')
 
+let holdDrafts = false
+let heldDrafts: Array<() => void> = []
+let drafts: Record<string, string> = {}
+let perTurn = 10
+
 function fakeBridge() {
   const uploads: Array<{ id: string; resolve: (r: Result<AttachmentRef>) => void }> = []
   const progress: Array<(p: AttachmentProgress) => void> = []
@@ -27,7 +32,15 @@ function fakeBridge() {
       return { ok: true, result: { cancelled: true } }
     },
     onAttachmentProgress: (listener: (p: AttachmentProgress) => void) => (progress.push(listener), () => undefined),
-    getDraft: async (id: string) => ({ ok: true, result: { text: id === 'c1' ? 'saved draft' : '' } }),
+    getDraft: (id: string) => {
+      const answer = { ok: true, result: { text: drafts[id] ?? (id === 'c1' ? 'saved draft' : '') } }
+      if (!holdDrafts) return Promise.resolve(answer)
+      return new Promise((resolve) => heldDrafts.push(() => resolve(answer)))
+    },
+    status: async () => ({
+      ok: true,
+      result: { phase: 'ready', core_instance_id: 'core', version: 'test', capabilities: [], limits: { chunk_bytes: 1024, attachment_bytes: 1 << 20, attachments_per_turn: perTurn } }
+    }),
     setDraft: async (id: string, text: string) => {
       calls.setDraft.push([id, text])
       return { ok: true, result: { saved: true } }
@@ -52,6 +65,10 @@ async function until(check: () => boolean): Promise<void> {
 
 beforeEach(async () => {
   vi.resetModules()
+  holdDrafts = false
+  heldDrafts = []
+  drafts = {}
+  perTurn = 10
   bridge = fakeBridge()
   ;(globalThis as unknown as { window: unknown }).window = { odin: bridge.api }
   composer = await import('../../src/renderer/src/stores/composer')
@@ -112,3 +129,77 @@ describe('composer drafts', () => {
     expect(bridge.calls.setDraft).toEqual([['c1', 'xy']])
   })
 })
+
+describe('review round 1: the box belongs to one conversation', () => {
+  const ready = async (conversationId: string, name: string): Promise<void> => {
+    await composer.addFiles(conversationId, [file(name, 5)])
+    const upload = bridge.uploads.find((u) => u.id === `id-${name}`)!
+    upload.resolve(uploaded(upload.id))
+    await until(() => composer.attachmentsFor(conversationId).every((a) => a.status === 'ready'))
+  }
+
+  it("never sends a draft while the next conversation's draft is loading", async () => {
+    let open = 'cA'
+    drafts = { cA: 'A draft', cB: 'B draft' }
+    await composer.showDraft('cA', () => open === 'cA')
+    holdDrafts = true
+    open = 'cB'
+    const showing = composer.showDraft('cB', () => open === 'cB')
+    const sent: string[] = []
+    expect(await composer.sendBox('cB', async (text) => (sent.push(text), true))).toBe(false)
+    expect(composer.box.owner).toBeNull()
+    heldDrafts.forEach((release) => release())
+    await showing
+    expect(await composer.sendBox('cB', async (text) => (sent.push(text), true))).toBe(true)
+    expect(sent).toEqual(['B draft'])
+  })
+
+  it('clears only what a late send carried: newer text and newer attachments stay', async () => {
+    drafts = { cA: 'hello' }
+    await composer.showDraft('cA', () => true)
+    await ready('cA', 'first.txt')
+    let accept!: (value: boolean) => void
+    const sending = composer.sendBox('cA', () => new Promise((resolve) => (accept = resolve)))
+    composer.edit('hello world')
+    await ready('cA', 'second.txt')
+    accept(true)
+    expect(await sending).toBe(true)
+    expect(composer.box.text).toBe('hello world')
+    expect(composer.composer.drafts.cA).toBe('hello world')
+    expect(composer.attachmentsFor('cA').map((a) => a.name)).toEqual(['second.txt'])
+  })
+
+  it("leaves the open conversation's draft alone when an earlier one's send settles late", async () => {
+    let open = 'cA'
+    drafts = { cA: 'for A', cB: 'for B' }
+    await composer.showDraft('cA', () => open === 'cA')
+    let accept!: (value: boolean) => void
+    const sending = composer.sendBox('cA', () => new Promise((resolve) => (accept = resolve)))
+    open = 'cB'
+    await composer.showDraft('cB', () => open === 'cB')
+    accept(true)
+    await sending
+    expect(composer.box).toMatchObject({ owner: 'cB', text: 'for B' })
+    expect(composer.composer.drafts.cA).toBe('')
+    expect(composer.composer.drafts.cB).toBe('for B')
+  })
+})
+
+describe('review round 1: attachment limits and cleanup', () => {
+  it("adds no more than the core's per-turn limit, and says how many didn't fit", async () => {
+    perTurn = 2
+    await composer.addFiles('c1', [file('a.txt', 1), file('b.txt', 1), file('c.txt', 1)])
+    expect(composer.attachmentsFor('c1').map((a) => a.name)).toEqual(['a.txt', 'b.txt'])
+    expect(composer.composer.errors.join(' ')).toMatch(/up to 2 attachments per message; 1 weren't added/)
+    expect(bridge.calls.cancel).toEqual(['id-c.txt']) // the one that didn't fit is released, not left staged
+  })
+
+  it('releases what the main process holds when a failed attachment is removed', async () => {
+    await composer.addFiles('c1', [file('broken.bin', 3)])
+    bridge.uploads[0]!.resolve({ ok: false, error: { code: 'internal', message: "Couldn't read broken.bin." } })
+    await until(() => composer.attachmentsFor('c1')[0]?.status === 'failed')
+    composer.removeAttachment('c1', 'id-broken.bin')
+    expect(bridge.calls.cancel).toEqual(['id-broken.bin'])
+  })
+})
+

@@ -59,6 +59,8 @@ export interface ToolDetail {
 
 export interface ToolOutputPage {
   text: string
+  /** Retained binary output, never decoded as text: read each by `ref` with artifacts.read. */
+  attachments: Array<{ ref: string; kind: string; mime: string; size: number; sha256: string }>
   next_cursor?: string
   eof: boolean
   expires_at: string
@@ -294,10 +296,21 @@ export interface ControlTarget {
 export interface OdinApi {
   status(): Promise<Result<CoreStatus>>
   listConversations(): Promise<Result<{ items: ConversationListItem[]; watermark: string }>>
-  createConversation(params: { title?: string; parent_id?: string; from_message_id?: string }): Promise<Result<{ conversation: Conversation }>>
-  updateConversation(params: { id: string; expected_rev: number; title?: string; archived?: boolean }): Promise<Result<{ conversation: Conversation }>>
-  deleteConversation(params: { id: string; expected_rev: number }): Promise<Result<{ disposition: string }>>
-  resetContext(params: { id: string; expected_rev: number }): Promise<Result<{ conversation: Conversation }>>
+  createConversation(params: {
+    command_id: string
+    title?: string
+    parent_id?: string
+    from_message_id?: string
+  }): Promise<Result<{ conversation: Conversation }>>
+  updateConversation(params: {
+    command_id: string
+    id: string
+    expected_rev: number
+    title?: string
+    archived?: boolean
+  }): Promise<Result<{ conversation: Conversation }>>
+  deleteConversation(params: { command_id: string; id: string; expected_rev: number }): Promise<Result<{ disposition: string }>>
+  resetContext(params: { command_id: string; id: string; expected_rev: number }): Promise<Result<{ conversation: Conversation }>>
   markRead(params: { id: string; through_message_id: string }): Promise<Result<{ conversation: Conversation }>>
   search(params: { query: string; conversation_id?: string; limit?: number; cursor?: string }): Promise<Result<SearchResult>>
   messagesAround(params: { conversation_id: string; message_id: string; before?: number; after?: number }): Promise<Result<AroundResult>>
@@ -306,7 +319,7 @@ export interface OdinApi {
   submit(params: SubmitParams): Promise<Result<{ disposition: string; request_id?: string; message_id?: string }>>
   stop(params: ControlTarget): Promise<Result<{ disposition: string }>>
   steer(params: ControlTarget & { text: string }): Promise<Result<{ disposition: string; sequence?: number }>>
-  usage(period: 'session' | 'day' | 'week'): Promise<Result<UsageResult>>
+  usage(period: '24h' | '7d' | '30d' | 'all'): Promise<Result<UsageResult>>
   reload(scope: 'skills' | 'config' | 'context'): Promise<Result<{ disposition: string; summary: string }>>
   getDraft(conversationId: string): Promise<Result<{ text: string }>>
   setDraft(conversationId: string, text: string): Promise<Result<{ saved: boolean }>>

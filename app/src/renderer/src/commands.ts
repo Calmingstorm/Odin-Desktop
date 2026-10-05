@@ -1,6 +1,10 @@
 // The composer's slash commands: Discord's /stop, /steer, /status, /usage and /reload, plus /new and /search.
 // Each one says what it affects before it runs. Model and effort shortcuts come with the settings screens.
 import { newConversation, runSearch, send, showPanel, state, stop } from './store'
+import { attachmentsFor } from './stores/composer'
+
+/** Odin's /usage ranges; 7d when none is given, as in Odin. */
+export const USAGE_RANGES = ['24h', '7d', '30d', 'all'] as const
 
 export interface PaletteCommand {
   name: string
@@ -36,6 +40,10 @@ export const COMMANDS: PaletteCommand[] = [
         note('Add the guidance after /steer.')
         return false
       }
+      if (attachmentsFor(state.activeId).length) {
+        note('Attachments go with a message, not a steer. Choose Queue to send them as a follow-up.')
+        return false
+      }
       return send(arg, 'steer')
     }
   },
@@ -51,12 +59,17 @@ export const COMMANDS: PaletteCommand[] = [
   },
   {
     name: 'usage',
-    usage: '/usage',
-    affects: 'Shows usage totals and the current quota. Changes nothing.',
-    run: async () => {
-      const result = await window.odin.usage('session')
+    usage: '/usage [24h | 7d | 30d | all]',
+    affects: 'Shows usage totals and the current quota for a range, 7d by default. Changes nothing.',
+    run: async (arg) => {
+      const range = (arg.trim() || '7d') as (typeof USAGE_RANGES)[number]
+      if (!USAGE_RANGES.includes(range)) {
+        note(`Usage ranges are ${USAGE_RANGES.join(', ')}.`)
+        return false
+      }
+      const result = await window.odin.usage(range)
       if (!result.ok) return note(result.error.message)
-      showPanel('Usage', result.result.summary)
+      showPanel(`Usage, ${range}`, result.result.summary)
     }
   },
   {
@@ -87,6 +100,22 @@ export const COMMANDS: PaletteCommand[] = [
 ]
 
 /** The commands matching what was typed after the slash. */
+let inFlight: string | null = null
+
+/** Runs one command at a time, like a send: a second press while one runs makes no second call. */
+export async function dispatch(command: PaletteCommand, arg: string): Promise<boolean | void> {
+  if (inFlight) {
+    note(`/${inFlight} is still running.`)
+    return false
+  }
+  inFlight = command.name
+  try {
+    return await command.run(arg)
+  } finally {
+    inFlight = null
+  }
+}
+
 export function matchCommands(line: string): PaletteCommand[] {
   const name = line.replace(/^\//, '').split(/\s/, 1)[0]?.toLowerCase() ?? ''
   return COMMANDS.filter((c) => c.name.startsWith(name))

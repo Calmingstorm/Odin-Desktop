@@ -20,7 +20,7 @@ const REFRESH_ON = new Set([
 ])
 
 export async function refreshStatus(): Promise<void> {
-  const [core, usage] = await Promise.all([window.odin.status(), window.odin.usage('session')])
+  const [core, usage] = await Promise.all([window.odin.status(), window.odin.usage('24h')])
   if (core.ok) status.core = core.result
   if (usage.ok) status.usage = usage.result
 }

@@ -157,7 +157,7 @@ describe('usage', () => {
   it('tags every number, and never invents one it does not know', async () => {
     const { broker, send } = await connect()
     await send('hello there')
-    const usage = (await broker.request('usage.get', { period: 'session' })) as Ok<{
+    const usage = (await broker.request('usage.get', { period: '24h' })) as Ok<{
       tokens: { value: number | null; kind: string }
       context: { used: { kind: string }; budget: { value: number; kind: string } }
       quota: Array<{ used_percent: { value: number | null; kind: string } }>

@@ -281,6 +281,7 @@ async function loadAllOnce(epoch: number): Promise<void> {
   if (epoch !== state.recoveryEpoch) return
   state.recoveryError = undefined
   listLoading = true
+  const generation = ++listGeneration
   const listed = await window.odin.listConversations()
   const held = listHeld.sort((a, b) => a.seq - b.seq)
   listHeld = []
@@ -291,14 +292,19 @@ async function loadAllOnce(epoch: number): Promise<void> {
     if (!listed.ok && epoch === state.recoveryEpoch) state.recoveryError = listed.error.message
     return
   }
-  applyList(listed.result.items, Number(listed.result.watermark) || 0, held)
+  applyList(listed.result.items, Number(listed.result.watermark) || 0, generation, held)
   if (state.conversations.length === 0) {
-    const created = await window.odin.createConversation({ title: 'Chat' })
-    if (!created.ok) {
-      if (epoch === state.recoveryEpoch) state.recoveryError = created.error.message
+    const created = await conversationCommand(
+      'new',
+      (command_id) => window.odin.createConversation({ command_id, title: 'Chat' }),
+      (answer) => {
+        if (answer.ok) upsertConversation(answer.result.conversation)
+      }
+    )
+    if (!created?.ok) {
+      if (epoch === state.recoveryEpoch) state.recoveryError = created ? created.error.message : 'Waiting for Odin to confirm the first conversation.'
       return
     }
-    upsertConversation(created.result.conversation)
   }
   if (!state.activeId || !state.conversations.some((c) => c.id === state.activeId)) {
     state.activeId = state.conversations[0]?.id ?? null
@@ -307,19 +313,38 @@ async function loadAllOnce(epoch: number): Promise<void> {
   state.loaded = true
 }
 
-/** The list is complete through `watermark`: rebuild sidebar activity from it, then apply what came after. */
-function applyList(items: ConversationListItem[], watermark: number, held: CoreEvent[]): void {
+/** The latest event sequence seen per conversation. A list complete only through an earlier point can't undo it. */
+const conversationSeq = new Map<string, number>()
+/** Deleted conversations. Their IDs are never reused, so nothing may bring one back. */
+const deleted = new Set<string>()
+/** Each list request's generation, and when the window learned of a conversation outside any list. */
+let listGeneration = 0
+const learnedIn = new Map<string, number>()
+
+/**
+ * The list is complete through `watermark`: it replaces what the window knows, except where an event after the
+ * watermark, or a command's answer after the list was asked for, says something newer. With `held`, it also rebuilds
+ * the sidebar's activity and applies what came after.
+ */
+function applyList(items: ConversationListItem[], watermark: number, generation: number, held?: CoreEvent[]): void {
+  const listed = new Set(items.map((item) => item.id))
   for (const item of items) {
+    if (deleted.has(item.id) || (conversationSeq.get(item.id) ?? 0) > watermark) continue
     const { activity, ...conversation } = item
-    upsertConversation(conversation)
-    if (activity) {
+    upsertConversation(conversation, true)
+    if (activity && held) {
       state.busy[item.id] = [
         ...(activity.running ? [activity.running.request_id] : []),
         ...activity.queued.map((q) => q.request_id)
       ]
     }
   }
-  for (const event of held) if (event.seq > watermark) trackBusy(event)
+  for (const conversation of [...state.conversations]) {
+    if (listed.has(conversation.id) || (conversationSeq.get(conversation.id) ?? 0) > watermark) continue
+    if ((learnedIn.get(conversation.id) ?? -1) >= generation) continue
+    removeConversation(conversation.id)
+  }
+  if (held) for (const event of held) if (event.seq > watermark) trackBusy(event)
 }
 
 function viewFor(conversationId: string): ConversationView {
@@ -429,19 +454,21 @@ async function resetViews(): Promise<void> {
   state.recoveryEpoch += 1
   for (const view of Object.values(state.views)) if (view) view.loadToken += 1
   state.views = {}
+  clearNavigation() // a search window may show what no longer exists
   await loadAll()
 }
 
 export async function select(conversationId: string): Promise<void> {
-  if (state.jump && state.jump.conversationId !== conversationId) backToLatest()
-  // A highlight belongs to the conversation it was found in; elsewhere it would only stop the view following along.
-  if (conversationId !== state.activeId) state.highlightId = null
+  // Navigation belongs to the conversation it was made in: leaving it ends any jump or highlight, and fences a jump
+  // still on its way.
+  if (conversationId !== state.activeId || (state.jump && state.jump.conversationId !== conversationId)) clearNavigation()
   state.activeId = conversationId
   const view = state.views[conversationId]
   // A view from an earlier recovery is shown but must be refreshed before anything is routed to it, and so must one
   // whose in-flight load belongs to an earlier recovery.
   const stale = view && (view.status === 'loading' ? view.loadEpoch !== state.recoveryEpoch : !view.hasData || view.epoch !== state.recoveryEpoch)
   if (!view || stale) await loadConversation(conversationId)
+  else void markReadIfAttentive(conversationId) // a cached view is on screen at once
 }
 
 /** The error that keeps the open conversation from loading, if any: the recovery's own first, then its snapshot's. */
@@ -461,26 +488,71 @@ function attentive(): boolean {
   return typeof document !== 'undefined' && document.visibilityState === 'visible' && document.hasFocus()
 }
 
-const markingRead = new Set<string>()
+/** Reads in flight, by conversation; true when another is owed because more arrived meanwhile. */
+const markingRead = new Map<string, boolean>()
 
-/** Marks the open conversation read through its last message, but only while someone can see it. */
+/**
+ * Marks the open conversation read through its latest message, but only while someone can see it, and only while it
+ * shows the latest messages: not while a search result's older window is on screen. Calls during a read in flight
+ * are coalesced into one more read after it.
+ */
 async function markReadIfAttentive(conversationId: string): Promise<void> {
+  if (markingRead.has(conversationId)) {
+    markingRead.set(conversationId, true)
+    return
+  }
   const conversation = state.conversations.find((c) => c.id === conversationId)
   const view = state.views[conversationId]
   const last = view?.messages[view.messages.length - 1]
   if (!conversation || conversation.unread <= 0 || state.activeId !== conversationId || !last) return
-  if (!isAuthoritative(view) || !attentive() || markingRead.has(conversationId)) return
-  markingRead.add(conversationId)
+  if (state.jump?.conversationId === conversationId) return
+  if (!isAuthoritative(view) || !attentive()) return
+  markingRead.set(conversationId, false)
   try {
     const result = await window.odin.markRead({ id: conversationId, through_message_id: last.id })
     if (result.ok) upsertConversation(result.result.conversation)
   } finally {
+    const owed = markingRead.get(conversationId)
     markingRead.delete(conversationId)
+    if (owed) void markReadIfAttentive(conversationId)
   }
 }
 
 function conversationById(id: string): Conversation | undefined {
   return state.conversations.find((c) => c.id === id)
+}
+
+/**
+ * Conversation commands whose answer never arrived, by command ID. The broker re-sends each with the same ID after
+ * reconnecting, and its late receipt settles it here. Until then, nothing else changes that conversation, so a retry
+ * can never create a second thread or reset twice.
+ */
+const unconfirmed = new Map<string, { key: string; settle: (answer: Result<unknown>, late: boolean) => void }>()
+
+function awaitingConfirmation(key: string): boolean {
+  for (const command of unconfirmed.values()) if (command.key === key) return true
+  return false
+}
+
+/** Sends one conversation command under a fresh ID and settles it now, or when its late receipt arrives. */
+async function conversationCommand<T>(
+  key: string,
+  send: (commandId: string) => Promise<Result<T>>,
+  settle: (answer: Result<T>, late: boolean) => void
+): Promise<Result<T> | null> {
+  if (awaitingConfirmation(key)) {
+    note("Odin hasn't confirmed your last change to this conversation yet. It applies once, when he answers.")
+    return null
+  }
+  const commandId = crypto.randomUUID()
+  const answer = await send(commandId)
+  if (!answer.ok && isUnknownOutcome(answer.error)) {
+    unconfirmed.set(commandId, { key, settle: settle as (answer: Result<unknown>, late: boolean) => void })
+    note('Waiting for Odin to confirm that change. It is never sent twice.')
+    return null
+  }
+  settle(answer, false)
+  return answer
 }
 
 /** A changed conversation from a command's answer; a revision conflict refreshes the list so the user can retry. */
@@ -497,69 +569,98 @@ function settleConversation(result: Result<{ conversation: Conversation }>): boo
 }
 
 async function refreshConversations(): Promise<void> {
+  const generation = ++listGeneration
   const listed = await window.odin.listConversations()
   if (!listed.ok) return
-  for (const item of listed.result.items) {
-    const { activity: _activity, ...conversation } = item
-    upsertConversation(conversation)
-  }
+  applyList(listed.result.items, Number(listed.result.watermark) || 0, generation)
 }
 
 export async function renameConversation(id: string, title: string): Promise<boolean> {
   const conversation = conversationById(id)
   if (!conversation) return false
-  return settleConversation(await window.odin.updateConversation({ id, expected_rev: conversation.rev, title }))
+  const answer = await conversationCommand(
+    id,
+    (command_id) => window.odin.updateConversation({ command_id, id, expected_rev: conversation.rev, title }),
+    settleConversation
+  )
+  return Boolean(answer?.ok)
 }
 
 export async function setArchived(id: string, archived: boolean): Promise<boolean> {
   const conversation = conversationById(id)
   if (!conversation) return false
-  return settleConversation(await window.odin.updateConversation({ id, expected_rev: conversation.rev, archived }))
+  const answer = await conversationCommand(
+    id,
+    (command_id) => window.odin.updateConversation({ command_id, id, expected_rev: conversation.rev, archived }),
+    settleConversation
+  )
+  return Boolean(answer?.ok)
 }
 
 export async function resetContext(id: string): Promise<boolean> {
   const conversation = conversationById(id)
   if (!conversation) return false
-  return settleConversation(await window.odin.resetContext({ id, expected_rev: conversation.rev }))
+  const answer = await conversationCommand(
+    id,
+    (command_id) => window.odin.resetContext({ command_id, id, expected_rev: conversation.rev }),
+    settleConversation
+  )
+  return Boolean(answer?.ok)
 }
 
 export async function deleteConversation(id: string): Promise<boolean> {
   const conversation = conversationById(id)
   if (!conversation) return false
-  const result = await window.odin.deleteConversation({ id, expected_rev: conversation.rev })
-  if (!result.ok) {
-    if (result.error.code === 'stale_binding') {
-      note('That conversation changed elsewhere, so it was refreshed. Try again.')
-      void refreshConversations()
-    } else note(result.error.message)
-    return false
-  }
-  removeConversation(id)
-  return true
+  const answer = await conversationCommand(
+    id,
+    (command_id) => window.odin.deleteConversation({ command_id, id, expected_rev: conversation.rev }),
+    (result) => {
+      if (result.ok) return removeConversation(id)
+      if (result.error.code === 'stale_binding') {
+        note('That conversation changed elsewhere, so it was refreshed. Try again.')
+        void refreshConversations()
+      } else note(result.error.message)
+    }
+  )
+  return Boolean(answer?.ok)
+}
+
+/** Opens a conversation a command created: at once, or with a note when it was confirmed later. */
+function openCreated(answer: Result<{ conversation: Conversation }>, late: boolean, what: string): void {
+  if (!answer.ok) return note(errorText(answer))
+  upsertConversation(answer.result.conversation)
+  if (late) note(`${what} is ready: “${answer.result.conversation.title}”.`)
+  else void select(answer.result.conversation.id)
 }
 
 /** A child conversation seeded from the parent's context through a message (default: its latest). */
 export async function startThread(parentId: string, fromMessageId?: string): Promise<void> {
   const parent = conversationById(parentId)
-  const created = await window.odin.createConversation({
-    title: `Thread: ${parent?.title ?? 'Chat'}`.slice(0, 200),
-    parent_id: parentId,
-    ...(fromMessageId ? { from_message_id: fromMessageId } : {})
-  })
-  if (!created.ok) return note(errorText(created))
-  upsertConversation(created.result.conversation)
-  await select(created.result.conversation.id)
+  await conversationCommand(
+    `thread:${parentId}`,
+    (command_id) =>
+      window.odin.createConversation({
+        command_id,
+        title: `Thread: ${parent?.title ?? 'Chat'}`.slice(0, 200),
+        parent_id: parentId,
+        ...(fromMessageId ? { from_message_id: fromMessageId } : {})
+      }),
+    (answer, late) => openCreated(answer, late, 'Your new thread')
+  )
 }
 
 /** Drops everything the window holds for a deleted conversation, and moves to another one if it was open. */
 function removeConversation(id: string): void {
+  deleted.add(id)
   state.conversations = state.conversations.filter((c) => c.id !== id)
+  // Nothing found in it can be shown or opened any more.
+  state.search.hits = state.search.hits.filter((h) => h.conversation_id !== id)
   const view = state.views[id]
   if (view) view.loadToken += 1
   delete state.views[id]
   delete state.busy[id]
   state.pending = state.pending.filter((p) => p.conversation_id !== id)
-  if (state.jump?.conversationId === id) backToLatest()
+  if (state.jump?.conversationId === id) clearNavigation()
   if (state.activeId !== id) return
   const next = state.conversations.find((c) => !c.archived) ?? state.conversations[0]
   if (next) void select(next.id)
@@ -569,12 +670,16 @@ function removeConversation(id: string): void {
   }
 }
 
+/** Each search's generation: an answer to an earlier search, even for the same words, never replaces a newer one. */
+let searchGeneration = 0
+
 export async function runSearch(query: string): Promise<void> {
+  const mine = ++searchGeneration
   state.search.query = query
   state.search.loading = true
   state.search.error = ''
   const result = await window.odin.search({ query, limit: 20 })
-  if (state.search.query !== query) return // a newer search replaced this one
+  if (mine !== searchGeneration) return
   state.search.loading = false
   if (!result.ok) {
     state.search.hits = []
@@ -589,9 +694,10 @@ export async function runSearch(query: string): Promise<void> {
 export async function moreResults(): Promise<void> {
   const { query, nextCursor } = state.search
   if (!nextCursor || state.search.loading) return
+  const mine = searchGeneration
   state.search.loading = true
   const result = await window.odin.search({ query, limit: 20, cursor: nextCursor })
-  if (state.search.query !== query) return
+  if (mine !== searchGeneration) return
   state.search.loading = false
   if (!result.ok) {
     state.search.error = result.error.message
@@ -602,9 +708,13 @@ export async function moreResults(): Promise<void> {
   state.search.nextCursor = result.result.next_cursor ?? null
 }
 
+/** Each jump's generation: going back to the latest, another jump, a switch or a reset fences an older one. */
+let jumpGeneration = 0
+
 /** Opens a hit's conversation at the message: in place when it is loaded, otherwise in a window around it. */
 export async function jumpTo(hit: SearchHit): Promise<void> {
   await select(hit.conversation_id)
+  const mine = ++jumpGeneration
   const view = state.views[hit.conversation_id]
   if (view?.messages.some((m) => m.id === hit.message_id)) {
     state.jump = null
@@ -617,6 +727,7 @@ export async function jumpTo(hit: SearchHit): Promise<void> {
     before: 20,
     after: 20
   })
+  if (mine !== jumpGeneration || state.activeId !== hit.conversation_id) return
   if (!result.ok) return note(result.error.message)
   state.jump = {
     conversationId: hit.conversation_id,
@@ -628,16 +739,26 @@ export async function jumpTo(hit: SearchHit): Promise<void> {
   state.highlightId = hit.message_id
 }
 
-export function backToLatest(): void {
+/** Ends any jump or highlight, and fences a jump still on its way. */
+function clearNavigation(): void {
+  jumpGeneration += 1
   state.jump = null
   state.highlightId = null
 }
 
+/** The user went back to the latest messages, so they are on screen again. */
+export function backToLatest(): void {
+  const wasJump = state.jump?.conversationId
+  clearNavigation()
+  if (wasJump && wasJump === state.activeId) void markReadIfAttentive(wasJump)
+}
+
 export async function newConversation(): Promise<void> {
-  const created = await window.odin.createConversation({ title: 'New chat' })
-  if (!created.ok) return note(errorText(created))
-  upsertConversation(created.result.conversation)
-  await select(created.result.conversation.id)
+  await conversationCommand(
+    'new',
+    (command_id) => window.odin.createConversation({ command_id, title: 'New chat' }),
+    (answer, late) => openCreated(answer, late, 'Your new conversation')
+  )
 }
 
 /** Loads the page of history before the oldest message shown. */
@@ -815,6 +936,13 @@ export async function setAutostart(enabled: boolean): Promise<void> {
 }
 
 function applyReceipt(receipt: LateReceipt): void {
+  const command = unconfirmed.get(receipt.id)
+  if (command) {
+    if (!receipt.settled.ok && isUnknownOutcome(receipt.settled.error)) return
+    unconfirmed.delete(receipt.id)
+    command.settle(receipt.settled, true)
+    return
+  }
   const pending = state.pending.find((p) => p.client_submission_id === receipt.id)
   if (pending) {
     const settled = receipt.settled
@@ -886,8 +1014,10 @@ function removePending(id: string): void {
   state.pending = state.pending.filter((p) => p.client_submission_id !== id)
 }
 
-/** Conversation records only move forward in revision. */
-function upsertConversation(conversation: Conversation): void {
+/** Conversation records only move forward in revision, and a deleted one never comes back. */
+function upsertConversation(conversation: Conversation, fromList = false): void {
+  if (deleted.has(conversation.id)) return
+  if (!fromList) learnedIn.set(conversation.id, listGeneration)
   const index = state.conversations.findIndex((c) => c.id === conversation.id)
   if (index < 0) state.conversations.push(conversation)
   else if (conversation.rev >= state.conversations[index]!.rev) state.conversations[index] = conversation
@@ -910,17 +1040,25 @@ export function applyEvent(event: CoreEvent): void {
   const p = event.payload
   if (event.type === 'conversation.created' || event.type === 'conversation.updated') {
     const conversation = p.conversation as Conversation
+    conversationSeq.set(conversation.id, event.seq)
     upsertConversation(conversation)
     if (conversation.id === state.activeId && conversation.unread > 0) void markReadIfAttentive(conversation.id)
     return
   }
   if (event.type === 'conversation.deleted') {
+    conversationSeq.set(String(p.conversation_id), event.seq)
     removeConversation(String(p.conversation_id))
     return
   }
   if (event.type === 'message.committed') {
     const message = p.message as Message
     if (message.role === 'user' && message.client_submission_id) removePending(message.client_submission_id)
+  }
+  const jump = state.jump
+  if (event.type === 'artifact.unavailable' && jump && jump.conversationId === p.conversation_id) {
+    // The search window shows its own copies of messages; they lose the file too.
+    const artifact = jump.items.find((m) => m.id === String(p.message_id))?.artifacts?.find((a) => a.ref === String(p.ref))
+    if (artifact) artifact.available = false
   }
   if (event.type === 'control.receipt') {
     const local = state.controls.find((c) => c.control_command_id === String(p.control_command_id))

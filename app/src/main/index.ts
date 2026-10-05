@@ -103,6 +103,10 @@ function run(): void {
         conversations.upsert(p.conversation as { id: string; title: string; unread: number })
         refreshTray()
         return
+      case 'artifact.unavailable':
+        // A file the core no longer has leaves the private cache too.
+        void artifacts.forget(String(p.ref))
+        return
       case 'conversation.deleted': {
         const id = String(p.conversation_id)
         conversations.remove(id)
