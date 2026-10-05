@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "step": 8,
+  "part": 2,
+  "acceptance": "pending independent PR review; full Phase2 closure remains blocked",
+  "entries": [
+    {
+      "path": "src/desktop/management.py",
+      "reason": "Restore the missing real subsystem-guard composition exposed by the entire inherited constructor corpus. Construct one retained guard from configured thresholds before ProviderOwner, not a test-injected substitute.",
+      "contract": "All existing management admission, stable keyed receipt comparisons, read/mutation separation and durable settlement remain. Manager, executor and provider gateway share one actual guard; original provider/SSH/knowledge/browser registrations use Desktop's compatible-provider spelling.",
+      "invariant": "No stricter policy, new transport, duplicate guard or fabricated readiness. Existing unknown outcomes and owner admission stay unchanged; registration alone does not qualify every non-provider guard consumer.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_management.py", "tests/test_desktop_management_core.py", "tests/test_desktop_receipt_retention.py", "tests/test_desktop_phase2_runtime_guard.py"]
+    },
+    {
+      "path": "src/desktop/runtime.py",
+      "reason": "Expose the exact provider owner's real subsystem guard to the runtime observer, preserving one guard identity rather than constructing separate diagnostic state.",
+      "contract": "Existing serving identity, measured/estimated/unknown usage, read-only rollup and named reload contracts remain; runtime refers to the same guard used by actual provider admission.",
+      "invariant": "No second lifetime, rollup writer, invented context counts, boot context load or ownerless successful reload. Provider admission/block/recovery is proven; broader native service qualification is not claimed.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_lifecycle.py", "tests/test_desktop_management_core.py", "tests/test_desktop_runtime.py", "tests/test_desktop_phase2_runtime_guard.py"]
+    },
+    {
+      "path": "scripts/maintenance/phase2_suites.py",
+      "reason": "Admit whole-suite restoration for merged step5 while retaining historical326 membership and explicitly reviewed retirements. Replace the guard's old helper-only selector only with its checked complete frozen adapter.",
+      "contract": "All original869 hashes, historical population digest, reviewed5 retirements, merged30 named groups and selectors remain bound. Steps2/3/4/6/7/Phase3 cannot be restored prematurely; every adapter remains whole-corpus/hash/export checked.",
+      "invariant": "No general selector deletion, partial export, assertion cut or green claim for a blocked suite. Guard-only replacement preserves complete original corpus; accounting is not runtime parity or independent approval.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_suite_map.py", "tests/test_desktop_phase2_runtime_guard.py"]
+    },
+    {
+      "path": "scripts/maintenance/restore_step5_suites.py",
+      "reason": "Integrate every85 independently audited runtime decision from explicit batch records and the separate real guard result, rather than accepting a restored subset as whole closure.",
+      "contract": "Reject duplicate/unowned/missing decisions and changed originals; move only complete direct or frozen restorations to executable qualification, preserve all historical paths and reviewer retirements, and record exact remaining blockers.",
+      "invariant": "No auto-retirement or invented passing status. Re-running deterministic integration does not alter original files or authorize unavailable surfaces; final parent owns semantic dispositions and clean qualification.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "tests/test_desktop_phase2_suite_map.py",
+      "reason": "Add behavioral fail-closed proof for merged step5 restoration and the single full-guard selector transition, including deterministic generator accounting of all85 decisions.",
+      "contract": "Existing historical membership, source hashes, malformed-plan, partial-adapter and reviewed-retirement assertions remain. Unmerged steps and general lost selectors still fail; whole guard substitution and actual generator accounting succeed.",
+      "invariant": "Offline temporary trees only; no runtime engine, live profile or native input. Strengthen rather than weaken inherited accounting checks.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "tests/desktop_adapters/step8_runtime_a.py",
+      "reason": "Restore complete cancelled-persistence and failure-visibility corpora with authentic temporary owner/executor and real StateService success projection, replacing only retired bot/REST setup.",
+      "contract": "Literal source hashes, sealed setup hunks, reverse source replay and corpus equality preserve every assertion/signature/decorator/parameter. StateService retains real settled locks; actual ready handler supplies unknown-host refusal.",
+      "invariant": "No cancellation interception, synthetic success/error, permissive owner or subset export. Success carrier conversion happens only after committed real domain outcome.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_runtime_a.py", "tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "tests/test_desktop_phase2_runtime_a.py",
+      "reason": "Execute both complete batchA frozen suites under real temporary authority and prove source/reverse-setup seals plus actual committed-success and unknown-host boundaries.",
+      "contract": "All11 inherited adapted executions plus guard/provenance tests; direct provider shutdown remains its original selector. Private process-owner fixture avoids importing unrelated partial adapter admissions.",
+      "invariant": "Nonroot isolated PID namespace only, harmless unknown-host command, no live profile/native action or failure laundering.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_runtime_a.py"]
+    },
+    {
+      "path": "tests/test_desktop_phase2_runtime_b.py",
+      "reason": "Validate direct native knowledge provenance and expose incompatible audit/webhook outcomes through actual authenticated IPC rather than fake inherited HTTP status equivalence.",
+      "contract": "All21 owned original hashes remain. Real damaged audit returns successful read with valid=false; real integration desired-state and persistence outcomes remain recorded blockers, not restoration.",
+      "invariant": "New probes are not a partial inherited export. Native knowledge proves retained handler behavior, not currently absent management publication; no live network or vault.",
+      "owner": "Odin",
+      "tests": ["tests/test_native_knowledge.py", "tests/test_desktop_phase2_runtime_b.py"]
+    },
+    {
+      "path": "tests/desktop_adapters/step8_runtime_c.py",
+      "reason": "Restore whole knowledge-ingest outcomes by adding real explicit admitted temporary roots to seven exact BulkImporter constructor calls.",
+      "contract": "Source/AST setup pins, independently reconstructed complete tree and corpus equality preserve all25 cases/98 assertions; whole module exports with no filtered definitions.",
+      "invariant": "The production root resolver and outside/no-root denials are unchanged. No runtime store/result/mock-policy implementation replaces original classification or durability behavior.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_runtime_c.py", "tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "tests/test_desktop_phase2_runtime_c.py",
+      "reason": "Execute complete ingestion adapter and independent source/setup/assertion/export mutation probes, including actual admitted/outside/no-root behavior.",
+      "contract": "All25 inherited cases plus added provenance/root boundaries; budgeted search and outbound recorder suites remain unchanged direct originals.",
+      "invariant": "No subset or weakened assertion; temporary files and stubbed network only under sanctioned namespace runner.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_runtime_c.py", "tests/test_search_small_delivery_budget.py", "tests/test_turn_recorder_webhook_campaign.py"]
+    },
+    {
+      "path": "tests/desktop_adapters/step8_runtime_d.py",
+      "reason": "Restore complete knowledge snapshot and process-tail suites through actual private authenticated IPC/domain owner and genuine owner/private workspace with retained local/remote supervisors.",
+      "contract": "Exact setup AST pins and complete reverse replay preserve all14 cases/54 assertions. Snapshot carrier reflects real success/conflict only; unknown outcomes fail. Capture/delivery/settlement authorization remains actual production code.",
+      "invariant": "No HTTP listener, synthetic domain error, disabled containment, global readiness or process method replacement. Remote supervisor runs hermetically locally, not proof of real SSH transport/native containment.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_runtime_d.py", "tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "tests/test_desktop_phase2_runtime_d.py",
+      "reason": "Execute both complete frozen modules and prove reverse/hash/corpus mutations, actual bad-credential/owner denials and real process resource settlement.",
+      "contract": "Every inherited snapshot and process-tail case plus8 adapter proofs, with authenticated IPC and actual temporary journal/store/process dependencies.",
+      "invariant": "No subset export or manufacture of unsupported result/error. Real process tests only under sanitized nonroot PID namespace; original literal inputs remain unchanged.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_runtime_d.py"]
+    },
+    {
+      "path": "tests/desktop_adapters/step8_runtime_guard.py",
+      "reason": "Replace only obsolete Discord constructor setup in the full subsystem-guard module with actual temporary authenticated CoreService/ManagementService composition.",
+      "contract": "Original116 cases/206 assertions, both legacy flag parameters, configured7/19 thresholds and provider registration are intact. Hash/AST/reverse replay and whole export protect the complete module.",
+      "invariant": "Guard is constructed by production composition, never injected in test. No provider transport started without stubs; no original assertion rewritten.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_runtime_guard.py", "tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "tests/test_desktop_phase2_runtime_guard.py",
+      "reason": "Execute complete inherited guard corpus and prove one real constructed/shared guard, threshold failure/block/recovery behavior for all serving providers, runtime observation and default3/10 semantics.",
+      "contract": "Actual authenticated profile construction and provider gateway calls, not guard fixture injection. Mutation probes reject setup/assertion drift; every original parameter remains.",
+      "invariant": "Provider admission qualification is not every non-provider guard consumer or native service qualification. No live provider credential/network/desktop used.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_runtime_guard.py"]
+    },
+    {
+      "path": "tests/desktop_adapters/process_cases.py",
+      "reason": "Refresh accounting evidence digest after new whole-step5 admission tests; original process adapter bytes remain unchanged.",
+      "contract": "Eight pinned setup-node changes preserve all374 process assertions/159 definitions and complete reverse replay; authentic temporary workspace remains the only registry subclass difference.",
+      "invariant": "No containment, reaper, signal, settlement or cleanup override; evidence rebinding does not approve source or introduce new runtime policy.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_process_corpus.py", "tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "tests/test_desktop_round2_acceptance.py",
+      "reason": "Refresh evidence digest for new whole-step5 accounting checks; existing immutable historical population assertion bytes remain unchanged.",
+      "contract": "Historical326 count, unique paths and fixed digest remain bound to disjoint deferred/restored/reviewer-retired sets, with retired suites never passing.",
+      "invariant": "No historical membership or hash weakening; evidence refresh is not blanket approval.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_round2_acceptance.py", "tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "tests/test_desktop_test_plan.py",
+      "reason": "Refresh evidence digest for expanded step5 accounting while preserving retired-classification and source-plan behavior.",
+      "contract": "Original classifications and complete immutable inventory remain coherent; direct originals and whole adapters are selected separately from unavailable surfaces.",
+      "invariant": "No test-plan assertion dropped, original path changed or retired case admitted as passing.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_test_plan.py", "tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "scripts/run-phase1-tests.py",
+      "reason": "Refresh accounting evidence hashes only; existing sanitized isolated whole-adapter runner bytes remain unchanged.",
+      "contract": "Default selection keeps directly restored originals and replaces obsolete original setup only with complete frozen adapters. Nonroot env-i mount/PID isolation remains required.",
+      "invariant": "No inherited case lost; merged30 qualification groups preserved. No live HOME/display/DBus/credential access or broad workstation signals.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_isolated_runner.py", "tests/test_desktop_phase2_suite_map.py", "tests/test_desktop_test_plan.py"]
+    }
+  ]
+}
