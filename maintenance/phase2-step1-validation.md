@@ -127,3 +127,24 @@ Review baseline: `81d00a151cdfb9dde25ddcbf04d1530e9e13658a`.
 - Full log: `/home/odin/reviews/desktop-step1-round1-fresh-gates.log`; JUnit under
   `/home/odin/reviews/desktop-step1-round1-fresh/.test-state/qualification-{0..28}.xml`.
   Inherited unawaited-AsyncMock warnings remain visible; this is not a warning-clean claim.
+
+## PR #14 round 2: D17 directory and socket-path parity
+
+Review baseline: `31a48c24d7d3535f0fff2659a5da50d807af7bc7`.
+
+- Removed directory permission-mode refusals in profile provisioning and IPC parent traversal. Owned
+  `odin-desktop/<profile>` components are still repaired to `0700`; unrelated ancestors and existing configured
+  socket folders are never chmodded. Foreign nonroot directory owners and links remain refused. Root-owned
+  directories are accepted without attempting to repair another owner's namespace.
+- Configured SSH socket paths keep their original relative/absolute spelling for OpenSSH. Only the guard's path
+  is normalized, so `../sockets` works. Missing folders are created `0700`, existing folders are used unchanged,
+  and the default profile socket folder is still created `0700` under umask `002`.
+- Fail-before-fix run against unchanged production source: **34 failed, 15 passed, 126 deselected**. It includes
+  actual supervised core startup below `0775`/`0777` XDG ancestors and all configured socket-folder review rows.
+  Log: `/home/odin/reviews/desktop-step1-round2-before.log`.
+- Final touched suites: **212 passed**. Combined paths/IPC-auth coverage **98%**, IPC-auth **100%**.
+  Log: `/home/odin/reviews/desktop-step1-round2-final-touched.log`.
+- Exact source-adaptation records and unchanged-source evidence pins are refreshed separately; no source
+  recapture or independent approval is implied. Drift, lint and file-plan ownership checks pass.
+- Full qualification will run from a new checkout created after `umask 002`, with its root verified `0775`,
+  locked dependencies and the repository's unchanged sanitized PID/mount-namespace launcher.

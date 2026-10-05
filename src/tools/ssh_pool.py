@@ -66,7 +66,7 @@ class SSHConnectionPool:
         self._expiry_tasks: dict[str, asyncio.Task] = {}
         self._total_reused: int = 0
         self._total_opened: int = 0
-        private_directory(Path(self.socket_dir).absolute())
+        private_directory(Path(os.path.abspath(self.socket_dir)), repair_namespace=False)
 
     def _key(self, host: str, ssh_user: str, target_id: str = "") -> str:
         return target_id or f"{ssh_user}@{host}"

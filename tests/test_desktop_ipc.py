@@ -275,8 +275,8 @@ def test_token_and_parent_nofollow(tmp_path):
     with pytest.raises(OSError):
         ipc_auth.load_token(linked_parent / "ipc.token")
     tmp_path.chmod(0o755)
-    with pytest.raises(PermissionError, match="parent"):
-        ipc_auth.load_token(path)
+    assert ipc_auth.load_token(path) == "a" * 64
+    assert stat.S_IMODE(tmp_path.stat().st_mode) == 0o755
 
 
 @pytest.mark.asyncio
@@ -510,19 +510,26 @@ def test_token_validation_repairs_namespace_before_core_provisioning(tmp_path, m
 
 
 @pytest.mark.parametrize("create", [False, True])
-def test_private_parent_refuses_unrelated_writable_ancestor(tmp_path, create):
+@pytest.mark.parametrize("mode", [0o755, 0o775, 0o777, 0o1700])
+def test_private_parent_accepts_unrelated_modes_without_chmod(tmp_path, create, mode):
     shared = tmp_path / "shared"
     directory = shared / "odin-desktop" / "default"
     directory.mkdir(parents=True)
-    shared.chmod(0o775)
-    with pytest.raises(PermissionError, match="writable"):
-        ipc_auth.private_parent(directory / "ipc.token", create=create)
-    assert stat.S_IMODE(shared.stat().st_mode) == 0o775
+    shared.chmod(mode)
+    path, fd = ipc_auth.private_parent(directory / "ipc.token", create=create)
+    try:
+        assert path == directory / "ipc.token"
+    finally:
+        os.close(fd)
+    assert stat.S_IMODE(shared.stat().st_mode) == mode
+    assert stat.S_IMODE(directory.stat().st_mode) == 0o700
 
 
 @pytest.mark.parametrize("component", ["odin-desktop", "default"])
 @pytest.mark.parametrize("owner", ["foreign", "root"])
-def test_private_parent_refuses_foreign_namespace(tmp_path, monkeypatch, component, owner):
+def test_private_parent_checks_namespace_owner_without_repairing_other_owners(
+    tmp_path, monkeypatch, component, owner
+):
     directory = tmp_path / "odin-desktop" / "default"
     directory.mkdir(parents=True)
     directory.parent.chmod(0o700)
@@ -540,8 +547,43 @@ def test_private_parent_refuses_foreign_namespace(tmp_path, monkeypatch, compone
         return info
 
     monkeypatch.setattr(os, "fstat", foreign_owner)
-    with pytest.raises(PermissionError, match="foreign"):
-        ipc_auth.private_parent(directory / "ipc.token")
+    if owner == "foreign":
+        with pytest.raises(PermissionError, match="foreign"):
+            ipc_auth.private_parent(directory / "ipc.token")
+    else:
+        _, fd = ipc_auth.private_parent(directory / "ipc.token")
+        os.close(fd)
+    assert stat.S_IMODE(foreign.stat().st_mode) == 0o775
+
+
+@pytest.mark.parametrize("location", ["ancestor", "leaf"])
+@pytest.mark.parametrize("owner", ["foreign", "root"])
+def test_private_parent_checks_unrelated_owners_without_chmod(
+    tmp_path, monkeypatch, location, owner
+):
+    directory = tmp_path / "shared" / "runtime"
+    directory.mkdir(parents=True)
+    foreign = directory.parent if location == "ancestor" else directory
+    foreign.chmod(0o775)
+    inode = foreign.stat().st_ino
+    original = os.fstat
+
+    def foreign_owner(fd):
+        info = original(fd)
+        if info.st_ino == inode:
+            values = list(info)
+            values[4] = 0 if owner == "root" else os.geteuid() + 1
+            return os.stat_result(values)
+        return info
+
+    monkeypatch.setattr(os, "fstat", foreign_owner)
+    if owner == "foreign":
+        with pytest.raises(PermissionError, match="foreign") as refusal:
+            ipc_auth.private_parent(directory / "ipc.token")
+        assert refusal.value.filename == str(foreign)
+    else:
+        _, fd = ipc_auth.private_parent(directory / "ipc.token")
+        os.close(fd)
     assert stat.S_IMODE(foreign.stat().st_mode) == 0o775
 
 

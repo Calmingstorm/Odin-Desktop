@@ -14,7 +14,7 @@ from .paths import _namespace_directories, _repair_namespace_directory, private_
 
 
 def private_parent(path: Path | str, *, create: bool = False) -> tuple[Path, int]:
-    """Return a held descriptor, rejecting links and non-private terminal parents."""
+    """Hold a no-follow parent; accept existing modes and repair only our namespace."""
     path = Path(path)
     if not path.is_absolute() or ".." in path.parts or any(ord(c) < 32 for c in str(path)):
         raise ValueError("IPC path must be absolute")
@@ -34,16 +34,8 @@ def private_parent(path: Path | str, *, create: bool = False) -> tuple[Path, int
             fd = child
             _repair_namespace_directory(fd, current, namespace, kind="IPC")
             info = os.fstat(fd)
-            mode = stat.S_IMODE(info.st_mode)
             if info.st_uid not in {0, os.geteuid()}:
                 raise PermissionError(errno.EACCES, "foreign IPC ancestor", str(current))
-            if mode & 0o022 and not info.st_mode & stat.S_ISVTX:
-                raise PermissionError(errno.EACCES, "IPC ancestor writable by others", str(current))
-        info = os.fstat(fd)
-        if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) != 0o700:
-            raise PermissionError(
-                errno.EACCES, "IPC parent must be owner-private (0700)", str(current),
-            )
         return path, fd
     except BaseException:
         os.close(fd)

@@ -30,20 +30,27 @@ def _repair_namespace_directory(fd: int, path: Path, namespace: frozenset[Path],
         return
     info = os.fstat(fd)
     if info.st_uid != os.geteuid():
+        if info.st_uid == 0:
+            return  # Root-owned directories are usable, but not ours to chmod.
         raise PermissionError(errno.EACCES, f"foreign {kind} ancestor", str(path))
     if stat.S_IMODE(info.st_mode) != 0o700:
         os.fchmod(fd, 0o700)
 
 
-def private_directory(path: Path) -> None:
-    """Provision no-follow; repair only owned namespace components, never ancestors."""
+def private_directory(path: Path, *, repair_namespace: bool = True) -> None:
+    """Create missing folders 0700; accept existing modes under D17.
+
+    Only owned Desktop namespace components are tightened, never unrelated
+    ancestors or configured socket folders. Links and foreign nonroot owners
+    remain refused through held descriptors.
+    """
     if not path.is_absolute() or ".." in path.parts:
         raise ValueError("private paths must be absolute")
-    namespace = _namespace_directories(path)
+    namespace = _namespace_directories(path) if repair_namespace else frozenset()
     current = Path("/")
     fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
     try:
-        for index, name in enumerate(path.parts[1:]):
+        for name in path.parts[1:]:
             current /= name
             try:
                 os.mkdir(name, mode=0o700, dir_fd=fd)
@@ -57,18 +64,8 @@ def private_directory(path: Path) -> None:
             fd = child
             _repair_namespace_directory(fd, current, namespace, kind="profile")
             info = os.fstat(fd)
-            terminal = index == len(path.parts) - 2
-            mode = stat.S_IMODE(info.st_mode)
             if info.st_uid not in {0, os.geteuid()}:
                 raise PermissionError(errno.EACCES, "foreign profile ancestor", str(current))
-            if mode & 0o022 and not (info.st_mode & stat.S_ISVTX and not terminal):
-                raise PermissionError(
-                    errno.EACCES, "profile ancestor writable by others", str(current),
-                )
-            if terminal and (info.st_uid != os.geteuid() or mode != 0o700):
-                raise PermissionError(
-                    errno.EACCES, "profile directory must be owner-private (0700)", str(current),
-                )
     finally:
         os.close(fd)
 

@@ -197,15 +197,17 @@ def test_common_safety_primitives_byte_identical():
                  "workspace.py", "ssh.py", "ssh_pool.py", "process_manager.py"):
         baseline = blobs[f"src/tools/{name}"]
         if name == "ssh_pool.py":
-            # PR #14 review #3 requires private parent provisioning. Fence the
-            # exact two-line adaptation; every master/lease/settlement byte stays
+            # PR #14 requires no-follow, foreign-owner guards without a D17
+            # permission-mode gate. Fence the exact provisioning adaptation;
+            # every master/lease/settlement byte stays
             # upstream-identical, not a broad exemption for the SSH pool.
             changes = (
                 (b"from ..odin_log import get_logger\n",
                  b"from ..desktop.paths import private_directory\n"
                  b"from ..odin_log import get_logger\n"),
                 (b"        os.makedirs(self.socket_dir, mode=0o700, exist_ok=True)\n",
-                 b"        private_directory(Path(self.socket_dir).absolute())\n"),
+                 b"        private_directory(Path(os.path.abspath(self.socket_dir)), "
+                 b"repair_namespace=False)\n"),
             )
             for before, after in changes:
                 assert baseline.count(before) == 1

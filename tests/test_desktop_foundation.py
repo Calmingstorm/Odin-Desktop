@@ -43,7 +43,7 @@ def test_invalid_xdg(tmp_path):
             home=tmp_path,
         )
 
-def test_no_symlink_or_permission_adoption(tmp_path):
+def test_no_symlink_adoption_or_unrelated_permission_repair(tmp_path):
     target = tmp_path / "target"
     target.mkdir(mode=0o700)
     link = tmp_path / "link"
@@ -51,8 +51,7 @@ def test_no_symlink_or_permission_adoption(tmp_path):
     with pytest.raises(OSError):
         private_directory(link / "private")
     target.chmod(0o755)
-    with pytest.raises(PermissionError):
-        private_directory(target)
+    private_directory(target)
     assert target.stat().st_mode & 0o777 == 0o755
 
 def test_owner_identity_stable_context_runtime_bound(tmp_path):

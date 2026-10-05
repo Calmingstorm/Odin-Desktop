@@ -74,7 +74,8 @@ def test_core_repairs_only_owned_namespace_directories(tmp_path, mode):
 
 
 @pytest.mark.parametrize("location", ["ancestor", "leaf", "invalid-profile", "secrets"])
-def test_core_never_repairs_unrelated_directory(tmp_path, location):
+@pytest.mark.parametrize("mode", [0o755, 0o775, 0o777, 0o1700])
+def test_core_accepts_unrelated_directory_without_chmod(tmp_path, location, mode):
     if location == "ancestor":
         ancestor = tmp_path / "shared"
         ancestor.mkdir(mode=0o700)
@@ -93,15 +94,16 @@ def test_core_never_repairs_unrelated_directory(tmp_path, location):
         ancestor = tmp_path / "custom"
         ancestor.mkdir(mode=0o700)
         target = ancestor
-    ancestor.chmod(0o775)
-    with pytest.raises(PermissionError):
-        private_directory(target)
-    assert stat.S_IMODE(ancestor.stat().st_mode) == 0o775
+    ancestor.chmod(mode)
+    private_directory(target)
+    assert stat.S_IMODE(ancestor.stat().st_mode) == mode
 
 
 @pytest.mark.parametrize("component", ["odin-desktop", "default"])
 @pytest.mark.parametrize("owner", ["foreign", "root"])
-def test_core_refuses_foreign_namespace_without_chmod(tmp_path, monkeypatch, component, owner):
+def test_core_checks_namespace_owner_without_chmod_of_other_owners(
+    tmp_path, monkeypatch, component, owner
+):
     target = tmp_path / "odin-desktop" / "default"
     target.mkdir(parents=True)
     target.parent.chmod(0o700)
@@ -119,7 +121,10 @@ def test_core_refuses_foreign_namespace_without_chmod(tmp_path, monkeypatch, com
         return info
 
     monkeypatch.setattr(os, "fstat", foreign_owner)
-    with pytest.raises(PermissionError, match="foreign"):
+    if owner == "foreign":
+        with pytest.raises(PermissionError, match="foreign"):
+            private_directory(target)
+    else:
         private_directory(target)
     assert stat.S_IMODE(foreign.stat().st_mode) == 0o775
 
@@ -166,6 +171,98 @@ def test_ssh_socket_parent_link_refused(tmp_path):
     with pytest.raises(OSError):
         SSHConnectionPool(socket_dir=str(link / "default" / "ssh-sockets"))
     assert list(outside.iterdir()) == []
+
+
+@pytest.mark.parametrize("mode", [0o755, 0o775, 0o777])
+@pytest.mark.parametrize("namespace", [False, True])
+def test_configured_existing_socket_directory_used_without_chmod(tmp_path, mode, namespace):
+    from src.tools.ssh_pool import SSHConnectionPool
+
+    directory = (tmp_path / "odin-desktop" / "default" if namespace
+                 else tmp_path / "configured-sockets")
+    directory.mkdir(parents=True)
+    directory.chmod(mode)
+    pool = SSHConnectionPool(socket_dir=str(directory))
+    assert pool.socket_dir == str(directory)
+    assert stat.S_IMODE(directory.stat().st_mode) == mode
+
+
+def test_configured_new_socket_directory_under_writable_parent(tmp_path):
+    from src.tools.ssh_pool import SSHConnectionPool
+
+    parent = tmp_path / "shared"
+    parent.mkdir()
+    parent.chmod(0o775)
+    directory = parent / "sockets"
+    previous = os.umask(0o002)
+    try:
+        pool = SSHConnectionPool(socket_dir=str(directory))
+    finally:
+        os.umask(previous)
+    assert pool.socket_dir == str(directory)
+    assert stat.S_IMODE(directory.stat().st_mode) == 0o700
+    assert stat.S_IMODE(parent.stat().st_mode) == 0o775
+
+
+def test_configured_relative_socket_directory_preserves_upstream_path(tmp_path, monkeypatch):
+    from src.tools.ssh_pool import SSHConnectionPool
+
+    working = tmp_path / "working"
+    working.mkdir()
+    tmp_path.chmod(0o775)
+    monkeypatch.chdir(working)
+    pool = SSHConnectionPool(socket_dir="../sockets")
+    assert pool.socket_dir == "../sockets"
+    assert pool.get_socket_path("lab", "operator") == "../sockets/operator@lab"
+    assert stat.S_IMODE((tmp_path / "sockets").stat().st_mode) == 0o700
+    assert stat.S_IMODE(tmp_path.stat().st_mode) == 0o775
+
+
+def test_default_socket_directory_created_private_under_group_umask(tmp_path, monkeypatch):
+    from src.config.schema import SSHPoolConfig
+    from src.tools.ssh_pool import SSHConnectionPool
+
+    paths = set_xdg(monkeypatch, tmp_path)
+    tmp_path.chmod(0o775)
+    previous = os.umask(0o002)
+    try:
+        pool = SSHConnectionPool(socket_dir=SSHPoolConfig().socket_dir)
+    finally:
+        os.umask(previous)
+    assert Path(pool.socket_dir) == paths.cache_dir / "ssh-sockets"
+    for path in (Path(pool.socket_dir), paths.cache_dir, paths.cache_dir.parent):
+        assert stat.S_IMODE(path.stat().st_mode) == 0o700
+    assert stat.S_IMODE(tmp_path.stat().st_mode) == 0o775
+
+
+@pytest.mark.parametrize("location", ["ancestor", "leaf"])
+@pytest.mark.parametrize("owner", ["foreign", "root"])
+def test_configured_socket_directory_checks_foreign_nonroot_owner(
+    tmp_path, monkeypatch, location, owner
+):
+    from src.tools.ssh_pool import SSHConnectionPool
+
+    directory = tmp_path / "shared" / "sockets"
+    directory.mkdir(parents=True)
+    foreign = directory.parent if location == "ancestor" else directory
+    inode = foreign.stat().st_ino
+    original = os.fstat
+
+    def foreign_owner(fd):
+        info = original(fd)
+        if info.st_ino == inode:
+            values = list(info)
+            values[4] = 0 if owner == "root" else os.geteuid() + 1
+            return os.stat_result(values)
+        return info
+
+    monkeypatch.setattr(os, "fstat", foreign_owner)
+    if owner == "foreign":
+        with pytest.raises(PermissionError, match="foreign") as refusal:
+            SSHConnectionPool(socket_dir=str(directory))
+        assert refusal.value.filename == str(foreign)
+    else:
+        SSHConnectionPool(socket_dir=str(directory))
 
 
 def test_logging_reinitialization_retires_only_owned_handlers(monkeypatch, tmp_path):

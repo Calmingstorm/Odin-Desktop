@@ -412,7 +412,10 @@ def test_entry_reports_scrubbed_failure_only_under_armed_watchdog(
 
 
 @pytest.mark.asyncio
-async def test_real_core_accepts_node_style_socketpair_stdin_and_exits_on_parent_eof():
+@pytest.mark.parametrize("ancestor_mode", [0o755, 0o775, 0o777])
+async def test_real_core_accepts_node_style_socketpair_stdin_and_exits_on_parent_eof(
+    ancestor_mode
+):
     import asyncio
     import socket
     import sys
@@ -423,6 +426,11 @@ async def test_real_core_accepts_node_style_socketpair_stdin_and_exits_on_parent
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary)
         paths, socket_path, token_file = profile(root)
+        root.chmod(ancestor_mode)
+        for path in (paths.config_dir.parent.parent, paths.data_dir.parent.parent,
+                     paths.cache_dir.parent.parent):
+            path.chmod(ancestor_mode)
+        paths.data_dir.parent.parent.parent.chmod(ancestor_mode)
         parent, child = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
         process = None
         writer = None
@@ -446,6 +454,10 @@ async def test_real_core_accepts_node_style_socketpair_stdin_and_exits_on_parent
             parent.sendall(b"supervisor alive\n")
             status = await request(reader, writer, "status.get")
             assert status["result"]["phase"] == "ready"
+            assert root.stat().st_mode & 0o777 == ancestor_mode
+            for path in (paths.config_dir, paths.data_dir, paths.cache_dir):
+                assert path.stat().st_mode & 0o777 == 0o700
+                assert path.parent.parent.stat().st_mode & 0o777 == ancestor_mode
             parent.close()
             _, stderr = await asyncio.wait_for(process.communicate(), 10)
             assert process.returncode == 0, stderr
