@@ -85,8 +85,11 @@ class TurnResumeManager:
         auto_resume_enabled: bool = True,
         resume_ttl_hours: float = 24.0,
         release_workload: Callable | None = None,
+        assert_preserved_request: Callable | None = None,
     ) -> None:
-        _require_phase2_wiring()
+        if not callable(assert_preserved_request):
+            _require_phase2_wiring()
+        self._assert_preserved_request = assert_preserved_request
         self._store = store
         self._tool_loop = tool_loop
         self._llm_gateway = llm_gateway
@@ -471,6 +474,16 @@ class TurnResumeManager:
             )
             self._release_calibration(key)
             return None, None, "the original message is gone"
+        verifier = getattr(self, "_assert_preserved_request", None)
+        if callable(verifier):
+            try:
+                if (str(original.id) != key.message_id
+                        or str(original.channel.id) != key.channel_id):
+                    raise PermissionError("Fetched admission belongs to another request")
+                verifier(original)
+            except Exception:
+                # Revocation or stale admission is not proof of deletion.
+                return None, None, "the preserved request is no longer authorized"
         if str(original.author.id) != str(row.get("user_id") or ""):
             await asyncio.to_thread(
                 self._store.reject_resumable_sync, key, "author mismatch"
@@ -545,7 +558,15 @@ class TurnResumeManager:
 
         # Acquire LAST — the single-winner transition happens only once
         # everything else is ready to run.
-        _require_phase2_wiring()
+        if callable(verifier):
+            try:
+                # Reconstruction can await. Verify the durable original again
+                # at the lease boundary, never a generic invocation identity.
+                verifier(original)
+            except Exception:
+                return None, None, "the preserved request is no longer authorized"
+        else:
+            _require_phase2_wiring()
         lease = await asyncio.to_thread(
             self._store.acquire_resume_lease_sync, key, row["generation"]
         )
