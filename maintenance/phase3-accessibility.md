@@ -97,4 +97,34 @@ symbol-only false indeterminacy, not a suppressed violation.
 
 ## Final fresh-checkout gate
 
-Pending execution of the integrated source. See the PR for the final head, commands and evidence receipts.
+Executed from separate clone `/home/odin/desktop-p34-fresh` at source
+`4d4ce76f1b54b62e771245f1c7ace3036799a72f`. The following final commit changes this evidence record only.
+Fresh clone tracked status was clean; no dependency symlinks or reused build output. Node 22.23.3, npm 10.9.9,
+Python 3.12.3, Electron 44.5.1, Playwright 1.63.0 and axe 4.14.0 on Linux Mint. Repository-only dependencies
+provisioned with `uv sync --frozen --no-install-project`, `npm ci --ignore-scripts`, and explicit pinned
+`node node_modules/electron/install.js`. No host package installation.
+
+| Command | Result |
+|---|---|
+| `npm run check` | Typecheck, 580 tests in 61 files and production build passed |
+| `npm run smoke` | Fixture handshake/render/normal Exit passed on isolated Xvfb |
+| `npm run test:a11y` | 15/15 passed, zero skipped/flaky, 49 axe checkpoints with zero violations, 29 full Chromium AX attachments |
+| `npm run smoke:real-core` | Real handshake/version/capabilities, 37 screen/refusal checks and orderly cleanup passed |
+| Cleanup | All 15 E2E Electron exits were exit 0; all disposable app profiles removed. No Electron from this fresh/working checkout remained in process inspection. Unrelated concurrent qualification jobs were not touched. |
+
+The first extra real-core smoke runs exposed stale title-based selectors after controls gained accessible names.
+Those assertions now select named Attach files/New conversation controls; no capability condition was weakened.
+The final full gates above were repeated after these changes. No final product code changed afterward.
+
+Final report: `/home/odin/desktop-p34-evidence/final-accessibility.json` (run 2026-10-05 22:08:42 UTC, 65.4 seconds).
+There are 454 **repeated checkpoint node observations**, not 454 unique defects, under incomplete color-contrast,
+and four incomplete close-glyph name observations. Their reviewed dispositions/limits above remain open to
+native/manual qualification. No incomplete rule is filtered out of the captured JSON.
+
+| Evidence | SHA-256 |
+|---|---|
+| `final-accessibility.json` | `35c9a3f120a8dde95b2d65c94410348db947fb6d0ef97cec1c6a4cdd711e245a` |
+| `final-check.log` | `e34520ce1bde49ca55580b51e8cc01c207fc365f1cbee8483f3ed82f2b9bdc7a` |
+| `final-smoke.log` | `2aff2e7338a44477ff390eea3eb4e8d3e8999f79baa6b6ff5b15c99dcffdb69f` |
+| `final-real-smoke.log` | `46ab3531c1efd97547e4bcc5929d1906117d5b4372a6a96e159303c36c485c93` |
+| `app/package-lock.json` | `13dcbeacd74b9ebbd1a0c3f1ba4b79a2746436df52cfdbc405dd01683b79068b` |
