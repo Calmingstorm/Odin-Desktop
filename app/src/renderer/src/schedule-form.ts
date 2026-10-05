@@ -213,7 +213,7 @@ function fieldsOf(form: ScheduleForm, zone: Zone): Fields | string {
   }
   if (form.retry_backoff_seconds.trim()) {
     const n = wholeNumber(form.retry_backoff_seconds)
-    if (n === null) return 'The wait between retries is a whole number of seconds.'
+    if (n === null || n < 1) return 'The wait between retries is a whole number of seconds, at least 1.'
     fields.retry_backoff_seconds = n
   }
   return fields
@@ -226,7 +226,7 @@ const CLEARED: Fields = { message: '', tool_input: {}, report_format: '' }
 /** Odin keeps these once set: an update can change them but not unset them. */
 const KEPT: Record<string, string> = {
   max_retries: 'Odin keeps the number of retries once set: enter 0 for none.',
-  retry_backoff_seconds: 'Odin keeps the wait between retries once set: enter 0 for none.'
+  retry_backoff_seconds: 'Odin keeps the wait between retries once set: enter at least 1 second. Set Retries to 0 to disable retries.'
 }
 
 /**

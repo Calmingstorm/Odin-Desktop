@@ -119,6 +119,8 @@ export async function loadSkills(): Promise<void> {
 
 /** Each time the editor is given to another skill, a new one or nothing. Work begun for an earlier one stays there. */
 let editorEpoch = 0
+/** The selected skill, even while its detail is loading and the previous editor is still visible. */
+let editorTarget: string | null = null
 /** Each read of a skill's detail: only the newest is shown. */
 let skillAsked = 0
 /** What the editor last loaded, so a reread replaces only what the user hasn't changed since. */
@@ -126,6 +128,7 @@ let loaded: Loaded | null = null
 
 export async function openSkill(name: string): Promise<void> {
   editorEpoch += 1
+  editorTarget = name
   await readSkill(name)
 }
 
@@ -140,6 +143,7 @@ async function readSkill(name: string): Promise<void> {
     management.notes[`skill:${name}`] = result.error.message
     return
   }
+  editorTarget = name
   const adopted = adoptSkill(management.editor, loaded, JSON.stringify(management.skillConfig), result.result)
   management.skill = result.result
   management.editor = adopted.editor
@@ -179,12 +183,16 @@ export async function saveSkill(): Promise<boolean> {
   if (!draft || !name) return false
   const { code, create } = draft
   const epoch = editorEpoch
-  const report = await validateSkill(code)
-  if (!report?.valid) return false
-  // A new skill's code counts as loaded once sent, so code typed while it is created stays.
-  if (create && epoch === editorEpoch) loaded = { name, code, config: JSON.stringify(management.skillConfig) }
-  return act(`skill:${name}`, () => window.odin.skillsSave({ name, code, create }), (answer) => {
-    if (epoch === editorEpoch && management.editor?.name.trim() === name) void readSkill(name)
+  return act(`skill:${name}`, async () => {
+    // Reserve the action before validation, not just before the write: a second Create must not lend its unsent
+    // code to the first one's loaded baseline.
+    const report = await validateSkill(code)
+    if (!report?.valid) return { ok: false, error: { code: 'validation', message: management.validation?.errors.join('\n') || 'Skill validation failed.' } }
+    // Only a write admitted by act establishes a new skill's baseline. Later typing stays through readback.
+    if (create && epoch === editorEpoch) loaded = { name, code, config: JSON.stringify(management.skillConfig) }
+    return window.odin.skillsSave({ name, code, create })
+  }, (answer) => {
+    if (epoch === editorEpoch && management.editor?.name.trim() === name && (create || editorTarget === name)) void readSkill(name)
     return answer.result
   }, loadSkills)
 }
@@ -213,7 +221,7 @@ export async function deleteSkill(name: string): Promise<void> {
 export async function saveSkillConfig(name: string, config: Record<string, unknown>): Promise<boolean> {
   const epoch = editorEpoch
   return act(`skill-config:${name}`, () => window.odin.skillsConfigSet({ name, config }), () => {
-    if (epoch === editorEpoch) void readSkill(name)
+    if (epoch === editorEpoch && editorTarget === name) void readSkill(name)
     return 'Saved.'
   })
 }
