@@ -1676,6 +1676,19 @@
       "name": "final-config-cases",
       "files": ["tests/test_desktop_final_config.py"],
       "reason": "Exact remaining configuration, evidence digest, model identity, skill listing and timeout definitions with real profile boundaries; removed schema/intake contracts receive named replacements."
+    },
+    {
+      "name": "phase2-core-transport",
+      "files": [
+        "tests/test_desktop_core_entry.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_core_lifecycle.py",
+        "tests/test_desktop_ipc.py",
+        "tests/test_desktop_command_journal.py",
+        "tests/test_desktop_event_journal.py",
+        "tests/test_desktop_journal_snapshot.py"
+      ],
+      "reason": "Phase 2 step 1 real temporary-profile process, parent EOF, private local framing/authentication, durable command receipts and event retention; no execution services or native desktop input."
     }
   ],
   "acceptance": {

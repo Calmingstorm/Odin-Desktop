@@ -1,4 +1,4 @@
-"""Desktop entry point. App-supervised composition is deferred to Phase 2."""
+"""App-supervised Desktop entry point with retained containment barriers."""
 
 from __future__ import annotations
 
@@ -441,13 +441,121 @@ def _emergency_exit(
     exit_now(exit_code or 1)
 
 
+def _startup_diagnostic(exc: BaseException, fallback_path: str, token_path: str) -> str:
+    """Bounded, inert failure metadata, never exception repr/str or credentials.
+
+    Only exact built-in exception types and fixed refusal reasons are emitted.
+    The finalizer's existing stop log writes it with its watchdog already armed.
+    """
+    from src.desktop.commands import JournalStorageError
+
+    kinds = (
+        (PermissionError, "PermissionError"), (FileNotFoundError, "FileNotFoundError"),
+        (FileExistsError, "FileExistsError"), (BlockingIOError, "BlockingIOError"),
+        (OSError, "OSError"), (ValueError, "ValueError"), (RuntimeError, "RuntimeError"),
+        (JournalStorageError, "JournalStorageError"),
+    )
+    # Identity comparisons avoid even a hostile subclass metaclass's __hash__.
+    kind = next((name for cls, name in kinds if type(exc) is cls), "startup_failure")
+    path = fallback_path
+    reason = "core startup failed"
+    if kind != "startup_failure":
+        args = exc.args
+        allowed = {
+            "foreign profile ancestor", "profile ancestor writable by others",
+            "profile directory must be owner-private (0700)",
+            "foreign IPC ancestor", "IPC ancestor writable by others",
+            "IPC parent must be owner-private (0700)", "unsafe IPC credential file",
+            "invalid IPC credential", "unsafe profile identity record",
+            "unsafe profile identity lock", "unsafe app bootstrap file",
+            "existing state has no identity; explicit recovery required",
+            "core parent link must be a supervised stdin pipe or stream socket",
+            "core parent link must be a supervised stream",
+        }
+        message = args[1] if len(args) > 1 and type(args[0]) is int else args[0] if args else None
+        if type(message) is str and message in allowed:
+            reason = message
+        if reason in {"unsafe IPC credential file", "invalid IPC credential"}:
+            path = token_path
+        if any(type(exc) is cls for cls in (PermissionError, FileNotFoundError, FileExistsError,
+                                           BlockingIOError, OSError)) and type(exc.filename) is str:
+            path = exc.filename
+    # A pathname can carry control characters or be arbitrarily long. The line
+    # is inert, bounded and log-injection-safe even for malformed local paths.
+    path = "".join(c if c.isprintable() else "?" for c in path[:1024])
+    return f"Odin stopped: {kind}: {reason}: {path}"
+
+
 def main() -> None:
-    """No core authority, listener or delivery until Phase 2 composition."""
+    """Run one profile core, then prove the retained finalization barrier."""
     if "--version" in sys.argv or "-V" in sys.argv:
         from src.version import get_version
         print(f"Odin Desktop {get_version()}")
         return
-    raise RuntimeError("Desktop core composition is deferred to Phase 2")
+    import logging
+
+    from src.cli import parse_core_args
+    from src.desktop.core import CoreService
+
+    options = parse_core_args()
+    # Select paths before service construction. Values are paths, not credentials.
+    os.environ["ODIN_DESKTOP_PROFILE"] = options.paths.profile_id
+    os.environ["ODIN_DESKTOP_TOKEN_FILE"] = str(options.token_file)
+    os.environ["ODIN_DESKTOP_DATA_DIR"] = str(options.paths.data_dir)
+    log = logging.getLogger("odin.desktop")
+    # App captures stderr; no second file handler or live logging configuration.
+    handler = logging.StreamHandler(sys.stderr)
+    stop_diagnostic = None
+
+    def final_stop_record(record) -> bool:
+        if stop_diagnostic is not None and record.msg == "Odin stopped":
+            record.msg = stop_diagnostic
+            record.args = ()
+        return True
+
+    handler.addFilter(final_stop_record)
+    log.addHandler(handler)
+    log.setLevel(logging.INFO)
+    if not _enable_process_containment(log):
+        raise SystemExit(1)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    reaper = AdoptedZombieReaper()
+    exit_code = 0
+    service = CoreService(
+        options.paths, options.socket, options.token_file, release_runtime_on_close=False
+    )
+
+    async def supervised() -> int:
+        reaper.start()
+        try:
+            return await service.run()
+        finally:
+            await reaper.stop()
+
+    try:
+        exit_code = loop.run_until_complete(supervised())
+    except KeyboardInterrupt:
+        exit_code = 130
+    except Exception as exc:
+        # No synchronous I/O before the finalization watchdog is armed.
+        # Even scrubbed logging can block on a supervisor's full stderr pipe.
+        _PARKED_FOR_EXIT.append(exc)
+        stop_diagnostic = _startup_diagnostic(
+            exc, str(options.paths.data_dir), str(options.token_file),
+        )
+        exit_code = 1
+    finally:
+        _finalize_and_exit(loop, reaper, log, exit_code)
+        # A successor cannot acquire this profile while async finalizers or
+        # contained descendants might still own it. Emergency exit releases
+        # the kernel lock only by ending this incarnation, never early here.
+        service.release_runtime()
+        asyncio.set_event_loop(None)
+        log.removeHandler(handler)
+        handler.close()
+    if exit_code:
+        raise SystemExit(exit_code)
 
 
 def _command_protected_roots(config) -> list[str]:

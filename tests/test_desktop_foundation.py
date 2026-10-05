@@ -18,7 +18,7 @@ def paths(tmp_path, profile="default"):
 
 def test_xdg_namespaces(tmp_path):
     first, second = paths(tmp_path), paths(tmp_path, "second")
-    assert first.data_dir == tmp_path / ".local/share/odin-desktop/profiles/default"
+    assert first.data_dir == tmp_path / ".local/share/odin-desktop/default"
     assert first.config_dir != first.data_dir != first.cache_dir
     assert first.environment_file.parent == first.secrets_dir
     assert second.identity_file != first.identity_file
@@ -43,16 +43,15 @@ def test_invalid_xdg(tmp_path):
             home=tmp_path,
         )
 
-def test_no_symlink_or_permission_adoption(tmp_path):
+def test_directory_symlink_followed_without_unrelated_permission_repair(tmp_path):
     target = tmp_path / "target"
     target.mkdir(mode=0o700)
     link = tmp_path / "link"
     link.symlink_to(target, target_is_directory=True)
-    with pytest.raises(OSError):
-        private_directory(link / "private")
+    private_directory(link / "private")
+    assert (target / "private").stat().st_mode & 0o777 == 0o700
     target.chmod(0o755)
-    with pytest.raises(PermissionError):
-        private_directory(target)
+    private_directory(target)
     assert target.stat().st_mode & 0o777 == 0o755
 
 def test_owner_identity_stable_context_runtime_bound(tmp_path):

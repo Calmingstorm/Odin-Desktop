@@ -7,6 +7,7 @@ import re
 import time
 from pathlib import Path
 
+from ..desktop.paths import private_directory
 from ..odin_log import get_logger
 
 log = get_logger("ssh_pool")
@@ -65,7 +66,7 @@ class SSHConnectionPool:
         self._expiry_tasks: dict[str, asyncio.Task] = {}
         self._total_reused: int = 0
         self._total_opened: int = 0
-        os.makedirs(self.socket_dir, mode=0o700, exist_ok=True)
+        private_directory(Path(os.path.abspath(self.socket_dir)), repair_namespace=False)
 
     def _key(self, host: str, ssh_user: str, target_id: str = "") -> str:
         return target_id or f"{ssh_user}@{host}"

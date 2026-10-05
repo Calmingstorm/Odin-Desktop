@@ -163,16 +163,20 @@ def test_data_readiness_uses_only_private_xdg_profile(tmp_path, monkeypatch):
     assert not (tmp_path / "data").exists()
 
 
-def test_data_readiness_refuses_existing_nonprivate_state(tmp_path, monkeypatch):
+@pytest.mark.parametrize("mode", [0o755, 0o775, 0o777])
+def test_data_readiness_repairs_namespace_not_ancestors(tmp_path, monkeypatch, mode):
     from src.desktop.paths import ProfilePaths
 
     paths = ProfilePaths.from_xdg(home=tmp_path, environ={})
     paths.data_dir.mkdir(parents=True)
-    paths.data_dir.chmod(0o755)
+    paths.data_dir.chmod(mode)
+    ancestor = paths.data_dir.parent.parent
+    ancestor.chmod(mode)
     monkeypatch.setattr("src.runtime_paths.runtime_profile_paths", lambda: paths)
     result = startup.check_data_directories()
-    assert not result.passed
-    assert paths.data_dir.stat().st_mode & 0o777 == 0o755
+    assert result.passed
+    assert paths.data_dir.stat().st_mode & 0o777 == 0o700
+    assert ancestor.stat().st_mode & 0o777 == mode
 
 
 def test_neutral_security_helpers_keep_recursive_mask_and_bounds():

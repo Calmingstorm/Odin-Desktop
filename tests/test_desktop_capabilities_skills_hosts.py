@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import inspect
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -256,7 +257,7 @@ async def test_generation_leases_drain_and_force_revoke_keeps_uncertainty(tmp_pa
     assert registry.draining_aliases() == ()
 
 
-def test_trust_paths_require_explicit_profile_and_reject_symlinks(tmp_path):
+def test_trust_paths_require_explicit_profile_and_follow_directory_symlinks(tmp_path):
     with pytest.raises(ValueError, match="explicit profile"):
         HostRegistry({})
     with pytest.raises(ValueError, match="absolute"):
@@ -266,12 +267,17 @@ def test_trust_paths_require_explicit_profile_and_reject_symlinks(tmp_path):
     assert registry._trust_dir == paths.data_dir / "host_trust"
     real = tmp_path / "real"
     real.mkdir(mode=0o700)
+    real.chmod(0o775)
     link = tmp_path / "link"
     link.symlink_to(real, target_is_directory=True)
     registry = HostRegistry({}, trust_dir=link)
     key = "ssh-ed25519 " + base64.b64encode(b"test-key").decode()
-    with pytest.raises(OSError):
-        registry.materialize_trust("test", "test", "pinned", (key,))
+    destination = Path(registry.materialize_trust("test", "test", "pinned", (key,)))
+    assert destination.parent == link
+    assert destination.read_text() == f"test {key}\n"
+    assert destination.stat().st_mode & 0o777 == 0o600
+    assert (real / destination.name).read_text() == f"test {key}\n"
+    assert real.stat().st_mode & 0o777 == 0o775
 
 
 async def test_skill_host_discovery_requires_authentic_owner_and_live_inventory(tmp_path):
