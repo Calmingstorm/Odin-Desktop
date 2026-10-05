@@ -466,6 +466,8 @@ async def test_background_origin_cannot_enter_even_with_valid_admitted_request(g
                 db.execute("INSERT INTO desktop_background_requests VALUES (?)", (message.request_id,))
         with pytest.raises(PermissionError, match="lineage"):
             g.computer._binding()
+        with pytest.raises(PermissionError, match="Background work"):
+            g.computer.enter_request(message)
     await execute(g, hook)
 
 
