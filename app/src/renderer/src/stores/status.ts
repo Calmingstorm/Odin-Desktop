@@ -4,10 +4,14 @@
 import { reactive } from 'vue'
 import type { CoreEvent, CoreStatus, UsageResult } from '../../../shared/api'
 import { onCoreEvent, onReady } from '../store'
+import { isUnavailable, resultMessage } from '../capability'
 
 export const status = reactive({
   core: null as CoreStatus | null,
-  usage: null as UsageResult | null
+  usage: null as UsageResult | null,
+  coreError: '',
+  usageError: '',
+  usageUnavailable: false
 })
 
 const REFRESH_ON = new Set([
@@ -26,8 +30,11 @@ export async function refreshStatus(): Promise<void> {
   const mine = ++latest
   const [core, usage] = await Promise.all([window.odin.status(), window.odin.usage('24h')])
   if (mine !== latest) return
-  if (core.ok) status.core = core.result
-  if (usage.ok) status.usage = usage.result
+  status.core = core.ok ? core.result : null
+  status.coreError = resultMessage(core, 'Core status')
+  status.usage = usage.ok ? usage.result : null
+  status.usageError = resultMessage(usage, 'Usage')
+  status.usageUnavailable = !usage.ok && isUnavailable(usage.error)
 }
 
 let timer: ReturnType<typeof setTimeout> | null = null

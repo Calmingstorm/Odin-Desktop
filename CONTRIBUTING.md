@@ -47,23 +47,27 @@ Odin or the desktop session. **Always run the suite in an isolated PID namespace
 ```
 
 - Never point a test at `/opt/odin`, live config or data, or a real workspace.
-- The launcher first probes `unshare --user --map-current-user` (util-linux >= 2.38).
-  It preserves the invoking non-root UID/GID, mounts a separate `/proc`, and checks the
-  PID namespace and identity before starting tests. Only if that probe fails does it
-  try `sudo -n`, dropping back to the numeric invoking UID before the same checks.
-  If neither works, no tests run. Each invocation has a throwaway HOME/XDG tree and
+- The launchers first check permission for the restricted, root-owned
+  `/usr/local/sbin/odin-desktop-isolate` helper with `sudo -n -l`, then probe it.
+  It creates private mount/PID namespaces and drops straight back to the invoking
+  numeric UID/GID with no supplementary groups, capabilities or privilege escalation.
+  A generic non-interactive `sudo -n unshare` launcher is tried last for full-sudo users.
+  Both paths verify the separate `/proc`, PID namespace and non-root identity before
+  starting tests. If neither works, no tests run. Each invocation has a throwaway HOME/XDG tree and
   a clean environment without credentials or live display/session sockets.
 - CI short gates run on `odin-desktop-ci-light` (server-2 or desktop); tests and
   qualification run only on `odin-desktop-ci` (desktop). Server-2's util-linux 2.37.2
   cannot preserve the UID in an unprivileged namespace. Both jobs require a cached
   Python 3.12 before setup-python, and newer pushes cancel the old PR run.
-- **Current qualification blocker:** a current-user-only user namespace reports
+- A current-user-only user namespace reports
   host root-owned files as overflow UID 65534. The unchanged profile, environment
   and native trust guards then correctly reject ancestors such as `/home` and
   `/tmp`. Passing the PID/identity probe does not prove filesystem qualification.
   Do not accept overflow ownership, run tests as root, or hide failing groups.
-  Full no-sudo qualification needs an independently reviewed filesystem sandbox
-  or runner provisioning that preserves the guards' ownership assumptions.
+  The launchers therefore do not offer that path. The restricted helper preserves
+  actual host ownership without weakening guards or permitting privileged test code.
+  Cancellation kills the launcher's owned process group as the user with SIGKILL,
+  which kills namespace PID 1 and its descendants. No privileged kill permission is needed.
 - Never use destructive or attack commands as test input. Test failure paths with harmless failures or stubbed
   primitives.
 - Computer-use and native-lifecycle proofs run only in hard-isolated graphical environments, never on an active desktop.

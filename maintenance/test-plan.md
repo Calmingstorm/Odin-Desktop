@@ -9,15 +9,23 @@
 | Classification | Paths |
 |---|---:|
 | `excluded` | 18 |
-| `phase2` | 326 |
+| `phase2` | 317 |
 | `retained_adaptation_gated` | 38 |
 | `retained_support` | 30 |
-| `safe_pass_now` | 357 |
+| `safe_pass_now` | 366 |
 | `safety_manual_gated` | 100 |
 
 ## Explicit selections
 
 JSON lists `safe_pass_now`, `phase2`, `excluded`, `safety_manual_gated`, `retained_adaptation_gated`, `retained_support` contain exact paths. Each entry records original SHA-256/rationale plus direct imports, fixture closure, static spawn/literal line evidence and pinned source closure id. Supplementary `safe_neutral_case_selections` preserves parent-proven neutral cases in mixed suites.
+
+Step 8 part 1 preserves historical membership as `phase2` union
+`phase2_restored`: **317 deferred plus 9 complete restored suites, still 326**.
+`phase2-suite-map.json` records last-surface ownership and specific blockers;
+`phase2_suites.py` checks it against the hash-pinned pre-restoration plan.
+Restored suites run in the existing `phase2-core-transport` qualification group.
+Original bytes and membership digest remain unchanged. Neither reclassification
+nor this accounting document claims complete Phase 2 parity or approval.
 
 Neutral completion/response guards, anti-hedging, LLM gateway capacity, governor storage and pure computer geometry/effect/policy are not excluded because of their namespace. Mixed API/domain suites retained for Phase2 are not deleted. A neutral failure is Phase1 evidence to fix, not an excuse to defer.
 

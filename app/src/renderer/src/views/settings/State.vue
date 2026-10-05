@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ask } from '../../dialog'
+import { unavailableText } from '../../capability'
 import { management } from '../../stores/management'
 import {
   closeScope,
@@ -109,41 +110,44 @@ async function removeSource(name: string): Promise<void> {
       <h3>Memory</h3>
       <span class="panel-hint">What Odin remembers. All of it goes into every request, as in Odin.</span>
     </header>
-    <p v-if="management.error" class="warn">{{ management.error }}</p>
+    <p v-if="stateStore.unavailable.memory" class="manage-desc" role="status">{{ unavailableText('Memory') }}</p>
+    <template v-else>
+    <p v-if="stateStore.errors.memory" class="warn">{{ stateStore.errors.memory }}</p>
     <ul class="manage-list">
       <li v-for="(info, scope) in stateStore.memory ?? {}" :key="scope" class="manage-row">
         <div class="manage-line">
           <strong>{{ SCOPE_NAMES[scope] ?? scope }}</strong>
           <span class="manage-count">{{ info.count }} {{ info.count === 1 ? 'entry' : 'entries' }}</span>
           <span class="manage-actions">
-            <button class="ghost" @click="toggleScope(String(scope))">
+            <button class="ghost" :aria-label="`${stateStore.memoryEntries[scope] ? 'Close' : 'Open'} ${SCOPE_NAMES[scope] ?? scope} memory`" :aria-expanded="Boolean(stateStore.memoryEntries[scope])" :aria-controls="`memory-entries-${scope}`" @click="toggleScope(String(scope))">
               {{ stateStore.memoryEntries[scope] ? 'Close' : 'Open' }}
             </button>
-            <button class="ghost" @click="editEntry(scope)">Add</button>
+            <button class="ghost" :aria-label="`Add ${SCOPE_NAMES[scope] ?? scope} memory entry`" @click="editEntry(scope)">Add</button>
           </span>
         </div>
-        <table v-if="stateStore.memoryEntries[scope]" class="runs memory">
+        <table v-if="stateStore.memoryEntries[scope]" :id="`memory-entries-${scope}`" :aria-label="`${SCOPE_NAMES[scope] ?? scope} memory entries`" class="runs memory">
           <tbody>
             <tr v-for="(value, key) in stateStore.memoryEntries[scope]" :key="key">
-              <td><input v-model="picked[scope]" type="checkbox" :value="key" :aria-label="`Pick ${key}`" /></td>
+              <td><label><input v-model="picked[scope]" type="checkbox" :value="key" :aria-label="`Pick ${key} in ${SCOPE_NAMES[scope] ?? scope} memory`" /> Pick</label></td>
               <td><code>{{ key }}</code></td>
               <td class="memory-value">{{ show(value) }}</td>
-              <td><button class="ghost" @click="editEntry(scope, String(key), value)">Edit</button></td>
+              <td><button class="ghost" :aria-label="`Edit ${key} in ${SCOPE_NAMES[scope] ?? scope} memory`" @click="editEntry(scope, String(key), value)">Edit</button></td>
             </tr>
           </tbody>
         </table>
         <div v-if="(picked[scope] ?? []).length" class="panel-actions">
-          <button class="ghost danger-item" @click="removePicked(scope)">Delete {{ picked[scope]!.length }} picked…</button>
+          <button class="ghost danger-item" :aria-label="`Delete ${picked[scope]!.length} picked in ${SCOPE_NAMES[scope] ?? scope} memory…`" @click="removePicked(scope)">Delete {{ picked[scope]!.length }} picked…</button>
         </div>
         <div v-if="drafts[scope]" class="field-input">
-          <input v-model="drafts[scope]!.key" placeholder="Key" aria-label="Key" />
-          <input v-model="drafts[scope]!.value" placeholder="What to remember" aria-label="Value" @keydown.enter="saveEntry(scope)" />
-          <button class="ghost" @click="saveEntry(scope)">Save</button>
-          <button class="ghost" @click="drafts[scope] = undefined">Cancel</button>
+          <label class="field-input">Key <input v-model="drafts[scope]!.key" placeholder="Key" :aria-label="`Key in ${SCOPE_NAMES[scope] ?? scope} memory`" /></label>
+          <label class="field-input">Value <input v-model="drafts[scope]!.value" placeholder="What to remember" :aria-label="`Value in ${SCOPE_NAMES[scope] ?? scope} memory`" @keydown.enter="saveEntry(scope)" /></label>
+          <button class="ghost" :aria-label="`Save ${SCOPE_NAMES[scope] ?? scope} memory entry`" @click="saveEntry(scope)">Save</button>
+          <button class="ghost" :aria-label="`Cancel ${SCOPE_NAMES[scope] ?? scope} memory edit`" @click="drafts[scope] = undefined">Cancel</button>
         </div>
         <p v-if="management.notes[`memory:${scope}`]" class="manage-note" role="status">{{ management.notes[`memory:${scope}`] }}</p>
       </li>
     </ul>
+    </template>
   </section>
 
   <section class="panel" aria-label="Named lists">
@@ -151,24 +155,28 @@ async function removeSource(name: string): Promise<void> {
       <h3>Named lists</h3>
       <span class="panel-hint">Lists Odin keeps for you, like a shopping list.</span>
     </header>
+    <p v-if="stateStore.unavailable.lists" class="manage-desc" role="status">{{ unavailableText('Named list management') }}</p>
+    <template v-else>
+    <p v-if="stateStore.errors.lists" class="warn">{{ stateStore.errors.lists }}</p>
     <ul class="manage-list">
       <li v-for="list in stateStore.lists" :key="list.name" class="manage-row">
         <div class="manage-line">
           <code class="manage-name">{{ list.name }}</code>
           <span class="manage-count">{{ list.count }} items, changed {{ new Date(list.updated_at).toLocaleString() }}</span>
           <span class="manage-actions">
-            <button class="ghost" @click="toggleList(list.name)">
+            <button class="ghost" :aria-label="`${stateStore.listItems[list.name] ? 'Close' : 'Open'} list ${list.name}`" :aria-expanded="Boolean(stateStore.listItems[list.name])" :aria-controls="`named-list-${encodeURIComponent(list.name)}`" @click="toggleList(list.name)">
               {{ stateStore.listItems[list.name] ? 'Close' : 'Open' }}
             </button>
-            <button class="ghost danger-item" @click="removeList(list.name)">Delete…</button>
+            <button class="ghost danger-item" :aria-label="`Delete list ${list.name}…`" @click="removeList(list.name)">Delete…</button>
           </span>
         </div>
-        <ul v-if="stateStore.listItems[list.name]" class="refs">
+        <ul v-if="stateStore.listItems[list.name]" :id="`named-list-${encodeURIComponent(list.name)}`" class="refs">
           <li v-for="(item, i) in stateStore.listItems[list.name]" :key="i">{{ show(item) }}</li>
         </ul>
       </li>
     </ul>
     <p v-if="!stateStore.lists.length" class="manage-desc">No lists.</p>
+    </template>
   </section>
 
   <section class="panel" aria-label="Knowledge">
@@ -176,6 +184,9 @@ async function removeSource(name: string): Promise<void> {
       <h3>Knowledge</h3>
       <span class="panel-hint">Documents Odin can search. Each source keeps its versions.</span>
     </header>
+    <p v-if="stateStore.unavailable.knowledge" class="manage-desc" role="status">{{ unavailableText('Knowledge') }}</p>
+    <template v-else>
+    <p v-if="stateStore.errors.knowledge" class="warn">{{ stateStore.errors.knowledge }}</p>
     <label class="field-input">Search <input v-model="query" type="search" placeholder="Words to find" @input="searchKnowledge(query)" /></label>
     <ul v-if="stateStore.hits" class="manage-list">
       <li v-for="hit in stateStore.hits" :key="hit.chunk_id" class="manage-row">
@@ -190,22 +201,22 @@ async function removeSource(name: string): Promise<void> {
           <code class="manage-name">{{ item.source }}</code>
           <span class="manage-count">{{ item.chunks }} chunks, {{ new Date(item.ingested_at).toLocaleString() }}</span>
           <span class="manage-actions">
-            <button class="ghost" @click="toggleVersions(item.source)">
+            <button class="ghost" :aria-label="`${stateStore.versions[item.source] ? 'Hide versions' : 'Versions'} for ${item.source}`" :aria-expanded="Boolean(stateStore.versions[item.source])" :aria-controls="`knowledge-versions-${encodeURIComponent(item.source)}`" @click="toggleVersions(item.source)">
               {{ stateStore.versions[item.source] ? 'Hide versions' : 'Versions' }}
             </button>
-            <button class="ghost" :disabled="management.busy[`knowledge:${item.source}`]" @click="reingest(item.source)">Re-ingest</button>
-            <button class="ghost danger-item" @click="removeSource(item.source)">Delete…</button>
+            <button class="ghost" :aria-label="`Re-ingest ${item.source}`" :disabled="management.busy[`knowledge:${item.source}`]" @click="reingest(item.source)">Re-ingest</button>
+            <button class="ghost danger-item" :aria-label="`Delete source ${item.source}…`" @click="removeSource(item.source)">Delete…</button>
           </span>
         </div>
         <p v-if="item.preview" class="manage-desc">{{ item.preview }}</p>
-        <table v-if="stateStore.versions[item.source]" class="runs">
+        <table v-if="stateStore.versions[item.source]" :id="`knowledge-versions-${encodeURIComponent(item.source)}`" :aria-label="`Versions for ${item.source}`" class="runs">
           <tbody>
             <tr v-for="v in stateStore.versions[item.source]" :key="v.id">
               <td>v{{ v.version }}</td>
               <td>{{ v.action }}</td>
               <td>{{ new Date(v.created_at).toLocaleString() }}</td>
               <td>{{ v.diff_summary }}</td>
-              <td><button class="ghost" @click="restoreVersion(item.source, v.version)">Restore</button></td>
+              <td><button class="ghost" :aria-label="`Restore ${item.source} version ${v.version}`" @click="restoreVersion(item.source, v.version)">Restore</button></td>
             </tr>
           </tbody>
         </table>
@@ -220,13 +231,14 @@ async function removeSource(name: string): Promise<void> {
       <button class="ghost" :disabled="!source.trim() || !content.trim() || management.busy.knowledge" @click="add">Add</button>
     </div>
     <p v-if="management.notes.knowledge" class="manage-note" role="status">{{ management.notes.knowledge }}</p>
+    </template>
   </section>
 
   <section class="panel" aria-label="Context">
     <header class="panel-head">
       <h3>Context</h3>
       <span class="panel-hint">Reload the context files, and see what is in context now.</span>
-      <button class="ghost" @click="reloadContext">Reload context</button>
+      <button v-if="!stateStore.unavailable.context" class="ghost" @click="reloadContext">Reload context</button>
     </header>
     <pre v-if="stateStore.reload" class="manage-json">{{ stateStore.reload }}</pre>
   </section>

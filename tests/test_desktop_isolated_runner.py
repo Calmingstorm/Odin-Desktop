@@ -37,7 +37,7 @@ def configure_runner(tmp_path, monkeypatch):
     return runner
 
 
-def probe_results(runner, monkeypatch, results):
+def probe_results(runner, monkeypatch, results, permission=0):
     captured = []
     outcomes = iter(results)
 
@@ -46,9 +46,19 @@ def probe_results(runner, monkeypatch, results):
         result = next(outcomes)
         if isinstance(result, Exception):
             raise result
-        return subprocess.CompletedProcess(command, result, "", "")
+        return result
 
-    monkeypatch.setattr(runner.subprocess, "run", probe)
+    def permission_probe(command, **options):
+        assert command == ["sudo", "-n", "-l", runner.ISOLATION_HELPER]
+        assert options["timeout"] == 10
+        assert options["stdin"] == subprocess.DEVNULL
+        assert options["env"] == {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
+        if isinstance(permission, Exception):
+            raise permission
+        return subprocess.CompletedProcess(command, permission, "", "")
+
+    monkeypatch.setattr(runner.subprocess, "run", permission_probe)
+    monkeypatch.setattr(runner, "_run_namespace", probe)
     return captured
 
 
@@ -67,11 +77,8 @@ def test_runner_namespaces_and_cleans_ambient_environment(tmp_path, monkeypatch)
     )
     assert runner.main() == 0
     command = captured[0]
-    assert command[:9] == [
-        "unshare", "--user", "--map-current-user", "--mount", "--pid", "--fork",
-        "--mount-proc", "--kill-child", "env",
-    ]
-    assert command[9:11] == [
+    assert command[:4] == ["sudo", "-n", runner.ISOLATION_HELPER, "env"]
+    assert command[4:6] == [
         "-i",
         f"PATH={tmp_path / '.venv/bin'}:/usr/bin:/bin",
     ]
@@ -92,8 +99,7 @@ def test_runner_namespaces_and_cleans_ambient_environment(tmp_path, monkeypatch)
     assert command[supervisor + 1:supervisor + 4] == ["1234", "5678", "pid:[host]"]
     assert probes[0][0] == command[:supervisor + 4]
     assert probes[0][1]["timeout"] == 10
-    assert probes[0][1]["stdin"] == subprocess.DEVNULL
-    assert probes[0][1]["env"] == {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
+    assert probes[0][1]["quiet"] is True
     assert "--timeout=90" in command
     assert "--timeout-method=signal" in command
 
@@ -118,6 +124,19 @@ def test_probe_failure_falls_back_to_sudo_as_numeric_invoking_user(
     assert not any(Path(arg).name == "pytest" for arg in probes[1][0])
 
 
+@pytest.mark.parametrize("permission", [
+    1, FileNotFoundError("sudo"), subprocess.TimeoutExpired("sudo", 10),
+])
+def test_helper_without_permission_is_skipped_not_launched(tmp_path, monkeypatch, permission):
+    runner = configure_runner(tmp_path, monkeypatch)
+    probes = probe_results(runner, monkeypatch, [0], permission=permission)
+    command = runner.namespace_command({"HOME": str(tmp_path)})
+    assert len(probes) == 1
+    assert command[:3] == ["sudo", "-n", "unshare"]
+    assert runner.ISOLATION_HELPER not in command
+    assert "--user" not in command
+
+
 @pytest.mark.parametrize("failures", [[1, 1], [FileNotFoundError(), FileNotFoundError()]])
 def test_both_namespace_methods_fail_closed_without_tests(tmp_path, monkeypatch, failures):
     runner = configure_runner(tmp_path, monkeypatch)
@@ -128,7 +147,7 @@ def test_both_namespace_methods_fail_closed_without_tests(tmp_path, monkeypatch,
     )
     with pytest.raises(SystemExit, match="no tests were started") as error:
         runner.main()
-    assert "util-linux >= 2.38" in str(error.value)
+    assert "UID 65534" in str(error.value)
     assert "sudo" in str(error.value)
     assert len(probes) == 2
     assert not list((tmp_path / ".test-state").iterdir())
@@ -138,6 +157,7 @@ def test_both_namespace_methods_fail_closed_without_tests(tmp_path, monkeypatch,
     {"getuid": lambda: 0, "geteuid": lambda: 0},
     {"geteuid": lambda: 0},
     {"getegid": lambda: 0},
+    {"getgid": lambda: 0, "getegid": lambda: 0},
 ])
 def test_root_or_elevated_caller_is_rejected_before_any_probe(tmp_path, monkeypatch, identity):
     runner = configure_runner(tmp_path, monkeypatch)
@@ -252,6 +272,43 @@ def test_namespace_process_ownership_and_cancellation(tmp_path, monkeypatch, can
     })]
 
 
+def test_timed_out_probe_kills_group_and_reaps_without_privileged_kill(tmp_path, monkeypatch):
+    runner = load_runner()
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    handlers = {sig: object() for sig in (runner.signal.SIGINT, runner.signal.SIGTERM)}
+    originals = handlers.copy()
+
+    def install(sig, handler):
+        previous = handlers[sig]
+        handlers[sig] = handler
+        return previous
+
+    monkeypatch.setattr(runner.signal, "signal", install)
+    signals = []
+    monkeypatch.setattr(runner.os, "killpg", lambda pid, sig: signals.append((pid, sig)))
+    waits = []
+
+    def wait(**kwargs):
+        waits.append(kwargs)
+        if len(waits) == 1:
+            raise subprocess.TimeoutExpired("fixture", 10)
+        return -9
+
+    process = SimpleNamespace(pid=4321, wait=wait, poll=lambda: None)
+    launched = []
+    monkeypatch.setattr(runner.subprocess, "Popen",
+                        lambda *a, **kw: launched.append((a, kw)) or process)
+    monkeypatch.setattr(runner.subprocess, "run",
+                        lambda *a, **kw: pytest.fail("cleanup must never sudo kill"))
+    with pytest.raises(subprocess.TimeoutExpired):
+        runner._run_namespace(["sudo", "-n", runner.ISOLATION_HELPER], timeout=10, quiet=True)
+    assert signals == [(4321, runner.signal.SIGKILL)]
+    assert waits == [{"timeout": 10}, {"timeout": 10}]
+    assert handlers == originals
+    assert launched[0][1]["start_new_session"] is True
+    assert launched[0][1]["stdin"] == subprocess.DEVNULL
+
+
 def test_runner_refuses_an_empty_unclassified_selection(tmp_path, monkeypatch):
     runner = load_runner()
     monkeypatch.setattr(runner, "ROOT", tmp_path)
@@ -317,3 +374,30 @@ def test_ci_labels_keep_all_namespace_tests_on_the_desktop():
     assert "scripts/run-qualified-tests.py" in full_commands
     assert workflow["concurrency"]["cancel-in-progress"] is True
     assert "github.event.pull_request.number || github.ref" in workflow["concurrency"]["group"]
+def test_default_selection_runs_full_adapter_instead_of_obsolete_original(tmp_path, monkeypatch):
+    import json
+
+    runner = load_runner()
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner.sys, "argv", ["runner"])
+    (tmp_path / "maintenance").mkdir()
+    (tmp_path / "tests").mkdir()
+    adapter = "tests/test_desktop_frozen_process.py"
+    (tmp_path / adapter).write_text("def test_entire_corpus(): pass\n")
+    (tmp_path / "maintenance/test-plan.json").write_text(json.dumps({
+        "safe_pass_now": ["tests/test_original_process.py", "tests/test_direct_helper.py"],
+    }))
+    (tmp_path / "maintenance/phase2-suite-map.json").write_text(json.dumps({
+        "entries": [{"path": "tests/test_original_process.py", "status": "restored",
+                     "restoration": {"mode": "frozen-adapter", "selectors": [adapter]}}],
+    }))
+    captured = []
+    probe_results(runner, monkeypatch, [0])
+    monkeypatch.setattr(runner, "run_namespace",
+                        lambda command: captured.append(command) or 0)
+    assert runner.main() == 0
+    command = captured[0]
+    assert "tests/test_original_process.py" not in command
+    assert "tests/test_direct_helper.py" in command
+    assert adapter in command
+    assert command.count(adapter) == 1

@@ -7,6 +7,7 @@ import { ACTIONS, blankForm, buildSave, formFor, REPORT_FORMATS, WEBHOOK_METHODS
 import { analyzeLocalDateTime } from '../../schedule-time'
 import { state } from '../../store'
 import { management } from '../../stores/management'
+import { unavailableText } from '../../capability'
 import { checkCron, deleteSchedule, loadHistory, loadSchedules, resetFailures, runNow, saveSchedule, schedules, setPaused } from '../../stores/schedules'
 
 onMounted(loadSchedules)
@@ -19,6 +20,20 @@ const ZONES: string[] = (Intl as unknown as { supportedValuesOf?: (key: string) 
 
 const editing = ref<{ form: ScheduleForm; original: ScheduleRow | null } | null>(null)
 const formError = ref('')
+// Validation messages come from buildSave; only mark the field it identifies.
+const errorField = computed(() => {
+  const fields: Array<[string, string]> = [
+    ['Describe', 'description'], ['Choose the conversation', 'channel_id'], ['Enter a cron', 'cron'],
+    ['Choose when', 'run_at'], ['That run time', 'run_at'], ["That time doesn't", 'run_at'],
+    ['That time happens', 'occurrence'], ['Choose the tool', 'tool_name'], ['The tool input', 'tool_input'],
+    ['Steps are', 'steps'], ['Enter the URL', 'webhook_url'], ['Headers are', 'webhook_headers'],
+    ['Expected statuses', 'webhook_expected'], ['Retries are', 'max_retries'], ['The wait between', 'retry_backoff_seconds']
+  ]
+  return fields.find(([prefix]) => formError.value.startsWith(prefix))?.[1]
+})
+function fieldError(field: string): Record<string, string | undefined> {
+  return { 'aria-invalid': errorField.value === field ? 'true' : undefined, 'aria-describedby': errorField.value === field ? 'schedule-form-error' : undefined }
+}
 const historyOpen = reactive<Record<string, boolean | undefined>>({})
 
 const counts = computed(() => ({
@@ -114,10 +129,11 @@ async function remove(row: ScheduleRow): Promise<void> {
   <section class="panel" aria-label="Schedules">
     <header class="panel-head">
       <h3>Schedules</h3>
-      <span class="panel-hint">{{ counts.total }} schedule{{ counts.total === 1 ? '' : 's' }}, {{ counts.paused }} paused, {{ counts.failing }} failing.</span>
-      <button class="ghost" @click="startNew">New schedule</button>
+      <span v-if="!schedules.unavailable" class="panel-hint">{{ counts.total }} schedule{{ counts.total === 1 ? '' : 's' }}, {{ counts.paused }} paused, {{ counts.failing }} failing.</span>
+      <button v-if="!schedules.unavailable" class="ghost" @click="startNew">New schedule</button>
     </header>
-    <p v-if="management.error" class="warn">{{ management.error }}</p>
+    <p v-if="schedules.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Scheduling') }}</p>
+    <p v-else-if="management.error" class="warn">{{ management.error }}</p>
     <p v-else-if="schedules.loaded && !schedules.list.length" class="manage-desc">No schedules yet.</p>
     <ul class="manage-list">
       <li v-for="row in schedules.list" :key="row.id" class="manage-row">
@@ -130,14 +146,14 @@ async function remove(row: ScheduleRow): Promise<void> {
           <span v-if="(row.consecutive_failures ?? 0) > 0" class="state-chip failed">Failing ×{{ row.consecutive_failures }}</span>
           <span v-if="row.retry_at" class="state-chip">Retrying</span>
           <span class="manage-actions">
-            <button v-if="!row.inert_reason" class="ghost" :disabled="management.busy[`schedule:${row.id}`]" @click="setPaused(row, !row.paused)">
+            <button v-if="!row.inert_reason" class="ghost" :aria-label="`${row.paused ? 'Resume' : 'Pause'} schedule ${row.description}`" :disabled="management.busy[`schedule:${row.id}`]" @click="setPaused(row, !row.paused)">
               {{ row.paused ? 'Resume' : 'Pause' }}
             </button>
-            <button class="ghost" :disabled="Boolean(row.inert_reason) || management.busy[`schedule:${row.id}`]" @click="runNow(row)">Run now</button>
-            <button v-if="(row.consecutive_failures ?? 0) > 0" class="ghost" @click="resetFailures(row)">Reset failures</button>
-            <button class="ghost" @click="startEdit(row)">Edit</button>
-            <button class="ghost" @click="toggleHistory(row)">{{ historyOpen[row.id] ? 'Hide runs' : 'Runs' }}</button>
-            <button class="ghost danger-item" @click="remove(row)">Delete…</button>
+            <button class="ghost" :aria-label="`Run now schedule ${row.description}`" :disabled="Boolean(row.inert_reason) || management.busy[`schedule:${row.id}`]" @click="runNow(row)">Run now</button>
+            <button v-if="(row.consecutive_failures ?? 0) > 0" class="ghost" :aria-label="`Reset failures for schedule ${row.description}`" @click="resetFailures(row)">Reset failures</button>
+            <button class="ghost" :aria-label="`Edit schedule ${row.description}`" @click="startEdit(row)">Edit</button>
+            <button class="ghost" :aria-label="`${historyOpen[row.id] ? 'Hide runs' : 'Runs'} for schedule ${row.description}`" :aria-expanded="Boolean(historyOpen[row.id])" :aria-controls="`schedule-runs-${row.id}`" @click="toggleHistory(row)">{{ historyOpen[row.id] ? 'Hide runs' : 'Runs' }}</button>
+            <button class="ghost danger-item" :aria-label="`Delete schedule ${row.description}…`" @click="remove(row)">Delete…</button>
           </span>
         </div>
         <p class="manage-desc">
@@ -146,10 +162,10 @@ async function remove(row: ScheduleRow): Promise<void> {
         </p>
         <div v-if="row.inert_reason" class="warn">
           {{ row.inert_reason }}
-          <button class="ghost" @click="startEdit(row)">Set a new time</button>
+          <button class="ghost" :aria-label="`Set a new time for schedule ${row.description}`" @click="startEdit(row)">Set a new time</button>
         </div>
         <p v-if="row.last_error" class="warn">{{ row.last_error }}</p>
-        <table v-if="historyOpen[row.id]" class="runs">
+        <table v-if="historyOpen[row.id]" :id="`schedule-runs-${row.id}`" :aria-label="`Runs for schedule ${row.description}`" class="runs">
           <tbody>
             <tr v-for="(run, index) in schedules.history[row.id] ?? []" :key="index">
               <td>{{ at(run.timestamp) }}</td>
@@ -165,14 +181,14 @@ async function remove(row: ScheduleRow): Promise<void> {
     </ul>
   </section>
 
-  <section v-if="editing" class="panel" aria-label="Schedule form">
+  <section v-if="editing && !schedules.unavailable" class="panel" aria-label="Schedule form" :aria-describedby="formError ? 'schedule-form-error' : undefined">
     <template v-for="f in [editing.form]" :key="'form'">
       <header class="panel-head">
         <h3>{{ editing.original ? `Edit "${editing.original.description}"` : 'New schedule' }}</h3>
         <span v-if="editing.original" class="panel-hint">Only what you change is sent.</span>
         <button class="ghost" @click="editing = null">Close</button>
       </header>
-      <label class="field-input">Description <input v-model="f.description" maxlength="500" /></label>
+      <label class="field-input">Description <input v-model="f.description" v-bind="fieldError('description')" maxlength="500" /></label>
       <label v-if="!editing.original" class="field-input">
         It
         <select v-model="f.action" :disabled="management.busy[formKey]">
@@ -181,7 +197,7 @@ async function remove(row: ScheduleRow): Promise<void> {
       </label>
       <label class="field-input">
         Reports in
-        <select v-model="f.channel_id">
+        <select v-model="f.channel_id" v-bind="fieldError('channel_id')">
           <option v-if="f.action === 'webhook'" value="">No conversation</option>
           <option v-for="c in state.conversations" :key="c.id" :value="c.id">{{ c.title }}</option>
         </select>
@@ -195,20 +211,20 @@ async function remove(row: ScheduleRow): Promise<void> {
       </div>
       <p v-if="f.timing === 'trigger'" class="manage-desc">It runs when its trigger fires. Choose a schedule or a time to replace that.</p>
       <template v-if="f.timing === 'cron'">
-        <label class="field-input">Cron <input v-model="f.cron" placeholder="0 9 * * 1-5" spellcheck="false" /></label>
+        <label class="field-input">Cron <input v-model="f.cron" :aria-invalid="errorField === 'cron' || Boolean(schedules.cron?.error && schedules.cron.expression === f.cron) ? 'true' : undefined" :aria-describedby="errorField === 'cron' ? 'schedule-form-error' : schedules.cron?.error && schedules.cron.expression === f.cron ? 'schedule-cron-error' : undefined" placeholder="0 9 * * 1-5" spellcheck="false" /></label>
         <label class="field-input">Time zone <input v-model="f.cron_timezone" list="zones" placeholder="The core's time zone" /></label>
         <datalist id="zones"><option v-for="z in ZONES" :key="z" :value="z" /></datalist>
-        <p v-if="schedules.cron?.error && schedules.cron.expression === f.cron" class="warn">{{ schedules.cron.error }}</p>
+        <p v-if="schedules.cron?.error && schedules.cron.expression === f.cron" id="schedule-cron-error" class="warn" role="status">{{ schedules.cron.error }}</p>
         <p v-else-if="schedules.cron?.next_runs.length && schedules.cron.expression === f.cron" class="manage-desc">
           Next: {{ schedules.cron.next_runs.slice(0, 3).map((r) => at(r)).join(', ') }}
         </p>
       </template>
       <template v-else-if="f.timing === 'once'">
-        <label class="field-input">At, on this computer's clock <input v-model="f.run_at" type="datetime-local" step="1" /></label>
-        <p v-if="localTime?.state === 'nonexistent'" class="warn">That time doesn't exist here: the clocks skip it.</p>
+        <label class="field-input">At, on this computer's clock <input v-model="f.run_at" :aria-invalid="errorField === 'run_at' || localTime?.state === 'nonexistent' ? 'true' : undefined" :aria-describedby="errorField === 'run_at' ? 'schedule-form-error' : localTime?.state === 'nonexistent' ? 'schedule-time-error' : undefined" type="datetime-local" step="1" /></label>
+        <p v-if="localTime?.state === 'nonexistent'" id="schedule-time-error" class="warn" role="status">That time doesn't exist here: the clocks skip it.</p>
         <label v-else-if="localTime?.state === 'ambiguous'" class="field-input">
           That time happens twice here. Which one?
-          <select :value="f.occurrence ?? ''" @change="f.occurrence = Number(($event.target as HTMLSelectElement).value)">
+          <select :value="f.occurrence ?? ''" v-bind="fieldError('occurrence')" @change="f.occurrence = Number(($event.target as HTMLSelectElement).value)">
             <option value="" disabled>Choose</option>
             <option v-for="(o, i) in localTime.options" :key="o.iso" :value="i">{{ o.offset }}: {{ new Date(o.ms).toLocaleString() }}</option>
           </select>
@@ -217,9 +233,9 @@ async function remove(row: ScheduleRow): Promise<void> {
 
       <label v-if="f.action === 'reminder'" class="field-input">Message <textarea v-model="f.message" rows="3" placeholder="The description, if left empty" /></label>
       <template v-if="f.action === 'check'">
-        <label class="field-input">Tool <input v-model="f.tool_name" list="check-tools" placeholder="run_command" /></label>
+        <label class="field-input">Tool <input v-model="f.tool_name" v-bind="fieldError('tool_name')" list="check-tools" placeholder="run_command" /></label>
         <datalist id="check-tools"><option v-for="t in CHECK_TOOLS" :key="t" :value="t" /></datalist>
-        <label class="field-input">Its input, as JSON <textarea v-model="f.tool_input" rows="4" spellcheck="false" placeholder='{"host": "localhost", "command": "uptime"}' /></label>
+        <label class="field-input">Its input, as JSON <textarea v-model="f.tool_input" v-bind="fieldError('tool_input')" rows="4" spellcheck="false" placeholder='{"host": "localhost", "command": "uptime"}' /></label>
         <label class="field-input">
           Report as
           <select v-model="f.report_format">
@@ -229,26 +245,26 @@ async function remove(row: ScheduleRow): Promise<void> {
       </template>
       <label v-if="f.action === 'workflow'" class="field-input">
         Steps, as JSON
-        <textarea v-model="f.steps" rows="6" spellcheck="false" placeholder='[{"tool_name": "run_command", "tool_input": {"command": "uptime"}, "on_failure": "abort"}]' />
+        <textarea v-model="f.steps" v-bind="fieldError('steps')" rows="6" spellcheck="false" placeholder='[{"tool_name": "run_command", "tool_input": {"command": "uptime"}, "on_failure": "abort"}]' />
       </label>
       <template v-if="f.action === 'webhook'">
-        <label class="field-input">URL <input v-model="f.webhook_url" type="url" placeholder="https://…" /></label>
+        <label class="field-input">URL <input v-model="f.webhook_url" v-bind="fieldError('webhook_url')" type="url" placeholder="https://…" /></label>
         <label class="field-input">
           Method
           <select v-model="f.webhook_method"><option v-for="m in WEBHOOK_METHODS" :key="m" :value="m">{{ m }}</option></select>
         </label>
-        <label class="field-input">Headers, as JSON <input v-model="f.webhook_headers" spellcheck="false" placeholder='{"Content-Type": "application/json"}' /></label>
+        <label class="field-input">Headers, as JSON <input v-model="f.webhook_headers" v-bind="fieldError('webhook_headers')" spellcheck="false" placeholder='{"Content-Type": "application/json"}' /></label>
         <label class="field-input">Body <textarea v-model="f.webhook_body" rows="3" spellcheck="false" /></label>
-        <label class="field-input">Expected statuses <input v-model="f.webhook_expected" placeholder="200, 204" /></label>
+        <label class="field-input">Expected statuses <input v-model="f.webhook_expected" v-bind="fieldError('webhook_expected')" placeholder="200, 204" /></label>
       </template>
       <div class="field-input">
-        <label class="limit">Retries <input :value="f.max_retries" @input="f.max_retries = ($event.target as HTMLInputElement).value" type="number" min="0" placeholder="0" /></label>
-        <label class="limit">seconds between <input :value="f.retry_backoff_seconds" @input="f.retry_backoff_seconds = ($event.target as HTMLInputElement).value" type="number" min="1" placeholder="60" /></label>
+        <label class="limit">Retries <input :value="f.max_retries" v-bind="fieldError('max_retries')" @input="f.max_retries = ($event.target as HTMLInputElement).value" type="number" min="0" placeholder="0" /></label>
+        <label class="limit">seconds between <input :value="f.retry_backoff_seconds" v-bind="fieldError('retry_backoff_seconds')" @input="f.retry_backoff_seconds = ($event.target as HTMLInputElement).value" type="number" min="1" placeholder="60" /></label>
       </div>
       <div class="panel-actions">
         <button class="ghost" :disabled="management.busy[formKey]" @click="save">{{ editing.original ? 'Save' : 'Create' }}</button>
       </div>
-      <p v-if="formError" class="warn">{{ formError }}</p>
+      <p v-if="formError" id="schedule-form-error" class="warn" role="alert">{{ formError }}</p>
       <p v-else-if="management.notes[formKey]" class="manage-note" role="status">{{ management.notes[formKey] }}</p>
     </template>
   </section>

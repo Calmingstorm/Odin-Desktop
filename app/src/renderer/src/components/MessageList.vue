@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { backToLatest, loadFailure, loadOlder, resumeTarget, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
+import { backToLatest, chatUnavailable, loadFailure, loadOlder, resumeTarget, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
+import { unavailableText } from '../capability'
+import { chatAnnouncement, type ChatAnnouncementState } from '../chat-announcements'
 import Message from './Message.vue'
 import ResumeBanner from './ResumeBanner.vue'
 import ToolActivity from './ToolActivity.vue'
@@ -19,6 +21,35 @@ const steers = computed(() =>
   running.value && state.activeId ? steersFor(state.activeId, running.value.request_id, running.value.generation) : []
 )
 const stopping = computed(() => Boolean(running.value && stopPending(running.value.request_id, running.value.generation)))
+const announcement = ref('')
+const historyPaging = ref(false)
+const olderUsed = ref(false)
+const taskState = computed<ChatAnnouncementState>(() => {
+  const last = view.value?.recent.at(-1)
+  return {
+    running: running.value ? `${running.value.request_id}:${running.value.generation}` : null,
+    stopping: stopping.value,
+    terminal: last ? `${last.request_id}:${last.generation}:${last.outcome}` : null,
+    outcome: last?.outcome ?? null,
+    queued: queuedCount.value,
+    consumed: steers.value.filter((s) => s.status === 'consumed').map((s) => s.control_command_id),
+    steerQueued: steers.value.filter((s) => s.status === 'queued').map((s) => s.control_command_id),
+    unknown: [
+      ...pending.value.filter((p) => p.status === 'unknown').map((p) => p.client_submission_id),
+      ...steers.value.filter((s) => s.status === 'unknown').map((s) => s.control_command_id),
+      ...(view.value?.unresolved ?? []).map((o) => `${o.request_id}:${o.generation}`),
+      ...state.controls.filter((c) => c.conversation_id === state.activeId && c.status === 'unknown').map((c) => c.control_command_id)
+    ]
+  }
+})
+let lastConversation: string | null = null
+watch(() => state.activeId, () => { olderUsed.value = false })
+watch(taskState, (next, previous) => {
+  const sameConversation = lastConversation === state.activeId
+  const line = chatAnnouncement(sameConversation ? previous : undefined, next)
+  if (line || !sameConversation) announcement.value = line
+  lastConversation = state.activeId
+}, { immediate: true })
 
 const OUTCOME_TEXT: Record<string, string> = {
   failed: 'The task failed.',
@@ -85,8 +116,12 @@ async function scrollToEnd(): Promise<void> {
 
 watch(
   () => [messages.value.length, pending.value.length, running.value?.request_id, steers.value.length, state.activeId],
-  () => {
-    if (!state.highlightId) void scrollToEnd()
+  (next, previous) => {
+    const el = scroller.value
+    const switched = next[4] !== previous?.[4]
+    const focusedHistory = Boolean(el?.contains?.(document.activeElement))
+    const nearEnd = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    if (!state.highlightId && !historyPaging.value && (switched || (!focusedHistory && nearEnd))) void scrollToEnd()
   }
 )
 
@@ -114,20 +149,33 @@ function time(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-function older(): void {
-  if (state.activeId) void loadOlder(state.activeId)
+async function older(): Promise<void> {
+  const id = state.activeId
+  const el = scroller.value
+  if (!id || !el || !view.value?.hasMore || view.value.loadingOlder || historyPaging.value) return
+  scrollRun += 1
+  historyPaging.value = true
+  olderUsed.value = true
+  const beforeHeight = el.scrollHeight
+  const beforeTop = el.scrollTop
+  await loadOlder(id)
+  await nextTick()
+  if (state.activeId === id && scroller.value === el) el.scrollTop = beforeTop + el.scrollHeight - beforeHeight
+  historyPaging.value = false
 }
 
 
 </script>
 
 <template>
-  <section ref="scroller" class="message-scroll">
-    <div v-if="!view?.hasData && loadError" class="empty" role="alert">
+  <p class="chat-announcement" role="status" aria-live="polite" aria-atomic="true">{{ announcement }}</p>
+  <section id="conversation-history" ref="scroller" class="message-scroll" tabindex="0" aria-label="Conversation history" @wheel.passive="scrollRun += 1" @keydown="scrollRun += 1" @pointerdown="scrollRun += 1">
+    <p v-if="chatUnavailable()" class="empty" role="status">{{ unavailableText('Chat') }}</p>
+    <div v-else-if="!view?.hasData && loadError" class="empty" role="alert">
       <p>Couldn't load from Odin: {{ loadError }}</p>
       <button class="ghost" @click="retry">Retry</button>
     </div>
-    <p v-else-if="!state.loaded || !view?.hasData" class="empty">{{ state.app.link === 'ready' ? 'Loading…' : 'Connecting to Odin…' }}</p>
+    <p v-else-if="!view?.hasData" class="empty" role="status">{{ state.app.link === 'ready' ? 'Loading…' : 'Connecting to Odin…' }}</p>
     <template v-else-if="jump">
       <div class="jump-banner" role="status">
         <span>Showing messages around a search result.</span>
@@ -149,9 +197,10 @@ function older(): void {
         this one.
         <button class="ghost" @click="select(conversation.inherited_from.conversation_id)">Open the original</button>
       </p>
-      <div v-if="view.hasMore" class="older">
-        <button class="ghost" :disabled="view.loadingOlder" @click="older">
-          {{ view.loadingOlder ? 'Loading…' : 'Load older messages' }}
+      <p v-if="view.status === 'loading'" class="history-loading" role="status">Refreshing conversation. The displayed history remains available.</p>
+      <div v-if="view.hasMore || olderUsed" class="older">
+        <button class="ghost" :aria-disabled="view.loadingOlder || !view.hasMore" :aria-label="view.loadingOlder ? 'Loading… older messages' : view.hasMore ? 'Load older messages' : 'All older messages loaded'" @click="older">
+          {{ view.loadingOlder ? 'Loading…' : view.hasMore ? 'Load older messages' : 'All older messages loaded' }}
         </button>
       </div>
       <p v-if="!messages.length && !pending.length && !running" class="empty">Ask Odin anything.</p>
@@ -187,9 +236,16 @@ function older(): void {
           <span v-if="queuedCount" class="queued">{{ queuedCount }} follow-up{{ queuedCount === 1 ? '' : 's' }} queued</span>
         </div>
       </div>
-      <p v-if="outcomeLine" class="outcome" role="status">{{ outcomeLine }}</p>
+      <p v-if="outcomeLine" class="outcome">{{ outcomeLine }}</p>
       <ResumeBanner v-if="state.activeId" :conversation-id="state.activeId" />
-      <p v-for="(line, index) in unresolvedLines" :key="index" class="outcome unresolved" role="status">{{ line }}</p>
+      <p v-for="(line, index) in unresolvedLines" :key="index" class="outcome unresolved">{{ line }}</p>
     </template>
   </section>
 </template>
+
+<style scoped>
+.chat-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.message-scroll { overflow-anchor: none; }
+.message-scroll:focus-visible, button:focus-visible { outline: 2px solid var(--accent, #91baff); outline-offset: -3px; }
+button[aria-disabled="true"] { opacity: .65; }
+</style>

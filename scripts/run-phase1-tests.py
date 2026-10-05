@@ -13,6 +13,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+ISOLATION_HELPER = "/usr/local/sbin/odin-desktop-isolate"
 
 # The same check runs in the capability probe and immediately before pytest.
 # Never infer isolation from a successful unshare invocation alone, or rerun a
@@ -43,7 +44,7 @@ while True:
 
 def namespace_command(environment: dict[str, str]) -> list[str]:
     uid, gid = os.getuid(), os.getgid()
-    if uid == 0 or os.geteuid() != uid or os.getegid() != gid:
+    if uid == 0 or gid == 0 or os.geteuid() != uid or os.getegid() != gid:
         raise SystemExit("Refusing tests: invoke the launcher as a non-root, unprivileged user")
     # Resolve the actual caller, not the spoofable USER environment variable.
     pwd.getpwuid(uid)
@@ -53,40 +54,52 @@ def namespace_command(environment: dict[str, str]) -> list[str]:
         str(ROOT / ".venv/bin/python"), "-c", NAMESPACE_SUPERVISOR,
         str(uid), str(gid), parent_namespace,
     ]
-    candidates = [
-        ("unprivileged user namespace (util-linux >= 2.38)", [
-            "unshare", "--user", "--map-current-user", "--mount", "--pid", "--fork",
-            "--mount-proc", "--kill-child",
-        ]),
+    candidates = []
+    failures = []
+    try:
+        permission = subprocess.run(
+            ["sudo", "-n", "-l", ISOLATION_HELPER],
+            env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
+            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10,
+        )
+        if permission.returncode == 0:
+            candidates.append(("restricted isolation helper", ["sudo", "-n", ISOLATION_HELPER]))
+        else:
+            failures.append(f"restricted isolation helper permission: exit {permission.returncode}")
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        failures.append(f"restricted isolation helper permission: {type(exc).__name__}")
+    # A current-user-only user namespace maps root-owned ancestors to overflow
+    # UID 65534. It cannot pass unchanged ownership guards, even if PID checks pass.
+    candidates.extend([
         ("non-interactive sudo fallback", [
             "sudo", "-n", "unshare", "--mount", "--pid", "--fork", "--mount-proc",
             "--kill-child", "sudo", "-n", "-u", f"#{uid}", "-g", f"#{gid}",
         ]),
-    ]
-    failures = []
+    ])
     for label, prefix in candidates:
         command = [*prefix, *payload]
         try:
-            result = subprocess.run(
-                command, cwd=ROOT, env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
-                stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10,
-            )
+            returncode = _run_namespace(command, timeout=10, quiet=True)
         except (OSError, subprocess.TimeoutExpired) as exc:
             failures.append(f"{label}: {type(exc).__name__}")
             continue
-        if result.returncode == 0:
+        if returncode == 0:
             print(f"PID isolation: {label}; invoking UID {uid}", flush=True)
             return command
-        failures.append(f"{label}: exit {result.returncode}")
+        failures.append(f"{label}: exit {returncode}")
     raise SystemExit(
         "Cannot establish a verified non-root PID namespace; no tests were started. "
         + "; ".join(failures)
-        + ". Enable unprivileged user namespaces with util-linux >= 2.38, "
-        "or provide the non-interactive sudo fallback."
+        + ". Provision the restricted isolation helper or the non-interactive sudo fallback. "
+        "Current-user-only user namespaces are not usable: root-owned ancestors become UID 65534."
     )
 
 
 def run_namespace(command: list[str]) -> int:
+    return _run_namespace(command)
+
+
+def _run_namespace(command: list[str], *, timeout: int | None = None, quiet: bool = False) -> int:
     """Own one new process group; cancellation kills its init and all descendants."""
     def terminate(signum, frame):
         raise SystemExit(128 + signum)
@@ -97,8 +110,10 @@ def run_namespace(command: list[str]) -> int:
         process = subprocess.Popen(
             command, cwd=ROOT, env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
             start_new_session=True,
+            **({"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL} if quiet else {}),
         )
-        return process.wait()
+        return process.wait(**({"timeout": timeout} if timeout is not None else {}))
     finally:
         try:
             if process is not None and process.poll() is None:
@@ -106,15 +121,6 @@ def run_namespace(command: list[str]) -> int:
                     os.killpg(process.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
-                except PermissionError:
-                    # Only the already-probed privileged fallback can own a root
-                    # process group. Never target anything except this launch.
-                    if command[:2] != ["sudo", "-n"]:
-                        raise
-                    subprocess.run(
-                        ["sudo", "-n", "kill", "-KILL", "--", f"-{process.pid}"],
-                        check=True, timeout=10,
-                    )
                 process.wait(timeout=10)
         finally:
             for sig, handler in previous.items():
@@ -129,7 +135,14 @@ def main() -> int:
     arguments = sys.argv[1:]
     if not any(not argument.startswith("-") for argument in arguments):
         plan = json.loads((ROOT / "maintenance/test-plan.json").read_text())
-        selected = plan["safe_pass_now"]
+        # A qualified frozen adapter executes the complete inherited corpus.
+        # Do not also select its obsolete, unadapted setup as a duplicate.
+        mapping_path = ROOT / "maintenance/phase2-suite-map.json"
+        mapping = json.loads(mapping_path.read_text()) if mapping_path.exists() else {}
+        adapted = {row["path"] for row in mapping.get("entries", [])
+                   if row.get("status") == "restored"
+                   and row.get("restoration", {}).get("mode") == "frozen-adapter"}
+        selected = [path for path in plan["safe_pass_now"] if path not in adapted]
         if not selected:
             raise SystemExit("Refusing an unclassified full-suite invocation")
         arguments.extend(selected)
