@@ -65,7 +65,7 @@ async function remove(account: CodexAccount): Promise<void> {
       <p v-else class="warn">{{ settings.codex.login.message }}</p>
     </div>
     <p v-if="settings.codex.error" class="warn">{{ settings.codex.error }}</p>
-    <p v-if="settings.codex.stale" class="warn">
+    <p v-if="settings.codex.stale && !settings.codex.busy" class="warn">
       The list couldn't be refreshed after your last change, so it may be out of date.
       <button class="ghost" @click="loadCodex">Refresh</button>
     </p>

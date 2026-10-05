@@ -37,7 +37,7 @@ export const settings = reactive({
     status: null as CodexStatus | null,
     error: '',
     busy: false,
-    /** The list couldn't be refreshed after a change, so its indexes may be out of date: nothing acts on it. */
+    /** No list read since the last account action is in, so its indexes may be out of date: nothing acts on it. */
     stale: false,
     /** What the last action on an account said, by the account's identity (indexes shift when one is removed). */
     notes: {} as Record<string, string | undefined>,
@@ -170,26 +170,37 @@ export async function clearSecret(field: ConfigField): Promise<boolean> {
 
 // ---- Codex accounts ------------------------------------------------------------------------------------------------
 
+/** Each account list read, in order: an older answer never replaces a newer one. */
+let codexRead = 0
+/** The last read sent before the latest account action. Only a read sent after it can show where accounts are now. */
+let codexActedAfter = 0
+
 export async function loadCodex(): Promise<boolean> {
+  const mine = ++codexRead
   const result = await window.odin.codexAccounts()
+  if (mine !== codexRead) return false // a newer read owns the list
   if (!result.ok) {
     settings.codex.error = result.error.message
     return false
   }
   settings.codex.error = ''
   settings.codex.status = result.result
-  settings.codex.stale = false
+  if (mine > codexActedAfter) settings.codex.stale = false
   return true
 }
 
-/** Who an account is, apart from its place in the list. */
+/**
+ * Who an account is, apart from its place in the list: its ID, or else its email. An account with neither has only
+ * its place, so for it the list being current is the only check.
+ */
 export function accountIdentity(account: CodexAccount): string {
-  return account.account_id ?? account.email ?? `#${account.index}`
+  return account.account_id || account.email || `#${account.index}`
 }
 
 /**
- * Acts on the account the user saw, by its index, only if that index still holds it. The controls stay locked until
- * the list is refreshed, since a removal shifts every index after it; if refreshing fails, they stay locked.
+ * Acts on the account the user saw, by its index, only if that index still holds it. A removal shifts every index
+ * after it, so the controls stay locked until a list read after the action is in; if that read fails, they stay
+ * locked.
  */
 async function accountAction(account: CodexAccount, run: (index: number) => Promise<Result<unknown>>, done: string): Promise<void> {
   if (settings.codex.busy || settings.codex.stale) return
@@ -200,10 +211,12 @@ async function accountAction(account: CodexAccount, run: (index: number) => Prom
     return
   }
   settings.codex.busy = true
+  settings.codex.stale = true
+  codexActedAfter = codexRead
   try {
     const result = await run(account.index)
     settings.codex.notes[identity] = result.ok ? done : message(result)
-    if (!(await loadCodex())) settings.codex.stale = true
+    await loadCodex()
   } finally {
     settings.codex.busy = false
   }
