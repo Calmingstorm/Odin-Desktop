@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { dispatch, matchCommands, parseCommand } from '../commands'
-import { canAct, loadFailure, retry, send, state, stop, stopPending, type ComposerMode } from '../store'
+import { canAct, chatUnavailable, loadFailure, retry, send, state, stop, stopPending, type ComposerMode } from '../store'
+import { unavailableText } from '../capability'
 import {
   addFiles,
   addPasted,
@@ -50,7 +51,7 @@ const canSend = computed(
 )
 const buttonLabel = computed(() => (running.value ? (mode.value === 'steer' ? 'Steer' : 'Queue') : 'Send'))
 const placeholder = computed(() =>
-  running.value ? (mode.value === 'steer' ? 'Steer the current task…' : 'Queue a follow-up…') : 'Message Odin… (/ for commands)'
+  chatUnavailable() ? 'Chat unavailable. Use /status or /usage for core reports.' : running.value ? (mode.value === 'steer' ? 'Steer the current task…' : 'Queue a follow-up…') : 'Message Odin… (/ for commands)'
 )
 
 // Each conversation keeps its own draft. While switching, the box belongs to no conversation until the next draft
@@ -121,11 +122,13 @@ function pick(index: number): void {
 
 function onDrop(event: DragEvent): void {
   dragging.value = false
+  if (chatUnavailable()) return
   const files = Array.from(event.dataTransfer?.files ?? [])
   if (files.length && state.activeId) void addFiles(state.activeId, files)
 }
 
 function onPaste(event: ClipboardEvent): void {
+  if (chatUnavailable()) return
   const files = Array.from(event.clipboardData?.files ?? [])
   if (!files.length || !state.activeId) return // ordinary text paste
   event.preventDefault()
@@ -141,7 +144,7 @@ function onKnowledge(id: string, checked: boolean): void {
 }
 
 function attach(): void {
-  if (state.activeId) void pickFiles(state.activeId)
+  if (state.activeId && !chatUnavailable()) void pickFiles(state.activeId)
 }
 </script>
 
@@ -177,26 +180,27 @@ function attach(): void {
         rows="3"
         aria-label="Message"
         :placeholder="placeholder"
-        :disabled="!state.activeId"
+        :disabled="!state.activeId && !chatUnavailable()"
         @keydown="onKey"
         @paste="onPaste"
       />
       <div class="buttons">
         <button type="submit" class="primary" :disabled="!canSend && !(paletteOpen && matches.length)">{{ buttonLabel }}</button>
-        <button type="button" class="ghost" title="Attach files" :disabled="!state.activeId" @click="attach">Attach</button>
+        <button type="button" class="ghost" title="Attach files" :disabled="!state.activeId || chatUnavailable()" @click="attach">Attach</button>
         <button v-if="running" type="button" class="danger" title="Stop the current task (Ctrl+.)" :disabled="stopping" @click="stop">
           {{ stopping ? 'Stopping…' : 'Stop' }}
         </button>
       </div>
     </div>
     <p v-if="composer.errors.length" class="notice error" role="alert">{{ composer.errors.join(' ') }}</p>
-    <p v-if="loadError" class="notice error" role="alert">
+    <p v-if="chatUnavailable()" class="notice" role="status">{{ unavailableText('Chat') }} Sending messages and attachments is unavailable.</p>
+    <p v-else-if="loadError" class="notice error" role="alert">
       Couldn't load from Odin: {{ loadError }}
       <button type="button" class="ghost" @click="retry">Retry</button>
     </p>
     <p v-else-if="loading" class="notice" role="status">Loading this conversation…</p>
     <p v-else-if="uploading" class="notice" role="status">Waiting for attachments to finish uploading…</p>
     <p v-else-if="failedAttachment" class="notice error" role="status">Remove the attachment that failed before sending.</p>
-    <p v-else-if="state.notice" class="notice" role="status">{{ state.notice }}</p>
+    <p v-if="state.notice" class="notice" role="status">{{ state.notice }}</p>
   </form>
 </template>

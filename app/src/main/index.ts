@@ -11,12 +11,14 @@ import { ArtifactStore, safeFileName } from './artifacts'
 import { AttachmentManager, type AttachmentLimits } from './attachments'
 import { isAutostartEnabled, setAutostart } from './autostart'
 import { Broker } from './broker'
+import { coreCommand, type CoreLaunch } from './core-command'
 import { CoreSupervisor } from './core-supervisor'
 import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
 import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
+import { realCoreSmoke } from './real-core-smoke'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
 import { OdinTray, detectTray } from './tray'
@@ -58,7 +60,22 @@ function run(): void {
   let tray: OdinTray | null = null
   let supervisorLink: LinkState | null = null
 
-  const supervisor = new CoreSupervisor({ ...coreCommand(paths), logFile: join(paths.logDir, 'core.log') })
+  let launch: CoreLaunch
+  try {
+    launch = coreCommand(paths, {
+      packaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      appPath: app.getAppPath(),
+      env: process.env
+    })
+  } catch (error) {
+    void app.whenReady().then(() => {
+      dialog.showErrorBox('Odin core unavailable', (error as Error).message)
+      app.exit(1)
+    })
+    return
+  }
+  const supervisor = new CoreSupervisor({ ...launch, logFile: join(paths.logDir, 'core.log') })
   const broker = new Broker({
     socketPath: paths.socketPath,
     readToken: () => readFileSync(paths.tokenPath, 'utf8').trim(),
@@ -153,7 +170,8 @@ function run(): void {
   }
 
   broker.on('state', publishAppState)
-  // A new core numbers its events afresh, so the index orders by its lists and events from here on.
+  // A new incarnation rebuilds the cosmetic index. The Broker retains the
+  // profile's durable sequence/cursor across core restarts.
   broker.on('core-changed', () => conversations.restart())
   broker.on('event', (event) => {
     win?.webContents.send(IPC.event, event)
@@ -192,7 +210,7 @@ function run(): void {
   const settings = (): Settings => ({ autostart: isAutostartEnabled(), notifications: notificationSettings })
 
   let exiting: Promise<void> | null = null
-  const exitOdin = (): Promise<void> => {
+  const exitOdin = (code = 0): Promise<void> => {
     if (exiting) return exiting
     lifecycle.quitting = true
     tray?.setStatus('Stopping Odin…')
@@ -212,7 +230,7 @@ function run(): void {
       broker.close()
       tray?.destroy()
       tray = null
-      app.exit(0)
+      app.exit(code)
     })()
     return exiting
   }
@@ -333,21 +351,16 @@ function run(): void {
     broker.connect()
     broker.startEvents()
 
-    if (flags.smokeTest) runSmokeTest(win, broker, exitOdin)
+    if (flags.smokeTest && process.env.ODIN_SMOKE_REAL_CORE === '1') {
+      void realCoreSmoke(win, broker, process.env.ODIN_SMOKE_OUT ?? '').then(
+        () => exitOdin(),
+        (error: unknown) => {
+          process.stderr.write(`real-core-smoke: failed: ${String(error)}\n`)
+          return exitOdin(1)
+        }
+      )
+    } else if (flags.smokeTest) runSmokeTest(win, broker, exitOdin)
   })
-}
-
-/** How to start the core. Phase 2 bundles the real engine; until then a development fixture stands in. */
-function coreCommand(paths: ReturnType<typeof profilePaths>): { command: string; args: string[] } {
-  const coreArgs = ['--socket', paths.socketPath, '--token-file', paths.tokenPath, '--profile', paths.profileId, '--data-dir', paths.dataDir]
-  const override = process.env.ODIN_DESKTOP_CORE_CMD
-  if (override) {
-    const parts = JSON.parse(override) as string[]
-    const [command, ...args] = parts
-    if (!command) throw new Error('ODIN_DESKTOP_CORE_CMD is empty')
-    return { command, args: [...args, ...coreArgs] }
-  }
-  return { command: 'python3', args: [join(app.getAppPath(), 'fixture-core', 'fixture_core.py'), ...coreArgs] }
 }
 
 /** The command the autostart entry runs: the AppImage, the packaged binary, or Electron plus this app in development. */

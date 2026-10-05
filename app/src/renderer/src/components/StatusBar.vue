@@ -48,6 +48,8 @@ function onAutostart(event: Event): void {
 <template>
   <footer class="status">
     <span :class="['link', state.app.link]">● {{ label }}</span>
+    <button v-if="core" class="status-item core-status" title="Status from the connected core. Click for the full /status report." @click="report('status')">Core {{ core.version }} · {{ core.phase }}</button>
+    <span v-else-if="state.app.link === 'ready' && status.coreError" role="status">{{ status.coreError }}</span>
     <span v-if="core && core.phase !== 'ready'" class="warn">Odin is {{ core.phase }}</span>
     <button
       v-if="core?.model"
@@ -64,6 +66,7 @@ function onAutostart(event: Event): void {
       Context {{ percent(context) }} · Quota {{ quota ? percent(quota.used_percent) : '—' }} · {{ count(usage.tokens) }} tokens in 24h
     </button>
     <span v-if="state.app.coreInstanceId" class="core">core {{ state.app.coreInstanceId.slice(0, 8) }}</span>
+    <span v-if="state.app.link === 'ready' && status.usageError" :class="{ warn: !status.usageUnavailable }" role="status">{{ status.usageError }}</span>
     <span v-if="state.app.unreceipted" class="warn">{{ state.app.unreceipted }} awaiting receipt</span>
     <label class="autostart"><input type="checkbox" :checked="state.autostart" @change="onAutostart" /> Start at login</label>
   </footer>

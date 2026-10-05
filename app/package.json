@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && vue-tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "check": "npm run typecheck && npm test && npm run build",
-    "smoke": "electron-vite build && node scripts/smoke.mjs"
+    "smoke": "electron-vite build && node scripts/smoke.mjs",
+    "test:real-core": "node scripts/real-core-test.mjs",
+    "smoke:real-core": "electron-vite build && node scripts/real-core-smoke.mjs"
   },
   "dependencies": {
     "dompurify": "3.4.16",
