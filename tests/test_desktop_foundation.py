@@ -121,30 +121,25 @@ def test_runtime_exclusive_lock(tmp_path):
     second.release_runtime()
 
 @pytest.mark.asyncio
-async def test_host_scope_never_widens_profile_policy(tmp_path):
+async def test_host_owner_access_tracks_availability_not_preferences(tmp_path):
     authority = OwnerAuthority(paths(tmp_path))
     manager = PermissionManager(authority)
     access = HostAccessManager(
-        authority.paths.config_dir / "host-policy.json",
+        authority.paths.config_dir / "host-preferences.json",
         ["local", "remote"],
         permission_manager=manager,
     )
     assert access.get_allowed_hosts(authority.owner_id) == []
     with pytest.raises(PermissionError):
-        await access.set_policy(authority.owner_id, ["local"])
+        await access.set_default_host(authority.owner_id, "local")
     marker = manager.set_request_owner(authority.authenticate_local(peer_uid=os.geteuid()))
     try:
-        await access.set_policy(authority.owner_id, ["remote"], "remote")
-        assert access.get_allowed_hosts(authority.owner_id) == ["remote"]
-        scope = access.set_request_host_scope(["local", "remote", "absent"])
-        try:
-            assert access.get_allowed_hosts(authority.owner_id) == ["remote"]
-            assert access.get_default_host(authority.owner_id) == "remote"
-            access.set_available_hosts(["local"])
-            assert access.get_allowed_hosts(authority.owner_id) == []
-            assert access.get_default_host(authority.owner_id) == ""
-        finally:
-            access.reset_request_host_scope(scope)
+        await access.set_default_host(authority.owner_id, "remote")
+        assert access.get_allowed_hosts(authority.owner_id) == ["local", "remote"]
+        assert access.get_default_host(authority.owner_id) == "remote"
+        access.set_available_hosts(["local"])
+        assert access.get_allowed_hosts(authority.owner_id) == ["local"]
+        assert access.get_default_host(authority.owner_id) == ""
     finally:
         manager.reset_request_owner(marker)
 
@@ -230,19 +225,21 @@ def test_private_persistence_rejects_symlink(tmp_path):
     assert target.read_text() == "unchanged"
 
 @pytest.mark.asyncio
-async def test_host_policy_revocation_and_corruption_fail_closed(tmp_path):
+async def test_host_preference_corruption_never_revokes_owner(tmp_path):
     authority = OwnerAuthority(paths(tmp_path))
     manager = PermissionManager(authority)
-    path = authority.paths.config_dir / "host-policy.json"
+    path = authority.paths.config_dir / "host-preferences.json"
     access = HostAccessManager(path, ["local"], permission_manager=manager)
     marker = manager.set_request_owner(authority.authenticate_local(peer_uid=os.geteuid()))
     try:
-        await access.set_policy(authority.owner_id, ["local"])
+        await access.set_default_host(authority.owner_id, "local")
         assert access.get_allowed_hosts(authority.owner_id) == ["local"]
         path.write_text("not-json")
-        assert access.get_allowed_hosts(authority.owner_id) == []
-        path.write_text('{"allowed_hosts": [], "default_host": ""}')
-        assert access.get_allowed_hosts(authority.owner_id) == []
+        assert access.get_allowed_hosts(authority.owner_id) == ["local"]
+        assert access.get_default_host(authority.owner_id) == ""
+        path.write_text('{"default_host": "absent"}')
+        assert access.get_allowed_hosts(authority.owner_id) == ["local"]
+        assert access.get_default_host(authority.owner_id) == ""
     finally:
         manager.reset_request_owner(marker)
         authority.release_runtime()

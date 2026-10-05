@@ -13,7 +13,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src.permissions.manager import PermissionManager
-from src.permissions.persistence import write_private_atomic
 from src.tools.media_result import BinaryAttachment
 from src.tools.output_authorization import (
     accessed_hosts,
@@ -213,10 +212,12 @@ async def test_owner_gate_rechecks_sealed_context_at_dispatch(context_mode, tmp_
         "retrieval-readiness",
         "live-tool-scope",
         "live-host-scope",
-        "host-grant",
+        "host-retirement",
     ],
 )
-def test_owner_retained_body_is_not_loaded_after_live_revocation(tmp_path, monkeypatch, fence):
+async def test_owner_retained_body_is_not_loaded_after_live_revocation(
+    tmp_path, monkeypatch, fence,
+):
     from src.config.schema import ToolHost, ToolsConfig
 
     executor = ToolExecutor(
@@ -259,9 +260,7 @@ def test_owner_retained_body_is_not_loaded_after_live_revocation(tmp_path, monke
             (request_host_authorizer.reset, request_host_authorizer.set(lambda alias: False))
         )
     else:
-        write_private_atomic(
-            executor._host_access._path, json.dumps({"allowed_hosts": [], "default_host": ""})
-        )
+        executor.host_registry.publish({}, default_host="")
     try:
         with pytest.raises(RetentionError, match="Permission denied"):
             store.read(

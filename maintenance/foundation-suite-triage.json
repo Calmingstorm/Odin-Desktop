@@ -68,7 +68,12 @@
     "tests/test_generated_tool_reference.py::test_generation_does_not_load_runtime_configuration_or_discover_extensions":"Mixed neutral pure-generation safety and obsolete67count; pure-generation replacement passed with real current catalog count and forbidden network/runtime-discovery mocks.",
     "tests/test_generated_tool_reference.py::test_all_tools_once_in_registry_order_and_all_sections":"Frozen67tool order includes removed social/permission tools; current real catalog order, unique names and section concatenation tested by test_current_documentation_catalog_order_sections_and_exact_counts."
   },
-  "host_owner_replacements": ["test_host_corrupt_store_denies_authenticated_owner","test_host_corrupt_store_refuses_owner_mutation_and_preserves_backup","test_host_policy_owner_revocation_and_narrowing","test_permission_owner_identity_is_not_ambient_authority"],
+  "host_owner_replacements": ["test_host_invalid_preference_never_denies_authenticated_owner","test_host_corrupt_preference_refuses_mutation_without_revoking_access","test_host_default_preference_does_not_narrow_owner_access","test_permission_owner_identity_is_not_ambient_authority"],
+  "host_d17_retirement": {
+    "tests/test_host_access.py": "Upstream per-user host ACL, token scope and HostAccessEntry serialization contracts are D17-retired. No selected executable cases; immutable frozen corpus and transformation checks remain. New Desktop host tests prove real owner authentication plus full live targetable inventory, not old ACL equivalence.",
+    "replacements": ["tests/test_desktop_host_parity.py", "tests/test_desktop_shared_foundation.py"],
+    "review_state": "pending independent review; qualification collection/accounting refresh required after integration"
+  },
   "continuation": {
     "catalog": "Manifest retains actual src/discord/tool_catalog.py; all four original TestCatalogFiltering assertions selected unchanged. Only per-case static documentation provider dependency mocked for pure merge cases; default runtime remains fail-closed and separately tested.",
     "prompts": "Manifest retains actual src/discord/prompts.py; all eight original PromptBuilderRatchet cases selected with original assertion/data AST unchanged, not an invented fixture engine.",

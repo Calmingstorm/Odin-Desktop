@@ -308,16 +308,11 @@ def warn_missing_host_defaults(tools_config: Any, host_access_manager: Any) -> l
     default_host: Any = getattr(tools_config, "default_host", "")
     if not hosts or default_host:
         return []
-    entries = [("default_policy", host_access_manager.default_policy.to_dict())]
-    missing = [
-        name
-        for name, entry in entries
-        if entry.get("allowed_hosts") != [] and not entry.get("default_host")
-    ]
+    missing = ["default_host"] if not host_access_manager.default_host else []
     if missing:
         log.warning(
             "Managed-host default selection changed: tools.default_host is unset and %s "
-            "has no policy default. Omitted-host work now requires an explicit host; YAML "
+            "has no default-host preference. Omitted-host work now requires an explicit host; YAML "
             "inventory order is no longer used.",
             ", ".join(missing),
         )

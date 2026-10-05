@@ -5,7 +5,6 @@ from __future__ import annotations
 import ast
 import contextvars
 import hashlib
-import json
 import os
 import tarfile
 from contextlib import contextmanager
@@ -18,7 +17,6 @@ from src.desktop.authority import OwnerAuthority
 from src.desktop.paths import ProfilePaths
 from src.permissions.host_access import HostAccessManager
 from src.permissions.manager import PermissionManager
-from src.permissions.persistence import write_private_atomic
 from src.tools.builtin_policy import BuiltinToolPolicy
 from src.tools.executor import ToolExecutor as EngineExecutor
 from src.tools.skill_manager import SkillManager as EngineSkillManager
@@ -68,19 +66,10 @@ class ToolExecutor(EngineExecutor):
         kwargs.setdefault("permission_manager", state.manager)
         kwargs.setdefault("memory_path", str(state.paths.data_dir / "memory.json"))
         super().__init__(*args, **kwargs)
-        aliases = list(self.host_registry.configured_aliases())
-        policy_path = state.paths.config_dir / f"test-host-policy-{len(state.executors)}.json"
-        write_private_atomic(
-            policy_path,
-            json.dumps(
-                {
-                    "allowed_hosts": aliases,
-                    "default_host": self.host_registry.default_host,
-                }
-            ),
-        )
         self._host_access = HostAccessManager(
-            policy_path, available_hosts=aliases, permission_manager=state.manager
+            state.paths.config_dir / f"test-host-preferences-{len(state.executors)}.json",
+            available_hosts_provider=self.host_registry.active_aliases,
+            permission_manager=state.manager,
         )
         self.readiness = {
             name: True

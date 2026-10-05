@@ -184,7 +184,7 @@ def test_real_owner_host_fences_reject_ambient_or_payload_identity(identity):
 
 
 @pytest.mark.asyncio
-async def test_real_owner_persisted_grant_revocation_fences_host_access(tmp_path):
+async def test_real_owner_host_retirement_fences_host_access(tmp_path):
     from src.config.schema import ToolHost
     from src.tools.hosts import HostRegistry
     from tests.desktop_adapters.tools_cases import ToolExecutor, owner_id
@@ -196,25 +196,24 @@ async def test_real_owner_persisted_grant_revocation_fences_host_access(tmp_path
             trust_dir=tmp_path / "trust",
         )
     )
-    access = executor._host_access
     alias = executor.host_registry.default_host
     assert executor._resolve_default_host(owner_id()) == alias
     assert executor._resolve_host(alias) is not None
-    await access.set_policy(owner_id(), [])
+    executor.host_registry.publish({}, default_host="")
     assert executor._resolve_host(alias) is None
     assert executor._acquire_host(alias) is None
     assert executor.acquire_host_for_user(alias, owner_id()) is None
     assert executor._resolve_default_host(owner_id()) == ""
 
 
-def test_missing_governor_is_denied_without_dispatch():
+def test_missing_governor_matches_upstream_open_default():
     from tests.desktop_adapters.tools_cases import ToolExecutor
 
     executor = ToolExecutor()
     executor.command_governor = None
     allowed, denial, note = executor._govern_command("echo not-dispatched")
-    assert allowed is False
-    assert "governor is not configured" in denial
+    assert allowed is True
+    assert denial == ""
     assert note == ""
 
 

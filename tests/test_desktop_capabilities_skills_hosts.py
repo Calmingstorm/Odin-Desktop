@@ -274,11 +274,11 @@ def test_trust_paths_require_explicit_profile_and_reject_symlinks(tmp_path):
         registry.materialize_trust("test", "test", "pinned", (key,))
 
 
-async def test_skill_host_discovery_requires_authentic_owner_and_only_narrows(tmp_path):
+async def test_skill_host_discovery_requires_authentic_owner_and_live_inventory(tmp_path):
     authority = OwnerAuthority(ProfilePaths.from_xdg("test", environ={}, home=tmp_path))
     permission = PermissionManager(authority)
     access = HostAccessManager(
-        tmp_path / "policy.json",
+        tmp_path / "preferences.json",
         available_hosts=["build", "private"],
         permission_manager=permission,
     )
@@ -288,13 +288,9 @@ async def test_skill_host_discovery_requires_authentic_owner_and_only_narrows(tm
     assert context.get_hosts() == []
     token = permission.set_request_owner(authority.authenticate_local(peer_uid=authority.owner_uid))
     try:
-        await access.set_policy(authority.owner_id, ["build"], "build")
-        assert context.get_hosts() == ["build"]
-        scope = access.set_request_host_scope(["private"])
-        try:
-            assert context.get_hosts() == []
-        finally:
-            access.reset_request_host_scope(scope)
+        await access.set_default_host(authority.owner_id, "build")
+        assert context.get_hosts() == ["build", "private"]
+        access.set_available_hosts(["build"])
         assert context.get_hosts() == ["build"]
     finally:
         permission.reset_request_owner(token)

@@ -71,68 +71,64 @@ def test_permission_owner_identity_is_not_ambient_authority(tmp_path, identity):
         authority.release_runtime()
 
 
-@pytest.mark.parametrize("payload", ["{bad", '{"allowed_hosts":"srv"}',
-                                      '{"allowed_hosts":["srv"],"default_host":"x"}',
+@pytest.mark.parametrize("payload", ["{bad", '{"default_host":1}',
+                                      '{"default_host":[]}',
                                       '["not", "a", "dict"]',
-                                      '{"allowed_hosts":[1]}',
-                                      '{"allowed_hosts":[],"default_host":1}',
+                                      '{"default_host":"absent"}',
+                                      '{"default_host":"srv","default_host":"absent"}',
                                       '{"unexpected":true}'])
-def test_host_corrupt_store_denies_authenticated_owner(tmp_path, payload):
+def test_host_invalid_preference_never_denies_authenticated_owner(tmp_path, payload):
     from src.permissions.host_access import HostAccessManager
     from src.permissions.persistence import write_private_atomic
     from tests.desktop_adapters.tools_cases import _fixture
 
     state = _fixture.get()
-    path = tmp_path / "host-policy.json"
+    path = tmp_path / "host-preferences.json"
     write_private_atomic(path, payload)
     manager = HostAccessManager(path, available_hosts=["srv"], permission_manager=state.manager)
-    assert manager.get_allowed_hosts(state.authority.owner_id) == []
+    assert manager.get_allowed_hosts(state.authority.owner_id) == ["srv"]
     assert manager.get_default_host(state.authority.owner_id) == ""
-    assert not manager.is_host_allowed(state.authority.owner_id, "srv")
+    assert manager.is_host_allowed(state.authority.owner_id, "srv")
 
 
-async def test_host_corrupt_store_refuses_owner_mutation_and_preserves_backup(tmp_path):
+async def test_host_corrupt_preference_refuses_mutation_without_revoking_access(tmp_path):
     from src.json_store import StoreCorruptError
     from src.permissions.host_access import HostAccessManager
     from src.permissions.persistence import write_private_atomic
     from tests.desktop_adapters.tools_cases import _fixture
 
     state = _fixture.get()
-    path = tmp_path / "hosts.json"
-    original = '{"allowed_hosts":["alpha"], TRUNC'
+    path = tmp_path / "host-preferences.json"
+    original = '{"default_host":"alpha", TRUNC'
     write_private_atomic(path, original)
     manager = HostAccessManager(path, available_hosts=["alpha"], permission_manager=state.manager)
-    assert manager.get_allowed_hosts(state.authority.owner_id) == []
-    token = manager.set_request_host_scope(["alpha"])
-    try:
-        assert manager.get_allowed_hosts(state.authority.owner_id) == []
-        assert manager.get_default_host(state.authority.owner_id) == ""
-    finally:
-        manager.reset_request_host_scope(token)
+    assert manager.get_allowed_hosts(state.authority.owner_id) == ["alpha"]
+    assert manager.get_default_host(state.authority.owner_id) == ""
     with pytest.raises(StoreCorruptError):
-        await manager.set_policy(state.authority.owner_id, ["alpha"], "alpha")
+        await manager.set_default_host(state.authority.owner_id, "alpha")
     assert path.read_text() == original
-    assert [backup.read_text() for backup in tmp_path.glob("hosts.json.corrupt-*")] == [original]
+    backups = tmp_path.glob("host-preferences.json.corrupt-*")
+    assert [backup.read_text() for backup in backups] == [original]
 
 
-async def test_host_policy_owner_revocation_and_narrowing(tmp_path):
+async def test_host_default_preference_does_not_narrow_owner_access(tmp_path):
     from src.permissions.host_access import HostAccessManager
     from tests.desktop_adapters.tools_cases import _fixture
 
     state = _fixture.get()
-    manager = HostAccessManager(tmp_path / "hosts.json", available_hosts=["alpha", "beta"],
-                                permission_manager=state.manager)
-    assert await manager.set_policy(state.authority.owner_id, ["alpha", "beta"], "alpha")
+    manager = HostAccessManager(
+        tmp_path / "host-preferences.json", available_hosts=["alpha", "beta"],
+        permission_manager=state.manager,
+    )
+    assert await manager.set_default_host(state.authority.owner_id, "alpha")
     assert manager.get_allowed_hosts(state.authority.owner_id) == ["alpha", "beta"]
-    token = manager.set_request_host_scope(["beta"])
-    try:
-        assert manager.get_allowed_hosts(state.authority.owner_id) == ["beta"]
-        assert manager.get_default_host(state.authority.owner_id) == ""
-    finally:
-        manager.reset_request_host_scope(token)
+    assert manager.get_default_host(state.authority.owner_id) == "alpha"
+    manager.set_available_hosts(["beta"])
+    assert manager.get_allowed_hosts(state.authority.owner_id) == ["beta"]
+    assert manager.get_default_host(state.authority.owner_id) == ""
     assert manager.get_allowed_hosts("unauthenticated") == []
     with pytest.raises(PermissionError):
-        await manager.set_policy("unauthenticated", ["alpha"])
+        await manager.set_default_host("unauthenticated", "beta")
 
 
 @pytest.mark.parametrize("ready", [None, {}, {"run_command": False},

@@ -136,9 +136,8 @@ def test_final_neutral_legacy_image_fields_retained_read_only(tmp_path):
     assert path.read_text() == raw
 
 
-def test_final_legacy_host_inventory_needs_real_owner_and_explicit_policy(final_owner, tmp_path):
+def test_final_legacy_host_inventory_needs_real_owner_not_policy(final_owner, tmp_path):
     from src.permissions.host_access import HostAccessManager
-    from src.permissions.persistence import write_private_atomic
     from src.tools.executor import ToolExecutor
     from src.tools.hosts import HostRegistry
     path = tmp_path / "hosts.yml"
@@ -148,15 +147,13 @@ def test_final_legacy_host_inventory_needs_real_owner_and_explicit_policy(final_
     path.write_text(raw)
     config = load_config(path)
     registry = HostRegistry(config.tools.hosts, profile_paths=final_owner.paths)
-    policy = final_owner.paths.config_dir / "host-policy.json"
-    access = HostAccessManager(policy, available_hosts_provider=registry.active_aliases,
+    preference = final_owner.paths.config_dir / "host-preferences.json"
+    access = HostAccessManager(preference, available_hosts_provider=registry.active_aliases,
                                permission_manager=final_owner.manager)
     assert registry.active_aliases() == ("alpha", "beta")
-    assert access.get_allowed_hosts(final_owner.authority.owner_id) == []
-    assert access.get_allowed_hosts("legacy-user") == []
-    write_private_atomic(policy, json.dumps({"allowed_hosts": ["alpha", "beta"],
-                                            "default_host": "alpha"}))
     assert access.get_allowed_hosts(final_owner.authority.owner_id) == ["alpha", "beta"]
+    assert access.get_allowed_hosts("legacy-user") == []
+    assert not preference.exists()
     executor = ToolExecutor(config.tools, host_registry=registry, host_access_manager=access,
                             permission_manager=final_owner.manager, profile_paths=final_owner.paths)
     executor.set_user_context(final_owner.authority.owner_id)

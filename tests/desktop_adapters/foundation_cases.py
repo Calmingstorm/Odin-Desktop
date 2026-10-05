@@ -43,7 +43,9 @@ CORPUS_SELECTIONS = {
         "test_untrusted_markup_and_vue_expressions_stay_literal",
         "test_drift_check_fails_without_writing",
     ],
-    "test_host_access": ["TestEntrySemantics.test_to_dict_roundtrip"],
+    # D17 removes upstream per-user allowlist serialization; Desktop host proofs
+    # cover authentic owner access rather than preserving that obsolete API.
+    "test_host_access": [],
     "test_hosts_ratcheted_consumers": None,
     "test_image_backends": None,
     "test_knowledge_import": [
@@ -150,19 +152,17 @@ tempfile_fixture = _TempfileFixture()
 
 
 def skill_context_fixture(*args, **kwargs):
-    """Real owner-scoped host policy; HTTP transport remains original mocks."""
+    """Real owner host access; HTTP transport remains original mocks."""
     from src.tools.skill_context import SkillContext
 
     executor = kwargs["tool_executor"]
-    # Host listing uses persisted policy, never a mocked grant-all accessor.
+    # Host listing uses real owner authentication, never a mocked grant accessor.
     from src.permissions.host_access import HostAccessManager
-    from src.permissions.persistence import write_private_atomic
 
     state = _fixture.get()
-    policy = state.paths.config_dir / "skill-context-hosts.json"
-    write_private_atomic(policy, json.dumps({"allowed_hosts": ["srv"], "default_host": "srv"}))
     executor._host_access = HostAccessManager(
-        policy, available_hosts=["srv"], permission_manager=state.manager,
+        state.paths.config_dir / "skill-context-host-preferences.json",
+        available_hosts=["srv"], permission_manager=state.manager,
     )
     kwargs.setdefault("requester_id", state.authority.owner_id)
     kwargs.setdefault("allowed_urls", ("https://api.example.com",))
@@ -323,6 +323,10 @@ def selected_tree(name):
 def export_suite(namespace, name):
     from scripts.maintenance.fixture_corpus import register_module
 
+    # A fully unselected legacy surface has no executable cases or setup. Keep
+    # its frozen-corpus verification, but do not import removed runtime APIs.
+    if CORPUS_SELECTIONS[name] == []:
+        return
     module = ModuleType(f"desktop_foundation_{name}")
     module.__file__ = str(ROOT / f"tests/{name}.py")
     module.desktop_skill_context_fixture = skill_context_fixture
