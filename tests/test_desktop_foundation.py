@@ -144,11 +144,18 @@ async def test_host_owner_access_tracks_availability_not_preferences(tmp_path):
 
 def test_secrets_private_separate(tmp_path):
     profile = paths(tmp_path)
-    store = ProfileSecretStore(profile)
+    class TemporaryKeyring:
+        def __init__(self):
+            self.values = {}
+        def get_password(self, service, name):
+            return self.values.get((service, name))
+        def set_password(self, service, name, value):
+            self.values[service, name] = value
+    store = ProfileSecretStore(profile, backend=TemporaryKeyring())
     assert store.get("example") is None
     store.set("example", "dummy-value")
     assert store.get("example") == "dummy-value"
-    assert (profile.secrets_dir / "example").stat().st_mode & 0o777 == 0o600
+    assert not (profile.secrets_dir / "example").exists()
     assert not (profile.config_dir / "example").exists()
     with pytest.raises(ValueError):
         store.get("../example")

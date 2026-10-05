@@ -123,14 +123,17 @@ async def test_real_core_status_ping_events_and_shutdown_are_ordered():
             await service.start(read_fd)
             reader, writer, welcome = await connect(socket_path)
             assert welcome["t"] == "welcome"
-            assert welcome["capabilities"] == list(CAPABILITIES)
+            assert set(CAPABILITIES) <= set(welcome["capabilities"])
+            assert "settings.set" in welcome["capabilities"]
             instance = welcome["core"]["instance_id"]
             assert str(uuid.UUID(instance)) == instance
             result = await request(reader, writer, "status.get")
-            assert result["result"] == {
-                "phase": "ready", "core_instance_id": instance,
-                "version": welcome["core"]["version"], "capabilities": list(CAPABILITIES),
-            }
+            status = result["result"]
+            assert status["phase"] == "ready"
+            assert status["core_instance_id"] == instance
+            assert status["version"] == welcome["core"]["version"]
+            assert status["capabilities"] == welcome["capabilities"]
+            assert "model" in status and "providers" in status and "summary" in status
             await send(writer, {"t": "ping", "n": 42})
             assert await receive(reader) == {"t": "pong", "n": 42}
             response = await request(reader, writer, "events.subscribe", {"after": "0"})

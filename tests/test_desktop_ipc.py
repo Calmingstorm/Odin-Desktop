@@ -88,7 +88,7 @@ async def close_writer(writer):
 async def test_real_welcome_status_ping_unknown_fields_and_client():
     async with fixture_server() as (server, token_file, authority, calls):
         client = await LocalClient.connect(server.socket_path, token_file)
-        assert client.welcome["protocol"] == {"major": 0, "minor": 2}
+        assert client.welcome["protocol"] == {"major": 0, "minor": 3}
         assert client.welcome["core"]["instance_id"] == authority.runtime_id
         assert client.welcome["features"] == []
         assert client.welcome["event_high"] == "0"
