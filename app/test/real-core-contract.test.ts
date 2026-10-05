@@ -45,7 +45,8 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(statSync(core.paths.tokenPath).mode & 0o777).toBe(0o600)
     const status = successful<Status>(await broker.request('status.get'))
     expect(status).toEqual({ phase: 'ready', core_instance_id: welcome.core.instance_id,
-      version: welcome.core.version, capabilities })
+      version: welcome.core.version, capabilities,
+      limits: { attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10, chunk_bytes: 512 * 1024 } })
 
     const events: CoreEvent[] = []
     broker.on('event', (event: CoreEvent) => events.push(event))
