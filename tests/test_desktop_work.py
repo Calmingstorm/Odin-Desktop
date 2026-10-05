@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from types import SimpleNamespace
 
@@ -10,11 +11,13 @@ import pytest
 from src.agents.manager import AgentInfo, AgentManager, AgentState
 from src.desktop.authority import OwnerAuthority
 from src.desktop.commands import JournalStorageError, JournalStore
+from src.desktop.controls import ControlService
 from src.desktop.conversations import ConversationStore
 from src.desktop.events import EventJournal
 from src.desktop.paths import ProfilePaths
 from src.desktop.work import WorkService
 from src.discord.background_task import BackgroundTask
+from src.discord.channel_state import ChannelStateRegistry
 from src.permissions.manager import PermissionManager
 from src.tools.autonomous_loop import LoopInfo, LoopManager
 from src.tools.process_manager import ProcessInfo
@@ -366,3 +369,91 @@ def test_protocol_work_id_does_not_retarget_reused_manager_id(work):
     assert old["manager_id"] == new["manager_id"]
     assert service.resolve("agent", old["id"])["actions"] == []
     assert service.resolve("agent", new["id"])["actions"] == ["cancel", "steer"]
+
+
+@pytest.mark.asyncio
+async def test_revocation_while_waiting_work_lock_cannot_dispatch(work):
+    service, message, context = work
+    agent(service, message)
+    record = service.register("agent", "a", message)
+    lock = asyncio.Lock()
+    await lock.acquire()
+    service._locks[("agent", "a")] = lock
+    control = asyncio.create_task(service.apply(bound(record, "cancel"), owner_context=context))
+    await asyncio.sleep(0)
+    service.authority.release_runtime()
+    lock.release()
+    receipt = await control
+    assert receipt["error"]["code"] == "unauthorized"
+    assert service.agents._agents["a"]._cancel_event.is_set() is False
+
+
+@pytest.mark.asyncio
+async def test_admitted_loop_cancel_before_first_instruction_settles_stopped(work):
+    service, message, _context = work
+    entered = []
+    settled = []
+    @asynccontextmanager
+    async def execution(info):
+        entered.append(info.id)
+        yield
+    async def publish(*_args):
+        raise AssertionError("cancelled loop must not publish an iteration")
+    async def iteration(*_args):
+        raise AssertionError("cancelled loop must not execute an iteration")
+    id = service.loops.start_admitted_loop("harmless", SimpleNamespace(id=message.conversation_id),
+        message.owner_id, "Owner", iteration, before_start=lambda _info: None,
+        execution=execution, publish=publish, on_settled=lambda info: settled.append(info.status))
+    info = service.loops._loops[id]
+    info._task.cancel()
+    await asyncio.gather(info._task, return_exceptions=True)
+    await asyncio.sleep(0)
+    assert entered == []
+    assert settled == ["stopped"]
+    assert info.status == "stopped"
+
+
+@pytest.mark.asyncio
+async def test_real_control_service_minimal_protocol_duplicate_does_not_repeat(work):
+    service, message, _context = work
+    item = agent(service, message)
+    record = service.register("agent", "a", message)
+    controls = ControlService(service.store, service.events, service.requests,
+        ChannelStateRegistry(), authority=service.authority, permissions=service.permissions)
+    controls.work = service
+    service.controls = controls
+    params = {"control_command_id": "once", "kind": "agent", "id": record["id"],
+              "action": "steer", "text": "parent correction"}
+    first = await controls.dispatch("work.control", params)
+    assert first["ok"]
+    assert first["result"]["disposition"] == "queued"
+    assert item.inbox_sequence == 1
+    item.transition(AgentState.COMPLETED)
+    repeat = await controls.dispatch("work.control", params)
+    assert repeat == first
+    assert item.inbox_sequence == 1
+    changed = await controls.dispatch("work.control", dict(params, text="different"))
+    assert changed["error"]["code"] == "id_conflict"
+
+
+@pytest.mark.asyncio
+async def test_real_control_service_pending_receipt_is_unknown_not_replayed(work, monkeypatch):
+    service, message, _context = work
+    item = agent(service, message)
+    record = service.register("agent", "a", message)
+    controls = ControlService(service.store, service.events, service.requests,
+        ChannelStateRegistry(), authority=service.authority, permissions=service.permissions)
+    controls.work = service
+    calls = []
+    async def dispatched_then_unknown(*_args, **_kw):
+        calls.append("dispatch")
+        raise RuntimeError("lost receipt")
+    monkeypatch.setattr(service, "apply", dispatched_then_unknown)
+    params = {"control_command_id": "unknown", "kind": "agent", "id": record["id"],
+              "action": "cancel"}
+    first = await controls.dispatch("work.control", params)
+    assert first["error"]["disposition"] == "outcome_unknown"
+    second = await controls.dispatch("work.control", params)
+    assert second["error"]["disposition"] == "outcome_unknown"
+    assert calls == ["dispatch"]
+    assert item._cancel_event.is_set() is False

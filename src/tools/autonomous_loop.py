@@ -214,7 +214,17 @@ class LoopManager:
                 raise
 
         info._task = asyncio.create_task(_run_admitted())
-        info._task.add_done_callback(lambda finished: on_settled(info))
+
+        def _settled(finished):
+            # Pre-start cancellation never enters _run_admitted's exception
+            # handler. Derive terminal state from the actual owned task too.
+            if finished.cancelled():
+                info.status = "stopped"
+            elif finished.exception() is not None:
+                info.status = "error"
+            on_settled(info)
+
+        info._task.add_done_callback(_settled)
 
         log.info(
             "Loop %s started: goal=%r interval=%ds mode=%s max=%d",

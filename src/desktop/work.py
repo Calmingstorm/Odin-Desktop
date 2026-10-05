@@ -339,6 +339,9 @@ class WorkService:
             return {"disposition": "not_available", "reason": "stale_target"}
         key = (record["kind"], record["manager_id"])
         async with self._locks.setdefault(key, asyncio.Lock()):
+            if (not self.authority.accepts(owner_context) or
+                    not self.permissions.is_owner(owner_context.owner_id)):
+                return response_error("unauthorized", "Authenticated profile owner required")
             current = self.refresh(record)
             action = params.get("action")
             if action not in current["actions"]:

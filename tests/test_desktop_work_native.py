@@ -133,6 +133,42 @@ async def test_background_rendering_and_injected_publication():
 
 
 @pytest.mark.asyncio
+async def test_loop_cancel_before_first_instruction_settles_stopped():
+    manager = LoopManager()
+    calls = []
+
+    @asynccontextmanager
+    async def execution(info):
+        calls.append("execution")
+        yield
+
+    async def publish(info, text):
+        calls.append("publication")
+
+    async def iterate(*args):
+        calls.append("iteration")
+        return "Must not execute."
+
+    def settled(info):
+        assert info._task.done()
+        assert info._task.cancelled()
+        calls.append(info.status)
+
+    loop_id = manager.start_admitted_loop(
+        "goal", Destination(), "owner", "Owner", iterate,
+        before_start=lambda info: calls.append("admission"),
+        execution=execution, publish=publish, on_settled=settled,
+    )
+    # Cancel synchronously, without yielding after the worker is queued.
+    info = manager._loops[loop_id]
+    info._task.cancel()
+    await asyncio.gather(info._task, return_exceptions=True)
+    await asyncio.sleep(0)
+    assert info.status == "stopped"
+    assert calls == ["admission", "stopped"]
+
+
+@pytest.mark.asyncio
 async def test_cancelled_followup_does_not_publish():
     task = BackgroundTask("task", "description", [], "conversation", "owner")
     published = []
