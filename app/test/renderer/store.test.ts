@@ -1173,3 +1173,50 @@ describe('review round 3: going to the latest messages scrolls there', () => {
   })
 })
 
+
+describe('review round 4: a late open at the latest messages yields to newer navigation', () => {
+  it("doesn't ask for a scroll when the user moved on while its snapshot loaded (11.R4.2)", async () => {
+    await start(snapshot({ watermark: '1', messages: { items: [message('m1')], has_more: false } }))
+    bridge.control.list.push({ ...CONVERSATION, id: 'c2', title: 'Other', activity: { running: null, queued: [] } })
+    const opening = store.openLatest('c2')
+    await until(() => bridge.control.snapshots.length === 2)
+    await store.select('c1')
+    await store.jumpTo({ conversation_id: 'c1', message_id: 'm1', role: 'assistant', snippet: '', created_at: '2026-10-05T00:00:00Z' })
+    const before = store.state.latestScroll
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '1', conversation: { ...CONVERSATION, id: 'c2' } }))
+    await opening
+    expect(store.state.latestScroll).toBe(before)
+    expect(store.state.activeId).toBe('c1')
+    expect(store.state.highlightId).toBe('m1')
+  })
+
+  it('yields to a search in the same conversation while its snapshot loads', async () => {
+    await start(snapshot({ watermark: '1', messages: { items: [message('m1')], has_more: false } }))
+    bridge.control.list.push({ ...CONVERSATION, id: 'c2', title: 'Other', activity: { running: null, queued: [] } })
+    bridge.control.aroundResult = { ok: true, result: { items: [message('m-old')], has_before: false, has_after: true } }
+    const opening = store.openLatest('c2')
+    await until(() => bridge.control.snapshots.length === 2)
+    await store.jumpTo({ conversation_id: 'c2', message_id: 'm-old', role: 'assistant', snippet: '', created_at: '2026-10-05T00:00:00Z' })
+    expect(store.state.highlightId).toBe('m-old')
+    const before = store.state.latestScroll
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '1', conversation: { ...CONVERSATION, id: 'c2' } }))
+    await opening
+    expect(store.state.latestScroll).toBe(before)
+    expect(store.state.jump?.messageId).toBe('m-old')
+  })
+
+  it("doesn't ask for a scroll when its conversation was deleted while the snapshot loaded", async () => {
+    await start(snapshot({ watermark: '1', messages: { items: [message('m1')], has_more: false } }))
+    bridge.control.list.push({ ...CONVERSATION, id: 'c2', title: 'Other', activity: { running: null, queued: [] } })
+    bridge.control.holdCreate = true // the replacement conversation stays on its way
+    const opening = store.openLatest('c2')
+    await until(() => bridge.control.snapshots.length === 2)
+    emit(event(5, 'conversation.deleted', { conversation_id: 'c1' }))
+    emit(event(6, 'conversation.deleted', { conversation_id: 'c2' }))
+    expect(store.state.activeId).toBeNull()
+    const before = store.state.latestScroll
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '1', conversation: { ...CONVERSATION, id: 'c2' } }))
+    await opening
+    expect(store.state.latestScroll).toBe(before)
+  })
+})
