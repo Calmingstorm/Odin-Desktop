@@ -86,10 +86,12 @@ class TurnResumeManager:
         resume_ttl_hours: float = 24.0,
         release_workload: Callable | None = None,
         assert_preserved_request: Callable | None = None,
+        launch_auto_resume: Callable | None = None,
     ) -> None:
         if not callable(assert_preserved_request):
             _require_phase2_wiring()
         self._assert_preserved_request = assert_preserved_request
+        self._launch_auto_resume = launch_auto_resume
         self._store = store
         self._tool_loop = tool_loop
         self._llm_gateway = llm_gateway
@@ -133,7 +135,8 @@ class TurnResumeManager:
 
     def on_turn_suspended(self, key: TurnKey, generation: str) -> None:
         """Called by the tool loop when a turn suspends. In-process only."""
-        _require_phase2_wiring()
+        if not callable(getattr(self, "_launch_auto_resume", None)):
+            _require_phase2_wiring()
         if not self._auto_resume_enabled:
             return
         # Mutation revision AT SUSPENSION, captured synchronously inside
@@ -224,7 +227,8 @@ class TurnResumeManager:
     async def _run_auto_resume(
         self, key: TurnKey, row: dict, allowed: set[int]
     ) -> None:
-        _require_phase2_wiring()
+        if not callable(getattr(self, "_launch_auto_resume", None)):
+            _require_phase2_wiring()
         if self._unresolved_ops(row):
             # Never auto-continue over ambiguous external effects — a human
             # must look at this (explicit resume delivers the details).
@@ -247,28 +251,45 @@ class TurnResumeManager:
                     "waiting for the channel lock", key,
                 )
                 return
-            st, message, reason = await self._validate_and_rebuild(key, row)
+            # A cancelled waiter must not lose a lease acquired by its storage
+            # thread. Finish rebuilding and release it before shutdown proceeds.
+            rebuild = asyncio.create_task(self._validate_and_rebuild(key, row))
+            try:
+                st, message, reason = await asyncio.shield(rebuild)
+            except asyncio.CancelledError:
+                st, _message, _reason = await rebuild
+                if st is not None:
+                    st.durability._stop_heartbeats()
+                    await asyncio.to_thread(self._store.release_acquired_sync,
+                                            st.durability.lease)
+                raise
             if st is None:
                 log.info("Auto-resume for %s rejected: %s", key, reason)
                 return
             log.info("Auto-resuming turn %s (capacity returned)", key)
             try:
-                result = await self._tool_loop.run_resumed(st)
-            except Exception:
-                log.exception("Auto-resumed turn failed")
-                return
+                # Rebuild awaits storage. Re-check the mutation watermark before
+                # transferring the restored checkpoint to durable admission.
+                if self._session_revision(key.channel_id) not in allowed:
+                    return
+                transferred = await self._launch_auto_resume(st, message, row)
+                if transferred:
+                    st = None  # RequestService now owns the fenced lease
             finally:
-                # run_resumed owns the matching task_start. Explicit resume
-                # is balanced by intake_pipeline, so only the auto path ends
-                # its presence activity here.
-                await self._delivery.set_status(None, task_end=True)
-            text, already_sent, is_error, tools_used, _handoff = result
-            self._append_session(key.channel_id, text, is_error, tools_used)
-            if not already_sent and message is not None:
-                try:
-                    await self._delivery.send_chunked(message, text)
-                except Exception:
-                    log.exception("Auto-resume delivery failed")
+                if st is not None:
+                    st.durability._stop_heartbeats()
+                    await asyncio.to_thread(self._store.release_acquired_sync,
+                                            st.durability.lease)
+
+    async def close(self) -> None:
+        """Retire process-local waiters before profile storage is closed."""
+        self._auto_resume_enabled = False
+        tasks = list(self._waiters.values())
+        self._waiters.clear()
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     def _append_session(
         self, channel_id: str, text: str, is_error: bool, tools_used: list
