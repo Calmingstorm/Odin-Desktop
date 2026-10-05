@@ -88,7 +88,7 @@ async function inside() {
   assertRealCoreIsolation()
   const [, , , cwd, command, ...args] = process.argv
   process.chdir(repositoryRoot)
-  const preflight = spawnSync(process.env.ODIN_DESKTOP_ENGINE_PYTHON, ['-c',
+  const preflight = spawnSync(process.env.ODIN_DESKTOP_ENGINE_PYTHON, ['-P', '-c',
     'import sys, pathlib; assert sys.version_info[:2] == (3, 12), "Engine requires Python 3.12"; import src.__main__, src.desktop.core; assert pathlib.Path(src.desktop.core.__file__).resolve() == pathlib.Path("src/desktop/core.py").resolve(), "Imported a different core"'],
   { encoding: 'utf8', timeout: 20_000 })
   if (preflight.error || preflight.status !== 0) {

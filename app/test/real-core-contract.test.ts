@@ -3,12 +3,12 @@ import { statSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import type { CoreEvent } from '../src/shared/api'
 import { PROTOCOL, type Settled, type Welcome } from '../src/main/broker'
-import { assertIsolated, onceEvent, RealCoreHarness, waitFor } from './real-core-harness'
+import { assertIsolated, onceEvent, RealCoreHarness, waitFor, SERVED_CAPABILITIES } from './real-core-harness'
 
 // Intentional module-level hard failure if someone invokes this file with the normal/unisolated Vitest gate.
 assertIsolated()
 
-const capabilities = ['status.get', 'events.subscribe', 'runtime.shutdown']
+const capabilities = SERVED_CAPABILITIES
 function successful<T>(answer: Settled): T {
   expect(answer.ok).toBe(true)
   if (!answer.ok) throw new Error(`Expected a real-core receipt, got ${answer.error.code}`)
@@ -20,7 +20,7 @@ function refused(answer: Settled, code: string, disposition = 'rejected'): void 
 type Status = { phase: string; core_instance_id: string; version: string; capabilities: string[] }
 type Subscription = { event_high: string; reset_required: boolean }
 
-describe('actual app Broker ↔ repository real core (step 1)', () => {
+describe('actual app Broker ↔ repository real core (step 5)', () => {
   let core: RealCoreHarness
   beforeEach(async () => {
     core = new RealCoreHarness()
@@ -39,8 +39,11 @@ describe('actual app Broker ↔ repository real core (step 1)', () => {
     expect(statSync(core.paths.socketPath).mode & 0o777).toBe(0o600)
     expect(statSync(core.paths.tokenPath).mode & 0o777).toBe(0o600)
     const status = successful<Status>(await broker.request('status.get'))
-    expect(status).toEqual({ phase: 'ready', core_instance_id: welcome.core.instance_id,
+    expect(status).toMatchObject({ phase: 'ready', core_instance_id: welcome.core.instance_id,
       version: welcome.core.version, capabilities })
+    // A configured model label is not provider readiness. No client is available on a fresh profile.
+    expect(status).toMatchObject({ model: { main: expect.any(String), provider: 'codex' },
+      providers: expect.arrayContaining([{ name: 'codex', health: 'unavailable' }]) })
 
     const events: CoreEvent[] = []
     broker.on('event', (event: CoreEvent) => events.push(event))
@@ -116,7 +119,7 @@ describe('actual app Broker ↔ repository real core (step 1)', () => {
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '0' }, id)).reset_required).toBe(false)
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '999999' }, id)).reset_required).toBe(true)
     refused(await broker.request('conversations.list', {}, id), 'capability_unavailable')
-    refused(await broker.request('conversations.create', { title: 'not admitted in step one' }, id), 'capability_unavailable')
+    refused(await broker.request('conversations.create', { title: 'not admitted before step six' }, id), 'capability_unavailable')
     expect(await broker.request('runtime.shutdown', { reason: 'read ID is still available' }, id)).toEqual({
       ok: true, result: { disposition: 'accepted' }
     })

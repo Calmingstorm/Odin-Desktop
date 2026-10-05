@@ -136,17 +136,34 @@ async function nextSave(v: Mounted): Promise<PersonalitySet> {
 }
 
 describe('residual 16.R4.2: Personality field edit intent', () => {
+  it('keeps persisted custom text when the real core replaces all fields on a built-in preset switch', async () => {
+    const initial = personality({ preset: 'custom' })
+    const v = await view(initial)
+    await type(v, 'custom_identity', 'unsaved hidden identity')
+    await choose(v, 'professional')
+    set.mockImplementationOnce(async (change) => {
+      // ModelSettingsService._personality_set defaults omitted custom fields to empty strings.
+      loaded = personality({ preset: change.preset, custom_name: change.custom_name ?? '', custom_identity: change.custom_identity ?? '', custom_voice: change.custom_voice ?? '' })
+      return ok({ status: 'updated', preset: loaded.preset })
+    })
+    await Promise.resolve(panel(v).button('Save').fire('click'))
+    await flush()
+    expect(loaded.custom_identity).toBe(initial.custom_identity)
+    await choose(v, 'custom')
+    expect(field(v, 'custom_identity').value).toBe('unsaved hidden identity')
+  })
+
   for (const phase of ['write', 'readback'] as const) {
     it(`keeps Odin chosen again during ${phase}, including the next Save payload`, async () => {
       const v = await view()
       expect(selected(v)).toBe('odin')
       await choose(v, 'professional')
       const pending = await holdSave(v, phase)
-      expect(set.mock.calls[0]![0]).toEqual({ preset: 'professional' })
+      expect(set.mock.calls[0]![0]).toEqual({ preset: 'professional', custom_name: 'loaded name', custom_identity: 'loaded identity', custom_voice: 'loaded voice' })
       await choose(v, 'odin')
       await pending.finish(personality({ preset: 'professional' }))
       expect(selected(v)).toBe('odin')
-      expect(await nextSave(v)).toEqual({ preset: 'odin' })
+      expect(await nextSave(v)).toEqual({ preset: 'odin', custom_name: 'loaded name', custom_identity: 'loaded identity', custom_voice: 'loaded voice' })
     })
 
     it(`records a same-as-submitted select change during ${phase}`, async () => {
@@ -157,7 +174,7 @@ describe('residual 16.R4.2: Personality field edit intent', () => {
       await choose(v, 'professional')
       await pending.finish(personality({ preset: 'odin' }))
       expect(selected(v)).toBe('professional')
-      expect(await nextSave(v)).toEqual({ preset: 'professional' })
+      expect(await nextSave(v)).toEqual({ preset: 'professional', custom_name: 'loaded name', custom_identity: 'loaded identity', custom_voice: 'loaded voice' })
     })
 
     for (const key of customFields) {
@@ -258,7 +275,7 @@ describe('residual 16.R4.2: Personality field edit intent', () => {
       await type(v, key, initial[key])
       await choose(v, 'professional')
       const pending = await holdSave(v, 'write')
-      expect(set.mock.calls[0]![0]).toEqual({ preset: 'professional' })
+      expect(set.mock.calls[0]![0]).toEqual({ preset: 'professional', custom_name: initial.custom_name, custom_identity: initial.custom_identity, custom_voice: initial.custom_voice })
       const canonical = personality({ preset: 'professional', [key]: 'remote unsent field' })
       await pending.finish(canonical)
       await choose(v, 'custom')
@@ -338,7 +355,7 @@ describe('residual 16.R4.2: Personality field edit intent', () => {
     applyReceipt({ id: 'personality-command', settled: ok({ status: 'updated', preset: 'professional' }) })
     await flush()
     expect(selected(v)).toBe('odin')
-    expect(await nextSave(v)).toEqual({ preset: 'odin' })
+    expect(await nextSave(v)).toEqual({ preset: 'odin', custom_name: 'loaded name', custom_identity: 'loaded identity', custom_voice: 'loaded voice' })
   })
 
   it('an older held readback cannot replace the newer second Save readback', async () => {
@@ -349,7 +366,7 @@ describe('residual 16.R4.2: Personality field edit intent', () => {
     expect(panel(v).button('Save').props.disabled).toBe(false)
     await choose(v, 'odin')
     loaded = personality({ preset: 'odin' })
-    expect(await nextSave(v)).toEqual({ preset: 'odin' })
+    expect(await nextSave(v)).toEqual({ preset: 'odin', custom_name: 'loaded name', custom_identity: 'loaded identity', custom_voice: 'loaded voice' })
     expect(selected(v)).toBe('odin')
     await first.finish(personality({ preset: 'professional' }))
     expect(selected(v)).toBe('odin')

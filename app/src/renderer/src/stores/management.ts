@@ -144,6 +144,8 @@ onLateReceipt((receipt) => {
  */
 let inventorySent = 0
 let inventoryShown = 0
+let timeoutSent = 0
+let timeoutShown = 0
 
 function showInventory(sent: number, inventory: ToolInventory): void {
   if (sent < inventoryShown) return
@@ -154,24 +156,37 @@ function showInventory(sent: number, inventory: ToolInventory): void {
 
 export async function loadTools(): Promise<void> {
   const sent = ++inventorySent
+  const timeout = ++timeoutSent
   const [tools, timeouts] = await Promise.all([window.odin.toolsList({}), window.odin.toolsTimeoutsGet({})])
-  if (sent < inventoryShown) return
-  inventoryShown = sent
-  if (readResult('tools', tools) && tools.ok) showInventory(sent, tools.result)
-  if (readResult('timeouts', timeouts) && timeouts.ok) management.timeouts = timeouts.result
+  if (sent >= inventoryShown) {
+    inventoryShown = sent
+    if (readResult('tools', tools) && tools.ok) showInventory(sent, tools.result)
+  }
+  if (timeout >= timeoutShown) {
+    timeoutShown = timeout
+    if (readResult('timeouts', timeouts) && timeouts.ok) management.timeouts = timeouts.result
+  }
 }
 
 export async function setToolEnabled(name: string, enabled: boolean): Promise<void> {
   const sent = ++inventorySent
   await act(`tool:${name}`, () => window.odin.toolsSetEnabled({ name, enabled }), (inventory) => {
     showInventory(sent, inventory)
-    return enabled ? 'On.' : 'Off: Odin no longer sees this tool.'
+    if (!enabled) return 'Off: Odin no longer sees this tool.'
+    const state = inventory.tools.find((tool) => tool.name === name)?.state
+    if (state === 'available') return 'On.'
+    if (state === 'global_disabled') return 'Enabled, but tools are globally off.'
+    return 'Enabled, but unavailable in this runtime.'
   })
 }
 
 export async function saveTimeouts(change: { default_timeout?: number; overrides?: Record<string, number> }): Promise<boolean> {
+  const sent = ++timeoutSent
   return act('timeouts', () => window.odin.toolsTimeoutsSet(change), (timeouts) => {
-    management.timeouts = timeouts
+    if (sent >= timeoutShown) {
+      timeoutShown = sent
+      management.timeouts = timeouts
+    }
     return 'Saved. New calls use them; calls already running keep theirs.'
   })
 }
