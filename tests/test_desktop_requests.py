@@ -5,14 +5,14 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from src.desktop.conversations import ConversationStore
-from src.desktop.transcript import TranscriptStore
 
 from src.desktop.authority import OwnerAuthority
 from src.desktop.commands import JournalStore
+from src.desktop.conversations import ConversationStore
 from src.desktop.events import EventJournal
 from src.desktop.paths import ProfilePaths
 from src.desktop.requests import RequestService
+from src.desktop.transcript import TranscriptStore
 from src.discord.channel_state import ChannelStateRegistry
 from src.permissions.manager import PermissionManager
 from src.turn_state import TurnStateStore
@@ -172,7 +172,8 @@ async def test_branch_seed_reset_and_compaction_preservation(service, tmp_path):
     from src.sessions.manager import SessionManager
 
     requests, parent, engine, _delivery, _store = service
-    sessions = SessionManager(persist_dir=str(tmp_path / "model-sessions"))
+    sessions = SessionManager(max_history=160, max_age_hours=24,
+                              persist_dir=str(tmp_path / "model-sessions"))
     engine.deps.sessions = sessions
     requests.transcript.commit(parent, "user", "inherited question")
     requests.transcript.commit(parent, "assistant", "inherited answer")
@@ -298,3 +299,67 @@ async def test_close_reports_unsettled_execution_without_unbounded_gather(servic
         release.set()
         await task
         requests._tasks.discard(task)
+
+
+@pytest.mark.asyncio
+async def test_real_runner_tool_detail_preserves_sink_output_and_live_authorization(service):
+    from src.config.schema import Config
+    from src.desktop.artifacts import ArtifactStore
+    from src.desktop.delivery import DurableDelivery, PublicationEventJournal
+    from src.desktop.services import build_engine_services
+    from src.desktop.tool_details import ToolDetailsStore
+    from src.llm.types import LLMResponse, ToolCall
+
+    requests, cid, old_engine, _delivery, store = service
+    class Provider:
+        model, provider_name = "test", "compat"
+        def __init__(self):
+            self.responses = [LLMResponse(tool_calls=[ToolCall("time-call", "parse_time",
+                {"expression": "in 2 hours"})]), LLMResponse(text="Conversion complete.")]
+        async def chat_with_tools(self, **_kwargs):
+            return self.responses.pop(0)
+        async def chat(self, **_kwargs):
+            return "COMPLETE"
+        async def drain_and_close(self):
+            pass
+    cfg = Config()
+    cfg.openai_codex.enabled = False
+    cfg.llm_provider.model = "compat:test"
+    cfg.openai_compatible.enabled = True
+    cfg.context.directory = str(requests.authority.paths.data_dir / "context")
+    cfg.learning.enabled = False
+    cfg.browser.enabled = False
+    events = PublicationEventJournal(store)
+    requests.events = requests.transcript.events = requests.conversations.events = events
+    delivery = DurableDelivery(store, events, transcript_commit=requests.transcript.commit,
+                               assert_context=requests.assert_delivery_context)
+    engine = build_engine_services(cfg, requests.authority.paths, requests.permissions,
+                                   delivery=delivery, compatible_client=Provider())
+    requests.engine, requests.delivery = engine, delivery
+    engine.bind_requests(requests)
+    engine.runner._record_tool_detail = requests.record_tool_detail
+    engine.deps.audit.set_event_callback(requests.observe_tool_event)
+    executor = engine.deps.tool_executor
+    artifacts = ArtifactStore(store, output_store=executor._ensure_output_store(),
+                              authorize=executor._authorize_output)
+    delivery.tool_details = ToolDetailsStore(
+        store, output_store=executor._ensure_output_store(),
+        artifacts=artifacts, authorize=executor._authorize_output)
+    try:
+        admitted = requests.submit(params(cid))
+        await requests.after_commit()
+        await asyncio.gather(*requests._tasks)
+        rid = admitted["request_id"]
+        detail = delivery.tool_details.detail(rid, "time-call", owner=requests.authority.owner_id,
+                                              conversation_id=cid)
+        assert detail["tool"] == "parse_time"
+        assert detail["arguments"] == {"expression": "in 2 hours"}
+        assert "T" in detail["previews"][0]["text"]
+        assert requests.snapshot(cid)["tools"][rid][0]["outcome"] == "success"
+        executor._builtin_policy._get_readiness = lambda: {}
+        with pytest.raises(Exception, match="no longer authorized"):
+            delivery.tool_details.detail(rid, "time-call", owner=requests.authority.owner_id)
+    finally:
+        await requests.close()
+        await engine.close()
+        requests.engine = old_engine

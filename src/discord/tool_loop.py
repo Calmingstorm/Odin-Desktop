@@ -535,6 +535,7 @@ class ToolLoopDeps:
     # Authenticated desktop admission, supplied by the profile composition root.
     assert_request: Callable | None = None
     request_admission: Callable | None = None
+    record_tool_detail: Callable | None = None
 
 
 class ToolLoopRunner:
@@ -547,6 +548,7 @@ class ToolLoopRunner:
             _require_phase2_wiring()
         self._assert_request = deps.assert_request
         self._request_admission = deps.request_admission
+        self._record_tool_detail = deps.record_tool_detail
         self._get_config = deps.get_config
         self._get_default_system_prompt = deps.get_default_system_prompt
         self._get_context_compressor = deps.get_context_compressor
@@ -2940,6 +2942,13 @@ class ToolLoopRunner:
             uncertain=uncertain_outcome,
             result_text=tool_content,
         )
+        # Passive transport projection only, after the authoritative operation
+        # settlement. A failed detail sink cannot change or replay the effect.
+        if self._record_tool_detail is not None:
+            try:
+                self._record_tool_detail(st.message, block, tool_input, tool_content)
+            except Exception:
+                log.exception("Tool detail publication failed; operation is already settled")
 
         return {
             "type": "tool_result",

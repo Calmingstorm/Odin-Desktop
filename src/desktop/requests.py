@@ -85,6 +85,9 @@ class RequestService:
         self._tasks = set()
         self._closed = False
         self._session_epochs = {}
+        runner = getattr(engine, "runner", None)
+        if runner is not None:
+            runner._record_tool_detail = self.record_tool_detail
         with store.transaction() as db:
             db.execute("""CREATE TABLE IF NOT EXISTS desktop_requests (
                 request_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL,
@@ -279,6 +282,22 @@ class RequestService:
             self.delivery.tool_settled(context, invocation_id=invocation,
                 outcome="unknown" if unknown else "failure" if error else "success",
                 duration_ms=max(0, int(elapsed or 0)))
+
+    def record_tool_detail(self, message, block, arguments, delivered_output):
+        """Preserve the actual authorized sink output, not truncated audit text."""
+        self.assert_bound_request(message)
+        details = getattr(self.delivery, "tool_details", None)
+        if details is None:
+            return
+        from ..tools.output_authorization import accessed_hosts, request_scope_id
+        hosts = list((accessed_hosts.get() or {}).values())
+        scope = request_scope_id.get()
+        if scope:
+            hosts.append({"scope": scope})
+        details.record(request_id=message.request_id, invocation_id=block.id,
+            owner=message.owner_id, conversation_id=message.conversation_id,
+            tool=block.name, arguments=arguments, delivered_output=delivered_output,
+            hosts=tuple(hosts))
 
     def fetch_request(self, conversation_id, request_id):
         row = self.get_request(request_id)
