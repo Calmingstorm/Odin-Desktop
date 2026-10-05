@@ -96,3 +96,66 @@ describe('attachment manager against the fixture core', () => {
     expect(mimeFor('mystery')).toBe('application/octet-stream')
   })
 })
+
+describe('review round 1: attachment cancellation and cleanup', () => {
+  /** The broker, with every request recorded and an optional hook after an answer or a forced failure. */
+  function spy(
+    broker: Broker,
+    options: { after?: (method: string, params: Record<string, unknown>) => void; fail?: (method: string) => boolean } = {}
+  ) {
+    const methods: string[] = []
+    const requester = {
+      request: async (method: string, params?: Record<string, unknown>, id?: string) => {
+        methods.push(method)
+        if (options.fail?.(method)) {
+          return { ok: false as const, error: { code: 'internal', message: 'the link dropped', disposition: 'not_dispatched' } }
+        }
+        const answer = await broker.request(method, params, id)
+        options.after?.(method, params ?? {})
+        return answer
+      }
+    }
+    return { requester, methods }
+  }
+
+  it('never commits after a cancel that came during the last chunk, and cancels the upload in the core', async () => {
+    const { broker, conversationId, dir } = await setup()
+    const path = join(dir, 'two-chunks.txt')
+    writeFileSync(path, 'abcdefgh')
+    let manager!: AttachmentManager
+    let id = ''
+    const { requester, methods } = spy(broker, {
+      after: (method, params) => {
+        if (method === 'attachments.chunk' && params.offset === 4) manager.cancel(id)
+      }
+    })
+    manager = new AttachmentManager(requester, () => ({ attachment_bytes: 1024, chunk_bytes: 4 }))
+    const staged = await manager.stagePath(path)
+    if (!staged.ok) throw new Error('not staged')
+    id = staged.result.id
+    expect(await manager.upload(id, conversationId)).toMatchObject({ ok: false, error: { code: 'cancelled' } })
+    expect(methods).toEqual(['attachments.begin', 'attachments.chunk', 'attachments.chunk', 'attachments.cancel'])
+  })
+
+  it('cancels the upload in the core after a failed chunk, and forgets the staged bytes', async () => {
+    const { broker, conversationId } = await setup()
+    const { requester, methods } = spy(broker, { fail: (method) => method === 'attachments.chunk' })
+    const manager = new AttachmentManager(requester, () => ({ attachment_bytes: 1024, chunk_bytes: 4 }))
+    const staged = manager.stageBytes('pasted.png', 'image/png', Buffer.from('12345678'))
+    if (!staged.ok) throw new Error('not staged')
+    expect(await manager.upload(staged.result.id, conversationId)).toMatchObject({ ok: false, error: { message: 'the link dropped' } })
+    expect(methods).toEqual(['attachments.begin', 'attachments.chunk', 'attachments.cancel'])
+    expect(await manager.upload(staged.result.id, conversationId)).toMatchObject({ ok: false, error: { code: 'not_found' } })
+  })
+
+  it('attaches an empty file, as Odin does', async () => {
+    const { manager, conversationId, dir } = await setup()
+    const path = join(dir, 'empty.txt')
+    writeFileSync(path, '')
+    const staged = await manager.stagePath(path)
+    expect(staged).toMatchObject({ ok: true, result: { size: 0 } })
+    if (!staged.ok) return
+    expect(await manager.upload(staged.result.id, conversationId)).toMatchObject({ ok: true, result: { size: 0 } })
+  })
+})
+

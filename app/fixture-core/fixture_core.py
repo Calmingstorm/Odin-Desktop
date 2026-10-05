@@ -271,7 +271,10 @@ class Core:
 
     def m_usage(self, params: dict, _writer) -> dict:
         unknown = {"value": None, "kind": "unknown"}
-        return {"period": params.get("period") or "session", "tokens": unknown, "quota": [], "context": unknown,
+        period = params.get("period") or "7d"
+        if period not in ("24h", "7d", "30d", "all"):
+            raise CoreError("bad_request", "usage ranges are 24h, 7d, 30d and all")
+        return {"period": period, "tokens": unknown, "quota": [], "context": unknown,
                 "summary": "The development core doesn't measure usage."}
 
     def m_reload(self, params: dict, _writer) -> dict:
@@ -321,8 +324,8 @@ class Core:
     def m_attach_begin(self, params: dict, _writer) -> dict:
         self.require_conversation(params.get("conversation_id"))
         size = int(params.get("size") or 0)
-        if size <= 0:
-            raise CoreError("bad_request", "an attachment needs a size")
+        if size < 0:
+            raise CoreError("bad_request", "an attachment's size can't be negative")  # empty files are fine
         if size > ATTACHMENT_BYTES:
             raise CoreError("too_large", f"attachments are limited to {ATTACHMENT_BYTES // (1024 * 1024)} MiB")
         mime = str(params.get("mime") or "application/octet-stream")
