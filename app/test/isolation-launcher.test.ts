@@ -45,7 +45,10 @@ function fixture(results: Array<number | Error | 'pending'> = [0, 0, 0]) {
   })
   const timers = new Map<object, () => void>()
   const schedule = vi.fn((fn: () => void) => { const handle = {}; timers.set(handle, fn); return handle })
-  const unschedule = vi.fn((handle: object) => timers.delete(handle))
+  const unschedule = vi.fn((handle: object) => {
+    expect(handle).toBeTypeOf('object')
+    return timers.delete(handle)
+  })
   const launcher = createIsolationLauncher({ process: host, files, spawnChild, temporaryDirectory: () => '/tmp', schedule, unschedule })
   return { ...launcher, host, files, spawnChild, children, timers }
 }
@@ -114,6 +117,15 @@ describe('real-core isolation launcher with fake child_process only', () => {
       expect(f.timers.size).toBe(0)
       expect(f.files.rmSync).toHaveBeenCalledOnce()
     }
+  })
+
+  it('cleans a synchronous spawn failure without passing an absent timer to unschedule', async () => {
+    const f = fixture()
+    f.spawnChild.mockImplementation(() => { throw new Error('synchronous spawn failure') })
+    await expect(f.launchIsolated('vitest')).rejects.toThrow('no tests were started')
+    expect(f.timers.size).toBe(0)
+    expect(f.host.listenerCount('SIGTERM')).toBe(0)
+    expect(f.files.rmSync).toHaveBeenCalledOnce()
   })
 
   it.each(['SIGINT', 'SIGTERM', 'abort', 'timeout'])('kills the detached group as the user on %s, awaits exit, then restores handlers and HOME', async (reason) => {

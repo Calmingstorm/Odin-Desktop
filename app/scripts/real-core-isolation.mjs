@@ -71,7 +71,7 @@ export function createIsolationLauncher({ process: host = process, files = fs, s
       let child, timer, failure, finished = false
       let output = ''
       const cleanup = () => {
-        unschedule(timer)
+        if (timer !== undefined) unschedule(timer)
         host.off('SIGINT', interrupt)
         host.off('SIGTERM', terminate)
         signal?.removeEventListener('abort', abort)
