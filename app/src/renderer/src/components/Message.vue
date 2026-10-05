@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { Message } from '../../../shared/api'
 import { images, showsInline, type ImageHandle } from '../artifacts'
 import { onCodeCopyClick } from '../code-copy'
@@ -20,6 +20,17 @@ const props = defineProps<{
 
 const copyOpen = ref(false)
 const copied = ref('')
+const copyButton = ref<HTMLButtonElement | null>(null)
+const copyChoices = ref<HTMLElement | null>(null)
+const messageLabel = computed(() => `${who(props.message.role)} message at ${time(props.message.created_at)}`)
+watch(copyOpen, async (open) => {
+  await nextTick()
+  if (open) copyChoices.value?.querySelector<HTMLButtonElement>('button')?.focus()
+})
+function closeCopy(): void {
+  copyOpen.value = false
+  copyButton.value?.focus()
+}
 /** blob: URLs for inline images; null once an image can't be shown, so it falls back to a file card. */
 const sources = reactive<Record<string, string | null | undefined>>({})
 
@@ -62,7 +73,7 @@ function fileSize(bytes: number): string {
 }
 
 async function copy(kind: 'markdown' | 'plain'): Promise<void> {
-  copyOpen.value = false
+  closeCopy()
   const text = kind === 'markdown' ? props.message.text : plainTextOf(props.message.text)
   const result = await window.odin.copyText(text)
   copied.value = result.ok ? 'Copied' : "Couldn't copy"
@@ -76,16 +87,17 @@ function onImageError(ref: string): void {
 </script>
 
 <template>
-  <article :id="`m-${message.id}`" :class="['msg', message.role, { highlight }]">
+  <article :id="`m-${message.id}`" :class="['msg', message.role, { highlight }]" tabindex="-1" :aria-label="messageLabel">
     <ToolActivity v-if="message.role === 'assistant' && tools?.length" :entries="tools" :request-id="message.request_id" />
     <div class="meta">
       <span class="who">{{ who(message.role) }}</span>
       <time :datetime="message.created_at">{{ time(message.created_at) }}</time>
       <span v-if="actions" class="msg-actions">
-        <span v-if="copied" class="copied" role="status">{{ copied }}</span>
-        <button class="msg-action" :aria-expanded="copyOpen" @click="copyOpen = !copyOpen">Copy</button>
+        <span class="copied" role="status" aria-atomic="true">{{ copied }}</span>
+        <button ref="copyButton" class="msg-action" :aria-label="`Copy ${messageLabel}`" :aria-expanded="copyOpen" :aria-controls="`copy-${message.id}`" @click="copyOpen = !copyOpen">Copy</button>
         <button
           class="msg-action"
+          :aria-label="`Thread from ${messageLabel}`"
           title="Start a new thread that carries this conversation's context up to here"
           @click="startThread(conversationId, message.id)"
         >
@@ -93,7 +105,7 @@ function onImageError(ref: string): void {
         </button>
       </span>
     </div>
-    <div v-if="copyOpen" class="copy-choices">
+    <div v-if="copyOpen" :id="`copy-${message.id}`" ref="copyChoices" class="copy-choices" @keydown.esc.prevent.stop="closeCopy">
       <button class="ghost" @click="copy('markdown')">Copy as Markdown</button>
       <button class="ghost" @click="copy('plain')">Copy as plain text</button>
     </div>
@@ -113,3 +125,8 @@ function onImageError(ref: string): void {
     <ReportViewer v-for="a in reports" :key="a.ref" :artifact="a" />
   </article>
 </template>
+
+<style scoped>
+article:focus-visible, button:focus-visible, .md :deep(button:focus-visible), .md :deep(a:focus-visible) { outline: 2px solid var(--accent, #91baff); outline-offset: 3px; }
+article:focus-within { content-visibility: visible; }
+</style>

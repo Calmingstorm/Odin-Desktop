@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { dispatch, matchCommands, parseCommand } from '../commands'
 import { canAct, chatUnavailable, loadFailure, retry, send, state, stop, stopPending, type ComposerMode } from '../store'
 import { unavailableText } from '../capability'
@@ -26,9 +26,16 @@ const text = computed({ get: () => box.text, set: (value: string) => edit(value)
 const mode = ref<ComposerMode>('steer')
 const busy = ref(false)
 const dragging = ref(false)
+const stopButton = ref<HTMLButtonElement | null>(null)
 const selected = ref(0)
+const paletteDismissed = ref(false)
 const runningRequest = computed(() => (state.activeId ? (state.views[state.activeId]?.running ?? null) : null))
 const running = computed(() => Boolean(runningRequest.value))
+watch(running, async (active) => {
+  if (active || document.activeElement !== stopButton.value) return
+  await nextTick()
+  if (document.activeElement === document.body) document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message"]')?.focus()
+})
 const stopping = computed(() =>
   Boolean(runningRequest.value && stopPending(runningRequest.value.request_id, runningRequest.value.generation))
 )
@@ -41,8 +48,9 @@ const uploading = computed(() => attachments.value.some((a) => a.status === 'upl
 const failedAttachment = computed(() => attachments.value.some((a) => a.status === 'failed'))
 // The status bar already owns a refused usage report; don't repeat that same message below the box.
 const notice = computed(() => state.app.link === 'ready' && status.usageUnavailable && state.notice === status.usageError ? '' : state.notice)
-const paletteOpen = computed(() => text.value.startsWith('/') && !text.value.includes('\n'))
-const matches = computed(() => (paletteOpen.value ? matchCommands(text.value) : []))
+const paletteOpen = computed(() => !paletteDismissed.value && text.value.startsWith('/') && !text.value.includes('\n'))
+// Dismissing suggestions changes only their presentation, not what a completed slash command executes.
+const matches = computed(() => (text.value.startsWith('/') && !text.value.includes('\n') ? matchCommands(text.value) : []))
 const canSend = computed(
   () =>
     ready.value &&
@@ -68,11 +76,12 @@ watch(
   { immediate: true }
 )
 watch(text, () => {
+  paletteDismissed.value = false
   if (selected.value >= matches.value.length) selected.value = 0
 })
 
 async function submit(): Promise<void> {
-  if (paletteOpen.value && matches.value.length) return runCommand()
+  if (matches.value.length) return runCommand()
   if (!canSend.value) return
   busy.value = true
   await sendBox(state.activeId, (body, refs) => send(body, running.value ? mode.value : 'queue', refs))
@@ -90,6 +99,12 @@ async function runCommand(): Promise<void> {
 }
 
 function onKey(event: KeyboardEvent): void {
+  if (event.isComposing) return
+  if (paletteOpen.value && event.key === 'Escape') {
+    event.preventDefault()
+    paletteDismissed.value = true
+    return
+  }
   if (paletteOpen.value && matches.value.length) {
     const count = matches.value.length
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -97,19 +112,23 @@ function onKey(event: KeyboardEvent): void {
       selected.value = (selected.value + (event.key === 'ArrowDown' ? 1 : count - 1)) % count
       return
     }
-    if (event.key === 'Tab') {
+    if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault()
-      const command = matches.value[selected.value]
-      if (command) text.value = `/${command.name} `
+      selected.value = event.key === 'Home' ? 0 : count - 1
       return
     }
-    if (event.key === 'Escape') {
+    if (event.key === 'Tab' && !event.shiftKey) {
       event.preventDefault()
-      text.value = ''
+      const command = matches.value[selected.value]
+      if (command) {
+        text.value = `/${command.name} `
+        // Complete once, then let the next Tab leave the field instead of trapping focus.
+        void nextTick(() => { paletteDismissed.value = true })
+      }
       return
     }
   }
-  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+  if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     void submit()
   } else if (event.key === '.' && event.ctrlKey) {
@@ -149,13 +168,30 @@ function onKnowledge(id: string, checked: boolean): void {
 function attach(): void {
   if (state.activeId && !chatUnavailable()) void pickFiles(state.activeId)
 }
+
+async function stopTask(event: MouseEvent): Promise<void> {
+  if (stopping.value) return
+  const button = event.currentTarget as HTMLButtonElement
+  const wasFocused = document.activeElement === button
+  await stop()
+  await nextTick()
+  if (wasFocused && !button.isConnected && document.activeElement === document.body) {
+    document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message"]')?.focus()
+  }
+}
+
+async function closeReport(): Promise<void> {
+  state.panel = null
+  await nextTick()
+  document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message"]')?.focus()
+}
 </script>
 
 <template>
-  <div v-if="state.panel" class="panel" role="status">
+  <div v-if="state.panel" class="panel" role="region" :aria-label="state.panel.title">
     <div class="panel-head">
       <strong>{{ state.panel.title }}</strong>
-      <button type="button" class="ghost" @click="state.panel = null">Close</button>
+      <button type="button" class="ghost" aria-label="Close command report" @click="closeReport">Close</button>
     </div>
     <pre class="panel-text">{{ state.panel.text }}</pre>
   </div>
@@ -167,8 +203,8 @@ function attach(): void {
     @drop.prevent="onDrop"
   >
     <div v-if="running" class="mode" role="radiogroup" aria-label="While Odin is working">
-      <label><input v-model="mode" type="radio" value="steer" /> Steer the current task</label>
-      <label><input v-model="mode" type="radio" value="queue" /> Queue as a follow-up</label>
+      <label><input v-model="mode" name="composer-mode" type="radio" value="steer" /> Steer the current task</label>
+      <label><input v-model="mode" name="composer-mode" type="radio" value="queue" /> Queue as a follow-up</label>
     </div>
     <CommandPalette v-if="paletteOpen" :commands="matches" :selected="selected" @pick="pick" />
     <AttachmentTray
@@ -182,20 +218,28 @@ function attach(): void {
         v-model="text"
         rows="3"
         aria-label="Message"
+        role="combobox"
+        aria-autocomplete="list"
+        :aria-expanded="paletteOpen"
+        :aria-controls="paletteOpen && matches.length ? 'command-palette' : undefined"
+        :aria-activedescendant="paletteOpen && matches[selected] ? `command-option-${matches[selected]?.name}` : undefined"
+        :aria-invalid="composer.errors.length > 0 || failedAttachment ? true : undefined"
+        :aria-describedby="['composer-help', composer.errors.length ? 'composer-errors' : '', failedAttachment ? 'composer-attachment-error' : ''].filter(Boolean).join(' ')"
         :placeholder="placeholder"
         :disabled="!state.activeId && !chatUnavailable()"
         @keydown="onKey"
         @paste="onPaste"
       />
       <div class="buttons">
-        <button type="submit" class="primary" :disabled="!canSend && !(paletteOpen && matches.length)">{{ buttonLabel }}</button>
-        <button type="button" class="ghost" title="Attach files" :disabled="!state.activeId || chatUnavailable()" @click="attach">Attach</button>
-        <button v-if="running" type="button" class="danger" title="Stop the current task (Ctrl+.)" :disabled="stopping" @click="stop">
+        <button type="submit" class="primary" :disabled="!busy && !canSend && !matches.length" :aria-disabled="busy">{{ buttonLabel }}</button>
+        <button type="button" class="ghost" aria-label="Attach files" :disabled="!state.activeId || chatUnavailable()" @click="attach">Attach</button>
+        <button v-if="running" ref="stopButton" type="button" class="danger" aria-label="Stop the current task" title="Stop the current task (Ctrl+.)" :aria-disabled="stopping" @click="stopTask">
           {{ stopping ? 'Stopping…' : 'Stop' }}
         </button>
       </div>
     </div>
-    <p v-if="composer.errors.length" class="notice error" role="alert">{{ composer.errors.join(' ') }}</p>
+    <p id="composer-help" class="composer-help">Enter to send; Shift+Enter for a new line. For commands, use Up/Down or Home/End, Tab to complete, Enter to run, Escape to dismiss.</p>
+    <p v-if="composer.errors.length" id="composer-errors" class="notice error" role="alert">{{ composer.errors.join(' ') }}</p>
     <p v-if="chatUnavailable()" class="notice" role="status">{{ unavailableText('Chat') }} Sending messages and attachments is unavailable.</p>
     <p v-else-if="loadError" class="notice error" role="alert">
       Couldn't load from Odin: {{ loadError }}
@@ -203,7 +247,13 @@ function attach(): void {
     </p>
     <p v-else-if="loading" class="notice" role="status">Loading this conversation…</p>
     <p v-else-if="uploading" class="notice" role="status">Waiting for attachments to finish uploading…</p>
-    <p v-else-if="failedAttachment" class="notice error" role="status">Remove the attachment that failed before sending.</p>
+    <p v-if="failedAttachment" id="composer-attachment-error" class="notice error" role="status">Remove the attachment that failed before sending.</p>
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
   </form>
 </template>
+
+<style scoped>
+.composer-help { font-size: .8rem; color: var(--muted); margin: .4rem 0; }
+textarea:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent, #91baff); outline-offset: 3px; }
+button[aria-disabled="true"] { opacity: .65; }
+</style>
