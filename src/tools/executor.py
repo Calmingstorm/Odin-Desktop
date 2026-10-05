@@ -760,10 +760,10 @@ class ToolExecutor:
         )
 
     def check_permission(self, tool_name: str, user_id: str | None) -> str | None:
-        """Require the authentic request owner; a payload identity grants nothing."""
+        """Use Odin's open default, or the configured authentic owner gate."""
         manager = getattr(self, "_permission_manager", None)
         if manager is None:
-            return "Permission denied: authenticated owner authority is unavailable."
+            return None
         if not user_id:
             return "Permission denied: a requester identity is required."
         allowed = manager.allowed_tool_names(user_id)
@@ -1419,12 +1419,15 @@ class ToolExecutor:
     def _govern_command(self, command: str, host: str | None = None) -> tuple[bool, str, str]:
         """Shared governor check. Returns (allowed, denial_message, governor_note)."""
         if not getattr(self, "command_governor", None):
-            return False, "Command authority unavailable: governor is not configured.", ""
+            return True, "", ""
+        manager = getattr(self, "_permission_manager", None)
         check = self.command_governor.check(
             command,
-            # Owner identity does not approve an exact command/target. Phase 2
-            # will supply revision-bound control approval, never tool input.
-            user_tier=None,
+            # D17: only the authenticated request owner takes Odin's admin
+            # path. Non-owner origins keep the equivalent unprivileged path.
+            user_tier="admin" if manager is not None and manager.is_owner(
+                self._current_user_id
+            ) else None,
             host=host,
         )
         if not check.allowed:

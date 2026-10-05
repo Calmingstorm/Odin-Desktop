@@ -30,5 +30,5 @@ class PermissionManager:
         return tools if self.is_owner(owner_id) else None
 
     def allowed_tool_names(self, owner_id: str) -> set[str] | None:
-        # Identity only. No exact-action consent or safety bypass.
+        # The authenticated owner is Odin's admin (D17), without a tool ACL.
         return None if self.is_owner(owner_id) else set()

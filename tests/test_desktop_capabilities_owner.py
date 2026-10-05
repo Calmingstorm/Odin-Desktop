@@ -42,8 +42,9 @@ def bare_executor(manager=None, readiness=None):
     return executor
 
 
-def test_no_manager_is_not_privileged():
-    assert bare_executor().check_permission("run_command", "owner")
+@pytest.mark.parametrize("identity", [None, "", "owner"])
+def test_no_manager_matches_upstream_open_default(identity):
+    assert bare_executor().check_permission("run_command", identity) is None
 
 
 def test_payload_identity_does_not_confer_authority(owner):
@@ -132,17 +133,29 @@ def test_phase2_scope_cannot_be_minted_from_arguments():
             pytest.fail("unadmitted scope entered")
 
 
-def test_governor_identity_is_not_exact_action_approval():
-    executor = bare_executor()
+def test_governor_uses_admin_only_for_authenticated_owner(owner):
+    authority, manager, context = owner
+    executor = bare_executor(manager)
     calls = []
     def check(command, **kwargs):
         calls.append(kwargs)
         return CommandGovernorResult(True, RiskLevel.LOW, "inspection")
     executor.command_governor = SimpleNamespace(check=check)
+    executor.set_user_context(authority.owner_id)
     assert executor._govern_command("printf ready", "lab")[0]
     assert calls == [{"user_tier": None, "host": "lab"}]
+    token = manager.set_request_owner(context)
+    try:
+        assert executor._govern_command("printf ready", "lab")[0]
+        assert calls[-1] == {"user_tier": "admin", "host": "lab"}
+        executor.set_user_context("non-owner")
+        assert executor._govern_command("printf ready", "lab")[0]
+        assert calls[-1] == {"user_tier": None, "host": "lab"}
+    finally:
+        manager.reset_request_owner(token)
+        executor.set_user_context(None)
     executor.command_governor = None
-    assert not executor._govern_command("printf ready", "lab")[0]
+    assert executor._govern_command("printf ready", "lab") == (True, "", "")
 
 
 @pytest.mark.asyncio

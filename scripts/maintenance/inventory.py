@@ -26,7 +26,8 @@ REPLACEABLE_SURFACES = {
 }
 ROOT = Path(__file__).resolve().parents[2]
 PINNED_DOCS = {
-    "docs/design/reuse-map.md": "817813ff28d4667a42de4f7f56b8ecf0d1e39a2406b5fec8f4b2c7ce0dd40d7f",
+    # D17 owner-admin parity and byte-identical safety selections, main 8a4b7e27.
+    "docs/design/reuse-map.md": "5d63d2982bcca0c45714f94152deb94082151e19239007b5de3a3586d5c9f111",
     "docs/design/prompt-changes.md": (
         "a904b5f49112b933fa277c1ddd6497e30203fb5ffd144dbf6635d79e3da15722"
     ),
