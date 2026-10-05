@@ -1596,12 +1596,12 @@
       "disposition": "removed-surface-replacement",
       "executable": [],
       "replacement_cases": [
-        "tests/test_desktop_shared_tools.py::test_missing_governor_is_denied_without_dispatch",
+        "tests/test_desktop_shared_tools.py::test_missing_governor_matches_upstream_open_default",
         "tests/test_desktop_shared_tools.py::test_private_fixture_legacy_memory_migration_preserves_values"
       ],
-      "collection_evidence": null,
-      "triage_source": "maintenance/tool-suite-triage.json",
-      "reason": "Exact retired authority/message contract; real-owner replacement, not unchanged parity.",
+      "collection_evidence": ".test-state/qualification-collected.json",
+      "triage_source": "maintenance/pr2-d17-case-triage.json",
+      "reason": "D17 restores baseline open behavior with no governor; unchanged real private-profile memory migration remains separately covered. No privileged shim or renamed denial assertion.",
       "blocks_phase1": false
     },
     {
@@ -8687,11 +8687,11 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_final_config.py::test_final_legacy_host_inventory_needs_real_owner_and_explicit_policy"
+            "tests/test_desktop_final_config.py::test_final_legacy_host_inventory_needs_real_owner_not_policy"
           ],
           "collection_evidence": ".test-state/qualification-collected.json",
-          "triage_source": "maintenance/final-config-triage.json",
-          "reason": "Removed implicit legacy-user grant; actual owner-profile registry, missing-policy deny, persisted owner policy, resolution, legacy-user deny and byte proof.",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 removes added host-policy grant. Authentic owner resolves full enrolled legacy inventory without a policy store; foreign identity stays denied and original legacy YAML bytes remain unchanged.",
           "blocks_phase1": false
         },
         {
@@ -9540,14 +9540,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9556,14 +9557,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9572,27 +9574,32 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
           "original": "tests/test_host_access.py::TestEntrySemantics::test_to_dict_roundtrip",
           "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
-          "disposition": "executable",
-          "executable": [
-            "tests/test_desktop_shared_foundation.py::Test_test_host_access_TestEntrySemantics::test_to_dict_roundtrip"
+          "disposition": "removed-surface-replacement",
+          "executable": [],
+          "replacement_cases": [
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "replacement_cases": [],
           "collection_evidence": ".test-state/qualification-collected.json",
-          "triage_source": null,
-          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9601,14 +9608,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9617,14 +9625,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9633,14 +9642,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9649,14 +9659,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9665,14 +9676,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9681,14 +9693,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9697,14 +9710,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9713,14 +9727,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9729,14 +9744,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9745,14 +9761,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9761,14 +9778,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9777,14 +9795,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9793,14 +9812,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9809,14 +9829,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9825,14 +9846,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9841,14 +9863,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9857,14 +9880,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9873,14 +9897,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9889,14 +9914,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9905,14 +9931,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9921,14 +9948,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9937,14 +9965,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9953,14 +9982,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9969,14 +9999,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -9985,14 +10016,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -10001,14 +10033,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -10017,14 +10050,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -10033,14 +10067,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -10049,14 +10084,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         },
         {
@@ -10065,14 +10101,15 @@
           "disposition": "removed-surface-replacement",
           "executable": [],
           "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-            "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-            "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+            "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+            "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+            "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+            "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+            "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Exact old per-user inherit-all/ACL/default host contract removed. Real persisted owner grants require authenticated identity; corrupt-store, narrowed scope and live revocation replacements, not old arbitrary user authority.",
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": "maintenance/pr2-d17-case-triage.json",
+          "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed.",
           "blocks_phase1": false
         }
       ]
@@ -43536,268 +43573,272 @@
       "executable": "tests/test_hyprland_absence_store.py::test_each_evidence_field_is_mandatory[2-successor_digest]"
     },
     {
+      "original": "tests/test_desktop_hyprland_trust_fixture.py::test_original_assertions_parameters_and_scoped_interpreter_measurement",
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_original_assertions_parameters_and_scoped_interpreter_measurement"
+    },
+    {
       "original": "tests/test_hyprland_autoload_trust.py::test_recovery_metadata_is_not_load_authority[False]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_recovery_metadata_is_not_load_authority[False]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_recovery_metadata_is_not_load_authority[False]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_recovery_metadata_is_not_load_authority[True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_recovery_metadata_is_not_load_authority[True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_recovery_metadata_is_not_load_authority[True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_recovery_metadata_is_not_load_authority[None]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_recovery_metadata_is_not_load_authority[None]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_recovery_metadata_is_not_load_authority[None]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_installed_document_manifest_resolves_fixed_library_root",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_installed_document_manifest_resolves_fixed_library_root"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_installed_document_manifest_resolves_fixed_library_root"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-same-boot-retained-original-witness-v1-False]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-same-boot-retained-original-witness-v1-False]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-same-boot-retained-original-witness-v1-False]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-same-boot-retained-original-witness-v1-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-same-boot-retained-original-witness-v1-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-same-boot-retained-original-witness-v1-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-None-False]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-None-False]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-None-False]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-None-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-None-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[None-None-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-same-boot-retained-original-witness-v1-False]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-same-boot-retained-original-witness-v1-False]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-same-boot-retained-original-witness-v1-False]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-same-boot-retained-original-witness-v1-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-same-boot-retained-original-witness-v1-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-same-boot-retained-original-witness-v1-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-None-False]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-None-False]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-None-False]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-None-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-None-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[mapped-None-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-same-boot-retained-original-witness-v1-False]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-same-boot-retained-original-witness-v1-False]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-same-boot-retained-original-witness-v1-False]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-same-boot-retained-original-witness-v1-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-same-boot-retained-original-witness-v1-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-same-boot-retained-original-witness-v1-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-None-False]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-None-False]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-None-False]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-None-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-None-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[build_id-None-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-same-boot-retained-original-witness-v1-False]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-same-boot-retained-original-witness-v1-False]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-same-boot-retained-original-witness-v1-False]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-same-boot-retained-original-witness-v1-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-same-boot-retained-original-witness-v1-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-same-boot-retained-original-witness-v1-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-None-False]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-None-False]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-None-False]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-None-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-None-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[artifact-None-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-same-boot-retained-original-witness-v1-False]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-same-boot-retained-original-witness-v1-False]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-same-boot-retained-original-witness-v1-False]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-same-boot-retained-original-witness-v1-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-same-boot-retained-original-witness-v1-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-same-boot-retained-original-witness-v1-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-None-False]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-None-False]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-None-False]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-None-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-None-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_prepare_plugin_real_trust_and_manager_without_recovery_qualification[abi-None-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_build_manifest_explicitly_separates_load_and_recovery_claims",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_build_manifest_explicitly_separates_load_and_recovery_claims"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_build_manifest_explicitly_separates_load_and_recovery_claims"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-1]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-1]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-1]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-2]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-2]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-2]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-3]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-3]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-False-3]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-1]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-1]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-1]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-2]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-2]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-2]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-3]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-3]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-True-3]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-1]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-1]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-1]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-2]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-2]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-2]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-3]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-3]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[420-true-3]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-1]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-1]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-1]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-2]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-2]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-2]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-3]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-3]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-False-3]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-1]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-1]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-1]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-2]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-2]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-2]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-3]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-3]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-True-3]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-1]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-1]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-1]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-2]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-2]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-2]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-3]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-3]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[436-true-3]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-1]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-1]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-1]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-2]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-2]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-2]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-3]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-3]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-False-3]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-1]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-1]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-1]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-2]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-2]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-2]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-3]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-3]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-True-3]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-1]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-1]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-1]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-2]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-2]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-2]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-3]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-3]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_existing_lab_harness_accepts_new_build_schema_without_claiming_qualification[422-true-3]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_manifest_rejects_unknown_qualification_scope[None]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_manifest_rejects_unknown_qualification_scope[None]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_manifest_rejects_unknown_qualification_scope[None]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_manifest_rejects_unknown_qualification_scope[True]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_manifest_rejects_unknown_qualification_scope[True]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_manifest_rejects_unknown_qualification_scope[True]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_manifest_rejects_unknown_qualification_scope[value2]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_manifest_rejects_unknown_qualification_scope[value2]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_manifest_rejects_unknown_qualification_scope[value2]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_manifest_rejects_unknown_qualification_scope[all-recovery]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_manifest_rejects_unknown_qualification_scope[all-recovery]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_manifest_rejects_unknown_qualification_scope[all-recovery]"
     },
     {
       "original": "tests/test_hyprland_autoload_trust.py::test_manifest_rejects_unknown_qualification_scope[]",
-      "executable": "tests/test_hyprland_autoload_trust.py::test_manifest_rejects_unknown_qualification_scope[]"
+      "executable": "tests/test_desktop_hyprland_trust_fixture.py::test_frozen_manifest_rejects_unknown_qualification_scope[]"
     },
     {
       "original": "tests/test_hyprland_continuity_classification.py::test_unavailable_evidence_is_not_identity_loss[error0]",
@@ -44262,34 +44303,6 @@
     {
       "original": "tests/test_hyprland_input_evidence_campaign.py::test_native_extension_does_not_claim_receiver_release_proof",
       "executable": "tests/test_hyprland_input_evidence_campaign.py::test_native_extension_does_not_claim_receiver_release_proof"
-    },
-    {
-      "original": "tests/test_hyprland_input_loss_campaign.py::test_native_loss_before_down_preserves_no_input_sent",
-      "executable": "tests/test_hyprland_input_loss_campaign.py::test_native_loss_before_down_preserves_no_input_sent"
-    },
-    {
-      "original": "tests/test_hyprland_input_loss_campaign.py::test_native_loss_after_down_submits_owned_up",
-      "executable": "tests/test_hyprland_input_loss_campaign.py::test_native_loss_after_down_submits_owned_up"
-    },
-    {
-      "original": "tests/test_hyprland_input_loss_campaign.py::test_native_loss_after_up_preserves_eof_after_completed_release",
-      "executable": "tests/test_hyprland_input_loss_campaign.py::test_native_loss_after_up_preserves_eof_after_completed_release"
-    },
-    {
-      "original": "tests/test_hyprland_input_loss_campaign.py::test_native_release_ack_loss_is_not_reconstructed_as_ack",
-      "executable": "tests/test_hyprland_input_loss_campaign.py::test_native_release_ack_loss_is_not_reconstructed_as_ack"
-    },
-    {
-      "original": "tests/test_hyprland_input_loss_campaign.py::test_native_release_status_queries_once_after_lost_ack",
-      "executable": "tests/test_hyprland_input_loss_campaign.py::test_native_release_status_queries_once_after_lost_ack"
-    },
-    {
-      "original": "tests/test_hyprland_input_loss_campaign.py::test_native_malformed_or_incomplete_release_status_is_not_ack[not-json\\n]",
-      "executable": "tests/test_hyprland_input_loss_campaign.py::test_native_malformed_or_incomplete_release_status_is_not_ack[not-json\\n]"
-    },
-    {
-      "original": "tests/test_hyprland_input_loss_campaign.py::test_native_malformed_or_incomplete_release_status_is_not_ack[{\"ok\":true,\"armed\":false}\\n]",
-      "executable": "tests/test_hyprland_input_loss_campaign.py::test_native_malformed_or_incomplete_release_status_is_not_ack[{\"ok\":true,\"armed\":false}\\n]"
     },
     {
       "original": "tests/test_hyprland_instance_endpoint_b0.py::test_instance_endpoint_is_plugin_derived_and_legacy_is_optional_compatible",
@@ -55244,12 +55257,12 @@
       "executable": "tests/test_desktop_shared_tools.py::test_real_owner_host_fences_reject_ambient_or_payload_identity[payload-owner]"
     },
     {
-      "original": "tests/test_desktop_shared_tools.py::test_real_owner_persisted_grant_revocation_fences_host_access",
-      "executable": "tests/test_desktop_shared_tools.py::test_real_owner_persisted_grant_revocation_fences_host_access"
+      "original": "tests/test_desktop_shared_tools.py::test_real_owner_host_retirement_fences_host_access",
+      "executable": "tests/test_desktop_shared_tools.py::test_real_owner_host_retirement_fences_host_access"
     },
     {
-      "original": "tests/test_desktop_shared_tools.py::test_missing_governor_is_denied_without_dispatch",
-      "executable": "tests/test_desktop_shared_tools.py::test_missing_governor_is_denied_without_dispatch"
+      "original": "tests/test_desktop_shared_tools.py::test_missing_governor_matches_upstream_open_default",
+      "executable": "tests/test_desktop_shared_tools.py::test_missing_governor_matches_upstream_open_default"
     },
     {
       "original": "tests/test_desktop_shared_tools.py::test_originating_output_requires_real_owner_before_retention[None]",
@@ -60600,10 +60613,6 @@
       "executable": "tests/test_desktop_shared_foundation.py::test_test_generated_tool_reference_drift_check_fails_without_writing"
     },
     {
-      "original": "tests/test_host_access.py::TestEntrySemantics::test_to_dict_roundtrip",
-      "executable": "tests/test_desktop_shared_foundation.py::Test_test_host_access_TestEntrySemantics::test_to_dict_roundtrip"
-    },
-    {
       "original": "tests/test_hosts_ratcheted_consumers.py::TestManagedHostSchemaRatchet::test_host_text_rejects_unsafe_values[description-line\\nbreak-control characters]",
       "executable": "tests/test_desktop_shared_foundation.py::Test_test_hosts_ratcheted_consumers_TestManagedHostSchemaRatchet::test_host_text_rejects_unsafe_values[description-line\\nbreak-control characters]"
     },
@@ -61236,40 +61245,40 @@
       "executable": "tests/test_desktop_shared_foundation.py::test_permission_owner_identity_is_not_ambient_authority[owner]"
     },
     {
-      "original": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]",
-      "executable": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{bad]"
+      "original": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{bad]",
+      "executable": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{bad]"
     },
     {
-      "original": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]",
-      "executable": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":\"srv\"}]"
+      "original": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{\"default_host\":1}]",
+      "executable": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{\"default_host\":1}]"
     },
     {
-      "original": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]",
-      "executable": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[\"srv\"],\"default_host\":\"x\"}]"
+      "original": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{\"default_host\":[]}]",
+      "executable": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{\"default_host\":[]}]"
     },
     {
-      "original": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[[\"not\", \"a\", \"dict\"]]",
-      "executable": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[[\"not\", \"a\", \"dict\"]]"
+      "original": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[[\"not\", \"a\", \"dict\"]]",
+      "executable": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[[\"not\", \"a\", \"dict\"]]"
     },
     {
-      "original": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[1]}]",
-      "executable": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[1]}]"
+      "original": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{\"default_host\":\"absent\"}]",
+      "executable": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{\"default_host\":\"absent\"}]"
     },
     {
-      "original": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[],\"default_host\":1}]",
-      "executable": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"allowed_hosts\":[],\"default_host\":1}]"
+      "original": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{\"default_host\":\"srv\",\"default_host\":\"absent\"}]",
+      "executable": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{\"default_host\":\"srv\",\"default_host\":\"absent\"}]"
     },
     {
-      "original": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"unexpected\":true}]",
-      "executable": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_denies_authenticated_owner[{\"unexpected\":true}]"
+      "original": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{\"unexpected\":true}]",
+      "executable": "tests/test_desktop_shared_foundation.py::test_host_invalid_preference_never_denies_authenticated_owner[{\"unexpected\":true}]"
     },
     {
-      "original": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_refuses_owner_mutation_and_preserves_backup",
-      "executable": "tests/test_desktop_shared_foundation.py::test_host_corrupt_store_refuses_owner_mutation_and_preserves_backup"
+      "original": "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+      "executable": "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access"
     },
     {
-      "original": "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing",
-      "executable": "tests/test_desktop_shared_foundation.py::test_host_policy_owner_revocation_and_narrowing"
+      "original": "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access",
+      "executable": "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
     },
     {
       "original": "tests/test_desktop_shared_foundation.py::test_builtin_live_readiness_requires_literal_true[None]",
@@ -64952,8 +64961,16 @@
       "executable": "tests/test_desktop_capabilities_definitions.py::test_affordance_metadata_tracks_current_conversation_history"
     },
     {
-      "original": "tests/test_desktop_capabilities_owner.py::test_no_manager_is_not_privileged",
-      "executable": "tests/test_desktop_capabilities_owner.py::test_no_manager_is_not_privileged"
+      "original": "tests/test_desktop_capabilities_owner.py::test_no_manager_matches_upstream_open_default[None]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_no_manager_matches_upstream_open_default[None]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_no_manager_matches_upstream_open_default[]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_no_manager_matches_upstream_open_default[]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_no_manager_matches_upstream_open_default[owner]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_no_manager_matches_upstream_open_default[owner]"
     },
     {
       "original": "tests/test_desktop_capabilities_owner.py::test_payload_identity_does_not_confer_authority",
@@ -64988,8 +65005,8 @@
       "executable": "tests/test_desktop_capabilities_owner.py::test_phase2_scope_cannot_be_minted_from_arguments"
     },
     {
-      "original": "tests/test_desktop_capabilities_owner.py::test_governor_identity_is_not_exact_action_approval",
-      "executable": "tests/test_desktop_capabilities_owner.py::test_governor_identity_is_not_exact_action_approval"
+      "original": "tests/test_desktop_capabilities_owner.py::test_governor_uses_admin_only_for_authenticated_owner",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_governor_uses_admin_only_for_authenticated_owner"
     },
     {
       "original": "tests/test_desktop_capabilities_owner.py::test_native_browser_requires_explicit_bundled_binary",
@@ -65152,8 +65169,8 @@
       "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_enrollment_requires_exact_trust_then_successful_test"
     },
     {
-      "original": "tests/test_desktop_capabilities_skills_hosts.py::test_local_enrollment_requires_consent_and_actual_platform_probe",
-      "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_local_enrollment_requires_consent_and_actual_platform_probe"
+      "original": "tests/test_desktop_capabilities_skills_hosts.py::test_local_enrollment_requires_consent_and_baseline_linux_check",
+      "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_local_enrollment_requires_consent_and_baseline_linux_check"
     },
     {
       "original": "tests/test_desktop_capabilities_skills_hosts.py::test_generation_leases_drain_and_force_revoke_keeps_uncertainty",
@@ -65164,8 +65181,8 @@
       "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_trust_paths_require_explicit_profile_and_reject_symlinks"
     },
     {
-      "original": "tests/test_desktop_capabilities_skills_hosts.py::test_skill_host_discovery_requires_authentic_owner_and_only_narrows",
-      "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_skill_host_discovery_requires_authentic_owner_and_only_narrows"
+      "original": "tests/test_desktop_capabilities_skills_hosts.py::test_skill_host_discovery_requires_authentic_owner_and_live_inventory",
+      "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_skill_host_discovery_requires_authentic_owner_and_live_inventory"
     },
     {
       "original": "tests/test_desktop_capabilities_skills_hosts.py::test_skill_manager_preserves_selected_scope_denial_and_uncertainty",
@@ -65328,6 +65345,74 @@
       "executable": "tests/test_desktop_core_search.py::test_admitted_import_preserves_typed_dedup_outcomes[failure-0-error-]"
     },
     {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_override_is_enabled_by_default",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_override_is_enabled_by_default"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[low-False-None-None--True]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[low-False-None-None--True]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[low-False-None-None--False]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[low-False-None-None--False]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-False-critical-None--True]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-False-critical-None--True]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-False-critical-None--False]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-False-critical-None--False]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-True-critical-None--True]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-True-critical-None--True]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-True-critical-None--False]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-True-critical-None--False]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[high-False-high-fixture-force-form--True]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[high-False-high-fixture-force-form--True]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[high-False-high-fixture-force-form--False]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[high-False-high-fixture-force-form--False]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[high-False-high-None-strict-True]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[high-False-high-None-strict-True]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[high-False-high-None-strict-False]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[high-False-high-None-strict-False]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-False-high-None-strict-True]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-False-high-None-strict-True]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-False-high-None-strict-False]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_matches_baseline_admin_precedence[critical-False-high-None-strict-False]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_critical_override_matches_baseline_and_audit[True]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_critical_override_matches_baseline_and_audit[True]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_owner_critical_override_matches_baseline_and_audit[False]",
+      "executable": "tests/test_desktop_d17_governor.py::test_owner_critical_override_matches_baseline_and_audit[False]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_non_owner_never_acquires_admin_override[None]",
+      "executable": "tests/test_desktop_d17_governor.py::test_non_owner_never_acquires_admin_override[None]"
+    },
+    {
+      "original": "tests/test_desktop_d17_governor.py::test_non_owner_never_acquires_admin_override[payload-owner]",
+      "executable": "tests/test_desktop_d17_governor.py::test_non_owner_never_acquires_admin_override[payload-owner]"
+    },
+    {
       "original": "tests/test_desktop_distribution.py::test_engine_requires_python312_and_bundled_capabilities",
       "executable": "tests/test_desktop_distribution.py::test_engine_requires_python312_and_bundled_capabilities"
     },
@@ -65358,6 +65443,10 @@
     {
       "original": "tests/test_desktop_disposition_merge.py::test_explicit_maintenance_script_delta_is_checked_not_orphaned",
       "executable": "tests/test_desktop_disposition_merge.py::test_explicit_maintenance_script_delta_is_checked_not_orphaned"
+    },
+    {
+      "original": "tests/test_desktop_disposition_merge.py::test_executable_original_can_have_explicit_collected_supplement",
+      "executable": "tests/test_desktop_disposition_merge.py::test_executable_original_can_have_explicit_collected_supplement"
     },
     {
       "original": "tests/test_desktop_exception_aliases.py::test_legacy_exception_alias_preserves_identity_and_catches[Phase2UnavailableError-Phase2UnavailableError-RuntimeError]",
@@ -65736,8 +65825,8 @@
       "executable": "tests/test_desktop_foundation.py::test_runtime_exclusive_lock"
     },
     {
-      "original": "tests/test_desktop_foundation.py::test_host_scope_never_widens_profile_policy",
-      "executable": "tests/test_desktop_foundation.py::test_host_scope_never_widens_profile_policy"
+      "original": "tests/test_desktop_foundation.py::test_host_owner_access_tracks_availability_not_preferences",
+      "executable": "tests/test_desktop_foundation.py::test_host_owner_access_tracks_availability_not_preferences"
     },
     {
       "original": "tests/test_desktop_foundation.py::test_secrets_private_separate",
@@ -65792,8 +65881,8 @@
       "executable": "tests/test_desktop_foundation.py::test_private_persistence_rejects_symlink"
     },
     {
-      "original": "tests/test_desktop_foundation.py::test_host_policy_revocation_and_corruption_fail_closed",
-      "executable": "tests/test_desktop_foundation.py::test_host_policy_revocation_and_corruption_fail_closed"
+      "original": "tests/test_desktop_foundation.py::test_host_preference_corruption_never_revokes_owner",
+      "executable": "tests/test_desktop_foundation.py::test_host_preference_corruption_never_revokes_owner"
     },
     {
       "original": "tests/test_desktop_foundation.py::test_runtime_release_revokes_context",
@@ -65838,6 +65927,78 @@
     {
       "original": "tests/test_desktop_foundation_config.py::test_fresh_profile_explicit_model_intent_and_no_import",
       "executable": "tests/test_desktop_foundation_config.py::test_fresh_profile_explicit_model_intent_and_no_import"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[missing]",
+      "executable": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[missing]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[empty]",
+      "executable": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[empty]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[corrupt]",
+      "executable": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[corrupt]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[empty-allowlist]",
+      "executable": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[empty-allowlist]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[insecure]",
+      "executable": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[insecure]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[private]",
+      "executable": "tests/test_desktop_host_parity.py::test_legacy_policy_is_not_read_or_migrated[private]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+      "executable": "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[missing]",
+      "executable": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[missing]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[corrupt]",
+      "executable": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[corrupt]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[insecure]",
+      "executable": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[insecure]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[unknown]",
+      "executable": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[unknown]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[symlink]",
+      "executable": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[symlink]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[directory]",
+      "executable": "tests/test_desktop_host_parity.py::test_bad_preference_unavailable_but_inventory_unaffected[directory]"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+      "executable": "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_owner_access_never_overrides_trust_identity_or_enabled_state",
+      "executable": "tests/test_desktop_host_parity.py::test_owner_access_never_overrides_trust_identity_or_enabled_state"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+      "executable": "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_preference_durability_is_not_an_access_fence",
+      "executable": "tests/test_desktop_host_parity.py::test_preference_durability_is_not_an_access_fence"
+    },
+    {
+      "original": "tests/test_desktop_host_parity.py::test_startup_default_warning_uses_preference_not_removed_policy",
+      "executable": "tests/test_desktop_host_parity.py::test_startup_default_warning_uses_preference_not_removed_policy"
     },
     {
       "original": "tests/test_desktop_isolated_runner.py::test_runner_namespaces_and_cleans_ambient_environment",
@@ -65906,6 +66067,54 @@
     {
       "original": "tests/test_desktop_maintenance.py::test_offline_source_and_evidence_symlink_substitution_fails",
       "executable": "tests/test_desktop_maintenance.py::test_offline_source_and_evidence_symlink_substitution_fails"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_safety_policy_is_byte_identical_to_immutable_v413_archive[src/tools/risk_classifier.py]",
+      "executable": "tests/test_desktop_maintenance_review.py::test_safety_policy_is_byte_identical_to_immutable_v413_archive[src/tools/risk_classifier.py]"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_safety_policy_is_byte_identical_to_immutable_v413_archive[src/tools/recovery.py]",
+      "executable": "tests/test_desktop_maintenance_review.py::test_safety_policy_is_byte_identical_to_immutable_v413_archive[src/tools/recovery.py]"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_retired_named_skill_preserves_baseline_risk_and_no_retry[add_reaction]",
+      "executable": "tests/test_desktop_maintenance_review.py::test_retired_named_skill_preserves_baseline_risk_and_no_retry[add_reaction]"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_retired_named_skill_preserves_baseline_risk_and_no_retry[create_poll]",
+      "executable": "tests/test_desktop_maintenance_review.py::test_retired_named_skill_preserves_baseline_risk_and_no_retry[create_poll]"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_retired_named_skill_preserves_baseline_risk_and_no_retry[purge_messages]",
+      "executable": "tests/test_desktop_maintenance_review.py::test_retired_named_skill_preserves_baseline_risk_and_no_retry[purge_messages]"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_retired_named_skill_preserves_baseline_risk_and_no_retry[set_permission]",
+      "executable": "tests/test_desktop_maintenance_review.py::test_retired_named_skill_preserves_baseline_risk_and_no_retry[set_permission]"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_unlisted_name_control_retains_default_risk_and_retry",
+      "executable": "tests/test_desktop_maintenance_review.py::test_unlisted_name_control_retains_default_risk_and_retry"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_local_host_check_uses_baseline_linux_command[linux-True]",
+      "executable": "tests/test_desktop_maintenance_review.py::test_local_host_check_uses_baseline_linux_command[linux-True]"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_local_host_check_uses_baseline_linux_command[macos-False]",
+      "executable": "tests/test_desktop_maintenance_review.py::test_local_host_check_uses_baseline_linux_command[macos-False]"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_computer_names_remain_reserved_even_with_fabricated_readiness[computer_session]",
+      "executable": "tests/test_desktop_maintenance_review.py::test_computer_names_remain_reserved_even_with_fabricated_readiness[computer_session]"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_computer_names_remain_reserved_even_with_fabricated_readiness[computer_observe]",
+      "executable": "tests/test_desktop_maintenance_review.py::test_computer_names_remain_reserved_even_with_fabricated_readiness[computer_observe]"
+    },
+    {
+      "original": "tests/test_desktop_maintenance_review.py::test_computer_names_remain_reserved_even_with_fabricated_readiness[computer_act]",
+      "executable": "tests/test_desktop_maintenance_review.py::test_computer_names_remain_reserved_even_with_fabricated_readiness[computer_act]"
     },
     {
       "original": "tests/test_desktop_profile_upgrade.py::test_ordered_upgrades_persist_once_and_preserve_operator_pins",
@@ -66010,6 +66219,10 @@
     {
       "original": "tests/test_desktop_qualification.py::test_foundation_accounting_covers_every_original_definition",
       "executable": "tests/test_desktop_qualification.py::test_foundation_accounting_covers_every_original_definition"
+    },
+    {
+      "original": "tests/test_desktop_qualification.py::test_final_gate_has_no_unmapped_neutral_cases_or_stale_totals",
+      "executable": "tests/test_desktop_qualification.py::test_final_gate_has_no_unmapped_neutral_cases_or_stale_totals"
     },
     {
       "original": "tests/test_desktop_qualified_collection.py::test_collection_aggregates_actual_group_identities",
@@ -67040,8 +67253,8 @@
       "executable": "tests/test_desktop_shared_owner_contracts.py::test_owner_retained_body_is_not_loaded_after_live_revocation[live-host-scope]"
     },
     {
-      "original": "tests/test_desktop_shared_owner_contracts.py::test_owner_retained_body_is_not_loaded_after_live_revocation[host-grant]",
-      "executable": "tests/test_desktop_shared_owner_contracts.py::test_owner_retained_body_is_not_loaded_after_live_revocation[host-grant]"
+      "original": "tests/test_desktop_shared_owner_contracts.py::test_owner_retained_body_is_not_loaded_after_live_revocation[host-retirement]",
+      "executable": "tests/test_desktop_shared_owner_contracts.py::test_owner_retained_body_is_not_loaded_after_live_revocation[host-retirement]"
     },
     {
       "original": "tests/test_desktop_shared_owner_contracts.py::test_owner_scope_cleanup_after_exception_and_task_boundary[exception]",
@@ -68192,8 +68405,8 @@
       "executable": "tests/test_desktop_final_config.py::test_final_neutral_legacy_image_fields_retained_read_only"
     },
     {
-      "original": "tests/test_desktop_final_config.py::test_final_legacy_host_inventory_needs_real_owner_and_explicit_policy",
-      "executable": "tests/test_desktop_final_config.py::test_final_legacy_host_inventory_needs_real_owner_and_explicit_policy"
+      "original": "tests/test_desktop_final_config.py::test_final_legacy_host_inventory_needs_real_owner_not_policy",
+      "executable": "tests/test_desktop_final_config.py::test_final_legacy_host_inventory_needs_real_owner_not_policy"
     },
     {
       "original": "tests/test_desktop_final_config.py::test_final_fresh_profile_replaces_removed_server_template",

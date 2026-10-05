@@ -1430,6 +1430,7 @@
         "tests/test_desktop_core_paths.py",
         "tests/test_desktop_core_privacy.py",
         "tests/test_desktop_core_search.py",
+        "tests/test_desktop_d17_governor.py",
         "tests/test_desktop_distribution.py",
         "tests/test_desktop_disposition_merge.py",
         "tests/test_desktop_exception_aliases.py",
@@ -1438,9 +1439,11 @@
         "tests/test_desktop_fts_read_lock.py",
         "tests/test_desktop_foundation.py",
         "tests/test_desktop_foundation_config.py",
+        "tests/test_desktop_host_parity.py",
         "tests/test_desktop_isolated_runner.py",
         "tests/test_desktop_lint_gate.py",
         "tests/test_desktop_maintenance.py",
+        "tests/test_desktop_maintenance_review.py",
         "tests/test_desktop_profile_upgrade.py",
         "tests/test_desktop_qualification.py",
         "tests/test_desktop_qualified_collection.py",
@@ -1691,8 +1694,8 @@
       "phase2-admission-wiring": 8
     },
     "foundation_definitions": {
-      "executable": 725,
-      "removed-surface-replacement": 129,
+      "executable": 724,
+      "removed-surface-replacement": 130,
       "unmapped-neutral-blocker": 0,
       "phase2-admission-wiring": 7,
       "native-prohibited-scope": 15

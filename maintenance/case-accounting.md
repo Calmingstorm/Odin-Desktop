@@ -2,11 +2,19 @@
 
 **Current:** zero unmapped neutral rows. Historical population: 185 executable,
 66 exact replacements, eight actual Phase 2 wiring obligations. Foundation:
-725 executable definitions, 129 exact replacements, seven actual Phase 2 wiring
+724 executable definitions, 130 exact replacements, seven actual Phase 2 wiring
 and 15 native/prohibited-scope obligations. See `qualification-closure.md`.
 The lists and counts below are retained historical snapshots, not current gaps.
 
 Pending review, not accepted.
+
+D17 review transitions are explicit in `pr2-d17-case-triage.json`: 34 original
+per-user host ACL/DTO cases are retired current-contract replacements, not
+equivalent assertion executions. One previously executed serializer case moves
+to replacement, accounting for the foundation count change. Two existing
+executor/config replacements now point to the open-governor and no-policy owner
+contracts. All named targets exist in the current isolated collection; that is
+collection evidence, not proof that the full run passed.
 
 All 259 failed historical rows and 876 definitions across 38 foundation suites
 are recorded individually. Original 851 source hashes are preserved. Actual

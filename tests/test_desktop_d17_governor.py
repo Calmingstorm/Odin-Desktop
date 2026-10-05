@@ -11,11 +11,59 @@ import pytest
 from src.audit.logger import AuditLogger
 from src.config.schema import GovernorConfig, ToolsConfig
 from src.discord.tool_loop import ToolLoopRunner
-from src.tools.risk_classifier import CommandGovernor, RiskLevel, classify_command
+from src.tools.risk_classifier import (
+    CommandFacts,
+    CommandGovernor,
+    RiskAssessment,
+    RiskLevel,
+    classify_command,
+)
 from tests.desktop_adapters.tools_cases import ToolExecutor, owner_fixture, owner_id
 
 # Harmless classifier false positives. Never submit a destructive shell string.
 CRITICAL_INSPECTION = "printf '%s' 'mkfs documentation'"
+
+
+def test_owner_override_is_enabled_by_default():
+    assert GovernorConfig().owner_can_override is True
+
+
+@pytest.mark.parametrize("override", [True, False])
+@pytest.mark.parametrize("level,exfil,floor,force,host_policy", [
+    (RiskLevel.LOW, False, None, None, ""),
+    (RiskLevel.CRITICAL, False, RiskLevel.CRITICAL, None, ""),
+    (RiskLevel.CRITICAL, True, RiskLevel.CRITICAL, None, ""),
+    (RiskLevel.HIGH, False, RiskLevel.HIGH, "fixture-force-form", ""),
+    (RiskLevel.HIGH, False, RiskLevel.HIGH, None, "strict"),
+    (RiskLevel.CRITICAL, False, RiskLevel.HIGH, None, "strict"),
+])
+def test_owner_matches_baseline_admin_precedence(
+    tmp_path, monkeypatch, override, level, exfil, floor, force, host_policy,
+):
+    # Exercise the original decision matrix without constructing or executing
+    # attack commands. Only classifier facts are injected; governor is real.
+    import src.tools.risk_classifier as risk
+
+    monkeypatch.setattr(risk, "assess_command", lambda _command: CommandFacts(
+        RiskAssessment(level, "inert fixture"), "fixture", exfil, floor, exfil,
+    ))
+    monkeypatch.setattr(risk, "detect_unconditional_git_force_push", lambda _command: force)
+    overrides = {"lab": host_policy} if host_policy else {}
+    config = ToolsConfig(governor=GovernorConfig(
+        owner_can_override=override, host_overrides=overrides,
+    ))
+    with owner_fixture(tmp_path):
+        executor = ToolExecutor(config)
+        expected = CommandGovernor(admin_can_override=override, host_overrides=overrides).check(
+            "printf ready", user_tier="admin", host="lab",
+        )
+        allowed, denial, note = executor._govern_command("printf ready", "lab")
+        assert allowed is expected.allowed
+        assert denial == ("" if expected.allowed else expected.denial_message())
+        if expected.allowed and expected.risk in (RiskLevel.HIGH, RiskLevel.CRITICAL):
+            assert expected.reason in note
+        else:
+            assert note == ""
 
 
 @pytest.mark.asyncio

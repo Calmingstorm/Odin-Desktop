@@ -12,7 +12,7 @@ definitions across the 38 original foundation suites, with original hashes.
 | Population | Original/faithful executable | Exact current-contract replacement | Actual Phase 2 wiring | Native/prohibited scope | Unmapped neutral |
 |---|---:|---:|---:|---:|---:|
 | Historical failures | 185 | 66 | 8 | 0 | **0** |
-| Foundation definitions | 725 | 129 | 7 | 15 | **0** |
+| Foundation definitions | 724 | 130 | 7 | 15 | **0** |
 
 These populations overlap and are not unique execution counts. Every newly
 resolved case has a named reason, frozen source digest and actual collected
@@ -20,6 +20,13 @@ executable/replacement selector. Removed transport expectations are not quietly
 rewritten. Mixed validator parameter rows preserve the 12 retained original
 cases and separately record both obsolete web-port rows and their explicit
 current-schema rejection proofs.
+
+D17 review intentionally retires the final `HostAccessEntry` serializer
+execution, changing foundation accounting from 725/129 to 724/130. All 34
+original host ACL/DTO definitions are current-contract replacements, not old
+ACL parity. `pr2-d17-case-triage.json` records these and two corrected
+executor/config mappings. Frozen source bytes remain untouched; every current
+replacement selector exists in the fresh isolated collection.
 
 The legacy `blocks_phase1` flag remains true on deferred wiring/native rows to
 prevent claiming implemented parity. Those are now **explained out-of-scope
@@ -30,7 +37,7 @@ algorithms are proved separately from closed request/delivery admission.
 
 ## Execution
 
-The final complete **28-group isolated run passed: 13,081 passing executions,
+The pre-D17 complete **28-group isolated run passed: 13,081 passing executions,
 zero failures/errors, two inherited skips**. Counts include duplicates and new
 tests. A subsequently added accounting-total regression passed in the focused
 23-case maintenance/accounting check; it does not retroactively increase the
@@ -103,3 +110,33 @@ previously ambient test dependencies:
 The seven native cases were not among the 259 historical failures or 876
 foundation definition populations. Those exact neutral mappings remain closed.
 `test-plan.json` now has 357 neutral candidate paths and 100 native/manual paths.
+
+## PR 2 review items 1 to 7 (D17)
+
+All seven requested changes are applied. Main-only design commits are
+`e3888f96` and `8a4b7e27`, merged into the bring-over branch. Source and tests
+remain in PR 2. The authenticated owner takes the original governor admin path,
+honoring `owner_can_override` and original force/strict/exfil precedence; absent
+governor/permission-manager defaults match Odin. Host access is every live
+enrolled targetable host with a separate default-only preference. Risk and
+recovery modules are now whole-file byte-identical to the pinned archive.
+The Linux host test is restored. FTS locking and catalog reservations are
+explicit intentional ledger entries; FTS is an upstream candidate, not an
+upstream change performed here.
+
+Focused combined validation passed **1,520 tests, one inherited skip**. The
+first full D17 gate found three remaining integration errors: a stale owner-only
+error-message assertion after the open-default correction, stale exact adapter
+association digests, and the stale 725/129 accounting totals. These were fixed
+without changing any frozen assertion or adding a suite exclusion. All 26
+touched gate-correction cases passed. A fresh full 28-group rerun is required;
+its actual result is posted to PR 2, not inferred from the focused runs.
+
+Static drift after integration: **1,236 shared paths, 196 exact ledgered paths,
+201 pending independent reviews, zero unexplained errors**. Seven inherited lint
+findings remain named; no new lint findings. The lock check and repository
+environment dependency check pass. This is not a new coverage, bundle, native
+input, Phase 2 wiring, merge or release claim. The skill-manager computer-name
+reservation consumer limitation discovered during item 7 is explicitly recorded
+in `pr2-review-items-5-7.md`; catalog nonpublication tests do not claim universal
+collision prevention.
