@@ -10,18 +10,13 @@ from src.desktop.commands import CommandJournal, JournalStorageError, JournalSto
 from tests.test_desktop_core_lifecycle import connect, profile, receive, request, send
 
 UNAVAILABLE = (
-    "usage.get", "work.list", "settings.schema", "search.query", "notifications.ack",
+    "work.list", "search.query", "notifications.ack",
     "conversations.create", "conversations.update", "submission.send", "control.stop",
     "control.steer", "conversations.list", "messages.list", "conversation.snapshot",
     "unknown.method",
     "messages.around", "artifacts.read", "reports.page", "tool.detail", "tool.output",
-    "codex.accounts.list", "models.agents.get", "models.discover", "personality.get",
-    "tools.list", "tools.timeouts.get", "skills.list", "skills.get", "skills.config.get",
-    "mcp.list", "mcp.status", "mcp.tools", "webhooks.outbound.list",
-    "hosts.list", "hosts.references", "schedules.list", "schedules.history",
-    "schedules.validate_cron", "memory.list", "memory.get", "lists.list", "lists.get",
-    "knowledge.list", "knowledge.search", "knowledge.versions", "audit.query",
-    "audit.verify", "health.get", "logs.search", "turn_state.list", "computer.status",
+    "skills.list", "skills.get", "skills.config.get", "mcp.list", "mcp.status", "mcp.tools",
+    "schedules.list", "schedules.history", "schedules.validate_cron", "computer.status",
 )
 
 

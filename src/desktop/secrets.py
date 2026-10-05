@@ -1,44 +1,81 @@
-"""Profile-only private secret storage. No server inventory or import."""
+"""Profile credentials in the Linux keyring, never in a fallback vault file."""
+
 from __future__ import annotations
 
-import os
+import hashlib
 import re
-import stat
 
-from ..permissions.persistence import write_private_atomic
 from .paths import ProfilePaths
 
 
+class SecretStoreError(RuntimeError):
+    """The keyring is unavailable, locked, or rejected an operation."""
+
+
 class ProfileSecretStore:
-    def __init__(self, paths: ProfilePaths):
-        paths.create_private()
+    """Lazy Secret Service adapter with an injectable isolated-test backend."""
+
+    def __init__(self, paths: ProfilePaths, *, backend=None):
         self.paths = paths
+        identity = str(paths.config_dir.absolute()).encode("utf-8")
+        self.namespace = (
+            f"odin-desktop:{paths.profile_id}:{hashlib.sha256(identity).hexdigest()[:24]}"
+        )
         self.durability_degraded = False
+        self._backend = backend
+
     def _name(self, name):
-        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", name):
+        if not isinstance(name, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,511}", name
+        ):
             raise ValueError("invalid secret identifier")
         return name
+
+    def _adapter(self):
+        if self._backend is None:
+            try:
+                # Automatic selection could choose a third-party file backend.
+                from keyring.backends.SecretService import Keyring
+
+                self._backend = Keyring()
+            except Exception:
+                raise SecretStoreError("Profile keyring is unavailable") from None
+        return self._backend
+
     def set(self, name, value) -> bool:
+        name = self._name(name)
         if not isinstance(value, str) or len(value.encode("utf-8")) > 65536:
             raise ValueError("secret must be a bounded string")
-        durable = write_private_atomic(
-            self.paths.secrets_dir / self._name(name), value
-        )
-        self.durability_degraded = not durable
-        return durable
-    def get(self, name):
-        self.paths.create_private()
         try:
-            fd = os.open(self.paths.secrets_dir / self._name(name), os.O_RDONLY | os.O_NOFOLLOW)
-        except FileNotFoundError:
-            return None
-        with os.fdopen(fd, "r", encoding="utf-8") as stream:
-            info = os.fstat(stream.fileno())
-            if (
-                not stat.S_ISREG(info.st_mode)
-                or info.st_uid != os.geteuid()
-                or stat.S_IMODE(info.st_mode) != 0o600
-                or info.st_size > 65536
-            ):
-                raise PermissionError("unsafe secret record")
-            return stream.read(65537)
+            self._adapter().set_password(self.namespace, name, value)
+        except Exception:
+            raise SecretStoreError(
+                "Profile keyring could not store the credential (unavailable or locked)"
+            ) from None
+        return True
+
+    def get(self, name):
+        name = self._name(name)
+        try:
+            value = self._adapter().get_password(self.namespace, name)
+            if value is not None and not isinstance(value, str):
+                raise TypeError
+            return value
+        except Exception:
+            raise SecretStoreError(
+                "Profile keyring could not read the credential (unavailable or locked)"
+            ) from None
+
+    def delete(self, name) -> bool:
+        name = self._name(name)
+        try:
+            adapter = self._adapter()
+            if adapter.get_password(self.namespace, name) is not None:
+                adapter.delete_password(self.namespace, name)
+        except Exception:
+            raise SecretStoreError(
+                "Profile keyring could not clear the credential (unavailable or locked)"
+            ) from None
+        return True
+
+    clear = delete
