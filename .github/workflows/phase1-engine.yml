@@ -1,0 +1,32 @@
+name: Phase 1 engine boundaries
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  engine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Repository-only locked environment
+        run: |
+          # Fake-peer identity tests pin the real test interpreter. Hosted
+          # toolcache binaries can be group-writable, which the unchanged
+          # executable trust guard correctly refuses. A repository-owned 0755
+          # copy is an explicit trusted fixture, not a relaxed production check.
+          python -m venv --copies .venv
+          .venv/bin/python -m pip install uv==0.12.23
+          .venv/bin/uv sync --locked --extra dev --active
+      - name: Offline lineage and safety drift
+        run: .venv/bin/python scripts/maintenance/inventory.py report
+      - name: No new lint findings
+        run: .venv/bin/python scripts/maintenance/lint_gate.py
+      - name: Explicit pass-now suites in a PID namespace
+        run: .venv/bin/python scripts/run-qualified-tests.py

@@ -1,0 +1,548 @@
+"""Per-iteration execution provenance at the chat/loop ToolIteration sites.
+
+Both construction sites in tool_loop stamp provider/model/reasoning_effort
+from the RESPONSE's provenance fields — the only source that survives
+gateway routing, retries, and live reloads. A response without provenance
+is recorded as UNKNOWN (empty/None), never replaced by a call-site guess.
+"""
+
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+
+from src.discord.response_guards import StuckLoopTracker
+from src.discord.tool_loop import ToolLoopRunner
+from src.llm.types import LLMResponse
+from src.trajectories.saver import TrajectoryTurn
+
+
+def _turn():
+    return TrajectoryTurn(
+        message_id="m1",
+        channel_id="c1",
+        user_id="u1",
+        user_name="u",
+        source="discord",
+    )
+
+
+def _chat_st():
+    return SimpleNamespace(
+        iteration=1,
+        _trajectory=_turn(),
+        stuck_tracker=StuckLoopTracker(),
+    )
+
+
+class TestChatIterationProvenance:
+    async def test_stamps_from_response(self):
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        st = _chat_st()
+        resp = LLMResponse(
+            text="hi",
+            provenance_provider="codex",
+            provenance_model="gpt-5.6-sol",
+            provenance_reasoning_effort="xhigh",
+        )
+        assert await runner._check_stuck_and_record(st, resp) is None
+        it = st._trajectory.iterations[0]
+        assert it.provider == "codex"
+        assert it.model == "gpt-5.6-sol"
+        assert it.reasoning_effort == "xhigh"
+        assert it.server_input_tokens is None
+
+    async def test_missing_provenance_stays_unknown(self):
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        st = _chat_st()
+        resp = SimpleNamespace(
+            text="hi",
+            tool_calls=[],
+            stop_reason="end_turn",
+            input_tokens=0,
+            output_tokens=0,
+        )
+        assert await runner._check_stuck_and_record(st, resp) is None
+        it = st._trajectory.iterations[0]
+        assert it.provider == ""
+        assert it.model == ""
+        assert it.reasoning_effort is None
+
+
+class TestLoopIterationProvenance:
+    def test_stamps_from_response(self):
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        st = SimpleNamespace(_trajectory=_turn(), final_text="", completed_naturally=False)
+        resp = LLMResponse(
+            text="done",
+            provenance_provider="codex",
+            provenance_model="gpt-5.6-luna",
+            provenance_reasoning_effort="low",
+        )
+        ended = runner._record_loop_iteration(st, resp, 2)
+        assert ended is True  # tool-free response ends the loop naturally
+        it = st._trajectory.iterations[0]
+        assert it.provider == "codex"
+        assert it.model == "gpt-5.6-luna"
+        assert it.reasoning_effort == "low"
+
+    def test_missing_provenance_stays_unknown(self):
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        st = SimpleNamespace(_trajectory=_turn(), final_text="", completed_naturally=False)
+        resp = SimpleNamespace(text="", tool_calls=[], stop_reason="end_turn")
+        runner._record_loop_iteration(st, resp, 1)
+        it = st._trajectory.iterations[0]
+        assert it.provider == ""
+        assert it.model == ""
+        assert it.reasoning_effort is None
+
+
+def test_loop_iteration_stamps_frozen_context_budget_snapshot():
+    from src.llm.context_budget import resolve_context_budget
+
+    runner = ToolLoopRunner.__new__(ToolLoopRunner)
+    snapshot = resolve_context_budget("gpt-5.6-sol", density_milli=609)
+    st = SimpleNamespace(
+        _trajectory=_turn(),
+        _generation_budget_snapshot=snapshot,
+        final_text="",
+        completed_naturally=False,
+    )
+    runner._record_loop_iteration(st, LLMResponse(text="done"), 2)
+    row = st._trajectory.iterations[-1]
+    assert row.context_density_milli == 609
+    assert row.context_density_source == "calibrated"
+    assert row.context_primary_chars == snapshot.primary_chars
+
+
+def test_chat_iteration_stamps_frozen_context_budget_snapshot():
+    from src.llm.context_budget import resolve_context_budget
+
+    runner = ToolLoopRunner.__new__(ToolLoopRunner)
+    st = _chat_st()
+    st._generation_budget_snapshot = resolve_context_budget("gpt-5.6-sol", density_milli=609)
+    resp = LLMResponse(text="hi")
+    asyncio.run(runner._check_stuck_and_record(st, resp))
+    row = st._trajectory.iterations[-1]
+    assert row.context_density_milli == 609
+    assert row.context_density_source == "calibrated"
+    assert row.context_primary_chars == st._generation_budget_snapshot.primary_chars
+
+
+async def test_chat_iteration_persists_accepted_usage_provenance():
+    runner = ToolLoopRunner.__new__(ToolLoopRunner)
+    st = _chat_st()
+    resp = LLMResponse(
+        text="hi",
+        input_tokens=999,
+        output_tokens=8,
+        server_input_tokens=321,
+        server_output_tokens=7,
+        estimated_input_tokens=456,
+        input_token_provenance="provider_reported",
+        output_token_provenance="provider_reported",
+    )
+    await runner._check_stuck_and_record(st, resp)
+    row = st._trajectory.iterations[-1]
+    assert row.server_input_tokens == 321
+    assert row.server_output_tokens == 7
+    assert row.estimated_input_tokens == 456
+    assert row.input_token_provenance == "provider_reported"
+    assert row.output_token_provenance == "provider_reported"
+
+
+def test_loop_iteration_persists_accepted_usage_provenance():
+    runner = ToolLoopRunner.__new__(ToolLoopRunner)
+    st = SimpleNamespace(_trajectory=_turn(), final_text="", completed_naturally=False)
+    resp = LLMResponse(
+        text="done",
+        input_tokens=999,
+        output_tokens=8,
+        server_input_tokens=321,
+        estimated_input_tokens=456,
+        input_token_provenance="provider_reported",
+        output_token_provenance="estimated_text_v1",
+    )
+    runner._record_loop_iteration(st, resp, 1)
+    row = st._trajectory.iterations[-1]
+    assert row.server_input_tokens == 321
+    assert row.estimated_input_tokens == 456
+    assert row.input_token_provenance == "provider_reported"
+    assert row.output_token_provenance == "estimated_text_v1"
+
+
+def test_usage_capture_failure_is_declared_nonfatal_at_both_generation_sites():
+    import inspect
+
+    source = inspect.getsource(ToolLoopRunner)
+    assert source.count("apply_accepted_usage(") == 2
+
+
+class TestWaitForAgentsWrapperGrace:
+    async def test_chat_wrapper_uses_handler_deadline_plus_native_grace(self, monkeypatch):
+        import asyncio
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+
+        from src.discord.tool_loop import ToolLoopRunner
+
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        runner._run_one_tool = AsyncMock(return_value={"content": "snapshot"})
+        block = SimpleNamespace(
+            name="wait_for_agents",
+            input={"agent_ids": ["a"], "timeout": 42},
+            id="call",
+        )
+        observed = {}
+        real_wait = asyncio.wait
+
+        async def capture(fs, *, timeout=None, return_when=asyncio.ALL_COMPLETED):
+            observed["timeout"] = timeout
+            return await real_wait(fs, timeout=timeout, return_when=return_when)
+
+        monkeypatch.setattr(asyncio, "wait", capture)
+        result = await runner._run_one_tool_with_timeout(
+            SimpleNamespace(_cancel=asyncio.Event()), block, 300
+        )
+        assert result == {"content": "snapshot"}
+        assert observed["timeout"] == 57
+
+    async def test_chat_wrapper_preserves_truthy_non_mapping_input_path(self, monkeypatch):
+        import asyncio
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+
+        from src.discord.tool_loop import ToolLoopRunner
+
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        runner._run_one_tool = AsyncMock(return_value={"content": "input error"})
+        block = SimpleNamespace(name="wait_for_agents", input=["bad"], id="call")
+        observed = {}
+        real_wait = asyncio.wait
+
+        async def capture(fs, *, timeout=None, return_when=asyncio.ALL_COMPLETED):
+            observed["timeout"] = timeout
+            return await real_wait(fs, timeout=timeout, return_when=return_when)
+
+        monkeypatch.setattr(asyncio, "wait", capture)
+        result = await runner._run_one_tool_with_timeout(
+            SimpleNamespace(_cancel=asyncio.Event()), block, 91
+        )
+        assert result == {"content": "input error"}
+        assert observed["timeout"] == 91
+
+    async def test_loop_wrapper_uses_handler_deadline_plus_native_grace(self, monkeypatch):
+        import asyncio
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+
+        from src.discord.tool_loop import ToolLoopRunner
+
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        from src.config.schema import ToolsConfig
+
+        runner._get_config = lambda: SimpleNamespace(tools=ToolsConfig())
+        runner._mcp_manager = None
+        runner._native_tools = SimpleNamespace(handles=lambda _name: True)
+        runner.dispatch_loop_tool = AsyncMock(return_value="snapshot")
+        runner._audit = SimpleNamespace(log_execution=AsyncMock())
+        block = SimpleNamespace(
+            name="wait_for_agents",
+            input={"agent_ids": ["a"], "timeout": 42},
+            id="call",
+            parse_error=None,
+        )
+        st = SimpleNamespace(
+            tool_timeout=300,
+            _iteration_index=0,
+            msg_proxy=object(),
+            user_id="u",
+            system_prompt="",
+            channel=object(),
+            requester_name="u",
+            channel_id_str="c",
+        )
+        observed = {}
+
+        async def capture(awaitable, timeout):
+            observed["timeout"] = timeout
+            return await awaitable
+
+        monkeypatch.setattr(asyncio, "wait_for", capture)
+        result = await runner._run_one_loop_tool(st, block)
+        assert result["content"] == "snapshot"
+        assert observed["timeout"] == 57
+
+
+class TestPerToolOuterTimeoutContract:
+    @staticmethod
+    def _runner(*, native=False, recovery_enabled=True):
+        from src.config.schema import ToolsConfig
+        from src.discord.tool_loop import ToolLoopRunner
+
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        tools = ToolsConfig(
+            command_timeout_seconds=300,
+            tool_timeouts={"read_file": 601, "run_command": 601},
+        )
+        tools.recovery.enabled = recovery_enabled
+        runner._get_config = lambda: SimpleNamespace(tools=tools)
+        runner._native_tools = SimpleNamespace(handles=lambda _name: native)
+        runner._mcp_manager = None
+        runner._tool_executor = SimpleNamespace(
+            config=tools.model_copy(deep=True), _recovery_enabled=recovery_enabled
+        )
+        return runner
+
+    def test_safe_executor_override_reserves_one_retry_delay_and_settlement(self):
+        from src.tools.recovery import executor_execution_budget
+
+        assert executor_execution_budget(
+            "read_file", 601, recovery_enabled=True
+        ) == 1204
+        assert self._runner()._outer_tool_timeout("read_file", {}) == 1219
+
+    def test_unsafe_executor_override_has_no_retry_reserve(self):
+        from src.tools.recovery import executor_execution_budget
+
+        assert executor_execution_budget(
+            "run_command", 601, recovery_enabled=True
+        ) == 601
+        assert self._runner()._outer_tool_timeout("run_command", {}) == 616
+
+    async def test_chat_uses_name_specific_override_above_global_default(self, monkeypatch):
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        runner = self._runner()
+        runner._run_one_tool = AsyncMock(return_value={"content": "ok"})
+        observed = {}
+
+        async def capture(awaitable, timeout):
+            observed["timeout"] = timeout
+            return await awaitable
+
+        monkeypatch.setattr(asyncio, "wait_for", capture)
+        block = SimpleNamespace(name="read_file", input={}, id="call")
+        result = await runner._run_one_tool_with_timeout(
+            SimpleNamespace(_cancel=asyncio.Event()), block
+        )
+        assert result == {"content": "ok"}
+        assert observed["timeout"] == 1219
+
+    async def test_loop_uses_name_specific_override_above_global_default(self, monkeypatch):
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        runner = self._runner()
+        runner.dispatch_loop_tool = AsyncMock(return_value="ok")
+        runner._audit = SimpleNamespace(log_execution=AsyncMock())
+        st = SimpleNamespace(
+            _iteration_index=0,
+            msg_proxy=object(),
+            user_id="u",
+            system_prompt="",
+            channel=object(),
+            requester_name="u",
+            channel_id_str="c",
+        )
+        observed = {}
+
+        async def capture(awaitable, timeout):
+            observed["timeout"] = timeout
+            return await awaitable
+
+        monkeypatch.setattr(asyncio, "wait_for", capture)
+        block = SimpleNamespace(name="read_file", input={}, id="call", parse_error=None)
+        result = await runner._run_one_loop_tool(st, block)
+        assert result["content"] == "ok"
+        assert observed["timeout"] == 1219
+
+    def test_wait_for_agents_keeps_argument_deadline_plus_existing_grace(self):
+        runner = self._runner(native=True)
+        assert runner._outer_tool_timeout(
+            "wait_for_agents", {"agent_ids": ["a"]}
+        ) == 315
+        assert runner._outer_tool_timeout(
+            "wait_for_agents", {"agent_ids": ["a"], "timeout": 42}
+        ) == 57
+
+    def test_outer_budget_uses_executor_restart_snapshot_for_recovery(self):
+        runner = self._runner(recovery_enabled=False)
+        runner._get_config().tools.recovery.enabled = True
+        assert runner._outer_tool_timeout("read_file", {}) == 616
+
+    @pytest.mark.parametrize("pending_timeout", [1, 2000])
+    @pytest.mark.parametrize("tool_name, expected", [("run_command", 915), ("read_file", 617)])
+    def test_outer_budget_uses_effective_executor_timeout(
+        self, pending_timeout, tool_name, expected
+    ):
+        runner = self._runner()
+        runner._tool_executor.config.tool_timeouts = {"run_command": 900, "read_file": 300}
+        runner._get_config().tools.tool_timeouts[tool_name] = pending_timeout
+        assert runner._outer_tool_timeout(tool_name, {}) == expected
+
+    def test_native_budget_does_not_use_executor_timeout(self):
+        runner = self._runner(native=True)
+        runner._get_config().tools.tool_timeouts["read_channel"] = 20
+        runner._tool_executor.config.tool_timeouts["read_channel"] = 900
+        assert runner._outer_tool_timeout("read_channel", {}) == 35
+
+    def test_outer_budget_uses_effective_fallback_timeout(self):
+        runner = self._runner(recovery_enabled=False)
+        runner._tool_executor.config.tool_timeouts = {}
+        runner._tool_executor.config.command_timeout_seconds = 900
+        runner._get_config().tools.tool_timeouts = {}
+        runner._get_config().tools.command_timeout_seconds = 1
+        assert runner._outer_tool_timeout("future_dynamic_tool", {}) == 915
+
+    def test_mcp_budget_does_not_use_executor_timeout_or_recovery(self):
+        runner = self._runner()
+        runner._mcp_manager = SimpleNamespace(has_tool=lambda name: name == "read_file")
+        runner._get_config().tools.tool_timeouts["read_file"] = 20
+        assert runner._outer_tool_timeout("read_file", {}) == 35
+
+
+class TestInflightStopWrapperEdgeCoverage:
+    async def test_effect_free_wrapper_timeout_cancels_tool_and_returns_timeout(self):
+        import asyncio
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+
+        from src.discord.tool_loop import ToolLoopRunner
+
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        started = asyncio.Event()
+        cancelled = asyncio.Event()
+
+        async def block(*_args):
+            started.set()
+            try:
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+        runner._run_one_tool = block
+        runner._audit = SimpleNamespace(log_execution=AsyncMock())
+        durability = SimpleNamespace(after_tool_interrupted=AsyncMock())
+        st = SimpleNamespace(
+            iteration=0,
+            _cancel=asyncio.Event(),
+            durability=durability,
+            message=SimpleNamespace(
+                author=SimpleNamespace(id=1),
+                channel=SimpleNamespace(id=2),
+            ),
+        )
+        block_info = SimpleNamespace(
+            name="wait_for_agents",
+            input={"agent_ids": ["a"], "timeout": "invalid"},
+            id="call",
+        )
+
+        result = await runner._run_one_tool_with_timeout(st, block_info, 0.01)
+
+        assert started.is_set() and cancelled.is_set()
+        assert "timed out" in result["content"]
+        durability.after_tool_interrupted.assert_awaited_once()
+        runner._audit.log_execution.assert_awaited_once()
+
+    async def test_outer_cancellation_reaps_effect_free_tool(self):
+        import asyncio
+        from types import SimpleNamespace
+
+        from src.discord.tool_loop import ToolLoopRunner
+
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        started = asyncio.Event()
+        cancelled = asyncio.Event()
+
+        async def block(*_args):
+            started.set()
+            try:
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+        runner._run_one_tool = block
+        st = SimpleNamespace(_cancel=asyncio.Event())
+        block_info = SimpleNamespace(name="wait_for_agents", input={"agent_ids": ["a"]}, id="call")
+        task = asyncio.create_task(runner._run_one_tool_with_timeout(st, block_info, 30))
+        await asyncio.wait_for(started.wait(), timeout=1)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        assert cancelled.is_set()
+
+    async def test_cancelled_observation_ledger_failure_propagates(self):
+        import asyncio
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+
+        from src.discord.tool_loop import ToolLoopRunner
+
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        started = asyncio.Event()
+
+        async def block(*_args):
+            started.set()
+            await asyncio.sleep(3600)
+
+        runner._run_one_tool = block
+        durability = SimpleNamespace(
+            after_tool_interrupted=AsyncMock(side_effect=RuntimeError("ledger down"))
+        )
+        st = SimpleNamespace(_cancel=asyncio.Event(), durability=durability)
+        block_info = SimpleNamespace(name="wait_for_agents", input={"agent_ids": ["a"]}, id="call")
+        task = asyncio.create_task(runner._run_one_tool_with_timeout(st, block_info, 30))
+        await asyncio.wait_for(started.wait(), timeout=1)
+        st._cancel.set()
+        try:
+            await task
+        except RuntimeError as exc:
+            assert str(exc) == "ledger down"
+        else:
+            raise AssertionError("ledger failure did not propagate")
+
+    @pytest.mark.parametrize(
+        ("tool_name", "tool_input"),
+        [
+            ("run_command", {"command": "x"}),
+            ("wait_for_agents", {"agent_ids": ["a"], "timeout": "invalid"}),
+        ],
+    )
+    async def test_timed_out_ledger_failure_propagates_after_audit(self, tool_name, tool_input):
+        from unittest.mock import AsyncMock
+
+        runner = ToolLoopRunner.__new__(ToolLoopRunner)
+        cancelled = asyncio.Event()
+
+        async def block(*_args):
+            try:
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+        runner._run_one_tool = block
+        runner._audit = SimpleNamespace(log_execution=AsyncMock())
+        durability = SimpleNamespace(
+            after_tool_interrupted=AsyncMock(side_effect=RuntimeError("ledger down"))
+        )
+        st = SimpleNamespace(
+            iteration=0,
+            _cancel=asyncio.Event(),
+            durability=durability,
+            message=SimpleNamespace(author=SimpleNamespace(id=1), channel=SimpleNamespace(id=2)),
+        )
+        block_info = SimpleNamespace(name=tool_name, input=tool_input, id="call")
+
+        with pytest.raises(RuntimeError, match="ledger down"):
+            await runner._run_one_tool_with_timeout(st, block_info, 0.01)
+        assert cancelled.is_set()
+        durability.after_tool_interrupted.assert_awaited_once()
+        runner._audit.log_execution.assert_awaited_once()

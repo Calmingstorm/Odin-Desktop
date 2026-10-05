@@ -1,0 +1,564 @@
+"""Coverage for src/config/schema.py validators + loader (RFC-006 P15, safe).
+
+Pure Pydantic field validators (the ``raise`` arms fire on out-of-range values),
+the ``${VAR}`` env-substitution helper, ``load_config``'s success + every
+SystemExit error arm (driven against tmp files), and ``WebConfig`` identity
+resolution. SAFE: pure validation + tmp-file reads only; no network, no LLM.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+import yaml
+from pydantic import ValidationError
+
+from src.config.schema import (
+    AgentsConfig,
+    ApiTokenIdentity,
+    BrowserConfig,
+    BulkheadConfig,
+    ConnectionPoolConfig,
+    KimiConfig,
+    RetryConfig,
+    ToolsConfig,
+    WebConfig,
+    _substitute_env_vars,
+    load_config,
+)
+from src.tools.executor import _user_id_ctx
+
+
+class TestFieldValidators:
+    """Each out-of-range value trips its validator's raise arm."""
+
+    def test_tracked_config_template_loads_gpt6_fresh_install_models(self, monkeypatch):
+        """Exercise the shipped template through the real loader, not schema defaults."""
+        template = Path(__file__).resolve().parents[1] / "config.yml"
+        monkeypatch.setenv("DISCORD_TOKEN", "test-placeholder")
+        monkeypatch.setenv("MCP_API_KEY", "test-placeholder")
+        monkeypatch.setenv("MCP_HTTP_TOKEN", "test-placeholder")
+        config = load_config(template)
+        assert config.openai_codex.model == "gpt-6.1-sol"
+        assert config.openai_codex.auxiliary.model == "gpt-6-luna"
+
+    @pytest.mark.parametrize("factory", [
+        lambda: RetryConfig(max_retries=-1),
+        lambda: RetryConfig(base_delay=-1.0),
+        lambda: BulkheadConfig(ssh_max_concurrent=0),
+        lambda: BulkheadConfig(ssh_max_queued=-1),
+        lambda: AgentsConfig(max_iterations=0),
+        lambda: AgentsConfig(final_warning_iterations=[0]),
+        lambda: ConnectionPoolConfig(max_connections=0),
+        lambda: ConnectionPoolConfig(keepalive_timeout=-1.0),
+        lambda: ToolsConfig(command_timeout_seconds=0),
+        lambda: ToolsConfig(max_tool_iterations_chat=0),
+        lambda: KimiConfig(max_tokens=0),
+        lambda: BrowserConfig(default_timeout_ms=500),
+        lambda: WebConfig(port=0),
+        lambda: WebConfig(port=99999),
+    ])
+    def test_invalid_value_rejected(self, factory):
+        with pytest.raises(ValidationError):
+            factory()
+
+    def test_valid_values_accepted(self):
+        # the return arms (happy path) — construction succeeds
+        assert RetryConfig(max_retries=3, base_delay=0.5).max_retries == 3
+        assert ToolsConfig(command_timeout_seconds=30).command_timeout_seconds == 30
+        assert WebConfig(port=3002).port == 3002
+
+
+class TestResolveApiIdentity:
+    def test_matches_listed_token(self):
+        ident = ApiTokenIdentity(token="tok-listed", user_id="u1", username="U1",
+                                 tier="user", label="l1")
+        web = WebConfig(api_tokens=[ident])
+        assert web.resolve_api_identity("tok-listed") is ident
+        assert web.resolve_api_identity("wrong") is None
+
+    def test_falls_back_to_single_api_token(self):
+        web = WebConfig(api_token="tok-default")
+        got = web.resolve_api_identity("tok-default")
+        assert got is not None and got.user_id == "api-admin" and got.tier == "admin"
+        assert web.resolve_api_identity("nope") is None
+
+
+class TestSubstituteEnvVars:
+    def test_required_present(self, monkeypatch):
+        monkeypatch.setenv("ODIN_TEST_VAR", "resolved")
+        assert _substitute_env_vars("x=${ODIN_TEST_VAR}") == "x=resolved"
+
+    def test_optional_default_when_unset(self, monkeypatch):
+        monkeypatch.delenv("ODIN_MISSING_VAR", raising=False)
+        assert _substitute_env_vars("x=${ODIN_MISSING_VAR:-fallback}") == "x=fallback"
+
+    def test_required_missing_raises(self, monkeypatch):
+        monkeypatch.delenv("ODIN_MISSING_VAR", raising=False)
+        with pytest.raises(ValueError, match="not set"):
+            _substitute_env_vars("x=${ODIN_MISSING_VAR}")
+
+
+class TestLoadConfig:
+    def _write(self, tmp_path, text):
+        p = tmp_path / "config.yml"
+        p.write_text(text)
+        return p
+
+    def test_valid_config(self, tmp_path):
+        p = self._write(tmp_path, "discord:\n  token: abc\n")
+        cfg = load_config(p)
+        assert cfg.discord.token == "abc"
+
+    @pytest.mark.parametrize("legacy_guard_enabled", [False, True])
+    @pytest.mark.parametrize("legacy_grafana_enabled", [False, True])
+    def test_removed_settings_are_ignored_without_losing_neighbors(
+        self, tmp_path, legacy_guard_enabled, legacy_grafana_enabled
+    ):
+        """Old config files keep booting and both old boolean values are inert.
+
+        ``false`` was ignored by both runtime construction paths before removal,
+        so dropping it now is behaviour-preserving. Pin adjacent supported values
+        so a future ``extra=forbid`` change cannot strand an upgrade or discard
+        the settings that actually construct the guard.
+        """
+        old_guard_bool = str(legacy_guard_enabled).lower()
+        old_grafana_bool = str(legacy_grafana_enabled).lower()
+        p = self._write(
+            tmp_path,
+            "discord:\n  token: legacy\n"
+            "context:\n  directory: ./legacy-context\n  max_system_prompt_tokens: 12345\n"
+            "openai_codex:\n  enabled: true\n  model: gpt-5.6-terra\n"
+            "  max_tokens: 98765\n  reasoning_effort: high\n"
+            f"graceful_degradation:\n  enabled: {old_guard_bool}\n"
+            "  degraded_threshold: 7\n  unavailable_threshold: 19\n"
+            f"grafana_alerts:\n  enabled: {old_grafana_bool}\n  auto_remediate: true\n"
+            "  cooldown_seconds: 612\n  max_concurrent_remediations: 4\n",
+        )
+
+        cfg = load_config(p)
+
+        assert cfg.discord.token == "legacy"
+        assert cfg.context.directory == "./legacy-context"
+        assert not hasattr(cfg.context, "max_system_prompt_tokens")
+        assert cfg.openai_codex.model == "gpt-5.6-terra"
+        assert cfg.openai_codex.reasoning_effort == "high"
+        assert not hasattr(cfg.openai_codex, "max_tokens")
+        assert not hasattr(cfg.graceful_degradation, "enabled")
+        assert cfg.graceful_degradation.degraded_threshold == 7
+        assert cfg.graceful_degradation.unavailable_threshold == 19
+        assert not hasattr(cfg, "grafana_alerts")
+
+    def test_real_legacy_image_shape_loads_without_rewrite_or_false_typo_warning(
+        self, tmp_path, caplog
+    ):
+        """A live-install-shaped config remains a clean, read-only upgrade."""
+        text = (
+            "discord:\n  token: legacy\n"
+            "image:\n"
+            "  backend: auto\n"
+            "  openai:\n"
+            "    enabled: true\n"
+            "    outer_model: gpt-6-astra\n"
+            "    image_model: gpt-image-2.5-flare\n"
+            "    request_timeout_seconds: 181\n"
+            "    connect_timeout_seconds: 31\n"
+            "    stream_stall_timeout_seconds: 121\n"
+            "    max_image_bytes: 16777215\n"
+            "comfyui:\n"
+            "  enabled: true\n"
+            "  url: http://127.0.0.1:8188\n"
+            "  default_checkpoint: real-checkpoint.safetensors\n"
+            "future_typoo:\n  enabled: true\n"
+        )
+        path = self._write(tmp_path, text)
+        before = path.read_bytes()
+
+        with caplog.at_level("WARNING"):
+            cfg = load_config(path)
+
+        assert cfg.image.openai.model_dump() == {
+            "enabled": True,
+            "outer_model": "gpt-6-astra",
+            "image_model": "gpt-image-2.5-flare",
+            "request_timeout_seconds": 181,
+            "connect_timeout_seconds": 31,
+            "stream_stall_timeout_seconds": 121,
+            "max_image_bytes": 16777215,
+        }
+        assert not hasattr(cfg.image, "backend")
+        assert not hasattr(cfg, "comfyui")
+        assert path.read_bytes() == before
+        warning_text = "\n".join(record.getMessage() for record in caplog.records)
+        assert "future_typoo" in warning_text
+        assert "unknown config key(s): comfyui" not in warning_text
+        assert yaml.safe_load(path.read_text())["comfyui"]["default_checkpoint"] == (
+            "real-checkpoint.safetensors"
+        )
+
+    def test_removed_grafana_section_loads_silently_without_rewrite(self, tmp_path, caplog):
+        text = (
+            "discord:\n  token: legacy\n"
+            "grafana_alerts:\n  enabled: true\n  auto_remediate: true\n"
+            "webhook:\n  grafana_channel_id: 12345\n"
+        )
+        path = self._write(tmp_path, text)
+        before = path.read_bytes()
+
+        with caplog.at_level("WARNING"):
+            cfg = load_config(path)
+
+        assert cfg.discord.token == "legacy"
+        assert not hasattr(cfg, "grafana_alerts")
+        assert not hasattr(cfg.webhook, "grafana_channel_id")
+        assert path.read_bytes() == before
+        assert "grafana_alerts" not in " ".join(record.getMessage() for record in caplog.records)
+
+    def test_real_legacy_slack_section_loads_silently(self, tmp_path, caplog):
+        """Removed Slack settings stay silently inert for existing installs."""
+        text = (
+            "discord:\n  token: legacy\n"
+            "slack:\n  enabled: true\n  webhook_urls:\n    ops: https://hooks.slack.com/example\n"
+        )
+        path = self._write(tmp_path, text)
+        before = path.read_bytes()
+
+        with caplog.at_level("WARNING"):
+            cfg = load_config(path)
+
+        assert cfg.discord.token == "legacy"
+        assert not hasattr(cfg, "slack")
+        assert path.read_bytes() == before
+        assert "slack" not in " ".join(record.getMessage() for record in caplog.records)
+
+    def test_real_legacy_issue_tracker_shape_loads_silently(self, tmp_path, caplog):
+        """Removed issue-tracker settings remain inert and do not look like typos."""
+        text = (
+            "discord:\n  token: legacy\n"
+            "issue_tracker:\n"
+            "  enabled: true\n"
+            "  provider: jira\n"
+            "  api_token: legacy-token\n"
+            "  base_url: https://issues.example.test\n"
+            "  project_key: OPS\n"
+            "  default_team_id: team-legacy\n"
+            "  scrub_secrets: false\n"
+        )
+        path = self._write(tmp_path, text)
+        before = path.read_bytes()
+
+        with caplog.at_level("WARNING"):
+            cfg = load_config(path)
+
+        assert cfg.discord.token == "legacy"
+        assert not hasattr(cfg, "issue_tracker")
+        assert path.read_bytes() == before
+        warning_text = "\n".join(record.getMessage() for record in caplog.records)
+        assert "issue_tracker" not in warning_text
+        assert yaml.safe_load(path.read_text())["issue_tracker"] == {
+            "enabled": True,
+            "provider": "jira",
+            "api_token": "legacy-token",
+            "base_url": "https://issues.example.test",
+            "project_key": "OPS",
+            "default_team_id": "team-legacy",
+            "scrub_secrets": False,
+        }
+
+    def test_removed_discord_trigger_blocks_load_silently_without_rewrite(
+        self, tmp_path, caplog
+    ):
+        text = (
+            "discord:\n  token: legacy\n"
+            "reaction_triggers:\n"
+            "  enabled: true\n"
+            "  channel_ids: ['123']\n"
+            "  allowed_user_ids: ['456']\n"
+            "message_triggers:\n"
+            "  enabled: true\n"
+            "  channel_ids: []\n"
+            "  allowed_user_ids: []\n"
+        )
+        path = self._write(tmp_path, text)
+        before = path.read_bytes()
+
+        with caplog.at_level("WARNING"):
+            cfg = load_config(path)
+
+        assert not hasattr(cfg, "reaction_triggers")
+        assert not hasattr(cfg, "message_triggers")
+        assert path.read_bytes() == before
+        warning_text = "\n".join(record.getMessage() for record in caplog.records)
+        assert "reaction_triggers" not in warning_text
+        assert "message_triggers" not in warning_text
+
+    def test_env_substituted(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ODIN_TOKEN_TEST", "from-env")
+        p = self._write(tmp_path, "discord:\n  token: ${ODIN_TOKEN_TEST}\n")
+        assert load_config(p).discord.token == "from-env"
+
+    def test_missing_env_var_is_systemexit(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("ODIN_ABSENT", raising=False)
+        p = self._write(tmp_path, "discord:\n  token: ${ODIN_ABSENT}\n")
+        with pytest.raises(SystemExit, match="Configuration error"):
+            load_config(p)
+
+    def test_bad_yaml_is_systemexit(self, tmp_path):
+        p = self._write(tmp_path, "discord: [unterminated\n")
+        with pytest.raises(SystemExit, match="Failed to parse"):
+            load_config(p)
+
+    def test_non_mapping_is_systemexit(self, tmp_path):
+        p = self._write(tmp_path, "- just\n- a\n- list\n")
+        with pytest.raises(SystemExit, match="empty or invalid"):
+            load_config(p)
+
+    def test_validation_failure_is_systemexit(self, tmp_path):
+        # tools.command_timeout_seconds=0 trips ToolsConfig's validator
+        p = self._write(tmp_path,
+                        "discord:\n  token: abc\ntools:\n  command_timeout_seconds: 0\n")
+        with pytest.raises(SystemExit, match="validation failed"):
+            load_config(p)
+
+
+class TestCodexReasoningEffort:
+    def test_default_is_xhigh(self):
+        # Defaults mirror the reference deployment (defaults ruling).
+        from src.config.schema import OpenAICodexConfig
+        assert OpenAICodexConfig().reasoning_effort == "xhigh"
+
+    def test_all_enum_values_accepted(self):
+        from src.config.schema import CODEX_REASONING_EFFORTS, OpenAICodexConfig
+        # "minimal" is deliberately excluded — every Codex model on this auth
+        # path rejects it per-request despite it appearing in the API's
+        # generic parameter enum. "max" is real but gpt-5.6-family-only (the
+        # pair boundaries in test_max_reasoning_effort own that dimension).
+        assert CODEX_REASONING_EFFORTS == {"none", "low", "medium", "high", "xhigh", "max"}
+        for value in CODEX_REASONING_EFFORTS:
+            assert OpenAICodexConfig(reasoning_effort=value).reasoning_effort == value
+
+    def test_legacy_minimal_coerces_to_low(self):
+        """A config persisted while v3.58.0 offered "minimal" must not brick
+        startup after upgrading — it degrades to "low" with a warning."""
+        from src.config.schema import OpenAICodexConfig
+        assert OpenAICodexConfig(reasoning_effort="minimal").reasoning_effort == "low"
+
+    def test_invalid_value_rejected_at_load(self):
+        import pydantic
+        import pytest as _pytest
+
+        from src.config.schema import OpenAICodexConfig
+        with _pytest.raises(pydantic.ValidationError):
+            OpenAICodexConfig(reasoning_effort="banana")
+
+
+class TestCodexTransportTimeouts:
+    def test_defaults(self):
+        from src.config.schema import OpenAICodexConfig
+        cfg = OpenAICodexConfig()
+        assert cfg.request_timeout_seconds == 3600
+        assert cfg.stream_stall_timeout_seconds == 180
+
+    def test_request_timeout_bounds(self):
+        from src.config.schema import OpenAICodexConfig
+        with pytest.raises(ValidationError):
+            OpenAICodexConfig(request_timeout_seconds=59)
+        with pytest.raises(ValidationError):
+            OpenAICodexConfig(request_timeout_seconds=86401)
+        assert OpenAICodexConfig(request_timeout_seconds=60).request_timeout_seconds == 60
+        assert (
+            OpenAICodexConfig(request_timeout_seconds=86400).request_timeout_seconds == 86400
+        )
+
+    def test_stream_stall_timeout_bounds(self):
+        from src.config.schema import OpenAICodexConfig
+        with pytest.raises(ValidationError):
+            OpenAICodexConfig(stream_stall_timeout_seconds=9)
+        with pytest.raises(ValidationError):
+            OpenAICodexConfig(stream_stall_timeout_seconds=3601)
+        assert (
+            OpenAICodexConfig(stream_stall_timeout_seconds=10).stream_stall_timeout_seconds
+            == 10
+        )
+
+
+class TestAgentsTimeoutConfig:
+    def test_defaults(self):
+        from src.config.schema import AgentsConfig
+        cfg = AgentsConfig()
+        assert cfg.iteration_timeout_seconds == 900
+        assert cfg.max_lifetime_seconds == 14400
+
+    def test_iteration_timeout_bounds(self):
+        from src.config.schema import AgentsConfig
+        with pytest.raises(ValidationError):
+            AgentsConfig(iteration_timeout_seconds=59)
+        with pytest.raises(ValidationError):
+            AgentsConfig(iteration_timeout_seconds=86401)
+        assert AgentsConfig(iteration_timeout_seconds=60).iteration_timeout_seconds == 60
+        assert AgentsConfig(iteration_timeout_seconds=86400).iteration_timeout_seconds == 86400
+
+    def test_max_lifetime_bounds(self):
+        from src.config.schema import AgentsConfig
+        with pytest.raises(ValidationError):
+            AgentsConfig(max_lifetime_seconds=59)
+        with pytest.raises(ValidationError):
+            AgentsConfig(max_lifetime_seconds=86401)
+        assert AgentsConfig(max_lifetime_seconds=3600).max_lifetime_seconds == 3600
+
+
+class TestAgentReasoningEffortConfig:
+    def test_default_is_auto(self):
+        # Defaults mirror the reference deployment: per-spawn Auto/Dynamic.
+        from src.config.schema import OpenAICodexConfig
+        assert OpenAICodexConfig().agent_reasoning_effort == "auto"
+        assert OpenAICodexConfig(agent_reasoning_effort=None).agent_reasoning_effort is None
+
+    def test_valid_values_accepted(self):
+        from src.config.schema import CODEX_REASONING_EFFORTS, OpenAICodexConfig
+        for effort in sorted(CODEX_REASONING_EFFORTS):
+            assert OpenAICodexConfig(
+                agent_reasoning_effort=effort).agent_reasoning_effort == effort
+
+    def test_invalid_rejected(self):
+        from src.config.schema import OpenAICodexConfig
+        with pytest.raises(ValidationError):
+            OpenAICodexConfig(agent_reasoning_effort="banana")
+
+    def test_legacy_minimal_coerced_to_low(self):
+        """A persisted 'minimal' must not brick startup — same degradation
+        the main reasoning_effort field gets."""
+        from src.config.schema import OpenAICodexConfig
+        cfg = OpenAICodexConfig(agent_reasoning_effort="minimal")
+        assert cfg.agent_reasoning_effort == "low"
+        # and the main field's coercion still works
+        assert OpenAICodexConfig(reasoning_effort="minimal").reasoning_effort == "low"
+
+
+class TestAgentModelConfig:
+    def test_default_is_auto(self):
+        # Defaults mirror the reference deployment: per-spawn Auto/Dynamic.
+        from src.config.schema import OpenAICodexConfig
+        assert OpenAICodexConfig().agent_model == "auto"
+        assert OpenAICodexConfig(agent_model=None).agent_model is None
+
+    def test_value_round_trips(self):
+        from src.config.schema import OpenAICodexConfig
+        assert OpenAICodexConfig(agent_model="gpt-5.6-luna").agent_model == "gpt-5.6-luna"
+
+    def test_empty_and_whitespace_mean_inherit(self):
+        """""/whitespace normalize to None — a hand-edited config must not
+        carry a visually-empty but truthy override."""
+        from src.config.schema import OpenAICodexConfig
+        assert OpenAICodexConfig(agent_model="").agent_model is None
+        assert OpenAICodexConfig(agent_model="   ").agent_model is None
+
+    def test_surrounding_whitespace_stripped(self):
+        from src.config.schema import OpenAICodexConfig
+        assert OpenAICodexConfig(agent_model=" gpt-5.6-terra ").agent_model == "gpt-5.6-terra"
+
+
+def test_max_children_per_agent_upper_bound():
+    """1-10: breadth compounds with depth, so a single config value must not
+    ask for absurd fan-out; the manager's tree cap is the backstop."""
+    import pytest
+
+    from src.config.schema import Config
+
+    with pytest.raises(ValueError, match="between 1 and 10"):
+        Config(discord={"token": "x"}, agents={"max_children_per_agent": 11})
+    cfg = Config(discord={"token": "x"}, agents={"max_children_per_agent": 10})
+    assert cfg.agents.max_children_per_agent == 10
+
+
+def test_max_concurrent_agents_default_and_bounds():
+    """1-25 permits useful parallelism without exceeding the immutable
+    per-tree lifetime backstop; an absent key preserves the historical cap 5.
+    """
+    from src.config.schema import Config
+
+    assert AgentsConfig().max_concurrent_agents == 5
+    assert Config(discord={"token": "x"}, agents={}).agents.max_concurrent_agents == 5
+    assert AgentsConfig(max_concurrent_agents=1).max_concurrent_agents == 1
+    assert AgentsConfig(max_concurrent_agents=25).max_concurrent_agents == 25
+    with pytest.raises(ValidationError):
+        AgentsConfig(max_concurrent_agents=0)
+    with pytest.raises(ValidationError):
+        AgentsConfig(max_concurrent_agents=26)
+
+
+def test_removed_claude_code_settings_are_tolerated(tmp_path):
+    from src.config.schema import load_config
+
+    path = tmp_path / "legacy.yml"
+    path.write_text(
+        "discord:\n  token: legacy\n"
+        "tools:\n"
+        "  command_timeout_seconds: 123\n"
+        "  claude_code_host: localhost\n"
+        "  claude_code_user: odin\n"
+        "  claude_code_dir: /old/project\n"
+    )
+    cfg = load_config(path)
+    assert cfg.tools.command_timeout_seconds == 123
+    assert not hasattr(cfg.tools, "claude_code_host")
+    assert not hasattr(cfg.tools, "claude_code_user")
+    assert not hasattr(cfg.tools, "claude_code_dir")
+
+
+def test_legacy_host_inventory_load_is_byte_identical(tmp_path):
+    from src.config.schema import load_config
+    from src.permissions.host_access import HostAccessManager
+    from src.tools.executor import ToolExecutor
+    from src.tools.hosts import HostRegistry
+
+    path = tmp_path / "legacy-hosts.yml"
+    original = (
+        "discord:\n  token: legacy\n"
+        "tools:\n  hosts:\n"
+        "    alpha:\n      address: example.invalid\n      ssh_user: deploy\n      os: linux\n"
+        "    beta:\n      address: localhost\n      ssh_user: root\n      os: linux\n"
+    )
+    path.write_text(original)
+    cfg = load_config(path)
+    registry = HostRegistry(cfg.tools.hosts)
+    access = HostAccessManager(
+        path=str(tmp_path / "missing-host-access.json"),
+        available_hosts_provider=registry.active_aliases,
+    )
+    executor = ToolExecutor(cfg.tools, host_registry=registry, host_access_manager=access)
+
+    assert registry.active_aliases() == ("alpha", "beta")
+    token = _user_id_ctx.set("legacy-user")
+    try:
+        assert executor._resolve_host("alpha") == ("example.invalid", "deploy", "linux")
+    finally:
+        _user_id_ctx.reset(token)
+    assert access.get_allowed_hosts("legacy-user") == ["alpha", "beta"]
+    assert path.read_text() == original
+
+
+def test_pre_control_plane_host_inventory_shapes_boot_without_rewrite(tmp_path):
+    from src.config.schema import load_config
+    from src.tools.hosts import HostRegistry
+
+    path = tmp_path / "permissive-legacy-hosts.yml"
+    original = (
+        "discord:\n  token: legacy\n"
+        "tools:\n"
+        "  default_host: removed host\n"
+        "  governor:\n    host_overrides:\n      removed host: allow\n"
+        "  hosts:\n"
+        "    1box:\n      address: example.invalid\n      os: windows\n"
+        "    host with space:\n      address: other.invalid\n      os: Linux\n"
+    )
+    path.write_text(original)
+    cfg = load_config(path)
+    registry = HostRegistry(cfg.tools.hosts, default_host=cfg.tools.default_host)
+
+    assert registry.active_aliases() == ("1box", "host with space")
+    assert registry.get("1box").os == "windows"
+    assert registry.get("host with space").os == "Linux"
+    assert registry.default_host == ""
+    assert cfg.tools.governor.host_overrides == {"removed host": "allow"}
+    assert path.read_text() == original

@@ -74,6 +74,27 @@ integration gates, complete in Phase 2. Deferred gates are recorded explicitly; 
   not running prohibited inputs, weakening assertions or dispatching against live state. See
   `maintenance/test-plan.md` for the frozen selection and case-by-case acceptance record.
 
+  **Wording/disposition closure is also a Phase 2 exit criterion (D19).** Every remaining
+  **NONE row in section 4** of `maintenance/pr2-model-facing-string-approvals.md` must be
+  removed with Odin's behavior restored or explicitly dispositioned under D19. Mechanical
+  wording swaps go to Claude; any behavior/instruction change, including anything that
+  changes what Odin is told to do, goes to Aaron. This explicitly includes:
+  - Phase 2 "unavailable" and "not implemented" gates;
+  - readiness backstops;
+  - results that lost an attachment suffix or image URL;
+  - skill dependency installation;
+  - the resume empty-read disposition.
+  Record each row's disposition, approval where required, and qualified runtime parity
+  evidence. D19 is not blanket approval of unwired gates or changed behavior.
+
+  **Fresh-profile host parity is a Phase 2 exit criterion.** A fresh profile must receive
+  the same local host and default host as an Odin install. Prove runtime parity using
+  disposable profiles and harmless/stubbed execution, including explicit-host and
+  omitted-host selection and `http_probe`'s authenticated-owner local fallback, not just
+  configuration text or static assertions. The round-3 D17 restoration is baseline
+  behavior, not a new approval. No model request path is wired in Phase 1; these gates
+  remain deferred and no Phase 2 runtime parity result is claimed here.
+
 ## Phase 3: the app v1 (Linux)
 
 - **Work:**

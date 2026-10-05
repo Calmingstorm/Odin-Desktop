@@ -1,0 +1,1480 @@
+from __future__ import annotations
+
+import ast
+import asyncio
+import importlib.util
+import json
+import os
+import re
+import sys
+import tempfile
+import threading
+import time
+import urllib.parse
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import StrEnum
+from importlib.metadata import PackageNotFoundError, distribution
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from jsonschema.validators import validator_for
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.utils import canonicalize_name
+from packaging.version import InvalidVersion
+
+from ..desktop.paths import private_directory
+from ..odin_log import get_logger
+from .registry import TOOLS
+from .skill_context import ResourceTracker, SkillContext
+
+if TYPE_CHECKING:
+    from .executor import ToolExecutor
+
+log = get_logger("skills")
+
+SKILL_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,49}$")
+BUILTIN_TOOL_NAMES = {t["name"] for t in TOOLS}
+SKILL_EXECUTE_TIMEOUT = 120  # seconds
+MAX_SKILL_OUTPUT_CHARS = 50000  # truncate skill output beyond this
+
+
+def validate_skill_definition(definition: Any) -> None:
+    """Validate the runtime tool contract, not Python's trusted loading behavior."""
+    if not isinstance(definition, dict):
+        raise ValueError("SKILL_DEFINITION must be an object")
+    name = definition.get("name")
+    if not isinstance(name, str) or not SKILL_NAME_PATTERN.fullmatch(name):
+        raise ValueError("SKILL_DEFINITION.name must be a valid skill name")
+    if name in BUILTIN_TOOL_NAMES:
+        raise ValueError("SKILL_DEFINITION.name conflicts with a built-in tool")
+    if not isinstance(definition.get("description"), str):
+        raise ValueError("SKILL_DEFINITION.description must be a string")
+    schema = definition.get("input_schema")
+    if not isinstance(schema, dict) or schema.get("type") != "object":
+        raise ValueError("SKILL_DEFINITION.input_schema must be an object schema")
+    # JSON round-trip also rejects non-JSON values before provider conversion.
+    json.dumps(schema, allow_nan=False)
+    validator_for(schema).check_schema(schema)
+
+    def check_required(node: Any) -> None:
+        if isinstance(node, dict):
+            if "required" in node and "properties" in node:
+                if any(key not in node["properties"] for key in node["required"]):
+                    raise ValueError("input_schema.required refers to an undefined property")
+            for value in node.values():
+                check_required(value)
+        elif isinstance(node, list):
+            for value in node:
+                check_required(value)
+
+    check_required(schema)
+
+# Supported metadata keys in SKILL_DEFINITION (beyond the required ones).
+_METADATA_KEYS = ("version", "author", "homepage", "tags", "dependencies", "config_schema")
+
+# Valid semantic version pattern (loose — major.minor.patch with optional pre-release).
+_SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:[-+].+)?$")
+
+# Supported types for config_schema fields.
+_CONFIG_FIELD_TYPES = frozenset({"string", "integer", "number", "boolean"})
+
+# Dependency resolution limits.
+MAX_SKILL_DEPENDENCIES = 10
+_PIP_INSTALL_TIMEOUT = 120  # seconds
+
+# PEP 508 simplified: package names start with letter/digit, may contain .-_
+_PACKAGE_NAME_RE = re.compile(r"^([A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?)")
+
+# URL install limits.
+MAX_SKILL_DOWNLOAD_BYTES = 256 * 1024  # 256 KB max skill file size
+_URL_DOWNLOAD_TIMEOUT = 30  # seconds
+_ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
+
+# Modules/builtins a URL-sourced skill must not use. Local create_skill is
+# trusted (owner-authored) and stays unrestricted; install_skill fetches code
+# from a prompt-influenceable URL, so URL installs get this AST denylist as
+# defense-in-depth against injected-instruction RCE.
+_URL_SKILL_DENIED_IMPORTS = frozenset(
+    {
+        "os",
+        "subprocess",
+        "socket",
+        "sys",
+        "ctypes",
+        "shutil",
+        "multiprocessing",
+        "importlib",
+        "pty",
+        "fcntl",
+        "resource",
+        "signal",
+        # Added: low-level / interpreter-escape modules the original list missed
+        # (e.g. `import posix; posix.system(...)`, `runpy.run_path`, pickle/marshal
+        # code execution, pdb shell-out).
+        "posix",
+        "nt",
+        "builtins",
+        "runpy",
+        "pdb",
+        "pickle",
+        "marshal",
+        "code",
+        "codeop",
+        "gc",
+        "cProfile",
+        "commands",
+        "popen2",
+    }
+)
+_URL_SKILL_DENIED_CALLS = frozenset({"eval", "exec", "compile", "__import__", "open"})
+# Attribute-form calls a URL skill must not make — catches things the bare-Name
+# check missed, e.g. `builtins.__import__("os")`, `x.system(...)`, `y.popen(...)`.
+_URL_SKILL_DENIED_ATTR_CALLS = frozenset(
+    {
+        "system",
+        "popen",
+        "popen2",
+        "popen3",
+        "spawn",
+        "spawnl",
+        "spawnv",
+        "execv",
+        "execve",
+        "execl",
+        "fork",
+        "__import__",
+        "run_path",
+        "run_module",
+        "loads",
+        "load",  # pickle/marshal deserialization
+    }
+)
+# Dunder escape hatches (sandbox breakouts) denied anywhere in URL skills.
+_URL_SKILL_DENIED_DUNDERS = frozenset(
+    {
+        "__import__",
+        "__builtins__",
+        "__globals__",
+        "__subclasses__",
+        "__bases__",
+        "__mro__",
+        "__code__",
+        "__loader__",
+    }
+)
+
+
+def _scan_url_skill_ast(code: str) -> list[str]:
+    """Return denylisted constructs found in URL-sourced skill code (empty = clean)."""
+    violations: set[str] = set()
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return []  # syntax errors are reported separately by validate_skill_code
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] in _URL_SKILL_DENIED_IMPORTS:
+                    violations.add(f"import {alias.name}")
+        elif isinstance(node, ast.ImportFrom):
+            if (node.module or "").split(".")[0] in _URL_SKILL_DENIED_IMPORTS:
+                violations.add(f"from {node.module} import ...")
+        elif isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name) and func.id in _URL_SKILL_DENIED_CALLS:
+                violations.add(f"{func.id}()")
+            elif isinstance(func, ast.Attribute) and func.attr in _URL_SKILL_DENIED_ATTR_CALLS:
+                violations.add(f".{func.attr}()")
+        elif isinstance(node, ast.Attribute) and node.attr in _URL_SKILL_DENIED_DUNDERS:
+            violations.add(f".{node.attr}")
+        elif isinstance(node, ast.Name) and node.id in _URL_SKILL_DENIED_DUNDERS:
+            violations.add(node.id)
+    return sorted(violations)
+
+
+def _parse_package_name(spec: str) -> str:
+    """Extract base package name from a pip requirement specifier.
+
+    E.g. ``"requests>=2.0"`` → ``"requests"``, ``"Pillow[jpeg]"`` → ``"Pillow"``.
+    """
+    # Strip extras brackets first
+    base = spec.strip().split("[")[0]
+    m = _PACKAGE_NAME_RE.match(base)
+    return m.group(1) if m else ""
+
+
+def is_safe_dependency_spec(spec: str) -> bool:
+    """Reject pip specs that let a skill run arbitrary code at install time.
+
+    A PEP 508 direct reference (``pkg @ https://attacker/x.tar.gz``), a VCS URL
+    (``git+https://...``), a bare URL, or a local path all make pip build an
+    sdist and execute the attacker's setup.py as the runtime user. Only allow
+    ``name[extras]<version-specifier>`` from a package index.
+    """
+    s = spec.strip()
+    if not s:
+        return False
+    # Direct references, URLs, VCS, path installs, env markers, shell metachars.
+    lowered = s.lower()
+    if (
+        "@" in s
+        or "://" in s
+        or ";" in s  # environment markers / command chaining
+        or s.startswith("-")  # pip options (-e, --index-url, etc.)
+        or "/" in s
+        or "\\" in s
+        or any(lowered.startswith(v + "+") for v in ("git", "hg", "svn", "bzr"))
+        or any(c in s for c in "\r\n\x00")
+    ):
+        return False
+    try:
+        requirement = Requirement(s)
+    except InvalidRequirement:
+        return False
+    return requirement.url is None and requirement.marker is None
+
+
+def _is_package_installed(spec: str, _seen: set[str] | None = None) -> bool:
+    """Check the installed version and dependencies required by extras."""
+    try:
+        requirement = Requirement(spec)
+        if requirement.url is not None:
+            return False
+        installed = distribution(requirement.name)
+        if requirement.specifier and not requirement.specifier.contains(installed.version):
+            return False
+        if requirement.extras:
+            declared = {canonicalize_name(extra) for extra in
+                        installed.metadata.get_all("Provides-Extra", [])}
+            if not {canonicalize_name(extra) for extra in requirement.extras} <= declared:
+                return False
+            seen = set() if _seen is None else _seen.copy()
+            if str(requirement) in seen:
+                return True
+            seen.add(str(requirement))
+            for dependency in installed.requires or []:
+                child = Requirement(dependency)
+                if child.marker is None or any(
+                    child.marker.evaluate({"extra": extra})
+                    for extra in ["", *requirement.extras]
+                ):
+                    child.marker = None
+                    if not _is_package_installed(str(child), seen):
+                        return False
+        return True
+    except (PackageNotFoundError, InvalidRequirement, InvalidVersion):
+        return False
+
+
+def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> tuple[bool, str]:
+    """Never install skill dependencies into the desktop app interpreter.
+
+    An approved isolated dependency environment and explicit dependency
+    consent are not wired in Phase 1. Inspection of existing distributions
+    remains available, but missing packages fail closed.
+    """
+    return False, "Approved isolated skill dependency installation is unavailable in Phase 1."
+
+
+def _extract_dependencies_from_source(source: str) -> list[str]:
+    """Extract ``dependencies`` from ``SKILL_DEFINITION`` dict in source without executing.
+
+    Uses AST literal eval so only works for literal dict definitions.  Returns
+    empty list if the definition is dynamic or dependencies key is absent.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "SKILL_DEFINITION":
+                    try:
+                        value = ast.literal_eval(node.value)
+                        if isinstance(value, dict):
+                            deps = value.get("dependencies", [])
+                            if isinstance(deps, list) and all(isinstance(d, str) for d in deps):
+                                return deps
+                    except (ValueError, TypeError):
+                        pass
+    return []
+
+
+def _extract_skill_name_from_source(source: str) -> str:
+    """Statically read SKILL_DEFINITION['name'] without executing the module.
+
+    install_skill used to exec() URL-sourced code just to read the name, which
+    runs any module-level payload before the file is even persisted. The name
+    is a literal, so ast.literal_eval gets it without execution."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return ""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "SKILL_DEFINITION":
+                    try:
+                        value = ast.literal_eval(node.value)
+                    except (ValueError, TypeError):
+                        return ""
+                    if isinstance(value, dict):
+                        name = value.get("name", "")
+                        return name if isinstance(name, str) else ""
+    return ""
+
+
+def resolve_dependencies(deps: list[str]) -> tuple[list[str], list[str], list[SkillDiagnostic]]:
+    """Resolve skill pip dependencies.
+
+    Returns ``(already_installed, newly_installed, diagnostics)``.
+    """
+    diagnostics: list[SkillDiagnostic] = []
+
+    if not deps:
+        return [], [], diagnostics
+
+    if len(deps) > MAX_SKILL_DEPENDENCIES:
+        diagnostics.append(
+            SkillDiagnostic(
+                "error",
+                f"Too many dependencies ({len(deps)}). Maximum is {MAX_SKILL_DEPENDENCIES}.",
+            )
+        )
+        return [], [], diagnostics
+
+    already_installed: list[str] = []
+    to_install: list[str] = []
+
+    for spec in deps:
+        # Block install-time RCE via direct-reference / URL / VCS / path specs
+        # BEFORE anything reaches pip.
+        if not is_safe_dependency_spec(spec):
+            diagnostics.append(
+                SkillDiagnostic(
+                    "error",
+                    f"Refused unsafe dependency spec {spec!r}: only plain "
+                    "'name[extras]<version>' from a package index is allowed "
+                    "(no URLs, @ direct references, VCS, or local paths).",
+                )
+            )
+            return [], [], diagnostics
+        name = _parse_package_name(spec)
+        if not name:
+            diagnostics.append(SkillDiagnostic("warn", f"Invalid dependency spec: {spec!r}"))
+            continue
+        if _is_package_installed(spec):
+            already_installed.append(spec)
+        else:
+            to_install.append(spec)
+
+    newly_installed: list[str] = []
+    if to_install:
+        success, output = _install_packages(to_install)
+        if success:
+            newly_installed = to_install
+            diagnostics.append(
+                SkillDiagnostic(
+                    "warn",
+                    f"Auto-installed dependencies: {', '.join(to_install)}",
+                )
+            )
+        else:
+            diagnostics.append(
+                SkillDiagnostic(
+                    "error",
+                    f"Failed to install dependencies [{', '.join(to_install)}]: {output}",
+                )
+            )
+
+    return already_installed, newly_installed, diagnostics
+
+
+def validate_config_value(field_name: str, field_schema: dict, value: Any) -> str | None:
+    """Validate a single config value against its field schema.
+
+    Returns an error string or None if valid.
+    """
+    ftype = field_schema.get("type", "string")
+
+    # Type check
+    if ftype == "string":
+        if not isinstance(value, str):
+            return f"'{field_name}': expected string, got {type(value).__name__}"
+    elif ftype == "integer":
+        if not isinstance(value, int) or isinstance(value, bool):
+            return f"'{field_name}': expected integer, got {type(value).__name__}"
+    elif ftype == "number":
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return f"'{field_name}': expected number, got {type(value).__name__}"
+    elif ftype == "boolean":
+        if not isinstance(value, bool):
+            return f"'{field_name}': expected boolean, got {type(value).__name__}"
+
+    # Enum constraint
+    enum = field_schema.get("enum")
+    if enum is not None and isinstance(enum, list) and value not in enum:
+        return f"'{field_name}': value {value!r} not in allowed values {enum}"
+
+    # Numeric constraints
+    if (
+        ftype in ("integer", "number")
+        and isinstance(value, (int, float))
+        and not isinstance(value, bool)
+    ):
+        minimum = field_schema.get("minimum")
+        if minimum is not None and value < minimum:
+            return f"'{field_name}': value {value} is below minimum {minimum}"
+        maximum = field_schema.get("maximum")
+        if maximum is not None and value > maximum:
+            return f"'{field_name}': value {value} exceeds maximum {maximum}"
+
+    # String constraints
+    if ftype == "string" and isinstance(value, str):
+        min_len = field_schema.get("minLength")
+        if min_len is not None and len(value) < min_len:
+            return f"'{field_name}': length {len(value)} is below minLength {min_len}"
+        max_len = field_schema.get("maxLength")
+        if max_len is not None and len(value) > max_len:
+            return f"'{field_name}': length {len(value)} exceeds maxLength {max_len}"
+
+    return None
+
+
+def validate_config(schema: dict, values: dict) -> list[str]:
+    """Validate a full config dict against a config_schema.
+
+    The schema follows JSON Schema 'object' format:
+    {
+      "type": "object",
+      "properties": {
+        "field_name": {"type": "string", "default": "...", "description": "..."},
+        ...
+      },
+      "required": ["field_name"]
+    }
+
+    Returns a list of error strings (empty = valid).
+    """
+    errors: list[str] = []
+    properties = schema.get("properties", {})
+    required = set(schema.get("required", []))
+
+    # Check required fields
+    for req in required:
+        if req not in values:
+            # Only error if there's no default in the schema
+            prop = properties.get(req, {})
+            if "default" not in prop:
+                errors.append(f"Missing required field '{req}'")
+
+    # Validate each provided value
+    for key, value in values.items():
+        if key not in properties:
+            errors.append(f"Unknown field '{key}'")
+            continue
+        err = validate_config_value(key, properties[key], value)
+        if err:
+            errors.append(err)
+
+    return errors
+
+
+def apply_defaults(schema: dict, values: dict) -> dict:
+    """Return config values with defaults filled in from schema."""
+    result = dict(values)
+    properties = schema.get("properties", {})
+    for key, prop in properties.items():
+        if key not in result and "default" in prop:
+            result[key] = prop["default"]
+    return result
+
+
+class SkillStatus(StrEnum):
+    """Lifecycle state of a skill."""
+
+    LOADED = "loaded"
+    DISABLED = "disabled"
+    ERROR = "error"
+
+
+@dataclass
+class SkillDiagnostic:
+    """A warning or error collected during skill load/validation."""
+
+    level: str  # "warn" or "error"
+    message: str
+
+
+@dataclass
+class SkillMetadata:
+    """Rich metadata parsed from SKILL_DEFINITION."""
+
+    version: str = "0.0.0"
+    author: str = ""
+    homepage: str = ""
+    tags: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    config_schema: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_definition(cls, definition: dict) -> tuple[SkillMetadata, list[SkillDiagnostic]]:
+        """Parse metadata from a SKILL_DEFINITION dict, collecting diagnostics."""
+        diagnostics: list[SkillDiagnostic] = []
+        kwargs: dict[str, Any] = {}
+
+        # version
+        raw_version = definition.get("version", "0.0.0")
+        if isinstance(raw_version, str):
+            if raw_version and not _SEMVER_PATTERN.match(raw_version):
+                diagnostics.append(
+                    SkillDiagnostic(
+                        "warn",
+                        f"Invalid version '{raw_version}', expected semver (e.g. 1.0.0). "
+                        "Using 0.0.0.",
+                    )
+                )
+                kwargs["version"] = "0.0.0"
+            else:
+                kwargs["version"] = raw_version or "0.0.0"
+        else:
+            diagnostics.append(SkillDiagnostic("warn", "version must be a string. Using 0.0.0."))
+            kwargs["version"] = "0.0.0"
+
+        # author
+        raw_author = definition.get("author", "")
+        if isinstance(raw_author, str):
+            kwargs["author"] = raw_author
+        else:
+            diagnostics.append(SkillDiagnostic("warn", "author must be a string. Ignored."))
+
+        # homepage
+        raw_homepage = definition.get("homepage", "")
+        if isinstance(raw_homepage, str):
+            kwargs["homepage"] = raw_homepage
+        else:
+            diagnostics.append(SkillDiagnostic("warn", "homepage must be a string. Ignored."))
+
+        # tags
+        raw_tags = definition.get("tags", [])
+        if isinstance(raw_tags, list) and all(isinstance(t, str) for t in raw_tags):
+            kwargs["tags"] = raw_tags
+        elif raw_tags:
+            diagnostics.append(SkillDiagnostic("warn", "tags must be a list of strings. Ignored."))
+
+        # dependencies (pip packages)
+        raw_deps = definition.get("dependencies", [])
+        if isinstance(raw_deps, list) and all(isinstance(d, str) for d in raw_deps):
+            kwargs["dependencies"] = raw_deps
+        elif raw_deps:
+            diagnostics.append(
+                SkillDiagnostic("warn", "dependencies must be a list of strings. Ignored.")
+            )
+
+        # config_schema (JSON Schema dict)
+        raw_cs = definition.get("config_schema", {})
+        if isinstance(raw_cs, dict):
+            kwargs["config_schema"] = raw_cs
+        elif raw_cs:
+            diagnostics.append(SkillDiagnostic("warn", "config_schema must be a dict. Ignored."))
+
+        return cls(**kwargs), diagnostics
+
+
+@dataclass
+class SkillExecutionStats:
+    """Resource usage from a single skill execution."""
+
+    wall_time_ms: float = 0.0
+    output_chars: int = 0
+    truncated: bool = False
+    tool_calls: int = 0
+    http_requests: int = 0
+    messages_sent: int = 0
+    files_sent: int = 0
+    timestamp: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "wall_time_ms": round(self.wall_time_ms, 1),
+            "output_chars": self.output_chars,
+            "truncated": self.truncated,
+            "tool_calls": self.tool_calls,
+            "http_requests": self.http_requests,
+            "messages_sent": self.messages_sent,
+            "files_sent": self.files_sent,
+            "timestamp": self.timestamp,
+        }
+
+
+@dataclass
+class LoadedSkill:
+    name: str
+    definition: dict
+    execute_fn: Callable
+    file_path: Path
+    loaded_at: str
+    module_name: str = ""
+    status: SkillStatus = SkillStatus.LOADED
+    metadata: SkillMetadata = field(default_factory=SkillMetadata)
+    diagnostics: list[SkillDiagnostic] = field(default_factory=list)
+    last_execution: SkillExecutionStats | None = None
+    total_executions: int = 0
+
+
+class SkillManager:
+    """Manages user-created Python skill files in data/skills/."""
+
+    def __init__(
+        self,
+        skills_dir: str,
+        tool_executor: ToolExecutor,
+        memory_path: str | None = None,
+        tool_timeouts: dict[str, int] | None = None,
+        *,
+        allowed_urls: tuple[str, ...] = (),
+    ) -> None:
+        self.skills_dir = Path(skills_dir)
+        if not self.skills_dir.is_absolute() or ".." in self.skills_dir.parts:
+            raise ValueError("skill directory must be an absolute profile path")
+        private_directory(self.skills_dir)
+        self._config_dir = self.skills_dir / "config"
+        private_directory(self._config_dir)
+        self._disabled_path = self.skills_dir / ".disabled.json"
+        self._executor = tool_executor
+        self._tool_timeouts = tool_timeouts or {}
+        self._allowed_urls = tuple(url.rstrip("/") for url in allowed_urls)
+        # Derive a separate skill memory file to avoid corrupting the
+        # executor's scoped memory structure (global/user_* namespaces).
+        if memory_path:
+            p = Path(memory_path)
+            self._memory_path: str | None = str(p.parent / f"{p.stem}_skills{p.suffix}")
+        else:
+            self._memory_path = None
+        self._skills: dict[str, LoadedSkill] = {}
+        self.definition_errors: dict[str, str] = {}
+        # ONE lock shared across every SkillContext this manager creates — all
+        # contexts write the same <memory>_skills.json, so a per-context lock
+        # would let concurrent remember() calls race and collide on the .tmp.
+        self._skill_memory_lock = threading.Lock()
+        self._disabled: set[str] = self._load_disabled_set()
+        # Optional service references — set after construction via set_services()
+        self._knowledge_store = None
+        self._embedder = None
+        self._session_manager = None
+        self._scheduler = None
+        self._load_all()
+
+    def _load_disabled_set(self) -> set[str]:
+        """Load the set of disabled skill names from disk."""
+        if not self._disabled_path.exists():
+            return set()
+        try:
+            data = json.loads(self._disabled_path.read_text())
+            if isinstance(data, list):
+                return {n for n in data if isinstance(n, str)}
+        except Exception:
+            pass
+        return set()
+
+    def _save_disabled_set(self, disabled: set[str] | None = None) -> None:
+        """Persist the disabled skill names to disk."""
+        candidate = self._disabled if disabled is None else disabled
+        # Persist before publishing activation; a failed write cannot leave
+        # a changed live catalog or a partially written durable ledger.
+        fd, filename = tempfile.mkstemp(dir=self._disabled_path.parent)
+        try:
+            with os.fdopen(fd, "w") as stream:
+                stream.write(json.dumps(sorted(candidate)))
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(filename, self._disabled_path)
+        finally:
+            Path(filename).unlink(missing_ok=True)
+
+    def set_services(
+        self,
+        knowledge_store=None,
+        embedder=None,
+        session_manager=None,
+        scheduler=None,
+    ) -> None:
+        """Inject optional service references for skill context expansion."""
+        self._knowledge_store = knowledge_store
+        self._embedder = embedder
+        self._session_manager = session_manager
+        self._scheduler = scheduler
+
+    def _load_all(self) -> None:
+        for path in sorted(self.skills_dir.glob("*.py")):
+            skill = self._load_skill(path)
+            if skill:
+                self._skills[skill.name] = skill
+        # Apply persisted disabled state
+        for name in self._disabled:
+            if name in self._skills:
+                self._skills[name].status = SkillStatus.DISABLED
+        if self._skills:
+            log.info("Loaded %d skill(s): %s", len(self._skills), ", ".join(self._skills))
+
+    def _load_skill(self, path: Path) -> LoadedSkill | None:
+        module_name = f"odin_skill_{path.stem}"
+        previous_module = sys.modules.get(module_name)
+        accepted = False
+
+        # Pre-load: extract and resolve dependencies from source *before*
+        # executing the module, so that imports succeed.
+        dep_diagnostics: list[SkillDiagnostic] = []
+        try:
+            source = path.read_text()
+        except Exception as e:
+            self.definition_errors[path.name] = type(e).__name__ + ": cannot read skill module"
+            log.error("Cannot read skill file %s: %s", path, e)
+            return None
+
+        pre_deps = _extract_dependencies_from_source(source)
+        if pre_deps:
+            _, _, dep_diagnostics = resolve_dependencies(pre_deps)
+            for d in dep_diagnostics:
+                lvl = log.warning if d.level == "warn" else log.error
+                lvl("Skill %s deps: %s", path.name, d.message)
+            if any(d.level == "error" for d in dep_diagnostics):
+                self.definition_errors[path.name] = (
+                    "DependencyError: skill dependencies unavailable"
+                )
+                return None
+
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, path)
+            if not spec or not spec.loader:
+                self.definition_errors[path.name] = "LoadError: cannot create module spec"
+                log.warning("Cannot create module spec for %s", path)
+                return None
+
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            # Validate the source we just read, not an importlib timestamp/size
+            # cache that can still contain a previous same-size edit.
+            exec(compile(source, str(path), "exec"), module.__dict__)
+
+            # Shared startup/create/edit/install publication boundary. Loading
+            # remains trusted execution; no mandatory static preflight is added.
+            definition = getattr(module, "SKILL_DEFINITION", None)
+            validate_skill_definition(definition)
+            assert isinstance(definition, dict)
+
+            # Validate execute function
+            execute_fn = getattr(module, "execute", None)
+            if not callable(execute_fn):
+                self.definition_errors[path.name] = "LoadError: missing execute() function"
+                log.warning("Skill %s: missing execute() function", path.name)
+                del sys.modules[module_name]
+                return None
+
+            # Parse rich metadata from definition
+            metadata, meta_diagnostics = SkillMetadata.from_definition(definition)
+            if meta_diagnostics:
+                for d in meta_diagnostics:
+                    log.warning("Skill %s metadata: %s", path.name, d.message)
+
+            # Merge dependency diagnostics with metadata diagnostics
+            all_diagnostics = dep_diagnostics + meta_diagnostics
+
+            name = definition["name"]
+            accepted = True
+            self.definition_errors.pop(path.name, None)
+            log.info("Loaded skill: %s from %s", name, path.name)
+            return LoadedSkill(
+                name=name,
+                definition=definition,
+                execute_fn=execute_fn,
+                file_path=path,
+                loaded_at=datetime.now().isoformat(),
+                module_name=module_name,
+                status=SkillStatus.LOADED,
+                metadata=metadata,
+                diagnostics=all_diagnostics,
+            )
+
+        except Exception as e:
+            self.definition_errors[path.name] = (
+                type(e).__name__ + ": invalid skill definition or module"
+            )
+            log.error("Failed to load skill %s: %s", path.name, e)
+            sys.modules.pop(module_name, None)
+            return None
+        finally:
+            if not accepted:
+                if previous_module is not None:
+                    sys.modules[module_name] = previous_module
+                else:
+                    sys.modules.pop(module_name, None)
+
+    def _unload_skill(self, name: str) -> None:
+        if name in self._skills:
+            skill = self._skills[name]
+            # Use the actual module name stored during load (based on file stem)
+            # rather than deriving from skill name, which could differ for
+            # manually placed skill files.
+            mod_name = skill.module_name or f"odin_skill_{name}"
+            sys.modules.pop(mod_name, None)
+            del self._skills[name]
+
+    def _validate_name(self, name: str) -> str | None:
+        """Validate skill name. Returns error string or None if valid."""
+        if not SKILL_NAME_PATTERN.match(name):
+            return (
+                f"Invalid skill name '{name}'. Must be lowercase alphanumeric with underscores, "
+                "1-50 chars, starting with a letter."
+            )
+        if name in BUILTIN_TOOL_NAMES:
+            return f"Name '{name}' conflicts with a built-in tool."
+        return None
+
+    def create_skill(self, name: str, code: str) -> str:
+        """Write a new skill file and hot-load it."""
+        error = self._validate_name(name)
+        if error:
+            return error
+
+        if name in self._skills:
+            return f"Skill '{name}' already exists. Use edit_skill to modify it."
+
+        path = self.skills_dir / f"{name}.py"
+        try:
+            path.write_text(code)
+        except Exception as e:
+            return f"Failed to write skill file: {e}"
+
+        skill = self._load_skill(path)
+        if not skill:
+            path.unlink(missing_ok=True)
+            return (
+                "Skill file written but failed to load. Check syntax and required "
+                "exports (SKILL_DEFINITION dict + async execute function)."
+            )
+
+        if skill.name != name:
+            # The candidate was never published. Its declared name may belong
+            # to an unrelated working skill; unload only the candidate module.
+            sys.modules.pop(skill.module_name, None)
+            path.unlink(missing_ok=True)
+            return (
+                f"SKILL_DEFINITION.name ('{skill.name}') doesn't match filename "
+                f"('{name}'). They must be identical."
+            )
+
+        self._skills[name] = skill
+        return f"Skill '{name}' created and loaded successfully. It's now available as a tool."
+
+    def edit_skill(self, name: str, code: str) -> str:
+        """Replace a skill's code and reload it."""
+        if name not in self._skills:
+            return f"Skill '{name}' not found."
+
+        path = self._skills[name].file_path
+        old_code = path.read_text() if path.exists() else ""
+
+        try:
+            path.write_text(code)
+        except Exception as e:
+            return f"Failed to write skill file: {e}"
+
+        previous_skill = self._skills[name]
+        previous_module = sys.modules.get(previous_skill.module_name)
+        skill = self._load_skill(path)
+        if not skill:
+            # Restore old code
+            path.write_text(old_code)
+            return "New code failed to load. Reverted to previous version."
+
+        if skill.name != name:
+            # Name mismatch — revert to old code
+            path.write_text(old_code)
+            if previous_module is not None:
+                sys.modules[previous_skill.module_name] = previous_module
+            return (
+                f"SKILL_DEFINITION.name ('{skill.name}') doesn't match filename "
+                f"('{name}'). They must be identical. Reverted to previous version."
+            )
+
+        if name in self._disabled or previous_skill.status == SkillStatus.DISABLED:
+            skill.status = SkillStatus.DISABLED
+        self._skills[name] = skill
+        return f"Skill '{name}' updated and reloaded successfully."
+
+    def delete_skill(self, name: str) -> str:
+        """Delete a skill file and unload it."""
+        if name not in self._skills:
+            return f"Skill '{name}' not found."
+
+        path = self._skills[name].file_path
+        path.unlink(missing_ok=True)
+        self._unload_skill(name)
+        # Clean up config file and disabled state
+        config_path = self._config_dir / f"{name}.json"
+        config_path.unlink(missing_ok=True)
+        if name in self._disabled:
+            self._disabled.discard(name)
+            self._save_disabled_set()
+        return f"Skill '{name}' deleted."
+
+    def delete_failed_skill(self, name: str) -> str:
+        """Owner-control removal of a recorded failed module, never a loaded skill.
+
+        Resolve by the recorded filename, not a user-supplied filesystem path.
+        Keep the diagnostic if unlink fails so the operator can retry.
+        """
+        loaded_files = {skill.file_path.name for skill in self._skills.values()}
+        filename = next((filename for filename in self.definition_errors
+                         if Path(filename).stem == name and filename not in loaded_files), None)
+        if filename is None or name in self._skills:
+            return f"Skill '{name}' not found."
+        path = self.skills_dir / filename
+        path.unlink(missing_ok=True)
+        del self.definition_errors[filename]
+        return f"Skill '{name}' deleted."
+
+    def enable_skill(self, name: str) -> str:
+        """Enable a previously disabled skill."""
+        if name not in self._skills:
+            return f"Skill '{name}' not found."
+        skill = self._skills[name]
+        if skill.status != SkillStatus.DISABLED:
+            return f"Skill '{name}' is already enabled."
+        candidate = self._disabled - {name}
+        self._save_disabled_set(candidate)
+        self._disabled = candidate
+        skill.status = SkillStatus.LOADED
+        return f"Skill '{name}' enabled."
+
+    def disable_skill(self, name: str) -> str:
+        """Disable a skill without deleting it. The file is preserved."""
+        if name not in self._skills:
+            return f"Skill '{name}' not found."
+        skill = self._skills[name]
+        if skill.status == SkillStatus.DISABLED:
+            return f"Skill '{name}' is already disabled."
+        candidate = self._disabled | {name}
+        self._save_disabled_set(candidate)
+        self._disabled = candidate
+        skill.status = SkillStatus.DISABLED
+        return f"Skill '{name}' disabled. Use enable_skill to re-activate it."
+
+    def is_enabled(self, name: str) -> bool:
+        """Check if a skill is loaded and enabled (not disabled)."""
+        skill = self._skills.get(name)
+        return skill is not None and skill.status != SkillStatus.DISABLED
+
+    # -- Config management --
+
+    def _config_path(self, name: str) -> Path:
+        return self._config_dir / f"{name}.json"
+
+    def get_skill_config(self, name: str) -> dict:
+        """Get runtime config for a skill, with defaults applied from schema."""
+        skill = self._skills.get(name)
+        if not skill:
+            return {}
+        raw = self._load_config_file(name)
+        schema = skill.metadata.config_schema
+        if schema:
+            return apply_defaults(schema, raw)
+        return raw
+
+    def set_skill_config(self, name: str, values: dict) -> list[str]:
+        """Set runtime config for a skill. Returns list of validation errors (empty = success)."""
+        skill = self._skills.get(name)
+        if not skill:
+            return [f"Skill '{name}' not found."]
+        schema = skill.metadata.config_schema
+        if schema:
+            errors = validate_config(schema, values)
+            if errors:
+                return errors
+        self._save_config_file(name, values)
+        return []
+
+    def _load_config_file(self, name: str) -> dict:
+        path = self._config_path(name)
+        if not path.exists():
+            return {}
+        try:
+            return json.loads(path.read_text())
+        except Exception:
+            return {}
+
+    def _save_config_file(self, name: str, values: dict) -> None:
+        path = self._config_path(name)
+        path.write_text(json.dumps(values, indent=2))
+
+    def list_skills(self) -> list[dict]:
+        """Return loaded/disabled metadata and failed on-disk module entries."""
+        skills = [
+            {
+                "name": s.name,
+                "description": s.definition.get("description", ""),
+                "loaded_at": s.loaded_at,
+                "status": s.status.value,
+                "version": s.metadata.version,
+                "author": s.metadata.author,
+                "tags": s.metadata.tags,
+                "dependencies": s.metadata.dependencies,
+                "has_config": bool(s.metadata.config_schema),
+                "diagnostics": [{"level": d.level, "message": d.message} for d in s.diagnostics],
+                "total_executions": s.total_executions,
+                "last_execution": s.last_execution.to_dict() if s.last_execution else None,
+            }
+            for s in self._skills.values()
+        ]
+        loaded_files = {s.file_path.name for s in self._skills.values()}
+        for filename, error in sorted(self.definition_errors.items()):
+            # A rejected create is deleted; a rejected edit restores the active
+            # skill. Neither should appear as a second, failed listing entry.
+            if filename in loaded_files or not (self.skills_dir / filename).exists():
+                continue
+            skills.append({
+                "name": Path(filename).stem,
+                "description": error,
+                "status": SkillStatus.ERROR.value,
+                "loaded_at": "",
+                "version": "0.0.0",
+                "author": "",
+                "tags": [],
+                "dependencies": [],
+                "has_config": False,
+                "diagnostics": [{"level": "error", "message": error}],
+                "total_executions": 0,
+                "last_execution": None,
+            })
+        return skills
+
+    def has_skill(self, name: str) -> bool:
+        return name in self._skills
+
+    def check_dependencies(self, name: str) -> dict:
+        """Check dependency status for a loaded skill.
+
+        Returns a dict with ``dependencies`` (list of status dicts) and
+        ``all_satisfied`` (bool).
+        """
+        skill = self._skills.get(name)
+        if not skill:
+            return {"error": f"Skill '{name}' not found"}
+        deps = skill.metadata.dependencies
+        if not deps:
+            return {"dependencies": [], "all_satisfied": True}
+        results = []
+        for spec in deps:
+            pkg_name = _parse_package_name(spec)
+            results.append(
+                {
+                    "spec": spec,
+                    "package": pkg_name,
+                    "installed": (is_safe_dependency_spec(spec)
+                                  and _is_package_installed(spec)) if pkg_name else False,
+                }
+            )
+        return {
+            "dependencies": results,
+            "all_satisfied": all(r["installed"] for r in results),
+        }
+
+    def should_handoff_to_codex(self, name: str) -> bool:
+        """Check if a skill wants its result handed to Codex for the response."""
+        skill = self._skills.get(name)
+        if not skill:
+            return False
+        return bool(skill.definition.get("handoff_to_codex", False))
+
+    def get_tool_definitions(self) -> list[dict]:
+        """Return tool definitions for enabled skills only."""
+        return [
+            {
+                "name": s.definition["name"],
+                "description": s.definition["description"],
+                "input_schema": s.definition["input_schema"],
+            }
+            for s in self._skills.values()
+            if s.status != SkillStatus.DISABLED
+        ]
+
+    def validate_skill_code(self, code: str, filename: str = "<string>") -> dict:
+        """Validate skill code without loading it. Returns a report dict.
+
+        The report contains:
+          valid (bool), errors (list[str]), warnings (list[str]),
+          metadata (dict|None), definition_keys (list[str])
+        """
+        errors: list[str] = []
+        warnings: list[str] = []
+        metadata_out: dict | None = None
+        definition_keys: list[str] = []
+
+        # 1. Syntax check
+        try:
+            compile(code, filename, "exec")
+        except SyntaxError as e:
+            errors.append(f"Syntax error at line {e.lineno}: {e.msg}")
+            return {
+                "valid": False,
+                "errors": errors,
+                "warnings": warnings,
+                "metadata": None,
+                "definition_keys": [],
+            }
+
+        # 2. Static analysis — extract SKILL_DEFINITION from AST without exec
+        import ast as _ast
+
+        tree = _ast.parse(code, filename)
+
+        has_execute = any(
+            isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)) and node.name == "execute"
+            for node in _ast.walk(tree)
+        )
+        if not has_execute:
+            errors.append("Missing 'execute' function (async def execute(inp, context)).")
+
+        definition = None
+        # Dead duplicate of the declaration 28 lines up (harmless; slated
+        # for a deliberate cleanup PR — removal is out of wave scope).
+        definition_keys: list[str] = []  # type: ignore[no-redef]
+        for node in _ast.iter_child_nodes(tree):
+            if isinstance(node, _ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, _ast.Name) and target.id == "SKILL_DEFINITION":
+                        try:
+                            definition = _ast.literal_eval(node.value)
+                        except Exception:
+                            warnings.append(
+                                "SKILL_DEFINITION is not a static literal — "
+                                "will be validated at load time."
+                            )
+
+        if definition is None and not any("SKILL_DEFINITION" in e for e in errors):
+            errors.append("Missing or invalid SKILL_DEFINITION dict.")
+        elif isinstance(definition, dict):
+            definition_keys = list(definition.keys())
+            for key in ("name", "description", "input_schema"):
+                if key not in definition:
+                    errors.append(f"SKILL_DEFINITION missing required key '{key}'.")
+
+            # Validate name if present
+            name = definition.get("name")
+            if isinstance(name, str):
+                name_err = self._validate_name(name)
+                if name_err:
+                    errors.append(name_err)
+            elif name is not None:
+                errors.append("SKILL_DEFINITION 'name' must be a string.")
+
+            # Parse metadata
+            meta, diags = SkillMetadata.from_definition(definition)
+            metadata_out = {
+                "version": meta.version,
+                "author": meta.author,
+                "homepage": meta.homepage,
+                "tags": meta.tags,
+                "dependencies": meta.dependencies,
+                "has_config": bool(meta.config_schema),
+            }
+            for d in diags:
+                warnings.append(d.message)
+
+        # 4. Check execute function (AST-based — already checked above)
+        execute_is_async = any(
+            isinstance(node, _ast.AsyncFunctionDef) and node.name == "execute"
+            for node in _ast.walk(tree)
+        )
+        if has_execute and not execute_is_async:
+            warnings.append(
+                "execute() is not async. It should be 'async def execute(inp, context)'."
+            )
+
+        return {
+            "valid": len(errors) == 0,
+            "errors": errors,
+            "warnings": warnings,
+            "metadata": metadata_out,
+            "definition_keys": definition_keys,
+        }
+
+    def get_skill_info(self, name: str) -> dict | None:
+        """Return detailed info for a single skill, or None if not found."""
+        skill = self._skills.get(name)
+        if not skill:
+            return None
+        code = None
+        try:
+            code = skill.file_path.read_text()
+        except Exception:
+            pass
+        return {
+            "name": skill.name,
+            "description": skill.definition.get("description", ""),
+            "input_schema": skill.definition.get("input_schema", {}),
+            "loaded_at": skill.loaded_at,
+            "status": skill.status.value,
+            "file_path": str(skill.file_path),
+            "metadata": {
+                "version": skill.metadata.version,
+                "author": skill.metadata.author,
+                "homepage": skill.metadata.homepage,
+                "tags": skill.metadata.tags,
+                "dependencies": skill.metadata.dependencies,
+                "has_config": bool(skill.metadata.config_schema),
+                "config_schema": skill.metadata.config_schema,
+            },
+            "config": self.get_skill_config(name),
+            "diagnostics": [{"level": d.level, "message": d.message} for d in skill.diagnostics],
+            "handoff_to_codex": skill.definition.get("handoff_to_codex", False),
+            "code": code,
+            "total_executions": skill.total_executions,
+            "last_execution": skill.last_execution.to_dict() if skill.last_execution else None,
+        }
+
+    async def execute(
+        self,
+        tool_name: str,
+        tool_input: dict,
+        message_callback: Callable | None = None,
+        file_callback: Callable | None = None,
+        requester_id: str | None = None,
+    ) -> str:
+        """Execute trusted in-process Python with scoped admission and timeout.
+
+        This is not a Python sandbox. Phase 2 authoring intake must obtain
+        explicit trusted-code consent before importing owner-provided modules.
+        """
+        from .execution_outcome import DispatchEvidence, ToolFailure, dispatch_evidence
+        from .output_authorization import tool_scope_allows
+
+        # invoke_skill is only a wrapper, not authority for its selected skill.
+        # This boundary also covers legacy/background and direct manager calls.
+        if not tool_scope_allows(tool_name):
+            return ToolFailure("Permission denied: selected skill scope revoked or unavailable.")
+        # Intake must authenticate the owner before this call. An executor
+        # without the public admission boundary is not a privileged shortcut.
+        denial = self._executor.check_permission(tool_name, requester_id)
+        if denial:
+            return ToolFailure(denial)
+        skill = self._skills.get(tool_name)
+        if not skill:
+            return ToolFailure(f"Skill '{tool_name}' not found.")
+        if skill.status == SkillStatus.DISABLED:
+            return ToolFailure(
+                f"Skill '{tool_name}' is disabled. Use enable_skill to re-activate it."
+            )
+
+        # Load config with defaults applied
+        skill_config = self.get_skill_config(tool_name)
+
+        tracker = ResourceTracker()
+        context = SkillContext(
+            self._executor,
+            tool_name,
+            memory_path=self._memory_path,
+            message_callback=message_callback,
+            file_callback=file_callback,
+            knowledge_store=self._knowledge_store,
+            embedder=self._embedder,
+            session_manager=self._session_manager,
+            scheduler=self._scheduler,
+            skill_config=skill_config,
+            resource_tracker=tracker,
+            skill_memory_lock=self._skill_memory_lock,
+            requester_id=requester_id,
+            allowed_urls=self._allowed_urls,
+        )
+
+        start = time.monotonic()
+        truncated = False
+        output_chars = 0
+        skill_timeout = self._tool_timeouts.get(tool_name, SKILL_EXECUTE_TIMEOUT)
+        evidence = DispatchEvidence()
+        evidence_token = dispatch_evidence.set(evidence)
+        try:
+            result = await asyncio.wait_for(
+                skill.execute_fn(tool_input, context),
+                timeout=skill_timeout,
+            )
+            if not isinstance(result, str):
+                result = str(result)
+            # Delivery owners retain the full bounded output before preview.
+            # Direct/internal callers keep the historical safety limit.
+            from .result_capture import capture_active
+
+            if not capture_active() and len(result) > MAX_SKILL_OUTPUT_CHARS:
+                result = (
+                    result[:MAX_SKILL_OUTPUT_CHARS]
+                    + f"\n... [truncated at {MAX_SKILL_OUTPUT_CHARS} chars]"
+                )
+                truncated = True
+            if evidence.uncertain:
+                result = ToolFailure(result, uncertain_outcome=True)
+            output_chars = len(result)
+            return result
+        except TimeoutError:
+            return ToolFailure(
+                f"Skill '{tool_name}' timed out after {skill_timeout}s.", uncertain_outcome=True
+            )
+        except Exception as e:
+            log.error("Skill %s execution error: %s", tool_name, e, exc_info=True)
+            return ToolFailure(f"Skill error: {e}", uncertain_outcome=True)
+        finally:
+            dispatch_evidence.reset(evidence_token)
+            elapsed_ms = (time.monotonic() - start) * 1000
+            stats = SkillExecutionStats(
+                wall_time_ms=elapsed_ms,
+                output_chars=output_chars,
+                truncated=truncated,
+                tool_calls=tracker.tool_calls,
+                http_requests=tracker.http_requests,
+                messages_sent=tracker.messages_sent,
+                files_sent=tracker.files_sent,
+                timestamp=datetime.now().isoformat(),
+            )
+            skill.last_execution = stats
+            skill.total_executions += 1
+
+    # -- URL install --
+
+    async def install_from_url(self, url: str) -> str:
+        """Download a skill Python file from a URL and install it.
+
+        Validates URL scheme, downloads with size limit, validates skill code,
+        then creates the skill.
+        """
+        # Validate URL
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in _ALLOWED_URL_SCHEMES:
+            return f"Invalid URL scheme '{parsed.scheme}'. Only http/https allowed."
+        if not parsed.netloc:
+            return "Invalid URL: no host specified."
+        # Download through the hardened transport: each redirect hop is
+        # SSRF-validated (critical — this file is executed as a skill), the
+        # connect IP is pinned, TLS is verified, and the body is byte-capped.
+        from .safe_fetch import BlockedAddressError, ResponseTooLargeError, safe_fetch
+
+        try:
+            resp = await safe_fetch(
+                url,
+                max_bytes=MAX_SKILL_DOWNLOAD_BYTES,
+                timeout=float(_URL_DOWNLOAD_TIMEOUT),
+            )
+        except BlockedAddressError:
+            return "Error: blocked URL (localhost / private IP / cloud-metadata address)."
+        except ResponseTooLargeError:
+            return f"File too large. Maximum is {MAX_SKILL_DOWNLOAD_BYTES} bytes."
+        except TimeoutError:
+            return f"Download timed out after {_URL_DOWNLOAD_TIMEOUT}s."
+        except Exception as e:
+            return f"Download error: {e}"
+        if resp.status != 200:
+            return f"Download failed: HTTP {resp.status}"
+        try:
+            code = resp.body.decode("utf-8")
+        except UnicodeDecodeError:
+            return "Downloaded file is not valid UTF-8 text."
+
+        # Validate the code
+        report = self.validate_skill_code(code, url)
+        if not report["valid"]:
+            errors = "; ".join(report["errors"])
+            return f"Invalid skill code: {errors}"
+
+        # Defense-in-depth for URL-sourced skills: the source URL is
+        # prompt-influenceable and skills run in-process with full privileges, so
+        # an injected "install the helper at http://evil/x.py" could become RCE.
+        # Local create_skill stays unrestricted (trusted authoring); URL installs
+        # may not import os/subprocess/socket/etc. or call exec/eval/open.
+        denied = _scan_url_skill_ast(code)
+        if denied:
+            return (
+                "Refused: URL-installed skill uses denylisted constructs "
+                f"({', '.join(denied)}). Skills fetched from a URL may not import "
+                "os/subprocess/socket/sys/ctypes/etc. or call exec/eval/compile/"
+                "__import__/open. If you trust this code, author it locally with "
+                "create_skill instead."
+            )
+        import hashlib
+
+        log.warning(
+            "Installing skill from URL %s (sha256=%s)",
+            url,
+            hashlib.sha256(code.encode()).hexdigest()[:16],
+        )
+
+        # Extract skill name STATICALLY — never exec URL code just to read a
+        # literal (that would run any module-level payload pre-persist).
+        name = _extract_skill_name_from_source(code)
+        if not name:
+            return "Skill code missing a static SKILL_DEFINITION['name']."
+
+        # Create the skill (handles name validation, duplicate checks, loading)
+        return self.create_skill(name, code)
+
+    # -- Export --
+
+    def export_skill(self, name: str) -> tuple[bytes, str] | str:
+        """Export a skill as a Python file.
+
+        Returns ``(file_bytes, filename)`` on success, or an error string.
+        """
+        skill = self._skills.get(name)
+        if not skill:
+            return f"Skill '{name}' not found."
+        try:
+            code = skill.file_path.read_text()
+            return code.encode("utf-8"), f"{name}.py"
+        except Exception as e:
+            return f"Failed to read skill file: {e}"
+
+    # -- Status display --
+
+    def skill_status(self, name: str) -> str:
+        """Return a formatted status report for a skill."""
+        skill = self._skills.get(name)
+        if not skill:
+            return f"Skill '{name}' not found."
+
+        lines = [f"**Skill: {name}**"]
+        lines.append(f"Description: {skill.definition.get('description', 'N/A')}")
+        lines.append(f"Status: {skill.status.value}")
+        lines.append(f"Version: {skill.metadata.version}")
+        if skill.metadata.author:
+            lines.append(f"Author: {skill.metadata.author}")
+        if skill.metadata.homepage:
+            lines.append(f"Homepage: {skill.metadata.homepage}")
+        if skill.metadata.tags:
+            lines.append(f"Tags: {', '.join(skill.metadata.tags)}")
+        lines.append(f"Loaded at: {skill.loaded_at}")
+        lines.append(f"Total executions: {skill.total_executions}")
+
+        if skill.last_execution:
+            ex = skill.last_execution
+            lines.append(
+                f"Last execution: {ex.timestamp} ({ex.wall_time_ms:.0f}ms, {ex.output_chars} chars)"
+            )
+
+        if skill.metadata.dependencies:
+            dep_status = self.check_dependencies(name)
+            dep_lines = []
+            for d in dep_status.get("dependencies", []):
+                status = "installed" if d["installed"] else "MISSING"
+                dep_lines.append(f"  {d['spec']} [{status}]")
+            lines.append("Dependencies:\n" + "\n".join(dep_lines))
+
+        if skill.metadata.config_schema:
+            config = self.get_skill_config(name)
+            lines.append(f"Config: {json.dumps(config)}")
+
+        if skill.diagnostics:
+            diag_lines = [f"  [{d.level}] {d.message}" for d in skill.diagnostics]
+            lines.append("Diagnostics:\n" + "\n".join(diag_lines))
+
+        return "\n".join(lines)

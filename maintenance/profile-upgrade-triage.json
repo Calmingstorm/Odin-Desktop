@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "artifact": "Ordinary Desktop profile upgrades and remaining frozen corpus",
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "state": "focused-proof-full-gate-and-independent-review-pending",
+  "source_changes": "load_config rejects extras before writes, restores ceiling then image migrations on unsubstituted evidence for exact selected established canonical owner config only, normalizes retired models at runtime, validates then persists compatible timeout. Arbitrary external reads runtime-only. Guard retains OwnerAuthority and rejects selected config symlink to another installation, permits canonical aliases, translates identity errors honestly. Generic algorithms unchanged.",
+  "wrapper_api": "tests.test_desktop_shared_migrations exports literal CORPUS_SELECTIONS, CORPUS_EXCLUSIONS, CASE_MAP and ORIGINALS. ORIGINALS has all exact symbol/line/before_sha256/kind/after_source/after_sha256 setup hunks. Full assert/signature/decorator/parameter AST equality and pinned archive/retained bytes checked before extraction.",
+  "suites": {
+    "tests/test_config_ceiling_migration.py": {"baseline_sha256": "d8985d24f6287b2252da079d8f7163a2b97f27326703617129c6aa9dcaa6fc7b", "setup_rule_count": 67, "setup_rules_sha256": "534c8ea1b1de9977318e98892b639928c1465e8b50343e8684610d6fa9c05fc8"},
+    "tests/test_image_defaults_core.py": {"baseline_sha256": "60ef22969175d4fdc59012a6a5982c95928f9e8d76b609b78e054d5890d41220", "setup_rule_count": 33, "setup_rules_sha256": "68fa6ff7f12514f7cb8fabcfd4272469005568d701322860675aeb6f0dd4e7b8"},
+    "tests/test_config_schema_validators.py": {"baseline_sha256": "2b2e7f21a9bf4074f455f14d5f1993f82ab356715fca5df0a822b746ff6f0cfa", "setup_rule_count": 2, "setup_rules_sha256": "a753a81934a1ae3f26410313279cce0b9f0b3f28f8c5ab622fff7e3134d94f2c"}
+  },
+  "seven_core_blockers": [
+    {"original": "tests/test_config_schema_validators.py::test_max_concurrent_agents_default_and_bounds", "adapted": "tests/test_desktop_shared_migrations.py::test_config_schema_validators__max_concurrent_agents_default_and_bounds", "reason": "assertion unchanged; method-local strict factory accepts exact frozen dummy token x, drops inert retired transport, real Config bounds validation; no production acceptance"},
+    {"original": "tests/test_config_ceiling_migration.py::TestVacuousCompletion::test_non_legacy_values_marked_and_untouched", "adapted": "tests/test_desktop_shared_migrations.py::TestConfigCeilingMigrationVacuousCompletion::test_non_legacy_values_marked_and_untouched", "reason": "ten literal cases unchanged, genuine separate selected profile each key"},
+    {"original": "tests/test_config_ceiling_migration.py::TestDegenerateInputs::test_non_scalar_or_missing_lexical_shapes_complete_vacuously", "adapted": "tests/test_desktop_shared_migrations.py::TestConfigCeilingMigrationDegenerateInputs::test_non_scalar_or_missing_lexical_shapes_complete_vacuously", "reason": "three original params unchanged, genuine profile config per hash key"},
+    {"original": "tests/test_config_ceiling_migration.py::TestLexicalLiteralGate", "adapted": "tests/test_desktop_shared_migrations.py::TestConfigCeilingMigrationLexicalLiteralGate", "reason": "eight forms/flags unchanged, real profile per numeric index"},
+    {"original": "tests/test_config_ceiling_migration.py::TestVacuousFailureSequence", "adapted": "tests/test_desktop_shared_migrations.py::TestConfigCeilingMigrationVacuousFailureSequence", "reason": "both methods, truthful fault blocks actual profile config_migrations storage"},
+    {"original": "tests/test_config_ceiling_migration.py::TestConfigIdentityBinding", "adapted": "tests/test_desktop_shared_migrations.py::TestConfigCeilingMigrationConfigIdentityBinding", "reason": "neutral alias and distinct identity methods retained; specific two nonshared server layouts below"},
+    {"original": "tests/test_config_ceiling_migration.py::TestIdentityMarkerAdversarialBranches", "adapted": "tests/test_desktop_shared_migrations.py::TestConfigCeilingMigrationIdentityMarkerAdversarialBranches", "reason": "all six methods unchanged, actual selected profile data marker setup"}
+  ],
+  "nonshared_cases": [
+    {"original": "tests/test_config_ceiling_migration.py::TestPackagedSymlink::test_rewrite_lands_on_target_marker_beside_link", "reason": "asserts /opt-to-/etc unresolved sibling data marker, not XDG isolated profile namespace", "replacement": "tests/test_desktop_profile_upgrade.py::test_alias_to_selected_config_is_same_identity"},
+    {"original": "tests/test_config_ceiling_migration.py::TestConfigIdentityBinding::test_concurrent_siblings_cannot_both_adopt_one_legacy_marker", "reason": "two arbitrary siblings sharing one preidentity server marker not selected profile route; unchanged neutral claim functions tested separately", "replacement": "tests/test_desktop_shared_migrations.py::TestConfigCeilingMigrationConfigIdentityBinding::test_distinct_configs_in_one_directory_do_not_share_completion"},
+    {"original": "tests/test_config_ceiling_migration.py::TestConfigIdentityBinding::test_preidentity_directory_marker_is_bound_not_shared", "reason": "requires shared old directory provenance for two arbitrary siblings; profiles cannot adopt another profile marker", "replacement": "tests/test_desktop_shared_migrations.py::TestConfigCeilingMigrationIdentityMarkerAdversarialBranches::test_bound_legacy_marker_for_other_identity_is_ignored"}
+  ],
+  "superseded_waivers": "core-suite-triage D5 loader-removal judgments superseded. TestLoadConfigIntegration, TestPlaceholderIsDeliberate, image loader_new_defaults_and_later_old_pin and loader_reconciles_save_between_migrations retained, not waived.",
+  "evidence": {"result": "343 passed in 11.49s", "junit": ".test-state/profile-combined-final.xml", "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_profile_upgrade.py tests/test_desktop_shared_migrations.py tests/test_desktop_runtime_retirement.py tests/test_desktop_core_paths.py tests/test_desktop_shared_config.py --junitxml=.test-state/profile-combined-final.xml", "lint": "ruff check both new tests plus schema.py and migrations.py: all checks passed", "isolation": "sanitized PID runner, 90s timeout, no system/native/network/live/upstream or commits"},
+  "remaining_neutral_blockers_in_owned_scope": [],
+  "acceptance": "Parent full gate and independent review remain required."
+}

@@ -1,0 +1,2030 @@
+from __future__ import annotations
+
+import os
+import re
+import uuid
+from pathlib import Path
+from typing import Literal, get_args
+
+import yaml
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
+
+from ..reasoning import compatible_reasoning_dialect
+from ..runtime_paths import runtime_profile_paths
+from .model_defaults import (
+    COMPAT_AUXILIARY_MODEL,
+    COMPAT_LLM_PROVIDER_MODEL,
+    COMPAT_MAIN_MODEL,
+    RETIRED_MODEL_SUCCESSOR,
+    RETIRED_MODELS,
+)
+
+_VALID_LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
+
+
+class ContextConfig(BaseModel):
+    directory: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "context")
+    )
+
+
+class SessionsConfig(BaseModel):
+    max_history: int = 50
+    max_age_hours: int = 24
+    persist_directory: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "sessions")
+    )
+    token_budget: int = 256_000
+    adaptive_compaction: bool = True
+    # Session archives are retained indefinitely by default; pruned oldest-first
+    # only past these caps (restore-on-demand depends on archives surviving).
+    archive_max_bytes: int | None = 2 * 1024**3
+    archive_max_files: int | None = 10_000
+    # Max estimated tokens of session history sent per LLM request.
+    context_token_budget: int = 64_000
+    context_budget_overrides: dict[str, int] = {}
+
+    @field_validator("archive_max_bytes", "archive_max_files")
+    @classmethod
+    def _archive_caps(cls, value: int | None, info: ValidationInfo) -> int | None:
+        # Zero is the existing explicit retain-nothing policy. Negative means
+        # unset only on legacy startup, never on a new save.
+        if value is not None and value < 0:
+            if info.context and info.context.get("startup"):
+                from ..odin_log import get_logger
+                get_logger("config").warning(
+                    "sessions.%s is negative; treating as unset", info.field_name
+                )
+                return None
+            raise ValueError(f"{info.field_name} must be nonnegative")
+        return value
+
+
+class ToolHost(BaseModel):
+    """One managed execution target.
+
+    The first three fields are the complete legacy shape. Every control-plane
+    field therefore has a default: loading an existing config is read-only and
+    preserves its pre-control-plane behaviour until an operator deliberately
+    edits or enrolls the host.
+    """
+
+    address: str
+    ssh_user: str = "root"
+    # Kept deliberately open at config-load time.  Older releases accepted
+    # arbitrary strings here; the admin control plane enforces linux/macos on
+    # every mutation without making an existing installation unbootable.
+    os: str = "linux"
+    port: int = Field(default=22, ge=1, le=65535)
+    description: str = ""
+    enabled: bool = True
+    # Empty on legacy records. HostRegistry derives a deterministic in-memory
+    # identity and the dedicated control plane persists it on first mutation;
+    # boot never rewrites config.yml.
+    host_id: str = ""
+    trust_mode: Literal["legacy", "pinned", "ca", "tofu"] = "legacy"
+    # Public OpenSSH key material only. Private keys never belong here.
+    host_keys: list[str] = Field(default_factory=list)
+
+    @field_validator("description", "host_id")
+    @classmethod
+    def _host_text(cls, value: str, info):
+        limits = {"address": 253, "ssh_user": 64, "description": 200, "host_id": 64}
+        if len(value) > limits[info.field_name]:
+            raise ValueError(f"{info.field_name} is too long")
+        if any(ord(char) < 32 or ord(char) == 127 for char in value):
+            raise ValueError(f"{info.field_name} contains control characters")
+        return value
+
+    @field_validator("host_id")
+    @classmethod
+    def _valid_host_id(cls, value: str) -> str:
+        if value:
+            try:
+                parsed = uuid.UUID(value)
+            except ValueError:
+                raise ValueError("host_id must be a UUID") from None
+            if str(parsed) != value.lower():
+                raise ValueError("host_id must use canonical UUID form")
+        return value
+
+    @field_validator("host_keys")
+    @classmethod
+    def _public_host_keys_only(cls, values: list[str]) -> list[str]:
+        for value in values:
+            if len(value) > 24_000 or any(ord(char) < 32 or ord(char) == 127 for char in value):
+                raise ValueError("host_keys contains malformed key material")
+        return values
+
+
+class RetryConfig(BaseModel):
+    max_retries: int = 3
+    base_delay: float = 1.0
+    max_delay: float = 30.0
+
+    @field_validator("max_retries")
+    @classmethod
+    def _retries_positive(cls, v):
+        if v < 0:
+            raise ValueError("max_retries must be >= 0")
+        return v
+
+    @field_validator("base_delay", "max_delay")
+    @classmethod
+    def _delay_positive(cls, v):
+        if v < 0:
+            raise ValueError("delay must be >= 0")
+        return v
+
+
+class BulkheadConfig(BaseModel):
+    ssh_max_concurrent: int = 10
+    subprocess_max_concurrent: int = 20
+    browser_max_concurrent: int = 3
+    ssh_max_queued: int = 20
+    subprocess_max_queued: int = 40
+    browser_max_queued: int = 6
+
+    @field_validator("ssh_max_concurrent", "subprocess_max_concurrent", "browser_max_concurrent")
+    @classmethod
+    def _concurrent_positive(cls, v):
+        if v < 1:
+            raise ValueError("max_concurrent must be >= 1")
+        return v
+
+    @field_validator("ssh_max_queued", "subprocess_max_queued", "browser_max_queued")
+    @classmethod
+    def _queued_positive(cls, v):
+        if v < 0:
+            raise ValueError("max_queued must be >= 0")
+        return v
+
+
+class RecoveryConfig(BaseModel):
+    enabled: bool = True
+
+
+class BranchFreshnessConfig(BaseModel):
+    enabled: bool = True
+
+
+class StreamingConfig(BaseModel):
+    enabled: bool = False
+    tools: list[str] = Field(default_factory=list)
+    chunk_interval_seconds: float = 1.0
+    max_chunk_chars: int = 2000
+
+
+class AgentAutoModelEntry(BaseModel):
+    """One auto candidate with an optional model-native reasoning default."""
+
+    model: str
+    reasoning_effort: str | None = None
+    thinking_mode: Literal["auto", "adaptive", "enabled", "disabled"] | None = None
+
+    @field_validator("model", mode="before")
+    @classmethod
+    def _normalize_model(cls, value):
+        from ..llm.model_ref import parse_model_ref
+
+        ref = parse_model_ref(value, allow_auto=False)
+        if not ref.is_concrete:
+            raise ValueError("auto_model_allowlist entries must be concrete model references")
+        return ref.render()
+
+    @model_validator(mode="after")
+    def _native_reasoning_only(self):
+        from ..llm.model_ref import ModelRefProvider, parse_model_ref
+
+        ref = parse_model_ref(self.model, allow_auto=False)
+        if ref.provider in {ModelRefProvider.CODEX, ModelRefProvider.INHERIT}:
+            if self.thinking_mode is not None:
+                raise ValueError("Codex allowlist entries use reasoning_effort, not thinking_mode")
+            if self.reasoning_effort is not None:
+                if self.reasoning_effort not in (*CODEX_REASONING_EFFORTS, "auto"):
+                    raise ValueError(f"invalid reasoning_effort {self.reasoning_effort!r}")
+                error = (
+                    None
+                    if self.reasoning_effort == "auto"
+                    else effort_incompatibility_error(self.model, self.reasoning_effort)
+                )
+                if error:
+                    raise ValueError(error)
+        elif self.reasoning_effort is not None and self.thinking_mode is not None:
+            raise ValueError("allowlist entries may specify one native reasoning control")
+        return self
+
+
+class AgentsConfig(BaseModel):
+    # Provider-neutral agent policy. Bare model names are Codex; compat: and
+    # ollama: use the canonical model-reference grammar.
+    model: str | None = "auto"
+    # Three-way compatible reasoning policy: null delegates per-spawn choice.
+    thinking_mode: Literal["adaptive", "enabled", "disabled"] | None = None
+    auto_model_allowlist: list[str | AgentAutoModelEntry] = Field(default_factory=list)
+    # Operator-authored selection guidance, keyed by a canonical model reference.
+    # This is authoritative and deliberately free text; shipped seeds never overwrite it.
+    model_selection_hints: dict[str, str] = Field(default_factory=dict)
+    max_nesting_depth: int = 2
+    max_children_per_agent: int = 3
+    # Per-channel admission cap for concurrently running agents. Twenty-five
+    # matches the immutable lifetime ceiling for one tree, so operators can
+    # raise useful parallelism without configuring beyond the runaway backstop.
+    max_concurrent_agents: int = Field(default=5, ge=1, le=25)
+    max_iterations: int = 120
+    scheduled_max_iterations: int = 180
+    hard_max_iterations: int = 300
+    final_warning_iterations: list[int] = Field(default_factory=lambda: [20, 10, 5, 1])
+    # Per-LLM-call backstop. The transport already fails dead streams fast
+    # (stream_stall_timeout_seconds); this only bounds a genuinely hung call,
+    # so it must exceed a legitimate high-effort generation (5-10+ min).
+    iteration_timeout_seconds: int = 900
+    # Hard per-agent deadline, snapshotted at spawn (a live config change
+    # never shortens an already-running agent's deadline).
+    max_lifetime_seconds: int = 14400
+
+    @field_validator("model", mode="before")
+    @classmethod
+    def _normalize_model_ref(cls, value):
+        from ..llm.model_ref import parse_model_ref
+
+        return parse_model_ref(value).render()
+
+    @field_validator("model_selection_hints")
+    @classmethod
+    def _validate_model_selection_hints(cls, values: dict[str, str]) -> dict[str, str]:
+        from ..llm.model_ref import parse_model_ref
+
+        normalized: dict[str, str] = {}
+        for raw_model, raw_hint in values.items():
+            canonical = parse_model_ref(raw_model, allow_auto=False).render()
+            hint = str(raw_hint).strip()
+            if not canonical or not hint:
+                raise ValueError(
+                    "model_selection_hints requires concrete model references and non-empty hints"
+                )
+            if canonical in normalized:
+                raise ValueError(f"model_selection_hints duplicates {canonical!r}")
+            normalized[canonical] = hint
+        return normalized
+
+    @field_validator("auto_model_allowlist")
+    @classmethod
+    def _validate_auto_model_allowlist(
+        cls, values: list[str | AgentAutoModelEntry]
+    ) -> list[str | AgentAutoModelEntry]:
+        from ..llm.model_ref import parse_model_ref
+
+        result: list[str | AgentAutoModelEntry] = []
+        seen: set[str] = set()
+        for value in values:
+            raw_model = value.model if isinstance(value, AgentAutoModelEntry) else value
+            ref = parse_model_ref(raw_model, allow_auto=False)
+            if not ref.is_concrete:
+                raise ValueError("auto_model_allowlist entries must be concrete model references")
+            canonical = ref.render()
+            assert canonical is not None
+            if canonical not in seen:
+                seen.add(canonical)
+                result.append(
+                    value.model_copy(update={"model": canonical})
+                    if isinstance(value, AgentAutoModelEntry)
+                    else canonical
+                )
+        return result
+
+    @field_validator(
+        "max_nesting_depth",
+        "max_children_per_agent",
+        "max_iterations",
+        "scheduled_max_iterations",
+        "hard_max_iterations",
+    )
+    @classmethod
+    def _agents_non_negative(cls, v):
+        if v < 1:
+            raise ValueError("agent limits must be >= 1")
+        return v
+
+    @field_validator("max_children_per_agent")
+    @classmethod
+    def _children_bounded(cls, v):
+        # Direct-child breadth compounds with nesting depth; the tree-lifetime
+        # cap in the agent manager is the hard backstop, this keeps a single
+        # config value from asking for absurd fan-out in the first place.
+        if v > 10:
+            raise ValueError("max_children_per_agent must be between 1 and 10")
+        return v
+
+    @field_validator("iteration_timeout_seconds", "max_lifetime_seconds")
+    @classmethod
+    def _agents_timeout_bounds(cls, v, info):
+        if not 60 <= v <= 86400:
+            raise ValueError(f"{info.field_name} must be between 60 and 86400")
+        return v
+
+    @field_validator("final_warning_iterations")
+    @classmethod
+    def _validate_warnings(cls, v):
+        for item in v:
+            if item < 1:
+                raise ValueError(f"warning threshold must be >= 1, got {item}")
+        return v
+
+
+class SSHPoolConfig(BaseModel):
+    enabled: bool = True
+    control_persist: int = 60
+    socket_dir: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().cache_dir / "ssh-sockets")
+    )
+
+
+class ConnectionPoolConfig(BaseModel):
+    max_connections: int = 10
+    keepalive_timeout: int = 30
+
+    @field_validator("max_connections")
+    @classmethod
+    def _connections_positive(cls, v):
+        if v < 1:
+            raise ValueError("max_connections must be >= 1")
+        return v
+
+    @field_validator("keepalive_timeout")
+    @classmethod
+    def _keepalive_positive(cls, v):
+        if v < 0:
+            raise ValueError("keepalive_timeout must be >= 0")
+        return v
+
+
+# The pre-campaign soft-compaction ceiling. For years this was the shipped
+# default of ``max_context_chars`` and is materialized verbatim in most
+# persisted configs — the legacy-ceiling migration (src/config/migrations.py)
+# keys off this exact value.
+LEGACY_MAX_CONTEXT_CHARS = 750_000
+
+
+class ContextCompressionConfig(BaseModel):
+    enabled: bool = True
+    # None = "auto": the ceiling derives from the active model's input budget.
+    # Until the per-model resolver is wired to the runtime surfaces (context-
+    # budget campaign phase 3), auto resolves to the legacy constant so
+    # behavior is bit-identical to pre-campaign installs. An explicit value
+    # can only LOWER the derived target, never raise it (the resolver takes
+    # min(explicit, derived)).
+    max_context_chars: int | None = None
+    keep_recent_iterations: int = 30
+
+    @field_validator("max_context_chars")
+    @classmethod
+    def _validate_max_context_chars(cls, v: int | None) -> int | None:
+        if v is not None and v < 1:
+            raise ValueError("max_context_chars must be positive, or null for auto")
+        return v
+
+    @property
+    def resolved_max_context_chars(self) -> int:
+        """The ceiling consumers compare against — legacy value when auto.
+
+        Campaign phase 3 replaces consumer reads with the per-model budget
+        resolver; until then this property keeps every consumer total (no
+        None comparisons) and byte-identical to pre-campaign behavior.
+        """
+        if self.max_context_chars is not None:
+            return self.max_context_chars
+        return LEGACY_MAX_CONTEXT_CHARS
+
+
+class GovernorConfig(BaseModel):
+    block_critical: bool = True
+    block_exfil: bool = True
+    owner_can_override: bool = True
+    host_overrides: dict[str, str] = Field(default_factory=dict)
+
+
+# The default local command workspace, spelled ONCE: the field default, the
+# blank-value normalizer and packaging
+# scripts must never drift apart.
+def default_local_working_dir() -> str:
+    # Outside protected profile state, but beneath the XDG data root.
+    paths = runtime_profile_paths()
+    return str(paths.data_dir.parents[2] / "odin-desktop-workspaces" / paths.profile_id)
+
+
+DEFAULT_LOCAL_WORKING_DIR = default_local_working_dir()
+
+
+class ToolsConfig(BaseModel):
+    enabled: bool = True
+    tool_output_max_chars: int = Field(default=12000, ge=1024, le=12000)
+    governor: GovernorConfig = GovernorConfig()
+    ssh_key_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().secrets_dir / "id_ed25519")
+    )
+    ssh_known_hosts_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().secrets_dir / "known_hosts")
+    )
+    hosts: dict[str, ToolHost] = Field(default_factory=dict)
+    # Omitted-host execution is never selected by YAML mapping order. Empty
+    # means callers must choose a host unless requester policy supplies one.
+    default_host: str = ""
+    # Break-glass first-use trust must be explicitly enabled by an operator.
+    allow_host_tofu: bool = False
+    command_timeout_seconds: int = 300
+    # Raw local command routes opt in; shared/internal wrappers always use sh.
+    command_shell: Literal["auto", "bash", "sh"] = "auto"
+    tool_timeouts: dict[str, int] = Field(default_factory=dict)
+
+    @field_validator("tool_timeouts")
+    @classmethod
+    def _positive_tool_timeouts(
+        cls, values: dict[str, int], info: ValidationInfo
+    ) -> dict[str, int]:
+        invalid = [key for key, value in values.items() if value <= 0]
+        if invalid:
+            if info.context and info.context.get("startup"):
+                from ..odin_log import get_logger
+                get_logger("config").warning(
+                    "Ignoring nonpositive tool timeouts for %s; using tool defaults",
+                    ", ".join(invalid),
+                )
+                return {key: value for key, value in values.items() if key not in invalid}
+            raise ValueError("tool_timeouts values must be positive integers")
+        return values
+    skill_allowed_urls: list[str] = Field(default_factory=list)
+    # Operator-disabled built-in tools (config-gated visibility): a disabled
+    # tool is absent from the model catalog on every surface and rejected at
+    # dispatch. Case-sensitive built-in names; unknown entries are preserved
+    # and ignored (never a startup failure) so lists survive catalog drift.
+    disabled_tools: list[str] = Field(default_factory=list)
+
+    @field_validator("disabled_tools")
+    @classmethod
+    def _normalize_disabled_tools(cls, value: list[str]) -> list[str]:
+        seen: set[str] = set()
+        result: list[str] = []
+        for item in value:
+            name = item.strip()
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            result.append(name)
+        return result
+
+    # Odin's PR #18 self-audit caught that these were read via
+    # getattr(..., None) with hardcoded defaults in the handlers —
+    # Pydantic silently dropped the values when operators set them,
+    # so the fields looked configurable but weren't. Declaring them
+    # here fixes the silent-drop bug and makes defaults discoverable.
+    audit_log_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "audit.jsonl")
+    )
+    trajectory_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "trajectories")
+    )
+    ssh_retry: RetryConfig = RetryConfig(max_retries=2, base_delay=0.5, max_delay=10.0)
+    bulkhead: BulkheadConfig = BulkheadConfig()
+    ssh_pool: SSHPoolConfig = Field(default_factory=SSHPoolConfig)
+    recovery: RecoveryConfig = RecoveryConfig()
+    branch_freshness: BranchFreshnessConfig = BranchFreshnessConfig()
+    streaming: StreamingConfig = StreamingConfig()
+    # Tool-iteration caps per request before the loop force-exits.
+    # Chat: ordinary conversational turns. Loop: autonomous loop iterations.
+    # Loops typically need more budget for exploration + execution + verify + commit.
+    max_tool_iterations_chat: int = 500
+    max_tool_iterations_loop: int = 500
+    # Persistent command workspace is outside protected profile state.
+    # Workspace fence checks remain mandatory. Runtime swapping is unsupported
+    # because it would break cross-command continuity.
+    local_working_dir: str = Field(default_factory=default_local_working_dir)
+
+    @field_validator("local_working_dir")
+    @classmethod
+    def _workspace_blank_means_default(cls, v):
+        """Blank or whitespace-only normalizes to the default, here at the
+        boundary, so every consumer sees the same value.
+
+        The field accepts free strings and can be blanked through
+        PUT /api/config. Left un-normalized, the self-update preflight
+        substituted the default and approved, while the restarted process
+        loaded the blank value and failed closed on every local command —
+        preflight and runtime disagreeing about the very path being validated
+        (PR #239 round-7 review, reproduced).
+
+        Normalizing rather than rejecting keeps the update seamless: a blanked
+        value costs no capability and cannot brick startup, which a hard
+        validation error on a persisted config would.
+        """
+        if not isinstance(v, str) or not v.strip():
+            return default_local_working_dir()
+        return v.strip()
+
+    @field_validator("command_timeout_seconds")
+    @classmethod
+    def _timeout_positive(cls, v):
+        if v < 1:
+            raise ValueError("command_timeout_seconds must be >= 1")
+        return v
+
+    @field_validator("max_tool_iterations_chat", "max_tool_iterations_loop")
+    @classmethod
+    def _iterations_positive(cls, v):
+        if v < 1:
+            raise ValueError("tool iteration cap must be >= 1")
+        return v
+
+    _BUILTIN_TOOL_TIMEOUTS: dict[str, int] = {
+        "run_command": 900,
+        "run_script": 900,
+    }
+
+    def get_tool_timeout(self, tool_name: str) -> int:
+        if tool_name in self.tool_timeouts:
+            return self.tool_timeouts[tool_name]
+        if tool_name in self._BUILTIN_TOOL_TIMEOUTS:
+            return self._BUILTIN_TOOL_TIMEOUTS[tool_name]
+        return self.command_timeout_seconds
+
+    @property
+    def tool_timeout_seconds(self) -> int:
+        """Alias for command_timeout_seconds (Heimdall-compat field name)."""
+        return self.command_timeout_seconds
+
+
+class LoggingConfig(BaseModel):
+    level: str = "INFO"
+    directory: str = Field(default_factory=lambda: str(runtime_profile_paths().data_dir / "logs"))
+
+    @field_validator("level")
+    @classmethod
+    def _validate_level(cls, v: str) -> str:
+        upper = v.upper()
+        if upper not in _VALID_LOG_LEVELS:
+            raise ValueError(
+                f"Invalid log level '{v}'. Must be one of: {', '.join(sorted(_VALID_LOG_LEVELS))}"
+            )
+        return upper
+
+
+class UsageConfig(BaseModel):
+    directory: str = Field(default_factory=lambda: str(runtime_profile_paths().data_dir / "usage"))
+
+
+class AuxiliaryLLMConfig(BaseModel):
+    """A provider-qualified model for fixed background jobs.
+
+    Bare names retain the legacy Codex meaning. ``compat:`` and ``ollama:``
+    use the same typed model-reference grammar as agents.
+
+    Default Terra, enabled: the out-of-the-box configuration mirrors the
+    reference deployment — background jobs on the mid-tier model while the
+    primary handles conversation.
+    """
+
+    enabled: bool = True
+    # Upgrade-compatibility default, NOT the fresh-install default: this leaf is
+    # read directly by the auxiliary client, so an
+    # existing install that never wrote it must keep running the model it runs
+    # today. Fresh installs explicitly configure the current auxiliary model.
+    model: str = COMPAT_AUXILIARY_MODEL
+
+    @field_validator("model")
+    @classmethod
+    def _reject_retired_model(cls, v):
+        from ..llm.model_ref import parse_model_ref
+
+        ref = parse_model_ref(v, allow_auto=False)
+        if not ref.is_concrete:
+            raise ValueError("auxiliary.model must be a concrete model reference")
+        v = ref.render()
+        retired = retired_codex_model_error(v)
+        if retired:
+            raise ValueError(retired)
+        return v
+
+
+# "minimal" is deliberately absent: it sits in the Codex API's generic
+# parameter enum but every model on the ChatGPT-auth path rejects it at the
+# per-model capability layer, which turns a saved value into a deterministic
+# per-request 400. "ultra" (catalog-listed on some 5.6 models) is likewise
+# absent: it is a Codex-app client feature, not a legal request value — the
+# server rejects it outright. "max" is real but per-model (see below).
+ReasoningEffort = Literal["none", "low", "medium", "high", "xhigh", "max"]
+# Single source of truth for runtime validation (Literal does not validate
+# direct attribute assignment — the web admin layer checks against this set).
+CODEX_REASONING_EFFORTS: frozenset[str] = frozenset(get_args(ReasoningEffort))
+
+# Per-model capability exceptions for active models. Older supported models
+# reject "max" per-model, although the generic parameter enum accepts it.
+# Retired models are rejected separately regardless of effort. Unknown free-
+# string models pass through and the server stays the authority.
+CODEX_MODEL_UNSUPPORTED_EFFORTS: dict[str, frozenset[str]] = {
+    "gpt-5.4": frozenset({"max"}),
+    "gpt-5.4-mini": frozenset({"max"}),
+    # gpt-6-astra (served-but-unlisted; Personal/Pro rollout observed 2026-09-04)
+    # accepts low..max but rejects "none" per-request: 400 "Unsupported value:
+    # 'none' is not supported with the 'gpt-6-astra' model. Supported values
+    # are: 'low', 'medium', 'high', 'xhigh', 'max'".
+    "gpt-6-astra": frozenset({"none"}),
+    # Probed 2026-09-29 on all four accounts: low..max serve; none returns 400.
+    "gpt-6.1-sol": frozenset({"none"}),
+}
+
+
+def allowed_efforts_for_model(model: str | None) -> frozenset[str]:
+    """The effort values ``model`` is known to accept (all, for unknown models)."""
+    unsupported = CODEX_MODEL_UNSUPPORTED_EFFORTS.get(str(model or "").strip(), frozenset())
+    return CODEX_REASONING_EFFORTS - unsupported
+
+
+def model_rejects_effort(model: str | None, effort: str | None) -> bool:
+    """True when ``model`` is KNOWN to reject ``effort`` per-request.
+
+    The shared validator behind every enforcement boundary (config load, admin
+    PUT, per-spawn overrides, final request construction) — never scatter
+    per-model comparisons. Unknown models and absent values return False.
+    """
+    if not model or not effort:
+        return False
+    unsupported = CODEX_MODEL_UNSUPPORTED_EFFORTS.get(str(model).strip(), frozenset())
+    return str(effort) in unsupported
+
+
+def retired_codex_model_error(model: str | None) -> str | None:
+    """Runtime retirement is explicit; only persisted selections may migrate."""
+    name = str(model or "").strip()
+    if name in RETIRED_MODELS:
+        return (
+            f"Codex model {name!r} is retired; "
+            f"choose a supported model explicitly (for example {RETIRED_MODEL_SUCCESSOR})."
+        )
+    return None
+
+
+def effort_incompatibility_error(model: str | None, effort: str | None) -> str | None:
+    """Canonical human-readable rejection for an incompatible model/effort pair.
+
+    Every boundary emits THIS text (naming the pair and the efforts the model
+    does accept) so the failure reads identically in config validation, the
+    admin API, spawn errors, and request-construction errors. None when the
+    pair is fine.
+    """
+    retired = retired_codex_model_error(model)
+    if retired:
+        return retired
+    if not model_rejects_effort(model, effort):
+        return None
+    allowed = ", ".join(sorted(allowed_efforts_for_model(model)))
+    return (
+        f"reasoning effort {str(effort)!r} is not supported by model "
+        f"{str(model).strip()!r} (allowed for this model: {allowed})"
+    )
+
+
+# --- Per-model usable input budgets (context-budget campaign, 2026-08-17) ---
+# Values are KNOWN-SAFE USABLE INPUT BUDGETS (floors): each model's own
+# highest server-accepted input observation (usage-echo bracketing, Pro and
+# Team accounts served identically) — NOT vendor context-window claims. They
+# already sit below the server's output reservation; never subtract another
+# output reserve from them. A floor never exceeds its evidence: only sol
+# received the fine-refinement acceptances, which is why sol reads 921_601
+# while its window-mates read 917_506. The served models catalog reports
+# 272000 for every slug (stale through three regime changes) — never consume
+# it. Serving moves silently in both directions; these floors are refreshed
+# by manual probes, bounded downward at runtime only by observed clamps.
+CODEX_MODEL_INPUT_BUDGETS: dict[str, int] = {
+    # gpt-6-astra: probed 2026-09-04 on the Personal/Pro account (descending
+    # free-reject ladder, usage-echo bracketing): accepted 917,534 / rejected
+    # at the 922,000 rung — the 922K class, lockstep with sol/terra/luna.
+    "gpt-6-astra": 917_534,
+    # Workspace usage-echo bracketing 2026-09-29: 921,849 accepted; ~921,900 rejected.
+    "gpt-6.1-sol": 921_849,
+    # Sol/Luna: accepted usage-echo evidence on 2026-09-22; floors must not
+    # exceed the measured accepted input, even within the same 922K class.
+    "gpt-6-sol": 921_799,
+    "gpt-6-luna": 921_799,
+    "gpt-5.6-sol": 921_601,
+    "gpt-5.6-terra": 917_506,
+    "gpt-5.6-luna": 917_506,
+    "gpt-5.4": 917_506,
+    "gpt-5.4-mini": 262_146,
+}
+
+# Unknown exact slugs assume the pre-campaign uniform window, so a new or
+# renamed model degrades to the long-proven conservative math — not a guess.
+CODEX_UNKNOWN_MODEL_INPUT_BUDGET = 272_000
+
+# Slugs the backend serves under another model's identity (probed via the
+# served_model echo). Canonicalization maps them BEFORE any registry,
+# override, or observer lookup — they are never registry rows themselves.
+_CODEX_MODEL_ALIASES: dict[str, str] = {
+    "codex-auto-review": "gpt-5.6-luna",
+}
+
+
+def canonical_codex_model(model: str | None) -> str:
+    """THE Codex model canonicalizer: trim, map aliases, preserve spelling.
+
+    Single authority for budget-registry lookups, override keys, observer
+    keys, and UI capability data — the UI consumes canonical keys served by
+    the backend and never reimplements this. Unknown models pass through
+    with their spelling preserved (no case folding: the server is the
+    authority on model names).
+    """
+    # This registry is Codex-only. Provider-qualified references belong to
+    # the model-ref resolver, not aliases, budgets, or observer state.
+    from ..llm.model_ref import ModelRefProvider, parse_model_ref
+
+    ref = parse_model_ref(model, allow_auto=False)
+    if ref.provider not in {ModelRefProvider.CODEX, ModelRefProvider.INHERIT}:
+        raise ValueError(
+            "canonical_codex_model only accepts bare Codex models, not "
+            f"{ref.provider.value}: references"
+        )
+    trimmed = ref.model or ""
+    retired = retired_codex_model_error(trimmed)
+    if retired:
+        raise ValueError(retired)
+    return _CODEX_MODEL_ALIASES.get(trimmed, trimmed)
+
+
+def input_budget_floor_for_model(model: str | None) -> int:
+    """Known-safe usable input budget for ``model``.
+
+    Callers pass RAW model names; canonicalization happens here so no lookup
+    site can forget it. Unknown slugs get the conservative default.
+    """
+    return CODEX_MODEL_INPUT_BUDGETS.get(
+        canonical_codex_model(model), CODEX_UNKNOWN_MODEL_INPUT_BUDGET
+    )
+
+
+# Operator override bounds for per-model input budgets. The floor guarantees
+# a positive compactable allowance above the fixed 42K-token request envelope
+# (50_192 = 42_000 + 8_192); the ceiling bounds serialization/memory cost of
+# derived character targets. Observed clamps (runtime evidence) deliberately
+# BYPASS these bounds — evidence stays exact and the budget resolver is a
+# total function under any clamp value.
+CONTEXT_BUDGET_OVERRIDE_MIN = 50_192
+CONTEXT_BUDGET_OVERRIDE_MAX = 2_000_000
+
+
+# Sentinel for the agent model/effort config axes meaning "let the spawner pick
+# per-spawn from the exposed catalogue". Deliberately NOT a member of
+# CODEX_REASONING_EFFORTS — that set is the values legal to SEND to Codex; "auto"
+# is configuration policy and is never sent to a provider. One constant, one
+# classifier — never scatter `== "auto"` comparisons.
+AGENT_SETTING_AUTO = "auto"
+
+
+def agent_axis_mode(value: str | None) -> str:
+    """Classify an agent model/effort config value into its policy mode:
+
+    * ``"inherit"`` — ``None``: use the main Codex setting, no per-spawn override.
+    * ``"auto"`` — the ``AGENT_SETTING_AUTO`` sentinel: expose the per-spawn
+      catalogue so the spawner selects per task.
+    * ``"fixed"`` — any other value: a hard-set agent setting, no per-spawn
+      override offered.
+    """
+    if value is None:
+        return "inherit"
+    if value == AGENT_SETTING_AUTO:
+        return "auto"
+    return "fixed"
+
+
+class OpenAICodexConfig(BaseModel):
+    # ``model`` and ``model_routing`` collide with pydantic v2's protected
+    # ``model_*`` namespace by default. Disable the guard.
+    model_config = ConfigDict(protected_namespaces=())
+
+    enabled: bool = False
+    # Upgrade-compatibility default, NOT the fresh-install default: the live
+    # Codex client is built from THIS leaf, so an existing install that never
+    # wrote it must keep running the model it runs today. Fresh installs start
+    # on the GPT-6 main tier when a fresh profile explicitly configures it.
+    model: str = COMPAT_MAIN_MODEL
+    reasoning_effort: ReasoningEffort = "xhigh"
+    # Effort for SPAWNED-AGENT iterations only. None = inherit
+    # reasoning_effort (the string "none" is a real effort level, not
+    # inherit); "auto" = expose per-spawn effort selection to the spawner
+    # ("auto" is policy, never sent to a provider). Read at call time, so
+    # live changes reach in-flight agents on their next iteration.
+    agent_reasoning_effort: ReasoningEffort | Literal["auto"] | None = "auto"
+    # Model for SPAWNED-AGENT iterations only. None = inherit ``model``;
+    # "auto" = expose per-spawn model selection to the spawner. Free string
+    # like ``model`` otherwise (the desktop selector is the constraint; an
+    # unsupported value fails per-request). Read at call time.
+    agent_model: str | None = "auto"
+
+    # Validate fixed agent models even when effort selection remains automatic.
+    @field_validator("model", "agent_model")
+    @classmethod
+    def _reject_retired_model(cls, v):
+        retired = retired_codex_model_error(v)
+        if retired:
+            raise ValueError(retired)
+        return v
+
+    credentials_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().secrets_dir / "codex_auth.json")
+    )
+    # Streaming transport timeouts: a generous whole-request backstop (long
+    # high-effort reasoning turns stream well past 10 minutes) plus a stall
+    # bound that fails a silent stream fast instead of waiting out the
+    # backstop. Both are read per request, so live reload picks them up.
+    request_timeout_seconds: int = 3600
+    stream_stall_timeout_seconds: int = 180
+
+    @field_validator("reasoning_effort", "agent_reasoning_effort", mode="before")
+    @classmethod
+    def _coerce_legacy_reasoning_effort(cls, v, info):
+        # v3.58.0 briefly offered "minimal"; a config persisted with it must
+        # not brick startup after upgrading — degrade to the nearest value.
+        if v == "minimal":
+            import logging
+
+            logging.getLogger("odin.config").warning(
+                "%s 'minimal' is not supported by any Codex "
+                "model on this auth path; using 'low' instead",
+                info.field_name,
+            )
+            return "low"
+        return v
+
+    @field_validator("agent_model", mode="before")
+    @classmethod
+    def _normalize_agent_model(cls, v):
+        # ""/whitespace-only mean INHERIT (same contract as the admin API);
+        # normalizing here keeps hand-edited configs from carrying a value
+        # that is visually empty but truthy.
+        if v is None:
+            return None
+        v = str(v).strip()
+        return v or None
+
+    @field_validator("request_timeout_seconds")
+    @classmethod
+    def _request_timeout_bounds(cls, v):
+        if not 60 <= v <= 86400:
+            raise ValueError("request_timeout_seconds must be between 60 and 86400")
+        return v
+
+    @field_validator("stream_stall_timeout_seconds")
+    @classmethod
+    def _stream_stall_timeout_bounds(cls, v):
+        if not 10 <= v <= 3600:
+            raise ValueError("stream_stall_timeout_seconds must be between 10 and 3600")
+        return v
+
+    retry: RetryConfig = RetryConfig()
+    connection_pool: ConnectionPoolConfig = ConnectionPoolConfig()
+    auxiliary: AuxiliaryLLMConfig = AuxiliaryLLMConfig()
+    context_compression: ContextCompressionConfig = ContextCompressionConfig()
+    # Per-model usable-input-budget overrides (tokens), keyed by canonical
+    # model name. Empty = built-in floors (CODEX_MODEL_INPUT_BUDGETS). An
+    # override may exceed the known-safe floor — overflow recovery is what
+    # makes that experimentation tolerable — but stays inside process-safety
+    # bounds. Consumed from campaign phase 3 (budget resolver).
+    context_budget_overrides: dict[str, int] = Field(default_factory=dict)
+    # Working-set policy: percent of the effective budget compaction actually
+    # targets (quality/latency/cost posture — NOT a capability claim). The
+    # resolver never lets utilization reduce budgets at or below 272K, so
+    # changing this may have no effect on smaller models by design.
+    context_utilization: int = 60
+
+    @field_validator("context_utilization")
+    @classmethod
+    def _validate_context_utilization(cls, v: int) -> int:
+        if isinstance(v, bool) or not 30 <= v <= 100:
+            raise ValueError("context_utilization must be an integer percent between 30 and 100")
+        return v
+
+    @field_validator("context_budget_overrides")
+    @classmethod
+    def _validate_context_budget_overrides(cls, v: dict[str, int]) -> dict[str, int]:
+        canonical: dict[str, int] = {}
+        for raw_key, value in v.items():
+            key = canonical_codex_model(raw_key)
+            if not key:
+                raise ValueError("context_budget_overrides keys must be non-empty model names")
+            if key in canonical:
+                raise ValueError(
+                    f"context_budget_overrides: {raw_key!r} duplicates "
+                    f"{key!r} after canonicalization"
+                )
+            if isinstance(value, bool) or not (
+                CONTEXT_BUDGET_OVERRIDE_MIN <= value <= CONTEXT_BUDGET_OVERRIDE_MAX
+            ):
+                raise ValueError(
+                    f"context_budget_overrides[{key!r}] must be an integer between "
+                    f"{CONTEXT_BUDGET_OVERRIDE_MIN} and {CONTEXT_BUDGET_OVERRIDE_MAX} tokens"
+                )
+            canonical[key] = value
+        return canonical
+
+class OllamaConfig(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    enabled: bool = False
+    base_url: str = "http://127.0.0.1:11434"
+    model: str = "llama3.1:8b"
+    max_tokens: int = 4096
+    # Ollama otherwise defaults to a 4K prompt window, silently truncating
+    # Odin's system prompt before conversation history is considered.
+    num_ctx: int = 32768
+    timeout: int = 300
+    api_key: str = ""  # Optional bearer token for remote instances
+
+    @field_validator("base_url")
+    @classmethod
+    def _validate_url(cls, v):
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("base_url must start with http:// or https://")
+        return v
+
+    @field_validator("timeout")
+    @classmethod
+    def _timeout_positive(cls, v):
+        if v < 10:
+            raise ValueError("timeout must be >= 10")
+        return v
+
+    @field_validator("max_tokens")
+    @classmethod
+    def _max_tokens_range(cls, v):
+        if v < 1 or v > 128000:
+            raise ValueError("max_tokens must be between 1 and 128000")
+        return v
+
+    @field_validator("num_ctx")
+    @classmethod
+    def _num_ctx_range(cls, v):
+        if v < 4096 or v > 2_000_000:
+            raise ValueError("num_ctx must be between 4096 and 2000000")
+        return v
+
+    @field_validator("model")
+    @classmethod
+    def _model_nonempty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("model must not be empty")
+        return v
+
+
+class KimiConfig(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    enabled: bool = False
+    api_key: str = ""
+    model: str = "kimi-k2.6"
+    max_tokens: int = 4096
+    timeout: int = 300
+
+    @field_validator("max_tokens")
+    @classmethod
+    def _max_tokens_range(cls, v):
+        if v < 1 or v > 262000:
+            raise ValueError("max_tokens must be between 1 and 262000")
+        return v
+
+    @field_validator("model")
+    @classmethod
+    def _model_nonempty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("model must not be empty")
+        return v
+
+
+class OpenAICompatibleModelProfile(BaseModel):
+    """Advertised total context and output limits for a compatible model.
+
+    The usable prompt budget is derived, never independently configured:
+    providers reserve ``max_output_tokens`` from their total context window.
+    ``usable_input_tokens`` remains accepted as a legacy input spelling, but
+    is converted to the truthful total at the load boundary.
+    """
+
+    total_window_tokens: int = Field(
+        ge=1,
+        validation_alias=AliasChoices(
+            "total_window_tokens",
+            "total_context_window_tokens",
+            "context_window_tokens",
+            "context_window",
+            "max_context_tokens",
+        ),
+    )
+    max_output_tokens: int = Field(ge=1)
+    # Compatible-profile-local operator hint. The Agents mapping wins when both exist.
+    selection_hint: str | None = None
+    # Direct request support for the neutral thinking_mode policy. A dialect alone
+    # is not a claim that every model behind an endpoint accepts the field.
+    supports_thinking_mode: bool = False
+    # Durable model capability metadata. ``None`` means the catalogue did not
+    # establish an exact OpenRouter effort set; [] is an explicit no-rungs
+    # declaration. Never infer an effort set from an endpoint-wide dialect.
+    supports_reasoning: bool = False
+    supported_efforts: list[str] | None = None
+
+    @field_validator("supported_efforts")
+    @classmethod
+    def _validate_supported_efforts(cls, values: list[str] | None) -> list[str] | None:
+        if values is None:
+            return None
+        if len(values) > 32:
+            raise ValueError("supported_efforts must contain at most 32 values")
+        if any(not value.strip() for value in values):
+            raise ValueError("supported_efforts values must be non-empty strings")
+        if len(set(values)) != len(values):
+            raise ValueError("supported_efforts values must not contain duplicates")
+        # Compatible-provider effort names are endpoint-owned vocabulary. Do not
+        # constrain them to the Codex transport's deliberately narrower ladder.
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
+    def _adapt_legacy_usable_budget(cls, value):
+        if not isinstance(value, dict):
+            return value
+        value = dict(value)
+        if "total_window_tokens" not in value and "usable_input_tokens" in value:
+            try:
+                value["total_window_tokens"] = int(value["usable_input_tokens"]) + int(
+                    value.get("max_output_tokens", 0)
+                )
+            except (TypeError, ValueError):
+                # Let normal field validation issue the useful error.
+                pass
+        return value
+
+    @property
+    def usable_input_tokens(self) -> int:
+        """Prompt tokens left after the provider's output reservation."""
+        return max(0, self.total_window_tokens - self.max_output_tokens)
+
+
+class OpenRouterRoutingConfig(BaseModel):
+    """OpenRouter-only upstream routing policy."""
+
+    # OpenRouter order uses endpoint tags (for example ``alibaba``), not
+    # display provider names. Per-model pins prefer one route; allow_fallbacks
+    # decides whether OpenRouter may leave it when unavailable.
+    order: list[str] = Field(default_factory=list)
+    allow_fallbacks: bool = True
+    quantizations: list[str] = Field(default_factory=list)
+    sort: Literal["price", "throughput", "latency"] | None = None
+    data_collection: Literal["allow", "deny"] | None = None
+    reasoning_effort: Literal[
+        "none", "minimal", "low", "medium", "high", "xhigh", "max"
+    ] | None = "medium"
+    # Per-model pins are the normal fan-out policy. The endpoint-wide fields
+    # above remain defaults for models without an explicit entry.
+    model_pins: dict[str, str] = Field(default_factory=dict)
+    # Route-derived profiles are persisted separately from operator-authored
+    # model_profiles so catalogue refreshes never overwrite explicit policy.
+    catalogue_profiles: dict[str, OpenAICompatibleModelProfile] = Field(
+        default_factory=dict
+    )
+
+    @field_validator("order", "quantizations")
+    @classmethod
+    def _bounded_routing_values(cls, values: list[str]) -> list[str]:
+        result: list[str] = []
+        for raw in values:
+            value = str(raw).strip()
+            if not value or len(value) > 100 or any(ch in value for ch in "\r\n"):
+                raise ValueError("OpenRouter routing values must be non-empty and bounded")
+            if value not in result:
+                result.append(value)
+        return result
+
+    @field_validator("model_pins")
+    @classmethod
+    def _bounded_model_pins(cls, values: dict[str, str]) -> dict[str, str]:
+        result: dict[str, str] = {}
+        for raw_model, raw_tag in values.items():
+            model = str(raw_model).strip()
+            tag = str(raw_tag).strip()
+            if (
+                not model
+                or not tag
+                or len(model) > 200
+                or len(tag) > 100
+                or any(ch in model + tag for ch in "\r\n")
+            ):
+                raise ValueError("OpenRouter model pins must use bounded model ids and tags")
+            result[model] = tag
+        return result
+
+
+class OpenAICompatibleConfig(BaseModel):
+    """One configured Chat-Completions-compatible endpoint."""
+
+    enabled: bool = False
+    api_key: str = ""
+    base_url: str = "https://api.deepseek.com/v1"
+    model: str = "deepseek-v4-flash"
+    max_tokens: int = 4096
+    # Streaming transport: a generous whole-request backstop plus a bound on
+    # silence between bytes. Legacy ``timeout`` is migrated at load time.
+    request_timeout_seconds: int = 3600
+    stream_stall_timeout_seconds: int = 180
+    # Neutral primary-chat reasoning control. It is translated to the selected
+    # endpoint/model's native effort or thinking dialect at generation capture.
+    reasoning_effort: ReasoningEffort = "medium"
+    # Compatible-main default. Per-agent policy overrides this when explicitly set.
+    # Retained as a legacy input/config leaf; new primary controls use the
+    # neutral reasoning_effort above so provider changes preserve intent.
+    thinking_mode: Literal["adaptive", "enabled", "disabled"] | None = None
+    preset: Literal[
+        "deepseek",
+        "zai",
+        "moonshot",
+        "groq",
+        "together",
+        "fireworks",
+        "mistral",
+        "xai",
+        "cerebras",
+        "dashscope",
+        "qwen",
+        "openai",
+        "openrouter",
+        "kimi",
+        "custom",
+    ] = "deepseek"
+    reasoning_dialect: (
+        Literal[
+            "none",
+            "thinking_type",
+            "glm_thinking",
+            "openai_reasoning_effort",
+            "qwen_legacy",
+            "qwen_reasoning_effort",
+            "openrouter_reasoning",
+        ]
+        | None
+    ) = None
+    glm_clear_thinking: bool | None = None
+    # Safe default: do not feed provider reasoning traces back into history.
+    reasoning_content_feedback_policy: Literal["do_not_echo", "preserve"] = "do_not_echo"
+    # Compatible models do not inherit Codex's 272K utilization floor.
+    context_utilization: int = Field(default=75, ge=30, le=100)
+    model_profiles: dict[str, OpenAICompatibleModelProfile] = Field(
+        default_factory=lambda: {
+            "deepseek-v4-flash": OpenAICompatibleModelProfile(
+                total_window_tokens=1_048_576,
+                max_output_tokens=393_216,
+                supports_thinking_mode=True,
+            ),
+            "deepseek-v4-pro": OpenAICompatibleModelProfile(
+                total_window_tokens=1_048_576,
+                max_output_tokens=393_216,
+                supports_thinking_mode=True,
+            ),
+        }
+    )
+    openrouter: OpenRouterRoutingConfig = Field(default_factory=OpenRouterRoutingConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_stream_timeouts(cls, value):
+        if not isinstance(value, dict) or "timeout" not in value:
+            return value
+        value = dict(value)
+        legacy = value.pop("timeout")
+        # Explicit new fields win independently; invalid new values still fail.
+        # Old Kimi/compatible files accepted every integer timeout. Preserve
+        # their startup compatibility without relaxing explicit new fields.
+        legacy = TypeAdapter(int).validate_python(legacy)
+        if not 10 <= legacy <= 3600:
+            from ..odin_log import get_logger
+            get_logger("config").warning(
+                "Legacy compatible timeout %s is outside new bounds; using bounded timeout", legacy
+            )
+            legacy = min(3600, max(10, legacy))
+        value.setdefault("stream_stall_timeout_seconds", legacy)
+        value.setdefault("request_timeout_seconds", 3600)
+        return value
+
+    @field_validator("request_timeout_seconds")
+    @classmethod
+    def _compatible_request_timeout_bounds(cls, value: int) -> int:
+        if not 60 <= value <= 86400:
+            raise ValueError("request_timeout_seconds must be between 60 and 86400")
+        return value
+
+    @field_validator("stream_stall_timeout_seconds")
+    @classmethod
+    def _compatible_stall_timeout_bounds(cls, value: int) -> int:
+        if not 10 <= value <= 3600:
+            raise ValueError("stream_stall_timeout_seconds must be between 10 and 3600")
+        return value
+
+    @field_validator("base_url")
+    @classmethod
+    def _compatible_url(cls, value: str) -> str:
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("base_url must start with http:// or https://")
+        return value.rstrip("/")
+
+    @field_validator("model")
+    @classmethod
+    def _compatible_model(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("model must not be empty")
+        return value.strip()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_primary_thinking_mode(cls, value):
+        """Preserve the old compatible-primary switch under the neutral scale."""
+        if not isinstance(value, dict) or "reasoning_effort" in value:
+            return value
+        thinking = value.get("thinking_mode")
+        if thinking not in {"disabled", "adaptive", "enabled"}:
+            return value
+        migrated = dict(value)
+        migrated["reasoning_effort"] = {
+            "disabled": "none",
+            "adaptive": "medium",
+            "enabled": "high",
+        }[thinking]
+        return migrated
+
+    @model_validator(mode="after")
+    def _openrouter_policy_matches_endpoint(self):
+        from ..llm.openrouter import is_openrouter_base_url
+
+        if is_openrouter_base_url(self.base_url):
+            self.preset = "openrouter"
+            self.reasoning_dialect = "openrouter_reasoning"
+        elif self.preset == "openrouter":
+            raise ValueError("openrouter preset requires https://openrouter.ai/api/v1")
+        return self
+
+
+class LLMProviderConfig(BaseModel):
+    # ``kimi`` remains accepted for direct construction compatibility. Root
+    # Config adaptation maps stored legacy values to the neutral runtime lane.
+    active_provider: Literal["codex", "ollama", "compat", "kimi"] = "codex"
+    # The primary model is the provider selection. Bare names are Codex;
+    # compatible and Ollama names use the shared model-reference grammar.
+    # ``active_provider`` remains persisted for older consumers, but is
+    # derived from this value whenever configuration is loaded or changed.
+    # Materialized from ``openai_codex.model`` when a legacy provider block
+    # lacks this leaf. An existing config that omits both the provider block
+    # and the model leaf must keep its old default; fresh templates explicitly
+    # set ``openai_codex.model`` to GPT-6 instead.
+    model: str = COMPAT_LLM_PROVIDER_MODEL
+
+    @field_validator("model", mode="before")
+    @classmethod
+    def _normalize_main_model(cls, value):
+        from ..llm.model_ref import parse_model_ref
+
+        ref = parse_model_ref(value, allow_auto=False)
+        if not ref.is_concrete:
+            raise ValueError("llm_provider.model must be a concrete model reference")
+        return ref.render()
+
+
+class WebhookConfig(BaseModel):
+    """Opt-in authenticated event listener; it has no conversational destination."""
+    enabled: bool = False
+    secret: str = ""
+
+
+class LearningConfig(BaseModel):
+    enabled: bool = False
+    max_entries: int = 150
+    consolidation_target: int = 120
+    # Learned Context injection budget (tokens). When the scoped corpus fits,
+    # ALL of it is injected; relevance gating engages only beyond this.
+    injection_token_budget: int = 4000
+    # Reflection on autonomous loop iterations — gated by signature dedup so
+    # a loop failing identically all night produces ONE lesson, not sixty.
+    loop_reflection_enabled: bool = True
+    loop_reflection_cooldown_hours: float = 12.0
+    loop_reflection_max_per_hour: int = 10
+
+
+class SearchConfig(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    enabled: bool = True
+    # Accepts "chromadb_path" from old configs for backward compat
+    search_db_path: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "search"),
+        validation_alias="chromadb_path",
+    )
+
+
+class BrowserConfig(BaseModel):
+    enabled: bool = False
+    cdp_url: str = ""  # Empty = native Playwright launch; set ws:// URL for remote CDP
+    default_timeout_ms: int = 30000
+    max_wait_timeout_seconds: int = Field(default=60, ge=1, le=60)
+    viewport_width: int = 1920
+    viewport_height: int = 1080
+    allow_private_targets: list[str] = Field(default_factory=list)
+
+    @field_validator("default_timeout_ms")
+    @classmethod
+    def _timeout_positive(cls, v):
+        if v < 1000:
+            raise ValueError("default_timeout_ms must be >= 1000")
+        return v
+
+
+class OutboundWebhookTarget(BaseModel):
+    id: str = ""  # Empty for id-less rows; runtime IDs derive from index and URL.
+    created_at: str = ""
+    name: str = ""
+    url: str = ""
+    secret: str = ""  # HMAC-SHA256 signing key; empty = unsigned
+    events: list[str] = Field(default_factory=list)  # empty = all events
+    enabled: bool = True
+    scrub_secrets: bool = True
+    verify_ssl: bool = True
+
+
+class OutboundWebhooksConfig(BaseModel):
+    enabled: bool = False
+    scrub_secrets: bool = True
+    rate_limit_seconds: float = 0.5
+    targets: list[OutboundWebhookTarget] = Field(default_factory=list)
+
+
+class GracefulDegradationConfig(BaseModel):
+    degraded_threshold: int = 3  # consecutive failures before DEGRADED
+    unavailable_threshold: int = 10  # consecutive failures before UNAVAILABLE
+
+
+class LLMRecoveryConfig(BaseModel):
+    """Deadline-based recovery for logical LLM generations (all three call
+    paths: chat, agents, autonomous loops) plus the model-scoped capacity
+    breaker. The deadline bounds WAITING between attempts, never the
+    attempt itself; capacity never rotates accounts (429 rotation is the
+    provider client's job and is untouched)."""
+
+    generation_deadline_seconds: float = Field(default=300.0, ge=10.0, le=3600.0)
+    backoff_cap_seconds: float = Field(default=45.0, ge=1.0, le=300.0)
+    breaker_generation_threshold: int = Field(default=1, ge=1, le=10)
+    breaker_cooldown_base_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
+    breaker_cooldown_cap_seconds: float = Field(default=300.0, ge=30.0, le=3600.0)
+
+
+class TurnStateConfig(BaseModel):
+    """Durable conversational-turn checkpoints, side-effect ledger, and resume."""
+
+    enabled: bool = True
+    db_path: str = Field(
+        default_factory=lambda: str(
+            runtime_profile_paths().data_dir / "turn_state" / "turns.sqlite3"
+        )
+    )
+    auto_resume: bool = True
+    resume_ttl_hours: float = Field(default=24.0, ge=1.0, le=24.0 * 14)
+    payload_retention_days: float = Field(default=7.0, ge=1.0, le=90.0)
+    ledger_retention_days: float = Field(default=90.0, ge=30.0, le=365.0)
+
+
+class AuditConfig(BaseModel):
+    hmac_key: str = ""  # Empty = signing disabled
+
+
+class PersonalityPreset(BaseModel):
+    name: str = ""
+    identity: str = ""
+    voice: str = ""
+
+
+class PersonalityConfig(BaseModel):
+    preset: str = "odin"
+    custom_name: str = ""
+    custom_identity: str = ""
+    custom_voice: str = ""
+    user_presets: dict[str, PersonalityPreset] = Field(default_factory=dict)
+
+
+class AttachmentsConfig(BaseModel):
+    temp_directory: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().cache_dir / "attachments")
+    )
+    inline_text_max_bytes: int = 100_000
+    preview_max_chars: int = 12_000
+    large_preview_chars: int = 4_000
+    archive_max_bytes: int = 50 * 1024 * 1024
+    archive_max_files: int = 500
+    archive_extract_max_bytes: int = 200 * 1024 * 1024
+    archive_preview_total_chars: int = 20_000
+    image_max_bytes: int = 5 * 1024 * 1024
+    pdf_max_bytes: int = 25 * 1024 * 1024
+    archive_preview_file_max_bytes: int = 64_000
+    retention_hours: int = 24
+
+
+class ImageOpenAIConfig(BaseModel):
+    """Native OpenAI image generation over the Codex ChatGPT OAuth backend.
+
+    Rides the SAME CodexAuthPool / current account Odin uses for chat — no
+    separate auth, no per-token API billing (subscription-quota-backed). The
+    outer model is pinned here rather than inherited from the chat model so a
+    Sol/Terra/UI change can't silently alter image generation. Both models are
+    config-only allowlisted, never arbitrary strings from the tool call.
+    """
+
+    enabled: bool = True  # kill switch for the native wire implementation
+    outer_model: str = "gpt-6-astra"  # Responses model that hosts the image tool
+
+    @field_validator("outer_model")
+    @classmethod
+    def _reject_retired_outer_model(cls, v):
+        retired = retired_codex_model_error(v)
+        if retired:
+            raise ValueError(retired)
+        return v
+
+    image_model: str = "gpt-image-2.5-flare"  # the image_generation tool's model
+    # Native output dimensions and aspect ratio are backend-selected, not
+    # guaranteed square. This native configuration therefore has no size allowlist.
+    # Image-specific deadline (separate from chat). Progress events keep the
+    # read timer alive but must not defeat the total.
+    request_timeout_seconds: int = 180
+    connect_timeout_seconds: int = 30
+    stream_stall_timeout_seconds: int = 120
+    max_image_bytes: int = 16 * 1024 * 1024  # decoded-size safety cap
+
+
+class ImageConfig(BaseModel):
+    """Native image-generation policy for the Codex provider."""
+
+    openai: ImageOpenAIConfig = ImageOpenAIConfig()
+
+
+class MCPServerConfig(BaseModel):
+    enabled: bool = True
+    transport: str = "stdio"  # "stdio" or "http"
+    command: str = ""  # for stdio: executable path
+    args: list[str] = Field(default_factory=list)  # for stdio: command arguments
+    url: str = ""  # for http: endpoint URL
+    headers: dict[str, str] = Field(default_factory=dict)  # for http: extra headers
+    env: dict[str, str] = Field(default_factory=dict)  # extra env vars for stdio
+    cwd: str = ""  # optional working directory for stdio
+    tool_allowlist: list[str] = Field(default_factory=list)
+    timeout_seconds: int = 120
+
+    @field_validator("transport")
+    @classmethod
+    def _validate_transport(cls, v: str) -> str:
+        if v not in ("stdio", "http"):
+            raise ValueError(f"Invalid transport '{v}'. Must be 'stdio' or 'http'.")
+        return v
+
+
+class ContextTraceConfig(BaseModel):
+    enabled: bool = True
+    # raw | hash | redacted — how learned/memory keys appear in traces
+    memory_key_mode: Literal["raw", "hash", "redacted"] = "hash"
+    include_segment_ids: bool = True
+    max_trace_bytes: int = 16384
+
+
+class ObservabilityConfig(BaseModel):
+    """Pure instrumentation — records prompt assembly and failure metadata,
+    never influences behavior. Each piece has its own kill-switch."""
+
+    context_trace: ContextTraceConfig = ContextTraceConfig()
+    audit_failure_classification: bool = True
+    prompt_budget_accounting: bool = True
+    # Record the user request on trajectory turns (capped + secret-scrubbed)
+    trajectory_user_content: bool = True
+    max_user_content_chars: int = 4000
+    # Trajectory + context trace coverage for autonomous loop iterations
+    loop_trace: bool = True
+    # Storage cap per tool result persisted into trajectory iterations
+    # (model-facing content is separately capped at 12000)
+    max_tool_result_chars: int = 2000
+
+
+class EmailSmtpConfig(BaseModel):
+    host: str = "smtp.gmail.com"
+    port: int = 587
+    username: str = ""
+    password: str = ""
+    from_address: str = ""
+
+
+class EmailImapConfig(BaseModel):
+    host: str = "imap.gmail.com"
+    port: int = 993
+    username: str = ""
+    password: str = ""
+
+
+class EmailConfig(BaseModel):
+    enabled: bool = False
+    # Explicit opt-out for private/self-signed mail servers only.
+    tls_verify: bool = True
+    smtp: EmailSmtpConfig = EmailSmtpConfig()
+    imap: EmailImapConfig = EmailImapConfig()
+    max_body_chars: int = 50_000
+    max_results: int = 50
+    max_attachment_bytes: int = 10 * 1024 * 1024
+    connect_timeout_seconds: int = 30
+    allowed_attachment_dirs: list[str] = Field(default_factory=list)
+
+
+class MCPConfig(BaseModel):
+    enabled: bool = False
+    # Publication policy, not wire limits. Read live at each publish/refresh.
+    # Per-server ceiling matches the protocol's 128-tool discovery bound.
+    max_published_tools_per_server: int = Field(default=40, strict=True, ge=1, le=128)
+    max_published_tools_global: int = Field(default=40, strict=True, ge=1, le=256)
+    servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
+
+
+class ComputerUseConfig(BaseModel):
+    """Opt-in desktop target. These fields are operator-only, not tool input."""
+
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool = False
+    storage_dir: str = Field(
+        default_factory=lambda: str(runtime_profile_paths().data_dir / "computer")
+    )
+    # Explicit operator provisioning, never inferred from root/sudo availability.
+    runtime_sudo: bool = False
+    environment: Literal["isolated", "existing_session"] = "isolated"
+    platform: Literal["x11", "wayland"] = "x11"
+    display: str = ""
+    xauthority: str = ""
+    monitor_names: list[str] = Field(default_factory=list)
+    # Explicit operator binding, not ambient desktop discovery or a tool argument.
+    wayland_bus_address: str = ""
+    wayland_uid: int | None = Field(default=None, strict=True, ge=0, le=4294967294)
+    wayland_guardian_binary: str = "/usr/libexec/odin-computer-wayland-input"
+    # Portal defaults remain unchanged. Hyprland is explicit, never a fallback.
+    wayland_backend: Literal["portal", "hyprland"] = "portal"
+    # Discover reboot-scoped identifiers inside the explicitly trusted UID/build.
+    # Persisted explicit "pinned" configurations remain pinned.
+    hyprland_discovery_mode: Literal["pinned", "auto"] = "auto"
+    hyprland_runtime_dir: str = ""
+    hyprland_wayland_display: str = ""
+    hyprland_instance_signature: str = ""
+    hyprland_output_name: str = ""
+    hyprland_compositor_pid: int | None = Field(default=None, strict=True, ge=2, le=2147483647)
+    hyprland_compositor_executable: str = ""
+    hyprland_compositor_sha256: str = ""
+    hyprland_compositor_version: str = ""
+    hyprland_compositor_commit: str = ""
+    hyprland_compositor_owner_uid: int = Field(default=0, strict=True, ge=0, le=4294967294)
+    hyprland_guardian_binary: str = "/usr/local/libexec/odin-hyprland-input"
+    hyprland_capture_binary: str = "/usr/local/libexec/odin-hyprland-capture"
+    hyprland_scope_socket: str = ""
+    # First native inventory/start loads the approved plugin; false is manual mode.
+    # Requires effective UID 0 in the controller, even for its own desktop UID.
+    # runtime_sudo does not elevate this in-process Hyprland verifier.
+    hyprland_managed_activation: bool = True
+    # Existing optional-package/source-installer location, not a mutable ELF alias.
+    hyprland_plugin_manifest: str = "/usr/local/share/doc/odin-hyprland/build-identity.json"
+
+    @field_validator(
+        "hyprland_runtime_dir",
+        "hyprland_compositor_executable",
+        "hyprland_scope_socket",
+        "hyprland_guardian_binary",
+        "hyprland_capture_binary",
+        "hyprland_plugin_manifest",
+    )
+    @classmethod
+    def validate_hyprland_path(cls, value: str) -> str:
+        if value and (
+            len(value) > 4096
+            or not Path(value).is_absolute()
+            or ".." in Path(value).parts
+            or any(ord(c) < 32 or ord(c) == 127 for c in value)
+        ):
+            raise ValueError("Hyprland paths must be explicit absolute local paths")
+        return value
+
+    @field_validator(
+        "hyprland_wayland_display", "hyprland_instance_signature", "hyprland_output_name"
+    )
+    @classmethod
+    def validate_hyprland_name(cls, value: str) -> str:
+        if value and (not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", value) or value in {".", ".."}):
+            raise ValueError("Hyprland target names must be bounded local identifiers")
+        return value
+
+    @field_validator("hyprland_compositor_sha256")
+    @classmethod
+    def validate_hyprland_hash(cls, value: str) -> str:
+        if value and not re.fullmatch(r"[0-9a-f]{64}", value):
+            raise ValueError("Hyprland executable SHA-256 must be 64 lowercase hex digits")
+        return value
+
+    @field_validator("hyprland_compositor_commit")
+    @classmethod
+    def validate_hyprland_commit(cls, value: str) -> str:
+        if value and not re.fullmatch(r"[0-9a-f]{40,64}", value):
+            raise ValueError("Hyprland build commit must be 40-64 lowercase hex digits")
+        return value
+
+    @field_validator("hyprland_compositor_version")
+    @classmethod
+    def validate_hyprland_version(cls, value: str) -> str:
+        if value and not re.fullmatch(r"[A-Za-z0-9.+_~-]{1,128}", value):
+            raise ValueError("Hyprland version must identify an explicitly approved build")
+        return value
+
+    @field_validator("wayland_bus_address")
+    @classmethod
+    def validate_wayland_bus_address(cls, value: str) -> str:
+        if value and (len(value) > 512 or not re.fullmatch(r"unix:path=/[^,;\s\x00]+", value)):
+            raise ValueError(
+                "computer.wayland_bus_address must name one explicit local session bus"
+            )
+        return value
+
+    @field_validator("wayland_guardian_binary")
+    @classmethod
+    def validate_wayland_guardian_binary(cls, value: str) -> str:
+        if (
+            not value
+            or len(value) > 4096
+            or not Path(value).is_absolute()
+            or any(ord(c) < 32 or ord(c) == 127 for c in value)
+        ):
+            raise ValueError("computer.wayland_guardian_binary must be an absolute executable path")
+        return value
+
+    @field_validator("display")
+    @classmethod
+    def validate_display(cls, value: str) -> str:
+        if value and not re.fullmatch(r":[0-9]{1,5}", value):
+            raise ValueError("computer.display must be an explicit local :N display")
+        return value
+
+    @field_validator("xauthority")
+    @classmethod
+    def validate_xauthority(cls, value: str) -> str:
+        if value and (not Path(value).is_absolute() or any(ord(c) < 32 for c in value)):
+            raise ValueError("computer.xauthority must be an absolute path")
+        return value
+
+    @field_validator("monitor_names", mode="before")
+    @classmethod
+    def validate_monitors(cls, value):
+        if (
+            not isinstance(value, list)
+            or len(value) > 16
+            or any(
+                not isinstance(i, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", i)
+                for i in value
+            )
+            or len(set(value)) != len(value)
+        ):
+            raise ValueError("computer.monitor_names must be unique bounded monitor names")
+        return value
+
+    @field_validator("storage_dir")
+    @classmethod
+    def validate_storage_dir(cls, value: str) -> str:
+        value = value.strip()
+        if not value or any(ord(char) < 32 for char in value):
+            raise ValueError("computer.storage_dir must be a nonempty private directory")
+        if not Path(value).is_absolute():
+            raise ValueError("computer.storage_dir must be absolute")
+        return value
+
+
+class Config(BaseModel):
+    # ``model``/``agent_model`` and other ``model_*`` fields would otherwise
+    # collide with pydantic v2's protected ``model_*`` namespace. Disable it.
+    model_config = ConfigDict(protected_namespaces=(), extra="forbid")
+
+    timezone: str = "UTC"
+    openai_codex: OpenAICodexConfig = Field(default_factory=OpenAICodexConfig)
+    ollama: OllamaConfig = Field(default_factory=OllamaConfig)
+    openai_compatible: OpenAICompatibleConfig = Field(default_factory=OpenAICompatibleConfig)
+    kimi: KimiConfig = Field(default_factory=KimiConfig)
+    llm_provider: LLMProviderConfig = Field(default_factory=LLMProviderConfig)
+    context: ContextConfig = Field(default_factory=ContextConfig)
+    sessions: SessionsConfig = Field(default_factory=SessionsConfig)
+    tools: ToolsConfig = Field(default_factory=ToolsConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    usage: UsageConfig = Field(default_factory=UsageConfig)
+    webhook: WebhookConfig = Field(default_factory=WebhookConfig)
+    learning: LearningConfig = Field(default_factory=LearningConfig)
+    observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
+    email: EmailConfig = Field(default_factory=EmailConfig)
+    search: SearchConfig = Field(default_factory=SearchConfig)
+    browser: BrowserConfig = Field(default_factory=BrowserConfig)
+    computer: ComputerUseConfig = Field(default_factory=ComputerUseConfig)
+    image: ImageConfig = Field(default_factory=ImageConfig)
+    attachments: AttachmentsConfig = Field(default_factory=AttachmentsConfig)
+    personality: PersonalityConfig = Field(default_factory=PersonalityConfig)
+    mcp: MCPConfig = Field(default_factory=MCPConfig)
+    audit: AuditConfig = Field(default_factory=AuditConfig)
+    agents: AgentsConfig = Field(default_factory=AgentsConfig)
+    outbound_webhooks: OutboundWebhooksConfig = Field(default_factory=OutboundWebhooksConfig)
+    graceful_degradation: GracefulDegradationConfig = Field(
+        default_factory=GracefulDegradationConfig
+    )
+    llm_recovery: LLMRecoveryConfig = Field(default_factory=LLMRecoveryConfig)
+    turn_state: TurnStateConfig = Field(default_factory=TurnStateConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _adapt_legacy_agent_model(cls, data):
+        """Accept the old Codex-scoped key without rewriting config.yml."""
+        if not isinstance(data, dict):
+            return data
+        # Old files selected a provider separately. Preserve that selection on
+        # first model-first load by materializing its configured model ref.
+        provider_cfg = data.get("llm_provider", {})
+        if isinstance(provider_cfg, dict) and "model" not in provider_cfg:
+            active = provider_cfg.get("active_provider", "codex")
+            data = dict(data)
+            provider_cfg = dict(provider_cfg)
+            if active == "ollama":
+                provider_cfg["model"] = f"ollama:{data.get('ollama', {}).get('model', 'llama3')}"
+            elif active in {"compat", "kimi"}:
+                compatible = data.get("openai_compatible") or data.get("kimi") or {}
+                provider_cfg["model"] = f"compat:{compatible.get('model', 'default')}"
+            else:
+                provider_cfg["model"] = data.get("openai_codex", {}).get(
+                    "model", COMPAT_LLM_PROVIDER_MODEL
+                )
+            data["llm_provider"] = provider_cfg
+        legacy = data.get("openai_codex")
+        agents = data.get("agents")
+        if (
+            isinstance(legacy, dict)
+            and "agent_model" in legacy
+            and (not isinstance(agents, dict) or "model" not in agents)
+        ):
+            data = dict(data)
+            adapted = dict(agents) if isinstance(agents, dict) else {}
+            adapted["model"] = legacy["agent_model"]
+            data["agents"] = adapted
+        kimi = data.get("kimi")
+        compatible = data.get("openai_compatible")
+        if isinstance(kimi, dict) and not isinstance(compatible, dict):
+            data = dict(data)
+            data["openai_compatible"] = {
+                "enabled": kimi.get("enabled", False),
+                "api_key": kimi.get("api_key", ""),
+                "model": kimi.get("model", "kimi-k2.6"),
+                "max_tokens": kimi.get("max_tokens", 4096),
+                "timeout": kimi.get("timeout", 300),
+                "base_url": "https://api.moonshot.ai/v1",
+                "preset": "kimi",
+            }
+        return data
+
+    @model_validator(mode="after")
+    def _derive_active_provider_from_main_model(self, info: ValidationInfo):
+        """Keep legacy provider consumers truthful without a second selector."""
+        from ..llm.model_ref import parse_model_ref
+
+        ref = parse_model_ref(self.llm_provider.model, allow_auto=False)
+        if ref.provider.value not in ("codex", "ollama", "compat", "kimi"):
+            raise ValueError("main model must select a concrete serving provider")
+        self.llm_provider.active_provider = ref.provider.value  # type: ignore[assignment]
+        from ..tools.agent_tool_policy import configured_agent_model
+
+        pairs: list[tuple[str, str | None, str | None]] = [
+            ("main", self.llm_provider.model, self.openai_codex.reasoning_effort)
+        ]
+        if (
+            self.agents.model != AGENT_SETTING_AUTO
+            and self.openai_codex.agent_reasoning_effort != AGENT_SETTING_AUTO
+        ):
+            pairs.append((
+                "agent", configured_agent_model(self),
+                self.openai_codex.agent_reasoning_effort or self.openai_codex.reasoning_effort,
+            ))
+        for axis, model, effort in pairs:
+            if model and not model.startswith(("compat:", "ollama:", "kimi:")):
+                error = effort_incompatibility_error(model.removeprefix("codex:"), effort)
+                if error:
+                    if info.context and info.context.get("startup"):
+                        from ..odin_log import get_logger
+                        get_logger("config").warning("Effective model/effort pair: %s", error)
+                    else:
+                        raise ValueError(f"{axis} settings: {error}")
+        from ..tools.agent_tool_policy import (
+            validate_agent_entry_defaults,
+            validate_agent_model_hints,
+        )
+
+        entries = self.agents.auto_model_allowlist
+        if "openai_compatible" in self.model_fields_set:
+            compatible = self.openai_compatible
+            # Match the transport's preset defaults, including DeepSeek when
+            # reasoning_dialect is left unset. Profile capabilities alone do
+            # not establish which control the endpoint actually accepts.
+            dialect = compatible_reasoning_dialect(compatible)
+            for entry in entries:
+                if isinstance(entry, str) or not entry.model.startswith("compat:"):
+                    continue
+                if dialect in {"thinking_type", "glm_thinking", "qwen_legacy"}:
+                    if entry.reasoning_effort is not None:
+                        raise ValueError(
+                            f"{entry.model}: configured dialect {dialect!r} expects "
+                            "thinking_mode, not reasoning_effort"
+                        )
+                elif dialect in {
+                    "openai_reasoning_effort",
+                    "qwen_reasoning_effort",
+                    "openrouter_reasoning",
+                }:
+                    if entry.thinking_mode is not None:
+                        raise ValueError(
+                            f"{entry.model}: configured dialect {dialect!r} expects "
+                            "reasoning_effort, not thinking_mode"
+                        )
+        else:
+            # Compatible references may precede endpoint setup. Do not validate
+            # them against the implicit, unconfigured DeepSeek default profile.
+            entries = [
+                entry
+                for entry in entries
+                if not (entry if isinstance(entry, str) else entry.model).startswith("compat:")
+            ]
+        defaults_error = validate_agent_entry_defaults(self, entries=entries)
+        if defaults_error:
+            raise ValueError(defaults_error)
+        hints_error = validate_agent_model_hints(self)
+        if hints_error:
+            raise ValueError(hints_error)
+        return self
+
+
+def _substitute_env_vars(text: str) -> str:
+    """Replace ${VAR} and ${VAR:-default} patterns with environment variable values.
+
+    ${VAR} — required, raises ValueError if not set.
+    ${VAR:-default} — optional, uses *default* when VAR is unset.
+    """
+
+    def replacer(match: re.Match) -> str:
+        var_name = match.group(1)
+        default = match.group(2)  # None when no :- syntax used
+        value = os.environ.get(var_name)
+        if value is None:
+            if default is not None:
+                return default
+            raise ValueError(f"Environment variable {var_name} is not set")
+        return value
+
+    return re.sub(r"\$\{(\w+)(?::-([^}]*))?\}", replacer, text)
+
+
+# The absolute path the live config was loaded from. LLM-config persistence
+# writes THIS path — never a CWD-relative "config.yml" — so a fabricated Config
+# (a test or one-off script that never called load_config) cannot silently
+# overwrite a real deployment's config.yml from the wrong working directory.
+_ACTIVE_CONFIG_PATH: Path | None = None
+# The path AS GIVEN (absolutized, symlinks intact). restart.reexec() replays
+# sys.argv, so an alias like /etc/odin/config.yml -> /srv/real/odin.yml is what
+# the restarted process opens — protecting only the canonical target would let
+# a relative command delete the alias and break the next restart (PR #239
+# round-10 review, reproduced).
+_LAUNCH_CONFIG_PATH: Path | None = None
+
+
+def active_config_launch_path() -> Path | None:
+    """The config path as given on the command line, absolutized but with
+    symlinks intact — what ``restart.reexec()`` will hand the next process."""
+    return _LAUNCH_CONFIG_PATH
+
+
+def active_config_path() -> Path | None:
+    """Absolute path the live config was loaded from, or None if this process
+    never loaded one (in which case persistence must refuse, not guess a path)."""
+    return _ACTIVE_CONFIG_PATH
+
+
+def set_active_config_path(path: str | Path | None) -> None:
+    """Record (or clear) the active config path. ``load_config`` calls this on a
+    successful load; tests/tools that persist a hand-built Config point it at
+    their own file."""
+    global _ACTIVE_CONFIG_PATH, _LAUNCH_CONFIG_PATH
+    _ACTIVE_CONFIG_PATH = Path(path).resolve() if path is not None else None
+    _LAUNCH_CONFIG_PATH = Path(os.path.abspath(path)) if path is not None else None
+
+
+def load_config(path: str | Path | None = None) -> Config:
+    if path is None:
+        path = runtime_profile_paths().config_file
+    path = Path(path)
+    original_raw = path.read_text()
+    try:
+        raw = _substitute_env_vars(original_raw)
+    except ValueError as exc:
+        raise SystemExit(
+            f"Configuration error: {exc}\n"
+            "Set the variable in your .env file or shell environment.\n"
+            "See .env.example for required variables."
+        ) from exc
+    try:
+        data = yaml.safe_load(raw)
+    except yaml.YAMLError as exc:
+        raise SystemExit(
+            f"Failed to parse {path}: {exc}\nCheck your YAML syntax (indentation, colons, quotes)."
+        ) from exc
+    if not isinstance(data, dict):
+        raise SystemExit(
+            f"Config file {path} is empty or invalid.\n"
+            "It must contain a YAML mapping.\n"
+            "See the desktop configuration documentation for examples."
+        )
+    # Reject stripped/unknown top-level fields before any profile upgrade can
+    # write. Config forbids extras; do not migrate an obsolete server config and
+    # only afterwards discover that it cannot be admitted by Desktop.
+    known = set(Config.model_fields)
+    known.update(f.alias for f in Config.model_fields.values() if f.alias)
+    if set(data) - known:
+        raise SystemExit("Config validation failed: unsupported top-level configuration fields")
+    from .migrations import (
+        MigrationCompletionError,
+        _require_desktop_config,
+        apply_compatible_timeout_migration,
+        apply_image_defaults_migration,
+        apply_legacy_ceiling_migration,
+    )
+
+    paths = runtime_profile_paths()
+    # Explicit external reads retain runtime normalization only. They are not
+    # installation imports and cannot publish profile migration provenance.
+    selected = path.resolve() == paths.config_file.resolve()
+    if selected:
+        try:
+            _require_desktop_config(path)
+            apply_legacy_ceiling_migration(data, path, original_raw)
+            apply_image_defaults_migration(data, path, original_raw)
+        except MigrationCompletionError as exc:
+            raise SystemExit(
+                f"Configuration migration failed for {path}: {exc}\n"
+                "Inspect the configuration migration record and retry; Odin will not "
+                "guess at operator provenance."
+            ) from exc
+    # Runtime retirement is not an import from another installation and does
+    # not write the operator's YAML. Preserve the upstream serving boundary.
+    from .model_retirement import migrate_retired_codex_selections
+
+    migrate_retired_codex_selections(data)
+    try:
+        cfg = Config.model_validate(data, context={"startup": True})
+    except Exception as exc:
+        raise SystemExit(
+            f"Config validation failed: {exc}\n"
+            "Check config.yml values — numeric fields must be within valid ranges."
+        ) from exc
+    if selected:
+        try:
+            apply_compatible_timeout_migration(data, path, original_raw)
+        except MigrationCompletionError as exc:
+            raise SystemExit(f"Configuration migration failed for {path}: {exc}") from exc
+    # Record the config source for explicit persistence, never a CWD guess.
+    set_active_config_path(path)
+    return cfg
+
+
+_KNOWN_REMOVED_TOP_LEVEL_CONFIG_KEYS = frozenset(
+    {"comfyui", "issue_tracker", "reaction_triggers", "message_triggers", "slack", "grafana_alerts"}
+)
+
+
+def _warn_unknown_config_keys(data: dict) -> None:
+    """Log a warning for top-level config keys the schema doesn't define."""
+    from ..odin_log import get_logger
+
+    known = set(Config.model_fields)
+    # Also accept field aliases if any are defined.
+    for f in Config.model_fields.values():
+        if getattr(f, "alias", None):
+            # The getattr probe above guarantees a truthy (str) alias, but
+            # mypy can't connect it to the direct attribute read.
+            known.add(f.alias)  # type: ignore[arg-type]
+    unknown = [k for k in data if k not in known and k not in _KNOWN_REMOVED_TOP_LEVEL_CONFIG_KEYS]
+    if unknown:
+        get_logger("config").warning(
+            "Ignoring unknown config key(s): %s — check for typos (known top-level sections: %s)",
+            ", ".join(sorted(unknown)),
+            ", ".join(sorted(known)),
+        )

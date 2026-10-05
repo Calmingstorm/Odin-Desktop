@@ -1,0 +1,396 @@
+"""Ollama LLM client — local/remote Ollama instances.
+
+Implements the LLMProvider interface for Ollama's native /api/chat endpoint.
+Uses native format (not /v1 compat) for reliable tool calling.
+Supports tool calling for models that advertise it (Qwen, Llama 3.1+, etc.).
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import uuid
+
+import aiohttp
+
+from ..odin_log import get_logger
+from .backoff import DEFAULT_BASE_DELAY, DEFAULT_MAX_DELAY, DEFAULT_MAX_RETRIES, compute_backoff
+from .circuit_breaker import CircuitBreaker, breaker_call
+from .client_lifecycle import leased_call
+from .cost_tracker import estimate_tokens
+from .errors import LLMRequestError, LLMTransportError
+from .provider import LLMProvider
+from .tool_history import parse_tool_arguments
+from .types import LLMResponse, ToolCall
+
+log = get_logger("ollama")
+
+
+class OllamaClient(LLMProvider):
+    """Chat client for Ollama instances (local or remote)."""
+
+    def __init__(
+        self,
+        base_url: str = "http://127.0.0.1:11434",
+        model: str = "llama3.1:8b",
+        max_tokens: int = 4096,
+        num_ctx: int = 32768,
+        timeout: int = 300,
+        api_key: str = "",
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        retry_base_delay: float = DEFAULT_BASE_DELAY,
+        retry_max_delay: float = DEFAULT_MAX_DELAY,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.max_tokens = max_tokens
+        self.num_ctx = num_ctx
+        self.timeout = timeout
+        self.api_key = api_key
+        self.max_retries = max_retries
+        self.retry_base_delay = retry_base_delay
+        self.retry_max_delay = retry_max_delay
+        self.breaker = CircuitBreaker("ollama_api")
+        self._session: aiohttp.ClientSession | None = None
+        self._total_requests: int = 0
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        return headers
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=self.timeout),
+            )
+        return self._session
+
+    async def close(self) -> None:
+        if self._session and not self._session.closed:
+            await self._session.close()
+            self._session = None
+
+    def pool_stats(self) -> dict:
+        return {
+            "provider": "ollama",
+            "base_url": self.base_url,
+            "model": self.model,
+            "total_requests": self._total_requests,
+        }
+
+    @property
+    def provider_name(self) -> str:
+        return "ollama"
+
+    @property
+    def model_name(self) -> str:
+        return self.model
+
+    def _convert_messages(self, messages: list[dict], system: str) -> list[dict]:
+        """Convert internal (Anthropic-style block) messages to Ollama /api/chat format.
+
+        Assistant ``tool_use`` blocks become native Ollama ``tool_calls`` and
+        ``tool_result`` blocks become ``role:"tool"`` messages, so multi-turn tool
+        loops preserve the assistant's prior tool calls and their results across
+        iterations. (Previously tool_use blocks were dropped and tool results were
+        flattened to plain user text, so the second tool iteration lost all history.)
+        """
+        ollama_messages: list[dict] = []
+        if system:
+            ollama_messages.append({"role": "system", "content": system})
+
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+
+            # Plain (non-block) content.
+            if not isinstance(content, list):
+                if role in ("tool", "tool_result"):
+                    ollama_messages.append({
+                        "role": "tool",
+                        "content": content if isinstance(content, str) else json.dumps(content),
+                    })
+                else:
+                    ollama_messages.append({
+                        "role": "assistant" if role == "assistant" else "user",
+                        "content": content,
+                    })
+                continue
+
+            # Anthropic-style block content.
+            text_parts: list[str] = []
+            images: list[str] = []
+            tool_calls: list[dict] = []
+            tool_result_msgs: list[dict] = []
+            for block in content:
+                if isinstance(block, str):
+                    text_parts.append(block)
+                    continue
+                if not isinstance(block, dict):
+                    continue
+                btype = block.get("type")
+                if btype == "text":
+                    text_parts.append(block.get("text", ""))
+                elif btype == "image":
+                    source = block.get("source", {})
+                    if source.get("type") == "base64":
+                        images.append(source.get("data", ""))
+                elif btype == "tool_use":
+                    args = block.get("input", {})
+                    tool_calls.append({
+                        "function": {
+                            "name": block.get("name", ""),
+                            "arguments": args if isinstance(args, dict) else {"raw": args},
+                        }
+                    })
+                elif btype == "tool_result":
+                    rc = block.get("content", "")
+                    tool_result_msgs.append({
+                        "role": "tool",
+                        "content": rc if isinstance(rc, str) else json.dumps(rc),
+                    })
+
+            if role == "assistant":
+                entry: dict = {"role": "assistant", "content": "\n".join(text_parts)}
+                if tool_calls:
+                    entry["tool_calls"] = tool_calls
+                if images:
+                    entry["images"] = images
+                ollama_messages.append(entry)
+            else:
+                # User turn: tool results first (as role:"tool" messages), then text.
+                ollama_messages.extend(tool_result_msgs)
+                if text_parts or images:
+                    entry = {"role": "user", "content": "\n".join(text_parts)}
+                    if images:
+                        entry["images"] = images
+                    ollama_messages.append(entry)
+
+        return ollama_messages
+
+    def _convert_tools(self, tools: list[dict]) -> list[dict]:
+        """Convert internal tool format to Ollama tool format."""
+        ollama_tools = []
+        for tool in tools:
+            ollama_tools.append({
+                "type": "function",
+                "function": {
+                    "name": tool.get("name", ""),
+                    "description": tool.get("description", ""),
+                    "parameters": tool.get("input_schema", tool.get("parameters", {})),
+                },
+            })
+        return ollama_tools
+
+    @breaker_call
+    async def _request_with_retry(self, body: dict) -> dict:
+        """Send a request to Ollama with retry logic."""
+        from ..observability.diagnostics import safe_error
+
+        session = await self._get_session()
+        self._total_requests += 1
+        url = f"{self.base_url}/api/chat"
+        last_error: Exception | None = None
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                async with session.post(url, json=body, headers=self._headers()) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        self.breaker.record_success()
+                        return data
+                    text = safe_error(await resp.text())
+                    if resp.status in (500, 502, 503, 504) and attempt < self.max_retries:
+                        last_error = RuntimeError(f"Ollama {resp.status}: {text}")
+                        delay = compute_backoff(
+                            attempt,
+                            self.retry_base_delay,
+                            self.retry_max_delay,
+                        )
+                        log.warning("Ollama %d (attempt %d/%d), retrying in %.1fs",
+                                    resp.status, attempt + 1, self.max_retries + 1, delay)
+                        await asyncio.sleep(delay)
+                        continue
+                    exc_cls = (
+                        LLMTransportError
+                        if resp.status in (500, 502, 503, 504)
+                        else LLMRequestError
+                    )
+                    if exc_cls is LLMTransportError:
+                        self.breaker.record_failure()
+                    raise exc_cls(
+                        f"Ollama {resp.status}: {text}",
+                        provider="ollama",
+                        model=self.model,
+                    )
+            except (TimeoutError, aiohttp.ClientError) as e:
+                last_error = e
+                self.breaker.record_failure()
+                if attempt < self.max_retries:
+                    delay = compute_backoff(attempt, self.retry_base_delay, self.retry_max_delay)
+                    log.warning("Ollama connection error (attempt %d/%d): %s, retrying in %.1fs",
+                                attempt + 1, self.max_retries + 1, safe_error(e), delay)
+                    await asyncio.sleep(delay)
+                    continue
+                raise LLMTransportError(
+                    f"Ollama connection error after {self.max_retries + 1} attempts: "
+                    f"{safe_error(e)}",
+                    provider="ollama",
+                    model=self.model,
+                ) from None
+
+        raise RuntimeError(f"Ollama request failed after {self.max_retries + 1} attempts: "
+                           f"{safe_error(last_error)}")
+
+    @leased_call
+    async def chat(
+        self, messages: list[dict], system: str,
+        max_tokens: int | None = None,
+        model: str | None = None,
+    ) -> str:
+        body = {
+            "model": model or self.model,
+            "messages": self._convert_messages(messages, system),
+            "stream": False,
+            "options": {
+                "num_predict": max_tokens or self.max_tokens,
+                "num_ctx": self.num_ctx,
+            },
+        }
+        data = await self._request_with_retry(body)
+        response = self._parse_response(data)
+        self._last_input_tokens = response.input_tokens
+        self._last_output_tokens = response.output_tokens
+        served_model = data.get("model")
+        self._last_model = (
+            served_model if isinstance(served_model, str) and served_model else model or self.model
+        )
+        if response.stop_reason == "incomplete":
+            from .errors import LLMIncompleteResponseError
+
+            raise LLMIncompleteResponseError(
+                "Ollama returned an incomplete response", partial_text=response.text,
+                provider="ollama", model=body["model"], code="output_truncated",
+            )
+        from .types import ChatText
+
+        return ChatText(response.text, model=self._last_model,
+                        input_tokens=response.input_tokens, output_tokens=response.output_tokens)
+
+    @leased_call
+    async def chat_with_tools(
+        self, messages: list[dict], system: str,
+        tools: list[dict],
+        *, reasoning_effort: str | None = None,  # signature parity; no effort concept
+        model: str | None = None,
+    ) -> LLMResponse:
+        # Pre-await local: body and response provenance share one snapshot
+        # (self.model is live-reloadable; never re-read it after network I/O).
+        resolved_model = model or self.model
+        body = {
+            "model": resolved_model,
+            "messages": self._convert_messages(messages, system),
+            "tools": self._convert_tools(tools),
+            "stream": False,
+            "options": {
+                "num_predict": self.max_tokens,
+                "num_ctx": self.num_ctx,
+            },
+        }
+        data = await self._request_with_retry(body)
+        resp = self._parse_response(data)
+        resp.provenance_provider = "ollama"
+        served_model = data.get("model")
+        resp.provenance_model = (
+            served_model if isinstance(served_model, str) and served_model else resolved_model
+        )
+        resp.provenance_reasoning_effort = None  # no effort concept
+        return resp
+
+    def _parse_response(self, data: dict) -> LLMResponse:
+        """Parse Ollama response into LLMResponse."""
+        message = data.get("message", {})
+        text = message.get("content", "")
+        tool_calls_raw = message.get("tool_calls", [])
+
+        tool_calls = []
+        for tc in tool_calls_raw:
+            fn = tc.get("function", {})
+            args = fn.get("arguments", {})
+            args, parse_error = parse_tool_arguments(args)
+            tool_calls.append(ToolCall(
+                id=tc.get("id") or f"ollama_{uuid.uuid4().hex[:12]}",
+                name=fn.get("name", ""),
+                input=args,
+                parse_error=parse_error,
+            ))
+
+        stop_reason = "tool_use" if tool_calls else "end_turn"
+        if data.get("done_reason") == "length" or data.get("done") is False:
+            stop_reason = "incomplete"
+            tool_calls = []  # Never execute calls from an unsettled response.
+        elif not text.strip() and not tool_calls:
+            from .errors import LLMRequestError
+
+            raise LLMRequestError("Ollama returned an empty response", provider="ollama",
+                                  model=self.model, code="empty_response")
+
+        raw_input_tokens = data.get("prompt_eval_count")
+        raw_output_tokens = data.get("eval_count")
+        server_input_tokens = (
+            raw_input_tokens if type(raw_input_tokens) is int and raw_input_tokens >= 0 else None
+        )
+        server_output_tokens = (
+            raw_output_tokens if type(raw_output_tokens) is int and raw_output_tokens >= 0 else None
+        )
+        input_tokens = server_input_tokens
+        output_tokens = server_output_tokens
+        if input_tokens is None:
+            input_tokens = estimate_tokens(text) * 3
+        if output_tokens is None:
+            output_tokens = estimate_tokens(text)
+
+        return LLMResponse(
+            text=text,
+            tool_calls=tool_calls,
+            stop_reason=stop_reason,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            server_input_tokens=server_input_tokens,
+            server_output_tokens=server_output_tokens,
+            input_token_provenance=(
+                "provider_reported" if server_input_tokens is not None else "estimated_legacy_4char"
+            ),
+            output_token_provenance=(
+                "provider_reported" if server_output_tokens is not None else "estimated_text_v1"
+            ),
+        )
+
+    @leased_call
+    async def health_check(self) -> dict:
+        """Check if the Ollama instance is reachable and list available models."""
+        try:
+            session = await self._get_session()
+            async with session.get(
+                f"{self.base_url}/api/tags",
+                headers=self._headers(),
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    return {"healthy": False, "error": f"HTTP {resp.status}"}
+                data = await resp.json()
+                models = [m.get("name", "") for m in data.get("models", [])]
+                model_available = self.model in models
+                if not model_available:
+                    base_name = self.model.split(":")[0]
+                    model_available = any(m.startswith(base_name + ":") for m in models)
+                return {
+                    "healthy": True,
+                    "base_url": self.base_url,
+                    "models": models,
+                    "model_available": model_available,
+                    "active_model": self.model,
+                }
+        except Exception as e:
+            return {"healthy": False, "error": str(e)}

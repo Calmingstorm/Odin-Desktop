@@ -1,0 +1,549 @@
+"""Coverage for src/web/api/observability.py (RFC-006 P11, safe tier-1).
+
+All read-only stat/audit routes (+ one PUT for tool timeouts) through the real
+aiohttp route layer with a faked bot. SAFE: every route delegates to a bot
+subsystem; file-reading aggregates (context/failure/affordances) are patched, so
+nothing touches real trajectory/audit files.
+"""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from aiohttp import web
+from aiohttp.test_utils import TestClient, TestServer
+
+from src.config.schema import Config
+from src.web.api import observability as obs
+
+
+def _app(*registrars, bot):
+    routes = web.RouteTableDef()
+    for reg in registrars:
+        reg(routes, bot)
+    app = web.Application()
+    app.router.add_routes(routes)
+    return app
+
+
+def _bot():
+    bot = MagicMock()
+    bot.config = Config(discord={"token": "x"})
+    a = bot.audit
+    a.count_by_tool = AsyncMock(return_value={"run_command": 5})
+    a.search = AsyncMock(return_value=[{"tool_name": "t", "error": "boom"}, {"tool_name": "u"}])
+    a.search_diffs = AsyncMock(return_value=[{"d": 1}])
+    a.verify_integrity = AsyncMock(return_value={"valid": True})
+    a.search_logs = AsyncMock(return_value=[{"l": 1}])
+    a.get_log_stats = AsyncMock(return_value={"total": 3})
+    a.open_read_snapshot = AsyncMock(return_value=[])
+    a.search_by_risk = AsyncMock(return_value=[{"r": 1}])
+    ex = bot.tool_executor
+    ex.risk_stats.get_summary.return_value = {"risk": 1}
+    ex.risk_stats.get_recent.return_value = [{"e": 1}]
+    ex.command_governor.stats.get_summary.return_value = {"g": 1}
+    ex.recovery_stats.get_summary.return_value = {"rec": 1}
+    ex.recovery_stats.get_recent.return_value = []
+    ex.freshness_stats.get_summary.return_value = {"f": 1}
+    ex.freshness_stats.get_recent.return_value = []
+    ex.validation_stats.as_dict.return_value = {"v": 1}
+    ex.bulkheads.get_all_metrics.return_value = {"b": 1}
+    bot.cost_tracker.get_totals.return_value = {"c": 1}
+    bot.cost_tracker.get_summary.return_value = {"c": 2}
+    bot.usage_rollup.totals = AsyncMock(return_value={"available": True, "c": 1})
+    bot.usage_rollup.summary = AsyncMock(return_value={"available": True, "c": 2})
+    bot.compression_stats.as_dict.return_value = {"comp": 1}
+    bot.services = None
+    bot.subsystem_guard.get_status.return_value = {"s": 1}
+    return bot
+
+
+class TestToolsMeta:
+    async def test_list_and_stats_and_timeouts(self):
+        bot = _bot()
+        # /api/tools now reports the runtime catalog (what the model sees).
+        bot.tool_catalog.merged_definitions.return_value = [
+            {"name": "t", "description": "d", "is_core": True}
+        ]
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr(
+                obs,
+                "get_tool_definitions",
+                lambda: [{"name": "t", "description": "d", "is_core": True}],
+            )
+            async with TestClient(TestServer(_app(obs.register_tools_meta, bot=bot))) as c:
+                assert (await (await c.get("/api/tools")).json())[0]["name"] == "t"
+                assert (await (await c.get("/api/tools/stats")).json())["run_command"] == 5
+                assert "default_timeout" in await (await c.get("/api/tools/timeouts")).json()
+
+    async def test_set_timeouts(self):
+        bot = _bot()
+        bot.tool_executor.config = bot.config.tools.model_copy(deep=True)
+        persist = AsyncMock(return_value=(None, False))
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr("src.config.persistence.persist_config_paths_locked", persist)
+            async with TestClient(TestServer(_app(obs.register_tools_meta, bot=bot))) as c:
+                await self._check_timeout_mutation(c, bot, persist)
+
+    async def test_repeated_builtin_desired_state_does_not_write_dead_executor_config(self):
+        bot = _bot()
+        # Config Center persisted the desired value with restart-required
+        # semantics: bot config is current but the already-running executor
+        # still has the old snapshot. Repeating the desired state must repair
+        # the executor instead of taking the ordinary idempotent no-op path.
+        bot.config.tools.disabled_tools = ["run_command"]
+        bot.tool_executor.config = bot.config.tools.model_copy(deep=True)
+        bot.tool_executor.config.disabled_tools = []
+        persist = AsyncMock(return_value=(None, False))
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr("src.config.persistence.persist_config_paths_locked", persist)
+            async with TestClient(TestServer(_app(obs.register_tools_meta, bot=bot))) as c:
+                response = await c.post(
+                    "/api/tools/builtins/run_command/enabled", json={"enabled": False}
+                )
+                assert response.status == 200
+        persist.assert_not_awaited()
+        assert bot.config.tools.disabled_tools == ["run_command"]
+        # Dispatch and catalog policy read bot.config through live providers.
+        # The executor snapshot is not an enforcement surface.
+        assert bot.tool_executor.config.disabled_tools == []
+
+    async def test_repeated_timeout_put_reconciles_executor_after_restart_applied_save(self):
+        bot = _bot()
+        bot.config.tools.tool_timeouts = {"run_command": 45}
+        bot.config.tools.command_timeout_seconds = 90
+        bot.tool_executor.config = bot.config.tools.model_copy(deep=True)
+        bot.tool_executor.config.tool_timeouts = {}
+        bot.tool_executor.config.command_timeout_seconds = 300
+        persist = AsyncMock(return_value=(None, False))
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr("src.config.persistence.persist_config_paths_locked", persist)
+            async with TestClient(TestServer(_app(obs.register_tools_meta, bot=bot))) as c:
+                response = await c.put(
+                    "/api/tools/timeouts",
+                    json={"overrides": {"run_command": 45}, "default_timeout": 90},
+                )
+                assert response.status == 200
+        persist.assert_not_awaited()
+        assert bot.tool_executor.config.tool_timeouts == {"run_command": 45}
+        assert bot.tool_executor.config.get_tool_timeout("run_command") == 45
+        assert bot.tool_executor.config.command_timeout_seconds == 90
+
+    async def _check_timeout_mutation(self, c, bot, persist):
+            assert (await c.put("/api/tools/timeouts", data="bad")).status == 400
+            assert (await c.put("/api/tools/timeouts", json=[1])).status == 400
+            assert (await c.put("/api/tools/timeouts", json={"overrides": "notdict"})).status == 400
+            assert (await c.put("/api/tools/timeouts", json={"overrides": {"t": -1}})).status == 400
+            assert (await c.put("/api/tools/timeouts", json={"default_timeout": 0})).status == 400
+            r = await c.put(
+                "/api/tools/timeouts", json={"overrides": {"t": 30}, "default_timeout": 60}
+            )
+            assert r.status == 200 and (await r.json())["default_timeout"] == 60
+            persist.assert_awaited_once_with([
+                (("tools", "tool_timeouts"), {"t": 30}),
+                (("tools", "command_timeout_seconds"), 60),
+            ])
+            assert bot.tool_executor.config.get_tool_timeout("t") == 30
+            assert bot.tool_executor.config.command_timeout_seconds == 60
+
+    async def test_builtin_inventory_and_toggle_persist_and_invalidate_catalog(self):
+        bot = _bot()
+        bot.config.tools.disabled_tools = ["run_command"]
+        bot.tool_catalog.backend_hidden_names.return_value = {"chat"}
+        persist = AsyncMock(return_value=(None, False))
+        definitions = [
+            {"name": "run_command", "description": "shell", "input_schema": {"type": "object"}},
+            {"name": "chat", "is_core": True},
+            {"name": "other"},
+        ]
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr(obs, "get_tool_definitions", lambda: definitions)
+            mp.setattr("src.config.persistence.persist_config_paths_locked", persist)
+            async with TestClient(TestServer(_app(obs.register_tools_meta, bot=bot))) as c:
+                inventory = await (await c.get("/api/tools/builtins")).json()
+                assert inventory["global_enabled"] is True
+                by_name = {tool["name"]: tool for tool in inventory["tools"]}
+                assert by_name["run_command"]["state"] == "disabled"
+                assert by_name["run_command"]["input_schema"] == {"type": "object"}
+                assert by_name["chat"]["state"] == "unavailable"
+                assert by_name["other"]["state"] == "available"
+
+                # Global disablement is a distinct operator state, even for
+                # an individually enabled built-in.
+                bot.config.tools.enabled = False
+                disabled_inventory = await (await c.get("/api/tools/builtins")).json()
+                disabled_by_name = {t["name"]: t for t in disabled_inventory["tools"]}
+                assert disabled_by_name["other"]["state"] == "global_disabled"
+                bot.config.tools.enabled = True
+
+                response = await c.post(
+                    "/api/tools/builtins/run_command/enabled", json={"enabled": True}
+                )
+                assert response.status == 200
+                assert bot.config.tools.disabled_tools == []
+                bot.tool_catalog.invalidate.assert_called_once_with()
+                persist.assert_awaited_once_with(
+                    [(("tools", "disabled_tools"), [])]
+                )
+                assert {t["name"]: t["state"] for t in (await response.json())["tools"]}[
+                    "run_command"
+                ] == "available"
+
+                # Repeating the current value is idempotent: no disk write or
+                # catalog invalidation, but the operator still gets inventory.
+                persist.reset_mock()
+                bot.tool_catalog.invalidate.reset_mock()
+                repeated = await c.post(
+                    "/api/tools/builtins/run_command/enabled", json={"enabled": True}
+                )
+                assert repeated.status == 200
+                persist.assert_not_awaited()
+                bot.tool_catalog.invalidate.assert_not_called()
+
+                invalid_responses = (
+                    await c.post(
+                        "/api/tools/builtins/not_a_builtin/enabled", json={"enabled": True}
+                    ),
+                    await c.post("/api/tools/builtins/run_command/enabled", data="bad"),
+                    await c.post("/api/tools/builtins/run_command/enabled", json={"enabled": 1}),
+                    await c.post(
+                        "/api/tools/builtins/run_command/enabled",
+                        json={"enabled": True, "extra": 1},
+                    ),
+                )
+                assert [r.status for r in invalid_responses] == [404, 400, 400, 400]
+
+                failed_persist = AsyncMock(return_value=(OSError("disk full"), False))
+                mp.setattr("src.config.persistence.persist_config_paths_locked", failed_persist)
+                failed = await c.post(
+                    "/api/tools/builtins/run_command/enabled", json={"enabled": False}
+                )
+                assert failed.status == 500
+                # Persistence failure must not publish the uncommitted switch.
+                assert bot.config.tools.disabled_tools == []
+
+                # Cancellation after durable settlement publishes the new
+                # state, but must not falsely return a success response.
+                mp.setattr(
+                    "src.config.persistence.persist_config_paths_locked",
+                    AsyncMock(return_value=(None, True)),
+                )
+                try:
+                    cancelled_response = await c.post(
+                        "/api/tools/builtins/run_command/enabled", json={"enabled": False}
+                    )
+                    assert cancelled_response.status != 200
+                except Exception:
+                    pass
+                assert bot.config.tools.disabled_tools == ["run_command"]
+
+    async def test_failed_timeout_save_does_not_change_live_config(self):
+        bot = _bot()
+        bot.tool_executor.config = bot.config.tools.model_copy(deep=True)
+        original = bot.config.tools.model_copy(deep=True)
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr(
+                "src.config.persistence.persist_config_paths_locked",
+                AsyncMock(return_value=(OSError("disk full"), False)),
+            )
+            async with TestClient(TestServer(_app(obs.register_tools_meta, bot=bot))) as c:
+                response = await c.put("/api/tools/timeouts", json={"default_timeout": 45})
+                assert response.status == 500
+        assert bot.config.tools == original
+        assert bot.tool_executor.config == original
+
+    async def test_timeout_override_only_is_persisted_and_published(self):
+        bot = _bot()
+        persist = AsyncMock(return_value=(None, False))
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr("src.config.persistence.persist_config_paths_locked", persist)
+            async with TestClient(TestServer(_app(obs.register_tools_meta, bot=bot))) as c:
+                response = await c.put("/api/tools/timeouts", json={"overrides": {"read_file": 42}})
+                assert response.status == 200
+        persist.assert_awaited_once_with([(("tools", "tool_timeouts"), {"read_file": 42})])
+        assert bot.config.tools.get_tool_timeout("read_file") == 42
+
+    async def test_timeout_persisted_cancellation_does_not_claim_success(self):
+        bot = _bot()
+        bot.tool_executor.config = bot.config.tools.model_copy(deep=True)
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr(
+                "src.config.persistence.persist_config_paths_locked",
+                AsyncMock(return_value=(None, True)),
+            )
+            async with TestClient(TestServer(_app(obs.register_tools_meta, bot=bot))) as c:
+                try:
+                    response = await c.put("/api/tools/timeouts", json={"default_timeout": 47})
+                    assert response.status != 200
+                except Exception:
+                    # aiohttp can close the cancelled handler's connection
+                    # instead of returning a response to this test client.
+                    pass
+        assert bot.config.tools.command_timeout_seconds == 47
+        assert bot.tool_executor.config.command_timeout_seconds == 47
+
+    async def test_timeout_cancelled_write_error_does_not_publish(self):
+        bot = _bot()
+        original = bot.config.tools.command_timeout_seconds
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr(
+                "src.config.persistence.persist_config_paths_locked",
+                AsyncMock(return_value=(OSError("disk full"), True)),
+            )
+            async with TestClient(TestServer(_app(obs.register_tools_meta, bot=bot))) as c:
+                try:
+                    response = await c.put("/api/tools/timeouts", json={"default_timeout": 47})
+                    assert response.status != 200
+                except Exception:
+                    pass
+        assert bot.config.tools.command_timeout_seconds == original
+
+
+class TestBulkheadsAndAggregates:
+    async def test_bulkheads(self):
+        # The executor surface is bot.tool_executor. The old fake configured
+        # bot.executor — a name that never existed post-decomposition — so the
+        # test validated the dead route (audit 7.3). A MagicMock bot satisfies
+        # ANY attribute name, so the positive arm uses a rigid bot exposing
+        # only the real name: attribute drift now fails loudly instead of
+        # being auto-satisfied.
+        bulkheads = SimpleNamespace(get_all_metrics=lambda: {"b": 1})
+        rigid = SimpleNamespace(tool_executor=SimpleNamespace(bulkheads=bulkheads))
+        async with TestClient(TestServer(_app(obs.register_bulkheads, bot=rigid))) as c:
+            assert (await (await c.get("/api/tools/bulkheads")).json())["b"] == 1
+        bare = SimpleNamespace(tool_executor=None)
+        async with TestClient(TestServer(_app(obs.register_bulkheads, bot=bare))) as c:
+            assert (await c.get("/api/tools/bulkheads")).status == 503
+
+    async def test_aggregates(self):
+        bot = _bot()
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr("src.observability.aggregates.context_aggregates", lambda d, w: {"ctx": w})
+            mp.setattr("src.observability.aggregates.failure_aggregates",
+                       lambda p, w, **kwargs: {"fail": w})
+            async with TestClient(TestServer(_app(obs.register_aggregates, bot=bot))) as c:
+                assert (await (await c.get("/api/observability/context?window=5")).json())[
+                    "ctx"
+                ] == 5
+                # non-integer window falls back to the 24h default
+                assert (await (await c.get("/api/observability/context?window=abc")).json())[
+                    "ctx"
+                ] == 24
+                assert (await (await c.get("/api/observability/failures")).json())["fail"] == 24
+                assert (await (await c.get("/api/usage/totals")).json())["c"] == 1
+        # disabled prompt-budget → 503
+        bot.config.observability.prompt_budget_accounting = False
+        async with TestClient(TestServer(_app(obs.register_aggregates, bot=bot))) as c:
+            assert (await c.get("/api/observability/context")).status == 503
+        bot.usage_rollup = None
+        async with TestClient(TestServer(_app(obs.register_aggregates, bot=bot))) as c:
+            assert (await c.get("/api/usage/totals")).status == 503
+
+
+class TestAuditAndLogs:
+    async def test_audit(self):
+        bot = _bot()
+        bot.audit.search = AsyncMock(return_value=[{"tool_name": "t", "error": "boom"}])
+        async with TestClient(TestServer(_app(obs.register_audit_log, bot=bot))) as c:
+            # error_only is delegated into the bounded search predicate.
+            body = await (await c.get("/api/audit?error_only=true&tool=t")).json()
+            assert len(body) == 1 and body[0]["error"] == "boom"
+            # Audit diffs expose a separate filter set and a tighter limit cap.
+            diff_body = await (
+                await c.get("/api/audit/diffs?tool=t&user=u&date=today&limit=999")
+            ).json()
+            assert diff_body == {"entries": [{"d": 1}], "count": 1}
+            bot.audit.search_diffs.assert_awaited_with(
+                tool_name="t", user="u", date="today", limit=100
+            )
+            bot.audit.search.assert_awaited_with(
+                tool_name="t",
+                user=None,
+                host=None,
+                keyword=None,
+                date=None,
+                has_error=True,
+                limit=50,
+            )
+            assert (await (await c.get("/api/audit/diffs")).json())["count"] == 1
+            assert (await c.get("/api/audit/verify")).status == 200
+        bot.audit.verify_integrity = AsyncMock(return_value={"valid": False})
+        async with TestClient(TestServer(_app(obs.register_audit_log, bot=bot))) as c:
+            assert (await c.get("/api/audit/verify")).status == 409
+
+    async def test_logs(self):
+        bot = _bot()
+        async with TestClient(TestServer(_app(obs.register_log_search, bot=bot))) as c:
+            assert (await c.get("/api/logs/search?level=bogus")).status == 400
+            result = await c.get(
+                "/api/logs/search?level=error&start=from&end=to&q=x&tool=t&limit=900"
+            )
+            assert result.status == 200
+            assert await result.json() == {"entries": [{"l": 1}], "count": 1}
+            bot.audit.search_logs.assert_awaited_once_with(
+                level="error", start_time="from", end_time="to", keyword="x",
+                tool_name="t", limit=500,
+            )
+            assert (await (await c.get("/api/logs/stats")).json())["total"] == 3
+            bot.audit.get_log_stats.assert_awaited_once_with()
+
+
+class TestExecutorStats:
+    async def test_risk_recovery_freshness_validation(self):
+        bot = _bot()
+        regs = (
+            obs.register_risk_classification,
+            obs.register_recovery_stats,
+            obs.register_branch_freshness,
+            obs.register_validation_stats,
+        )
+        async with TestClient(TestServer(_app(*regs, bot=bot))) as c:
+            assert (await (await c.get("/api/risk/stats")).json())["risk"] == 1
+            assert (await (await c.get("/api/risk/recent")).json())["entries"][0]["e"] == 1
+            assert (await (await c.get("/api/governor/stats")).json())["g"] == 1
+            assert (await (await c.get("/api/audit/risk?level=high")).json())["count"] == 1
+            assert (await (await c.get("/api/recovery/stats")).json())["rec"] == 1
+            assert "entries" in await (await c.get("/api/recovery/recent")).json()
+            assert (await (await c.get("/api/freshness/stats")).json())["f"] == 1
+            assert "entries" in await (await c.get("/api/freshness/recent")).json()
+            assert (await (await c.get("/api/validation/stats")).json())["v"] == 1
+
+    async def test_executor_unavailable_503(self):
+        bot = _bot()
+        bot.tool_executor = None
+        regs = (
+            obs.register_risk_classification,
+            obs.register_recovery_stats,
+            obs.register_branch_freshness,
+            obs.register_validation_stats,
+        )
+        async with TestClient(TestServer(_app(*regs, bot=bot))) as c:
+            for path in (
+                "/api/risk/stats",
+                "/api/risk/recent",
+                "/api/governor/stats",
+                "/api/recovery/stats",
+                "/api/recovery/recent",
+                "/api/freshness/stats",
+                "/api/freshness/recent",
+                "/api/validation/stats",
+            ):
+                assert (await c.get(path)).status == 503
+
+    async def test_governor_missing(self):
+        bot = _bot()
+        bot.tool_executor.command_governor = None
+        async with TestClient(TestServer(_app(obs.register_risk_classification, bot=bot))) as c:
+            assert (await c.get("/api/governor/stats")).status == 503
+
+
+class TestMiscStats:
+    @pytest.mark.parametrize("reasoning", [None, 0, 37])
+    async def test_usage_reasoning_real_store_survives_json_boundary(self, tmp_path, reasoning):
+        from tests.test_usage_rollup import make_rollup, turn_record
+
+        bot = _bot()
+        bot.usage_rollup = make_rollup(tmp_path)
+        await bot.usage_rollup.observe_trajectory(turn_record(iterations=[{
+            "iteration": 1,
+            "provider": "compatible",
+            "model": "reasoner",
+            "server_output_tokens": 50,
+            "output_token_provenance": "provider_reported",
+            "reasoning_tokens": reasoning,
+        }]), "turn")
+        async with TestClient(TestServer(_app(
+            obs.register_usage_cost, obs.register_aggregates, bot=bot,
+        ))) as c:
+            response = await c.get("/api/usage?range=all")
+            body = await response.json()
+            totals_response = await c.get("/api/usage/totals")
+            totals = await totals_response.json()
+        assert response.status == totals_response.status == 200
+        assert body["work"]["reasoning_tokens"] == reasoning
+        assert body["work"]["reasoning_generations_reported"] == int(reasoning is not None)
+        assert body["work"]["reasoning_unknown_generations"] == int(reasoning is None)
+        assert body["serving"][0]["reasoning_tokens"] == reasoning
+        assert totals["reasoning_tokens"] == reasoning
+        assert totals["output_tokens"] == totals["total_tokens"] == 50
+
+    async def test_affordances_compression_usage_degradation(self):
+        bot = _bot()
+        regs = (
+            obs.register_affordances,
+            obs.register_compression_stats,
+            obs.register_usage_cost,
+            obs.register_degradation,
+        )
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr("src.tools.affordances.all_affordances", lambda: [{"tool": "t"}])
+            async with TestClient(TestServer(_app(*regs, bot=bot))) as c:
+                assert (await (await c.get("/api/affordances")).json())["affordances"]
+                assert (await (await c.get("/api/compression/stats")).json())["comp"] == 1
+                assert (await (await c.get("/api/usage")).json())["c"] == 2
+                assert (await (await c.get("/api/subsystems/status")).json())["s"] == 1
+
+    async def test_usage_duration_unavailability_survives_json_api_boundary(self):
+        bot = _bot()
+        bot.usage_rollup.summary = AsyncMock(return_value={
+            "available": True,
+            "work": {
+                "recorded_processing_ms": None,
+                "recorded_processing_samples": 0,
+            },
+            "activity": [{"duration_ms": None, "duration_samples": 0}],
+            "serving": [{"duration_ms": None, "duration_samples": 0}],
+            "tools": [{"avg_duration_ms": None, "duration_samples": 0}],
+        })
+        async with TestClient(TestServer(_app(obs.register_usage_cost, bot=bot))) as c:
+            response = await c.get("/api/usage?range=all")
+            body = await response.json()
+
+        assert response.status == 200
+        assert body["work"]["recorded_processing_ms"] is None
+        assert body["activity"][0]["duration_ms"] is None
+        assert body["serving"][0]["duration_ms"] is None
+        assert body["tools"][0]["avg_duration_ms"] is None
+        bot.usage_rollup.summary.assert_awaited_once_with("all")
+
+    async def test_subsystem_status_exposes_server_computed_failure_age(self):
+        from src.health.subsystem_guard import SubsystemGuard
+
+        bot = _bot()
+        guard = SubsystemGuard()
+        guard.register("browser")
+        info = guard.get_subsystem("browser")
+        assert info is not None
+        info.last_failure_at = 100.0
+        bot.subsystem_guard = guard
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr("src.health.subsystem_guard.time.monotonic", lambda: 220.25)
+            async with TestClient(TestServer(_app(obs.register_degradation, bot=bot))) as c:
+                response = await c.get("/api/subsystems/status")
+                body = await response.json()
+        assert response.status == 200
+        assert body["subsystems"][0]["last_failure_age_seconds"] == 120.25
+
+    async def test_compression_stats_use_composed_service(self):
+        bot = _bot()
+        bot.compression_stats = None
+        stats = MagicMock()
+        stats.as_dict.return_value = {"compressions": 4}
+        bot.services = SimpleNamespace(compression_stats=stats)
+        async with TestClient(TestServer(_app(obs.register_compression_stats, bot=bot))) as c:
+            response = await c.get("/api/compression/stats")
+            assert response.status == 200
+            assert (await response.json())["compressions"] == 4
+
+    async def test_misc_unavailable_503(self):
+        bot = _bot()
+        bot.compression_stats = None
+        bot.usage_rollup = None
+        bot.subsystem_guard = None
+        regs = (obs.register_compression_stats, obs.register_usage_cost, obs.register_degradation)
+        async with TestClient(TestServer(_app(*regs, bot=bot))) as c:
+            assert (await c.get("/api/compression/stats")).status == 503
+            assert (await c.get("/api/usage")).status == 503
+            assert (await c.get("/api/subsystems/status")).status == 503

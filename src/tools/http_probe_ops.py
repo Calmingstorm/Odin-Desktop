@@ -1,0 +1,231 @@
+"""HTTP probe operations helper for the http_probe tool.
+
+Builds safe curl commands for HTTP probing with timing, retries,
+and response capture — useful for API debugging and health checking.
+All user-provided values go through shlex.quote() for shell injection protection.
+"""
+
+from __future__ import annotations
+
+import shlex
+from urllib.parse import urlparse
+
+from .url_safety import is_metadata_url
+
+ALLOWED_METHODS = frozenset(
+    {
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "PATCH",
+        "HEAD",
+        "OPTIONS",
+    }
+)
+
+MAX_TIMEOUT = 120
+DEFAULT_TIMEOUT = 30
+MAX_RETRIES = 5
+DEFAULT_RETRIES = 0
+MAX_RETRY_DELAY = 30
+DEFAULT_RETRY_DELAY = 1
+MAX_BODY_SIZE = 50000  # 50KB body limit
+
+# Cloud-metadata endpoints to neutralize on redirect. is_metadata_url() checks
+# the INITIAL url, but curl -L follows redirects, so a public URL that 302s to
+# 169.254.169.254 would still reach metadata. curl has no per-IP connect deny,
+# so we sinkhole these hosts to a closed local port via --connect-to; a redirect
+# into metadata then fails to connect instead of leaking instance credentials.
+# Ports 80/443 are the only ports the metadata services listen on.
+_METADATA_SINKHOLE_HOSTS = (
+    "169.254.169.254",
+    "metadata.google.internal",
+    "[fd00:ec2::254]",
+)
+_SINKHOLE_PORTS = (80, 443)
+_SINKHOLE_TARGET = "127.0.0.1:9"  # discard port, effectively closed
+
+_TIMING_FORMAT = (
+    r"\n---PROBE-RESULTS---"
+    r"\nstatus_code: %{http_code}"
+    r"\ntime_dns: %{time_namelookup}s"
+    r"\ntime_connect: %{time_connect}s"
+    r"\ntime_tls: %{time_appconnect}s"
+    r"\ntime_ttfb: %{time_starttransfer}s"
+    r"\ntime_total: %{time_total}s"
+    r"\nsize_download: %{size_download} bytes"
+    r"\nspeed_download: %{speed_download} bytes/s"
+    r"\nredirects: %{num_redirects}"
+    r"\nremote_ip: %{remote_ip}"
+    r"\nremote_port: %{remote_port}"
+)
+
+
+def _sq(value: str) -> str:
+    return shlex.quote(value)
+
+
+def validate_url(url: str) -> str:
+    """Validate and return URL. Raises ValueError for invalid URLs."""
+    if not url or not url.strip():
+        raise ValueError("URL is required")
+    url = url.strip()
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(
+            f"Invalid URL scheme: {parsed.scheme!r}. Only http and https are supported."
+        )
+    if not parsed.netloc:
+        raise ValueError("URL must include a host (e.g., https://example.com)")
+    # SSRF guard: block cloud-metadata endpoints (DNS-rebind aware). http_probe
+    # is an infra tool that legitimately probes internal/localhost services, so
+    # we block only the metadata service (never a legitimate probe target and
+    # the one that hands out instance credentials) rather than all private IPs.
+    if is_metadata_url(url):
+        raise ValueError("URL blocked: targets a cloud-metadata endpoint (SSRF protection).")
+    return url
+
+
+def _clamp_int(value, default: int, minimum: int, maximum: int) -> int:
+    try:
+        v = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(v, maximum))
+
+
+def normalize_probe_headers(headers):
+    """Decode the strict wire header-record form, preserving legacy dict callers."""
+    if headers is None or isinstance(headers, dict):
+        return headers
+    if not isinstance(headers, list):
+        # Preserve the legacy builder contract: unsupported direct-call types
+        # were ignored. The strict request boundary rejects them by schema.
+        return headers
+    normalized = {}
+    seen = set()
+    for i, entry in enumerate(headers):
+        if not isinstance(entry, dict) or set(entry) != {"name", "value"}:
+            raise ValueError(f"Header entry {i} must contain exactly name and value")
+        name, value = entry["name"], entry["value"]
+        if not isinstance(name, str) or not isinstance(value, str):
+            raise ValueError(f"Header entry {i} name and value must be strings")
+        folded = name.casefold()
+        if folded in seen:
+            raise ValueError(f"Duplicate HTTP header name (case-insensitive): {name}")
+        seen.add(folded)
+        normalized[name] = value
+    return normalized
+
+
+def build_http_probe_command(params: dict) -> str:
+    """Build a curl command for HTTP probing.
+
+    All user-provided values are passed through shlex.quote().
+    Returns a single command string.
+    """
+    url = validate_url(params.get("url", ""))
+    method = params.get("method", "GET").upper()
+    if method not in ALLOWED_METHODS:
+        raise ValueError(
+            f"Invalid HTTP method: {method}. Allowed: {', '.join(sorted(ALLOWED_METHODS))}"
+        )
+
+    # HEAD needs curl's native no-body mode, not a method override. `-X HEAD`
+    # sends the HEAD token but leaves libcurl expecting a response body, so it
+    # blocks until the timeout and exits 18 ("transfer closed with N bytes
+    # remaining"): measured 5.1s/exit-18 versus 0.065s/exit-0 for `-I` against
+    # a healthy server. HEAD is the ONLY affected method — POST/PUT/PATCH/
+    # DELETE/OPTIONS may legitimately return zero-length bodies and curl frames
+    # those normally (verified: `-X OPTIONS` exits 0 in 0.067s).
+    is_head = method == "HEAD"
+
+    # A request body on HEAD is rejected rather than silently dropped: data
+    # flags combined with -I make curl's method selection ambiguous, and HEAD
+    # request-body semantics are not worth preserving here.
+    if is_head and params.get("body"):
+        raise ValueError("HTTP method HEAD does not accept a request body")
+
+    parts = ["curl", "-sS"]
+
+    # Timing output format
+    parts.append(f"-w {_sq(_TIMING_FORMAT)}")
+
+    if is_head:
+        # -I already routes response headers to output; adding -i as well is
+        # redundant and makes the output contract depend on how a given curl
+        # version coalesces the two.
+        parts.append("-I")
+    else:
+        # Include response headers in output
+        parts.append("-i")
+        # HTTP method
+        if method != "GET":
+            parts.append(f"-X {method}")
+
+    # Timeout
+    timeout = _clamp_int(params.get("timeout"), DEFAULT_TIMEOUT, 1, MAX_TIMEOUT)
+    parts.append(f"--max-time {timeout}")
+    parts.append(f"--connect-timeout {min(timeout, 10)}")
+
+    # Follow redirects
+    follow = params.get("follow_redirects", True)
+    if follow:
+        parts.append("-L")
+        parts.append("--max-redirs 10")
+        # Block redirect-to-metadata: is_metadata_url() only guards the initial
+        # URL, so sinkhole the metadata endpoints for any followed hop too.
+        for mhost in _METADATA_SINKHOLE_HOSTS:
+            for mport in _SINKHOLE_PORTS:
+                parts.append(f"--connect-to {_sq(f'{mhost}:{mport}:{_SINKHOLE_TARGET}')}")
+
+    # SSL verification
+    verify_ssl = params.get("verify_ssl", True)
+    if not verify_ssl:
+        parts.append("-k")
+
+    # Retries
+    retries = _clamp_int(params.get("retries"), DEFAULT_RETRIES, 0, MAX_RETRIES)
+    if retries > 0:
+        parts.append(f"--retry {retries}")
+        retry_delay = _clamp_int(params.get("retry_delay"), DEFAULT_RETRY_DELAY, 0, MAX_RETRY_DELAY)
+        parts.append(f"--retry-delay {retry_delay}")
+
+    # Custom headers. The wire uses name/value records because strict JSON
+    # schemas cannot express arbitrary object keys. Keep canonical dict callers.
+    headers = normalize_probe_headers(params.get("headers"))
+    if isinstance(headers, dict):
+        for name, value in headers.items():
+            # curl interprets -H @file as a request to read local file contents.
+            if str(name).startswith("@"):
+                raise ValueError(
+                    f"Invalid header name {str(name)!r}: header names cannot start with '@'"
+                )
+            header_str = f"{name}: {value}"
+            parts.append(f"-H {_sq(header_str)}")
+
+    # Request body
+    body = params.get("body")
+    if body and method in ("POST", "PUT", "PATCH"):
+        # Rejected, not silently dropped. Skipping an oversized body turned a
+        # POST into a bodyless POST that could look superficially successful,
+        # hiding the caller's mistake — the same disease as the HEAD body case
+        # (adversarial review; the previous test pinned the silence).
+        if not isinstance(body, str):
+            raise ValueError("Request body must be a string")
+        # The public contract is bytes, not Python code points. A 30,000-char
+        # non-ASCII body can exceed 50KB once curl receives its UTF-8 encoding.
+        body_bytes = len(body.encode("utf-8"))
+        if body_bytes > MAX_BODY_SIZE:
+            raise ValueError(
+                f"Request body is {body_bytes} bytes, over the {MAX_BODY_SIZE}-byte limit"
+            )
+        # -d @path reads a local file; --data-raw sends the literal bytes.
+        flag = "--data-raw" if body.startswith("@") else "-d"
+        parts.append(f"{flag} {_sq(body)}")
+
+    # URL (always last)
+    parts.append(_sq(url))
+
+    return " ".join(parts)

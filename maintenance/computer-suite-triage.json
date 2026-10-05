@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "adapter": "tests/test_desktop_shared_recovery.py",
+  "validation": {
+    "runner": "scripts/run-phase1-tests.py",
+    "isolation": "Sanitized env -i, isolated mount/PID namespace, per-test 90-second signal timeout. Parent-owned runner supervisor places pytest above PID 2, preserving original forged recovery_pid=2 cases and actual process identity.",
+    "junit": ".test-state/computer-recovery-final.xml",
+    "inherited_case_passes": 159,
+    "replacement_denial_case_passes": 28,
+    "exact_corpus_proof_passes": 1,
+    "total_passes": 188,
+    "failures": 0,
+    "skips": 0,
+    "deselections": 0,
+    "inherited_case_counts": {
+      "test_computer_recovery_r5": 9,
+      "test_computer_recovery_reopen_campaign": 3,
+      "test_computer_local_recovery": 37,
+      "test_computer_orchestration_coverage_r10": 20,
+      "test_hyprland_recovery_controller": 30,
+      "test_hyprland_reconnect_protocol": 34,
+      "test_computer_gui_actions_r5": 26
+    },
+    "lint": "ruff check and ruff format --check pass for both owned Python files"
+  },
+  "dependencies": {
+    "tests/test_computer_contract_r1.py": "12e2523332f324e18b9dc8afc455b1dd4f9d705556eda07cc7319f2cd9db8c31",
+    "tests/test_hyprland_store_campaign.py": "ed240affd9cea43d9dc9b468c5f8fe034cd3c8b7f5443c43eafe258414bd7ad6",
+    "tests/test_hyprland_durable_reconnect.py": "ab823a435b2f9fb7e38e430238508439fa8b2892da5e4a91cdd5d21b892adbf7"
+  },
+  "selection": "Seven explicitly audited pure mocked-backend/temporary-SQLite suites. Two imported helper modules are loaded but their test functions are not collected.",
+  "setup_contract": "RequestContext field is surface, not source. Add explicit surface=desktop only to synthetic context constructors lacking it. The one neutral clean-resume context changes webui to desktop without changing its turn/owner/channel/host, assertions or parameter data. Helper import substitution only loads those same frozen fixture definitions after this surface adaptation. No controller or authorization shim, native input, network, host commands or real desktop lifecycle.",
+  "proof_contract": "Each complete retained source must match its hash-verified archive member. scripts/maintenance/fixture_corpus.py corpus() verifies every assertion AST, test signature, decorator and parameter AST before case selection. PROOFS in tests/desktop_adapters/computer_cases.py exposes exact line/symbol/before-node/after-node setup hashes and every executed definition mapping. Each proof record's sorted JSON SHA256 is pinned below and checked by test_computer_exact_fixture_corpus_manifest.",
+  "removed_surface_contract": "The original webui operator routes now contradict Desktop-only foreground admission. All twelve original definitions below remain byte-identical on disk, with unchanged assertions/case data, but are not collected by this Desktop adapter. They are separately dispositioned, not passed, skipped or rewritten. Desktop denial replacements assert routes cannot mutate state or construct a backend, webui/discord are denied before authorize, and foreign owner/conversation/host/turn cannot observe another grant.",
+  "replacements": [
+    "test_desktop_denies_removed_operator_routes[desktop/webui/discord x reconcile_recovery/acknowledge_legacy_recovery/operator_reconcile/operator_session/operator_release_owned_input/operator_observe/operator_export/read_evidence]",
+    "test_desktop_context_is_not_cross_conversation_authority[owner_id/channel_id/host_id/turn_id]"
+  ],
+  "removed_cases": [
+    {
+      "baseline_selector": "tests/test_computer_recovery_r5.py::test_operator_absence_unblocks_without_replay",
+      "reason": "Calls reconcile_recovery on the webui operator surface; Desktop cannot grant that legacy authority.",
+      "replacement_route": "reconcile_recovery"
+    },
+    {
+      "baseline_selector": "tests/test_computer_recovery_r5.py::test_legacy_explicit_acknowledgment_is_not_clean",
+      "reason": "Successful legacy acknowledgment is reachable only through removed webui operator admission.",
+      "replacement_route": "acknowledge_legacy_recovery"
+    },
+    {
+      "baseline_selector": "tests/test_computer_recovery_r5.py::test_recovery_operator_binding",
+      "reason": "Parameter expectations assume webui admission and discord rejection by operator surface; Desktop now denies non-Desktop at foreground policy before owner lookup.",
+      "replacement_route": "reconcile_recovery"
+    },
+    {
+      "baseline_selector": "tests/test_computer_recovery_r5.py::test_recovery_rechecks_auth_and_generation",
+      "reason": "Webui reconcile_recovery must first succeed for its generation/revocation callback assertions; removed surface cannot be admitted by a fixture.",
+      "replacement_route": "reconcile_recovery"
+    },
+    {
+      "baseline_selector": "tests/test_computer_recovery_r5.py::test_constructor_does_not_inspect_and_recovery_is_bounded",
+      "reason": "Timeout portion invokes removed webui reconcile_recovery. Neutral no-inspection constructor claim is not sufficient to preserve the complete original case.",
+      "replacement_route": "reconcile_recovery"
+    },
+    {
+      "baseline_selector": "tests/test_computer_recovery_reopen_campaign.py::test_terminal_fallback_reopens_with_resolution_and_history",
+      "reason": "Both administrator_ack and absence_verified branches require successful removed webui operator routes. Pure direct-store reopen and rollback definitions from this suite remain executable.",
+      "replacement_route": "operator_reconcile/reconcile_recovery"
+    },
+    {
+      "baseline_selector": "tests/test_computer_recovery_reopen_campaign.py::test_unknown_inspection_keeps_fence_and_admission_blocked",
+      "reason": "Requires removed webui reconcile_recovery to record an inspection result.",
+      "replacement_route": "reconcile_recovery"
+    },
+    {
+      "baseline_selector": "tests/test_computer_local_recovery.py::test_closed_store_and_controller",
+      "reason": "Second half requires webui/web-operator reconciliation after neutral owner reconciliation. Partial assertion stripping would be dishonest.",
+      "replacement_route": "operator_reconcile"
+    },
+    {
+      "baseline_selector": "tests/test_computer_orchestration_coverage_r10.py::test_resume_rebinds_turn_consent_and_exports_evidence",
+      "reason": "Final assertions grant cross-channel evidence read to webui and deny the original model context. Desktop has no such web-operator grant.",
+      "replacement_route": "read_evidence"
+    },
+    {
+      "baseline_selector": "tests/test_computer_orchestration_coverage_r10.py::test_operator_authority_and_export",
+      "reason": "Successful webui operator session, observe, export, pause and close authority removed.",
+      "replacement_route": "operator_session/operator_observe/operator_export/read_evidence"
+    },
+    {
+      "baseline_selector": "tests/test_hyprland_recovery_controller.py::test_emergency_owned_release_resolves_only_released_input_on_reopen",
+      "reason": "All twelve parameter cases require webui operator_release_owned_input admission, not Desktop's release-only owner route.",
+      "replacement_route": "operator_release_owned_input"
+    },
+    {
+      "baseline_selector": "tests/test_computer_gui_actions_r5.py::test_web_operator_owner_read_cross_channel_not_model_authority",
+      "reason": "Explicitly asserts web-session cross-conversation operator observation/evidence/stop authority, removed from Desktop.",
+      "replacement_route": "operator_observe/read_evidence/operator_session"
+    }
+  ],
+  "suites": [
+    {
+      "path": "tests/test_computer_actions_r4.py",
+      "source_sha256": "2309edcc90af7f42e5dcea92cb3898c28c70842b36bfe305c743f87625dd5400",
+      "proof_sha256": "7fd86bc96b3d023c7972fedb174786f6462c8527bdb55d5ded7604aee5bf341a",
+      "executed_definitions": 0,
+      "removed_definitions": 0,
+      "helper_only": true
+    },
+    {
+      "path": "tests/test_hyprland_durable_recovery.py",
+      "source_sha256": "029f0555ec10947a75ec4c4a19e369469a26b1379453973aab4a3da91e191692",
+      "proof_sha256": "4f7f844431ceddddab9d372cca7a888c856e06c06940d310a968a475a80526bc",
+      "executed_definitions": 0,
+      "removed_definitions": 0,
+      "helper_only": true
+    },
+    {
+      "path": "tests/test_computer_recovery_r5.py",
+      "source_sha256": "400a6068c4d0f8071dd96facfd72953210b480c8b783dc4e7d3a88301dfb1446",
+      "proof_sha256": "923dcfb0976afddd8df64fec8f6c533f3f30ee3d139bb03c0d98a6268a7c7e6f",
+      "executed_definitions": 9,
+      "removed_definitions": 5,
+      "helper_only": false
+    },
+    {
+      "path": "tests/test_computer_recovery_reopen_campaign.py",
+      "source_sha256": "b9bb3c5243173d75979ad432d13bcc95908278b67fbc1b5c109442ff323c7a14",
+      "proof_sha256": "c88a6e7cbebd6e10b10c800f37bdd4e9454e5f5cef45cd45e64affa16dc61554",
+      "executed_definitions": 2,
+      "removed_definitions": 2,
+      "helper_only": false
+    },
+    {
+      "path": "tests/test_computer_local_recovery.py",
+      "source_sha256": "39e51ba7f3e4e6171c21c62eb986806c379f2623eed2710d0ab8c477dc27bc67",
+      "proof_sha256": "8c2145eb97a5f40632b0dd785875bf1eb29f1e4e67eace7681012b12ac3a8def",
+      "executed_definitions": 6,
+      "removed_definitions": 1,
+      "helper_only": false
+    },
+    {
+      "path": "tests/test_computer_orchestration_coverage_r10.py",
+      "source_sha256": "e67bc73d3b114aef0844388df300a5fdca3f3cfe8f1b1d1d33bf066c910d2b3f",
+      "proof_sha256": "48f79b5b0cc85ed386d104684b7aff9a6191c78996e273412813aeea12c2e5d0",
+      "executed_definitions": 9,
+      "removed_definitions": 2,
+      "helper_only": false
+    },
+    {
+      "path": "tests/test_hyprland_recovery_controller.py",
+      "source_sha256": "d36b293affd5f43a5cc10b9c9706f29581c78249102d24af7b0133810fae1788",
+      "proof_sha256": "aae5988ab2e5bee1f595f9ae030d4177a986e25caad54b2fc607cd7da56b9ef7",
+      "executed_definitions": 20,
+      "removed_definitions": 1,
+      "helper_only": false
+    },
+    {
+      "path": "tests/test_hyprland_reconnect_protocol.py",
+      "source_sha256": "842a3615bcb4f619e01c71d71a6cea2fc9d59c240220c2a79d9ba707d5cb6ffb",
+      "proof_sha256": "ce73ce889fe033926c6acb6034b156e985f5fa81096f99546ee0634e8c18938b",
+      "executed_definitions": 13,
+      "removed_definitions": 0,
+      "helper_only": false
+    },
+    {
+      "path": "tests/test_computer_gui_actions_r5.py",
+      "source_sha256": "112332f12186c9671e8996bf833a22fc3934861954b6d488996bec478255e634",
+      "proof_sha256": "82de0d3d2ef8e260ccde7332d4e328e77be77c2e2e3588b53ecea9d81a5390c6",
+      "executed_definitions": 8,
+      "removed_definitions": 1,
+      "helper_only": false
+    }
+  ]
+}

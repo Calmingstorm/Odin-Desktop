@@ -1,0 +1,287 @@
+"""Tool definitions — browser_screenshot … analyze_pdf (slice 5/9 of the original TOOLS order).
+
+RFC-004 P1: verbatim positional slice. ORDER IS BEHAVIOR (the tool
+catalog feeds prompt assembly) — do not reorder, and do not move
+tools between sections; the characterization contract pins the
+concatenated order exactly.
+"""
+
+TOOLS_SECTION: list[dict] = [
+    # --- Browser automation ---
+    {
+        "name": "browser_screenshot",
+        "description": (
+            "Takes a screenshot of a URL (renders JavaScript) and posts to the conversation. "
+            "Works on "
+            "dashboards, SPAs, and dynamic pages unlike fetch_url. For text, use browser_read_page."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "URL to screenshot",
+                },
+                "full_page": {
+                    "type": "boolean",
+                    "description": "Capture full scrollable page (default false = viewport only)",
+                },
+                "wait_seconds": {
+                    "type": "integer",
+                    "description": (
+                        "Extra wait after page load for dynamic content (default 0, max 10)"
+                    ),
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "browser_read_page",
+        "description": (
+            "Reads a URL's text content (renders JavaScript). Returns 'Title (url)\\n\\ntext'. "
+            "Works on SPAs/dynamic pages unlike fetch_url. Scope via CSS selector. For tables, use "
+            "browser_read_table. For screenshots, use browser_screenshot. Large results have "
+            "retained previews; use get_tool_output(cursor=...) without reloading the page."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "URL to read",
+                },
+                "selector": {
+                    "type": "string",
+                    "description": (
+                        "CSS selector to scope extraction (e.g. '#main-content', '.results')"
+                    ),
+                },
+                "wait_seconds": {
+                    "type": "integer",
+                    "description": "Extra wait for dynamic content (default 0, max 10)",
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "description": (
+                        "Legacy direct-helper text limit (default 16000, max 32000); "
+                        "retained tool delivery uses the shared preview budget."
+                    ),
+                },
+                "wait_timeout_seconds": {
+                    "anyOf": [
+                        {"type": "number", "minimum": 0},
+                        {"type": "string", "pattern": r"^\s*$"},
+                    ],
+                    "description": (
+                        "Selector wait timeout in seconds (default 10; 0 or blank uses default). "
+                        "Clamped to browser.max_wait_timeout_seconds, hard max 60. "
+                        "Separate from the extra wait_seconds delay."
+                    ),
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "browser_read_table",
+        "description": (
+            "Extracts an HTML table from a URL as markdown (| col | col |). Renders JavaScript. "
+            "For text, use browser_read_page. Large tables have retained previews; "
+            "use get_tool_output(cursor=...) without reloading the page."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "URL containing the table",
+                },
+                "table_index": {
+                    "type": "integer",
+                    "description": "Which table to extract (0-based, default 0 = first table)",
+                },
+                "wait_seconds": {
+                    "type": "integer",
+                    "description": "Extra wait for dynamic content (default 0, max 10)",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "browser_click",
+        "description": (
+            "Loads a URL in a fresh browser session, clicks an element by CSS selector, and "
+            "returns the resulting page's title and URL. Cookies, storage and page state end "
+            "with the call; a later browser_read_page reloads the URL without them. To fill and "
+            "submit in one call, use browser_fill with submit=true."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "URL to navigate to",
+                },
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector to click (e.g. '#login-btn', 'button.submit')",
+                },
+                "wait_seconds": {
+                    "type": "integer",
+                    "description": "Extra wait before clicking (default 0, max 10)",
+                },
+                "wait_timeout_seconds": {
+                    "anyOf": [
+                        {"type": "number", "minimum": 0},
+                        {"type": "string", "pattern": r"^\s*$"},
+                    ],
+                    "description": (
+                        "Selector/action wait timeout in seconds (default 10; 0 or blank uses "
+                        "default). Clamped to browser.max_wait_timeout_seconds, hard max 60. "
+                        "Separate from the extra wait_seconds delay."
+                    ),
+                },
+            },
+            "required": ["url", "selector"],
+        },
+    },
+    {
+        "name": "browser_fill",
+        "description": (
+            "Loads a URL in a fresh browser session, fills one field by CSS selector, optionally "
+            "presses Enter (submit=true), and returns the page's title and URL. The value is gone "
+            "when the call ends, so a later browser_click cannot submit it; use submit=true, or "
+            "one browser_evaluate for several fields."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "URL to navigate to",
+                },
+                "selector": {
+                    "type": "string",
+                    "description": (
+                        "CSS selector of the input (e.g. '#username', 'input[name=password]')"
+                    ),
+                },
+                "value": {
+                    "type": "string",
+                    "description": "Text to fill",
+                },
+                "submit": {
+                    "type": "boolean",
+                    "description": "Press Enter after filling (default false)",
+                },
+                "wait_timeout_seconds": {
+                    "anyOf": [
+                        {"type": "number", "minimum": 0},
+                        {"type": "string", "pattern": r"^\s*$"},
+                    ],
+                    "description": (
+                        "Selector/action wait timeout in seconds for fill and submit (default "
+                        "10; 0 or blank uses default). Clamped to "
+                        "browser.max_wait_timeout_seconds, hard max 60."
+                    ),
+                },
+            },
+            "required": ["url", "selector", "value"],
+        },
+    },
+    {
+        "name": "browser_evaluate",
+        "description": (
+            "Loads a URL in a fresh browser session, evaluates a JavaScript expression, and "
+            "returns its result (a returned Promise is awaited). Use it for scraping or several "
+            "interaction "
+            "steps in one call; the session closes when it returns, so a navigation it starts may "
+            "not complete. Large results have retained previews; use get_tool_output(cursor=...) "
+            "without re-running the expression."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "URL to navigate to",
+                },
+                "expression": {
+                    "type": "string",
+                    "description": (
+                        "JavaScript expression (e.g. 'document.title', "
+                        "'document.querySelectorAll(\"a\").length')"
+                    ),
+                },
+                "wait_seconds": {
+                    "type": "integer",
+                    "description": "Extra wait before evaluating (default 0, max 10)",
+                },
+            },
+            "required": ["url", "expression"],
+        },
+    },
+    # --- Web tools ---
+    {
+        "name": "web_search",
+        "description": (
+            "Searches the web via DuckDuckGo. Returns 'N. title\\nurl\\nsnippet' (max 10). For "
+            "full content, use fetch_url or browser_read_page."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query",
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Max results (default 5, max 10)",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "fetch_url",
+        "description": (
+            "Fetches a URL and returns text (HTML→readable text, JSON passed through). Static only "
+            "— for JS-rendered pages use browser_read_page. Large results have retained previews; "
+            "use get_tool_output(cursor=...) without fetching again."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "URL to fetch",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    # --- PDF analysis ---
+    {
+        "name": "analyze_pdf",
+        "description": (
+            "Extracts text from a PDF (URL or host:path). Returns markdown text; large results "
+            "have retained previews and get_tool_output(cursor=...) continuation. "
+            "For image-heavy PDFs, use browser_screenshot."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "URL to fetch PDF from"},
+                "host": {"type": "string", "description": "Host alias for file-based PDF"},
+                "path": {"type": "string", "description": "File path on host"},
+                "pages": {
+                    "type": "string",
+                    "description": "Page range, e.g. '1-5' or '3' (default: all)",
+                },
+            },
+        },
+    },
+]

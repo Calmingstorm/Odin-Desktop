@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "scope": "Phase 1 PR 2 draft only; no inherited suite or production changes",
+  "selection_source": "tests/test_desktop_shared_llm.py::CORPUS_SELECTIONS",
+  "adapter": "tests/desktop_adapters/llm_cases.py",
+  "proof": {
+    "helper": "scripts/maintenance/fixture_corpus.py::frozen_source,corpus",
+    "checks": [
+      "Pinned archive SHA-256 and unique regular frozen member",
+      "Retained test file byte identity and no symlink substitution",
+      "All assertion ASTs with enclosing symbol unchanged before selection",
+      "All test argument and decorator ASTs, including every parametrization, unchanged before selection",
+      "All class decorators unchanged before selection",
+      "Explicit selection names must exist in original module"
+    ],
+    "expected_assertions_modified": false,
+    "case_parameters_modified": false
+  },
+  "setup_adaptations": [
+    {
+      "kind": "obsolete_dummy_config",
+      "paths": ["tests/test_llm_security.py", "tests/test_kimi_client.py", "tests/test_ollama_client.py", "tests/test_multi_provider_schema_coverage.py"],
+      "detail": "Remove only literal Discord dictionary entries containing the audited dummy token. Do not add a Config acceptance shim. Real Desktop Config remains extra-forbidden.",
+      "nonshared_contract_evidence": "tests/test_desktop_foundation_config.py::test_obsolete_top_level_config_rejected"
+    },
+    {
+      "kind": "obsolete_empty_keyword",
+      "paths": ["tests/test_agent_campaign.py::test_default_codex_catalog_preserves_authored_model_selection_hint"],
+      "detail": "Remove exact Config(discord={token: empty string}) keyword setup only. Original operator-hint assertions unchanged."
+    },
+    {
+      "kind": "documentation_not_runtime_catalogue",
+      "paths": ["tests/test_model_hints.py", "tests/test_openai_codex_client.py", "tests/test_agent_campaign.py::test_default_codex_catalog_preserves_authored_model_selection_hint"],
+      "detail": "Module-local import alias to the actual production documentation catalogue for pure converter/model-hint tests. No runtime catalogue publication or permission/readiness bypass. Browser/invoke_skill names are only fake SSE payloads consumed by converters.",
+      "nonshared_contract_evidence": "tests/test_desktop_capabilities_publication.py::test_phase2_schema_readiness_cannot_publish_or_admit_unwired_handlers"
+    },
+    {
+      "kind": "genuine_profile_owner",
+      "paths": ["tests/test_learning_knowledge_reliability.py::test_working_memory_capped_per_section", "tests/test_learning_knowledge_reliability.py::test_working_memory_update_existing_key_no_growth"],
+      "detail": "Module-local ToolExecutor import uses tools_cases constructor fixture with actual OwnerAuthority and PermissionManager, fresh XDG profile, local authenticated UID, request context and runtime cleanup. No fake admin or owner acceptance. Memory cap/key eviction assertions unchanged.",
+      "nonshared_contract_evidence": "tests/test_desktop_foundation.py::test_permission_manager_not_always_owner"
+    },
+    {
+      "kind": "fixture_scope",
+      "detail": "Original Kimi and Ollama client fixture objects attached as static class fixtures to avoid cross-provider collisions. Test function signatures, fixture bodies, assertions and all parameters remain unchanged. HOME and XDG config/data/cache are fresh per test; no credential path rewrite is needed in these eight selected source modules."
+    }
+  ],
+  "original_failed_nodes_requalified": {
+    "tests/test_model_hints.py": [
+      "test_operator_hints_override_seed_and_allowlist_order_is_preserved",
+      "test_profile_facts_and_fresh_usage_p50_are_rendered",
+      "test_catalogue_and_alias_spellings_share_hints_and_profile_facts[compat:deepseek-flash]",
+      "test_catalogue_and_alias_spellings_share_hints_and_profile_facts[compat:deepseek-v4-flash]",
+      "test_unverified_compat_capabilities_are_labelled_and_unknown_models_request_hint"
+    ],
+    "tests/test_llm_security.py": [
+      "TestConfigBackwardCompat::test_minimal_config",
+      "TestConfigBackwardCompat::test_codex_only_config",
+      "TestConfigBackwardCompat::test_all_providers_config"
+    ],
+    "tests/test_kimi_client.py": ["TestKimiConfig::test_full_config"],
+    "tests/test_ollama_client.py": ["TestConfigParsing::test_full_config_with_ollama"],
+    "tests/test_openai_codex_client.py": [
+      "TestReadToolStream::test_adapter_accepts_once_on_each_finalization_path[arguments_done]",
+      "TestReadToolStream::test_adapter_accepts_once_on_each_finalization_path[item_done]",
+      "TestReadToolStream::test_adapter_accepts_once_on_each_finalization_path[completed]",
+      "TestReadToolStream::test_adapter_accepts_once_on_each_finalization_path[duplicates]",
+      "TestReadToolStream::test_nested_payload_decoded_once_for_duplicate_events"
+    ],
+    "tests/test_multi_provider_schema_coverage.py": [
+      "test_config_rejects_native_control_mismatch_for_configured_endpoint",
+      "test_config_covers_allowlist_skips_without_endpoint_and_validation_errors"
+    ],
+    "tests/test_learning_knowledge_reliability.py": [
+      "test_working_memory_capped_per_section",
+      "test_working_memory_update_existing_key_no_growth"
+    ]
+  },
+  "retained_collected_cases": {
+    "agent_campaign": 1,
+    "model_hints": 17,
+    "llm_security": 14,
+    "kimi_client": 26,
+    "ollama_client": 46,
+    "openai_codex_client": 66,
+    "multi_provider_schema_coverage": 5,
+    "learning_knowledge_reliability": 12
+  },
+  "unselected_original_cases": [
+    {
+      "path": "tests/test_agent_campaign.py",
+      "nodes": [
+        "test_full_canonical_digest_ignores_fresh_retention_ids",
+        "test_same_preview_different_hidden_evidence_resets_guard",
+        "test_binary_retention_digest_compares_full_bytes_not_manifest_ids",
+        "test_ranked_canonical_digest_uses_full_matches_not_summary",
+        "test_cancel_before_coroutine_entry_settles_and_persists"
+      ],
+      "classification": "shared, delegated to tools/core corpus owner; not superseded, unsafe, or deleted",
+      "reason": "Output retention and AgentManager profile setup outside LLM adapter ownership. This record does not assert those delegated cases passed."
+    }
+  ],
+  "nonshared_boundary_notes": [
+    {
+      "path": "tests/test_evaluative_discipline_prompt.py::TestSystemPromptSafetyConstraints::test_current_request_and_validation_constraints_remain",
+      "classification": "old transport wording assertion superseded by Desktop distribution substitution, not neutral fixture adaptation",
+      "reason": "read_channel before answering is an expected prompt string, so replacing it inside a frozen assertion would falsely claim unchanged neutral coverage.",
+      "replacement_evidence": "tests/test_desktop_maintenance.py::test_exact_approved_wording_protects_surroundings[src/llm/system_prompt.py]",
+      "approval_status": "Independent review remains pending; evidence validates exact recorded substitutions, not approval."
+    },
+    {
+      "paths": ["tests/test_codex_55_retirement.py", "tests/test_codex_spark_retirement.py"],
+      "classification": "mixed corpus, not blanket nonshared",
+      "reason": "Pure outbound retired-model rejection guards remain neutral. Startup load tests expecting implicit legacy model/image migration and removed web UI source inspections are distribution-specific. Removing only dummy Discord config cannot repair intentional read-only no-migration behavior; do not change their expected models or fabricate migration acceptance.",
+      "replacement_evidence": [
+        "tests/test_desktop_foundation_config.py::test_config_load_read_only_no_implicit_migration",
+        "tests/test_desktop_foundation_config.py::test_fresh_profile_explicit_model_intent_and_no_import"
+      ],
+      "owner": "Core/config and suite-closure agents; no claim of full retirement suite qualification in this LLM artifact"
+    },
+    {
+      "path": "tests/test_successful_retry_provenance.py",
+      "classification": "shared provenance cases, delegated to tools-extra owner",
+      "reason": "Context/source provenance may be changed only in setup to genuine Desktop authority. Expected provenance assertions must not be rewritten. This LLM adapter does not select or classify these cases as passed."
+    }
+  ],
+  "results": {
+    "runner": "sudo -n -u odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_shared_llm.py --junitxml=.test-state/llm-adapted.xml",
+    "boundary": "sanitized env -i HOME/XDG, unshare mount and PID namespace, non-root UID, pytest 90-second signal timeout",
+    "observed": "187 passed in 8.71s; exit 0, after switching to shared fixture_corpus helper",
+    "junit": ".test-state/llm-adapted.xml",
+    "initial_run": "186 passed before adding agent_campaign model-hint case",
+    "prohibited_inputs": "No real network/native/destructive calls, no upstream or live host modification, no runtime skill operations, no commits"
+  }
+}

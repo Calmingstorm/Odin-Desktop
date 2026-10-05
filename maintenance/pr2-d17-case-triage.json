@@ -1,0 +1,504 @@
+{
+  "schema_version": 1,
+  "artifact": "PR2 D17 exact-case contract transitions",
+  "review_state": "pending independent review; current-contract replacements, not frozen parity",
+  "cases": [
+    {
+      "original": "tests/test_hosts_executor_leases.py::test_executor_miscellaneous_compatibility_paths",
+      "source_sha256": "309939c21c3d35a6a3263cbde29c54b6ee85997c9c291559637ab0f42dc6a195",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_shared_tools.py::test_missing_governor_matches_upstream_open_default",
+        "tests/test_desktop_shared_tools.py::test_private_fixture_legacy_memory_migration_preserves_values"
+      ],
+      "reason": "D17 restores baseline open behavior with no governor; unchanged real private-profile memory migration remains separately covered. No privileged shim or renamed denial assertion."
+    },
+    {
+      "original": "tests/test_config_schema_validators.py::test_legacy_host_inventory_load_is_byte_identical",
+      "source_sha256": "2b2e7f21a9bf4074f455f14d5f1993f82ab356715fca5df0a822b746ff6f0cfa",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_final_config.py::test_final_legacy_host_inventory_needs_real_owner_not_policy"
+      ],
+      "reason": "D17 removes added host-policy grant. Authentic owner resolves full enrolled legacy inventory without a policy store; foreign identity stays denied and original legacy YAML bytes remain unchanged."
+    },
+    {
+      "original": "tests/test_host_access.py::TestEntrySemantics::test_from_dict_null_hosts_is_inherit_all",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestEntrySemantics::test_from_dict_empty_list_is_deny_all",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestEntrySemantics::test_from_dict_missing_key_is_inherit_all",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestEntrySemantics::test_to_dict_roundtrip",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestIsHostAllowed::test_no_entry_inherits_all_available",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestIsHostAllowed::test_whitelist_entry_allows_only_listed",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestIsHostAllowed::test_empty_list_entry_denies_all",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestIsHostAllowed::test_request_scope_narrows_scopeless_user",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestIsHostAllowed::test_request_scope_further_narrows_entried_user",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestGetAllowedHosts::test_no_entry_returns_all_available",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestGetAllowedHosts::test_whitelist_intersected_with_available",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestGetAllowedHosts::test_scope_only_for_scopeless_user",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestGetAllowedHosts::test_scope_narrows_entried_user_allowed_list",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestGetDefaultHost::test_entry_default_host_used_when_valid",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestGetDefaultHost::test_request_default_wins_when_in_effective",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestGetDefaultHost::test_request_default_ignored_when_not_available",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestGetDefaultHost::test_scopeless_user_without_explicit_default_has_none",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestGetDefaultHost::test_scope_no_entry_returns_first_of_scope",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestGetDefaultHost::test_deny_all_user_has_empty_default",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestSetUserNormalization::test_default_host_snapped_to_first_valid",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestSetUserNormalization::test_default_host_cleared_when_no_valid_hosts",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestSetUserNormalization::test_inherit_all_allows_any_real_default",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestSetUserNormalization::test_bogus_default_cleared_under_inherit_all",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestDefaultPolicyAndCrud::test_set_default_policy_applies_to_strangers",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestDefaultPolicyAndCrud::test_set_default_policy_snaps_default",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestDefaultPolicyAndCrud::test_set_default_policy_filters_invalid_hosts",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestDefaultPolicyAndCrud::test_set_default_policy_clears_unavailable_default",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestDefaultPolicyAndCrud::test_delete_user_present_and_absent",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestDefaultPolicyAndCrud::test_has_user_entry_and_list",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestDefaultPolicyAndCrud::test_available_hosts_property_and_setter",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestPersistence::test_structurally_corrupt_store_fails_closed",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestPersistence::test_entries_and_policy_survive_reload",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestPersistence::test_non_dict_root_fails_closed",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    },
+    {
+      "original": "tests/test_host_access.py::TestPersistence::test_invalid_json_fails_closed_and_refuses_mutation",
+      "source_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_host_parity.py::test_default_only_preference_persists_and_never_grants_or_narrows",
+        "tests/test_desktop_host_parity.py::test_live_enrollment_retirement_and_force_revocation_keep_trust_and_leases",
+        "tests/test_desktop_host_parity.py::test_concurrent_contexts_require_real_owner_without_ambient_privilege",
+        "tests/test_desktop_shared_foundation.py::test_host_corrupt_preference_refuses_mutation_without_revoking_access",
+        "tests/test_desktop_shared_foundation.py::test_host_default_preference_does_not_narrow_owner_access"
+      ],
+      "reason": "D17 retires upstream per-user HostAccessEntry/ACL CRUD, inherit/deny-all and web-token scope semantics. These original expectations are intentionally not equivalent or executed. Current-contract proofs cover real authenticated owner with all live targetable hosts, explicit default-only persistence, corrupt preference isolation, live registry retirement/lease revocation and genuine non-owner denial. No frozen source digest or assertion changed; neutral enrollment/trust/lease contracts remain separately executed."
+    }
+  ]
+}

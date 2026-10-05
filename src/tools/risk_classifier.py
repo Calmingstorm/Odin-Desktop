@@ -1,0 +1,1321 @@
+"""Command risk classifier — tags tool calls by risk level for observability.
+
+Observability only: classifies commands/tools into risk tiers (low, medium,
+high, critical) so operators can monitor dangerous operations.  Never blocks
+execution — the classification is logged in audit entries and exposed via
+metrics.
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+import threading
+from collections import OrderedDict, defaultdict
+from enum import StrEnum
+from typing import NamedTuple
+
+from ..odin_log import get_logger
+from .command_shapes import Word, literal_launch_index, recognize
+
+log = get_logger("risk_classifier")
+
+
+class RiskLevel(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class RiskAssessment(NamedTuple):
+    level: RiskLevel
+    reason: str
+
+
+class CommandFacts(NamedTuple):
+    """One set of policy facts for classification, enforcement and audit."""
+
+    assessment: RiskAssessment
+    category: str
+    exfil: bool
+    floor_level: RiskLevel | None = None
+    floor_exfil: bool = False
+
+
+# --- Command pattern definitions ---
+# Each tuple: (compiled regex, reason string)
+# Checked top-down; first match wins within a tier.
+
+_CRITICAL_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\brm\s+.*-[a-zA-Z]*r[a-zA-Z]*f?.*\s+/\s*$"), "recursive delete on root"),
+    (re.compile(r"\brm\s+.*-[a-zA-Z]*f[a-zA-Z]*r?.*\s+/\s*$"), "forced delete on root"),
+    (re.compile(r"\bmkfs\b"), "filesystem format"),
+    (re.compile(r"\bdd\s+.*\bif="), "raw disk write"),
+    (re.compile(r":\(\)\s*\{\s*:\|:&\s*\}\s*;"), "fork bomb"),
+    (
+        re.compile(
+            r"(?:^|[;&|]\s*|(?:[<>$]\()\s*|sudo\s+)"
+            r"(?:/sbin/)?(shutdown|poweroff|halt)\b", re.MULTILINE,
+        ),
+        "system shutdown",
+    ),
+    (re.compile(r"\binit\s+0\b"), "system shutdown"),
+    (
+        re.compile(r"(?:^|[;&|]\s*|(?:[<>$]\()\s*|sudo\s+)(?:/sbin/)?reboot\b", re.MULTILINE),
+        "system reboot",
+    ),
+    (re.compile(r"\bchmod\s+.*-[a-zA-Z]*R.*\s+777\s+/"), "recursive world-writable root"),
+    (re.compile(r"\biptables\s+.*-F\b"), "firewall flush"),
+    (re.compile(r"\bufw\s+disable\b"), "firewall disable"),
+    (
+        re.compile(r"\b(DROP|TRUNCATE)\s+(DATABASE|TABLE)\b", re.IGNORECASE),
+        "database drop/truncate",
+    ),
+    (re.compile(r"\bcrontab\s+.*-r\b"), "crontab remove all"),
+    (re.compile(r">\s*/dev/sd[a-z]"), "write to block device"),
+    # Bypass closures — the root-delete rules above anchor on a trailing "/",
+    # so "rm -rf /*", "rm -rf / --no-preserve-root", and "rm -rf /; ..." slipped
+    # to HIGH (which is allowed on non-strict hosts). Close those, plus other
+    # catastrophic forms the original set missed.
+    (re.compile(r"\brm\s+.*-[a-zA-Z]*[rf][a-zA-Z]*\s+/\*"), "recursive delete on root glob"),
+    (re.compile(r"\brm\s+.*--no-preserve-root"), "delete overriding root guard"),
+    (
+        re.compile(r"\brm\s+[^\n;|]*-[a-zA-Z]*[rf][a-zA-Z]*\s+/\s*(?=[)}`])"),
+        "recursive delete on root inside shell substitution",
+    ),
+    (
+        re.compile(r"\brm\s+.*-[a-zA-Z]*[rf][a-zA-Z]*\s+/\s*[;&|]"),
+        "recursive delete on root (chained)",
+    ),
+    (re.compile(r"\bfind\s+/\s+.*-delete\b"), "recursive delete from root via find"),
+    (re.compile(r"\bfind\s+/\s+.*-exec\s+rm\b"), "recursive delete from root via find -exec"),
+    (re.compile(r"\bdd\s+.*\bof=/dev/(sd|nvme|vd|xvd|mmcblk)"), "raw write to block device"),
+    # chmod 777 on root, either flag order (chmod -R 777 / or chmod 777 -R /).
+    (re.compile(r"\bchmod\s+.*\b777\b.*\s+/\s*($|[;&|)}])"), "world-writable on root"),
+    # Decode/download piped into a shell — arbitrary remote code execution.
+    (
+        re.compile(r"\bbase64\s+.*(--decode|-d)\b.*\|\s*(sudo\s+)?(sh|bash|zsh)\b"),
+        "base64 decode piped to shell",
+    ),
+    (re.compile(r"\|\s*sudo\s+(sh|bash|zsh)\b"), "piped into privileged shell"),
+]
+
+_HIGH_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\brm\s+.*-[a-zA-Z]*r"), "recursive delete"),
+    (re.compile(r"\brm\s+.*-[a-zA-Z]*f"), "forced delete"),
+    (re.compile(r"\bsystemctl\s+(stop|disable|restart|mask)\b"), "service lifecycle change"),
+    (re.compile(r"\bservice\s+\S+\s+(stop|restart)\b"), "service stop/restart"),
+    (re.compile(r"\b(apt|apt-get)\s+(remove|purge|autoremove)\b"), "package removal"),
+    (re.compile(r"\b(yum|dnf)\s+(remove|erase)\b"), "package removal"),
+    (re.compile(r"\bdocker\s+(rm|rmi|stop|kill)\b"), "container/image removal"),
+    (re.compile(r"\bdocker\s+system\s+prune\b"), "docker system prune"),
+    (re.compile(r"\b(userdel|groupdel)\b"), "user/group deletion"),
+    (re.compile(r"(?<!/)\bpasswd\s"), "password change"),
+    (re.compile(r"\bkill\s+.*-9\b"), "forced process kill"),
+    (re.compile(r"\bkillall\b"), "kill all processes by name"),
+    (re.compile(r"\bpkill\b"), "pattern-based process kill"),
+    (re.compile(r"\bgit\s+reset\s+--hard\b"), "git hard reset"),
+    (re.compile(r"\biptables\b"), "firewall rule change"),
+    (re.compile(r"\bufw\b"), "firewall configuration"),
+    (re.compile(r"\bchmod\s+.*-[a-zA-Z]*R"), "recursive permission change"),
+    (re.compile(r"\bchown\s+.*-[a-zA-Z]*R"), "recursive ownership change"),
+    (re.compile(r"\bDELETE\s+FROM\b", re.IGNORECASE), "database delete"),
+    (re.compile(r"\bALTER\s+TABLE\b", re.IGNORECASE), "database schema change"),
+    (
+        re.compile(r"\bDROP\s+(INDEX|VIEW|FUNCTION|TRIGGER)\b", re.IGNORECASE),
+        "database object drop",
+    ),
+]
+
+
+_SHELL_CONTROL_CHARS = frozenset(";&|()\n")
+_SHELL_PREFIX_WORDS = frozenset(
+    {"!", "if", "then", "elif", "else", "while", "until", "do", "time", "{"}
+)
+_ENV_OPTIONS_WITH_VALUE = frozenset({"-u", "--unset", "-C", "--chdir", "--argv0"})
+_SUDO_OPTIONS_WITH_VALUE = frozenset(
+    {
+        "-C",
+        "-D",
+        "-g",
+        "-h",
+        "-p",
+        "-r",
+        "-R",
+        "-t",
+        "-T",
+        "-u",
+        "--chdir",
+        "--close-from",
+        "--group",
+        "--host",
+        "--prompt",
+        "--role",
+        "--type",
+        "--user",
+    }
+)
+_GIT_GLOBAL_OPTIONS_WITH_VALUE = frozenset(
+    {
+        "-C",
+        "-c",
+        "--attr-source",
+        "--config-env",
+        "--exec-path",
+        "--git-dir",
+        "--namespace",
+        "--super-prefix",
+        "--work-tree",
+    }
+)
+_GIT_PUSH_OPTIONS_WITH_VALUE = frozenset(
+    {
+        "--exec",
+        "--push-option",
+        "--receive-pack",
+        "--repo",
+    }
+)
+
+
+class _ShellWord(NamedTuple):
+    value: str
+    quoted: bool
+
+
+def _shell_segments(command: str) -> list[list[_ShellWord]]:
+    """Tokenize literal simple-command segments without executing a shell.
+
+    This is intentionally a bounded recognizer, not a shell parser. Quoting and
+    ordinary control operators are respected, while aliases, expansions,
+    functions, ``eval``, and strings handed to another interpreter are not
+    resolved.
+    """
+    # Scan source syntax, not quote-stripped shlex output: quoted/escaped
+    # operators are arguments, '#' starts a comment only at a word boundary,
+    # and a comment must leave its terminating newline as a command boundary.
+    # This linear scan deliberately does not interpret expansions or heredocs.
+    segments: list[list[_ShellWord]] = []
+    current: list[_ShellWord] = []
+    word: list[str] = []
+    started = quoted = False
+    quote: str | None = None
+    index = 0
+
+    def finish_word() -> None:
+        nonlocal started, quoted
+        if started:
+            current.append(_ShellWord("".join(word), quoted))
+        word.clear()
+        started = quoted = False
+
+    while index < len(command):
+        char = command[index]
+        if char == "\\" and quote != "'":
+            if index + 1 == len(command):
+                return []  # Incomplete escape; not a supported literal command.
+            following = command[index + 1]
+            if following == "\n":
+                index += 2  # Shell line continuation, including inside "...".
+                continue
+            if quote == '"' and following not in '$`"\\':
+                word.append(char)  # Double quotes preserve other backslashes.
+                index += 1
+                continue
+            word.append(following)
+            started = quoted = True
+            index += 2
+            continue
+        if quote:
+            if char == quote:
+                quote = None
+            else:
+                word.append(char)
+            index += 1
+            continue
+        if char in "\"'":
+            quote = char
+            started = quoted = True  # Empty quoted strings are still arguments.
+        elif char == "#" and not started:
+            newline = command.find("\n", index)
+            index = len(command) if newline < 0 else newline
+            continue
+        elif char in _SHELL_CONTROL_CHARS:
+            finish_word()
+            if current:
+                segments.append(current)
+                current = []
+        elif char in " \t":
+            finish_word()
+        else:
+            word.append(char)
+            started = True
+        index += 1
+    if quote:
+        return []  # Unbalanced quotes are outside this recognizer's scope.
+    finish_word()
+    if current:
+        segments.append(current)
+    return segments
+
+
+def _is_assignment(token: str) -> bool:
+    return re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", token, re.DOTALL) is not None
+
+
+def _skip_sudo(tokens: list[str], index: int) -> int:
+    """Return the likely command index following a literal sudo invocation."""
+    index += 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token == "--":
+            return index + 1
+        if not token.startswith("-") or token == "-":
+            return index
+        option = token.split("=", 1)[0]
+        if option in _SUDO_OPTIONS_WITH_VALUE and "=" not in token:
+            index += 2
+        else:
+            index += 1
+    return index
+
+
+def _simple_command_index(words: list[_ShellWord]) -> int | None:
+    """Locate a literal executable after assignments and common wrappers."""
+    tokens = [word.value for word in words]
+    index = 0
+    while index < len(tokens) and (
+        (not words[index].quoted and tokens[index] in _SHELL_PREFIX_WORDS)
+        or _is_assignment(tokens[index])
+    ):
+        index += 1
+
+    while index < len(tokens):
+        executable = tokens[index].rsplit("/", 1)[-1]
+        if executable == "sudo":
+            index = _skip_sudo(tokens, index)
+            continue
+        if executable == "env":
+            index += 1
+            while index < len(tokens):
+                token = tokens[index]
+                if token == "--":
+                    index += 1
+                    while index < len(tokens) and _is_assignment(tokens[index]):
+                        index += 1
+                    break
+                if token in _ENV_OPTIONS_WITH_VALUE:
+                    index += 2
+                    continue
+                if token.startswith("-") or _is_assignment(token):
+                    index += 1
+                    continue
+                break
+            continue
+        if executable in {"command", "exec", "nohup"}:
+            index += 1
+            while index < len(tokens) and tokens[index].startswith("-"):
+                index += 1
+            continue
+        break
+    return index if index < len(tokens) else None
+
+
+def _git_push_arguments(tokens: list[str], git_index: int) -> list[str] | None:
+    """Return arguments after a literal ``git ... push`` subcommand."""
+    index = git_index + 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token == "--":
+            return None
+        if not token.startswith("-") or token == "-":
+            return tokens[index + 1 :] if token == "push" else None
+
+        option = token.split("=", 1)[0]
+        if option in _GIT_GLOBAL_OPTIONS_WITH_VALUE and "=" not in token:
+            index += 2
+        else:
+            index += 1
+    return None
+
+
+def _force_push_form(arguments: list[str]) -> str | None:
+    """Identify unconditional force options or force-prefixed refspecs."""
+    options_active = True
+    repository_seen = False
+    option_value_pending = False
+    for token in arguments:
+        if option_value_pending:
+            option_value_pending = False
+            continue
+        if options_active and token == "--":
+            options_active = False
+            continue
+        if options_active and token.startswith("--"):
+            option = token.split("=", 1)[0]
+            if option == "--force":
+                return "--force"
+            if option in _GIT_PUSH_OPTIONS_WITH_VALUE and "=" not in token:
+                option_value_pending = True
+            if option == "--repo":
+                repository_seen = True
+            continue
+        if options_active and token.startswith("-") and token != "-":
+            # ``-o`` takes a value. Once reached in a short-option bundle, all
+            # remaining characters are that value, not more flags (so ``-of``
+            # is not force while ``-fo...`` is).
+            for offset, option in enumerate(token[1:]):
+                if option == "f":
+                    return "-f"
+                if option == "o":
+                    if offset == len(token[1:]) - 1:
+                        option_value_pending = True
+                    break
+            continue
+
+        # The first positional is the repository unless --repo supplied it.
+        # Only later positionals are refspecs, and only a leading '+' forces.
+        if not repository_seen:
+            repository_seen = True
+            continue
+        if token.startswith("+") and len(token) > 1:
+            return "force-prefixed refspec"
+    return None
+
+
+def detect_unconditional_git_force_push(command: str) -> str | None:
+    """Return the detected unconditional-force form for a literal Git push.
+
+    ``--force-with-lease`` and ``--force-if-includes`` are deliberately not
+    unconditional force. A separate ``--force``/``-f`` or a ``+`` refspec still
+    wins when it appears alongside a lease.
+    """
+    for words in _shell_segments(command):
+        command_index = _simple_command_index(words)
+        if command_index is None:
+            continue
+        tokens = [word.value for word in words]
+        if tokens[command_index].rsplit("/", 1)[-1] != "git":
+            continue
+        arguments = _git_push_arguments(tokens, command_index)
+        if arguments is None:
+            continue
+        form = _force_push_form(arguments)
+        if form is not None:
+            return form
+    return None
+
+
+def _contains_literal_git_push(command: str) -> bool:
+    """Whether a recognized simple command invokes the Git push subcommand."""
+    for words in _shell_segments(command):
+        command_index = _simple_command_index(words)
+        if command_index is None:
+            continue
+        tokens = [word.value for word in words]
+        if tokens[command_index].rsplit("/", 1)[-1] != "git":
+            continue
+        if _git_push_arguments(tokens, command_index) is not None:
+            return True
+    return False
+
+
+_MEDIUM_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\b(apt|apt-get)\s+install\b"), "package install"),
+    (re.compile(r"\b(yum|dnf)\s+install\b"), "package install"),
+    (re.compile(r"\bpip3?\s+install\b"), "pip install"),
+    (re.compile(r"\bnpm\s+install\b"), "npm install"),
+    (re.compile(r"\bdocker\s+(run|exec|build)\b"), "container operation"),
+    (re.compile(r"\bdocker-compose\s+(up|down|restart)\b"), "compose operation"),
+    (re.compile(r"\bgit\s+push\b"), "git push"),
+    (re.compile(r"\bgit\s+reset\b"), "git reset"),
+    (re.compile(r"\bgit\s+checkout\b"), "git checkout"),
+    (re.compile(r"\bgit\s+merge\b"), "git merge"),
+    (re.compile(r"\bgit\s+rebase\b"), "git rebase"),
+    (re.compile(r"\bsystemctl\s+(start|enable|reload)\b"), "service start/enable"),
+    (re.compile(r"\bmkdir\b"), "directory creation"),
+    (re.compile(r"\bchmod\b"), "permission change"),
+    (re.compile(r"\bchown\b"), "ownership change"),
+    (re.compile(r"\bcurl\s+.*\|\s*(sudo\s+)?(bash|sh|zsh)\b"), "piped script execution"),
+    (re.compile(r"\bwget\s+.*\|\s*(sudo\s+)?(bash|sh|zsh)\b"), "piped script execution"),
+    (re.compile(r"\b(useradd|groupadd|usermod)\b"), "user/group management"),
+    (re.compile(r"\bmount\b"), "filesystem mount"),
+    (re.compile(r"\bUPDATE\s+\S+\s+SET\b", re.IGNORECASE), "database update"),
+    (re.compile(r"\bINSERT\s+INTO\b", re.IGNORECASE), "database insert"),
+    (re.compile(r"\bCREATE\s+(TABLE|DATABASE|INDEX)\b", re.IGNORECASE), "database create"),
+    (re.compile(r"\brm\b"), "file delete"),
+    (re.compile(r"\bmv\b"), "file move/rename"),
+    (re.compile(r"\bcp\s+.*-[a-zA-Z]*r"), "recursive copy"),
+]
+
+# Tools with inherent risk levels (tool_name -> RiskLevel).
+# Used when no command string is available or as a baseline.
+_TOOL_RISK_MAP: dict[str, RiskLevel] = {
+    # Low — read-only / info
+    "read_file": RiskLevel.LOW,
+    "search_knowledge": RiskLevel.LOW,
+    "web_search": RiskLevel.LOW,
+    "fetch_url": RiskLevel.LOW,
+    "browser_read_page": RiskLevel.LOW,
+    "browser_read_table": RiskLevel.LOW,
+    "analyze_pdf": RiskLevel.LOW,
+    "analyze_image": RiskLevel.LOW,
+    "memory_manage": RiskLevel.LOW,
+    "manage_list": RiskLevel.LOW,
+    # Medium — writes data
+    "apply_patch": RiskLevel.HIGH,
+    "browser_click": RiskLevel.MEDIUM,
+    "browser_fill": RiskLevel.MEDIUM,
+    "browser_evaluate": RiskLevel.MEDIUM,
+    "manage_process": RiskLevel.MEDIUM,
+    "email_send": RiskLevel.MEDIUM,
+    "email_search": RiskLevel.LOW,
+    "email_read": RiskLevel.LOW,
+    "email_list_recent": RiskLevel.LOW,
+    "generate_image": RiskLevel.MEDIUM,
+    "ingest_document": RiskLevel.MEDIUM,
+    "bulk_ingest_knowledge": RiskLevel.MEDIUM,
+    "delete_knowledge": RiskLevel.HIGH,
+    "schedule_task": RiskLevel.HIGH,
+    "update_schedule": RiskLevel.HIGH,
+    "delete_schedule": RiskLevel.HIGH,
+    "create_skill": RiskLevel.HIGH,
+    "edit_skill": RiskLevel.HIGH,
+    "delete_skill": RiskLevel.HIGH,
+    "enable_skill": RiskLevel.MEDIUM,
+    "disable_skill": RiskLevel.MEDIUM,
+    "invoke_skill": RiskLevel.HIGH,
+    "delegate_task": RiskLevel.HIGH,
+    "start_loop": RiskLevel.HIGH,
+    "stop_loop": RiskLevel.MEDIUM,
+    "cancel_task": RiskLevel.MEDIUM,
+    "kill_agent": RiskLevel.MEDIUM,
+    "add_reaction": RiskLevel.MEDIUM,
+    "post_file": RiskLevel.MEDIUM,
+    "generate_file": RiskLevel.MEDIUM,
+    # High — arbitrary code execution
+    "run_script": RiskLevel.HIGH,
+    "run_command_multi": RiskLevel.HIGH,
+}
+
+
+def _systemctl_action(command: str) -> str | None:
+    """Read standard global options before a lifecycle verb, without a shell.
+
+    Bound the scan; do not interpret expansion, substitutions or arbitrary
+    options as shell syntax. Existing pattern checks remain as a fallback.
+    """
+    import shlex
+
+    flags = {"--user", "--system", "--global", "--no-block", "--quiet",
+             "--no-pager", "--no-legend", "--no-ask-password", "--force",
+             "--full", "--all", "--runtime", "--wait", "--no-wall",
+             "--recursive", "--plain", "--show-types", "--value",
+             "--marked", "--dry-run", "--now", "--no-reload", "--no-warn",
+             "--failed", "--reverse", "--with-dependencies", "--show-transaction",
+             "--read-only", "--mkdir", "--firmware-setup"}
+    values = {"--host", "--machine", "--root", "--image", "--job-mode",
+              "--type", "--state", "--property", "--signal", "--kill-whom",
+              "--preset-mode", "--output", "--lines", "--timestamp", "--legend",
+              "--check-inhibitors", "--image-policy", "--boot-loader-menu",
+              "--boot-loader-entry", "--what", "--kill-value", "--drop-in", "--when"}
+    actions = {"stop", "disable", "restart", "mask", "start", "enable", "reload"}
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = list(lexer)
+    except ValueError:
+        return None
+    found = None
+    for pos, token in enumerate(tokens):
+        if token.rsplit("/", 1)[-1] != "systemctl":
+            continue
+        cursor = pos + 1
+        for _ in range(64):
+            if cursor >= len(tokens):
+                break
+            option = tokens[cursor]
+            if option == "--":
+                cursor += 1
+                if cursor < len(tokens):
+                    option = tokens[cursor]
+                else:
+                    break
+            if option in actions:
+                if option in {"stop", "disable", "restart", "mask"}:
+                    return "service lifecycle change"
+                found = "service start/enable"
+                break
+            if option in flags or (option.startswith("-") and not option.startswith("--")
+                                   and len(option) > 1 and set(option[1:]) <= set("qalfrTi")):
+                cursor += 1
+            elif option in values or option in {"-H", "-M", "-t", "-p", "-P", "-o", "-n", "-s"}:
+                cursor += 2
+            elif (option.partition("=")[0] in values and "=" in option
+                  or option[:2] in {"-H", "-M", "-t", "-p", "-P", "-o", "-n", "-s"}
+                  and len(option) > 2):
+                cursor += 1
+            else:
+                break
+    return found
+
+
+def _brace_candidates(command: str) -> list[str] | None:
+    """Bounded literal brace expansion for classification ONLY, never a shell.
+
+    Expansion can synthesize command names and flags. Bound both the Cartesian
+    product and nesting work, including singleton ranges. This is a conservative
+    recognizer, not a shell parser: unsupported valid ranges fail closed, and
+    nested alternatives may produce an overapproximation of Bash's words.
+    """
+    # Quoted/escaped syntax is not active brace syntax. Preserve it until ALL
+    # expansion rounds finish, so nested rounds cannot reactivate literals.
+    protected = str.maketrans({"{": "\x01", "}": "\x02", ",": "\x03", ".": "\x04"})
+    restored = str.maketrans({"\x01": "{", "\x02": "}", "\x03": ",", "\x04": "."})
+    masked: list[str] = []
+    quote: str | None = None
+    # A substitution has its own quoting context, even inside double quotes.
+    contexts: list[tuple[str | None, str, int]] = []
+    index = 0
+    while index < len(command):
+        char = command[index]
+        if char == "\\" and quote != "'" and index + 1 < len(command):
+            masked.append(command[index:index + 2].translate(protected))
+            index += 2
+            continue
+        if quote != "'" and command.startswith("$(", index):
+            contexts.append((quote, ")", 1))
+            quote = None
+            masked.append("$(")
+            index += 2
+            continue
+        if quote != "'" and char == "`":
+            if contexts and contexts[-1][1] == "`":
+                quote, _, _ = contexts.pop()
+            else:
+                contexts.append((quote, "`", 1))
+                quote = None
+            masked.append(char)
+        elif quote:
+            masked.append(char.translate(protected))
+            if char == quote:
+                quote = None
+        elif char in "\"'":
+            quote = char
+            masked.append(char)
+        else:
+            masked.append(char)
+            if contexts and contexts[-1][1] == ")" and char in "()":
+                saved_quote, closer, depth = contexts.pop()
+                depth += 1 if char == "(" else -1
+                if depth:
+                    contexts.append((saved_quote, closer, depth))
+                else:
+                    quote = saved_quote
+        index += 1
+    command = "".join(masked)
+    pattern = re.compile(r"\{([^{}\s]*)\}")
+    sequence = re.compile(
+        r"([+-]?[0-9]+|[a-zA-Z])\.\.([+-]?[0-9]+|[a-zA-Z])"
+        r"(?:\.\.([+-]?[0-9]+))?"
+    )
+
+    def is_active(body: str) -> bool:
+        if "," in body:
+            return True
+        match = sequence.fullmatch(body)
+        return bool(match and (match[1].lstrip("+-").isdigit()
+                               == match[2].lstrip("+-").isdigit()))
+
+    def alternatives(body: str, *, endpoints_only: bool = False) -> list[str] | None:
+        if "," in body:
+            # Check before splitting, not after allocating an unbounded list.
+            return body.split(",") if body.count(",") < 32 else None
+        match = sequence.fullmatch(body)
+        assert match is not None
+        left, right, increment = match.groups()
+        numeric = left.lstrip("+-").isdigit()
+        fields = (left, right, increment or "1") if numeric else (increment or "1",)
+        # Bash uses machine integers. Avoid Python conversion/allocation limits
+        # and platform-dependent overflow semantics by failing closed here.
+        if any(len(value.lstrip("+-")) > 19 for value in fields):
+            return None
+        if numeric and (left.startswith("+") or right.startswith("+")):
+            return None  # Conservatively decline plus-prefixed endpoint formatting.
+        step = abs(int(increment or "1")) or 1  # Bash treats zero as unit stride.
+        first, last = (int(left), int(right)) if numeric else (ord(left), ord(right))
+        if (step > 2**63 - 1 or numeric
+                and not (-2**63 <= first <= 2**63 - 1 and -2**63 <= last <= 2**63 - 1)):
+            return None
+        if not numeric and left.islower() != right.islower():
+            return None  # Cross-case ASCII sequences include shell metacharacters.
+        count = abs(last - first) // step + 1
+        direction = step if first <= last else -step
+        values: range | list[int] = range(first, last + (1 if direction > 0 else -1), direction)
+        if count > 32 or endpoints_only:
+            # Numeric ranges do not create new shell syntax. Sample their
+            # actual endpoints plus the numeric literals our policy treats
+            # specially, without allocating an arbitrarily large expansion.
+            # Short/letter ranges stay exhaustive: an interior letter may
+            # synthesize a command name (for example r{l..n}).
+            values = [first, first + (count - 1) * direction, *(
+                value for value in (0, 777)
+                if min(first, last) <= value <= max(first, last)
+                and (value - first) % step == 0
+            )]
+        if not numeric:
+            return [chr(value) for value in values]
+        padded = any(re.match(r"-?0[0-9]", endpoint) for endpoint in (left, right))
+        width = max(len(left), len(right)) if padded else 0
+        return [str(value).zfill(width) for value in values]
+
+    candidates = [command]
+    # A candidate count alone does not bound deeply nested singleton work.
+    for depth in range(33):
+        expanded: dict[str, None] = {}
+        changed = False
+        for item in candidates:
+            match = next((match for match in pattern.finditer(item)
+                          if is_active(match[1])), None)
+            if match is None:
+                expanded[item] = None
+            else:
+                if depth == 32:
+                    return None
+                # Literal range arguments to these harmless commands cannot
+                # turn into command syntax. Expanding all letters would make
+                # `echo {a..z}{a..z}` look like an invocation of `mv` to the
+                # deliberately broad legacy classifier. Check their endpoints.
+                prefix = item[:match.start()]
+                safe_argument = bool(re.fullmatch(
+                    r"\s*(?:echo|printf|touch)\s+[^;&|`$()<>\n]*", prefix,
+                ))
+                options = alternatives(match[1], endpoints_only=safe_argument)
+                if options is None:
+                    return None
+                changed = True
+                for alternative in options:
+                    expanded[item[:match.start()] + alternative + item[match.end():]] = None
+            if len(expanded) > (32 if match is not None and "," in match[1] else 4096):
+                return None
+        candidates = list(expanded)
+        if not changed:
+            return [item.translate(restored) for item in candidates]
+    return None
+
+
+def _decode_ansi_c_quotes(command: str) -> str:
+    """Bash ANSI-C words for classification ONLY; never invoke an interpreter.
+
+    Retain raw classification too. Decoded text deliberately overapproximates
+    word boundaries for eval and concatenation; it is not executable shell text.
+    """
+    escapes = {"a": "\a", "b": "\b", "e": "\x1b", "E": "\x1b", "f": "\f",
+               "n": "\n", "r": "\r", "t": "\t", "v": "\v",
+               "\\": "\\", "'": "'", '"': '"', "?": "?"}
+    result: list[str] = []
+    quote: str | None = None
+    contexts: list[tuple[str | None, int]] = []
+    index = 0
+    while index < len(command):
+        char = command[index]
+        if char == "\\" and quote != "'":
+            result.append(command[index:index + 2])
+            index += 2
+            continue
+        if quote != "'" and command.startswith("$(", index):
+            contexts.append((quote, 1))
+            quote = None
+            result.append("$(")
+            index += 2
+            continue
+        if quote is None and command.startswith("$'", index):
+            index += 2
+            word: list[str] = []
+            while index < len(command) and command[index] != "'":
+                char = command[index]
+                index += 1
+                if char != "\\" or index == len(command):
+                    word.append(char)
+                    continue
+                escape = command[index]
+                index += 1
+                if escape in escapes:
+                    word.append(escapes[escape])
+                elif escape in "01234567xuU":
+                    octal = escape in "01234567"
+                    digits = escape if octal else ""
+                    limit = 3 if octal else {"x": 2, "u": 4, "U": 8}[escape]
+                    alphabet = "01234567" if octal else "0123456789abcdefABCDEF"
+                    while (index < len(command) and len(digits) < limit
+                           and command[index] in alphabet):
+                        digits += command[index]
+                        index += 1
+                    if digits:
+                        value = int(digits, 8 if octal else 16)
+                        # Octal/hex escapes are bytes; Unicode is a code point.
+                        if octal or escape == "x":
+                            value &= 255
+                        word.append(chr(value) if value <= 0x10FFFF else "\\" + escape + digits)
+                    else:
+                        word.append("\\" + escape)
+                elif escape == "c" and index < len(command):
+                    control = command[index]
+                    index += 1
+                    # Bash's control escapes are ASCII; do not uppercase a
+                    # Unicode character into multiple code points.
+                    value = ord(control)
+                    word.append(chr(127 if control == "?" else value & 31))
+                else:
+                    word.append("\\" + escape)
+            # Bash terminates ANSI-C words at NUL, including the remainder.
+            result.append("".join(word).partition("\0")[0])
+            if index < len(command):
+                index += 1
+            continue
+        result.append(char)
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in "\"'":
+            quote = char
+        elif contexts and char in "()":
+            saved, depth = contexts.pop()
+            depth += 1 if char == "(" else -1
+            if depth:
+                contexts.append((saved, depth))
+            else:
+                quote = saved
+        index += 1
+    return "".join(result)
+
+
+def _shape_command_index(words: list[Word]) -> int | None:
+    index = 0
+    while index < len(words) and (
+        (not words[index].quoted and words[index].value in _SHELL_PREFIX_WORDS)
+        or _is_assignment(words[index].value)
+    ):
+        index += 1
+    return literal_launch_index(words, index)
+
+
+_EXFIL_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\bcurl\b.*\|\s*(ba)?sh\b"), "pipe remote script to shell"),
+    (re.compile(r"\bwget\b.*\|\s*(ba)?sh\b"), "pipe remote download to shell"),
+    (re.compile(r"\bbash\s+-i\s+>&\s*/dev/tcp/"), "reverse shell via /dev/tcp"),
+    (re.compile(r"\bnc\s+.*-e\s+/bin/(ba)?sh"), "netcat reverse shell"),
+    (re.compile(r"\bpython[23]?\s+.*-c\s+.*socket.*connect"), "python reverse shell"),
+    (re.compile(r"\bbase64\s+-d\b.*\|\s*(ba)?sh"), "base64 decode pipe to shell"),
+    (re.compile(r">\s*/etc/(passwd|shadow|sudoers)"), "write to auth files"),
+    (re.compile(r"\becho\b.*>>\s*/etc/cron"), "cron persistence"),
+    (re.compile(r"\b(ssh-keygen|ssh-copy-id)\b.*-f\s*/"), "SSH key manipulation to root paths"),
+]
+
+
+class _AssessmentCache:
+    """Exact-text, in-memory LRU with both entry and retained-byte limits.
+
+    No command is persisted. Compute outside the lock so independent callers do
+    not serialize their scans; duplicate concurrent misses are harmless.
+    """
+
+    max_entries = 128
+    max_bytes = 8 * 1024 * 1024
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.entries: OrderedDict[str, tuple[CommandFacts, int]] = OrderedDict()
+        self.bytes = 0
+
+    def get(self, command: str) -> CommandFacts | None:
+        with self.lock:
+            entry = self.entries.get(command)
+            if entry is not None:
+                self.entries.move_to_end(command)
+                return entry[0]
+        return None
+
+    def put(self, command: str, facts: CommandFacts) -> None:
+        # Include a conservative fixed allowance for the entry/facts overhead.
+        size = sys.getsizeof(command) + 1024
+        if size > self.max_bytes:
+            return
+        with self.lock:
+            previous = self.entries.pop(command, None)
+            if previous is not None:
+                self.bytes -= previous[1]
+            self.entries[command] = (facts, size)
+            self.bytes += size
+            while len(self.entries) > self.max_entries or self.bytes > self.max_bytes:
+                _, (_, removed) = self.entries.popitem(last=False)
+                self.bytes -= removed
+
+    def clear(self) -> None:
+        with self.lock:
+            self.entries.clear()
+            self.bytes = 0
+
+
+_ASSESSMENT_CACHE = _AssessmentCache()
+
+
+def assess_command(command: str) -> CommandFacts:
+    """Share one pure assessment across enforcement and both audit consumers."""
+    cached = _ASSESSMENT_CACHE.get(command)
+    if cached is not None:
+        return cached
+    facts = _assess_command_uncached(command)
+    _ASSESSMENT_CACHE.put(command, facts)
+    return facts
+
+
+def _assess_command_uncached(command: str) -> CommandFacts:
+    """Keep the historical text-policy floor; structural facts only add risk."""
+    # The historical transforms remain authoritative, including their existing
+    # brace-bound verdict. Skip identity transforms and duplicate text scans.
+    candidates = _brace_candidates(command)
+    if candidates is None:
+        result = RiskAssessment(
+            RiskLevel.CRITICAL,
+            "unquoted brace expansion exceeds safe bound or supported range semantics",
+        )
+        candidates = []
+    else:
+        texts = dict.fromkeys([command, *candidates])
+        for item in candidates:
+            texts[_decode_ansi_c_quotes(item)] = None
+        ranks = {RiskLevel.LOW: 0, RiskLevel.MEDIUM: 1, RiskLevel.HIGH: 2, RiskLevel.CRITICAL: 3}
+        result = max((_classify_command_text(item) for item in texts),
+                     key=lambda assessment: ranks[assessment.level])
+
+    # These raw patterns intentionally also match unsupported launch contexts,
+    # comments and data. Narrowing inherited policy is outside this campaign.
+    for pattern, reason in _EXFIL_PATTERNS:
+        if pattern.search(command):
+            category = "remote_execution" if reason.startswith("pipe remote") else "exfiltration"
+            return CommandFacts(RiskAssessment(RiskLevel.CRITICAL, reason), category, True,
+                                result.level, True)
+
+    shapes = recognize(command, _shape_command_index)
+    for item in candidates:
+        if item != command:
+            shapes.extend(recognize(item, _shape_command_index))
+        if "$'" in item:
+            decoded = _decode_ansi_c_quotes(item)
+            if decoded != item:
+                shapes.extend(recognize(decoded, _shape_command_index))
+    if shapes:
+        shape = next((shape for shape in shapes if shape.exfil), shapes[0])
+        reason = (result.reason if result.level == RiskLevel.CRITICAL and not shape.exfil
+                  else shape.reason)
+        return CommandFacts(RiskAssessment(RiskLevel.CRITICAL, reason), shape.category,
+                            any(shape.exfil for shape in shapes), result.level)
+    return CommandFacts(result, "destructive" if result.level == RiskLevel.CRITICAL else "risk",
+                        False, result.level)
+
+
+def classify_command(command: str) -> RiskAssessment:
+    """Return the audit label from the same facts enforced by the governor."""
+    return assess_command(command).assessment
+
+
+def _classify_command_text(command: str) -> RiskAssessment:
+    """Classify a shell command string by risk level.
+
+    Scans critical → high → medium patterns top-down.  First match wins.
+    If no pattern matches, returns LOW with "no risky patterns detected".
+    """
+    if not command or not command.strip():
+        return RiskAssessment(RiskLevel.LOW, "empty command")
+
+    for pattern, reason in _CRITICAL_PATTERNS:
+        if pattern.search(command):
+            return RiskAssessment(RiskLevel.CRITICAL, reason)
+
+    force_form = detect_unconditional_git_force_push(command)
+    if force_form is not None:
+        return RiskAssessment(
+            RiskLevel.HIGH,
+            f"unconditional git force push ({force_form})",
+        )
+
+    systemctl_action = _systemctl_action(command)
+    if systemctl_action == "service lifecycle change":
+        return RiskAssessment(RiskLevel.HIGH, systemctl_action)
+
+    for pattern, reason in _HIGH_PATTERNS:
+        if pattern.search(command):
+            return RiskAssessment(RiskLevel.HIGH, reason)
+
+    if _contains_literal_git_push(command):
+        return RiskAssessment(RiskLevel.MEDIUM, "git push")
+
+    if systemctl_action:
+        return RiskAssessment(RiskLevel.MEDIUM, systemctl_action)
+
+    for pattern, reason in _MEDIUM_PATTERNS:
+        if pattern.search(command):
+            return RiskAssessment(RiskLevel.MEDIUM, reason)
+
+    if re.search(
+        r"(?:\b(?:bash|sh|source)|(?<!\S)\.)\s+[^;|\n]*?<\(\s*(?:curl|wget)\b",
+        command,
+    ):
+        return RiskAssessment(RiskLevel.MEDIUM, "piped script execution")
+
+    return RiskAssessment(RiskLevel.LOW, "no risky patterns detected")
+
+
+def classify_tool(tool_name: str, tool_input: dict | None = None) -> RiskAssessment:
+    """Classify a tool call by risk level.
+
+    For `run_command`, inspects the command string.  For `run_script`,
+    always returns HIGH.  Other tools use the static map or default LOW.
+    """
+    tool_input = tool_input or {}
+
+    if tool_name in {"memory_manage", "manage_list"}:
+        action = tool_input.get("action", "")
+        observations = {"get", "list", "recall", "read", "show", "search"}
+        level = RiskLevel.LOW if action in observations else RiskLevel.MEDIUM
+        return RiskAssessment(level, f"{tool_name}: {action or 'unspecified action'}")
+
+    if tool_name == "http_probe":
+        method = str(tool_input.get("method") or "GET").upper()
+        level = RiskLevel.LOW if method in {"GET", "HEAD", "OPTIONS"} else RiskLevel.HIGH
+        return RiskAssessment(level, f"HTTP {method} probe")
+
+    if tool_name == "manage_process":
+        action = tool_input.get("action", "")
+        level = RiskLevel.LOW if action in {"poll", "list"} else RiskLevel.HIGH
+        return RiskAssessment(level, f"process {action or 'unspecified action'}")
+
+    if tool_name == "validate_action":
+        assessments = [
+            classify_command(str(check.get("target") or ""))
+            for check in (tool_input.get("checks") or [])
+            if isinstance(check, dict) and check.get("type") == "command"
+        ]
+        if assessments:
+            highest = max(assessments, key=lambda item: _LEVEL_ORDER[item.level])
+            return RiskAssessment(
+                max(RiskLevel.HIGH, highest.level, key=lambda level: _LEVEL_ORDER[level]),
+                f"validation command: {highest.reason}",
+            )
+        return RiskAssessment(RiskLevel.LOW, "fixed-shape validation probes")
+
+    if tool_name == "run_command":
+        cmd = tool_input.get("command", "")
+        assessment = classify_command(cmd)
+        if assessment.level != RiskLevel.LOW:
+            return assessment
+        return RiskAssessment(RiskLevel.LOW, "run_command: no risky patterns")
+
+    if tool_name == "run_command_multi":
+        cmd = tool_input.get("command", "")
+        assessment = classify_command(cmd)
+        if _LEVEL_ORDER[assessment.level] >= _LEVEL_ORDER[RiskLevel.HIGH]:
+            return assessment
+        return RiskAssessment(
+            max(RiskLevel.MEDIUM, assessment.level, key=lambda r: _LEVEL_ORDER[r]),
+            f"multi-host command: {assessment.reason}",
+        )
+
+    if tool_name == "run_script":
+        script = tool_input.get("script", "")
+        cmd_assessment = classify_command(script)
+        if _LEVEL_ORDER[cmd_assessment.level] >= _LEVEL_ORDER[RiskLevel.HIGH]:
+            return cmd_assessment
+        return RiskAssessment(RiskLevel.HIGH, "arbitrary script execution")
+
+    base = _TOOL_RISK_MAP.get(tool_name, RiskLevel.LOW)
+    reason = f"tool baseline: {tool_name}"
+    return RiskAssessment(base, reason)
+
+
+# Ordering helper for max() comparisons
+_LEVEL_ORDER: dict[RiskLevel, int] = {
+    RiskLevel.LOW: 0,
+    RiskLevel.MEDIUM: 1,
+    RiskLevel.HIGH: 2,
+    RiskLevel.CRITICAL: 3,
+}
+
+
+class CommandGovernorResult:
+    """Result of a command governor check."""
+
+    __slots__ = ("allowed", "risk", "reason", "suggestion")
+
+    def __init__(self, allowed: bool, risk: RiskLevel, reason: str, suggestion: str = ""):
+        self.allowed = allowed
+        self.risk = risk
+        self.reason = reason
+        self.suggestion = suggestion
+
+    def denial_message(self) -> str:
+        msg = f"Blocked [{self.risk.value}]: {self.reason}"
+        if self.suggestion:
+            msg += f"\nSuggested alternative: {self.suggestion}"
+        return msg
+
+
+_SUGGESTION_MAP: dict[str, str] = {
+    "recursive delete on root": "Use a more specific path, e.g. rm -rf /tmp/specific_dir",
+    "recursive delete": "Use a more specific path or ls first to verify targets",
+    "forced delete": "Use rm without -f to get confirmation prompts",
+    "filesystem format": "This is never safe to run from an automated agent",
+    "raw disk write": "This is never safe to run from an automated agent",
+    "fork bomb": "This is never safe to run from an automated agent",
+    "system shutdown": "Use run_command to check uptime/status instead",
+    "system reboot": "Use run_command to check uptime/status instead",
+    "firewall flush": "List rules with iptables -L instead",
+    "firewall disable": "Check status with ufw status instead",
+    "pipe remote script to shell": "Download the script first, inspect it, then run",
+    "reverse shell via /dev/tcp": "This looks like an attack pattern",
+    "netcat reverse shell": "This looks like an attack pattern",
+    "unconditional git force push": (
+        "Fetch first, verify the exact remote destination SHA, then use an "
+        "explicit --force-with-lease=<destination>:<observed-sha>"
+    ),
+}
+
+
+class CommandGovernor:
+    """Enforces shell command policy before execution.
+
+    CRITICAL commands and exfiltration patterns are always blocked
+    (unless admin_can_override is True and the caller is an admin).
+    HIGH commands are allowed but logged with warnings.
+    The governor runs AFTER the LLM chooses a tool but BEFORE anything
+    touches a shell — the last line of defense.
+
+    Per-host overrides allow tightening policy for sensitive hosts
+    (e.g. block HIGH on production, allow on dev).
+    """
+
+    def __init__(
+        self,
+        block_critical: bool = True,
+        block_exfil: bool = True,
+        admin_can_override: bool = True,
+        host_overrides: dict[str, str] | None = None,
+    ) -> None:
+        self._block_critical = block_critical
+        self._block_exfil = block_exfil
+        self._admin_can_override = admin_can_override
+        self._host_overrides = host_overrides or {}
+        self._stats = GovernorStats()
+
+    @property
+    def stats(self) -> GovernorStats:
+        return self._stats
+
+    def check(
+        self,
+        command: str,
+        *,
+        user_tier: str | None = None,
+        host: str | None = None,
+    ) -> CommandGovernorResult:
+        """Check a command against the policy.
+
+        Args:
+            command: The shell command string.
+            user_tier: Permission tier of the caller (admin/user/guest).
+            host: Target host alias for per-host policy overrides.
+        """
+        if not command or not command.strip():
+            return CommandGovernorResult(True, RiskLevel.LOW, "empty command")
+
+        is_admin = user_tier == "admin"
+        force_form = detect_unconditional_git_force_push(command)
+        facts = assess_command(command)
+        assessment = facts.assessment
+
+        host_policy = self._host_overrides.get(host, "") if host else ""
+        # An elevation must not turn a historical strict-host HIGH denial into
+        # an admin-overridden CRITICAL allow. Preserve the old exfil precedence
+        # only when its raw floor actually matched and that flag is enabled.
+        if (host_policy == "strict" and facts.floor_level == RiskLevel.HIGH
+                and assessment.level == RiskLevel.CRITICAL
+                and not (self._block_exfil and facts.floor_exfil) and force_form is None):
+            result = CommandGovernorResult(
+                False, assessment.level,
+                f"{assessment.reason} (host '{host}' is strict-mode)",
+                _SUGGESTION_MAP.get(assessment.reason, ""),
+            )
+            self._stats.record_block(command, result)
+            log.warning("Governor BLOCKED (strict host %s): %s — %s", host,
+                        assessment.reason, command[:200])
+            return result
+
+        if self._block_exfil and facts.exfil:
+            reason = assessment.reason
+            if is_admin and self._admin_can_override and force_form is None:
+                log.warning(
+                    "Governor ALLOWED (admin override, exfil): %s — %s", reason, command[:200],
+                )
+                self._stats.record_allow(command, assessment)
+                return CommandGovernorResult(
+                    True, RiskLevel.CRITICAL, f"{reason} (admin override)"
+                )
+            result = CommandGovernorResult(
+                False, RiskLevel.CRITICAL, reason, _SUGGESTION_MAP.get(reason, ""),
+            )
+            self._stats.record_block(command, result)
+            log.warning("Governor BLOCKED (exfil): %s — %s", reason, command[:200])
+            return result
+
+        # Precedence: exfil → critical (admin-overridable) → strict-host (HIGH only)
+        if self._block_critical and assessment.level == RiskLevel.CRITICAL:
+            if is_admin and self._admin_can_override and force_form is None:
+                log.warning(
+                    "Governor ALLOWED (admin override, critical): %s — %s",
+                    assessment.reason,
+                    command[:200],
+                )
+                self._stats.record_allow(command, assessment)
+                return CommandGovernorResult(
+                    True, RiskLevel.CRITICAL, f"{assessment.reason} (admin override)"
+                )
+            result = CommandGovernorResult(
+                False,
+                RiskLevel.CRITICAL,
+                assessment.reason,
+                _SUGGESTION_MAP.get(assessment.reason, ""),
+            )
+            self._stats.record_block(command, result)
+            log.warning("Governor BLOCKED (critical): %s — %s", assessment.reason, command[:200])
+            return result
+
+        if force_form is not None:
+            reason = f"unconditional git force push ({force_form})"
+            result = CommandGovernorResult(
+                False,
+                RiskLevel.HIGH,
+                reason,
+                _SUGGESTION_MAP["unconditional git force push"],
+            )
+            self._stats.record_block(command, result)
+            log.warning(
+                "Governor BLOCKED (git force push): %s — %s",
+                reason,
+                command[:200],
+            )
+            return result
+
+        if host_policy == "strict" and (
+            assessment.level == RiskLevel.HIGH or facts.floor_level == RiskLevel.HIGH
+        ):
+            result = CommandGovernorResult(
+                False,
+                assessment.level,
+                f"{assessment.reason} (host '{host}' is strict-mode)",
+                _SUGGESTION_MAP.get(assessment.reason, ""),
+            )
+            self._stats.record_block(command, result)
+            log.warning(
+                "Governor BLOCKED (strict host %s): %s — %s", host, assessment.reason, command[:200]
+            )
+            return result
+
+        if assessment.level == RiskLevel.HIGH:
+            self._stats.record_allow(command, assessment)
+            log.info("Governor ALLOWED (high risk): %s — %s", assessment.reason, command[:120])
+
+        return CommandGovernorResult(True, assessment.level, assessment.reason)
+
+
+class GovernorStats:
+    """Tracks governor policy decisions."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._blocked: list[dict] = []
+        self._allowed_high: list[dict] = []
+        self._block_count = 0
+        self._allow_count = 0
+
+    def record_block(self, command: str, result: CommandGovernorResult) -> None:
+        with self._lock:
+            self._block_count += 1
+            self._blocked.append(
+                {
+                    "command": command[:200],
+                    "risk": result.risk.value,
+                    "reason": result.reason,
+                }
+            )
+            if len(self._blocked) > 50:
+                self._blocked = self._blocked[-50:]
+
+    def record_allow(self, command: str, assessment: RiskAssessment) -> None:
+        with self._lock:
+            self._allow_count += 1
+            self._allowed_high.append(
+                {
+                    "command": command[:200],
+                    "risk": assessment.level.value,
+                    "reason": assessment.reason,
+                }
+            )
+            if len(self._allowed_high) > 50:
+                self._allowed_high = self._allowed_high[-50:]
+
+    def get_summary(self) -> dict:
+        with self._lock:
+            return {
+                "blocked": self._block_count,
+                "allowed_high_risk": self._allow_count,
+                "recent_blocks": list(self._blocked[-10:]),
+            }
+
+
+class RiskStats:
+    """Thread-safe risk classification statistics tracker."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._counts: dict[str, int] = defaultdict(int)
+        self._by_tool: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self._recent: list[dict] = []
+        self._max_recent = 100
+
+    def record(self, tool_name: str, assessment: RiskAssessment) -> None:
+        """Record a risk classification event."""
+        level = assessment.level.value
+        with self._lock:
+            self._counts[level] += 1
+            self._by_tool[tool_name][level] += 1
+            entry = {
+                "tool_name": tool_name,
+                "risk_level": level,
+                "reason": assessment.reason,
+            }
+            self._recent.append(entry)
+            if len(self._recent) > self._max_recent:
+                self._recent = self._recent[-self._max_recent :]
+
+    def get_summary(self) -> dict:
+        """Return aggregated risk statistics."""
+        with self._lock:
+            return {
+                "totals": dict(self._counts),
+                "by_tool": {t: dict(levels) for t, levels in self._by_tool.items()},
+            }
+
+    def get_recent(self, limit: int = 20) -> list[dict]:
+        """Return the most recent risk classification events."""
+        with self._lock:
+            return list(self._recent[-limit:])
+
+    def reset(self) -> None:
+        """Clear all statistics."""
+        with self._lock:
+            self._counts.clear()
+            self._by_tool.clear()
+            self._recent.clear()

@@ -1,0 +1,1532 @@
+from __future__ import annotations
+
+import asyncio
+import contextvars
+import json
+import os
+import shutil
+import threading
+import time
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, NamedTuple
+
+from ..config.schema import ToolsConfig
+from ..odin_log import get_logger
+from ..permissions.host_access import HostAccessManager
+from ..permissions.manager import PermissionManager
+from ..runtime_paths import runtime_install_root
+from .branch_freshness import (
+    FreshnessEvent,
+    FreshnessStats,
+    check_branch_freshness,
+    format_staleness_warning,
+)
+from .bulkhead import BulkheadFullError, BulkheadRegistry
+from .effect_classifier import ToolEffectClass, classify_tool_effect
+from .execution_outcome import (
+    DispatchEvidence,
+    ToolFailure,
+    ToolSuccess,
+    dispatch_evidence,
+    is_tool_failure,
+)
+from .output_authorization import (
+    accessed_hosts,
+    host_access_capture,
+    host_binding,
+    record_host,
+    request_delivery_channel,
+    request_host_authorizer,
+    request_scope_id,
+    tool_scope_allows,
+)
+from .output_delivery import DeliveredOutput, deliver, delivery_scope, get_delivery_budget
+from .output_streamer import ToolOutputStreamer, call_stream_ids, current_tool_timeout
+from .post_validation import annotate_if_mutation
+from .recovery import (
+    MAX_AUTOMATIC_RECOVERY_ATTEMPTS,
+    UNSAFE_TO_RETRY,
+    RecoveryCategory,
+    RecoveryStats,
+)
+from .recovery import (
+    classify_error as _classify_error,
+)
+from .recovery import (
+    classify_exception as _classify_exception,
+)
+from .recovery import (
+    decide_recovery_action as _decide_recovery_action,
+)
+from .result_capture import result_capture
+from .result_validator import (
+    DEFAULT_SCHEMA,
+    TOOL_SCHEMAS,
+    ResultValidationStats,
+    ToolResult,
+    validate_tool_result,
+)
+from .risk_classifier import RiskStats, classify_tool
+from .ssh import (
+    OutputCallback,
+    is_local_address,
+    run_local_command,
+    run_ssh_command,
+)
+from .ssh_pool import SSHConnectionPool
+from .workspace import DEFAULT_MEMORY_PATH, command_protected_roots, resolve_workspace
+
+log = get_logger("tools")
+
+# Output-text helpers moved to tool_text.py (RFC-004 P4) — re-exported here
+# because background_task, tool_loop_helpers, and tests import them from
+# executor. tool_text.py carries the semantics documentation.
+from .tool_text import (  # noqa: E402, F401 — public re-export seam
+    _ERROR_RESULT_PREFIXES,
+    _RUN_COMMAND_MAX_LINES,
+    _truncate_lines,
+)
+
+# Request-scoped caller identity, backed by contextvars. asyncio gives each
+# message-handling task (and each gather()-wrapped tool call) its own context
+# copy, so these are isolated across concurrent channels/requests. This replaces
+# the old instance attributes, which were shared mutable state on the single
+# ToolExecutor and could leak one channel's identity into another channel's
+# host-access check across await points.
+_user_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "odin_tool_user_id", default=None
+)
+_host_lease_ctx: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
+    "odin_tool_host_lease", default=None
+)
+# Request-scoped per-tool timeout, backed by a contextvar for the same reason:
+# it was previously a shared instance attribute that concurrent tool calls
+# overwrote across await points, so a 30s-timeout tool could shrink a concurrent
+# 900s command's inner wall (or a 3660s tool could stretch it). _try_tool sets
+# it per call and resets the token in finally; _exec_command reads it when the
+# caller passes no explicit timeout. Nested calls restore the outer value on
+# reset.
+_current_tool_timeout_ctx: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "odin_current_tool_timeout", default=None
+)
+
+# How long a workspace size/count walk is reused. Growth is an operator signal
+# measured in hours, so a minute of staleness costs nothing; repeatedly
+# scraping an ever-growing directory costs the event loop a great deal.
+WORKSPACE_METRICS_TTL = 60.0
+
+
+class _ToolAttemptTimeout(NamedTuple):
+    """Attempt settlement evidence separate from handler-controlled output text.
+
+    recovery_allowed preserves approved retries for ordinary exceptions and
+    inner transport failures. Outer executor timeouts still do not retry.
+    A zero exit code records success even when an earlier dispatch is uncertain.
+    """
+
+    output: str
+    exit_code: int
+    uncertain_outcome: bool
+    recovery_allowed: bool = False
+    failed: bool = False
+
+
+def _validate_memory_shape(data: dict) -> None:
+    """Nested-shape check for memory.json, run inside json_store's backup
+    boundary. The legacy flat format (no ``global`` key) is migrated by the
+    caller and not scoped-validated here; each scoped section must be an object
+    (a list/str section is corruption, not an empty section)."""
+    from ..json_store import StoreCorruptError
+
+    if "global" not in data:
+        return
+    for section, value in data.items():
+        if not isinstance(value, dict):
+            raise StoreCorruptError(
+                f"memory.json section {section!r} is {type(value).__name__}, expected an object"
+            )
+
+
+def _build_bulkhead_registry(config: ToolsConfig) -> BulkheadRegistry:
+    """Build a BulkheadRegistry from tools config."""
+    registry = BulkheadRegistry()
+    bh = config.bulkhead
+    registry.register("ssh", bh.ssh_max_concurrent, bh.ssh_max_queued)
+    registry.register("subprocess", bh.subprocess_max_concurrent, bh.subprocess_max_queued)
+    registry.register("browser", bh.browser_max_concurrent, bh.browser_max_queued)
+    return registry
+
+
+# RFC-004: THE explicit late-bound dispatch table — tool name -> (owner_key, attr).
+# Handlers are resolved via getattr(owner, attr) at CALL time, never pre-bound,
+# so instance-attribute patches (``executor._handle_x = fake``) keep governing
+# execution (the patch-seam contract in test_executor_dispatch_parity). Every
+# handler body lives on a domain owner in src/tools/handlers/; the "core" owner
+# key remains available for future middleware-adjacent handlers. The
+# characterization contract pins table keys == executor-routed set, and
+# __init__ asserts every entry resolves on its owner at construction.
+EXECUTOR_HANDLERS: dict[str, tuple[str, str]] = {
+    "get_tool_output": ("output", "_handle_get_tool_output"),
+    "run_command": ("system", "_handle_run_command"),
+    "run_script": ("system", "_handle_run_script"),
+    "run_command_multi": ("system", "_handle_run_command_multi"),
+    "read_file": ("files_docs", "_handle_read_file"),
+    "apply_patch": ("files_docs", "_handle_apply_patch"),
+    "memory_manage": ("state", "_handle_memory_manage"),
+    "manage_list": ("state", "_handle_manage_list"),
+    "manage_process": ("system", "_handle_manage_process"),
+    "browser_read_page": ("browser_web", "_handle_browser_read_page"),
+    "browser_read_table": ("browser_web", "_handle_browser_read_table"),
+    "browser_click": ("browser_web", "_handle_browser_click"),
+    "browser_fill": ("browser_web", "_handle_browser_fill"),
+    "browser_evaluate": ("browser_web", "_handle_browser_evaluate"),
+    "web_search": ("browser_web", "_handle_web_search"),
+    "fetch_url": ("browser_web", "_handle_fetch_url"),
+    "http_probe": ("browser_web", "_handle_http_probe"),
+    "analyze_pdf": ("files_docs", "_handle_analyze_pdf"),
+    "validate_action": ("validation", "_handle_validate_action"),
+    "email_send": ("comms", "_handle_email_send"),
+    "email_search": ("comms", "_handle_email_search"),
+    "email_read": ("comms", "_handle_email_read"),
+    "email_list_recent": ("comms", "_handle_email_list_recent"),
+}
+
+
+class ToolExecutor:
+    def __init__(
+        self,
+        config: ToolsConfig | None = None,
+        memory_path: str | None = None,
+        browser_manager: object | None = None,
+        permission_manager: PermissionManager | None = None,
+        output_streamer: ToolOutputStreamer | None = None,
+        host_access_manager: HostAccessManager | None = None,
+        host_registry=None,
+        email_config: object | None = None,
+        app_config: object | None = None,
+        profile_paths: object | None = None,
+    ) -> None:
+        self.config = config or ToolsConfig()
+        self._command_shell_config: Callable[[], str] | None = None
+        # The FULL live config, supplied by wiring. Live state is not confined
+        # to the data directory — sessions, context, logs, usage, the search
+        # index, permissions and Codex credentials are each independently
+        # relocatable, and a workspace overlapping any of them is as dangerous
+        # as one inside ./data (PR #239 round-8 review, reproduced). Optional
+        # so tests and the __new__ patch seam still construct.
+        self._app_config = app_config
+        self._email_config = email_config
+        # Operator tool policy (config-gated built-ins). Injected by wiring
+        # AFTER the bot exists (the policy reads live bot.config); None =
+        # ungated, so tests and the __new__ patch seam construct unchanged.
+        self._builtin_policy = None
+        self.computer_reserved: Callable[[str], bool] = lambda _name: False
+        # The configured workspace VALUE is restart-required, but it is
+        # re-validated on every local command rather than cached: existence,
+        # type, ownership and mode are mutable filesystem state (see
+        # _ensure_local_workspace).
+        #
+        # Resolution is LAZY (first local command) rather than at construction:
+        # constructing an executor must not depend on deployment having created
+        # the directory, or every test and fresh checkout breaks. The safety
+        # property is unchanged, because it binds where it matters — a local
+        # command never runs with an unvalidated cwd, and an unusable workspace
+        # raises instead of silently falling back to the inherited cwd, which
+        # is what would restore the 2026-07-27 hazard.
+        self._local_workspace: str | None = None
+        self._local_workspace_resolved = False
+        # (completed_at_monotonic, bytes, files) from the last usage walk,
+        # refreshed off-thread; the lock makes the refresh single-flight.
+        self._workspace_usage_cache: tuple[float, float, float] | None = None
+        self._workspace_usage_refreshing = False
+        self._workspace_usage_lock = threading.Lock()
+        self._memory_path = Path(memory_path) if memory_path else None
+        self._browser_manager = browser_manager
+        self._permission_manager = permission_manager
+        self.output_streamer = output_streamer
+        self._host_access = host_access_manager
+        if host_registry is None:
+            from ..runtime_paths import runtime_profile_paths
+            from .hosts import HostRegistry
+
+            host_registry = HostRegistry(
+                self.config.hosts,
+                profile_paths=profile_paths or runtime_profile_paths(),
+                key_path=self.config.ssh_key_path,
+                legacy_known_hosts_path=self.config.ssh_known_hosts_path,
+                default_host=self.config.default_host,
+            )
+        self.host_registry = host_registry
+        self._metrics: dict[str, dict[str, int]] = {}
+        self._memory_lock = asyncio.Lock()
+        self._memory_corrupt_logged_at: float | None = None
+        self._lists_lock = asyncio.Lock()
+        self.risk_stats = RiskStats()
+        self.recovery_stats = RecoveryStats()
+        self.validation_stats = ResultValidationStats()
+        from .risk_classifier import CommandGovernor
+
+        gov_cfg = getattr(self.config, "governor", None)
+        if gov_cfg:
+            self.command_governor = CommandGovernor(
+                block_critical=gov_cfg.block_critical,
+                block_exfil=gov_cfg.block_exfil,
+                admin_can_override=gov_cfg.owner_can_override,
+                host_overrides=dict(gov_cfg.host_overrides) if gov_cfg.host_overrides else None,
+            )
+        else:
+            self.command_governor = CommandGovernor()
+        self._recovery_enabled = self.config.recovery.enabled
+        self.freshness_stats = FreshnessStats()
+        self._branch_freshness_enabled = self.config.branch_freshness.enabled
+        self.bulkheads = _build_bulkhead_registry(self.config)
+        pool_cfg = self.config.ssh_pool
+        self.ssh_pool: SSHConnectionPool | None = (
+            SSHConnectionPool(
+                control_persist=pool_cfg.control_persist,
+                socket_dir=pool_cfg.socket_dir,
+            )
+            if pool_cfg.enabled
+            else None
+        )
+        self.host_registry.set_retire_callback(self._retire_host_target)
+        # RFC-004 P4: the narrow seam handler domains use. Every field is a
+        # LATE-RESOLVING callable closing over ``self`` (the executor
+        # variable) — attribute lookup happens per call, so instance/class
+        # monkeypatches on the executor keep governing domain behavior, and
+        # stateful objects are reached by identity (R1 blocker #3).
+        from .handlers.browser_web import BrowserWebTools
+        from .handlers.comms import CommsTools
+        from .handlers.deps import HandlerDeps
+        from .handlers.files_docs import FilesDocsTools
+        from .handlers.output import OutputTools
+        from .handlers.state import StateTools
+        from .handlers.system import SystemTools
+        from .handlers.validation import ValidationTools
+
+        self._handler_deps = HandlerDeps(
+            config=lambda: self.config,
+            output_streamer=lambda: self.output_streamer,
+            host_access=lambda: self._host_access,
+            host_registry=lambda: self.host_registry,
+            branch_freshness_enabled=lambda: self._branch_freshness_enabled,
+            current_user_id=lambda: self._current_user_id,
+            process_registry=lambda: self._ensure_process_registry(),
+            browser_manager=lambda: self._browser_manager,
+            bulkheads=lambda: self.bulkheads,
+            memory_path=lambda: self._memory_path,
+            memory_lock=lambda: self._memory_lock,
+            lists_lock=lambda: self._lists_lock,
+            email_config=lambda: self._email_config,
+            command_governor=lambda: getattr(self, "command_governor", None),
+            resolve_host=lambda alias: self._resolve_host(alias),
+            acquire_host=lambda alias: self._acquire_host(alias),
+            resolve_default_host=lambda user_id: self._resolve_default_host(user_id),
+            govern_command=lambda command, host=None: self._govern_command(command, host),
+            exec_command=lambda *a, **k: self._exec_command(*a, **k),
+            run_on_host=lambda *a, **k: self._run_on_host(*a, **k),
+            annotate_with_freshness=lambda *a, **k: self._annotate_with_freshness(*a, **k),
+            load_all_memory=lambda *a, **k: self._load_all_memory(*a, **k),
+            save_all_memory=lambda *a, **k: self._save_all_memory(*a, **k),
+        )
+        # RFC-004 P2/P4: domain owners are PUBLIC attributes (the RFC-002
+        # ``bot.media_tools`` convention) — tests call and patch handlers at
+        # the domain level, e.g. ``executor.system_tools._handle_run_command``.
+        self.system_tools = SystemTools(self._handler_deps)
+        self.files_docs_tools = FilesDocsTools(self._handler_deps)
+        self.browser_web_tools = BrowserWebTools(self._handler_deps)
+        self.state_tools = StateTools(self._handler_deps)
+        self.comms_tools = CommsTools(self._handler_deps)
+        self.validation_tools = ValidationTools(self._handler_deps)
+        self.output_tools = OutputTools(self)
+        # Owners for EXECUTOR_HANDLERS resolution. "core" is the executor
+        # itself for not-yet-moved handlers; domain owners are added as the
+        # P4–P6 waves land.
+        self._handler_owners: dict[str, object] = {
+            "core": self,
+            "system": self.system_tools,
+            "files_docs": self.files_docs_tools,
+            "browser_web": self.browser_web_tools,
+            "state": self.state_tools,
+            "comms": self.comms_tools,
+            "validation": self.validation_tools,
+            "output": self.output_tools,
+        }
+        # RFC-004 P7 startup assertion (plan advisory #5): every dispatch-table
+        # entry must resolve to a callable on its bound owner — a rebind typo
+        # or missing domain method fails HERE, at construction, not on the
+        # first live tool call.
+        for _name, (_owner_key, _attr) in EXECUTOR_HANDLERS.items():
+            _owner = self._handler_owners.get(_owner_key)
+            assert _owner is not None, f"EXECUTOR_HANDLERS[{_name!r}]: unbound owner {_owner_key!r}"
+            assert callable(getattr(_owner, _attr, None)), (
+                f"EXECUTOR_HANDLERS[{_name!r}]: {_owner_key}.{_attr} does not resolve"
+            )
+
+    @property
+    def _current_user_id(self) -> str | None:
+        """Caller id for the in-flight tool call (contextvar-backed, task-isolated)."""
+        return _user_id_ctx.get()
+
+    def _resolve_host(self, alias: str) -> tuple[str, str, str] | None:
+        """Resolve host alias to (address, ssh_user, os). Returns None if not allowed."""
+        manager = getattr(self, "_permission_manager", None)
+        if manager is None or not manager.is_owner(self._current_user_id):
+            return None
+        active = _host_lease_ctx.get()
+        if active is not None and active.target.alias == alias:
+            return active.target.legacy_tuple()
+        if self._host_access:
+            if not self._current_user_id or not self._host_access.is_host_allowed(
+                self._current_user_id, alias
+            ):
+                return None
+        host = self.host_registry.get(alias, targetable_only=True)
+        if host is not None:
+            return host.legacy_tuple()
+        return None
+
+    def _acquire_host(self, alias: str):
+        """Acquire one generation-bound target after the same fence as resolve."""
+        manager = getattr(self, "_permission_manager", None)
+        if manager is None or not manager.is_owner(self._current_user_id):
+            return None
+        active = _host_lease_ctx.get()
+        if active is not None and active.target.alias == alias:
+            return record_host(active.borrow())
+        if self._host_access:
+            if not self._current_user_id or not self._host_access.is_host_allowed(
+                self._current_user_id, alias
+            ):
+                return None
+        lease = self.host_registry.acquire(alias)
+        if lease is not None:
+            return record_host(lease)
+        return None
+
+    def acquire_host_for_user(self, alias: str, user_id: str | None):
+        """Explicit-identity lease seam for native handlers."""
+        manager = getattr(self, "_permission_manager", None)
+        if manager is None or not manager.is_owner(user_id):
+            return None
+        if self._host_access:
+            if not user_id or not self._host_access.is_host_allowed(user_id, alias):
+                return None
+        return record_host(self.host_registry.acquire(alias))
+
+    def _resolve_default_host(self, user_id: str | None) -> str:
+        """Get an explicit effective default; mapping order is never policy."""
+        manager = getattr(self, "_permission_manager", None)
+        if manager is None or not manager.is_owner(user_id):
+            return ""
+        if self._host_access:
+            if not user_id:
+                return ""
+            default = self._host_access.get_default_host(user_id)
+            if default:
+                return default
+            configured = self.host_registry.default_host
+            if configured and self._host_access.is_host_allowed(user_id, configured):
+                return configured
+            return ""
+        configured = self.host_registry.default_host
+        if configured:
+            return configured
+        return ""
+
+    async def _retire_host_target(self, target) -> None:
+        """Close a generation's pooled transport after all leases drain."""
+        if self.ssh_pool is not None and not target.local:
+            await self.ssh_pool.close_target(target)
+
+    def _protected_roots(self) -> list[str]:
+        """Roots the local workspace must not overlap, derived from the RUNNING
+        application rather than assumed (PR #239 review).
+
+        A hardcoded ``/opt/odin`` is wrong under Docker (install root ``/app``)
+        and for source checkouts, and packaged ``/opt/odin/data`` is a symlink
+        to ``/var/lib/odin`` — so the live-data root is taken from the actual
+        configured data paths and canonicalized, not string-joined.
+
+        Derivation itself lives in workspace.command_protected_roots so the
+        startup migration and the self-update preflight protect exactly the
+        same directories. When each caller derived its own, the preflight
+        accepted (and created) a workspace beside live memory.json that the
+        executor then rejected (PR #239 round-6 review).
+        """
+        return command_protected_roots(
+            # Install root: one shared derivation from the running src package.
+            runtime_install_root(),
+            # getattr-guarded throughout: the sanctioned __new__ patch seam
+            # builds executors without __init__, so these may not exist.
+            getattr(self, "_app_config", None),
+            tools=getattr(self, "config", None),
+            # The live memory.json is supplied by wiring, not ToolsConfig;
+            # falling back to the shared default rather than no protection.
+            memory_path=getattr(self, "_memory_path", None) or DEFAULT_MEMORY_PATH,
+        )
+
+    def get_workspace_metrics(self) -> dict[str, float]:
+        """Usage of the local command workspace for diagnostics.
+
+        The accepted design deliberately does NOT auto-prune — age-based
+        deletion would destroy the cross-command continuity the stable
+        workspace exists to provide — so growth must be observable instead,
+        with cleanup an explicit operator action (PR #239 round-2 review).
+
+        Never raises: metrics collection must not be able to break a command
+        path, and an unresolvable workspace simply reports nothing.
+        """
+        try:
+            root = Path(self._ensure_local_workspace())
+        except Exception:
+            return {}
+
+        # The size/count walk NEVER runs on the calling thread. This directory
+        # deliberately never prunes, so a synchronous walk is a stall that only
+        # grows (PR #239 round-9/10 review). A stale cache triggers a
+        # single-flight background refresh and the previous numbers are served
+        # meanwhile; until the first refresh completes, usage is simply absent
+        # rather than blocking. The timestamp is recorded when the walk
+        # COMPLETES — stamping at the start makes a walk longer than the TTL
+        # instantly stale, so every scrape would launch another one.
+        self._refresh_workspace_usage(root)
+        cached = getattr(self, "_workspace_usage_cache", None)
+        metrics: dict[str, float] = {}
+        if cached is not None:
+            metrics["bytes"], metrics["files"] = cached[1], cached[2]
+        # Cheap statvfs calls: these stay LIVE on every scrape, cached usage
+        # or not, because free space is the number an operator alerts on.
+        try:
+            usage = shutil.disk_usage(root)
+            metrics["free_bytes"] = float(usage.free)
+        except OSError:
+            pass
+        try:
+            stats = os.statvfs(root)
+            metrics["free_inodes"] = float(stats.f_favail)
+        except (OSError, AttributeError):
+            pass
+        return metrics
+
+    def _refresh_workspace_usage(self, root: Path) -> None:
+        """Start a single-flight background walk if the cache is stale.
+
+        Never blocks the caller. Never raises: metrics collection must not be
+        able to break anything, least of all the event loop it runs on.
+        """
+        cached = getattr(self, "_workspace_usage_cache", None)
+        if cached is not None and (time.monotonic() - cached[0]) < WORKSPACE_METRICS_TTL:
+            return
+        lock = getattr(self, "_workspace_usage_lock", None)
+        if lock is None:  # __new__ patch seam
+            return
+        with lock:
+            # Re-check freshness after acquiring the lock. Another scrape may
+            # have completed and published while this caller was waiting; the
+            # unlocked fast-path observation above is not authoritative once
+            # lock acquisition blocks. Without this second check, concurrent
+            # scrapes can launch an immediate duplicate walk after a fast first
+            # refresh finishes.
+            cached = getattr(self, "_workspace_usage_cache", None)
+            if cached is not None and (time.monotonic() - cached[0]) < WORKSPACE_METRICS_TTL:
+                return
+            if self._workspace_usage_refreshing:
+                return
+            self._workspace_usage_refreshing = True
+
+        def _walk() -> None:
+            total_bytes = 0.0
+            files = 0.0
+            published = False
+            try:
+                for dirpath, _dirnames, filenames in os.walk(root, followlinks=False):
+                    for name in filenames:
+                        files += 1
+                        try:
+                            total_bytes += os.lstat(os.path.join(dirpath, name)).st_size
+                        except OSError:
+                            pass
+                # Publish the completed cache and clear the single-flight flag
+                # as ONE locked transition. Clearing first leaves a race where
+                # a scrape launches a duplicate walk before the fresh cache is
+                # visible (Odin, PR #239 round-12).
+                completed_at = time.monotonic()
+                with lock:
+                    self._workspace_usage_cache = (completed_at, total_bytes, files)
+                    self._workspace_usage_refreshing = False
+                    published = True
+            except Exception:
+                # A metrics walk is best-effort. Letting an unexpected error
+                # escape a daemon thread still invokes threading.excepthook
+                # (and produces an unhandled-thread warning in pytest/logging),
+                # contradicting this collector's never-raises contract. The
+                # finally block below clears the single-flight flag so the next
+                # scrape can recover.
+                pass
+            finally:
+                # The flag must never survive this thread. Clearing it only on
+                # the OSError and success paths wedged usage metrics FOREVER on
+                # any other exception — the flag stayed set, so every later
+                # scrape declined to start a refresh (cross-review of round 12,
+                # reproduced). Guarded by `published` so the success path's
+                # atomic publish is not split apart.
+                if not published:
+                    with lock:
+                        self._workspace_usage_refreshing = False
+
+        try:
+            threading.Thread(
+                target=_walk, name="odin-workspace-usage", daemon=True
+            ).start()
+        except Exception:  # pragma: no cover - thread creation cannot realistically fail
+            with lock:
+                self._workspace_usage_refreshing = False
+
+    def _ensure_local_workspace(self) -> str:
+        """Resolve and re-validate the cwd for local user commands.
+
+        Raises :class:`WorkspaceError` if the configured directory is unusable.
+        Deliberately no fallback: inheriting the process cwd is exactly the
+        behaviour that let a bare `rm -rf data` delete the live install.
+        """
+        # Validated on EVERY call, not cached (PR #239 round-3 review): the
+        # configured VALUE is restart-required, but existence, type, ownership
+        # and mode are mutable filesystem state. Caching them meant fail-closed
+        # only applied to the first command — replacing the directory with a
+        # symlink into the install afterwards was accepted, and a post-
+        # validation chmod was ignored. The check is a handful of stat calls.
+        workspace = str(
+            resolve_workspace(
+                self.config.local_working_dir,
+                protected_roots=self._protected_roots(),
+            )
+        )
+        self._local_workspace = workspace
+        self._local_workspace_resolved = True
+        return workspace
+
+    def _ensure_process_registry(self):
+        """Lazy-init the ProcessRegistry ON THE EXECUTOR (RFC-004 P4).
+
+        The attribute stays here — not on the system domain — because the
+        web API (agents_loops, config_admin) and graceful shutdown read
+        ``tool_executor._process_registry`` directly.
+        """
+        if not hasattr(self, "_process_registry"):
+            from .process_manager import ProcessRegistry
+
+            # Pass the RESOLVER, not a resolved string: each background spawn
+            # must re-verify the workspace's mutable filesystem invariants.
+            self._process_registry = ProcessRegistry(
+                workspace=self._ensure_local_workspace,
+                remote_exec=self._exec_remote_target,
+                retention_dir=self._retention_root() / "process-output",
+                acquire_output_lease=self._acquire_process_cleanup_lease,
+                command_shell=lambda: self._command_shell_mode(),
+            )
+        return self._process_registry
+
+    def _acquire_process_cleanup_lease(self, info):
+        """System-owned expiry pins only the original, still-targetable host."""
+        lease = self.host_registry.acquire(info.host_alias or info.host)
+        if lease is None:
+            return None
+        if not info.host_binding or host_binding(lease.target) != info.host_binding:
+            lease.release()
+            return None
+        return lease
+
+    def _retention_root(self) -> Path:
+        """Use the runtime's configured data anchor, never an install path."""
+        memory = getattr(self, "_memory_path", None)
+        if memory is not None:
+            return Path(memory).absolute().parent
+        return Path(self.config.audit_log_path).absolute().parent
+
+    def _ensure_output_store(self):
+        from .output_retention import OutputStore
+
+        if not hasattr(self, "_output_store"):
+            self._output_store = OutputStore(self._retention_root() / "tool-output.sqlite3")
+        return self._output_store
+
+    def _authorize_output(self, tool, hosts, owner):
+        """Fence metadata before the store loads the body. Cursors grant nothing."""
+        policy = getattr(self, "_builtin_policy", None)
+        if ((policy is None or not policy.is_available(tool))
+                or policy.is_disabled(tool)
+                or self.check_permission(tool, owner) or not tool_scope_allows(tool)):
+            return False
+        for binding in hosts:
+            if not isinstance(binding, dict):
+                return False  # old/unbound evidence must not gain fresh privileges
+            if "scope" in binding:
+                if binding["scope"] != request_scope_id.get():
+                    return False
+                continue
+            alias = binding.get("alias")
+            live_hosts = request_host_authorizer.get()
+            if live_hosts is not None and not live_hosts(alias):
+                return False
+            if not alias or (self._host_access
+                             and not self._host_access.is_host_allowed(owner, alias)):
+                return False
+            lease = self.host_registry.acquire(alias)
+            if lease is None:
+                return False
+            with lease:
+                if lease.revoked or host_binding(lease.target) != binding:
+                    return False
+        return True
+
+    def retain_attachments(self, attachments, *, tool_name, user_id, channel_id=None,
+                           status="succeeded"):
+        """Channel-neutral binary retention using the text-output access fences."""
+        from datetime import UTC, datetime
+
+        from .output_retention import RetentionError
+
+        owner, channel = delivery_scope.get()
+        owner = str(user_id or owner or "")
+        channel = str(channel_id if channel_id is not None else channel)
+        channel = request_delivery_channel.get() or channel
+        # Do not issue an unusable cursor, even for a tiny attachment.
+        if not self._authorize_output("get_tool_output", (), owner):
+            raise RetentionError("Retrieval is not authorized.")
+        hosts = list((accessed_hosts.get() or {}).values())
+        if request_scope_id.get():
+            hosts.append({"scope": request_scope_id.get()})
+        if not self._authorize_output(tool_name, hosts, owner):
+            raise RetentionError("Originating output scope is no longer authorized.")
+        manifest = self._ensure_output_store().retain_binary_bundle(
+            attachments, owner=owner, channel=channel, tool=tool_name, hosts=hosts, status=status)
+        return {
+            "kind": "tool_attachment_manifest", "retention": "retained", "status": status,
+            "result_id": manifest.result_id, "attachment_count": len(attachments),
+            "expires_at": datetime.fromtimestamp(manifest.expires_at, UTC).isoformat(),
+            "retrieval": {"tool": "get_tool_output", "arguments": {
+                "cursor": f"{manifest.result_id}:0",
+            }},
+        }
+
+    def deliver_output(self, text, *, tool_name, tool_input, user_id,
+                       channel_id=None, status="succeeded", budget=None):
+        denial = self.check_permission(tool_name, user_id)
+        policy = getattr(self, "_builtin_policy", None)
+        if denial or policy is None or not policy.is_available(tool_name):
+            from ..desktop.errors import CapabilityUnavailable
+
+            raise CapabilityUnavailable(denial or "Output capability unavailable.")
+        # These have their own byte-faithful or bounded retention contracts.
+        # Do not re-scrub process byte offsets or persist a second spool copy.
+        if tool_name == "read_file" or isinstance(text, DeliveredOutput):
+            return text
+        if tool_name == "manage_process" and tool_input.get("action") == "poll":
+            return text
+        config = getattr(self, "config", None)
+        budget = get_delivery_budget(config) if budget is None else budget
+        if config is None:
+            return deliver(text, tool=tool_name, status=status, budget=budget)
+        owner, channel = delivery_scope.get()
+        owner = str(user_id or owner or "")
+        channel = str(channel_id if channel_id is not None else channel)
+        channel = request_delivery_channel.get() or channel
+        hosts = list((accessed_hosts.get() or {}).values())
+        if request_scope_id.get():
+            hosts.append({"scope": request_scope_id.get()})
+        if ((len(text) > budget or getattr(text, "recovery_required", False))
+                and (not tool_scope_allows("get_tool_output")
+                     or self.check_permission("get_tool_output", owner)
+                     or (self._builtin_policy is not None
+                         and self._builtin_policy.is_disabled("get_tool_output")))):
+            from .output_delivery import delivery_failure
+
+            return delivery_failure("Retrieval is not authorized; no continuation exists.", status,
+                                    text=text, budget=budget)
+        return deliver(text, store=self._ensure_output_store(), owner=owner, channel=channel,
+                       tool=tool_name, hosts=hosts, status=status,
+                       budget=budget)
+
+    async def _exec_remote_target(self, target, command: str, timeout: int):
+        """Process-manager transport using one exact leased target."""
+        return await self._exec_command(
+            target.address,
+            command,
+            target.ssh_user,
+            timeout=timeout,
+            target=target,
+        )
+
+    def check_permission(self, tool_name: str, user_id: str | None) -> str | None:
+        """Use Odin's open default, or the configured authentic owner gate."""
+        manager = getattr(self, "_permission_manager", None)
+        if manager is None:
+            return None
+        if not user_id:
+            return "Permission denied: a requester identity is required."
+        allowed = manager.allowed_tool_names(user_id)
+        if allowed is None:
+            return None
+        if tool_name not in allowed:
+            return (
+                f"Permission denied: tool '{tool_name}' is not available "
+                "for this authenticated owner request."
+            )
+        return None
+
+    def _resolve_handler(self, tool_name: str):
+        """Resolve a tool handler at CALL time (RFC-004 P2, fallback retired P7).
+
+        Instance-attribute overrides win FIRST — the historical patch seam
+        (``executor._handle_x = fake``, 13+ test sites) keeps governing even
+        for handlers whose real bodies live on domain owners; checked via
+        ``__dict__`` so class-level methods can't short-circuit the table.
+        Otherwise EXECUTOR_HANDLERS maps name -> (owner_key, attr) and the
+        handler is fetched with getattr(owner, attr) NOW — never pre-bound.
+        This method is the ONLY sanctioned dynamic ``_handle_`` spelling in
+        src/ (the characterization contract's AST scan enforces that).
+        """
+        override = self.__dict__.get(f"_handle_{tool_name}")
+        if override is not None:
+            return override
+        entry = EXECUTOR_HANDLERS.get(tool_name)
+        # getattr: tolerate __init__-bypassing construction (ToolExecutor.__new__
+        # in older fixtures) — such instances resolve nothing table-side.
+        owners = getattr(self, "_handler_owners", None)
+        if entry is None or owners is None:
+            return None
+        owner = owners.get(entry[0])
+        if owner is None:
+            return None
+        return getattr(owner, entry[1], None)
+
+    async def execute(
+        self, tool_name: str, tool_input: dict, *, user_id: str | None = None
+    ) -> ToolResult:
+        owner, channel = delivery_scope.get()
+        scope_token = delivery_scope.set((str(user_id or owner or ""), str(channel)))
+        user_token = _user_id_ctx.set(user_id)
+        try:
+            with host_access_capture(), result_capture():
+                return await self._execute_scoped(tool_name, tool_input, user_id=user_id)
+        finally:
+            _user_id_ctx.reset(user_token)
+            delivery_scope.reset(scope_token)
+
+    async def _execute_scoped(
+        self, tool_name: str, tool_input: dict, *, user_id: str | None = None
+    ) -> ToolResult:
+        """Dispatch with a whole-operation lease for an explicit target."""
+        prepared = dict(tool_input or {})
+        denial = self.check_permission(tool_name, user_id)
+        if denial:
+            return ToolResult(output=denial, ok=False, error="permission_denied",
+                              tool_name=tool_name)
+        if not tool_scope_allows(tool_name):
+            return ToolResult(output="Permission denied: tool scope revoked or unavailable.",
+                              ok=False, error="permission_denied", tool_name=tool_name)
+        policy = getattr(self, "_builtin_policy", None)
+        if policy is not None and policy.is_disabled(tool_name):
+            from .builtin_policy import disabled_rejection
+
+            return disabled_rejection(tool_name)
+        if policy is None or not policy.is_available(tool_name):
+            from .builtin_policy import unavailable_rejection
+
+            return unavailable_rejection(tool_name)
+        if tool_name in {"run_command", "run_script"} and not prepared.get("host"):
+            default = self._resolve_default_host(user_id)
+            if default:
+                prepared["host"] = default
+        alias = prepared.get("host")
+        has_instance_override = ("_handle_" + tool_name) in self.__dict__
+        if not isinstance(alias, str) or not alias or tool_name in {
+            "run_command_multi",
+            "validate_action",
+            "manage_process",
+            "http_probe",
+        } or has_instance_override:
+            return await self._execute_inner(tool_name, prepared, user_id=user_id)
+        user_token = _user_id_ctx.set(user_id)
+        lease = self._acquire_host(alias)
+        _user_id_ctx.reset(user_token)
+        if lease is None:
+            return ToolResult(
+                output=f"Unknown or disallowed host: {alias}",
+                ok=False,
+                error="host_denied",
+                tool_name=tool_name,
+            )
+        with lease:
+            lease_token = _host_lease_ctx.set(lease)
+            try:
+                try:
+                    return await lease.run(
+                        lambda: self._execute_inner(tool_name, prepared, user_id=user_id)
+                    )
+                except Exception as exc:
+                    from .hosts import HostForceRevokedError
+
+                    if not isinstance(exc, HostForceRevokedError):
+                        raise
+                    return ToolResult(
+                        output=f"Error: {exc}",
+                        ok=False,
+                        error="host_force_revoked",
+                        tool_name=tool_name,
+                        uncertain_outcome=True,
+                    )
+            finally:
+                _host_lease_ctx.reset(lease_token)
+
+    async def _execute_inner(
+        self, tool_name: str, tool_input: dict, *, user_id: str | None = None
+    ) -> ToolResult:
+        # Native foreground admission is the only source of desktop authority.
+        reserved = getattr(self, "computer_reserved", None)
+        if ((reserved is not None and reserved(tool_name))
+                or not tool_scope_allows(tool_name)):
+            return ToolResult(output="Permission denied: restricted tool authority.",
+                              ok=False, error="permission_denied", tool_name=tool_name)
+        # Operator-disabled built-in (config-gated visibility): typed
+        # rejection BEFORE handler resolution, durability transitions,
+        # recovery machinery, or any external effect. getattr tolerates the
+        # sanctioned ``__new__`` test seam, which skips ``__init__``.
+        policy = getattr(self, "_builtin_policy", None)
+        if policy is not None and policy.is_disabled(tool_name):
+            from .builtin_policy import disabled_rejection
+
+            return disabled_rejection(tool_name)
+        if policy is None or not policy.is_available(tool_name):
+            from .builtin_policy import unavailable_rejection
+
+            return unavailable_rejection(tool_name)
+        handler = self._resolve_handler(tool_name)
+        if handler is None:
+            return ToolResult(
+                output=f"Unknown tool: {tool_name}",
+                ok=False,
+                error="unknown_tool",
+                tool_name=tool_name,
+            )
+
+        _user_id_ctx.set(user_id)
+
+        denial = self.check_permission(tool_name, user_id)
+        if denial:
+            log.warning(
+                "Owner authority denied requester %s on tool %s",
+                user_id,
+                tool_name,
+            )
+            self._metrics.setdefault(tool_name, {"calls": 0, "errors": 0, "timeouts": 0})
+            self._metrics[tool_name]["errors"] += 1
+            return ToolResult(
+                output=denial, ok=False, error="permission_denied", tool_name=tool_name
+            )
+
+        assessment = classify_tool(tool_name, tool_input)
+        self.risk_stats.record(tool_name, assessment)
+        self._last_risk_assessment = assessment
+        if assessment.level.value in ("high", "critical"):
+            log.warning(
+                "Risk %s for %s: %s",
+                assessment.level.value,
+                tool_name,
+                assessment.reason,
+            )
+
+        timeout = self.config.get_tool_timeout(tool_name)
+        t0 = asyncio.get_event_loop().time()
+        raw = await self._try_tool(tool_name, handler, tool_input, timeout, user_id)
+        duration_ms = int((asyncio.get_event_loop().time() - t0) * 1000)
+        unknown = isinstance(raw, _ToolAttemptTimeout) and raw.uncertain_outcome
+
+        # Unpack structured (output, exit_code) returns from handlers
+        if isinstance(raw, tuple):
+            raw_result, exit_code = raw[0], raw[1]
+            is_error = (exit_code != 0 or isinstance(raw_result, ToolFailure)
+                        or (isinstance(raw, _ToolAttemptTimeout) and raw.failed))
+        else:
+            raw_result = raw
+            exit_code = None
+            is_error = is_tool_failure(raw_result)
+        unknown = unknown or bool(
+            isinstance(raw_result, ToolFailure) and raw_result.uncertain_outcome
+        )
+
+        if is_error and self._recovery_enabled and (
+            not unknown or (isinstance(raw, _ToolAttemptTimeout) and raw.recovery_allowed)
+        ):
+            category = self._check_recoverable(raw_result)
+            if category is not None:
+                snippet = raw_result[:120] if isinstance(raw_result, str) else ""
+                decision = _decide_recovery_action(tool_name=tool_name, category=category)
+                if decision.action == "hint":
+                    self.recovery_stats.record_failure(tool_name, category, snippet)
+                    log.info(
+                        "Recovery hint for %s (%s): not retrying, annotating result",
+                        tool_name,
+                        category.value,
+                    )
+                    hint = decision.hint_text
+                    if hint and isinstance(raw_result, str) and hint not in raw_result:
+                        raw_result = f"{raw_result}\n\n{hint}"
+                elif decision.action == "skip":
+                    if tool_name in UNSAFE_TO_RETRY:
+                        log.warning(
+                            "Recovery skipped for %s (%s): tool is not safe to retry "
+                            "(may have already executed)",
+                            tool_name,
+                            category.value,
+                        )
+                    self.recovery_stats.record_failure(tool_name, category, snippet)
+                else:
+                    delay = decision.delay_seconds
+                    for _attempt in range(MAX_AUTOMATIC_RECOVERY_ATTEMPTS):
+                        self.recovery_stats.record_attempt(tool_name, category, snippet)
+                        log.info(
+                            "Recovery for %s (%s): retrying after %.1fs",
+                            tool_name,
+                            category.value,
+                            delay,
+                        )
+                        if delay > 0:
+                            await asyncio.sleep(delay)
+                        retry_raw = await self._try_tool(
+                            tool_name, handler, tool_input, timeout, user_id
+                        )
+                        unknown = unknown or (
+                            isinstance(retry_raw, _ToolAttemptTimeout)
+                            and retry_raw.uncertain_outcome
+                        )
+                        if isinstance(retry_raw, tuple):
+                            raw_result, exit_code = retry_raw[0], retry_raw[1]
+                            is_error = (exit_code != 0 or isinstance(raw_result, ToolFailure)
+                                        or (isinstance(retry_raw, _ToolAttemptTimeout)
+                                            and retry_raw.failed))
+                        else:
+                            raw_result = retry_raw
+                            exit_code = None
+                            is_error = is_tool_failure(raw_result)
+                        unknown = unknown or bool(
+                            isinstance(raw_result, ToolFailure)
+                            and raw_result.uncertain_outcome
+                        )
+                        if is_error:
+                            self.recovery_stats.record_failure(tool_name, category, snippet)
+                        else:
+                            self.recovery_stats.record_success(tool_name, category, snippet)
+                        break
+
+        mutation_detected = False
+        mutation_reason = ""
+        if not is_error and isinstance(raw_result, str):
+            raw_result, _mutation = annotate_if_mutation(tool_name, tool_input, raw_result)
+            mutation_detected = _mutation.detected
+            mutation_reason = _mutation.reason
+
+        # Validate the complete captured result before the delivery boundary.
+        # The validator remains authoritative for coercion/empty/JSON checks,
+        # but its legacy standalone cap must not discard unrecoverable bytes.
+        from dataclasses import replace
+
+        schema = TOOL_SCHEMAS.get(tool_name, DEFAULT_SCHEMA)
+        outcome = validate_tool_result(
+            tool_name, raw_result, stats=self.validation_stats,
+            schema=replace(schema, max_chars=max(schema.max_chars, len(str(raw_result)))))
+
+        # Extract exit code from string if handler didn't return one
+        if exit_code is None and isinstance(raw_result, str):
+            import re as _re
+
+            m = _re.search(r"\(exit (\d+)\)", raw_result)
+            if m:
+                exit_code = int(m.group(1))
+
+        output = self.deliver_output(
+            outcome.normalized, tool_name=tool_name, tool_input=tool_input, user_id=user_id,
+            status="outcome_unknown" if unknown else "failed" if is_error else "succeeded")
+        from ..llm.secret_scrubber import scrub_output_secrets
+
+        # Final settlement and earlier dispatch uncertainty are independent:
+        # a successful retry must not invite another retry by claiming failure.
+        return ToolResult(
+            output=output,
+            ok=not is_error,
+            error=scrub_output_secrets(raw_result[:200]) if is_error else None,
+            exit_code=exit_code,
+            truncated="truncated" in outcome.violations or bool(
+                isinstance(output, DeliveredOutput) and output.truncated
+            ),
+            duration_ms=duration_ms,
+            tool_name=tool_name,
+            risk_level=assessment.level.value,
+            risk_reason=assessment.reason,
+            requires_validation=mutation_detected,
+            validation_reason=mutation_reason,
+            uncertain_outcome=unknown,
+        )
+
+    async def _try_tool(
+        self,
+        tool_name: str,
+        handler,
+        tool_input: dict,
+        timeout: int,
+        user_id: str | None,
+    ) -> str | tuple[str, int] | _ToolAttemptTimeout:
+        """Single attempt at executing a tool handler.
+
+        Handlers may return either a plain string or a (output, exit_code)
+        tuple.  Tuples propagate exit codes into ToolResult without
+        string-prefix parsing. Timeout results also carry code-owned effect
+        uncertainty: cancellation does not prove that external work failed.
+        """
+        # ATTEMPTS are counted before the handler is awaited, terminal outcomes
+        # separately (L2). Counting "calls" only on success made the totals lie
+        # exactly during an incident: a tool that timed out or raised
+        # contributed an error with no call, so odin_tool_calls_total
+        # undercounted invocations and every derived success/error rate was
+        # wrong. One attempt, one call; the recovery retry loop re-enters
+        # _try_tool and legitimately counts a second attempt.
+        self._metric(tool_name)["calls"] += 1
+        # Streams created BY THIS ATTEMPT are reclaimed on EVERY exit path
+        # (M5). Registration happens at create_callback and removal only in the
+        # handler's finish(), so a timeout or an exception between the two left
+        # a permanent active-stream record and a WebUI activity card that never
+        # closed. Ownership is the creation CONTEXT: task-local, so concurrent
+        # same-name calls and unbound (agent/schedule) callers can never settle
+        # one another's streams.
+        created_streams: list[str] = []
+        stream_timeout_token = current_tool_timeout.set(float(timeout))
+        _call_streams_token = call_stream_ids.set(created_streams)
+        token = _current_tool_timeout_ctx.set(timeout)
+        try:
+            if tool_name in ("memory_manage", "manage_list"):
+                coro = handler(tool_input, user_id=user_id)
+            else:
+                coro = handler(tool_input)
+
+            async def with_provenance():
+                # wait_for creates a child task. Read provenance INSIDE that
+                # task, then carry it across as code-owned typed metadata.
+                evidence = DispatchEvidence()
+                token = dispatch_evidence.set(evidence)
+                try:
+                    result = await coro
+                    if evidence.uncertain or isinstance(result, ToolSuccess):
+                        text = result[0] if isinstance(result, tuple) else str(result)
+                        code = result[1] if isinstance(result, tuple) else (
+                            -1 if is_tool_failure(result) else 0
+                        )
+                        return _ToolAttemptTimeout(
+                            text, code, True, True, isinstance(text, ToolFailure),
+                        )
+                    return result
+                finally:
+                    dispatch_evidence.reset(token)
+
+            result = await asyncio.wait_for(with_provenance(), timeout=timeout)
+            return result
+        except TimeoutError:
+            self._metric(tool_name)["errors"] += 1
+            self._metric(tool_name)["timeouts"] += 1
+            log.error("Tool %s timed out after %ds", tool_name, timeout)
+            return _ToolAttemptTimeout(
+                f"Error: tool '{tool_name}' timed out after {timeout}s",
+                -1,
+                classify_tool_effect(tool_name, tool_input)
+                != ToolEffectClass.EFFECT_FREE_OBSERVATION,
+            )
+        except Exception as e:
+            self._metric(tool_name)["errors"] += 1
+            log.error("Tool %s failed: %s", tool_name, e)
+            return _ToolAttemptTimeout(
+                f"Error executing {tool_name}: {e}", -1,
+                classify_tool_effect(tool_name, tool_input)
+                != ToolEffectClass.EFFECT_FREE_OBSERVATION,
+                True,
+            )
+        finally:
+            # Restore FIRST: settlement below runs in this task's own context,
+            # and a nested tool call must never inherit this registry.
+            call_stream_ids.reset(_call_streams_token)
+            try:
+                await self._settle_tool_streams(created_streams)
+            finally:
+                current_tool_timeout.reset(stream_timeout_token)
+                # Cancellation while emitting a terminal stream chunk still
+                # must restore the request-scoped timeout.
+                _current_tool_timeout_ctx.reset(token)
+
+    async def _settle_tool_streams(self, created: list[str]) -> None:
+        """Close streams an attempt created but never finished (M5).
+
+        Best-effort by construction: settlement only emits a terminal chunk and
+        deregisters, so a listener fault must not turn a completed tool call
+        into a failed one. Cancellation is deliberately NOT swallowed — the
+        emit path is a single await, and the caller's cancellation must still
+        propagate.
+        """
+        streamer = getattr(self, "output_streamer", None)
+        if streamer is None:
+            return
+        try:
+            if streamer.has_stale_streams():
+                # TTL backstop for a stream whose owner vanished outright
+                # (cancellation during settlement, process death).
+                await streamer.sweep_stale_streams()
+            if created:
+                abandoned = await streamer.abandon_streams(created)
+                if abandoned:
+                    log.warning(
+                        "Abandoned %d unfinished tool stream(s) after tool exit: %s",
+                        abandoned, ", ".join(created),
+                    )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.debug("Tool stream settlement failed", exc_info=True)
+
+    # Categories excluded from tool-level recovery (they have their own
+    # retry logic or the cost of retrying exceeds the benefit).
+    _SKIP_RECOVERY = frozenset({RecoveryCategory.TIMEOUT})
+
+    # Tools that must NEVER be retried regardless of risk classification,
+    @staticmethod
+    def _check_recoverable(result: str) -> RecoveryCategory | None:
+        """Check if a tool result indicates a recoverable failure."""
+        if not isinstance(result, str):
+            return None
+        cat = _classify_error(result)
+        if cat is not None and cat not in ToolExecutor._SKIP_RECOVERY:
+            return cat
+        if result.startswith("Error"):
+            cat = _classify_exception(result)
+            if cat is not None and cat not in ToolExecutor._SKIP_RECOVERY:
+                return cat
+        return None
+
+    async def _annotate_with_freshness(
+        self,
+        result: str,
+        host_alias: str,
+        tool_name: str,
+        command: str,
+    ) -> str:
+        """Check branch freshness and annotate test failure result if stale."""
+        resolved = self._resolve_host(host_alias)
+        if not resolved:
+            return result
+        address, ssh_user, _ = resolved
+        try:
+            status = await check_branch_freshness(
+                self._exec_command,
+                address,
+                ssh_user,
+            )
+        except Exception as e:
+            log.warning("Branch freshness check failed: %s", e)
+            return result
+
+        if status.fetch_failed:
+            self.freshness_stats.record_fetch_failure()
+
+        event = FreshnessEvent(
+            tool_name=tool_name,
+            command=command[:120],
+            is_stale=status.is_stale,
+            commits_behind=status.commits_behind,
+            branch=status.local_branch,
+        )
+        self.freshness_stats.record(event)
+
+        warning = format_staleness_warning(status)
+        if warning:
+            log.info(
+                "Branch %s is %d commit(s) behind %s — test failure may be stale",
+                status.local_branch,
+                status.commits_behind,
+                status.remote_ref,
+            )
+            return result + warning
+        return result
+
+    def get_metrics(self) -> dict[str, dict[str, int]]:
+        """Return per-tool counts: attempted calls, errors, timeouts.
+
+        ``calls`` counts ATTEMPTS (incremented at handler dispatch, never at
+        result time), so ``errors <= calls`` holds for every tool and
+        ``calls - errors`` is a real completion count. A pre-dispatch rejection
+        — RBAC denial — records an error without a call, exactly as before:
+        nothing was attempted.
+        """
+        return dict(self._metrics)
+
+    def _metric(self, tool_name: str) -> dict[str, int]:
+        """Live per-tool counter row, created on first use."""
+        return self._metrics.setdefault(
+            tool_name, {"calls": 0, "errors": 0, "timeouts": 0}
+        )
+
+    def _host_os(self, alias: str) -> str:
+        host = self.host_registry.get(alias, targetable_only=True)
+        return host.os if host else "linux"
+
+    def _command_shell_mode(self) -> str:
+        provider = getattr(self, "_command_shell_config", None)
+        return provider() if provider is not None else self.config.command_shell
+
+    async def _exec_command(
+        self,
+        address: str,
+        command: str,
+        ssh_user: str = "root",
+        timeout: int | None = None,
+        on_output: OutputCallback | None = None,
+        use_workspace: bool = False,
+        target=None,
+        use_command_shell: bool = False,
+    ) -> tuple[int, str]:
+        """Execute a command locally or via SSH depending on host address.
+
+        Local hosts (127.0.0.1, localhost, ::1) use direct subprocess —
+        no SSH key needed, no network overhead.
+
+        Both paths are wrapped in bulkhead semaphores so that a flood of
+        SSH commands cannot exhaust subprocess/FD resources needed by
+        local commands (and vice versa).
+
+        When *on_output* is provided, stdout lines are streamed to the
+        callback as they arrive (in addition to being collected).
+
+        Internal/code-built commands always use /bin/sh. Only raw public
+        command routes explicitly opt into tools.command_shell; workspace
+        selection is independent (run_script uses a workspace but not this).
+        """
+        if timeout is None:
+            timeout = _current_tool_timeout_ctx.get() or self.config.command_timeout_seconds
+        active_lease = _host_lease_ctx.get()
+        if target is None and active_lease is not None:
+            candidate = active_lease.target
+            if candidate.address == address and candidate.ssh_user == ssh_user:
+                target = candidate
+        if is_local_address(address):
+            # The workspace applies ONLY to raw user commands, and only because
+            # the caller asked for it. This primitive also backs apply_patch,
+            # PDF host reads, and validation probes, whose fixed-path behavior
+            # must remain independent of the raw-command workspace. Default
+            # False preserves that separation.
+            cwd = self._ensure_local_workspace() if use_workspace else None
+            bh = self.bulkheads.get("subprocess")
+            if bh:
+                try:
+                    async with bh.acquire():
+                        return await run_local_command(
+                            command,
+                            timeout=timeout,
+                            on_output=on_output,
+                            cwd=cwd,
+                            command_shell=self._command_shell_mode() if use_command_shell else "sh",
+                        )
+                except BulkheadFullError:
+                    return 1, "Error: subprocess bulkhead full — too many concurrent local commands"
+            return await run_local_command(
+                command, timeout=timeout, on_output=on_output, cwd=cwd,
+                command_shell=self._command_shell_mode() if use_command_shell else "sh",
+            )
+        ssh_retry = self.config.ssh_retry
+        if target is not None:
+            address = target.address
+            ssh_user = target.ssh_user
+        ssh_kwargs: dict[str, Any] = dict(
+            host=address,
+            command=command,
+            ssh_key_path=target.key_path if target is not None else self.config.ssh_key_path,
+            known_hosts_path=(
+                target.known_hosts_path
+                if target is not None
+                else self.config.ssh_known_hosts_path
+            ),
+            timeout=timeout,
+            ssh_user=ssh_user,
+            port=target.port if target is not None else 22,
+            host_key_alias=target.host_key_alias if target is not None else "",
+            target_id=target.runtime_key if target is not None else "",
+            max_retries=ssh_retry.max_retries,
+            retry_base_delay=ssh_retry.base_delay,
+            retry_max_delay=ssh_retry.max_delay,
+            pool=self.ssh_pool,
+            on_output=on_output,
+        )
+        bh = self.bulkheads.get("ssh")
+        if bh:
+            try:
+                async with bh.acquire():
+                    return await run_ssh_command(**ssh_kwargs)
+            except BulkheadFullError:
+                return 1, "Error: SSH bulkhead full — too many concurrent SSH commands"
+        return await run_ssh_command(**ssh_kwargs)
+
+    async def _run_on_host(
+        self,
+        alias: str,
+        command: str,
+        use_workspace: bool = False,
+        user_id: str | None = None,
+        use_command_shell: bool = False,
+        raw_output: bool = False,
+    ) -> str | tuple[str, int]:
+        """Run a command on an aliased host.
+
+        ``use_workspace`` is opt-in for the same reason as _exec_command: this
+        also backs read_file/apply_patch host work and the audit diff tracker,
+        whose paths are absolute and whose cwd semantics must not change.
+        ``use_command_shell`` independently opts raw command callers into the
+        configured local shell. Internal transports remain POSIX by default.
+        """
+        lease = (
+            self.acquire_host_for_user(alias, user_id)
+            if user_id is not None
+            else self._acquire_host(alias)
+        )
+        if not lease:
+            return f"Unknown or disallowed host: {alias}"
+        record_host(lease)
+        with lease:
+            target = lease.target
+            code, output = await lease.run(
+                lambda: self._exec_command(
+                    target.address,
+                    command,
+                    target.ssh_user,
+                    use_workspace=use_workspace,
+                    target=target,
+                    use_command_shell=use_command_shell,
+                )
+            )
+        from .command_shell import raw_command_result
+
+        # Opted-in raw commands format their own outcomes once. All internal
+        # callers retain the historical transport prefix and timeout code.
+        if raw_output:
+            return output, code
+        return raw_command_result(code, output), code
+
+    def _govern_command(self, command: str, host: str | None = None) -> tuple[bool, str, str]:
+        """Shared governor check. Returns (allowed, denial_message, governor_note)."""
+        if not getattr(self, "command_governor", None):
+            return True, "", ""
+        manager = getattr(self, "_permission_manager", None)
+        check = self.command_governor.check(
+            command,
+            # D17: only the authenticated request owner takes Odin's admin
+            # path. Non-owner origins keep the equivalent unprivileged path.
+            user_tier="admin" if manager is not None and manager.is_owner(
+                self._current_user_id
+            ) else None,
+            host=host,
+        )
+        if not check.allowed:
+            return False, check.denial_message(), ""
+        note = ""
+        if check.risk.value in ("high", "critical"):
+            note = f"[governor: allowed — {check.risk.value} risk, {check.reason}]\n"
+        return True, "", note
+
+    # --- Multi-host tools ---
+
+    # --- Browser tools (text-returning, screenshot handled in client.py) ---
+
+    # --- Web tools ---
+
+    # --- PDF analysis ---
+
+    # --- Process management ---
+
+    def set_builtin_policy(self, policy) -> None:
+        """Inject the operator tool policy (wiring, post-bot construction)."""
+        self._builtin_policy = policy
+
+    def set_user_context(self, user_id: str | None) -> None:
+        """Deprecated: user_id is now passed directly to execute().
+
+        Kept for backward compatibility with tests. Prefer passing user_id
+        as a keyword argument to execute() instead.
+        """
+        _user_id_ctx.set(user_id)
+
+    def _load_all_memory(self) -> dict[str, dict[str, str]]:
+        """Load the full scoped memory structure.
+
+        Returns {"global": {...}, "user_<id>": {...}, ...}. STRICT — for
+        mutation paths: a missing file is an empty store, but an unreadable /
+        malformed / wrong-shape file raises StoreCorruptError (a corrupt copy
+        is preserved) so the caller REFUSES to overwrite rather than silently
+        wiping the corpus. Read paths that must not crash chat use
+        _load_all_memory_safe. Auto-migrates the old flat format to scoped.
+        """
+        from ..json_store import load_json_store
+
+        # The section-shape check runs via the validate hook so nested
+        # corruption gets the same sidecar backup as top-level corruption.
+        data = load_json_store(
+            self._memory_path, container=dict, validate=_validate_memory_shape
+        )
+        if not data:
+            return {"global": {}}
+        # Migrate old flat format: if no "global" key, treat entire dict as global
+        if "global" not in data:
+            migrated = {"global": data}
+            self._save_all_memory(migrated)
+            return migrated
+        return data
+
+    def _save_all_memory(self, data: dict[str, dict[str, str]]) -> None:
+        if not self._memory_path:
+            return
+        self._memory_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self._memory_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2))
+        tmp.replace(self._memory_path)
+
+    def _load_all_memory_safe(self) -> dict[str, dict[str, str]]:
+        """Read-path variant of _load_all_memory: corruption degrades to an
+        empty store (inject no working memory) with a rate-limited warning,
+        never raising into the prompt build so a damaged file can't take chat
+        down."""
+        from ..json_store import StoreCorruptError
+
+        try:
+            return self._load_all_memory()
+        except StoreCorruptError as exc:
+            now = time.monotonic()
+            if (self._memory_corrupt_logged_at is None
+                    or now - self._memory_corrupt_logged_at > 300):
+                log.error("memory.json unavailable — injecting no working memory: %s", exc)
+                self._memory_corrupt_logged_at = now
+            return {"global": {}}
+
+    def _load_memory(self) -> dict[str, str]:
+        """Load merged global memory (READ path — degrades on corruption)."""
+        return self._load_all_memory_safe().get("global", {})
+
+    def _load_memory_for_user(self, user_id: str | None) -> dict[str, str]:
+        """Load merged global + user memory for system prompt injection (READ
+        path — degrades to empty on corruption so a damaged store never crashes
+        chat)."""
+        all_mem = self._load_all_memory_safe()
+        merged = dict(all_mem.get("global", {}))
+        if user_id:
+            user_key = f"user_{user_id}"
+            merged.update(all_mem.get(user_key, {}))
+        return merged
+
+    # ------------------------------------------------------------------
+    # Universal list management
+    # ------------------------------------------------------------------
+
+    # --- Email tools (SMTP/IMAP) ---

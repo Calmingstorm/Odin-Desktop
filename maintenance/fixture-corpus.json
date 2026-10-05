@@ -1,0 +1,634 @@
+{
+  "version": 1,
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "adapter_associations": [
+    {
+      "adapter_path": "tests/test_desktop_shared_tools.py",
+      "declaration_path": "tests/desktop_adapters/tools_cases.py",
+      "full_class_name": false,
+      "adapter_sha256": "28c8ef6b77b250750297bc920ce100cb0804b69831d4600d1f2553202417dfa8",
+      "declaration_sha256": "6c3ba2b5dbf6b14781d5305da6a5c035bcae62a18dbb09f1b041b03dfe7949e7",
+      "case_count": 203,
+      "mapping_sha256": "344ecf42f89bcb52327e5aef9029e093855f07123689c72610df74f408df6685"
+    },
+    {
+      "adapter_path": "tests/test_desktop_shared_tools_extra.py",
+      "declaration_path": "tests/desktop_adapters/tools_extra.py",
+      "full_class_name": true,
+      "adapter_sha256": "1852c0a1ab2b11209a7847048cbb16c6a4598006c524e9275788145660aa4667",
+      "declaration_sha256": "9109c4354fdda54f18381c0ec58d90a9f8d845b344d43c50f078ebcfa0abaa7f",
+      "case_count": 121,
+      "mapping_sha256": "bbb671b8950caa4a90a3aca31fb3c9be807f536c86a50d182d4c717c2925d59d"
+    },
+    {
+      "adapter_path": "tests/test_desktop_shared_foundation.py",
+      "declaration_path": "tests/desktop_adapters/foundation_cases.py",
+      "adapter_sha256": "c0256359b1475ec1c6a24bf4c47197c7ab2ce9194c2ecaec2b585cfa4ae9a382",
+      "declaration_sha256": "5af270c4c038240b85d0acbc1b5b0964f49b17762dc2c06f2de0bc97cf52e79a",
+      "case_count": 279,
+      "mapping_sha256": "73db4dedcfc65a46449f2d4755fa082a8ae3be74aadc878eeb30c947f4310e4d",
+      "full_class_name": true
+    }
+  ],
+  "suites": [
+    {
+      "path": "tests/test_apply_patch.py",
+      "baseline_sha256": "417404cdfaa90bb375214d48fe378fc874b441113dd99d8635a340c35cf09af6",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 10,
+          "before_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc",
+          "operation": "fixture_import"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_apply_patch_payload.py",
+      "baseline_sha256": "119331fb6964e9128bd7fb6eff75f18352b142f57c9b5aaac266db1e666bc661",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 14,
+          "before_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc",
+          "operation": "fixture_import"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_email_campaign.py",
+      "baseline_sha256": "ff03e85bdbbb4168c14ce9a41ec407d175914d6763b215c8f35e789d0874d15c",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 10,
+          "before_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc",
+          "operation": "fixture_import"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_affordances.py",
+      "baseline_sha256": "6a9e9b817877723a7638914d63d6c42e5b51c6a6f83362f799b348224a47ce1f",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 15,
+          "before_sha256": "ad2ff8d09c1cd25175cec8ae33bab139c62f8d548307d8142c37bfbe2bca6d86",
+          "operation": "fixture_import"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_agent_wait_description.py",
+      "baseline_sha256": "730ec8aa29ae4d3a2bd4540c9cd9f8d5966f5877a7ba5383322fad12e46b69e8",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 1,
+          "before_sha256": "913ba9ce4e694ccd61cf144518ab8914843cfcf45699bad06370dd608ad4c36f",
+          "operation": "fixture_import"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_hosts_executor_leases.py",
+      "baseline_sha256": "309939c21c3d35a6a3263cbde29c54b6ee85997c9c291559637ab0f42dc6a195",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 19,
+          "before_sha256": "880efad7e84ae1b91eb7b27f5c880309cf8492d8b4f0a2f32a44dc841789acd3",
+          "operation": "fixture_import"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_browser_automation.py",
+      "baseline_sha256": "54a07c8932a9dd96e2e83b6f3fed4e65b5639345d9d1a926569111bb32973395",
+      "transformations": []
+    },
+    {
+      "path": "tests/test_email_tools.py",
+      "baseline_sha256": "f797b8bc5f0f713c7b387994cb03a5ba694b25bc49fae4849c6385e13eb0ddcd",
+      "transformations": [
+        {
+          "symbol": "TestPartialRefusal.test_handler_reports_refusal_without_mislisting_accepted",
+          "line": 191,
+          "before_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc",
+          "operation": "fixture_import"
+        },
+        {
+          "symbol": "TestPartialRefusal.test_partial_send_without_accepted_to_keeps_cc_and_attachments",
+          "line": 220,
+          "before_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc",
+          "operation": "fixture_import"
+        },
+        {
+          "symbol": "TestPartialRefusal.test_partial_send_is_not_an_error_result",
+          "line": 247,
+          "before_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc",
+          "operation": "fixture_import"
+        },
+        {
+          "symbol": "TestDisabledFallback.test_handlers_return_error_when_disabled",
+          "line": 484,
+          "before_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc",
+          "operation": "fixture_import"
+        },
+        {
+          "symbol": "TestDisabledFallback.test_send_handler_formats_configured_result",
+          "line": 496,
+          "before_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc",
+          "operation": "fixture_import"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_type_gate.py",
+      "baseline_sha256": "4fe848a65e70e4c97e4d8822b33914f05d27aee0487960713cffc774aa12dd58",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 19,
+          "before_sha256": "5b8600f714ec061cfb76c26ca781f810b9a79ca1294a0c739b4612edd5934be3",
+          "operation": "frozen_gate_setup"
+        },
+        {
+          "symbol": "<module>",
+          "line": 22,
+          "before_sha256": "c82608705b7f42c3e187ffdd16cd0da294ef6c13899f87a7f89d4deb1e859aa4",
+          "operation": "frozen_gate_setup"
+        },
+        {
+          "symbol": "<module>",
+          "line": 23,
+          "before_sha256": "b98dccbea78956911f5935c9c22e50a9e1a979ed0e10c9b591a96f7c1f21d64d",
+          "operation": "frozen_gate_setup"
+        },
+        {
+          "symbol": "<module>",
+          "line": 24,
+          "before_sha256": "a3b811c77d199db09a8facb9c114d3e74a3865abada5b979987d096fce154ad5",
+          "operation": "frozen_gate_setup"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_coverage_gate.py",
+      "baseline_sha256": "36684ce7a9afade0147451232e6071909764822a4a43fda855b60263b2b5b544",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 16,
+          "before_sha256": "10152211fe270ccc24e61c019143a10122d7c02915804ee34040ed2327ecb4b4",
+          "operation": "frozen_gate_setup"
+        },
+        {
+          "symbol": "<module>",
+          "line": 19,
+          "before_sha256": "a05a3e0524a215e2b46d5dfba054c140c14d7e82a60194d7c554b2de4d421a32",
+          "operation": "frozen_gate_setup"
+        },
+        {
+          "symbol": "<module>",
+          "line": 20,
+          "before_sha256": "1e6651cf6a83e97319fa1199cd1f8cabf21cf5d216138dc144e8f388f5f18b8e",
+          "operation": "frozen_gate_setup"
+        },
+        {
+          "symbol": "<module>",
+          "line": 21,
+          "before_sha256": "2ead56a5df56638a05651ece27b82cd29485326f12ddd0c6c35f0ede5aa99102",
+          "operation": "frozen_gate_setup"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_tool_listing_contracts.py",
+      "baseline_sha256": "13f9d704bd4ffc245ced6e6d4915ce40058461e7bc3aa9b342276daff140b57b",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 9,
+          "before_sha256": "1440b665471b2c3dfcc625292004e0a7490bc41606220899592371ecfb03069f",
+          "operation": "fixture_import"
+        },
+        {
+          "symbol": "<module>",
+          "line": 10,
+          "before_sha256": "1ebdc5cf56d0134268953eb1fc8382365924da3b980d09ea88bfa0252a1292f3",
+          "operation": "fixture_import"
+        },
+        {
+          "symbol": "<module>",
+          "line": 11,
+          "before_sha256": "601b1f5ccaa8f4bf8c08e01318ad7fc0305fc5cacda877c004a59262b26a5a89",
+          "operation": "fixture_import"
+        },
+        {
+          "symbol": "<module>",
+          "line": 13,
+          "before_sha256": "62ca2a497a3bc5a59bb19696276529c9db17250ebc5354ecbeccd6f34b9bedbd",
+          "operation": "fixture_import"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_campaign_evidence_review.py",
+      "baseline_sha256": "685e47c4ebf2e103a5e3e1b303d0a00e771ca019ed9fd2e0f80b6714c7451b95",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 16,
+          "before_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc",
+          "operation": "fixture_import"
+        },
+        {
+          "symbol": "<module>",
+          "line": 23,
+          "before_sha256": "9cf09d237a240651c8d9029c70bbe32057c9a4d2aa8931c232bc7e7047cdef7b",
+          "operation": "fixture_import"
+        },
+        {
+          "symbol": "test_retrieval_denial_compares_full_evidence",
+          "line": 118,
+          "before_sha256": "215050d85ee269fd8524bfd7f28e12771b5ff919429ca7c6d043c80f1c35bfc5",
+          "operation": "owner_setup_call"
+        },
+        {
+          "symbol": "test_retrieval_denial_compares_full_evidence",
+          "line": 120,
+          "before_sha256": "9336c0284312c4f0f2f54ae5ebfb89e2d08debbf5c503cf3bc554c4754ba8a0f",
+          "operation": "owner_setup_call"
+        },
+        {
+          "symbol": "test_binary_ranked_full_body_digest_and_truncation.capture",
+          "line": 145,
+          "before_sha256": "22b729b0eb68607fa3c42c98ffe6b59e55dc0b110b6500cfa8644034ce265763",
+          "operation": "owner_setup_call"
+        },
+        {
+          "symbol": "test_binary_already_delivered_text_preserves_stable_identity",
+          "line": 162,
+          "before_sha256": "1dbda43f6929ec5cfb44b5e208af6428aa2512ec7ef7a6b03e3acfc3d021ead1",
+          "operation": "owner_setup_call"
+        },
+        {
+          "symbol": "test_binary_already_delivered_text_preserves_stable_identity",
+          "line": 163,
+          "before_sha256": "4ffb5283f12d641cf5059098497fd0dbcef6804ca55957f10bafde77108a80a6",
+          "operation": "owner_setup_call"
+        },
+        {
+          "symbol": "test_runtime_rewrap_preserves_trusted_flags_and_digest",
+          "line": 173,
+          "before_sha256": "52af0abcebf8e3030edd7b4a7bb9897eeca81adfd4b0a5ab2ed2a0da63bed494",
+          "operation": "owner_setup_call"
+        },
+        {
+          "symbol": "test_runtime_rewrap_preserves_trusted_flags_and_digest",
+          "line": 175,
+          "before_sha256": "6ac0d3611fe3697017fd54460f1463de3f49d48827d206bb991e954b84b2c9d4",
+          "operation": "owner_setup_call"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_apply_registry.py",
+      "baseline_sha256": "2c39694fd391625b8bc9942c2d504d1c862763d72106adc9977845e7022a8209",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 57,
+          "before_sha256": "8deeae03633af327120a0d583e86dc08e390af9d31970c4fd7a43abc1a7128e7",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "VOCABULARY = {'live_read', 'live_apply', 'live_for_new_work', 'restart', 'dormant', 'activation_required', 'legacy_control'}",
+          "after_sha256": "786da7ad07db20b44704c7f298be8d9a01ffe9dd5dff25afdd54db2518935686"
+        },
+        {
+          "symbol": "TestPlainLanguageEffects.test_every_record_carries_both_sentences",
+          "line": 1014,
+          "before_sha256": "48cee41f6fcd823af798ec142e2102329f4b16298f75b09c28c40c6d72f314e3",
+          "operation": "foundation_setup",
+          "kind": "expression",
+          "after_source": "Config()",
+          "after_sha256": "7745b150629f8a0f3a40f78013168c27dc72e46d00b1fab47d586a2504639845"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_documented_tool_contracts.py",
+      "baseline_sha256": "18b1046d51e49106f027b0cf25a4fe5846c7671708c222f58f616762c4ed4209",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 9,
+          "before_sha256": "0846f218e2387d0cf1ed776ece7a025aa9ce8f9b90b87655c27330efaa6c3d7a",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "",
+          "after_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_error_presentation.py",
+      "baseline_sha256": "0c6afe6a39af110cb84059ba6edf4912002436279aa7ec0d9ddcd7d4e3eea7c1",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 16,
+          "before_sha256": "cef07274d6b56fa5b6af71ed551d913ac4572061209e10e6500a906413cc09ce",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "",
+          "after_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_host_access.py",
+      "baseline_sha256": "46452c6dc6fba5efa142bfb20e326e890e63b3498b641a78a2c47add05d94e09",
+      "transformations": []
+    },
+    {
+      "path": "tests/test_embedder_loading.py",
+      "baseline_sha256": "fcc6bb2a5d73b25e2b4fa66e85f55e14972f7546d8b19fc69388e232a0be25b6",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 9,
+          "before_sha256": "319d67eac2b3841f7a55d6032ba66e53a5376cd2cef8abd3664f039a0da50540",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "from tests.desktop_adapters.foundation_cases import LocalEmbedder",
+          "after_sha256": "5eda30193a337b33e8cfa568773f22a25268d8c5821fde6c42ca367c29da3eb4"
+        },
+        {
+          "symbol": "test_cold_load_single_flight_and_cancelled_waiter.Model.__init__",
+          "line": 19,
+          "before_sha256": "458f4e428de7a59a295dbae158a4413e5a7db9b1ea490b279afaff3c81a25b62",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "def __init__(self, name, **bundle_kwargs):\n    loads.append(name)\n    started.set()\n    assert release.wait(3)",
+          "after_sha256": "e82c3cd10465238a86c6555985531a865fa07ada3436f409a1ed2ff263d11877"
+        },
+        {
+          "symbol": "test_failed_load_can_be_retried.Model.__init__",
+          "line": 55,
+          "before_sha256": "38599edc45e2112f7d44e98eff2fc06ea44ec2e0e3cb2db964965541895d9ee0",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "def __init__(self, name, **bundle_kwargs):\n    attempts.append(name)\n    if len(attempts) == 1:\n        raise RuntimeError('download failed')",
+          "after_sha256": "18d6fac4dfc7421b196fff5be7f016339589a7f668cac99f8ba88c3866d7944c"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_generated_tool_reference.py",
+      "baseline_sha256": "e4f12bc08682b6f6de90731fb385417ef164073a6697d5def24749f66efe2cbd",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 19,
+          "before_sha256": "c438dc30d5877e9a82c2d732f53bcf2b02fbf82e5f4c0b7123a873b04051d716",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "from src.tools.registry import TOOLS, get_documentation_tool_definitions as get_tool_definitions",
+          "after_sha256": "91896fc2884a210495a8cc3479e9b7e9001f28766832317d69130d50926e2619"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_hosts_ratcheted_consumers.py",
+      "baseline_sha256": "5bf44733008bd72857fbf213a493e72ab691b6f053e36a05dd5627dc2436909d",
+      "transformations": [
+        {
+          "symbol": "_config",
+          "line": 23,
+          "before_sha256": "60a4653070158e9c9163033f1b8f7e993b57a2be3ac44870d2fc78c97c4c22a6",
+          "operation": "foundation_setup",
+          "kind": "expression",
+          "after_source": "Config(tools=ToolsConfig(hosts=hosts or {}, governor=governor or GovernorConfig(), default_host=default_host))",
+          "after_sha256": "e2e331cc5abba55714d59ce8c3755b7ad1165ac318b0250ceef0ed661eaf8d25"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_image_backends.py",
+      "baseline_sha256": "12dce04fdd9c70973aa17e238bbe6eda9bb15c9eb5d885f7685fe4aa3b071591",
+      "transformations": [
+        {
+          "symbol": "_backend",
+          "line": 130,
+          "before_sha256": "74471ebd03ea1996573219dde5ca649577bd4c3e5803a2a10843ccf7a779e74e",
+          "operation": "foundation_setup",
+          "kind": "expression",
+          "after_source": "Config()",
+          "after_sha256": "7745b150629f8a0f3a40f78013168c27dc72e46d00b1fab47d586a2504639845"
+        },
+        {
+          "symbol": "_config",
+          "line": 318,
+          "before_sha256": "74471ebd03ea1996573219dde5ca649577bd4c3e5803a2a10843ccf7a779e74e",
+          "operation": "foundation_setup",
+          "kind": "expression",
+          "after_source": "Config()",
+          "after_sha256": "7745b150629f8a0f3a40f78013168c27dc72e46d00b1fab47d586a2504639845"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_skill_context.py",
+      "baseline_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 14,
+          "before_sha256": "469e8c52537f151add216b790f69b5447c4e89a9066d93fa5a0daa848c479acb",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "from src.tools.skill_context import MAX_SKILL_HTTP_REQUESTS, MAX_SKILL_MESSAGES, MAX_SKILL_TOOL_CALLS, ResourceTracker, SkillContext, is_path_denied",
+          "after_sha256": "143b7ff9d67e5b1733ab41130d3febc95e4416081b2b3a01b8323d799ece09f7"
+        },
+        {
+          "symbol": "_ctx",
+          "line": 32,
+          "before_sha256": "0c30934f4e232db70b38a39b883cc2f30947ecba9135499fbde3be4563a86ac6",
+          "operation": "foundation_setup",
+          "kind": "expression",
+          "after_source": "desktop_skill_context_fixture(skill_name='testskill', memory_path=mem, **kw)",
+          "after_sha256": "f015605e5dd820e0a55117fea130389646cdffac1b77d4044e61ea9ff7a62edc"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_builtin_tool_policy.py",
+      "baseline_sha256": "74d479b88386fab8cee3e9df54b95582b746aab508205724c7dfbe1686bb5692",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 17,
+          "before_sha256": "64ae99aa31b7ddb409ae02226b3bf306387fcf6fb55d549f43fab9a781bfd746",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "from src.config.schema import Config, ToolsConfig",
+          "after_sha256": "ee7a2b56625f4449e1f079d4ea3e484375b4a4c52e3be02cc8cf6c10a67b90ed"
+        },
+        {
+          "symbol": "<module>",
+          "line": 18,
+          "before_sha256": "dd6445b2e7f4d0100413a014d00ae3204893b776f782bbae802195a0c035c388",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "",
+          "after_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "symbol": "<module>",
+          "line": 26,
+          "before_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "from tests.desktop_adapters.foundation_cases import ToolExecutor",
+          "after_sha256": "823ba663c3d98bc3d34a9c81c863fc52a008367def014c87b513541656a77404"
+        },
+        {
+          "symbol": "<module>",
+          "line": 27,
+          "before_sha256": "42e493c48ee7f8eadebcd6df64c7d0ee3371ea61bbd739a85869855d7f404126",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "from src.tools.registry import get_documentation_tool_definitions as get_tool_definitions",
+          "after_sha256": "edb63280715318bbbca8e197b6a3a4a3bd7fa2c303eb4cf6d18089374f847d2a"
+        },
+        {
+          "symbol": "<module>",
+          "line": 29,
+          "before_sha256": "ab989a39701db36c309cf2cf5523f2cf0f4fcd3680e0e4eb94e41a89562acc0e",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "",
+          "after_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "symbol": "_cfg",
+          "line": 33,
+          "before_sha256": "1596666f3741cf5d8ef066313e6f0039179253cf98dd849aae7dd960ede93685",
+          "operation": "foundation_setup",
+          "kind": "expression",
+          "after_source": "Config(tools=ToolsConfig(disabled_tools=list(disabled)))",
+          "after_sha256": "457723113a57bb40850a4be40fb41d0bcd928bc631a2d9f64f8dc4016874b3be"
+        },
+        {
+          "symbol": "TestDispatchRejection.test_background_special_cased_builtins_reject_before_effect",
+          "line": 227,
+          "before_sha256": "60ddb024c2b85a2d88d9b59bd0fa64263b30cdc8626a1bded1a244f499197e02",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "",
+          "after_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_knowledge_import.py",
+      "baseline_sha256": "1b286e4334c8affd598b0d8e98cc6b6706ebbdcfe41e3c2eb55b1a10d22dad15",
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 5,
+          "before_sha256": "81dafa7a7cf16b83e7a7cafd7a6702e15f4b4d576a43463dc14beb05d48e72d0",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "from tests.desktop_adapters.foundation_cases import tempfile_fixture as tempfile",
+          "after_sha256": "8b2414ce92985ca81cbdfb6b48461a0a048c29ae1d062629842ae4a8e8ac27a5"
+        },
+        {
+          "symbol": "<module>",
+          "line": 13,
+          "before_sha256": "1e588a7a9b02ad423306ebd6067411f34f84b2c939557ec5ed69a4d1b188dea0",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "from tests.desktop_adapters.foundation_cases import BulkImporter\nfrom src.knowledge.importer import DIR_ALLOWED_EXTENSIONS, FETCH_MAX_CHARS, MAX_BATCH_SIZE, MAX_FILE_BYTES, MAX_PDF_BYTES, PDF_MAX_CHARS, BatchResult, ImportResult",
+          "after_sha256": "84770818060a1f823577a96937d018d1055f47957cd0333c9ef7c063613c02f2"
+        },
+        {
+          "symbol": "TestToolHandler.test_search_knowledge_tool_reports_invalid_query_and_failure",
+          "line": 1432,
+          "before_sha256": "60ddb024c2b85a2d88d9b59bd0fa64263b30cdc8626a1bded1a244f499197e02",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "",
+          "after_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "symbol": "TestToolHandler.test_ingest_document_tool_reports_zero_as_failure",
+          "line": 1458,
+          "before_sha256": "60ddb024c2b85a2d88d9b59bd0fa64263b30cdc8626a1bded1a244f499197e02",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "",
+          "after_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "symbol": "TestToolHandler.test_bulk_ingest_tool_routing",
+          "line": 1481,
+          "before_sha256": "60ddb024c2b85a2d88d9b59bd0fa64263b30cdc8626a1bded1a244f499197e02",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "",
+          "after_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "symbol": "TestToolHandler.test_bulk_ingest_missing_items",
+          "line": 1507,
+          "before_sha256": "60ddb024c2b85a2d88d9b59bd0fa64263b30cdc8626a1bded1a244f499197e02",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "",
+          "after_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "symbol": "TestToolHandler.test_bulk_ingest_invalid_items",
+          "line": 1529,
+          "before_sha256": "60ddb024c2b85a2d88d9b59bd0fa64263b30cdc8626a1bded1a244f499197e02",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "",
+          "after_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "symbol": "TestToolHandler.test_bulk_ingest_result_format",
+          "line": 1551,
+          "before_sha256": "60ddb024c2b85a2d88d9b59bd0fa64263b30cdc8626a1bded1a244f499197e02",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "",
+          "after_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "symbol": "TestImportAPI._make_app.import_knowledge",
+          "line": 1598,
+          "before_sha256": "f4f77c6534174e19a87a6975c006dceda97964f4276acdb92133457e6284e136",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "from tests.desktop_adapters.foundation_cases import BulkImporter",
+          "after_sha256": "d4f373775b8054426c43c1638e5bffdf7baaac9fff57f1c877ab32f9bb56af9b"
+        },
+        {
+          "symbol": "TestModuleImports.test_importer_importable",
+          "line": 1771,
+          "before_sha256": "f4f77c6534174e19a87a6975c006dceda97964f4276acdb92133457e6284e136",
+          "operation": "foundation_setup",
+          "kind": "statement",
+          "after_source": "from tests.desktop_adapters.foundation_cases import BulkImporter",
+          "after_sha256": "d4f373775b8054426c43c1638e5bffdf7baaac9fff57f1c877ab32f9bb56af9b"
+        }
+      ]
+    }
+  ]
+}

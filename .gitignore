@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage*
+htmlcov/
+build/
+dist/
+*.egg-info/
+.test-state/
+.test-logs/
+.test-logs-*.txt
+.lint-format-evidence/
+app/node_modules/
+app/dist/

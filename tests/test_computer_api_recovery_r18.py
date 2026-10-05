@@ -1,0 +1,216 @@
+"""R18 HTTP recovery contracts; no live store, host or desktop access."""
+import pytest
+
+from src.computer.models import ComputerError
+from tests.test_computer_api import Controller, client
+
+
+class RecoveryController(Controller):
+    failure = None
+
+    async def operator_status(self, **actor):
+        result = await super().operator_status(**actor)
+        return {**result, "state": "quarantined", "generation": 2,
+                "session_generation": 8, "recovery": {
+                    "status": "operator_reconciliation_required",
+                    "reason": "controller_lost", "complete": False}}
+
+    async def operator_recover(self, session_id, generation, **actor):
+        self.check(**actor)
+        self.calls.append(("recover", session_id, generation))
+        if self.failure:
+            raise self.failure
+        return await self.operator_status(**actor)
+
+    async def operator_acknowledge_legacy(self, acknowledgment, **kwargs):
+        return await self.operator_recover(**kwargs)
+
+    async def operator_reconcile(self, acknowledgment, **kwargs):
+        self.calls.append(("acknowledgment", acknowledgment))
+        result = await self.operator_recover(**kwargs)
+        return {**result, "state": "closed", "session_generation": 9, "recovery": {
+            "status": "operator_acknowledged_unverified", "reason": "controller_lost",
+            "complete": False}}
+
+
+@pytest.mark.parametrize("state,next_action", [
+    ("fresh_target_required", "inventory_then_start_with_recovery_session_id_and_fresh_target"),
+    ("operator_release_required", "operator_reconcile_then_fresh_target_and_new_session"),
+    ("native_reconciled", "inventory_then_start_with_recovery_session_id_and_fresh_target"),
+])
+async def test_native_recovery_status_preserves_distinct_safe_guidance(state, next_action):
+    class NativeStatus(RecoveryController):
+        async def operator_status(self, **actor):
+            result = await super().operator_status(**actor)
+            result["recovery"].update(
+                status=state, reason="native_continuity_lost", released=False,
+                resources_retired=state != "operator_release_required",
+                runtime_qualified=state == "fresh_target_required", unknown_release=True,
+                receiver_release_verified=False, continuation_cancelled=False,
+                native_owner={"private": "must-not-escape"}, owner_digest="must-not-escape")
+            result["native_reconciliation"] = {
+                "phase": "native_continuity_lost", "reason": "native_continuity_lost",
+                "required": state != "native_reconciled", "authorizes_input": False,
+                "replay_allowed": False, "receiver_release_verified": False,
+                "next_action": next_action, "task_hints": {"goal": "must-not-escape"}}
+            return result
+
+    async with client(NativeStatus()) as c:
+        response = await c.get("/api/computer")
+        assert response.status == 200
+        result = await response.json()
+        assert result["recovery"]["status"] == state
+        assert result["recovery"]["reason"] == "native_continuity_lost"
+        assert result["recovery"]["released"] is False
+        assert result["recovery"]["unknown_release"] is True
+        assert result["native_reconciliation"]["next_action"] == next_action
+        assert result["native_reconciliation"]["authorizes_input"] is False
+        assert "must-not-escape" not in str(result)
+
+
+def body_for(route):
+    body = {"session_id": "computer-session", "generation": 8}
+    if route != "recover":
+        body["acknowledgment"] = "ACKNOWLEDGE UNVERIFIED CLEANUP computer-session"
+    return body
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["recover", "acknowledge_legacy", "reconcile"])
+@pytest.mark.parametrize("error,status,code", [
+    (ComputerError("not_found"), 404, "not_found"),
+    (ComputerError("stale_generation"), 409, "stale_generation"),
+    (ComputerError("recovery_unavailable"), 409, "recovery_unavailable"),
+    (ComputerError("runtime_identity_required"), 409, "runtime_identity_required"),
+    (ComputerError("legacy_acknowledgment_unavailable"), 409,
+     "legacy_acknowledgment_unavailable"),
+    (ComputerError("/private/path secret text"), 409, "computer_operation_unavailable"),
+    (ValueError("/private/path secret text"), 409, "computer_operation_unavailable"),
+    (TypeError("/private/path secret text"), 409, "computer_operation_unavailable"),
+])
+async def test_correct_body_preserves_safe_controller_failure(route, error, status, code):
+    controller = RecoveryController()
+    controller.failure = error
+    async with client(controller) as c:
+        response = await c.post("/api/computer/" + route, json=body_for(route))
+        result = await response.json()
+        assert response.status == status
+        assert result.get("code") == code
+        assert "/private/path" not in str(result) and "secret text" not in str(result)
+        assert response.headers["Cache-Control"] == "no-store, private"
+        if code:
+            assert result["next_action"]
+        if code == "stale_generation":
+            assert "session_generation" in result["error"]
+    assert ("recover", "computer-session", 8) in controller.calls
+
+
+@pytest.mark.asyncio
+async def test_quarantined_status_exposes_generations_despite_optional_probe_failure(monkeypatch):
+    async def unavailable(*_):
+        raise AttributeError("diagnostic unavailable")
+
+    monkeypatch.setattr("src.computer.accessibility_status.read_accessibility_status", unavailable)
+    async with client(RecoveryController(), enabled=False) as c:
+        response = await c.get("/api/computer")
+        result = await response.json()
+        assert response.status == 200
+        assert result["generation"] == 2 and result["session_generation"] == 8
+        assert result["recovery"]["complete"] is False
+        assert result["accessibility"]["enabled"] is None
+        assert result["accessibility"]["reason"] == "read_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_quarantined_status_keeps_live_accessibility_indicator(monkeypatch):
+    async def enabled(*_):
+        return {"enabled": True, "state": "enabled", "reason": "property_read"}
+    monkeypatch.setattr("src.computer.accessibility_status.read_accessibility_status", enabled)
+    async with client(RecoveryController()) as c:
+        response = await c.get("/api/computer")
+        result = await response.json()
+        assert response.status == 200
+        assert result["state"] == "quarantined"
+        assert result["accessibility"]["enabled"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure,status", [(AttributeError("display_name private"), 200),
+                                            (PermissionError("private"), 404)])
+async def test_optional_accessibility_failure_keeps_status_safe(monkeypatch, failure, status):
+    async def unavailable(*_):
+        raise failure
+
+    monkeypatch.setattr("src.computer.accessibility_status.read_accessibility_status", unavailable)
+    async with client(Controller()) as c:
+        response = await c.get("/api/computer")
+        assert response.status == status
+        result = await response.json()
+        assert "display_name" not in str(result)
+        if status == 200:
+            assert result["state"] == "active"
+            assert result["accessibility"]["reason"] == "read_unavailable"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [
+    {}, [], {"session_id": "computer-session", "generation": True},
+    {**body_for("reconcile"), "generation": -1},
+    {**body_for("reconcile"), "owner_id": "bob"},
+    {**body_for("reconcile"), "acknowledgment": "yes"},
+])
+async def test_reconcile_body_validation_never_dispatches(body):
+    controller = RecoveryController()
+    async with client(controller) as c:
+        response = await c.post("/api/computer/reconcile", json=body)
+        assert response.status == 400
+    assert controller.calls == []
+
+
+@pytest.mark.asyncio
+async def test_reconcile_works_disabled_and_does_not_claim_verified_cleanup():
+    controller = RecoveryController()
+    async with client(controller, enabled=False) as c:
+        response = await c.post("/api/computer/reconcile", json=body_for("reconcile"))
+        result = await response.json()
+        assert response.status == 200
+        assert result["state"] == "closed"
+        assert result["session_generation"] == 9
+        assert result["recovery"]["status"] == "operator_acknowledged_unverified"
+        assert result["recovery"]["complete"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kwargs,status", [
+    ({"user": None}, 401), ({"tier": "user"}, 403), ({"session": None}, 401),
+    ({"session": "other-session"}, 404),
+])
+async def test_reconcile_preserves_operator_auth(kwargs, status):
+    async with client(RecoveryController(), **kwargs) as c:
+        response = await c.post("/api/computer/reconcile", json=body_for("reconcile"))
+        assert response.status == status
+
+
+@pytest.mark.asyncio
+async def test_local_cleanup_distinct_from_historical_receiver_uncertainty():
+    class LocallyReleased(RecoveryController):
+        async def operator_reconcile(self, acknowledgment, **kwargs):
+            result = await super().operator_reconcile(acknowledgment, **kwargs)
+            result["recovery"].update(
+                local_recovery_status="locally_released", local_cleanup_complete=True,
+                admission_blocked=False, receiver_release_verified=False,
+                private_owner="must-not-escape")
+            return result
+
+    async with client(LocallyReleased()) as c:
+        response = await c.post("/api/computer/reconcile", json=body_for("reconcile"))
+        assert response.status == 200
+        body = await response.json()
+        recovery = body["recovery"]
+        assert recovery["status"] == "operator_acknowledged_unverified"
+        assert recovery["complete"] is False
+        assert recovery["local_recovery_status"] == "locally_released"
+        assert recovery["local_cleanup_complete"] is True
+        assert recovery["admission_blocked"] is False
+        assert recovery["receiver_release_verified"] is False
+        assert "must-not-escape" not in str(body)

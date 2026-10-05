@@ -1,0 +1,481 @@
+"""Real audit persistence and event linkage across all three invocation routes."""
+
+import asyncio
+import json
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, Mock
+
+import pytest
+
+from src.agents.manager import AgentInfo
+from src.agents.tool_cycle import execute_cycle
+from src.audit.logger import AuditLogger
+from src.audit.tool_context import _pending_observers
+from src.config.schema import ToolsConfig
+from src.discord.native_tools.registry import NativeToolDispatcher
+from src.discord.tool_loop import ToolLoopRunner
+from src.llm.strict_tool_adapter import compile_catalog
+from src.llm.tool_history import assistant_content, normalize_tool_calls
+from src.observability.correlation import reset_turn, set_turn
+from src.tools.nested_payload import ValidatedNestedPayload
+from src.tools.registry import get_tool_definitions
+from src.tools.result_validator import ToolResult
+
+
+def harness(tmp_path, native=False, failure=None):
+    runner = object.__new__(ToolLoopRunner)
+    events = []
+    runner._get_config = lambda: SimpleNamespace(tools=ToolsConfig(tool_timeouts={
+        "run_script": 1,
+        "read_channel": 1,
+    }))
+
+    async def emitted(entry):
+        events.append(entry)
+
+    runner._audit = AuditLogger(str(tmp_path / "audit.jsonl"))
+    runner._audit.set_event_callback(emitted)
+    result = ToolResult(output="ordinary result", ok=True)
+    runner._tool_executor = SimpleNamespace(
+        config=runner._get_config().tools,
+        _recovery_enabled=True,
+        check_permission=Mock(return_value=None),
+        execute=AsyncMock(return_value=result, side_effect=failure),
+    )
+    runner._native_tools = SimpleNamespace(
+        handles=lambda _: native,
+        dispatch=AsyncMock(
+            return_value=(result, SimpleNamespace(rebuild_system_prompt=False)),
+            side_effect=failure,
+        ),
+    )
+    runner._mcp_manager = None
+    runner._delivery = SimpleNamespace(set_status=AsyncMock())
+    runner._channel_state = SimpleNamespace(track_action=Mock())
+    proxy = SimpleNamespace(channel=SimpleNamespace(id="c"), author=SimpleNamespace(id="u"))
+    st = SimpleNamespace(
+        message=proxy,
+        msg_proxy=proxy,
+        user_id="u",
+        iteration=3,
+        _iteration_index=3,
+        channel_id_str="c",
+        requester_name="User",
+        tool_timeout=1,
+        durability=SimpleNamespace(before_tool=AsyncMock(), after_tool=AsyncMock()),
+        policy=SimpleNamespace(skill_file_delivery="stage"),
+        pending_image_blocks=[],
+    )
+    return runner, st, events
+
+
+def block(call_id="call-1", tool="run_script"):
+    return SimpleNamespace(
+        id=call_id,
+        name=tool,
+        parse_error=None,
+        input={
+            "host": "localhost",
+            "script": "private shell body",
+            "nested": {"password": "test-secret-never-store"},
+        },
+    )
+
+
+def correlation(record):
+    """Same explicit dimensions as the UI; no name/time based guessing."""
+    metadata = record.get("metadata", {})
+    return (
+        record.get("originating_turn_id") or record.get("turn", {}).get("turn_id"),
+        record.get("agent_id", ""),
+        record.get("iteration", metadata.get("iteration")),
+        record.get("call_id", metadata.get("call_id")),
+        record["tool_name"],
+        record.get("channel_id"),
+        record["user_id"],
+    )
+
+
+@pytest.mark.parametrize("route", ["foreground", "autonomous", "agent"])
+@pytest.mark.parametrize("name", ["schedule_task", "update_schedule", "delegate_task"])
+async def test_adapter_marker_reaches_native_dispatch_by_identity(tmp_path, route, name):
+    """Storage/audit snapshots may copy, but the executable argument must not."""
+    adapter = compile_catalog(get_tool_definitions())
+    wire = next(t["parameters"]["properties"] for t in adapter.wire_tools
+                if t["name"] == name)
+    specified = {
+        "schedule_task": {"description": "proof", "action": "reminder", "message": "test"},
+        "update_schedule": {"schedule_id": "existing", "description": "proof"},
+        "delegate_task": {"description": "proof", "steps": [{
+            "tool_name": "run_command", "tool_input": '{"command":"uptime"}',
+        }]},
+    }[name]
+    args = {key: specified.get(key) for key in wire}
+    if name == "delegate_task":
+        step_schema = wire["steps"]["items"]["properties"]
+        args["steps"] = [{key: specified["steps"][0].get(key) for key in step_schema}]
+    marked = adapter.accept(name, args)
+    assert isinstance(marked, ValidatedNestedPayload)
+    runner, st, _ = harness(tmp_path, native=True)
+    call = SimpleNamespace(id="marker", name=name, input=marked, parse_error=None)
+    owner = SimpleNamespace(
+        _handle_schedule_task=AsyncMock(return_value="ok"),
+        _handle_update_schedule=AsyncMock(return_value="ok"),
+        _handle_delegate_task=AsyncMock(return_value="ok"),
+    )
+    native = NativeToolDispatcher(
+        owners={"scheduling": owner, "agents": owner}, skill_manager=MagicMock(),
+        tool_catalog=MagicMock(), prompt_builder=MagicMock(), channel_state=MagicMock(),
+    )
+    native.register(name, "agents" if name == "delegate_task" else "scheduling",
+                    f"_handle_{name}", "input" if name == "update_schedule" else "msg_input")
+    runner._native_tools = native
+    if route == "foreground":
+        await runner._run_one_tool(st, call)
+    elif route == "autonomous":
+        await runner._run_one_loop_tool(st, call)
+    else:
+        agent = AgentInfo(id="marker-agent", label="proof", goal="proof", channel_id="c",
+                          requester_id="u", requester_name="User", turn_id="marker-turn")
+        accepted_calls = normalize_tool_calls([call])
+        assistant_content("", accepted_calls)  # checkpoint copy is not the executable input
+        assert isinstance(accepted_calls[0]["input"], ValidatedNestedPayload)
+
+        async def execute(tool_name, incoming):
+            return await runner.dispatch_loop_tool(tool_name, incoming, st.msg_proxy, "u")
+
+        await execute_cycle(
+            agent, accepted_calls, execute, [],
+            timeouts={}, default_timeout=1,
+        )
+    invoked = getattr(owner, f"_handle_{name}")
+    invoked.assert_awaited_once()
+    assert isinstance(invoked.await_args.args[-1], ValidatedNestedPayload)
+    if route != "agent":
+        assert invoked.await_args.args[-1] is marked
+
+
+@pytest.mark.parametrize("route", ["foreground", "autonomous", "agent"])
+@pytest.mark.parametrize("native", [False, True])
+@pytest.mark.parametrize("failure", [None, ValueError("ordinary failure")])
+async def test_real_execution_has_one_correlated_canonical_record(tmp_path, route, native, failure):
+    runner, st, events = harness(tmp_path, native, failure)
+    call = block(tool="read_channel" if native else "run_script")
+    token = set_turn(turn_id="turn-a", source=route, loop_id="loop-a", loop_iteration=8)
+    try:
+        if route == "foreground":
+            result = await runner._run_one_tool(st, call)
+        elif route == "autonomous":
+            result = await runner._run_one_loop_tool(st, call)
+        else:
+            agent = AgentInfo(
+                id="agent-a",
+                label="worker",
+                goal="test",
+                channel_id="c",
+                requester_id="u",
+                requester_name="User",
+                turn_id="turn-a",
+            )
+            agent.iteration_count = 3
+
+            async def execute(name, arguments):
+                return await runner.dispatch_loop_tool(name, arguments, st.msg_proxy, "u")
+
+            results = []
+            await execute_cycle(
+                agent,
+                [{"id": call.id, "name": call.name, "input": call.input}],
+                execute,
+                results,
+                timeouts={},
+                default_timeout=1,
+            )
+            result = results[0]
+            if _pending_observers:
+                await asyncio.gather(*list(_pending_observers))
+    finally:
+        reset_turn(token)
+    assert result
+    records = list(reversed(await runner._audit.search()))
+    assert records == events  # Live event payloads and persisted rows share identity.
+    assert len(records) == (2 if route == "autonomous" else 3)
+    assert len({correlation(record) for record in records}) == 1
+    assert correlation(records[0])[2:4] == (3, "call-1")
+    assert records[0]["turn"]["loop_iteration"] == 8
+    executions = [row for row in records if "result_summary" in row]
+    assert len(executions) == 1
+    assert bool(executions[0]["error"]) is (failure is not None)
+    assert executions[0]["tool_input"]["nested"]["password"] == "[REDACTED]"
+    assert "test-secret-never-store" not in json.dumps(records)
+    if not native:
+        assert executions[0]["tool_input"]["script"] == "<shell command: 18 bytes>"
+    assert await runner._audit.count_by_tool() == {call.name: 1}
+    executor = runner._native_tools.dispatch if native else runner._tool_executor.execute
+    executor.assert_awaited_once()
+    assert executor.call_args.args[1] == call.input
+
+
+@pytest.mark.parametrize("route", ["foreground", "autonomous"])
+async def test_parallel_same_name_reverse_completion_and_reused_ids(tmp_path, route):
+    runner, st, _ = harness(tmp_path)
+    slow_started, fast_done = asyncio.Event(), asyncio.Event()
+
+    async def execute(name, arguments, **kwargs):
+        if arguments["order"] == "slow":
+            slow_started.set()
+            await fast_done.wait()
+        else:
+            await slow_started.wait()
+        return ToolResult(output=arguments["order"], ok=True)
+
+    runner._tool_executor.execute = execute
+    run = runner._run_one_tool if route == "foreground" else runner._run_one_loop_tool
+    slow, fast = block("slow"), block("fast")
+    slow.input["order"], fast.input["order"] = "slow", "fast"
+    for turn in ("turn-a", "turn-b"):
+        slow_started.clear()
+        fast_done.clear()
+        token = set_turn(turn_id=turn, source=route)
+        try:
+            async def finish_fast():
+                await run(st, fast)
+                # Release only after terminal persistence, not a guessed delay.
+                fast_done.set()
+
+            await asyncio.wait_for(asyncio.gather(run(st, slow), finish_fast()), timeout=10)
+        finally:
+            reset_turn(token)
+    records = list(reversed(await runner._audit.search(limit=30)))
+    groups = {}
+    for record in records:
+        groups.setdefault(correlation(record), []).append(record)
+    assert len(groups) == 4
+    for key, rows in groups.items():
+        executions = [row for row in rows if "result_summary" in row]
+        assert len(executions) == 1
+        assert executions[0]["result_summary"] == key[3]
+    assert [row["call_id"] for row in records if "result_summary" in row] == [
+        "fast",
+        "slow",
+        "fast",
+        "slow",
+    ]
+
+
+@pytest.mark.parametrize("route", ["foreground", "autonomous"])
+@pytest.mark.parametrize("slow_audit", [False, True])
+async def test_timeout_keeps_single_terminal_with_identity(
+    tmp_path, monkeypatch, route, slow_audit
+):
+    runner, st, events = harness(tmp_path)
+    st.tool_timeout = 0.01
+    if route == "autonomous":
+        # This test isolates cancellation/audit identity, not timeout policy.
+        runner._outer_tool_timeout = lambda _name, _input: st.tool_timeout
+    real_log_event = runner._audit.log_event
+
+    async def slow_log_event(*args, **kwargs):
+        await real_log_event(*args, **kwargs)
+        await asyncio.sleep(0.05)
+
+    if slow_audit:
+        runner._audit.log_event = slow_log_event
+    st._cancel = asyncio.Event()
+    st.durability.after_tool_interrupted = AsyncMock()
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+    real_wait_for = asyncio.wait_for
+    timed_waits = []
+
+    async def wait_for_started_tool(awaitable, timeout):
+        # Foreground's deadline includes the durable start audit; autonomous's
+        # does not. This test exercises cancellation of RUNNING dispatch, not
+        # whether a CI filesystem can persist its start within ten milliseconds.
+        # Keep the actual asyncio timeout/cancellation, but arm it after entry.
+        task = asyncio.ensure_future(awaitable)
+        try:
+            await real_wait_for(started.wait(), timeout=5)
+            timed_waits.append(timeout)
+            return await real_wait_for(task, timeout=timeout)
+        finally:
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    monkeypatch.setattr("src.discord.tool_loop.asyncio.wait_for", wait_for_started_tool)
+
+    async def execute(*args, **kwargs):
+        try:
+            started.set()
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    runner._tool_executor.execute = execute
+    token = set_turn(turn_id="turn-timeout")
+    try:
+        if route == "foreground":
+            result = await runner._run_one_tool_with_timeout(st, block(), st.tool_timeout)
+        else:
+            result = await runner._run_one_loop_tool(st, block())
+    finally:
+        reset_turn(token)
+    assert "timed out" in result["content"]
+    assert timed_waits == [st.tool_timeout]
+    assert started.is_set()
+    assert cancelled.is_set()
+    records = await runner._audit.search()
+    assert list(reversed(records)) == events
+    assert len(records) == 2
+    assert len({correlation(record) for record in records}) == 1
+    assert correlation(records[0])[0] == "turn-timeout"
+    assert correlation(records[0])[2:4] == (3, "call-1")
+    assert len([row for row in records if "result_summary" in row]) == 1
+    assert records[0]["error"]
+    assert await runner._audit.count_by_tool() == {"run_script": 1}
+
+
+async def test_foreground_timeout_during_start_audit_never_dispatches(tmp_path, monkeypatch):
+    """The outer deadline may legitimately expire before executor entry."""
+    runner, st, events = harness(tmp_path)
+    st._cancel = asyncio.Event()
+    st.durability.after_tool_interrupted = AsyncMock()
+    real_log_event = runner._audit.log_event
+
+    async def blocked_start_audit(*args, **kwargs):
+        await real_log_event(*args, **kwargs)
+        start_persisted.set()
+        await asyncio.Event().wait()
+
+    runner._audit.log_event = blocked_start_audit
+    # Arm cancellation after persistence reaches the deliberate blockage.
+    # Filesystem latency is not the subject of this pre-dispatch test.
+    start_persisted = asyncio.Event()
+    real_wait_for = asyncio.wait_for
+
+    async def timeout_after_persistence(awaitable, timeout):
+        task = asyncio.ensure_future(awaitable)
+        try:
+            await real_wait_for(start_persisted.wait(), timeout=5)
+            return await real_wait_for(task, timeout=timeout)
+        finally:
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    monkeypatch.setattr("src.discord.tool_loop.asyncio.wait_for", timeout_after_persistence)
+    token = set_turn(turn_id="turn-before-dispatch")
+    try:
+        result = await runner._run_one_tool_with_timeout(st, block(), 0.01)
+    finally:
+        reset_turn(token)
+    assert "timed out" in result["content"]
+    runner._tool_executor.execute.assert_not_awaited()
+    st.durability.after_tool_interrupted.assert_awaited_once()
+    records = await runner._audit.search()
+    assert list(reversed(records)) == events
+    # Start persistence itself can exceed the budget. Only require a start row
+    # when its writer completed, but always require exactly one terminal row.
+    assert len([row for row in records if "result_summary" in row]) == 1
+    assert len({correlation(row) for row in records}) == 1
+    assert records[0]["error"]
+    assert await runner._audit.count_by_tool() == {"run_script": 1}
+
+
+async def test_autonomous_start_observer_failure_does_not_suppress_execution(tmp_path):
+    runner, st, _ = harness(tmp_path)
+    runner._audit.log_event = AsyncMock(side_effect=RuntimeError("audit unavailable"))
+    assert (await runner._run_one_loop_tool(st, block()))["content"] == "ordinary result"
+    records = await runner._audit.search()
+    assert len(records) == 1
+    assert records[0]["call_id"] == "call-1"
+
+
+@pytest.mark.parametrize("route", ["foreground", "autonomous"])
+async def test_mcp_dispatch_retains_correlation_and_structured_failure(
+    tmp_path, monkeypatch, route
+):
+    runner, st, _ = harness(tmp_path)
+    dispatch = AsyncMock(
+        return_value=ToolResult(
+            output="remote failure",
+            ok=False,
+            error="remote failed",
+            uncertain_outcome=True,
+        )
+    )
+    monkeypatch.setattr("src.discord.tool_loop.is_mcp_tool", lambda *_: True)
+    monkeypatch.setattr("src.discord.tool_loop.dispatch_mcp_tool", dispatch)
+    token = set_turn(turn_id="turn-mcp")
+    try:
+        run = runner._run_one_tool if route == "foreground" else runner._run_one_loop_tool
+        await run(st, block(tool="mcp_test"))
+    finally:
+        reset_turn(token)
+    records = await runner._audit.search()
+    assert len({correlation(record) for record in records}) == 1
+    canonical = [record for record in records if "result_summary" in record]
+    assert len(canonical) == 1
+    assert canonical[0]["error"] == "remote failed"
+    dispatch.assert_awaited_once()
+    runner._tool_executor.execute.assert_not_awaited()
+
+
+@pytest.mark.parametrize("available", [False, True])
+async def test_rejected_post_action_image_keeps_single_failed_receipt(tmp_path, available):
+    runner, st, _ = harness(tmp_path, native=True)
+    receipt = {"status": "unknown", "action_id": "stroke-1"}
+    image = {
+        "__computer_frame__": {},
+        "__image_block__": {},
+        "__computer_action_receipt__": receipt,
+    }
+    runner._native_tools.dispatch.return_value = (
+        image,
+        SimpleNamespace(rebuild_system_prompt=False),
+    )
+    computer = SimpleNamespace(
+        validate_delivery=AsyncMock(side_effect=ValueError("expired")),
+        reserves_tool=lambda _: False,
+    )
+    runner._computer_service = lambda: computer if available else None
+    token = set_turn(turn_id="turn-image")
+    try:
+        result = await runner._run_one_tool(st, block(tool="computer_act"))
+    finally:
+        reset_turn(token)
+    assert "already settled; do not replay" in result["content"]
+    assert '"action_id": "stroke-1"' in result["content"]
+    assert st.pending_image_blocks == []
+    assert st._computer_frame_error
+    records = await runner._audit.search()
+    assert len(records) == 2
+    assert len({correlation(record) for record in records}) == 1
+    assert records[0]["type"] == "tool_end"
+    assert records[0]["error"] == "computer_observation_rejected"
+    assert await runner._audit.count_by_tool() == {"computer_act": 1}
+
+
+@pytest.mark.parametrize("delivery_ok", [False, True])
+async def test_post_action_image_preserves_private_audit_metadata(tmp_path, delivery_ok):
+    runner, st, _ = harness(tmp_path, native=True)
+    receipt = {"status": "not_satisfied", "verification": {
+        "reason": "target_changed_observe_again"}, "execution": {"released": True}}
+    image = {"__computer_frame__": {}, "__image_block__": {"type": "image"},
+             "__prompt__": "Inspect the changed target", "__computer_action_receipt__": receipt,
+             "__computer_audit_metadata__": {"computer_reason_code": "target_changed_observe_again",
+                                             "computer_input_outcome": "released_verified"}}
+    runner._native_tools.dispatch.return_value = (
+        image, SimpleNamespace(rebuild_system_prompt=False))
+    runner._computer_service = lambda: SimpleNamespace(
+        validate_delivery=AsyncMock(return_value=None if delivery_ok else None,
+                                    side_effect=None if delivery_ok else ValueError("expired")),
+        reserves_tool=lambda _: False)
+    await runner._run_one_tool(st, block(tool="computer_act"))
+    rows = await runner._audit.search()
+    terminal = next(row for row in rows if row.get("type") == "tool_end")
+    assert terminal["audit_metadata"] == image["__computer_audit_metadata__"]
+    assert terminal["error"] == ("computer_not_satisfied" if delivery_ok
+                                 else "computer_observation_rejected")
+    assert "__computer_audit_metadata__" not in terminal["result_summary"]

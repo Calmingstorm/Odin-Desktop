@@ -1,0 +1,863 @@
+"""Route coverage for web/api/agents_loops.py (RFC-006 P4-continuation, CONT-1).
+
+Drives the loop / agent / process admin routes through the real aiohttp route
+layer. Runtime boundaries (loop_manager.start_loop, agent_manager.kill,
+process_registry.kill) are faked — per review, we validate request parsing,
+delegation, and response shaping, not real loop/process startup.
+"""
+from __future__ import annotations
+
+import asyncio
+import gc
+import weakref
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from aiohttp import web
+from aiohttp.test_utils import TestClient, TestServer
+
+from src.config.schema import Config
+from src.web.api.agents_loops import (
+    _LOOP_RESTART_LOCKS,
+    register_agents,
+    register_loops,
+    register_processes,
+)
+
+
+def _app(*registrars, bot):
+    routes = web.RouteTableDef()
+    for reg in registrars:
+        reg(routes, bot)
+    app = web.Application()
+    app.router.add_routes(routes)
+    return app
+
+
+def _bare_bot():
+    """A bot with no agent/process managers — exercises the defensive fallbacks."""
+    return type("B", (), {})()
+
+
+def _loop_info(**kw):
+    base = dict(goal="watch X", mode="notify", interval_seconds=60,
+                stop_condition=None, max_iterations=50, channel_id="c1",
+                requester_id="web-api", requester_name="Web API",
+                iteration_count=2, last_trigger=1.0, created_at=1.0,
+                status="running", _iteration_history=[{"n": 1}, {"n": 2}])
+    base.update(kw)
+    return SimpleNamespace(**base)
+
+
+def _agent_info(**kw):
+    base = dict(label="worker", goal="do it", status="running",
+                state=SimpleNamespace(value="running"), channel_id="c1",
+                requester_name="U", iteration_count=1, tools_used=["grep"],
+                created_at=1.0, ended_at=None, result="", error="",
+                recovery_attempts=0, depth=0, parent_id=None, children_ids=[],
+                max_iterations=120, model_override=None, reasoning_effort_override=None,
+                last_provider="", last_model="", last_reasoning_effort=None, has_executed=False,
+                _sm=SimpleNamespace(history_as_dicts=lambda: []))
+    base.update(kw)
+    return SimpleNamespace(**base)
+
+
+class TestLoops:
+    @pytest.mark.asyncio
+    async def test_list_loops(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {"L1": _loop_info()}
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            body = await (await c.get("/api/loops")).json()
+            assert body[0]["id"] == "L1" and body[0]["goal"] == "watch X"
+            assert len(body[0]["iteration_history"]) == 2
+            assert body[0]["last_trigger_age_seconds"] >= 0
+
+    @pytest.mark.asyncio
+    async def test_loop_detail_uses_durable_trajectory_history(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {"L1": _loop_info(_iteration_history=["preview"])}
+        bot.trajectory_saver.find_by_loop_id = AsyncMock(return_value=[
+            {"source": "loop", "loop_id": "L1", "loop_iteration": 2,
+             "final_response": "full response", "tools_used": ["run_command"],
+             "iterations": [{"provider": "openai-codex", "model": "gpt-5.6-sol",
+                              "reasoning_effort": "xhigh"}]},
+        ])
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            r = await c.get("/api/loops/L1?limit=25")
+            body = await r.json()
+        assert r.status == 200
+        assert body["goal"] == "watch X"
+        assert body["last_trigger_age_seconds"] >= 0
+        assert body["iterations"][0]["final_response"] == "full response"
+        assert body["iterations"][0]["model"] == "gpt-5.6-sol"
+        assert "user_content" not in body["iterations"][0]
+        assert body["context_history"] == ["preview"]
+        assert body["history_available"] is True
+        assert body["history_truncated"] is False
+        bot.trajectory_saver.find_by_loop_id.assert_awaited_once_with("L1", limit=26)
+
+    @pytest.mark.asyncio
+    async def test_loop_detail_reports_paging_truthfully(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {"L1": _loop_info()}
+        bot.trajectory_saver.find_by_loop_id = AsyncMock(return_value=[
+            {"loop_iteration": i} for i in range(4)
+        ])
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            body = await (await c.get("/api/loops/L1?limit=3")).json()
+        assert len(body["iterations"]) == 3
+        assert body["history_truncated"] is True
+        assert body["history_limit"] == 3
+
+    @pytest.mark.asyncio
+    async def test_loop_detail_missing_and_unavailable_history(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {"L1": _loop_info()}
+        bot.trajectory_saver = None
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            assert (await c.get("/api/loops/missing")).status == 404
+            body = await (await c.get("/api/loops/L1")).json()
+        assert body["history_available"] is False
+        assert body["iterations"] == []
+
+    @pytest.mark.asyncio
+    async def test_loop_detail_storage_failure_preserves_live_record(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {"L1": _loop_info()}
+        bot.trajectory_saver.find_by_loop_id = AsyncMock(side_effect=OSError("disk"))
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            r = await c.get("/api/loops/L1")
+            body = await r.json()
+        assert r.status == 200
+        assert body["history_available"] is False
+        assert body["goal"] == "watch X"
+
+    @pytest.mark.asyncio
+    async def test_start_loop_validation(self):
+        bot = MagicMock()
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            assert (await c.post("/api/loops", json={})).status == 400  # no goal
+            assert (await c.post("/api/loops",
+                                 json={"goal": "g"})).status == 400  # no channel_id
+
+    @pytest.mark.asyncio
+    async def test_start_loop_channel_not_found(self):
+        bot = MagicMock()
+        bot.get_channel.return_value = None
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            r = await c.post("/api/loops", json={"goal": "g", "channel_id": "999"})
+            assert r.status == 404
+
+    @pytest.mark.asyncio
+    async def test_start_loop_goal_too_long(self):
+        bot = MagicMock()
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            r = await c.post("/api/loops", json={"goal": "g" * 5000, "channel_id": "1"})
+            assert r.status == 400
+
+    @pytest.mark.asyncio
+    async def test_start_loop_non_numeric_channel(self):
+        bot = MagicMock()
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            # int("abc") raises → channel resolves to None → 404
+            r = await c.post("/api/loops", json={"goal": "g", "channel_id": "abc"})
+            assert r.status == 404
+
+    @pytest.mark.asyncio
+    async def test_start_loop_success(self):
+        bot = MagicMock()
+        bot.get_channel.return_value = MagicMock()
+        bot.loop_manager.start_loop.return_value = "loop-123"
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            r = await c.post("/api/loops", json={"goal": "watch", "channel_id": "1"})
+            assert r.status == 201 and (await r.json())["loop_id"] == "loop-123"
+
+    @pytest.mark.asyncio
+    async def test_start_loop_manager_error(self):
+        bot = MagicMock()
+        bot.get_channel.return_value = MagicMock()
+        bot.loop_manager.start_loop.return_value = "Error: too many loops"
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            assert (await c.post("/api/loops",
+                                 json={"goal": "g", "channel_id": "1"})).status == 400
+
+    @pytest.mark.asyncio
+    async def test_stop_loop_found_and_missing(self):
+        bot = MagicMock()
+        bot.loop_manager.stop_loop = AsyncMock(
+            side_effect=["Stopped loop.", "Loop not found."]
+        )
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            assert (await c.delete("/api/loops/L1")).status == 200
+            assert (await c.delete("/api/loops/L1")).status == 404
+
+    @pytest.mark.asyncio
+    async def test_restart_missing_loop(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {}
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            assert (await c.post("/api/loops/ghost/restart")).status == 404
+
+    @pytest.mark.asyncio
+    async def test_restart_success(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {"L1": _loop_info(status="running", channel_id="123")}
+        bot.loop_manager.stop_loop = AsyncMock(return_value="Loop stopped.")
+        bot.get_channel.return_value = MagicMock()
+        bot.loop_manager.start_loop.return_value = "loop-new"
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            r = await c.post("/api/loops/L1/restart")
+            assert r.status == 201
+            body = await r.json()
+            assert body["old_id"] == "L1" and body["new_id"] == "loop-new"
+            bot.loop_manager.stop_loop.assert_called_once_with("L1")  # stopped first
+
+    @pytest.mark.asyncio
+    async def test_restart_lock_is_pruned_after_request(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {
+            "prune-lock": _loop_info(status="stopped", channel_id="123")
+        }
+        bot.get_channel.return_value = MagicMock()
+        bot.loop_manager.start_loop.return_value = "loop-new"
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            assert (await c.post("/api/loops/prune-lock/restart")).status == 201
+        gc.collect()
+        assert "prune-lock" not in _LOOP_RESTART_LOCKS
+
+    @pytest.mark.asyncio
+    async def test_restart_lock_survives_waiter_cancellation_and_serializes(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {
+            "serialized-lock": _loop_info(status="running", channel_id="123")
+        }
+        bot.get_channel.return_value = MagicMock()
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        active = 0
+        peak = 0
+
+        async def stop_loop(_lid):
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            entered.set()
+            await release.wait()
+            active -= 1
+            return "Loop stopped."
+
+        bot.loop_manager.stop_loop = stop_loop
+        bot.loop_manager.start_loop.side_effect = ["new-one", "new-two"]
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            first = asyncio.create_task(c.post("/api/loops/serialized-lock/restart"))
+            await entered.wait()
+            lock_ref = weakref.ref(_LOOP_RESTART_LOCKS["serialized-lock"])
+            cancelled = asyncio.create_task(c.post("/api/loops/serialized-lock/restart"))
+            survivor = asyncio.create_task(c.post("/api/loops/serialized-lock/restart"))
+            await asyncio.sleep(0)
+            cancelled.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await cancelled
+            assert lock_ref() is not None
+            release.set()
+            assert (await first).status == 201
+            assert (await survivor).status == 201
+            assert peak == 1
+
+        del first, survivor
+        gc.collect()
+        assert lock_ref() is None
+        assert "serialized-lock" not in _LOOP_RESTART_LOCKS
+
+    @pytest.mark.asyncio
+    async def test_restart_callback_accepts_manager_invocation_shape(self):
+        # LoopManager invokes every iteration callback as
+        # `await cb(prompt, channel, prev_context, info._cancel_event)`
+        # (autonomous_loop.py). The restart route's callback used to take
+        # three parameters, so every iteration of a restarted loop raised
+        # TypeError and five in a row terminated it with error status —
+        # invisible to route tests that fake start_loop without ever
+        # invoking the callback they captured.
+        bot = MagicMock()
+        bot.loop_manager._loops = {"L1": _loop_info(status="stopped", channel_id="123")}
+        bot.get_channel.return_value = MagicMock()
+        bot.loop_manager.start_loop.return_value = "loop-new"
+        bot.tool_loop.run_autonomous = AsyncMock(return_value="iterated")
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            assert (await c.post("/api/loops/L1/restart")).status == 201
+        cb = bot.loop_manager.start_loop.call_args.kwargs["iteration_callback"]
+        cancel_event = asyncio.Event()
+        assert await cb("iterate now", "chan", "prev", cancel_event) == "iterated"
+        bot.tool_loop.run_autonomous.assert_awaited_once_with(
+            "iterate now", "chan", "prev", "web-api", cancel_event=cancel_event,
+        )
+
+    @pytest.mark.asyncio
+    async def test_create_callback_accepts_manager_invocation_shape(self):
+        # Same contract pinned on the create route so neither web-registered
+        # callback can drift from the manager's four-argument invocation.
+        bot = MagicMock()
+        bot.get_channel.return_value = MagicMock()
+        bot.loop_manager.start_loop.return_value = "loop-1"
+        bot.tool_loop.run_autonomous = AsyncMock(return_value="ran")
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            r = await c.post("/api/loops", json={"goal": "watch X", "channel_id": "123"})
+            assert r.status == 201
+        cb = bot.loop_manager.start_loop.call_args.kwargs["iteration_callback"]
+        cancel_event = asyncio.Event()
+        assert await cb("go", "chan", None, cancel_event) == "ran"
+        bot.tool_loop.run_autonomous.assert_awaited_once_with(
+            "go", "chan", None, "web-api", cancel_event=cancel_event,
+        )
+
+    @pytest.mark.asyncio
+    async def test_restart_channel_gone(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {"L1": _loop_info(status="stopped")}
+        bot.get_channel.return_value = None
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            assert (await c.post("/api/loops/L1/restart")).status == 404
+
+    @pytest.mark.asyncio
+    async def test_restart_missing_channel_preserves_running_loop(self):
+        bot = MagicMock()
+        info = _loop_info(status="running", channel_id="123")
+        bot.loop_manager._loops = {"L1": info}
+        bot.get_channel.return_value = None
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            assert (await c.post("/api/loops/L1/restart")).status == 404
+        bot.loop_manager.stop_loop.assert_not_called()
+        assert bot.loop_manager._loops["L1"] is info
+
+    @pytest.mark.asyncio
+    async def test_restart_rejects_reused_channel_identity_before_stop(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {"L1": _loop_info(status="running", channel_id="123")}
+        bot.get_channel.return_value = SimpleNamespace(id="999")
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            assert (await c.post("/api/loops/L1/restart")).status == 404
+        bot.loop_manager.stop_loop.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "invalid_config",
+        [
+            {"goal": ""},
+            {"interval_seconds": 60.0},
+        ],
+        ids=["empty-required-string", "non-integer-numeric-setting"],
+    )
+    async def test_restart_rejects_invalid_persisted_configuration_before_stop(
+        self, invalid_config
+    ):
+        bot = MagicMock()
+        bot.loop_manager._loops = {
+            "L1": _loop_info(status="running", channel_id="123", **invalid_config)
+        }
+        bot.get_channel.return_value = SimpleNamespace(id=123)
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            response = await c.post("/api/loops/L1/restart")
+            assert response.status == 400
+            assert await response.json() == {"error": "loop configuration is invalid"}
+        bot.loop_manager.stop_loop.assert_not_called()
+        bot.loop_manager.start_loop.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_restart_manager_error(self):
+        bot = MagicMock()
+        bot.loop_manager._loops = {"L1": _loop_info(status="running", channel_id="123")}
+        bot.loop_manager.stop_loop = AsyncMock(return_value="Loop stopped.")
+        bot.get_channel.return_value = MagicMock()
+        bot.loop_manager.start_loop.return_value = "Error: too many loops"
+        async with TestClient(TestServer(_app(register_loops, bot=bot))) as c:
+            assert (await c.post("/api/loops/L1/restart")).status == 400
+
+
+class TestAgents:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "validator", ["validate_agent_entry_defaults", "validate_agent_model_hints"]
+    )
+    async def test_agent_model_policy_reports_validation_errors(self, monkeypatch, validator):
+        bot = MagicMock()
+        bot.config = Config(discord={"token": "[REDACTED]"})
+        monkeypatch.setattr(
+            f"src.tools.agent_tool_policy.{validator}",
+            MagicMock(return_value="invalid agent policy"),
+        )
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            response = await c.put("/api/agents/model", json={"model": "auto"})
+            assert response.status == 400
+            assert "invalid agent policy" in (await response.json())["error"]
+
+    @pytest.mark.asyncio
+    async def test_agent_model_policy_get_and_put(self, monkeypatch):
+        bot = MagicMock()
+        bot.config = Config(discord={"token": "fake"})
+        monkeypatch.setattr(
+            "src.web.api.agents_loops.persist_config_paths_locked",
+            AsyncMock(return_value=(None, False)),
+        )
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            initial = await (await c.get("/api/agents/model")).json()
+            assert initial["model"] == "auto"
+            response = await c.put(
+                "/api/agents/model",
+                json={
+                    "model": "auto",
+                    "auto_model_allowlist": ["compat:vendor/model"],
+                    "model_selection_hints": {
+                        "compat:vendor/model": "Use for broad research"
+                    },
+                },
+            )
+            assert response.status == 200
+            updated = await response.json()
+            assert updated["auto_model_allowlist"] == ["compat:vendor/model"]
+            assert updated["model_selection_hints"] == {
+                "compat:vendor/model": "Use for broad research"
+            }
+
+    @pytest.mark.asyncio
+    async def test_agent_model_policy_rejects_invalid_and_surfaces_save_failure(
+        self, monkeypatch
+    ):
+        bot = MagicMock()
+        bot.config = Config(discord={"token": "fake"})
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            response = await c.put(
+                "/api/agents/model",
+                json={"auto_model_allowlist": ["auto"]},
+            )
+            assert response.status == 400
+
+        monkeypatch.setattr(
+            "src.web.api.agents_loops.persist_config_paths_locked",
+            AsyncMock(return_value=(OSError("disk full"), False)),
+        )
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            response = await c.put("/api/agents/model", json={"model": "gpt-5.6-sol"})
+            assert response.status == 500
+
+    @pytest.mark.asyncio
+    async def test_agent_model_policy_propagates_cancelled_persistence(self, monkeypatch):
+        bot = MagicMock()
+        bot.config = Config(discord={"token": "[REDACTED]"})
+        persist = AsyncMock(return_value=(OSError("cancelled write"), True))
+        monkeypatch.setattr(
+            "src.web.api.agents_loops.persist_config_paths_locked", persist
+        )
+        app = _app(register_agents, bot=bot)
+        handler = next(
+            route.handler
+            for route in app.router.routes()
+            if route.method == "PUT" and route.resource.canonical == "/api/agents/model"
+        )
+        request = SimpleNamespace(
+            json=AsyncMock(return_value={"model": "gpt-5.6-sol"})
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            await handler(request)
+
+        persist.assert_awaited_once()
+        assert bot.config.agents.model == "auto"
+
+    @pytest.mark.asyncio
+    async def test_list_agents(self):
+        bot = MagicMock()
+        bot.agent_manager._agents = {"A1": _agent_info()}
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            body = await (await c.get("/api/agents")).json()
+            assert body[0]["id"] == "A1" and body[0]["label"] == "worker"
+            assert body[0]["state"] == "running"
+
+    @pytest.mark.asyncio
+    async def test_list_agents_no_manager(self):
+        bot = MagicMock()
+        bot.agent_manager._agents = "not-a-dict"
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            assert await (await c.get("/api/agents")).json() == []
+
+    @pytest.mark.asyncio
+    async def test_kill_agent_found_and_missing(self):
+        bot = MagicMock()
+        bot.agent_manager._agents = {"A1": _agent_info()}
+        bot.agent_manager.kill.side_effect = ["Killed agent.", "Agent not found."]
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            assert (await c.delete("/api/agents/A1")).status == 200
+            assert (await c.delete("/api/agents/A1")).status == 404
+
+    @pytest.mark.asyncio
+    async def test_children_lineage_descendants(self):
+        bot = MagicMock()
+        bot.agent_manager.get_children.return_value = [{"id": "c"}]
+        bot.agent_manager.get_lineage.return_value = ["root", "A1"]
+        bot.agent_manager.get_descendants.return_value = ["A2"]
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            children = await (await c.get("/api/agents/A1/children")).json()
+            lineage = await (await c.get("/api/agents/A1/lineage")).json()
+            descendants = await (await c.get("/api/agents/A1/descendants")).json()
+            assert children[0]["id"] == "c"
+            assert lineage["lineage"] == ["root", "A1"]
+            assert descendants["descendants"] == ["A2"]
+
+    @pytest.mark.asyncio
+    async def test_kill_agent_non_dict_registry(self):
+        bot = MagicMock()
+        bot.agent_manager._agents = "not-a-dict"  # raise-AttributeError guard → 404
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            assert (await c.delete("/api/agents/A1")).status == 404
+
+    @pytest.mark.asyncio
+    async def test_no_agent_manager_fallbacks(self):
+        # A bot with no agent_manager attribute at all exercises the defensive
+        # AttributeError guards: list → [], kill → 404, tree routes → 503.
+        async with TestClient(TestServer(_app(register_agents, bot=_bare_bot()))) as c:
+            assert await (await c.get("/api/agents")).json() == []
+            assert (await c.delete("/api/agents/A1")).status == 404
+            assert (await c.get("/api/agents/A1/children")).status == 503
+            assert (await c.get("/api/agents/A1/lineage")).status == 503
+            assert (await c.get("/api/agents/A1/descendants")).status == 503
+
+
+class TestProcesses:
+    def _proc(self, **kw):
+        base = dict(command="tail -f log", host="localhost", status="running",
+                    exit_code=None, start_time=1.0,
+                    output_buffer=["line1\n", "line2\n", "line3\n", "line4\n"])
+        base.update(kw)
+        return SimpleNamespace(**base)
+
+    @pytest.mark.asyncio
+    async def test_list_processes(self):
+        bot = MagicMock()
+        bot.tool_executor._process_registry._processes = {1: self._proc()}
+        async with TestClient(TestServer(_app(register_processes, bot=bot))) as c:
+            body = await (await c.get("/api/processes")).json()
+            assert body[0]["pid"] == 1
+            assert body[0]["command"] == "tail -f log"
+            assert body[0]["output_preview"] == ["line2", "line3", "line4"]
+            assert body[0]["effective_shell"] is None
+            assert body[0]["termination_reason"] is None
+
+    @pytest.mark.asyncio
+    async def test_list_processes_no_registry(self):
+        bot = MagicMock()
+        bot.tool_executor._process_registry = None
+        async with TestClient(TestServer(_app(register_processes, bot=bot))) as c:
+            assert await (await c.get("/api/processes")).json() == []
+
+    @pytest.mark.asyncio
+    async def test_kill_process(self):
+        bot = MagicMock()
+        reg = MagicMock()
+        reg.kill = AsyncMock(return_value="Process 5 killed.")
+        bot.tool_executor._process_registry = reg
+        async with TestClient(TestServer(_app(register_processes, bot=bot))) as c:
+            assert (await c.delete("/api/processes/5")).status == 200
+            assert (await c.delete("/api/processes/notanint")).status == 400
+
+    @pytest.mark.asyncio
+    async def test_kill_process_no_registry(self):
+        bot = MagicMock()
+        bot.tool_executor._process_registry = None
+        async with TestClient(TestServer(_app(register_processes, bot=bot))) as c:
+            assert (await c.delete("/api/processes/5")).status == 404
+
+
+def _display_bot(agent, *, model="gpt-5.6-sol", effort="xhigh",
+                 agent_model=None, agent_effort=None, provider="codex"):
+    """Bot whose live config drives the display policy."""
+    bot = MagicMock()
+    bot.agent_manager._agents = {"A1": agent}
+    bot.config = SimpleNamespace(
+        openai_codex=SimpleNamespace(
+            model=model, reasoning_effort=effort,
+            agent_model=agent_model, agent_reasoning_effort=agent_effort),
+        llm_provider=SimpleNamespace(active_provider=provider),
+    )
+    return bot
+
+
+class TestAgentDisplayPolicy:
+    """Model/effort shown for an agent must say WHICH truth it is: what
+    executed, what the spawn requested, or what live config would give an
+    inheriting agent. Never present config as execution history."""
+
+    @pytest.mark.asyncio
+    async def test_executed_provenance_wins(self):
+        agent = _agent_info(has_executed=True, last_model="gpt-5.6-luna",
+                            last_reasoning_effort="max",
+                            last_provider="codex", model_override="gpt-5.5")
+        bot = _display_bot(agent)
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_model"] == "gpt-5.6-luna"
+        assert row["display_reasoning_effort"] == "max"
+        assert row["display_source"] == "last_execution"
+
+    @pytest.mark.asyncio
+    async def test_native_agent_activity_and_string_results(self):
+        import time
+
+        from tests.test_agent_transcript_contract import agent
+
+        info = agent()
+        info.set_phase("waiting_for_children", time.time() + 100)
+        info.tool_execution_count = 3
+        info.result = "still a string"
+        bot = _display_bot(info)
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+            detail = await (await c.get("/api/agents/A1")).json()
+        for record in (row, detail):
+            assert record["phase"] == "waiting_for_children"
+            assert record["tool_execution_count"] == 3
+            assert record["pending_inbox_count"] == record["last_consumed_sequence"] == 0
+            assert record["result"] == "still a string"
+
+    @pytest.mark.asyncio
+    async def test_override_before_execution_is_pending(self):
+        agent = _agent_info(model_override="gpt-5.6-terra", reasoning_effort_override="high")
+        bot = _display_bot(agent)
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_model"] == "gpt-5.6-terra"
+        assert row["display_reasoning_effort"] == "high"
+        assert row["display_source"] == "spawn_override_pending"
+
+    @pytest.mark.asyncio
+    async def test_inheritance_reports_live_config(self):
+        bot = _display_bot(_agent_info(), model="gpt-5.6-sol", effort="xhigh")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_model"] == "gpt-5.6-sol"
+        assert row["display_reasoning_effort"] == "xhigh"
+        assert row["display_source"] == "current_inheritance"
+
+    @pytest.mark.asyncio
+    async def test_auto_axes_resolve_to_main_settings(self):
+        bot = _display_bot(_agent_info(), agent_model="auto", agent_effort="auto")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        # "auto" is spawn-time policy, never a displayable model/effort value
+        assert row["display_model"] == "gpt-5.6-sol"
+        assert row["display_reasoning_effort"] == "xhigh"
+
+    @pytest.mark.asyncio
+    async def test_fixed_agent_axes_win_over_main(self):
+        bot = _display_bot(_agent_info(), agent_model="gpt-5.6-luna", agent_effort="low")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_model"] == "gpt-5.6-luna"
+        assert row["display_reasoning_effort"] == "low"
+
+    @pytest.mark.asyncio
+    async def test_non_codex_provider_reports_na_effort(self):
+        bot = _display_bot(_agent_info(), provider="ollama")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        # N/A, never "unknown": the provider has no effort semantics at all
+        assert row["display_reasoning_effort"] == "N/A"
+
+    @pytest.mark.asyncio
+    async def test_executed_without_effort_reports_na(self):
+        agent = _agent_info(has_executed=True, last_model="qwen3:14b",
+                            last_reasoning_effort=None, last_provider="ollama")
+        bot = _display_bot(agent, provider="ollama")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_model"] == "qwen3:14b"
+        assert row["display_reasoning_effort"] == "N/A"
+        assert row["display_source"] == "last_execution"
+
+
+class TestAgentListCorrections:
+    @pytest.mark.asyncio
+    async def test_tool_count_is_full_not_preview_slice(self):
+        # tools_used is previewed as the last 10; the COUNT must be the total
+        # (the old UI reported the slice length and understated every agent
+        # past ten tools).
+        agent = _agent_info(tools_used=[f"t{i}" for i in range(25)])
+        bot = _display_bot(agent)
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["tools_used_count"] == 25
+        assert len(row["tools_used"]) == 10
+
+    @pytest.mark.asyncio
+    async def test_max_iterations_exposed_for_honest_progress(self):
+        bot = _display_bot(_agent_info(max_iterations=180))
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["max_iterations"] == 180
+
+
+class TestAgentDetail:
+    @pytest.mark.asyncio
+    async def test_detail_returns_untruncated_fields(self):
+        long_goal = "g" * 900
+        long_result = "r" * 900
+        agent = _agent_info(goal=long_goal, result=long_result, status="completed",
+                            tools_used=[f"t{i}" for i in range(14)])
+        bot = _display_bot(agent)
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            r = await c.get("/api/agents/A1")
+            assert r.status == 200
+            body = await r.json()
+        # the whole point: the list truncates at 200, the detail does not
+        assert body["goal"] == long_goal
+        assert body["result"] == long_result
+        assert len(body["tools_used"]) == 14
+        assert body["tools_used_count"] == 14
+        assert body["display_source"] in {
+            "last_execution", "current_inheritance", "spawn_override_pending", "unknown"}
+
+    @pytest.mark.asyncio
+    async def test_detail_list_truncation_still_applies(self):
+        agent = _agent_info(goal="g" * 900, result="r" * 900, status="completed")
+        bot = _display_bot(agent)
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert len(row["goal"]) == 200 and len(row["result"]) == 200
+
+    @pytest.mark.asyncio
+    async def test_detail_carries_overrides_separately_from_execution(self):
+        agent = _agent_info(model_override="gpt-5.5", reasoning_effort_override="low",
+                            has_executed=True, last_model="gpt-5.5",
+                            last_reasoning_effort="low")
+        bot = _display_bot(agent)
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            body = await (await c.get("/api/agents/A1")).json()
+        assert body["model_override"] == "gpt-5.5"
+        assert body["reasoning_effort_override"] == "low"
+        assert body["display_source"] == "last_execution"
+
+    @pytest.mark.asyncio
+    async def test_detail_unknown_agent_404(self):
+        bot = _display_bot(_agent_info())
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            assert (await c.get("/api/agents/nope")).status == 404
+
+    @pytest.mark.asyncio
+    async def test_detail_no_manager_404(self):
+        bot = MagicMock()
+        bot.agent_manager._agents = "not-a-dict"
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            assert (await c.get("/api/agents/A1")).status == 404
+
+
+class TestDisplayPolicyProviderAwareness:
+    """PR #247 round 1: the policy assumed Codex config regardless of the
+    ACTIVE provider, so a pending Ollama/Kimi agent advertised a Codex model
+    (and Codex overrides) that execution would never use."""
+
+    @pytest.mark.asyncio
+    async def test_pending_ollama_reports_ollama_model(self):
+        bot = _display_bot(_agent_info(), provider="ollama")
+        bot.config.ollama = SimpleNamespace(model="qwen3:14b")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_model"] == "qwen3:14b"
+        assert row["display_reasoning_effort"] == "N/A"
+        assert row["display_source"] == "current_inheritance"
+
+    @pytest.mark.asyncio
+    async def test_pending_kimi_reports_kimi_model(self):
+        bot = _display_bot(_agent_info(), provider="kimi")
+        bot.config.kimi = SimpleNamespace(model="kimi-k3")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_model"] == "kimi-k3"
+
+    @pytest.mark.asyncio
+    async def test_pending_compatible_reports_compatible_model(self):
+        bot = _display_bot(_agent_info(), provider="compat")
+        bot.config.openai_compatible = SimpleNamespace(model="deepseek-chat")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_model"] == "deepseek-chat"
+        assert row["display_reasoning_effort"] == "N/A"
+
+    @pytest.mark.asyncio
+    async def test_codex_override_selects_independent_agent_provider(self):
+        # Agent selection is independent of the main-chat provider.
+        agent = _agent_info(model_override="gpt-5.6-luna", reasoning_effort_override="max")
+        bot = _display_bot(agent, provider="ollama")
+        bot.config.ollama = SimpleNamespace(model="qwen3:14b")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_model"] == "gpt-5.6-luna"
+        assert row["display_reasoning_effort"] == "max"
+        assert row["display_source"] == "spawn_override_pending"
+
+
+class TestDisplayPolicyPerAxisSources:
+    """Each axis reports its OWN source: pinning one axis must not make the
+    other's inherited value look pinned."""
+
+    @pytest.mark.asyncio
+    async def test_model_only_override_leaves_effort_inherited(self):
+        agent = _agent_info(model_override="gpt-5.6-terra")
+        bot = _display_bot(agent, effort="xhigh")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_model"] == "gpt-5.6-terra"
+        assert row["display_model_source"] == "spawn_override_pending"
+        assert row["display_reasoning_effort"] == "xhigh"
+        assert row["display_reasoning_effort_source"] == "current_inheritance"
+
+    @pytest.mark.asyncio
+    async def test_effort_only_override_leaves_model_inherited(self):
+        agent = _agent_info(reasoning_effort_override="low")
+        bot = _display_bot(agent, model="gpt-5.6-sol")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_reasoning_effort_source"] == "spawn_override_pending"
+        assert row["display_model"] == "gpt-5.6-sol"
+        assert row["display_model_source"] == "current_inheritance"
+
+
+class TestDisplayPolicyExecutionTruth:
+    """An executed agent reports execution — including what the provider did
+    NOT tell us. Missing provenance is unknown, never live config, and never
+    N/A (which would claim the concept does not apply)."""
+
+    @pytest.mark.asyncio
+    async def test_executed_without_provenance_is_unknown_not_config(self):
+        agent = _agent_info(has_executed=True, last_model="", last_provider="",
+                            last_reasoning_effort=None)
+        bot = _display_bot(agent, model="gpt-5.6-sol", effort="xhigh")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_source"] == "last_execution"
+        assert row["display_model"] == ""          # unknown, NOT gpt-5.6-sol
+        assert row["display_reasoning_effort"] == ""   # unknown, NOT "N/A"
+
+    @pytest.mark.asyncio
+    async def test_executed_codex_without_effort_is_unknown(self):
+        agent = _agent_info(has_executed=True, last_model="gpt-5.6-sol",
+                            last_provider="codex", last_reasoning_effort=None)
+        bot = _display_bot(agent)
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_reasoning_effort"] == ""
+
+    @pytest.mark.asyncio
+    async def test_executed_effortless_provider_is_na(self):
+        agent = _agent_info(has_executed=True, last_model="qwen3:14b",
+                            last_provider="ollama", last_reasoning_effort=None)
+        bot = _display_bot(agent, provider="ollama")
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_reasoning_effort"] == "N/A"
+
+    @pytest.mark.asyncio
+    async def test_not_executed_never_claims_execution(self):
+        bot = _display_bot(_agent_info(has_executed=False))
+        async with TestClient(TestServer(_app(register_agents, bot=bot))) as c:
+            row = (await (await c.get("/api/agents")).json())[0]
+        assert row["display_source"] != "last_execution"

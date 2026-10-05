@@ -1,0 +1,336 @@
+"""System-prompt assembly (RFC-001 Phase 3).
+
+``PromptBuilder`` owns the full and chat system-prompt construction plus
+the prompt-layer caches (hosts, skills text, per-user memory TTL cache).
+Bodies are verbatim moves from ``OdinBot`` with dependency access adjusted.
+
+Two dependencies are provider callables rather than captured references,
+because the underlying objects are REPLACED at runtime: the config by
+the web API's config hot-reload and the codex client by live auth
+reloads (both live on the gateway/bot as live roots).
+
+Cache-name note: the fields here deliberately carry no leading underscore
+(``cached_hosts``, ``memory_cache``…) — the old bot-attribute spellings are
+covered by the RFC-001 Appendix B negative contract and its source-scan
+test. ``cached_skills_text`` is additionally reachable through the OdinBot
+facade property ``_cached_skills_text`` (web/api.py writes it).
+"""
+
+from __future__ import annotations
+
+import time
+from collections.abc import Callable
+
+from ..llm.secret_scrubber import scrub_output_secrets
+from ..llm.system_prompt import build_chat_system_prompt, build_system_prompt
+from ..odin_log import get_logger
+
+log = get_logger("discord")
+
+_LEARNED_BLOCK_START = "<!-- odin:generated-learned-context:v1:start -->"
+_LEARNED_BLOCK_END = "<!-- odin:generated-learned-context:v1:end -->"
+
+
+class PromptBuilder:
+    @staticmethod
+    def has_learned_provenance(prompt: str) -> bool:
+        """Whether a cached prompt carries the refreshable learned boundary."""
+        return _LEARNED_BLOCK_START in prompt and _LEARNED_BLOCK_END in prompt
+
+    def __init__(
+        self,
+        *,
+        get_config: Callable,
+        context_loader,
+        reflector,
+        skill_manager,
+        tool_executor,
+        channel_state,
+        get_codex_client: Callable,
+        host_registry=None,
+        host_access_manager=None,
+    ) -> None:
+        self.get_config = get_config
+        self.context_loader = context_loader
+        self.reflector = reflector
+        self.skill_manager = skill_manager
+        self.tool_executor = tool_executor
+        self.channel_state = channel_state
+        self.get_codex_client = get_codex_client
+        self.host_registry = host_registry
+        self.host_access_manager = host_access_manager
+        # Keyed by registry generation + effective aliases. A process-wide
+        # unscoped cache leaked topology across requesters.
+        self.cached_hosts: dict[tuple[int, tuple[str, ...]], dict[str, str]] = {}
+        # Cached skills list text — invalidated on skill CRUD/enable/disable
+        self.cached_skills_text: str | None = None
+        # The default (no-channel) system prompt — set by rebuild_default()
+        self.default_prompt: str = ""
+        # TTL cache for per-user memory (avoids file I/O per message)
+        self.memory_cache: dict[str | None, tuple[float, dict[str, str]]] = {}
+        self.memory_cache_ttl: float = 60.0  # seconds
+
+    # -- caches ---------------------------------------------------------------
+
+    def cached_hosts_map(self, user_id: str | None = None) -> dict[str, str]:
+        """Return only the hosts effective for this requester."""
+        if self.host_registry is None:
+            hosts = self.get_config().tools.hosts
+            aliases = tuple(hosts)
+            generation = 0
+            lookup = hosts.get
+        else:
+            if user_id is not None and self.host_access_manager is not None:
+                aliases = tuple(self.host_access_manager.get_allowed_hosts(user_id))
+            else:
+                aliases = self.host_registry.active_aliases()
+            generation = self.host_registry.generation
+            lookup = self.host_registry.get
+        key = (generation, aliases)
+        cached = self.cached_hosts.get(key)
+        if cached is not None:
+            return cached
+        rendered: dict[str, str] = {}
+        for alias in aliases:
+            host = lookup(alias)
+            if host is None:
+                continue
+            description = scrub_output_secrets(str(getattr(host, "description", "")))
+            description = " ".join(description.splitlines()).strip()[:200]
+            endpoint = f"{host.ssh_user}@{host.address}"
+            rendered[alias] = f"{endpoint} — {description}" if description else endpoint
+        self.cached_hosts[key] = rendered
+        return rendered
+
+    def cached_skills_list_text(self) -> str:
+        """Return usable runtime skills only; invalidated on CRUD/enable/disable."""
+        if self.cached_skills_text is None:
+            if self.skill_manager is not None:
+                skills = [
+                    s for s in self.skill_manager.list_skills() if s.get("status") == "loaded"
+                ]
+                if skills:
+                    self.cached_skills_text = "\n".join(
+                        f"- `{s['name']}`: {s['description']}" for s in skills
+                    )
+                else:
+                    self.cached_skills_text = ""
+            else:
+                self.cached_skills_text = ""
+        return self.cached_skills_text
+
+    def cached_memory_for(self, user_id: str | None) -> dict[str, str]:
+        """Return cached per-user memory with TTL to avoid file I/O per message."""
+        now = time.time()
+        cached = self.memory_cache.get(user_id)
+        if cached and now - cached[0] < self.memory_cache_ttl:
+            return cached[1]
+        memory = self.tool_executor._load_memory_for_user(user_id)
+        self.memory_cache[user_id] = (now, memory)
+        return memory
+
+    def reflector_section(self, user_id: str | None, query: str | None = None, trace=None) -> str:
+        """Learned Context for the prompt — query-aware relevance selection.
+
+        File parsing is mtime-cached inside the reflector, so calling per
+        message is cheap; selection is fast over <=150 entries.
+        """
+        if self.reflector is None:
+            return ""
+        learning = getattr(self.get_config(), "learning", None)
+        if learning is None or not getattr(learning, "enabled", False):
+            return ""
+        return self.reflector.get_prompt_section(user_id=user_id, query=query, trace=trace)
+
+    def refresh_learned_context(
+        self,
+        prompt: str,
+        *,
+        user_id: str | None = None,
+        query: str | None = None,
+        trace=None,
+    ) -> str:
+        """Refresh only Learned Context in an already assembled prompt.
+
+        Long-running tool loops and agents retain prompt snapshots. Calling
+        this at physical request assembly makes the live switch authoritative
+        without rebuilding or altering Persistent Memory or unrelated text.
+        """
+        learned = self.reflector_section(user_id, query, trace=trace)
+        replacement = self._format_learned_block(learned)
+        first = prompt.find(_LEARNED_BLOCK_START)
+        if first < 0:
+            # Compatibility for prompts assembled before provenance markers
+            # existed. New prompts always carry an empty placeholder at the
+            # correct insertion point, including while learning is disabled.
+            return prompt.rstrip() + f"\n\n{replacement}"
+
+        parts: list[str] = []
+        cursor = 0
+        inserted = False
+        while True:
+            start = prompt.find(_LEARNED_BLOCK_START, cursor)
+            if start < 0:
+                parts.append(prompt[cursor:])
+                break
+            end = prompt.find(_LEARNED_BLOCK_END, start + len(_LEARNED_BLOCK_START))
+            if end < 0:
+                parts.append(prompt[cursor:])
+                break
+            parts.append(prompt[cursor:start])
+            if not inserted:
+                parts.append(replacement)
+                inserted = True
+            cursor = end + len(_LEARNED_BLOCK_END)
+        return "".join(parts)
+
+    def _format_learned_block(self, learned: str) -> str:
+        body = f"\n{learned}\n" if learned else "\n"
+        return f"{_LEARNED_BLOCK_START}{body}{_LEARNED_BLOCK_END}"
+
+    def _append_learned_block(self, prompt: str, learned: str) -> str:
+        """Append one provenance-bounded generated learned block."""
+        return prompt + f"\n\n{self._format_learned_block(learned)}"
+
+    def invalidate(self) -> None:
+        """Invalidate all prompt-related caches. Called on config/context reload."""
+        self.cached_hosts.clear()
+        self.cached_skills_text = None
+        self.memory_cache.clear()
+        if self.reflector is not None:
+            self.reflector.invalidate_cache()
+
+    def rebuild_default(self) -> str:
+        """Rebuild and store the default (no-channel) system prompt.
+
+        The stored value is the fallback the tool loop uses when a turn has
+        no channel-specific override; the web layer rebuilds it after
+        config/context/personality changes (RFC-002 P6 — this replaced the
+        old rebuild-and-reassign dance on the bot).
+        """
+        self.default_prompt = self.build_full_prompt()
+        return self.default_prompt
+
+    def prune_expired_memory(self, now: float) -> None:
+        """Drop expired per-user memory entries (periodic housekeeping)."""
+        ttl = self.memory_cache_ttl
+        self.memory_cache = {k: v for k, v in self.memory_cache.items() if now - v[0] < ttl}
+
+    # -- prompt assembly --------------------------------------------------------
+
+    def build_full_prompt(
+        self,
+        conversation_id: str | None = None,
+        user_id: str | None = None,
+        query: str | None = None,
+        trace=None,
+    ) -> str:
+        config = self.get_config()
+
+        p_cfg = config.personality if hasattr(config, "personality") else None
+        prompt = build_system_prompt(
+            context=self.context_loader.context,
+            hosts=self.cached_hosts_map(user_id),
+            hosts_denied=user_id is not None,
+            tz=config.timezone,
+            personality_preset=p_cfg.preset if p_cfg else "odin",
+            personality_name=p_cfg.custom_name if p_cfg else "",
+            personality_identity=p_cfg.custom_identity if p_cfg else "",
+            personality_voice=p_cfg.custom_voice if p_cfg else "",
+        )
+
+        if trace is not None:
+            trace.section("base", tokens=len(prompt) // 4)
+
+        # Inject persistent memory into the system prompt (per-user + global)
+        memory = self.cached_memory_for(user_id)
+        if memory:
+            memory_text = "\n".join(f"- **{k}**: {v}" for k, v in memory.items())
+            prompt += f"\n\n## Persistent Memory\n{memory_text}"
+            if trace is not None:
+                trace.section("persistent_memory", tokens=len(memory_text) // 4, keys=len(memory))
+
+        # Inject learned context from cross-conversation reflection
+        # (per-user filtered, relevance-ranked against the current query).
+        # The reflector records its own selection decisions on the trace.
+        learned = self.reflector_section(user_id, query, trace=trace)
+        prompt = self._append_learned_block(prompt, learned)
+
+        # Inject user-created skills list (cached, invalidated on skill CRUD)
+        skills_text = self.cached_skills_list_text()
+        if skills_text:
+            prompt += f"\n\n## User-Created Skills\n{skills_text}"
+            if trace is not None:
+                trace.section("skills_list", tokens=len(skills_text) // 4)
+
+        # Identity is supplied by authenticated Phase 2 admission, never a gateway object.
+        if conversation_id is not None:
+            channel_actions = self.channel_state.recent_entries(conversation_id)
+            if channel_actions:
+                actions_text = "\n".join(channel_actions[-10:])
+                prompt += f"\n\n## Recent Actions\n{actions_text}"
+                if trace is not None:
+                    trace.section(
+                        "recent_actions",
+                        tokens=len(actions_text) // 4,
+                        entries=len(channel_actions[-10:]),
+                    )
+
+        # Surface degradation state so the LLM can adapt
+        degradation_notes = []
+        codex = self.get_codex_client()
+        if codex and hasattr(codex, "breaker"):
+            breaker_state = codex.breaker.state
+            if breaker_state == "open":
+                degradation_notes.append(
+                    "LLM backend circuit breaker is OPEN — API calls will fail. "
+                    "Use cached/local approaches."
+                )
+            elif breaker_state == "half_open":
+                degradation_notes.append(
+                    "LLM backend circuit breaker is recovering (half-open) — "
+                    "requests may be slow or fail."
+                )
+        if degradation_notes:
+            prompt += "\n\n## System Health Warnings\n" + "\n".join(
+                f"- {n}" for n in degradation_notes
+            )
+            if trace is not None:
+                trace.section("health_warnings", tokens=20, notes=len(degradation_notes))
+
+        return prompt
+
+    def build_chat_prompt(
+        self,
+        conversation_id: str | None = None,
+        user_id: str | None = None,
+        query: str | None = None,
+    ) -> str:
+        """Build a lightweight system prompt for chat-routed messages.
+
+        Includes identity, rules, memory, and personality but omits
+        infrastructure details, tool docs, and host lists to
+        save input tokens on casual conversation.
+        """
+        config = self.get_config()
+
+        p_cfg = config.personality if hasattr(config, "personality") else None
+        prompt = build_chat_system_prompt(
+            tz=config.timezone,
+            personality_preset=p_cfg.preset if p_cfg else "odin",
+            personality_name=p_cfg.custom_name if p_cfg else "",
+            personality_identity=p_cfg.custom_identity if p_cfg else "",
+            personality_voice=p_cfg.custom_voice if p_cfg else "",
+        )
+
+        # Inject persistent memory (per-user + global, personalization matters for chat)
+        memory = self.cached_memory_for(user_id)
+        if memory:
+            memory_text = "\n".join(f"- **{k}**: {v}" for k, v in memory.items())
+            prompt += f"\n\n## Persistent Memory\n{memory_text}"
+
+        # Inject learned context (per-user filtered, relevance-ranked)
+        learned = self.reflector_section(user_id, query)
+        prompt = self._append_learned_block(prompt, learned)
+
+        return prompt

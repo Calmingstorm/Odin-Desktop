@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "artifact": "Frozen shared retirement corpus with Desktop-only inert YAML setup adaptation",
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "state": "focused-proof-full-gate-and-independent-review-pending",
+  "adapter": "tests/test_desktop_shared_retirement.py",
+  "adapter_sha256": "dea26c29b36898f1863520a6f35d50c260d0a6bc7c618f9915ecf9a70fb7fd24",
+  "case_map_sha256": "281f4808d611f14a1da1e476532746ec0a4f5651685d874ee123605333f8dde5",
+  "wrapper_api": "Literal CORPUS_SELECTIONS/CORPUS_EXCLUSIONS, CASE_MAP original-to-export selectors, ORIGINALS with exact symbol/line/before_sha256/kind/after_source/after_sha256 setup rules. Functions keep original code names and qualnames, compiled filename is original source. Frozen archive and retained bytes checked before full assertion/signature/decorator/parameter AST equality and exact setup replay, before exclusion. Independent fixture-corpus admission/review pending parent.",
+  "suites": {
+    "tests/test_codex_55_retirement.py": {
+      "baseline_sha256": "3ed56a5f68b41fa6f935087ab955d0ed7913805cca0504a958255fb7a90b901b",
+      "setup_rule_count": 7,
+      "setup_rules_sha256": "fee989018810f815b3f77549b87a724cbd7bee25928f37a694606ce6ae74f0ef"
+    },
+    "tests/test_codex_spark_retirement.py": {
+      "baseline_sha256": "e3937f5fb490cab0f1810e75fc38fea7121b8fe5b54a3169a55b24ff182b6dce",
+      "setup_rule_count": 3,
+      "setup_rules_sha256": "d239217ad72b8d06cfe1104fc6f60d3dcc00e6ccb5c1da697916311b337b3ddc"
+    }
+  },
+  "approved_fixture_translation": "Remove only exact literal inert dummy Discord YAML prefix outside assertions. Empty setup maps to '{}\\n'. Includes f-string prefix Constant nodes without changing formatted expressions. Original read_text()==original assertions preserved, original setup reference variable contains the same sanitized setup actually written. One path expression tmp_path / config.yml maps to real selected ProfilePaths config_file after OwnerAuthority creates private identity. No fake Config accepting Discord, production changes, provider namespace rewrites, assertion/model enum/parameter edits.",
+  "profile_completion_case": "tests/test_codex_55_retirement.py::test_retired_image_pin_after_completed_image_upgrade_is_migrated",
+  "other_loader_cases": "Explicit external config paths remain runtime-only reads. Retired model normalization is actual production serving behavior. YAML alias test preserves other-provider namespace unchanged.",
+  "resolved_loader_cases": [
+    "tests/test_codex_55_retirement.py::test_load_migrates_legacy_config_without_rewriting_operator_file",
+    "tests/test_codex_55_retirement.py::test_environment_backed_legacy_config_migrates",
+    "tests/test_codex_55_retirement.py::test_retired_image_pin_uses_established_image_successor",
+    "tests/test_codex_55_retirement.py::test_retired_image_pin_after_completed_image_upgrade_is_migrated",
+    "tests/test_codex_55_retirement.py::test_yaml_alias_does_not_migrate_another_provider_namespace",
+    "tests/test_codex_spark_retirement.py::test_load_migrates_persisted_spark_without_rewriting_operator_file",
+    "tests/test_codex_spark_retirement.py::test_environment_backed_persisted_spark_migrates",
+    "tests/test_codex_spark_retirement.py::test_persisted_spark_image_carrier_uses_established_successor"
+  ],
+  "inherited_cases_passed": 30,
+  "supplemental_retirement_cases_passed": 1,
+  "retirement_cases_passed": 31,
+  "supplemental_case": "tests/test_desktop_shared_retirement.py::test_selected_profile_retirement_serving_preserves_operator_alias_namespaces exercises actual selected owner-profile serving, completed migration marker stability, retired main/image normalization, untouched aliased other-provider namespace, unchanged YAML and repeat load. Not attributed to frozen baseline.",
+  "audit_cases_passed": 1,
+  "excluded_cases": [
+    {
+      "original": "tests/test_codex_55_retirement.py::test_active_ui_does_not_offer_retired_model",
+      "reason": "Reads retired server ui/js/pages/llm-config.js; exact frontend inspection has no Desktop application route."
+    }
+  ],
+  "evidence": {
+    "result": "32 passed in 3.41s: 30 inherited retirement cases, 1 supplemental actual selected-profile retirement serving case, 1 provenance audit",
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_shared_retirement.py --junitxml=.test-state/retirement-shared.xml",
+    "isolation": "Sanitized PID runner, 90s test timeout, disposable XDG roots. No network/native/prohibited commands/installs/upstream/live/temp skills/commits.",
+    "lint": "ruff check tests/test_desktop_shared_retirement.py: all checks passed",
+    "count_explanation": "Original isolated collection: test_codex_55_retirement.py 11 cases plus test_codex_spark_retirement.py 20 cases = 31 original cases including the UI inspection. 19 included functions expand to 30 inherited retirement passes. Add 1 supplemental actual selected-profile retirement serving regression = 31 retirement passes, plus 1 provenance audit = 32 actual passes. Exactly 1 original retired frontend inspection excluded. Neither supplemental test is counted as inherited equivalence."
+  },
+  "remaining_neutral_blockers": [],
+  "acceptance": "Parent full gate and independent review remain required. No broad nonshared retirement waiver."
+}
