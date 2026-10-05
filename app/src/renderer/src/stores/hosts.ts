@@ -13,6 +13,7 @@ export interface HostForm {
   ssh_user: string
   os: 'linux' | 'macos'
   description: string
+  enabled: boolean
   trust_mode: 'pinned' | 'ca' | 'tofu'
   confirm_local: boolean
   confirm_tofu: boolean
@@ -106,6 +107,7 @@ function blankForm(): HostForm {
     ssh_user: 'root',
     os: 'linux',
     description: '',
+    enabled: true,
     trust_mode: 'pinned',
     confirm_local: false,
     confirm_tofu: false
@@ -133,6 +135,7 @@ export function beginEdit(row: HostRow): void {
     ssh_user: row.ssh_user,
     os: row.os === 'macos' ? 'macos' : 'linux',
     description: row.description,
+    enabled: row.enabled,
     trust_mode: mode
   })
 }
@@ -161,9 +164,13 @@ function body(e: Enrollment): HostPrepare {
     port: Number(f.port),
     os: f.os,
     description: f.description.trim(),
+    enabled: f.enabled,
     trust_mode: f.trust_mode
   }
-  if (isLocal(f.address)) prepare.confirm_local = f.confirm_local
+  if (isLocal(f.address)) {
+    prepare.confirm_local = f.confirm_local
+    return prepare // local enrollment has neither host keys nor TOFU confirmation
+  }
   const expected = e.expected.split(/\s+/).filter(Boolean)
   if (f.trust_mode !== 'tofu') prepare.expected_fingerprints = expected
   else if (e.observed.length) {
@@ -179,7 +186,7 @@ export async function scan(): Promise<void> {
   if (hosts.unavailable) return
   const e = hosts.enrollment
   if (!e || e.busy) return
-  const odd = e.form.trust_mode === 'tofu' ? undefined : e.expected.split(/\s+/).filter(Boolean).find((f) => !FINGERPRINT.test(f))
+  const odd = isLocal(e.form.address) || e.form.trust_mode === 'tofu' ? undefined : e.expected.split(/\s+/).filter(Boolean).find((f) => !FINGERPRINT.test(f))
   if (odd !== undefined) {
     e.note = `${odd} is not a fingerprint. One looks like SHA256:… as ssh-keygen -lf prints it.`
     return
@@ -245,20 +252,29 @@ export async function activate(): Promise<boolean> {
   if (management.busy[key]) return false
   management.notes[key] = undefined
   e.busy = true
-  const ok = await hostAct(key, () => window.odin.hostsCommit({ token: e.token }), () => {
+  const ok = await hostAct(key, () => window.odin.hostsCommit({ token: e.token }), (answer) => {
     if (hosts.enrollment === e) hosts.enrollment = null // another wizard opened since stays
-    return e.editing ? 'Saved and live.' : 'Added and live.'
+    const saved = e.editing ? 'Saved' : 'Added'
+    if (!answer.active) return `${saved}; host remains off for new work.`
+    return answer.targetable ? `${saved} and live.` : `${saved}, but not targetable: ${answer.trust_state}.`
   })
   e.busy = false
   return ok
 }
 
 export async function setHostEnabled(alias: string, enabled: boolean): Promise<void> {
-  await hostAct(`host:${alias}`, () => window.odin.hostsSetEnabled({ alias, enabled }), () => (enabled ? 'On.' : 'Off: Odin no longer runs anything there.'))
+  await hostAct(`host:${alias}`, () => window.odin.hostsSetEnabled({ alias, enabled }), (answer) => {
+    if (answer.targetable) return 'On.'
+    if (answer.active) return `Enabled, but not targetable: ${answer.trust_state}.`
+    return answer.draining ? 'Off for new work; existing uses are draining.' : 'Off for new work.'
+  })
 }
 
 export async function saveHostSettings(change: { default_host?: string; allow_host_tofu?: boolean }): Promise<boolean> {
-  return hostAct('hosts', () => window.odin.hostsSettings(change), () => 'Saved and live.')
+  return hostAct('hosts', () => window.odin.hostsSettings(change), (answer) => {
+    if (answer.configured_default_host && !answer.default_host) return `Saved. Default host ${answer.configured_default_host} is not currently targetable.`
+    return 'Saved and live.'
+  })
 }
 
 /** Deleting a host that something still names is refused; this shows what names it, and deletes nothing. */

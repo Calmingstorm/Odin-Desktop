@@ -1701,9 +1701,38 @@
         "tests/test_desktop_ipc.py",
         "tests/test_desktop_command_journal.py",
         "tests/test_desktop_event_journal.py",
-        "tests/test_desktop_journal_snapshot.py"
+        "tests/test_desktop_journal_snapshot.py",
+        "tests/test_campaign_execution_risk.py",
+        "tests/test_channel_state_recent_action_failure.py",
+        "tests/test_computer_audit_output_r21.py",
+        "tests/test_computer_checkpoint_privacy_r5.py",
+        "tests/test_computer_frame_boundary.py",
+        "tests/test_connection_lifecycle_d1.py",
+        "tests/test_local_supervisor_wrapper_r10.py",
+        "tests/test_desktop_phase2_process_corpus.py",
+        "tests/test_restored_process_shutdown.py",
+        "tests/test_desktop_phase2_suite_map.py"
       ],
-      "reason": "Phase 2 step 1 real temporary-profile process, parent EOF, private local framing/authentication, durable command receipts and event retention; no execution services or native desktop input."
+      "reason": "Phase 2 step 1 Desktop-origin temporary-profile process, parent EOF, private framing/authentication, durable receipts and retention. Step 5 adapts lifecycle/IPC/retention to minor 3 and served management, not upstream corpus assertions. Step 8 part 1 restores eight unchanged inherited helper suites and every process-manager case through a frozen adapter with authentic temporary owner/workspace; mapping binds all 326 historical suites. No native desktop input."
+    },
+    {
+      "name": "phase2-step5-profile-management",
+      "files": [
+        "tests/test_desktop_codex_accounts.py",
+        "tests/test_desktop_hosts.py",
+        "tests/test_desktop_integrations.py",
+        "tests/test_desktop_knowledge.py",
+        "tests/test_desktop_management.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
+        "tests/test_desktop_providers.py",
+        "tests/test_desktop_provisioning.py",
+        "tests/test_desktop_records.py",
+        "tests/test_desktop_runtime.py",
+        "tests/test_desktop_settings.py",
+        "tests/test_desktop_state.py"
+      ],
+      "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification."
     }
   ],
   "acceptance": {

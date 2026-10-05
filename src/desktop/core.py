@@ -1,4 +1,4 @@
-"""Owner-authenticated durable services and app-supervised core lifetime."""
+"""Owner-authenticated conversation and management services with supervised lifetime."""
 from __future__ import annotations
 
 import asyncio
@@ -18,6 +18,7 @@ from .delivery import ArtifactPublisher, DurableDelivery, PublicationEventJourna
 from .ipc import IpcServer
 from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
+from .management import ManagementService
 from .paths import ProfilePaths
 from .requests import RequestService
 from .search import TranscriptSearch
@@ -184,6 +185,7 @@ class CoreService:
     def __init__(
         self, paths: ProfilePaths, socket_path: Path, token_file: Path,
         *, release_runtime_on_close: bool = True, config_provider=None, runtime_provider=None,
+        secret_backend=None,
     ) -> None:
         self.paths = paths
         self.socket_path = Path(socket_path)
@@ -216,21 +218,33 @@ class CoreService:
         self._publication_task: asyncio.Task | None = None
         self._publication_ready = asyncio.Event()
         self._published_seq = 0
+        self.management: ManagementService | None = None
+        self._secret_backend = secret_backend
+        self.capabilities = CAPABILITIES
+        self.start_time = time.monotonic()
+        # The admitted attachment service supplies the actual protocol limits.
+        self.limits = {}
 
     def status(self) -> dict:
+        if self.management is not None:
+            return {
+                **self.management.runtime.status(),
+                "limits": self.limits,
+                "diagnostics": self.engine.diagnostics(),
+            }
         return {
             "phase": self.phase,
             "core_instance_id": self.authority.runtime_id,
             "version": VERSION,
-            "capabilities": list(CAPABILITIES),
-            "limits": self.attachments.limits,
+            "capabilities": list(self.capabilities),
+            "limits": self.limits,
             "diagnostics": self.engine.diagnostics(),
         }
 
     def welcome(self) -> dict:
         return {
             "core": {"instance_id": self.authority.runtime_id, "version": VERSION},
-            "capabilities": list(CAPABILITIES),
+            "capabilities": list(self.capabilities),
             "features": [],
             "event_high": self.events.high,
         }
@@ -253,6 +267,7 @@ class CoreService:
         self.search = TranscriptSearch(self.transcript, self.events)
         self.attachments = AttachmentService(
             self.store, self._require_attachment_conversation)
+        self.limits = self.attachments.limits
         self.delivery = DurableDelivery(
             self.store, self.events, transcript_commit=self.transcript.commit,
             assert_context=self._assert_delivery_context)
@@ -283,6 +298,10 @@ class CoreService:
         )
         self.requests.recover_interrupted()
         await self.delivery.recover()
+        self.management = ManagementService.compose(self, secret_backend=self._secret_backend)
+        self.capabilities = (*CAPABILITIES[:5],
+                             *sorted((set(CAPABILITIES) | set(self.management.methods))
+                                     - set(CAPABILITIES[:5])))
         self.server = IpcServer(
             self.socket_path, self.token_file, self.paths.profile_id,
             self.authority, self.welcome, self.dispatch,
@@ -417,14 +436,23 @@ class CoreService:
                 raise PermissionError("profile owner authority is no longer current")
             # Existing identities win even if their method is no longer served.
             # Unknown capabilities must not reserve IDs or persist refusal bodies.
-            fresh_read = method in READ_METHODS or method == "attachments.chunk"
-            bound = self.commands.check(command_id, method, params)
+            fresh_read = (method in READ_METHODS or method == "attachments.chunk"
+                          or (self.management is not None
+                              and method in self.management.read_methods))
+            try:
+                bound = (self.management.check(command_id, method, params)
+                         if self.management is not None
+                         else self.commands.check(command_id, method, params))
+            except (ValueError, TypeError, RecursionError):
+                return {"t": "res", "id": command_id, **failure(
+                    "bad_request", "Expected finite JSON parameters",
+                )}
             # Existing command IDs still conflict with differently-bound reads.
             # A read/chunk result itself is never replayed from a receipt.
             if bound is not None and (not fresh_read
                                       or bound.get("error", {}).get("code") == "id_conflict"):
                 return {"t": "res", "id": command_id, **bound}
-            if method not in CAPABILITIES:
+            if method not in self.capabilities:
                 return {"t": "res", "id": command_id, **failure(
                     "capability_unavailable", "Service is not available yet",
                 )}
@@ -446,6 +474,19 @@ class CoreService:
                         raise PermissionError("profile owner authority is no longer current")
                     await connection.send(frame)
                 return None
+            if method == "status.get":
+                result = validate_params(method, params)
+                if result is None:
+                    result = {"ok": True, "result": self.status()}
+                return {"t": "res", "id": command_id, **result}
+            if self.management is not None and method in self.management.methods:
+                if method in self.management.read_methods:
+                    result = await self.management.invoke(method, params)
+                elif not self.lifetime.admitting:
+                    result = failure("busy", "Core is quiescing")
+                else:
+                    result = await self.management.execute(command_id, method, params)
+                return {"t": "res", "id": command_id, **result}
             if method in READ_METHODS:
                 result = validate_params(method, params)
                 if result is None:
@@ -546,8 +587,12 @@ class CoreService:
                     except asyncio.CancelledError:
                         pass
             try:
-                if self.store is not None:
-                    self.store.close()
+                try:
+                    if self.management is not None:
+                        await self.management.close()
+                finally:
+                    if self.store is not None:
+                        self.store.close()
             finally:
                 if self._release_runtime_on_close:
                     self.release_runtime()

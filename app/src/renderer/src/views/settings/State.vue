@@ -24,8 +24,15 @@ import {
 
 onMounted(() => void Promise.all([loadMemory(), loadKnowledge()]))
 
-const SCOPE_NAMES: Record<string, string> = { global: 'Everywhere', owner: 'Yours' }
+const scopeName = (scope: string): string => scope === 'global' ? 'Everywhere' : scope.startsWith('user_') ? 'Yours' : scope
 const show = (value: unknown): string => (typeof value === 'string' ? value : JSON.stringify(value))
+const listItem = (value: unknown): string => {
+  if (value && typeof value === 'object' && 'name' in value && typeof value.name === 'string') {
+    return `${'done' in value && value.done ? 'Done: ' : ''}${value.name}`
+  }
+  return show(value)
+}
+const changedAt = (value: string): string => value && !Number.isNaN(Date.parse(value)) ? new Date(value).toLocaleString() : 'unknown'
 
 // Memory: a new or edited entry per scope, and the keys picked for deleting.
 const drafts = reactive<Record<string, { key: string; value: string } | undefined>>({})
@@ -90,7 +97,7 @@ async function readFile(event: Event): Promise<void> {
 
 async function add(): Promise<void> {
   const sent = { source: source.value.trim(), content: content.value }
-  if (!sent.source || !sent.content.trim()) return
+  if (!sent.source || sent.source.length > 100 || !sent.content.trim() || sent.content.trim().length > 500000) return
   // Clear only what was stored: a document typed meanwhile stays.
   if ((await ingest(sent.source, sent.content)) && source.value.trim() === sent.source && content.value === sent.content) {
     source.value = ''
@@ -116,33 +123,33 @@ async function removeSource(name: string): Promise<void> {
     <ul class="manage-list">
       <li v-for="(info, scope) in stateStore.memory ?? {}" :key="scope" class="manage-row">
         <div class="manage-line">
-          <strong>{{ SCOPE_NAMES[scope] ?? scope }}</strong>
+          <strong>{{ scopeName(String(scope)) }}</strong>
           <span class="manage-count">{{ info.count }} {{ info.count === 1 ? 'entry' : 'entries' }}</span>
           <span class="manage-actions">
-            <button class="ghost" @click="toggleScope(String(scope))">
+            <button class="ghost" :aria-label="`${stateStore.memoryEntries[scope] ? 'Close' : 'Open'} ${scopeName(String(scope))} memory`" :aria-expanded="Boolean(stateStore.memoryEntries[scope])" :aria-controls="`memory-entries-${scope}`" @click="toggleScope(String(scope))">
               {{ stateStore.memoryEntries[scope] ? 'Close' : 'Open' }}
             </button>
-            <button class="ghost" @click="editEntry(scope)">Add</button>
+            <button class="ghost" :aria-label="`Add ${scopeName(String(scope))} memory entry`" @click="editEntry(scope)">Add</button>
           </span>
         </div>
-        <table v-if="stateStore.memoryEntries[scope]" class="runs memory">
+        <table v-if="stateStore.memoryEntries[scope]" :id="`memory-entries-${scope}`" :aria-label="`${scopeName(String(scope))} memory entries`" class="runs memory">
           <tbody>
             <tr v-for="(value, key) in stateStore.memoryEntries[scope]" :key="key">
-              <td><input v-model="picked[scope]" type="checkbox" :value="key" :aria-label="`Pick ${key}`" /></td>
+              <td><label><input v-model="picked[scope]" type="checkbox" :value="key" :aria-label="`Pick ${key} in ${scopeName(String(scope))} memory`" /> Pick</label></td>
               <td><code>{{ key }}</code></td>
               <td class="memory-value">{{ show(value) }}</td>
-              <td><button class="ghost" @click="editEntry(scope, String(key), value)">Edit</button></td>
+              <td><button class="ghost" :aria-label="`Edit ${key} in ${scopeName(String(scope))} memory`" @click="editEntry(scope, String(key), value)">Edit</button></td>
             </tr>
           </tbody>
         </table>
         <div v-if="(picked[scope] ?? []).length" class="panel-actions">
-          <button class="ghost danger-item" @click="removePicked(scope)">Delete {{ picked[scope]!.length }} picked…</button>
+          <button class="ghost danger-item" :aria-label="`Delete ${picked[scope]!.length} picked in ${scopeName(String(scope))} memory…`" @click="removePicked(scope)">Delete {{ picked[scope]!.length }} picked…</button>
         </div>
         <div v-if="drafts[scope]" class="field-input">
-          <input v-model="drafts[scope]!.key" placeholder="Key" aria-label="Key" />
-          <input v-model="drafts[scope]!.value" placeholder="What to remember" aria-label="Value" @keydown.enter="saveEntry(scope)" />
-          <button class="ghost" @click="saveEntry(scope)">Save</button>
-          <button class="ghost" @click="drafts[scope] = undefined">Cancel</button>
+          <label class="field-input">Key <input v-model="drafts[scope]!.key" placeholder="Key" :aria-label="`Key in ${scopeName(String(scope))} memory`" /></label>
+          <label class="field-input">Value <input v-model="drafts[scope]!.value" placeholder="What to remember" :aria-label="`Value in ${scopeName(String(scope))} memory`" @keydown.enter="saveEntry(scope)" /></label>
+          <button class="ghost" :aria-label="`Save ${scopeName(String(scope))} memory entry`" @click="saveEntry(scope)">Save</button>
+          <button class="ghost" :aria-label="`Cancel ${scopeName(String(scope))} memory edit`" @click="drafts[scope] = undefined">Cancel</button>
         </div>
         <p v-if="management.notes[`memory:${scope}`]" class="manage-note" role="status">{{ management.notes[`memory:${scope}`] }}</p>
       </li>
@@ -162,16 +169,16 @@ async function removeSource(name: string): Promise<void> {
       <li v-for="list in stateStore.lists" :key="list.name" class="manage-row">
         <div class="manage-line">
           <code class="manage-name">{{ list.name }}</code>
-          <span class="manage-count">{{ list.count }} items, changed {{ new Date(list.updated_at).toLocaleString() }}</span>
+          <span class="manage-count">{{ list.count }} items, changed {{ changedAt(list.updated_at) }}</span>
           <span class="manage-actions">
-            <button class="ghost" @click="toggleList(list.name)">
+            <button class="ghost" :aria-label="`${stateStore.listItems[list.name] ? 'Close' : 'Open'} list ${list.name}`" :aria-expanded="Boolean(stateStore.listItems[list.name])" :aria-controls="`named-list-${encodeURIComponent(list.name)}`" @click="toggleList(list.name)">
               {{ stateStore.listItems[list.name] ? 'Close' : 'Open' }}
             </button>
-            <button class="ghost danger-item" @click="removeList(list.name)">Delete…</button>
+            <button class="ghost danger-item" :aria-label="`Delete list ${list.name}…`" @click="removeList(list.name)">Delete…</button>
           </span>
         </div>
-        <ul v-if="stateStore.listItems[list.name]" class="refs">
-          <li v-for="(item, i) in stateStore.listItems[list.name]" :key="i">{{ show(item) }}</li>
+        <ul v-if="stateStore.listItems[list.name]" :id="`named-list-${encodeURIComponent(list.name)}`" class="refs">
+          <li v-for="(item, i) in stateStore.listItems[list.name]" :key="i">{{ listItem(item) }}</li>
         </ul>
       </li>
     </ul>
@@ -201,22 +208,22 @@ async function removeSource(name: string): Promise<void> {
           <code class="manage-name">{{ item.source }}</code>
           <span class="manage-count">{{ item.chunks }} chunks, {{ new Date(item.ingested_at).toLocaleString() }}</span>
           <span class="manage-actions">
-            <button class="ghost" @click="toggleVersions(item.source)">
+            <button class="ghost" :aria-label="`${stateStore.versions[item.source] ? 'Hide versions' : 'Versions'} for ${item.source}`" :aria-expanded="Boolean(stateStore.versions[item.source])" :aria-controls="`knowledge-versions-${encodeURIComponent(item.source)}`" @click="toggleVersions(item.source)">
               {{ stateStore.versions[item.source] ? 'Hide versions' : 'Versions' }}
             </button>
-            <button class="ghost" :disabled="management.busy[`knowledge:${item.source}`]" @click="reingest(item.source)">Re-ingest</button>
-            <button class="ghost danger-item" @click="removeSource(item.source)">Delete…</button>
+            <button class="ghost" :aria-label="`Re-ingest ${item.source}`" :disabled="management.busy[`knowledge:${item.source}`]" @click="reingest(item.source)">Re-ingest</button>
+            <button class="ghost danger-item" :aria-label="`Delete source ${item.source}…`" @click="removeSource(item.source)">Delete…</button>
           </span>
         </div>
         <p v-if="item.preview" class="manage-desc">{{ item.preview }}</p>
-        <table v-if="stateStore.versions[item.source]" class="runs">
+        <table v-if="stateStore.versions[item.source]" :id="`knowledge-versions-${encodeURIComponent(item.source)}`" :aria-label="`Versions for ${item.source}`" class="runs">
           <tbody>
             <tr v-for="v in stateStore.versions[item.source]" :key="v.id">
               <td>v{{ v.version }}</td>
               <td>{{ v.action }}</td>
               <td>{{ new Date(v.created_at).toLocaleString() }}</td>
               <td>{{ v.diff_summary }}</td>
-              <td><button class="ghost" @click="restoreVersion(item.source, v.version)">Restore</button></td>
+              <td><button class="ghost" :aria-label="`Restore ${item.source} version ${v.version}`" :disabled="v.action === 'delete' || management.busy[`knowledge:${item.source}`]" @click="restoreVersion(item.source, v.version)">Restore</button></td>
             </tr>
           </tbody>
         </table>
@@ -224,11 +231,11 @@ async function removeSource(name: string): Promise<void> {
       </li>
     </ul>
     <h4 class="sub-head">Add a document</h4>
-    <label class="field-input">Source <input v-model="source" maxlength="500" placeholder="runbook.md" /></label>
-    <label class="field-input">Text <textarea v-model="content" rows="5" /></label>
+    <label class="field-input">Source <input v-model="source" maxlength="100" placeholder="runbook.md" /></label>
+    <label class="field-input">Text <textarea v-model="content" rows="5" maxlength="500000" /></label>
     <div class="panel-actions">
       <label class="ghost file-pick">Load a text file <input type="file" accept=".txt,.md,.markdown,.json,.yml,.yaml,.csv,.log,text/*" @change="readFile" /></label>
-      <button class="ghost" :disabled="!source.trim() || !content.trim() || management.busy.knowledge" @click="add">Add</button>
+      <button class="ghost" :disabled="!source.trim() || source.trim().length > 100 || !content.trim() || content.trim().length > 500000 || management.busy.knowledge" @click="add">Add</button>
     </div>
     <p v-if="management.notes.knowledge" class="manage-note" role="status">{{ management.notes.knowledge }}</p>
     </template>
