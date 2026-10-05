@@ -15,7 +15,9 @@ The concurrent requests/delivery, controls and runtime lanes are not changed.
 - `qualification-plan.json`: the existing 29 named groups remain. Restored
   suites and accounting tests join `phase2-core-transport`, not a new group.
 - `scripts/maintenance/phase2_suites.py`: offline checker rejects lost,
-  duplicated, substituted, changed, partially exported or unqualified suites.
+  duplicated, substituted or changed suites, and the tested forms of partial or
+  unqualified restoration association. Its static pattern checks are not a
+  general dataflow proof against arbitrary malicious adapter rewrites.
   It verifies pinned pre-restoration Git objects, baseline archive, all current
   classifications and complete group/adapter associations. Static accounting
   is not a runtime parity claim or independent approval.
@@ -26,14 +28,14 @@ The concurrent requests/delivery, controls and runtime lanes are not changed.
 
 | Last required surface | Suites | Restored here | Still deferred |
 |---|---:|---:|---:|
-| Step 1 | 11 | 9 | 2 |
+| Step 1 | 14 | 9 | 5 |
 | Step 2 | 8 | 0 | 8 |
 | Step 3 | 27 | 0 | 27 |
 | Step 4 | 12 | 0 | 12 |
 | Step 5 | 85 | 0 | 85 |
 | Step 6 | 159 | 0 | 159 |
 | Step 7 | 5 | 0 | 5 |
-| Phase 3 | 19 | 0 | 19 |
+| Phase 3 | 16 | 0 | 16 |
 | **Total** | **326** | **9** | **317** |
 
 Eight mixed suites were assigned to Phase 3 after independent inspection
@@ -78,6 +80,11 @@ selected. Qualification uses explicit group selectors and no new exclusions.
   API/path/IP/proxy and bearer/session/query-carrier assertions have no assumed
   IPC equivalent. No rate policy, RBAC or management listener was invented to
   make them pass. They are not qualified and need reviewer disposition.
+- `test_client.py`, `test_command_reconciliation.py` and
+  `test_gateway_transition_regressions.py` also remain step-1 transport-owner
+  disposition blockers. Retired Discord class/intents/extensions, guild slash
+  publication and gateway-library backoff are not app-owned Phase 3 surfaces
+  and have no invented IPC equivalents. No assertion or suite was dropped.
 - `test_subsystem_guard.py`: independent whole-suite run **114 passed,
   2 failed**. The missing real application constructor must preserve thresholds
   7/19 and provider guard registration, so the whole suite belongs to step 5.
@@ -124,3 +131,44 @@ were harmless and cleanup scoped to namespace-owned descendants.
 
 The full 29-group qualification result is recorded below after its single fresh
 checkout run. Targeted runs above are not a substitute for that gate.
+
+## Single fresh qualification run and dependency remediation
+
+Fresh detached checkout `9c771e541cd7312f2b7e20025fdecfafb4f14d52` was
+created under a **2775 group-writable parent**, with **umask 002 before
+`git worktree add`**. Fresh locked dependencies were installed locally and
+all 29 groups ran once through the isolated launcher as `odin`.
+
+The full invocation returned **13,728 passed, 9 setup errors, 2 skipped**,
+zero assertion failures. The existing private-wheel fixture needs `pip`, which
+`uv sync` had not included in the fresh environment. Installed **pip 26.2.1**
+only in repository virtual environments, verified access as the isolated owner
+and `pip check`, then reran **only the affected distribution group**:
+**32 passed**, zero failures/errors/skips.
+
+Across each group's successful execution after this remediation:
+**13,737 passed, 2 skipped**, all **29 groups** qualified. This is **not** a
+single clean full invocation. Original error evidence remains in
+`phase2-step8-part1-result.json`, alongside per-group JUnit hashes and retry
+evidence. The restored/transport group returned **540 passed**, including all
+227 inherited restored cases and the new accounting/provenance checks.
+
+Final mapping corrections reassigned three retired social-transport suites
+from an unsupported app label to step-1 **deferred dispositions**. Only mapping
+and documentation changed after the fresh gate; executable source/tests,
+qualification selectors and exact delta records remain its tested bytes.
+Final accounting is checked separately. Current-main PR #19 adds app-only
+changes; the actual three-dot PR diff contains **no app or src edits**. The
+historical accounting pin is intentionally separate from the integration base.
+
+Final accounting/membership/runner selection rerun: **76 passed**. Exact-byte
+drift returned **zero errors**. Parent independently matched all **29 JUnit
+hashes**, the qualification-plan digest, and every ledgered executable file
+against the fresh tested checkout; no executable drift followed the full gate.
+
+Logs: `/home/odin/desktop-phase2-step8-part1/qualification-final.log` and
+`qualification-distribution-retry.log`. Unsuppressed inherited AsyncMock,
+timeout-coroutine and process-finalizer warnings remain visible. The two
+inherited skips are the unavailable native wire helper and the missing-import
+branch while Playwright is installed. No warning-clean or native qualification
+claim is made.
