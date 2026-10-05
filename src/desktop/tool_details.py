@@ -128,16 +128,15 @@ class ToolDetailsStore:
     def detail(self, request_id: str, invocation_id: str, *, owner: str,
                conversation_id: str | None = None) -> dict:
         with self.store.transaction() as db:
-            meta = db.execute("""SELECT owner,conversation_id,tool,hosts
+            meta = db.execute("""SELECT owner,conversation_id
                 FROM desktop_tool_details
                 WHERE request_id=? AND invocation_id=?""", (request_id, invocation_id)).fetchone()
             if (meta is None or meta["owner"] != owner
                     or (conversation_id is not None
                         and meta["conversation_id"] != conversation_id)):
                 raise ResultReadError("not_found", "Tool detail is unavailable")
-            if not self._allowed(meta["tool"], tuple(json.loads(meta["hosts"])), owner):
-                raise ResultReadError(
-                    "unauthorized", "Originating output scope is no longer authorized")
+            # Stored receipts are transcript content (D17). Host edits, registry
+            # restarts and disabled tools cannot revoke already-delivered text.
             row = db.execute("""SELECT * FROM desktop_tool_details
                 WHERE request_id=? AND invocation_id=?""",
                              (request_id, invocation_id)).fetchone()
@@ -148,9 +147,10 @@ class ToolDetailsStore:
                     snapshot, _ = self.artifacts._read_evidence(
                         pointer, owner, row["conversation_id"])
                 except ResultReadError as exc:
-                    if exc.code != "expired":
+                    if exc.code not in {"expired", "unauthorized"}:
                         raise
-                    # Details survive evidence expiry; do not advertise a dead cursor.
+                    # Preserve the receipt, but never advertise an expired or
+                    # unauthorized continuation. output() still fully reauthorizes.
                 else:
                     output = {"cursor": pointer,
                               "expires_at": datetime.fromtimestamp(

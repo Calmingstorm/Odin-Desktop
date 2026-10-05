@@ -6,3 +6,7 @@ class CapabilityUnavailableError(RuntimeError):
 
 
 CapabilityUnavailable = CapabilityUnavailableError
+
+
+class NoLLMProviderError(RuntimeError):
+    """The admitted request has no selected provider, not a runner failure."""
