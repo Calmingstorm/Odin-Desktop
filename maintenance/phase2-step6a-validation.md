@@ -1,5 +1,85 @@
 # Phase 2 step 6A validation
 
+## PR #28 review round 1 fixes and current qualification
+
+All seven findings in `/home/odin/reviews/desktop-pr28-review.md` are addressed on
+`phase-2/services-part-a`. Main was merged without rebase or force-push, including
+the subsequently merged PRs #26, #27 and #29. Final integrated main is
+`caa871cdee8017015eef1b994af2c0453f09d5f2`.
+
+Executable/test/accounting qualification target:
+`9b29bbbb5f920ab662f218a1c7fc0ac30a956ff9`.
+The later validation-record commit changes only this Markdown and the receipt JSON.
+
+### Corrected behavior
+
+- Dependency metadata errors no longer reject otherwise importable skills.
+  Unsafe install specs remain refused; diagnostics remain visible. Defined names
+  may differ from filenames, and optional blank/zero/null calls reach the skill.
+- Failed pip installations retain useful stdout/stderr and timeout partial output
+  through the copied scrubber, URL-userinfo masking and inherited credential-value
+  masking. No actual skill dependency installation is performed by these tests.
+- Credential presence is recorded per MCP server without secret values. Fresh
+  credential-free startup performs no keyring reads. Marked unreadable credentials
+  make only their server unavailable, with a reason; unrelated servers publish.
+  Marker durability and secret/config rollback are tested. Older unmarked keyring
+  credentials remain untouched until explicit existing `mcp.reconnect` after
+  unlock. No new protocol method was retained.
+- Browser resource resolution follows PR #24's `ODIN_DESKTOP_BUNDLE_ROOT` and
+  `browser/chromium/chrome-headless-shell-linux64/chrome-headless-shell`, rejecting
+  resolved escapes. Configured CDP is honored; absent CDP uses the bundled binary.
+  Failed startup leaves a qualify-before-use retry seam available without health
+  claiming readiness. Each generation has one 30-second qualification budget;
+  copied bounded failure cleanup follows separately. Terminal close, context
+  isolation and copied HTTP/WebSocket guards remain intact.
+- PR #26 accounting recognizes only the exact new service group and two hash-pinned
+  immutable GI/accessibility placement adapters. Corruption, lost selectors,
+  unknown groups and incomplete membership remain refused. Original tests are
+  unchanged. The PR #26 pip dev duplicate was removed, retaining product pip.
+
+### Fresh gate evidence
+
+- Fresh checkout:
+  `/home/odin/desktop-pr28-review1/qualification-parent/final-corrected`.
+- `umask 002`; parent and checkout verified `0775`. New copied-interpreter Python
+  3.12.3 venv, locked dev sync with copy link mode, pip 26.2.1 from the lock, no
+  manual environment repair. Engine suites use the isolated PID/mount namespace
+  launcher, sanitized throwaway HOME/XDG and no desktop/DBus/live credentials.
+- **One complete full qualification: 31/31 groups passed, 14,244 passes, 2 skips,
+  zero failures/errors.** Step-6A group: **166 passed**. Core transport including
+  merged process/accounting coverage: **581 passed**. Profile management: **300 passed**.
+- Separate phase-2 plan behavior suite: **30 passed**.
+- Exact drift: **zero errors**, **268 pending independent-review records**.
+  Lint: **zero new findings**, seven inherited findings. Ownership checker passed;
+  suite map valid with 326 mapped, nine restored, 312 deferred, five retired.
+- Integrated skills/MCP/browser/GI targeted tests: **218 passed** before this gate.
+  Additional checker regression selection: **125 passed**.
+
+The first fresh preflight at `f4fae9dce73d90bcc27408d7f9b6bdf9ef4bf75d`
+stopped at an import-formatting lint finding inherited from the final PR #27 merge,
+before any full-suite group began. Its evidence is preserved. A formatting-only
+fix was committed, then the entire gate ran from a second fresh checkout. Earlier
+collection/checker integration failures are also retained, not relabeled as passes.
+
+Artifacts under `/home/odin/desktop-pr28-review1/`:
+
+- `final-corrected-qualification.log`, `final-corrected-plan-tests.log`.
+- `fresh-corrected-locked-sync.log`, `fresh-corrected-drift.json`,
+  `fresh-corrected-lint.json`, `fresh-corrected-suite-map.json`,
+  `fresh-corrected-ownership.json`, `fresh-qualification-receipt.json`.
+- `qualification-parent/final-corrected/.test-state/qualification-result.json`,
+  `qualification-0.xml` through `qualification-30.xml`, and `phase2-plan.xml`.
+- Earlier preflight: `fresh-locked-sync.log`, `fresh-drift.json`, `fresh-lint.json`.
+  Collection and reconciliation logs remain alongside them.
+
+Inherited mock-coroutine warnings and one process-transport event-loop-close warning
+remain visible. Tests use inert browser/CDP/MCP/native/installer boundaries, not
+real bundled-browser, endpoint, keyring or native-platform qualification. No
+`/opt/odin`, live service/data, active desktop, upstream Odin or deployment changes.
+Independent acceptance remains pending.
+
+## Original pre-review qualification, retained historical evidence
+
 ## Artifact, stack and gate target
 
 This artifact implements skills lifecycle/schema/publication/dependency installation,
