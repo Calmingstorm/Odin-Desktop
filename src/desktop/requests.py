@@ -564,7 +564,8 @@ class RequestService:
 
     async def close(self):
         self._closed = True
-        for row in self.store.connection.execute("SELECT DISTINCT conversation_id FROM desktop_requests "
+        for row in self.store.connection.execute(
+                "SELECT DISTINCT conversation_id FROM desktop_requests "
                 "WHERE state IN ('running','stop_requested')"):
             cid = row[0]
             self.engine.deps.channel_state.request_stop(cid)

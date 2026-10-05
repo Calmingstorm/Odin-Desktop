@@ -5,14 +5,14 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from src.desktop.conversations import ConversationStore
+from src.desktop.transcript import TranscriptStore
 
 from src.desktop.authority import OwnerAuthority
 from src.desktop.commands import JournalStore
-from src.desktop.conversations import ConversationStore
 from src.desktop.events import EventJournal
 from src.desktop.paths import ProfilePaths
 from src.desktop.requests import RequestService
-from src.desktop.transcript import TranscriptStore
 from src.discord.channel_state import ChannelStateRegistry
 from src.permissions.manager import PermissionManager
 from src.turn_state import TurnStateStore
