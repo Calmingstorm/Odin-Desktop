@@ -194,3 +194,10 @@ Review baseline: `d1098b3025643bb6ecb0b6686fc0a181df447672`.
   `/home/odin/reviews/desktop-step1-round3-fresh/.test-state/qualification-{0..28}.xml`.
 - Final combined touched suites, including the trust-directory test: **215 passed**, paths/IPC-auth combined
   coverage **98%**, IPC-auth **100%**. Log: `/home/odin/reviews/desktop-step1-round3-final-combined.log`.
+- Final clean `0775` checkout at `9f58e3ccdab145ff85d2d7c0fd67b5783af9ec40`: locked dependencies, drift,
+  lint and ownership checker passed; file-plan behavior tests passed **30/30**. All **29/29 qualification groups
+  passed**, with **13,446 passing executions, 2 skips, 0 failures, 0 errors**. Core transport passed **250/250**.
+  Log: `/home/odin/reviews/desktop-step1-round3-final-gates.log`; JUnit under
+  `/home/odin/reviews/desktop-step1-round3-final/.test-state/qualification-{0..28}.xml`.
+  Inherited unawaited-coroutine warnings remain visible. Only this evidence document changes after the verified
+  code commit; no merge, live-service operation or attribution trailers.
