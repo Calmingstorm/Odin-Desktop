@@ -89,7 +89,7 @@ random local `login_id`, never the provider's `device_auth_id` or OAuth tokens. 
 and late receipts. `codexOpenVerification()` takes no URL; it opens only the recognized URL retained from the core
 login response. The app does not introduce a generic navigation or renderer provider-network bridge.
 
-`test:real-core` includes `test:onboarding`: five behavior tests with seven actual Electron launches cover fresh
+`test:real-core` includes `test:onboarding`: five behavior tests with six actual Electron launches cover fresh
 and second launch, navigation, incomplete/saved/effective/degraded states, revision and connection retry, login
 cancel/expiry, missing/locked keyring recovery, write-only secrets and preference persistence. The test-only auth
 adapter blocks outbound HTTP and substitutes external auth/keyring observations without overriding the real
