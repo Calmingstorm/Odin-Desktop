@@ -44,14 +44,20 @@ const FINGERPRINT = /^SHA256:[A-Za-z0-9+/]{20,64}$/
 
 export const STEPS = ['Details', "Odin's key", 'Host key', 'Test', 'Activate']
 
-/** Odin treats these addresses as this computer: commands run inside Odin itself. */
+/** Odin treats exactly these addresses as this computer: commands run inside Odin itself. */
+const LOCAL = new Set(['127.0.0.1', 'localhost', '::1'])
+
 export function isLocal(address: string): boolean {
-  const a = address.trim().toLowerCase()
-  return a === 'localhost' || a === '::1' || a.startsWith('127.')
+  return LOCAL.has(address.trim())
 }
 
+/** Each read of the hosts, in order: an older answer never replaces a newer one. */
+let hostsRead = 0
+
 export async function loadHosts(): Promise<void> {
+  const mine = ++hostsRead
   const [list, key] = await Promise.all([window.odin.hostsList({}), window.odin.hostsPublicKey({})])
+  if (mine !== hostsRead) return
   management.error = !list.ok ? list.error.message : !key.ok ? key.error.message : ''
   if (list.ok) hosts.list = list.result
   if (key.ok) hosts.key = key.result
@@ -150,7 +156,8 @@ export async function scan(): Promise<void> {
   }
   const candidate: HostCandidate = result.result
   e.observed = candidate.fingerprints
-  if (firstLook) {
+  // Odin trusts this computer without a key to check, whatever was asked for: nothing to look at first.
+  if (firstLook && candidate.trust_mode === 'tofu') {
     e.form.confirm_tofu = false
     e.note = 'Scanned. Check this fingerprint, tick to trust it, then scan again.'
     return
@@ -176,21 +183,26 @@ export async function testConnection(): Promise<void> {
   if (e.tested) e.step = 5
 }
 
-/** Activates the tested host. It is live at once. */
+/** The lock and note an enrollment's activation goes under: its host's. */
+export const hostKey = (e: Enrollment): string => `host:${e.form.alias.trim()}`
+
+/**
+ * Activates the tested host. It is live at once. With no answer, the host stays held under that command, which is
+ * never sent again under a new one; its answer, now or by a late receipt, closes the wizard that asked for it.
+ */
 export async function activate(): Promise<boolean> {
   const e = hosts.enrollment
   if (!e || e.busy || !e.tested) return false
+  const key = hostKey(e)
+  if (management.busy[key]) return false
+  management.notes[key] = undefined
   e.busy = true
-  const result = await window.odin.hostsCommit({ token: e.token })
+  const ok = await act(key, () => window.odin.hostsCommit({ token: e.token }), () => {
+    if (hosts.enrollment === e) hosts.enrollment = null // another wizard opened since stays
+    return e.editing ? 'Saved and live.' : 'Added and live.'
+  }, loadHosts)
   e.busy = false
-  if (!result.ok) {
-    e.note = result.error.message
-    return false
-  }
-  management.notes[`host:${result.result.alias}`] = e.editing ? 'Saved and live.' : 'Added and live.'
-  hosts.enrollment = null
-  await loadHosts()
-  return true
+  return ok
 }
 
 export async function setHostEnabled(alias: string, enabled: boolean): Promise<void> {

@@ -10,6 +10,7 @@ import {
   deleteHost,
   forceRevoke,
   goTo,
+  hostKey,
   hosts,
   isLocal,
   loadHosts,
@@ -106,7 +107,7 @@ function lastTest(host: HostRow): string {
           <code class="manage-name">{{ host.alias }}</code>
           <span class="manage-count">{{ host.ssh_user }}@{{ host.address }}:{{ host.port }}</span>
           <span class="tag">{{ host.os }}</span>
-          <span class="tag">{{ TRUST[host.trust_mode] ?? host.trust_mode }}</span>
+          <span class="tag">{{ host.trust_state === 'local' ? TRUST.local : (TRUST[host.trust_mode] ?? host.trust_mode) }}</span>
           <span :class="['state-chip', host.targetable ? 'connected' : 'disabled']">{{ host.targetable ? 'Ready' : 'Off' }}</span>
           <span v-if="host.draining" class="state-chip failed">Draining</span>
           <span class="manage-actions">
@@ -119,7 +120,7 @@ function lastTest(host: HostRow): string {
           </span>
         </div>
         <p v-if="host.description" class="manage-desc">{{ host.description }}</p>
-        <p class="manage-desc">{{ host.trust_mode === 'local' ? '' : `Trust: ${host.trust_state}. ` }}{{ lastTest(host) }}.</p>
+        <p class="manage-desc">{{ host.trust_state === 'local' ? '' : `Trust: ${host.trust_state}. ` }}{{ lastTest(host) }}.</p>
         <p v-if="host.diagnostic" class="warn">{{ host.diagnostic }}</p>
         <div v-if="hosts.references[host.alias]?.length" class="warn">
           Not deleted: these still name {{ host.alias }}.
@@ -239,8 +240,11 @@ function lastTest(host: HostRow): string {
         <p class="manage-desc">The test passed. Activating makes {{ e.form.alias }} live at once.</p>
         <div class="panel-actions">
           <button class="ghost" @click="goTo(3)">Back</button>
-          <button class="ghost" :disabled="e.busy || !e.tested" @click="activate">{{ e.editing ? 'Save and activate' : 'Activate' }}</button>
+          <button class="ghost" :disabled="e.busy || !e.tested || management.busy[hostKey(e)]" @click="activate">
+            {{ e.editing ? 'Save and activate' : 'Activate' }}
+          </button>
         </div>
+        <p v-if="management.notes[hostKey(e)]" class="manage-note" role="status">{{ management.notes[hostKey(e)] }}</p>
       </template>
       <p v-if="e.note" :class="e.step === 3 && e.observed.length && !e.token ? 'manage-note' : 'warn'" role="status">{{ e.note }}</p>
     </template>

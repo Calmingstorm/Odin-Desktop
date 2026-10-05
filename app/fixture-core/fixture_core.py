@@ -214,6 +214,10 @@ MCP_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 HOST_ALIAS = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
 
 
+# Odin's own rule (src/tools/ssh.py): exactly these addresses are this computer.
+LOCAL_ADDRESSES = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
 def fingerprint_of(address: str) -> str:
     """A stable stand-in for scanning a host's key: OpenSSH's SHA256: form."""
     return "SHA256:" + base64.b64encode(hashlib.sha256(address.encode()).digest()).decode().rstrip("=")
@@ -373,7 +377,7 @@ class Core:
         self.schedule_runs: list[dict] = []
         self.hosts: dict[str, dict] = {
             "localhost": {"address": "127.0.0.1", "ssh_user": "odin", "os": "linux", "port": 22,
-                          "description": "The machine Odin runs on.", "enabled": True, "trust_mode": "local",
+                          "description": "The machine Odin runs on.", "enabled": True, "trust_mode": "legacy",
                           "fingerprints": []},
             "build_box": {"address": "10.0.0.5", "ssh_user": "deploy", "os": "linux", "port": 22,
                           "description": "8 cores, 32 GB.", "enabled": True, "trust_mode": "pinned",
@@ -1206,7 +1210,7 @@ class Core:
 
     # ---------------------------------------------------------------- hosts
     def host_row(self, alias: str, host: dict) -> dict:
-        local = host["trust_mode"] == "local"
+        local = host["address"] in LOCAL_ADDRESSES  # as Odin's registry: by address, whatever its trust mode
         return {"alias": alias, "host_id": f"h_{hashlib.sha256(alias.encode()).hexdigest()[:8]}",
                 "address": host["address"], "ssh_user": host["ssh_user"], "os": host["os"], "port": host["port"],
                 "description": host["description"], "enabled": host["enabled"], "active": host["enabled"],
@@ -1257,13 +1261,15 @@ class Core:
         port = params.get("port", 22)
         if type(port) is not int or not 1 <= port <= 65535:
             raise CoreError("bad_request", "port must be an integer between 1 and 65535")
-        local = address in ("localhost", "::1") or address.startswith("127.")
+        local = address in LOCAL_ADDRESSES
         if local and params.get("confirm_local") is not True:
             raise CoreError("bad_request", "local targets execute inside Odin and require confirm_local=true")
         mode = params.get("trust_mode")
-        scanned = [fingerprint_of(address)]
+        scanned = [] if local else [fingerprint_of(address)]
         confirmed = False
-        if mode in ("pinned", "ca"):
+        if local:
+            mode = "legacy"  # as Odin: this computer has no host key to check, whatever was asked for
+        elif mode in ("pinned", "ca"):
             expected = params.get("expected_fingerprints") or []
             if not expected:
                 raise CoreError("bad_request", "expected_fingerprints is required")

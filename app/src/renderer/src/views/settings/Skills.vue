@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted } from 'vue'
 import { ask } from '../../dialog'
 import { configValue } from '../../skill-config'
-import { adoptSkill, type Loaded } from '../../skill-editor'
 import {
   closeSkill,
   deleteSkill,
   loadSkills,
   management,
+  newSkill,
   openSkill,
   saveSkill,
   saveSkillConfig,
@@ -31,48 +31,12 @@ async def execute(inp, context):
     return "done"
 `
 
-/** The editor: an existing skill, or a new one with a name of its own. */
-const editing = ref<{ name: string; code: string; create: boolean } | null>(null)
-const config = reactive<Record<string, unknown>>({})
-
-/** What the editor last loaded for its skill, so a reload replaces only what the user hasn't changed since. */
-let loaded: Loaded | null = null
-
-watch(
-  () => management.skill,
-  (skill) => {
-    if (!skill) return
-    const adopted = adoptSkill(editing.value, loaded, JSON.stringify(config), skill)
-    editing.value = adopted.editor
-    if (adopted.replaceConfig) {
-      for (const key of Object.keys(config)) delete config[key]
-      Object.assign(config, skill.config)
-    }
-    loaded = adopted.loaded
-  }
-)
+/** The editor lives in the store, so a save that lands, even late, finds the editor it belongs to. */
+const editing = computed(() => management.editor)
 
 const configFields = computed(() =>
   Object.entries((management.skill?.metadata.config_schema?.properties ?? {}) as Record<string, Record<string, unknown>>)
 )
-
-function startNew(): void {
-  closeSkill()
-  loaded = null
-  editing.value = { name: '', code: TEMPLATE, create: true }
-}
-
-function close(): void {
-  editing.value = null
-  loaded = null
-  closeSkill()
-}
-
-async function save(): Promise<void> {
-  const draft = editing.value
-  if (!draft || !draft.name.trim()) return
-  await saveSkill(draft.name.trim(), draft.code, draft.create)
-}
 
 async function remove(name: string): Promise<void> {
   const confirmed = await ask({
@@ -85,7 +49,7 @@ async function remove(name: string): Promise<void> {
 }
 
 function setConfig(key: string, spec: Record<string, unknown>, raw: string | boolean, optionIndex?: number): void {
-  config[key] = configValue(spec, raw, optionIndex)
+  management.skillConfig[key] = configValue(spec, raw, optionIndex)
 }
 </script>
 
@@ -94,7 +58,7 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
     <header class="panel-head">
       <h3>Skills</h3>
       <span class="panel-hint">Tools written as Python files that Odin loads alongside his own.</span>
-      <button class="ghost" @click="startNew">New skill</button>
+      <button class="ghost" @click="newSkill(TEMPLATE)">New skill</button>
     </header>
     <p v-if="management.error" class="warn">{{ management.error }}</p>
     <ul class="manage-list">
@@ -124,13 +88,13 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
     <header class="panel-head">
       <h3>{{ editing.create ? 'New skill' : editing.name }}</h3>
       <span class="panel-hint">Validation compiles the code without running it. Saving loads it into Odin.</span>
-      <button class="ghost" @click="close">Close</button>
+      <button class="ghost" @click="closeSkill">Close</button>
     </header>
     <label v-if="editing.create" class="field-input">Name <input v-model="editing.name" maxlength="100" placeholder="my_skill" /></label>
     <textarea v-model="editing.code" class="code-editor" rows="18" spellcheck="false" aria-label="Skill code" />
     <div class="panel-actions">
       <button class="ghost" @click="validateSkill(editing.code)">Validate</button>
-      <button class="ghost" :disabled="!editing.name.trim() || management.busy[`skill:${editing.name.trim()}`]" @click="save">
+      <button class="ghost" :disabled="!editing.name.trim() || management.busy[`skill:${editing.name.trim()}`]" @click="saveSkill">
         {{ editing.create ? 'Create' : 'Save' }}
       </button>
       <button v-if="!editing.create" class="ghost" @click="testSkill(editing.name)">Test</button>
@@ -151,12 +115,12 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
           v-if="Array.isArray(spec.enum)"
           @change="setConfig(key, spec, ($event.target as HTMLSelectElement).value, ($event.target as HTMLSelectElement).selectedIndex)"
         >
-          <option v-for="(option, index) in spec.enum as unknown[]" :key="index" :selected="config[key] === option">{{ String(option) }}</option>
+          <option v-for="(option, index) in spec.enum as unknown[]" :key="index" :selected="management.skillConfig[key] === option">{{ String(option) }}</option>
         </select>
         <input
           v-else-if="spec.type === 'boolean'"
           type="checkbox"
-          :checked="config[key] === true"
+          :checked="management.skillConfig[key] === true"
           @change="setConfig(key, spec, ($event.target as HTMLInputElement).checked)"
         />
         <input
@@ -164,12 +128,12 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
           :type="spec.type === 'integer' || spec.type === 'number' ? 'number' : 'text'"
           :min="spec.minimum as number | undefined"
           :max="spec.maximum as number | undefined"
-          :value="config[key] as string | number | undefined"
+          :value="management.skillConfig[key] as string | number | undefined"
           @input="setConfig(key, spec, ($event.target as HTMLInputElement).value)"
         />
       </label>
       <div class="panel-actions">
-        <button class="ghost" :disabled="management.busy[`skill-config:${management.skill.name}`]" @click="saveSkillConfig(management.skill!.name, { ...config })">
+        <button class="ghost" :disabled="management.busy[`skill-config:${management.skill.name}`]" @click="saveSkillConfig(management.skill!.name, { ...management.skillConfig })">
           Save its settings
         </button>
       </div>

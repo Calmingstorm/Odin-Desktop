@@ -109,3 +109,73 @@ describe('deleting a host', () => {
     expect(await hosts.deleteHost('build_box')).toBe('deleted')
   })
 })
+
+describe('review round 4: hosts', () => {
+  const UNKNOWN = { ok: false, error: { code: 'no_receipt', message: 'No receipt yet.', disposition: 'outcome_unknown', command_id: 'cmd-commit' } } as const
+  const odin = () => (window as unknown as { odin: Record<string, unknown> }).odin
+  const tested = async (): Promise<void> => {
+    fill('pinned')
+    hosts.goTo(3)
+    hosts.hosts.enrollment!.expected = SCANNED
+    await hosts.scan()
+    await hosts.testConnection()
+  }
+
+  it('holds an activation with no answer under its command, and settles it from the late receipt (15.R4.2)', async () => {
+    await tested()
+    odin().hostsCommit = async (params: Record<string, unknown>) => (calls.push(['commit', params]), UNKNOWN)
+    expect(await hosts.activate()).toBe(false)
+    expect(await hosts.activate()).toBe(false) // pressed again: never sent under a new command
+    expect(calls.filter(([name]) => name === 'commit')).toHaveLength(1)
+    const held = await import('../../src/renderer/src/stores/management')
+    expect(held.management.notes['host:gpu']).toMatch(/never sent twice/)
+    expect(hosts.hosts.enrollment).not.toBeNull()
+    const store = await import('../../src/renderer/src/store')
+    store.applyReceipt({ id: 'cmd-commit', settled: ok({ result: 'saved', alias: 'gpu', host_id: 'h' }) })
+    expect(hosts.hosts.enrollment).toBeNull()
+    const management = await import('../../src/renderer/src/stores/management')
+    expect(management.management.notes['host:gpu']).toBe('Added and live.')
+  })
+
+  it('leaves a wizard opened since alone when an activation lands (15.R4.4)', async () => {
+    await tested()
+    let land!: () => void
+    odin().hostsCommit = () => new Promise((resolve) => (land = () => resolve(ok({ result: 'saved', alias: 'gpu', host_id: 'h' }))))
+    const activating = hosts.activate()
+    hosts.beginAdd()
+    hosts.hosts.enrollment!.form.alias = 'different-unsaved-host'
+    land()
+    await activating
+    expect(hosts.hosts.enrollment?.form.alias).toBe('different-unsaved-host')
+  })
+
+  it('never lets an older list answer replace a newer one (15.R4.3)', async () => {
+    const answers: Array<(list: Result<HostList>) => void> = []
+    odin().hostsList = () => new Promise((resolve) => answers.push(resolve))
+    const older = hosts.loadHosts()
+    const newer = hosts.loadHosts()
+    const row = (enabled: boolean, generation: number) =>
+      ok({ ...list, generation, hosts: [{ alias: 'gpu', enabled } as HostList['hosts'][number]] })
+    answers[1]!(row(false, 3))
+    await newer
+    answers[0]!(row(true, 2))
+    await older
+    expect(hosts.hosts.list?.generation).toBe(3)
+    expect(hosts.hosts.list?.hosts[0]?.enabled).toBe(false)
+  })
+
+  it("moves on from the host key step for this computer, which Odin trusts without a key (15.R4.7)", async () => {
+    hosts.beginAdd()
+    Object.assign(hosts.hosts.enrollment!.form, { alias: 'self', address: '127.0.0.1', ssh_user: 'me', trust_mode: 'tofu', confirm_local: true })
+    odin().hostsPrepare = async (params: Record<string, unknown>) =>
+      (calls.push(['prepare', params]), ok({ candidate_token: 'tok-local', alias: 'self', host_id: 'h', fingerprints: [], trust_mode: 'legacy', tested: false }))
+    hosts.goTo(3)
+    await hosts.scan()
+    expect(hosts.hosts.enrollment).toMatchObject({ step: 4, token: 'tok-local' })
+  })
+
+  it("calls exactly Odin's local addresses this computer (15.R4.8)", () => {
+    expect(['127.0.0.1', 'localhost', '::1', ' localhost '].map(hosts.isLocal)).toEqual([true, true, true, true])
+    expect(['LOCALHOST', '127.0.0.2', '127.1', 'localhost.localdomain'].map(hosts.isLocal)).toEqual([false, false, false, false])
+  })
+})

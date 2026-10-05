@@ -186,14 +186,27 @@ export function differenceNote(field: ConfigField): string | null {
   return `Saved: ${JSON.stringify(field.desired)}. Running: ${JSON.stringify(field.effective)}.`
 }
 
+/** How the settings form writes a field, and finds the field's newest record once a write replaced it. */
+export interface FieldWrites {
+  save: (field: ConfigField, value: unknown) => Promise<boolean>
+  reset: (field: ConfigField) => Promise<boolean>
+  latest: (path: string) => ConfigField | undefined
+}
+
 /**
- * What the user typed in the settings form, per field. One save runs per field at a time, so Enter followed by leaving
- * the field sends once; when it lands, the draft goes only if it is still what was sent, so newer typing stays.
+ * What the user typed or chose in the settings form, per field. One write runs per field at a time. A save asked for
+ * while one is on its way sends the value asked for once that write lands, unless the core has it by then: Enter
+ * followed by leaving the field writes once, and a second choice is never dropped. When a write lands, the draft goes
+ * only if it is still what that write sent, so newer typing stays.
  */
 export class FieldDrafts {
   readonly drafts = reactive<Record<string, string | boolean | undefined>>({})
   readonly errors = reactive<Record<string, string | undefined>>({})
-  private readonly saving = new Set<string>()
+  private readonly writing = new Set<string>()
+  /** The value last asked for while a write was on its way, by field. */
+  private readonly owed = new Map<string, string | boolean>()
+
+  constructor(private readonly writes: FieldWrites) {}
 
   current(field: ConfigField): string | boolean {
     return this.drafts[field.path] ?? toInput(field)
@@ -208,24 +221,71 @@ export class FieldDrafts {
     return this.drafts[field.path] !== undefined && this.drafts[field.path] !== toInput(field)
   }
 
-  clear(field: ConfigField): void {
-    this.drafts[field.path] = undefined
+  async save(field: ConfigField): Promise<void> {
+    const draft = this.drafts[field.path]
+    if (draft === undefined) return
+    if (this.writing.has(field.path)) this.owed.set(field.path, draft)
+    else await this.send(field, draft)
   }
 
-  async save(field: ConfigField, saveField: (field: ConfigField, value: unknown) => Promise<boolean>): Promise<void> {
-    if (this.saving.has(field.path) || !this.changed(field)) return
-    const submitted = this.drafts[field.path]
-    const parsed = fromInput(field, this.current(field))
+  /** Back to Odin's default. A value typed while that is on its way stays, to be saved or dropped. */
+  async reset(field: ConfigField): Promise<void> {
+    if (this.writing.has(field.path)) return
+    await this.write(field, this.drafts[field.path], () => this.writes.reset(field))
+  }
+
+  private async send(field: ConfigField, value: string | boolean): Promise<void> {
+    if (value === toInput(field)) return
+    const parsed = fromInput(field, value)
     if (!parsed.ok) {
       this.errors[field.path] = parsed.error
       return
     }
-    this.saving.add(field.path)
+    await this.write(field, value, () => this.writes.save(field, parsed.value))
+  }
+
+  private async write(field: ConfigField, sent: string | boolean | undefined, run: () => Promise<boolean>): Promise<void> {
+    this.writing.add(field.path)
     try {
-      if ((await saveField(field, parsed.value)) && this.drafts[field.path] === submitted) this.drafts[field.path] = undefined
+      if ((await run()) && this.drafts[field.path] === sent) this.drafts[field.path] = undefined
     } finally {
-      this.saving.delete(field.path)
+      this.writing.delete(field.path)
     }
+    const next = this.owed.get(field.path)
+    this.owed.delete(field.path)
+    if (next !== undefined) await this.send(this.writes.latest(field.path) ?? field, next)
+  }
+}
+
+/**
+ * New secret values, per field. They are write-only, so the box is all there is: one write runs per field at a time,
+ * a value asked for during one is written once it lands unless it is the value just written, and when a write lands
+ * the box clears only if it still holds what was sent.
+ */
+export class SecretDrafts {
+  readonly values = reactive<Record<string, string | undefined>>({})
+  private readonly writing = new Set<string>()
+  private readonly owed = new Map<string, string>()
+
+  constructor(private readonly write: (path: string, value: string) => Promise<boolean>) {}
+
+  async save(path: string): Promise<void> {
+    const value = this.values[path]
+    if (!value) return
+    if (this.writing.has(path)) this.owed.set(path, value)
+    else await this.send(path, value)
+  }
+
+  private async send(path: string, value: string): Promise<void> {
+    this.writing.add(path)
+    try {
+      if ((await this.write(path, value)) && this.values[path] === value) this.values[path] = undefined
+    } finally {
+      this.writing.delete(path)
+    }
+    const next = this.owed.get(path)
+    this.owed.delete(path)
+    if (next !== undefined && next !== value) await this.send(path, next)
   }
 }
 

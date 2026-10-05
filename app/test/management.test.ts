@@ -167,7 +167,10 @@ describe('hosts and trust', () => {
     const { read, command } = await connect()
     const list = await read<HostList>('hosts.list')
     expect(list).toMatchObject({ default_host: 'localhost', tofu_enabled: false })
-    expect(list.hosts.map((h) => [h.alias, h.trust_mode, h.targetable])).toEqual([['localhost', 'local', true], ['build_box', 'pinned', true]])
+    expect(list.hosts.map((h) => [h.alias, h.trust_mode, h.trust_state, h.targetable])).toEqual([
+      ['localhost', 'legacy', 'local', true],
+      ['build_box', 'pinned', 'trusted', true]
+    ])
     expect(await command('hosts.settings', { default_host: 'nowhere' })).toMatchObject({ ok: false, error: { message: 'default_host must name a configured host' } })
     expect(await command('hosts.settings', { default_host: '' })).toMatchObject({ ok: true, result: { new_default_host: '' } }) // every command names its host
     expect(await read('hosts.public_key')).toMatchObject({ fingerprint: expect.stringMatching(/^SHA256:/), restart_pending: false })
@@ -211,6 +214,24 @@ describe('hosts and trust', () => {
     const confirmed = (await command('hosts.prepare', { ...base, candidate_fingerprints: look.result.fingerprints, confirm_tofu: true })) as Ok<HostCandidate>
     await command('hosts.test', { token: confirmed.result.candidate_token })
     expect(await command('hosts.commit', { token: confirmed.result.candidate_token })).toMatchObject({ ok: true, result: { alias: 'pi' } })
+  })
+
+  it("trusts this computer as Odin does, without a key, whatever trust was asked for (15.R4.7)", async () => {
+    const { read, command } = await connect()
+    await command('hosts.settings', { allow_host_tofu: true })
+    const candidate = (await command('hosts.prepare', { alias: 'self', address: 'localhost', ssh_user: 'me', trust_mode: 'tofu', confirm_local: true })) as Ok<HostCandidate>
+    expect(candidate.result).toMatchObject({ trust_mode: 'legacy', fingerprints: [] })
+    await command('hosts.test', { token: candidate.result.candidate_token })
+    expect(await command('hosts.commit', { token: candidate.result.candidate_token })).toMatchObject({ ok: true, result: { alias: 'self' } })
+    expect((await read<HostList>('hosts.list')).hosts.find((h) => h.alias === 'self')).toMatchObject({ trust_state: 'local' })
+  })
+
+  it("treats only Odin's exact local addresses as this computer (15.R4.8)", async () => {
+    const { command } = await connect()
+    for (const address of ['LOCALHOST', '127.0.0.2']) {
+      const answer = await command('hosts.prepare', { alias: 'near', address, ssh_user: 'u', trust_mode: 'pinned' })
+      expect(answer).toMatchObject({ ok: false, error: { message: 'expected_fingerprints is required' } }) // a remote host's check
+    }
   })
 
   it('asks before a local target, reports a failed test, and refuses to delete a host that something still names', async () => {

@@ -51,7 +51,13 @@ async function save(): Promise<void> {
     return
   }
   formError.value = ''
-  if (await saveSchedule(body)) editing.value = null
+  const sent = JSON.stringify(current.form)
+  await saveSchedule(body, (row) => {
+    if (editing.value !== current) return // another form is open now: it stays as it is
+    // Unchanged since it was sent: done. Changed since: it stays open, now editing what was saved.
+    if (JSON.stringify(current.form) === sent) editing.value = null
+    else current.original = row
+  })
 }
 
 let cronTimer: ReturnType<typeof setTimeout> | undefined
@@ -177,7 +183,11 @@ async function remove(row: ScheduleRow): Promise<void> {
       <div class="field-input">
         <label class="toggle-inline"><input v-model="f.timing" type="radio" value="cron" /> On a schedule</label>
         <label class="toggle-inline"><input v-model="f.timing" type="radio" value="once" /> Once</label>
+        <label v-if="editing.original?.trigger" class="toggle-inline">
+          <input v-model="f.timing" type="radio" value="trigger" /> On its trigger, as it is
+        </label>
       </div>
+      <p v-if="f.timing === 'trigger'" class="manage-desc">It runs when its trigger fires. Choose a schedule or a time to replace that.</p>
       <template v-if="f.timing === 'cron'">
         <label class="field-input">Cron <input v-model="f.cron" placeholder="0 9 * * 1-5" spellcheck="false" /></label>
         <label class="field-input">Time zone <input v-model="f.cron_timezone" list="zones" placeholder="The core's time zone" /></label>
@@ -187,7 +197,7 @@ async function remove(row: ScheduleRow): Promise<void> {
           Next: {{ schedules.cron.next_runs.slice(0, 3).map((r) => at(r)).join(', ') }}
         </p>
       </template>
-      <template v-else>
+      <template v-else-if="f.timing === 'once'">
         <label class="field-input">At, on this computer's clock <input v-model="f.run_at" type="datetime-local" step="1" /></label>
         <p v-if="localTime?.state === 'nonexistent'" class="warn">That time doesn't exist here: the clocks skip it.</p>
         <label v-else-if="localTime?.state === 'ambiguous'" class="field-input">

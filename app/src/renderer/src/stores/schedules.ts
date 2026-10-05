@@ -12,8 +12,13 @@ export const schedules = reactive({
   cron: null as { expression: string; next_runs: string[]; error: string } | null
 })
 
+/** Each read of the list, in order: an older answer never replaces a newer one. */
+let listRead = 0
+
 export async function loadSchedules(): Promise<void> {
+  const mine = ++listRead
   const result = await window.odin.schedulesList({})
+  if (mine !== listRead) return
   management.error = failure(result)
   if (result.ok) {
     schedules.list = result.result
@@ -27,10 +32,16 @@ export async function loadHistory(id: string): Promise<void> {
   else management.notes[`schedule:${id}`] = result.error.message
 }
 
-/** Saves a new schedule or a change; the note says what the core did, and the list shows the result. */
-export async function saveSchedule(change: ScheduleSave): Promise<boolean> {
+/**
+ * Saves a new schedule or a change; the note says what the core did, and the list shows the result. `saved` gets the
+ * saved schedule whenever the save lands, at once or by a late receipt.
+ */
+export async function saveSchedule(change: ScheduleSave, saved?: (row: ScheduleRow) => void): Promise<boolean> {
   const key = 'id' in change ? `schedule:${change.id}` : 'schedule:new'
-  return act(key, () => window.odin.schedulesSave(change), (row) => `Saved. ${row.next_run ? 'It runs next ' + new Date(row.next_run).toLocaleString() + '.' : ''}`.trim(), loadSchedules)
+  return act(key, () => window.odin.schedulesSave(change), (row) => {
+    saved?.(row)
+    return `Saved. ${row.next_run ? 'It runs next ' + new Date(row.next_run).toLocaleString() + '.' : ''}`.trim()
+  }, loadSchedules)
 }
 
 export async function setPaused(row: ScheduleRow, paused: boolean): Promise<void> {
