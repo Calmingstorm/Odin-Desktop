@@ -84,7 +84,7 @@ async def test_trigger_resumes_same_request_and_deduplicates_after_restart(tmp_p
         params = {"client_submission_id": "trigger", "conversation_id": cid, "text": text}
         envelope = str(uuid.uuid4())
         answer = await request(reader, writer, "submission.send", params, envelope)
-        assert answer["result"]["disposition"] == "admitted"
+        assert answer["result"]["disposition"] == "accepted"
         assert answer["result"]["request_id"] == rid
         await settled(core)
         assert core.requests.get_request(rid)["generation"] == 2

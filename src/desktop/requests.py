@@ -266,6 +266,10 @@ class RequestService:
                 notice("I recognized the resume command, but resuming failed internally "
                        "while safely checking the preserved work. Nothing was resumed or "
                        "started fresh — try `resume` again later.")
+            # submission.send keeps its public admission vocabulary even when
+            # the accepted work is a resumed generation, not a fresh request.
+            if result["disposition"] == "admitted":
+                result["disposition"] = "accepted"
             with self.store.transaction() as db:
                 db.execute("UPDATE desktop_submissions SET response=? WHERE client_submission_id=?",
                            (canonical_json(result), sid))
