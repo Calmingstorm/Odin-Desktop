@@ -1,6 +1,7 @@
 """D12 planning only. Execution remains in the retained Scheduler."""
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
+
 from croniter import croniter
 
 
@@ -44,7 +45,8 @@ def recover_due(schedule: dict, now: datetime, *, grace_seconds: int = 60,
         return False
     schedule["recovery_required"] = "Missed action; run explicitly. No effects were replayed."
     if cron:
-        schedule["next_run"] = croniter(cron, now.astimezone(zone)).get_next(datetime).astimezone(UTC).isoformat()
+        following = croniter(cron, now.astimezone(zone)).get_next(datetime)
+        schedule["next_run"] = following.astimezone(UTC).isoformat()
     else:
         schedule.pop("next_run", None)
     return True

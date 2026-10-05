@@ -462,8 +462,8 @@ async def test_background_origin_cannot_enter_even_with_valid_admitted_request(g
             g.requests.is_background = lambda _message: True
         else:
             with g.store.transaction() as db:
-                db.execute("CREATE TABLE desktop_background_requests (request_id TEXT PRIMARY KEY)")
-                db.execute("INSERT INTO desktop_background_requests VALUES (?)", (message.request_id,))
+                db.execute("INSERT INTO desktop_background_requests VALUES (?,?,?,?,?)",
+                           (message.request_id, "task", "background-test", None, "test-binding"))
         with pytest.raises(PermissionError, match="lineage"):
             g.computer._binding()
         with pytest.raises(PermissionError, match="Background work"):

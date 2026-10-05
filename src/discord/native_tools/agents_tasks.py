@@ -1380,7 +1380,8 @@ class AgentTaskTools:
         user_id = message.owner_id
         user_name = message.owner_name
 
-        system_prompt = self._prompt_builder.build_full_prompt(channel=channel, user_id=user_id)
+        system_prompt = self._prompt_builder.build_full_prompt(
+            conversation_id=message.conversation_id, user_id=user_id)
         all_tools = (
             self._tool_catalog.merged_definitions() if self._get_config().tools.enabled else []
         )

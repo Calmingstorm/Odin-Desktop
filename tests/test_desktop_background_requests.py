@@ -22,7 +22,8 @@ class DelegatingProvider(Provider):
     async def chat_with_tools(self, **_kwargs):
         self.calls += 1
         parent = self.core.requests.current_bound_request()
-        self.child = self.core.requests.register_background(parent, "task", "test-task", "Read status")
+        self.child = self.core.requests.register_background(
+            parent, "task", "test-task", "Read status")
 
         async def run_child():
             async with self.core.requests.background_execution(self.child):
@@ -37,7 +38,8 @@ class DelegatingProvider(Provider):
 
 
 @pytest.mark.asyncio
-async def test_background_destination_survives_foreground_settlement_and_cannot_replay(tmp_path):
+async def test_background_destination_survives_foreground_settlement_and_cannot_replay(
+        tmp_path):
     paths, socket_path, token_file = profile(tmp_path)
     provider = DelegatingProvider()
     core = service(paths, socket_path, token_file, provider)
@@ -46,7 +48,8 @@ async def test_background_destination_survives_foreground_settlement_and_cannot_
     try:
         await core.start(read_fd)
         reader, writer, _ = await connect(socket_path)
-        cid = (await request(reader, writer, "conversations.create"))["result"]["conversation"]["id"]
+        created = await request(reader, writer, "conversations.create")
+        cid = created["result"]["conversation"]["id"]
         admitted = await request(reader, writer, "submission.send", {
             "client_submission_id": "delegate", "conversation_id": cid, "text": "Delegate status"})
         rid = admitted["result"]["request_id"]

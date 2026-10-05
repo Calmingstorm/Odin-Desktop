@@ -158,7 +158,10 @@ class SchedulingTools:
         """List all scheduled tasks."""
         service, message = self._admitted_service()
         service.assert_request(message)
-        schedules = [s for s in self.scheduler.list_all() if s.get("requester_id") == message.owner_id]
+        schedules = [
+            s for s in self.scheduler.list_all()
+            if s.get("requester_id") == message.owner_id
+        ]
         if not schedules:
             return "No scheduled tasks."
         lines = []
@@ -244,8 +247,12 @@ class SchedulingTools:
         if "conversation_id" in kwargs:
             kwargs["channel_id"] = kwargs.pop("conversation_id")
         try:
-            result = await service.for_request("schedules.save", {"id": schedule_id, **kwargs}, message,
-                nested_payload_validated=nested_validated and ("steps" in kwargs or "tool_input" in kwargs))
+            result = await service.for_request(
+                "schedules.save", {"id": schedule_id, **kwargs}, message,
+                nested_payload_validated=(
+                    nested_validated and ("steps" in kwargs or "tool_input" in kwargs)
+                ),
+            )
         except ScheduleConnectionUnavailableError as e:
             return f"Scheduling unavailable: {e}"
         except ValueError as e:

@@ -5,7 +5,7 @@ import asyncio
 import inspect
 import json
 import time
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 
 from ..discord.turn_resume import TurnResumeManager
@@ -21,6 +21,7 @@ from .ipc import IpcServer
 from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .paths import ProfilePaths
+from .reports import ReportBinding, ReportDelivery, ReportService
 from .requests import RequestService
 from .search import TranscriptSearch
 from .services import build_engine_services
@@ -37,11 +38,15 @@ SEARCH_METHODS = frozenset({"search.query", "messages.around"})
 ATTACHMENT_METHODS = frozenset({"attachments.begin", "attachments.chunk",
                                 "attachments.commit", "attachments.cancel"})
 RESULT_METHODS = frozenset({"artifacts.read", "tool.detail", "tool.output"})
-CONTROL_METHODS = frozenset({"control.stop", "control.steer", "control.resume"})
+CONTROL_METHODS = frozenset({"control.stop", "control.steer", "control.resume", "work.control"})
+WORK_METHODS = frozenset({"work.list", "reports.page", "turn_state.list"})
+SCHEDULE_METHODS = frozenset({"schedules.list", "schedules.save", "schedules.delete",
+    "schedules.run", "schedules.reset_failures", "schedules.history", "schedules.validate_cron"})
 CAPABILITIES = ("status.get", "events.subscribe", "runtime.shutdown",
                 "submission.send", "notifications.ack",
                 *sorted(CONVERSATION_METHODS | TRANSCRIPT_METHODS | SEARCH_METHODS
-                        | ATTACHMENT_METHODS | RESULT_METHODS | CONTROL_METHODS))
+                        | ATTACHMENT_METHODS | RESULT_METHODS | CONTROL_METHODS
+                        | WORK_METHODS | SCHEDULE_METHODS))
 READ_METHODS = frozenset({
     "status.get", "events.subscribe", "conversations.list", "messages.list",
     "conversation.snapshot", "usage.get", "work.list", "settings.schema", "search.query",
@@ -151,6 +156,8 @@ def validate_params(method: str, params: object) -> dict | None:
         "tool.detail": {"request_id": str, "invocation_id": str},
         "tool.output": {"cursor": str, "limit": int},
         "notifications.ack": {"dedupe_key": str, "outcome": str},
+        "reports.page": {"report_id": str, "page": int},
+        "work.control": {"control_command_id": str, "kind": str, "id": str, "action": str},
         "control.stop": {
             "control_command_id": str, "conversation_id": str,
             "request_id": str, "generation": int,
@@ -212,6 +219,12 @@ class CoreService:
         self.attachments = None
         self.artifacts = None
         self.tool_details = None
+        self.work = None
+        self.reports = None
+        self.report_delivery = None
+        self.schedules = None
+        self.turn_state = None
+        self.computer_foreground = None
         self.lifetime = CoreLifetime()
         self._serial = asyncio.Lock()
         self._closed = False
@@ -293,13 +306,17 @@ class CoreService:
             self.store, self.events, self.requests, deps.channel_state,
             authority=self.authority, permissions=self.permissions,
             resume_manager=self.resume_manager)
+        self._bind_background_services()
         self.conversations.delete_hooks += (
+            self._require_no_scheduled_destination,
             self.requests.delete_conversation, self.delivery.delete_conversation,
             self.artifacts.delete_conversation, self.tool_details.delete_conversation,
+            self.reports.delete_conversation,
             lambda cid: self.attachments.delete_conversation(self.store.connection, cid),
         )
         self.requests.recover_interrupted()
         self.controls.recover_after_restart()
+        await self.schedules.recover()
         await self.delivery.recover()
         self.server = IpcServer(
             self.socket_path, self.token_file, self.paths.profile_id,
@@ -315,7 +332,136 @@ class CoreService:
             await self._flush_publications()
         self._receipt_pruner = asyncio.create_task(self._prune_receipts())
         self._publication_task = asyncio.create_task(self._publication_loop())
+        schedule_owner = self.authority.authenticate_local(peer_uid=self.authority.owner_uid)
+        schedule_token = self.permissions.set_request_owner(schedule_owner)
+        try:
+            # The real scheduler task inherits sealed installation authority,
+            # not whichever IPC connection happened to open the window.
+            self.engine.deps.scheduler.start(self._scheduled_handlers._on_scheduled_task,
+                self._scheduled_handlers._on_schedule_failure)
+        finally:
+            self.permissions.reset_request_owner(schedule_token)
         await self.requests.after_commit()
+
+    def _bind_background_services(self):
+        from ..discord.scheduled_events import ScheduledEventHandlers, ScheduledEventsDeps
+        from .computer_binding import create_foreground
+        from .schedules import ScheduleService
+        from .turn_state import TurnStateService
+        from .work import WorkService
+
+        deps = self.engine.deps
+        self.schedules = ScheduleService(deps.scheduler, authority=self.authority,
+            conversations=self.conversations, assert_request=self.requests.assert_bound_request)
+        self.work = WorkService(self.store, self.events, authority=self.authority,
+            permissions=self.permissions, requests=self.requests, conversations=self.conversations,
+            agents=deps.agent_manager, tasks=deps.channel_state.background_tasks,
+            loops=deps.loop_manager, processes=deps.tool_executor._ensure_process_registry(),
+            scheduler=deps.scheduler, display_config=self.config, controls=self.controls)
+        self.controls.work = self.work
+        self.reports = ReportService(self.store, events=self.events,
+            authorize=self._authorize_stored_report, assert_binding=self._assert_report_binding)
+        self.report_delivery = ReportDelivery(self.reports, self.delivery)
+        deps.scheduler.set_known_report_formats_provider(lambda: self.reports.registry.formats)
+        self.turn_state = TurnStateService(self.permissions, self.authority,
+            store_provider=lambda: deps.turn_store,
+            enabled=lambda: deps.get_config().turn_state.enabled)
+        self.computer_foreground = create_foreground(self.requests, self.config)
+        self.requests.computer_foreground = self.computer_foreground
+        deps.native_owners["computer"] = self.computer_foreground
+        agents = deps.native_owners["agents"]
+        agents._background_admission = self.requests
+        agents._work_service = self.work
+        agents._publish_background = self._publish_background
+        deps.tool_executor.system_tools._desktop_process_admitted = self._register_process
+        deps.tool_executor.system_tools._desktop_process_control = self._control_process
+        scheduling = deps.native_owners["scheduling"]
+        scheduling.service_provider = lambda: self.schedules
+        scheduling.request_provider = lambda message=None: (
+            message if message is not None else self.requests.current_bound_request())
+        self._scheduled_handlers = ScheduledEventHandlers(ScheduledEventsDeps(
+            get_config=deps.get_config, tool_executor=deps.tool_executor, audit=deps.audit,
+            llm_gateway=deps.llm_gateway, tool_loop=self.engine.runner, agent_task_tools=agents,
+            host_registry=deps.host_registry, admit_schedule=self._admit_schedule,
+            publish_notice=self._publish_scheduled_notice,
+            publish_report=self._publish_scheduled_report,
+            admit_notice=self._admit_schedule_notice,
+            dispatch_tool=self._dispatch_scheduled_tool))
+        from ..scheduler.scheduler import ConnectionAvailability, ConnectionReason
+
+        deps.scheduler.set_connection_state_provider(lambda: ConnectionAvailability(
+            self.lifetime.admitting and self.phase == "ready" and
+            self.permissions.is_owner(self.authority.owner_id),
+            ConnectionReason.AVAILABLE if self.phase == "ready" and self.lifetime.admitting
+            else ConnectionReason.UNAVAILABLE, 1))
+        deps.background_work_ready = True
+        deps.tool_catalog.invalidate()
+
+    def _authorize_stored_report(self, _tool, _hosts, owner):
+        # D17 durable report pages are stored receipts, not live evidence cursors.
+        return owner == self.authority.owner_id and self.permissions.is_owner(owner)
+
+    def _require_no_scheduled_destination(self, cid):
+        if any(item.get("channel_id") == cid for item in self.engine.deps.scheduler.list_all()):
+            raise ConversationError("busy", "Conversation is a scheduled work destination",
+                                    "not_dispatched")
+
+    def _assert_report_binding(self, binding: ReportBinding):
+        row = self.requests.binding(binding.conversation_id, binding.request_id, binding.generation)
+        background = self.store.connection.execute(
+            "SELECT run_id FROM desktop_background_requests WHERE request_id=?",
+            (binding.request_id,)).fetchone()
+        if row is None or row["owner"] != binding.owner_id or background is None:
+            raise PermissionError("Report requires an admitted background run")
+        if background["run_id"] != binding.run_id:
+            raise PermissionError("Report run identity differs from admission")
+
+    @asynccontextmanager
+    async def _admit_schedule(self, schedule, *, notice_id=None):
+        deps = self.engine.deps
+        binding = deps.scheduler.assert_run_binding(schedule)
+        cid, owner = binding["conversation_id"], binding["owner_id"]
+        self.conversations.get(cid)
+        run_id = binding["run_id"] if notice_id is None else binding["run_id"] + ":" + notice_id
+        message = self.requests._register_background("schedule", run_id,
+            schedule.get("description", "Scheduled work"), cid, owner)
+        self.work.register_schedule(schedule)
+        async with self.requests.background_execution(message):
+            yield message
+
+    def _admit_schedule_notice(self, schedule, consecutive):
+        return self._admit_schedule(schedule, notice_id=f"failure:{consecutive}")
+
+    async def _publish_scheduled_notice(self, message, text):
+        return await self.delivery.send(message.channel, text)
+
+    async def _publish_background(self, message, text, kind=None):
+        self.requests.assert_bound_request(message)
+        return await self.delivery.send(message.channel, text)
+
+    def _register_process(self, info):
+        message = self.requests.current_bound_request()
+        return self.work.register("process", info.pid, message)
+
+    async def _control_process(self, pid):
+        message = self.requests.current_bound_request()
+        result = await self.work.control_native(message, "process", str(pid), "stop")
+        return result if isinstance(result, str) else json.dumps(result)
+
+    async def _dispatch_scheduled_tool(self, message, tool_name, tool_input):
+        self.requests.assert_request(message)
+        return await self.engine.runner.dispatch_loop_tool(
+            tool_name, tool_input, message, message.owner_id)
+
+    async def _publish_scheduled_report(self, message, report_format, output, tool_name):
+        self.requests.assert_bound_request(message)
+        row = self.store.connection.execute(
+            "SELECT run_id FROM desktop_background_requests WHERE request_id=?",
+            (message.request_id,)).fetchone()
+        binding = ReportBinding(message.owner_id, message.conversation_id, message.request_id,
+            row[0], message.generation, tool_name)
+        return await self.report_delivery.publish_output(output, report_format=report_format,
+            binding=binding, tool=tool_name)
 
     def _assert_delivery_context(self, context):
         if self.requests is None:
@@ -392,6 +538,11 @@ class CoreService:
                 return self.attachments.handle(method, params)
             elif method == "notifications.ack":
                 return self.delivery.notifications.handle(method, params)
+            elif method == "work.list":
+                result = self.work.list(params)
+                return result if "ok" in result else {"ok": True, "result": result}
+            elif method == "reports.page":
+                result = self.reports.handle(method, params, owner=self.authority.owner_id)
             elif method in RESULT_METHODS:
                 owner = self.authority.owner_id
                 if method == "artifacts.read":
@@ -414,6 +565,44 @@ class CoreService:
         owner = self.permissions.set_request_owner(connection.owner_context)
         committed = []
         try:
+            if request["method"] in SCHEDULE_METHODS | {"turn_state.list"}:
+                async def invoke_service():
+                    if not self.permissions.is_owner(self.authority.owner_id):
+                        return failure("unauthorized",
+                                       "Current profile owner authority is required")
+                    if not self.lifetime.admitting and request["method"] not in READ_METHODS:
+                        return failure("busy", "Core is quiescing")
+                    try:
+                        if request["method"] == "turn_state.list":
+                            value = await self.turn_state.handle(
+                                request["method"], request["params"])
+                        else:
+                            value = await self.schedules.invoke(
+                                request["method"], request["params"],
+                                owner=connection.owner_context)
+                            for schedule in self.engine.deps.scheduler.list_all():
+                                if schedule.get("requester_id") == self.authority.owner_id:
+                                    self.work.register_schedule(schedule)
+                        return {"ok": True, "result": value}
+                    except ConversationError as error:
+                        return error.response()
+                    except PermissionError:
+                        return failure("unauthorized",
+                                       "Current profile owner authority is required")
+                    except (TypeError, ValueError):
+                        return failure("bad_request", "Invalid method parameters")
+
+                if request["method"] in READ_METHODS:
+                    result = self.commands.check(
+                        request["id"], request["method"], request["params"])
+                    if result is None or result.get("error", {}).get("code") != "id_conflict":
+                        result = await invoke_service()
+                else:
+                    result = await self.commands.execute_async(request["id"], request["method"],
+                        request["params"], invoke_service)
+                async with self._serial:
+                    await self._flush_publications()
+                return {"t": "res", "id": request["id"], **result}
             if request["method"] in CONTROL_METHODS:
                 async def admit_control():
                     invalid = validate_params(request["method"], request["params"])
@@ -567,9 +756,13 @@ class CoreService:
             # execution task. The caller's containment exit remains the barrier.
             try:
                 if self.requests is not None:
+                    if self.engine is not None:
+                        await self.engine.deps.scheduler.stop()
                     await self.requests.close()
                 if self.engine is not None:
                     await self.engine.close()
+                if self.computer_foreground is not None:
+                    await self.computer_foreground.close()
             finally:
                 if self._publication_task is not None:
                     self._publication_task.cancel()

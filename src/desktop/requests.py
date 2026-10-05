@@ -92,6 +92,7 @@ class RequestService:
         runner = getattr(engine, "runner", None)
         if runner is not None:
             runner._record_tool_detail = self.record_tool_detail
+            runner._assert_bound_request = self.assert_bound_request
         with store.transaction() as db:
             db.execute("""CREATE TABLE IF NOT EXISTS desktop_requests (
                 request_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL,
@@ -184,7 +185,8 @@ class RequestService:
     def _register_background(self, kind, run_id, text, cid, owner, parent=None):
         if self._closed:
             raise PermissionError("The core is quiescing")
-        if kind not in {"agent", "task", "loop", "process", "schedule", "workflow"}:
+        if kind not in {"agent", "task", "loop", "loop_iteration", "process",
+                        "schedule", "workflow"}:
             raise ValueError("Unknown background work kind")
         require_string(run_id, "run_id")
         if type(text) is not str:
@@ -230,6 +232,7 @@ class RequestService:
                        "WHERE request_id=? AND state='admitted'", (now(), message.request_id))
         task = asyncio.current_task()
         self._background_active[message.request_id] = task
+        tracked = task in self._tasks
         self._tasks.add(task)
         owner = self.authority.authenticate_local(peer_uid=self.authority.owner_uid)
         owner_token = self.permissions.set_request_owner(owner)
@@ -250,7 +253,8 @@ class RequestService:
         finally:
             _execution.reset(token)
             self.permissions.reset_request_owner(owner_token)
-            self._tasks.discard(task)
+            if not tracked:
+                self._tasks.discard(task)
             self._background_active.pop(message.request_id, None)
 
     def settle_background(self, message, outcome):
@@ -342,7 +346,10 @@ class RequestService:
             (conversation_id,))]
         def bind(row):
             return {"request_id": row["request_id"], "generation": row["generation"]}
-        active = [row for row in rows if row["state"] in ("running", "stop_requested")]
+        background = {row[0] for row in self.store.connection.execute(
+            "SELECT request_id FROM desktop_background_requests")}
+        active = [row for row in rows if row["state"] in ("running", "stop_requested")
+                  and row["request_id"] not in background]
         queued = [{**bind(row), "message_id": row["message_id"]} for row in rows
                   if row["state"] == "queued"]
         terminal = [{**bind(row), "outcome": row["state"],
@@ -639,8 +646,12 @@ class RequestService:
     async def _execute(self, message, st=None):
         token = _execution.set((self, asyncio.current_task(), message))
         failure_notice = False
+        computer_ticket = None
+        computer = getattr(self, "computer_foreground", None)
         try:
             self.assert_request(message)
+            if computer is not None:
+                computer_ticket = computer.enter_request(message)
             failure_notice = True
             if st is None:
                 self._seed_session_context(message)
@@ -730,9 +741,13 @@ class RequestService:
                         type(publication_error).__name__)
         finally:
             try:
-                self._fence_settled_context(message)
+                if computer_ticket is not None:
+                    await computer.leave_request(computer_ticket)
             finally:
-                _execution.reset(token)
+                try:
+                    self._fence_settled_context(message)
+                finally:
+                    _execution.reset(token)
 
     def _finish(self, message, outcome):
         with self.store.transaction() as db:
@@ -810,5 +825,11 @@ class RequestService:
 
     def delete_conversation(self, conversation_id):
         """Erase request content while preserving admitted identity tombstones."""
+        active = self.store.connection.execute(
+            "SELECT 1 FROM desktop_requests WHERE conversation_id=? "
+            "AND state IN ('admitted','running','stop_requested')", (conversation_id,)).fetchone()
+        if active:
+            raise ConversationError("busy", "Conversation has active background work",
+                                    "not_dispatched")
         self.store.connection.execute("UPDATE desktop_requests SET text='',attachments='[]' "
                                       "WHERE conversation_id=?", (conversation_id,))

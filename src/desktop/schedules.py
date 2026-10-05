@@ -1,6 +1,8 @@
 """Authenticated protocol schedules domain composed with Odin's scheduler."""
 from datetime import UTC, datetime
+
 from croniter import croniter
+
 from .conversations import ConversationError
 
 CREATE_FIELDS = frozenset({"description", "action", "channel_id", "cron", "run_at",
@@ -51,7 +53,8 @@ class ScheduleService:
             if not isinstance(expression, str) or not croniter.is_valid(expression):
                 return {"valid": False, "next_runs": []}
             iterator = croniter(expression, datetime.now(UTC))
-            return {"valid": True, "next_runs": [iterator.get_next(datetime).isoformat() for _ in range(5)]}
+            return {"valid": True, "next_runs": [iterator.get_next(datetime).isoformat()
+                                                for _ in range(5)]}
         if method == "schedules.history":
             id = params.get("id")
             if id and type(id) is not str:
@@ -73,7 +76,8 @@ class ScheduleService:
                 allowed = UPDATE_FIELDS
             else:
                 allowed = CREATE_FIELDS
-                if not isinstance(values.get("description"), str) or not values["description"].strip():
+                if (not isinstance(values.get("description"), str)
+                        or not values["description"].strip()):
                     raise ValueError("description is required")
                 values["description"] = values["description"].strip()
                 values.setdefault("action", "reminder")
@@ -93,7 +97,8 @@ class ScheduleService:
             if "channel_id" in values or not id:
                 values["channel_id"] = self._destination(values.get("channel_id"))
             if id:
-                return await self.scheduler.update(id, nested_payload_validated=nested_payload_validated, **values)
+                return await self.scheduler.update(
+                    id, nested_payload_validated=nested_payload_validated, **values)
             return await self.scheduler.add(requester_id=owner_id,
                 nested_payload_validated=nested_payload_validated, **values)
         self._owned(id, owner_id)

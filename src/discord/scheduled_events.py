@@ -16,8 +16,8 @@ from __future__ import annotations
 import asyncio
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
 from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ..odin_log import get_logger
@@ -83,6 +83,7 @@ class ScheduledEventsDeps:
     publish_notice: Callable | None = None  # (message, text) -> durable publication
     dispatch_tool: Callable | None = None  # (message, tool_name, tool_input)
     publish_report: Callable | None = None  # (message, format, output, tool_name)
+    admit_notice: Callable | None = None  # distinct delivery-only identity after failure
 
 
 class ScheduledEventHandlers:
@@ -99,6 +100,7 @@ class ScheduledEventHandlers:
         self._publish_notice = deps.publish_notice
         self._dispatch_tool = deps.dispatch_tool
         self._publish_report = deps.publish_report
+        self._admit_notice = deps.admit_notice
 
     async def _on_scheduled_digest(self, schedule: dict) -> None:
         """Run the daily infrastructure digest and post results."""
@@ -481,9 +483,9 @@ class ScheduledEventHandlers:
         return workflow_ok
 
     async def _on_schedule_failure(self, schedule: dict, consecutive: int) -> None:
-        if self._admit_schedule is None or self._publish_notice is None:
+        if self._admit_notice is None or self._publish_notice is None:
             return
-        async with self._admit_schedule(schedule) as message:
+        async with self._admit_notice(schedule, consecutive) as message:
             token = _scheduled_execution.set((self, message))
             try:
                 await self._on_schedule_failure_inner({**schedule,
@@ -620,7 +622,9 @@ class ScheduledEventHandlers:
                         try:
                             # The pagination service parses JSON first and scrubs
                             # only validated strings that can reach presentation.
-                            await self._publish_report(active[1], report_format, str(result), tool_name)
+                            await self._publish_report(
+                                active[1], report_format, str(result), tool_name
+                            )
                         except (NotImplementedError, NonRetryableScheduleError) as e:
                             raise NonRetryableScheduleError(
                                 "Scheduled report publication unavailable; "

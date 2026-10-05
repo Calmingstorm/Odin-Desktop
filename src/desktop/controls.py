@@ -119,7 +119,8 @@ class ControlService:
                                      (command_id,)).fetchone()
                     if old is not None:
                         if old["binding"] != binding:
-                            return response_error("id_conflict", "Control ID has a different binding")
+                            return response_error("id_conflict",
+                                                  "Control ID has a different binding")
                         if old["response"] is None:
                             return response_error("internal", "Control outcome is unknown",
                                                   "outcome_unknown")

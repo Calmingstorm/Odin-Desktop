@@ -1670,7 +1670,9 @@ class Scheduler:
         schedule["last_error"] = str(error)[:500]
         schedule["last_error_at"] = now.isoformat()
         if self.desktop_recovery:
-            schedule["settlement"] = "unknown" if isinstance(error, NonRetryableScheduleError) else "failure"
+            schedule["settlement"] = (
+                "unknown" if isinstance(error, NonRetryableScheduleError) else "failure"
+            )
             schedule["last_run_binding"] = copy.deepcopy(schedule.get("run_binding"))
 
         max_retries = schedule.get("max_retries", DEFAULT_MAX_RETRIES)

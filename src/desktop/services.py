@@ -371,7 +371,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         str(paths.data_dir / "skills"), tool_executor=executor,
         memory_path=str(paths.data_dir / "memory.json"), tool_timeouts=cfg.tools.tool_timeouts,
         allowed_urls=tuple(cfg.tools.skill_allowed_urls))
-    scheduler = getattr(runtime, "scheduler", None) or Scheduler(str(paths.data_dir / "schedules.json"))
+    scheduler = getattr(runtime, "scheduler", None) or Scheduler(
+        str(paths.data_dir / "schedules.json"), desktop_recovery=True)
     skills.set_services(knowledge_store=knowledge, embedder=embedder, session_manager=sessions, scheduler=scheduler)
     audit = getattr(runtime, "audit", None) or AuditLogger(path=str(paths.data_dir / "audit.jsonl"),
         hmac_key=cfg.audit.hmac_key, classify_failures=cfg.observability.audit_failure_classification)
@@ -474,6 +475,11 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
                       "read_conversation": engine.requests is not None,
                       "generate_file": engine.requests is not None,
                       "post_file": engine.requests is not None})
+        for name in ("spawn_agent", "send_to_agent", "list_agents", "kill_agent", "get_agent_results",
+                     "wait_for_agents", "delegate_task", "list_tasks", "cancel_task", "start_loop",
+                     "stop_loop", "list_loops", "schedule_task", "list_schedules", "update_schedule",
+                     "delete_schedule"):
+            ready[name] = getattr(engine.deps, "background_work_ready", False)
         for name in ("search_knowledge", "ingest_document", "bulk_ingest_knowledge", "list_knowledge", "delete_knowledge"):
             ready[name] = knowledge is not None and bool(get_config().search.enabled)
         extra = getattr(runtime, "native_readiness", None)
@@ -499,7 +505,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     mcp = getattr(runtime, "mcp_manager", None)
     catalog = _ReadyCatalog(policy=policy, get_config=get_config, skill_manager=skills,
         get_mcp_definitions=mcp.get_tool_definitions if mcp else None,
-        computer_available=lambda: bool(getattr(owners.get("computer"), "enabled", False)),
+        computer_available=lambda: bool(getattr(owners.get("computer"),
+                                                "published_available", False)),
         get_email_config=lambda: executor._email_config)
     gateway.on_provider_switch = catalog.invalidate
     if mcp is not None:
@@ -585,6 +592,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         skill_manager=skills, audit=audit, agent_manager=agents, loop_manager=loops,
         host_registry=hosts, host_access_manager=access, scheduler=scheduler, reflector=reflector,
         context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime)
+    d.native_owners = owners
     engine = EngineServices(d, None)
     runner = ToolLoopRunner(ToolLoopDeps(get_config=get_config,
         get_default_system_prompt=lambda: prompt.default_prompt, get_context_compressor=lambda: compression,

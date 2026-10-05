@@ -380,6 +380,12 @@ class WorkService:
                                       "revision": params["revision"],
                                       "owner_id": record["owner_id"],
                                       "conversation_id": record["conversation_id"]})
+                # The retained scheduler returns its own domain response, not
+                # a control receipt. Completion of run_now includes its actual
+                # history status; a skipped run was never dispatched.
+                if "disposition" not in receipt:
+                    receipt = {"disposition": "not_available" if
+                        receipt.get("status") == "skipped" else "done", "schedule": receipt}
             updated = self.refresh(current)
             if (receipt["disposition"] == "requested" and
                     updated["settlement"]["state"] == "settled"):
