@@ -7,6 +7,13 @@ implemented parity. `qualification-closure.md` records the final distinction.
 
 `qualification-plan.json` is the executable group/case disposition artifact. `test-plan.json` retains all 869 frozen upstream paths and original hashes. Eligibility and new smoke tests never replace original assertions/case data.
 
+Phase 2 step 8 part 1 adds nine complete inherited suites to the existing
+`phase2-core-transport` group, keeping **29 named groups** after merged step 1.
+Eight run unchanged; the process-manager corpus uses a complete frozen-source
+adapter with authentic temporary ownership/workspace and exact AST replay.
+`phase2-step8-part1-validation.md` records current gate evidence and limitations.
+The historical Phase 1 gate above remains provenance, not the current total.
+
 Historical failed runs remain visible: **116 failed, 5,824 passed, 3 skipped** in the interrupted 781.08-second run; **259 failed, 10,169 passed, 4 skipped** in the complete bounded 460.54-second run. No selection change makes these passing evidence.
 
 Original cases run directly or through frozen-source adapters whose literal `CORPUS_SELECTIONS` identifies exact original functions/classes. Each adapter must preserve assertions, decorators and parameter data and verify original bytes. Unselected cases are not implicitly covered. Genuine disposable owner/profile/model/import roots and documentation catalogue imports are permitted setup alternatives, not permissive authority shims.

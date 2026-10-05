@@ -1,0 +1,278 @@
+{
+  "schema_version": 1,
+  "artifact": "PR26 review1 single clean qualification receipt",
+  "execution_commit": "b74056c4c9a16071426cb832db361cf86c84989a",
+  "integration_main": "566b7954911154ed36d9e5e751c2db9029e262e2",
+  "fresh_checkout": "/home/odin/desktop-phase2-step8-review1/final",
+  "workspace_mode": "2775 parent and checkout; umask002 before worktree add",
+  "installation": "uv sync --locked --extra dev; pip26.2.1 from lock; no manual remediation",
+  "qualification_plan_sha256": "7e5338a0fb4c5ea9e9ac1591ac3939e96d0770a0935ff126bde29181b0622234",
+  "runner": "USER=odin .venv/bin/python scripts/run-qualified-tests.py",
+  "isolation": "nonroot odin; mount/PID namespace; env-i repository throwaway HOME/XDG; no display/DBus/live credentials",
+  "full_runs": 1,
+  "single_clean_full_invocation": true,
+  "exit_code": 0,
+  "groups": 30,
+  "totals": {
+    "passed": 14025,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 2
+  },
+  "group_results": [
+    {
+      "name": "direct-shared-stores-providers-tools",
+      "passed": 3158,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "9dad60e7661e43be269894a3120f23c3c0465f240f64e690562a5b9c4aac3bd2"
+    },
+    {
+      "name": "direct-shared-computer",
+      "passed": 3559,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "44dde001680924796ffebbc30d98da0b1987e09ab529fa366b83fff7edd04216"
+    },
+    {
+      "name": "direct-shared-hyprland",
+      "passed": 888,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "junit_sha256": "f01a280f073e95989f820609e991d143d58e48e83e28ccfc25537e8b4213d619"
+    },
+    {
+      "name": "direct-shared-engine",
+      "passed": 1442,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "1ea44a2fb946a27f2d608470cd06e031cfc6c6934e554feccafef49e004f525e"
+    },
+    {
+      "name": "faithful-computer-recovery",
+      "passed": 188,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "71c44ef069eb03f9c09be51de90c515659d57d8a8d7408b380d99ba2e0950cb1"
+    },
+    {
+      "name": "faithful-config",
+      "passed": 286,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "8f18d3dacc01161e1ee47ddbf1617181c79d5f952841cc4d536d8060304a948d"
+    },
+    {
+      "name": "faithful-computer-declaration",
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "5a9850d632d300b0f5d59200cc44d121ce1e96b24fd932b35a6909e9994a7d68"
+    },
+    {
+      "name": "faithful-tools",
+      "passed": 269,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "junit_sha256": "c0d7dd40d4e1a0bbbea27133c16621804bee77223034d39a5b5ff00a2fb07874"
+    },
+    {
+      "name": "faithful-tools-extra",
+      "passed": 135,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "196b690c187ea5ee3669e1e217a48e7123a840c4add0512152aed17c6d7bc01e"
+    },
+    {
+      "name": "faithful-llm",
+      "passed": 187,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "01d3a63f7a4d98937be56940f8aa3359a94ae78703967b28b54c485511e971b2"
+    },
+    {
+      "name": "direct-neutral-metadata",
+      "passed": 36,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "a0b1341bc77edd58a93578faf1125bb139ca0ef95f00679c0568914579a469ff"
+    },
+    {
+      "name": "neutral-completion-classifier",
+      "passed": 28,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "7b0b24b28ecfab19719e2aacf9ff456dc15c14e3f4fa8fce13971e230622267b"
+    },
+    {
+      "name": "neutral-host-control",
+      "passed": 59,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "da542236117369f1de93a24f4439d523c66b1304f2e6734413202c29e9ed6e90"
+    },
+    {
+      "name": "neutral-subsystem-guard",
+      "passed": 114,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "6a38db3c66eb5f4a53804d013e40dc99be5bdbfc28f8d1a0b49a158fc38f21a6"
+    },
+    {
+      "name": "neutral-fd-health",
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "805840632d1deaa9ef0b639359f282705064d82a876293ddcfa195d58e216519"
+    },
+    {
+      "name": "neutral-parallel-policy",
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "8700bf1759de76ca2f82e03dffd361352af6377b427c23371c21afff1e1e3f7e"
+    },
+    {
+      "name": "faithful-foundation",
+      "passed": 946,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "617184181bbcc994172ddb620fbcceb72b1262801d71c22761a4b93e881867f1"
+    },
+    {
+      "name": "faithful-migrations",
+      "passed": 33,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "c6f1471d992791e6fad2fb2a261a10c597702500a21304f490deafa439c27cd7"
+    },
+    {
+      "name": "mixed-original-passed-cases",
+      "passed": 875,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "9bfb12d59249eabe1b1b22f81346896a3418f557b34bb0f72bf2791280370db8"
+    },
+    {
+      "name": "desktop-boundary-tests",
+      "passed": 481,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "02aa13c107cfa7c690561ac744b4bea5fb0212e5dacde8da9b931c5ccdbb869e"
+    },
+    {
+      "name": "direct-foundation-neutral-remainder",
+      "passed": 167,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "72dbc5e531a9c31b5ef5508f532cb6c009326149cea8b514cbb9edb55b43c361"
+    },
+    {
+      "name": "direct-isolation-timeout-neutrals",
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "7dd87e533968c828689d654f22c80cb4e760e2b51148e398f82c236beefc7eac"
+    },
+    {
+      "name": "faithful-owner-contracts",
+      "passed": 122,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "3ac3fde33a309a9fa81c556d0768c5445a3609c17c1a1a108f1dc3e088113e90"
+    },
+    {
+      "name": "faithful-retirement-corpus",
+      "passed": 32,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "0f76791f3ae9f5258db06dd1f7965aacb8d9b10c06c05798c14e0f42e50d5385"
+    },
+    {
+      "name": "final-historical-cases",
+      "passed": 36,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "d6fc7736d27ffa1bb4c0bcc48cec19f03e064b9e7d53c3c7b827efc50a879b4a"
+    },
+    {
+      "name": "final-helper-cases",
+      "passed": 34,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "2f721d5c0545b6481fcf1334b36d975a4f43bed9111121c59a1ea28b9799d715"
+    },
+    {
+      "name": "final-distribution-cases",
+      "passed": 32,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "64761de8b46a49e525d249798e2a3f14f735eaabfd2aad03bfe52ba0be429163"
+    },
+    {
+      "name": "final-config-cases",
+      "passed": 72,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "2443e1a50d28078ca8ecf4de2a43c47a5bd1371e5c371a0757186c5e38b098ac"
+    },
+    {
+      "name": "phase2-core-transport",
+      "passed": 534,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "ca95c56f1154c9261ffbffe4dce26c0b25dfdf72e1c7fc5f983e6a460b5df018"
+    },
+    {
+      "name": "phase2-step5-profile-management",
+      "passed": 294,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "64cd5d5fc1af4ee488c2c9bfe4f7565b089d51cf29f3259c60aba4b43af10e51"
+    }
+  ],
+  "restoration": {
+    "original_population": 326,
+    "restored": 9,
+    "retired": 5,
+    "deferred": 312,
+    "retirement_review": "Claude, review of #26"
+  },
+  "limitations": [
+    "Execution totals, not unique original-case coverage",
+    "Two inherited skips; unsuppressed inherited coroutine and subprocess-finalizer warnings",
+    "No native desktop/input or full Phase2 closure qualification"
+  ],
+  "log": "/home/odin/desktop-phase2-step8-review1/qualification.log",
+  "acceptance": "pending independent review"
+}
