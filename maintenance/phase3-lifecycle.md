@@ -75,6 +75,10 @@ report pins its exact source commit and artifact hashes outside Git.
 - An initial notification-recovery assertion used Playwright's dead renderer CDP page. Its failure remains in
   earlier evidence. The final test observes the recreated renderer through the surviving main process and still
   requires the native action to drive exact-message navigation; it does not inject a navigation shortcut.
+- The shared Playwright update from 1.58.2 to 1.63.0 changed its Electron sandbox default. Process identities
+  exposed an implicit `--no-sandbox` in the first post-rebase runs. Those runs do **not** qualify this gate.
+  The harness now explicitly requests `chromiumSandbox: true` and refuses disabled sandbox/context isolation
+  or Node integration at launch. Only the subsequent clean fresh rerun is final qualification evidence.
 
 ## Open handoffs, not passing rows
 

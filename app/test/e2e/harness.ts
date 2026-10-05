@@ -54,7 +54,20 @@ export async function launchApp(options: LaunchOptions = {}): Promise<ElectronAp
     env.ODIN_DESKTOP_CORE_CMD = JSON.stringify([python, '-m', 'src'])
   }
   const application = await _electron.launch({ executablePath: join(repository, 'app/node_modules/electron/dist/electron'),
+    chromiumSandbox: true,
     args: [join(repository, 'app'), ...(options.args ?? [])], cwd: repository, env, timeout: 30_000 })
+  const launchEvidence = await application.evaluate(({ BrowserWindow }) => {
+    const contents = BrowserWindow.getAllWindows()[0]?.webContents as unknown as {
+      getLastWebPreferences(): { sandbox: boolean; contextIsolation: boolean; nodeIntegration: boolean }
+    } | undefined
+    return { arguments: process.argv, preferences: contents?.getLastWebPreferences() }
+  })
+  if (launchEvidence.arguments.some((argument) => argument.includes('--no-sandbox'))
+    || (launchEvidence.preferences && (!launchEvidence.preferences.sandbox
+      || !launchEvidence.preferences.contextIsolation || launchEvidence.preferences.nodeIntegration))) {
+    await application.close()
+    throw new Error('Qualification refused: Electron renderer sandbox/isolation was disabled')
+  }
   environments.set(application, env)
   return application
 }
