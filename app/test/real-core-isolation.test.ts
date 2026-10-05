@@ -9,7 +9,8 @@ const root = '/tmp/odrc-fake'
 
 function fixture(results: Array<number | Error | 'pending'> = [0, 0, 0]) {
   const host = Object.assign(new EventEmitter(), {
-    platform: 'linux', getuid: () => 1001, geteuid: () => 1001, getgid: () => 1002, getegid: () => 1002,
+    platform: 'linux', getuid: (): number => 1001, geteuid: (): number => 1001,
+    getgid: (): number => 1002, getegid: (): number => 1002,
     pid: 1, execPath: '/usr/bin/node', argv: ['/usr/bin/node', script, '--inside-run'],
     env: {
       HOME: root, ODIN_REAL_CORE_ROOT: root, ODIN_REAL_CORE_UID: '1001', ODIN_REAL_CORE_GID: '1002',
@@ -21,11 +22,11 @@ function fixture(results: Array<number | Error | 'pending'> = [0, 0, 0]) {
   })
   const files = {
     existsSync: vi.fn(() => true), mkdtempSync: vi.fn(() => root), chmodSync: vi.fn(), mkdirSync: vi.fn(), rmSync: vi.fn(),
-    readlinkSync: vi.fn(() => 'pid:[private]'),
+    readlinkSync: vi.fn((_path: string) => 'pid:[private]'),
     readFileSync: vi.fn((path: string) => path === '/proc/1/cmdline'
       ? host.argv.join('\0') + '\0'
       : 'CapEff:\t0000000000000000\nCapBnd:\t0000000000000000\nNoNewPrivs:\t1\nGroups:\t\n'),
-    lstatSync: vi.fn(() => ({ isDirectory: () => true, uid: 1001, gid: 1002, mode: 0o40700 }))
+    lstatSync: vi.fn(() => ({ isDirectory: (): boolean => true, uid: 1001, gid: 1002, mode: 0o40700 }))
   }
   const children: Array<EventEmitter & { pid?: number; stdout: EventEmitter; stderr: EventEmitter }> = []
   const spawnChild = vi.fn(() => {
@@ -59,7 +60,7 @@ describe('real-core isolation launcher with fake child_process only', () => {
     const f = fixture()
     await f.launchIsolated('vitest', ['run'])
     expect(calls(f)).toHaveLength(3)
-    expect(calls(f)[0].slice(0, 2)).toEqual(['sudo', ['-n', '-l', '/usr/local/sbin/odin-desktop-isolate']])
+    expect(calls(f)[0]!.slice(0, 2)).toEqual(['sudo', ['-n', '-l', '/usr/local/sbin/odin-desktop-isolate']])
     for (const [, args, options] of calls(f).slice(1)) {
       expect(args.slice(0, 4)).toEqual(['-n', '/usr/local/sbin/odin-desktop-isolate', 'env', '-i'])
       expect(args).not.toContain('setpriv')
@@ -73,9 +74,9 @@ describe('real-core isolation launcher with fake child_process only', () => {
       expect(args).toContain(`HOME=${root}`)
       expect(args.join(' ')).not.toMatch(/DISPLAY=|SECRET_TOKEN=|never-inherit/)
     }
-    expect(calls(f)[1][1].at(-1)).toBe('--inside-probe')
-    expect(calls(f)[2][1]).toContain('--inside-run')
-    expect(calls(f)[2][1].slice(-2)).toEqual(['vitest', 'run'])
+    expect(calls(f)[1]![1].at(-1)).toBe('--inside-probe')
+    expect(calls(f)[2]![1]).toContain('--inside-run')
+    expect(calls(f)[2]![1].slice(-2)).toEqual(['vitest', 'run'])
     expect(f.files.rmSync).toHaveBeenCalledWith(root, { recursive: true, force: true })
     expect(f.host.kill).not.toHaveBeenCalled()
     expect(f.timers.size).toBe(0)
@@ -87,9 +88,9 @@ describe('real-core isolation launcher with fake child_process only', () => {
       await f.launchIsolated('vitest')
       const launches = calls(f).filter(([, args]) => args.includes('unshare'))
       expect(launches).toHaveLength(2)
-      expect(launches[0][1]).toContain('--inside-probe')
-      expect(launches[1][1]).toContain('--inside-run')
-      expect(launches[1][1]).toEqual(expect.arrayContaining(['--reuid=1001', '--regid=1002', '--clear-groups',
+      expect(launches[0]![1]).toContain('--inside-probe')
+      expect(launches[1]![1]).toContain('--inside-run')
+      expect(launches[1]![1]).toEqual(expect.arrayContaining(['--reuid=1001', '--regid=1002', '--clear-groups',
         '--no-new-privs', '--bounding-set=-all', '--inh-caps=-all', '--ambient-caps=-all']))
       expect(calls(f).flatMap(([, args]) => args)).not.toContain('--map-current-user')
     }
@@ -122,9 +123,9 @@ describe('real-core isolation launcher with fake child_process only', () => {
     const promise = f.launchIsolated('vitest', [], { signal: controller.signal })
     const rejected = expect(promise).rejects.toThrow(/cancelled|timed out/)
     await flush()
-    const child = f.children[2]
+    const child = f.children[2]!
     if (reason === 'abort') controller.abort()
-    else if (reason === 'timeout') [...f.timers.values()][0]()
+    else if (reason === 'timeout') [...f.timers.values()][0]!()
     else f.host.emit(reason)
     expect(f.host.kill).toHaveBeenCalledExactlyOnceWith(-child.pid!, 'SIGKILL')
     expect(f.files.rmSync).not.toHaveBeenCalled()
@@ -144,9 +145,9 @@ describe('real-core isolation launcher with fake child_process only', () => {
     const rejected = expect(promise).rejects.toThrow('cancelled')
     await flush()
     f.host.emit('SIGINT')
-    expect(f.host.kill).toHaveBeenCalledWith(-f.children[1].pid!, 'SIGKILL')
+    expect(f.host.kill).toHaveBeenCalledWith(-f.children[1]!.pid!, 'SIGKILL')
     expect(f.files.rmSync).not.toHaveBeenCalled()
-    f.children[1].emit('exit', null, 'SIGKILL')
+    f.children[1]!.emit('exit', null, 'SIGKILL')
     await rejected
     expect(calls(f)).toHaveLength(2)
   })
@@ -155,13 +156,13 @@ describe('real-core isolation launcher with fake child_process only', () => {
     const f = fixture([0, 'pending', 0, 0])
     const promise = f.launchIsolated('vitest')
     await flush()
-    ;[...f.timers.values()][0]()
+    ;[...f.timers.values()][0]!()
     expect(calls(f)).toHaveLength(2)
     expect(f.files.rmSync).not.toHaveBeenCalled()
-    f.children[1].emit('exit', null, 'SIGKILL')
+    f.children[1]!.emit('exit', null, 'SIGKILL')
     await promise
     expect(calls(f)).toHaveLength(4)
-    expect(calls(f)[2][1]).toContain('unshare')
+    expect(calls(f)[2]![1]).toContain('unshare')
   })
 
   it('never tries privileged cleanup if group signaling fails', async () => {
@@ -173,7 +174,7 @@ describe('real-core isolation launcher with fake child_process only', () => {
     f.host.emit('SIGTERM')
     expect(f.files.rmSync).not.toHaveBeenCalled()
     expect(calls(f)).toHaveLength(3)
-    f.children[2].emit('exit', null, 'SIGKILL')
+    f.children[2]!.emit('exit', null, 'SIGKILL')
     await rejected
     expect(calls(f)).toHaveLength(3)
   })
@@ -186,7 +187,7 @@ describe('real-core isolation launcher with fake child_process only', () => {
     await flush()
     f.host.emit('SIGINT')
     expect(f.files.rmSync).not.toHaveBeenCalled()
-    f.children[2].emit('exit', null, 'SIGKILL')
+    f.children[2]!.emit('exit', null, 'SIGKILL')
     await rejected
     expect(f.host.kill).toHaveBeenCalledWith(-31002, 'SIGKILL')
   })
