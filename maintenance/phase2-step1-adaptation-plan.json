@@ -217,6 +217,14 @@
       "invariant": "No changed upstream test corpus, imported state or diagnostic-success execution authority.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_strip_web.py"]
+    },
+    {
+      "path": "tests/test_desktop_capabilities_skills_hosts.py",
+      "reason": "Align trust-directory provisioning with D17 directory-symlink acceptance while retaining explicit-profile and absolute-path requirements.",
+      "contract": "Real trust materialization below a linked folder retains private file modes and exact contents without chmod of the unrelated target folder.",
+      "invariant": "No host enrollment, trust-policy, lease, token or live-state changes.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_capabilities_skills_hosts.py"]
     }
   ]
 }

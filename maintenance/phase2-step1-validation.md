@@ -185,3 +185,12 @@ Review baseline: `d1098b3025643bb6ecb0b6686fc0a181df447672`.
 - Exact source-adaptation records and unchanged-source evidence pins are refreshed separately; no source
   recapture or independent approval is implied. All execution uses sanitized PID/mount namespaces and temporary
   HOME/XDG roots. Fresh-checkout full gate evidence follows after it completes.
+- First fresh `0775` checkout at `9e22c47f9c68e2c998e271be536160ff3c1fe4e2`: locked dependencies, drift, lint,
+  ownership checker and its **30 tests** passed. All 29 groups ran: **13,445 passed, 2 skipped, 1 failed,
+  0 errors**. The sole failure was another older folder-link refusal assertion in trust-directory materialization.
+  Updated that Desktop test to prove real linked-folder materialization, exact contents, `0600` trust-file mode
+  and unchanged unrelated target-folder mode. Production source is unchanged from the tested code commit.
+  Log: `/home/odin/reviews/desktop-step1-round3-fresh-gates.log`; JUnit under
+  `/home/odin/reviews/desktop-step1-round3-fresh/.test-state/qualification-{0..28}.xml`.
+- Final combined touched suites, including the trust-directory test: **215 passed**, paths/IPC-auth combined
+  coverage **98%**, IPC-auth **100%**. Log: `/home/odin/reviews/desktop-step1-round3-final-combined.log`.
