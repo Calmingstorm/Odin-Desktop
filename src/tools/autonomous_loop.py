@@ -95,6 +95,7 @@ class LoopInfo:
     _iteration_history: deque[str] = field(
         default_factory=lambda: deque(maxlen=MAX_CONTEXT_HISTORY * 2),
     )
+    _publish: Callable | None = field(default=None, repr=False)
 
 
 class LoopManager:
@@ -135,16 +136,37 @@ class LoopManager:
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
     ) -> str:
         """Start a new autonomous loop. Returns the loop ID or an error string."""
-        # Phase 1 copies the manager's cancellation/settlement behavior, but
-        # does not wire durable admission or an authorized conversation sink.
-        # A send-shaped object is not that consumer. Never start a task early.
+        # A send-shaped object is not durable admission. Only the composition
+        # root's admitted path may queue a worker.
         return (
-            "Error: Autonomous loops unavailable: Phase 2 durable admission "
-            "and conversation delivery are not configured. No loop was started."
+            "Error: Autonomous loops require durable background admission. "
+            "No loop was started."
         )
 
-        # The original admission algorithm is retained below for the reviewed
-        # Phase 2 port. It is intentionally unreachable, not an opt-in shim.
+    def start_admitted_loop(
+        self,
+        goal: str,
+        channel: Any,
+        requester_id: str,
+        requester_name: str,
+        iteration_callback: LoopIterationCallback,
+        *,
+        before_start: Callable[[LoopInfo], None],
+        execution: Callable,
+        publish: Callable,
+        on_settled: Callable[[LoopInfo], None],
+        interval_seconds: int = DEFAULT_INTERVAL_SECONDS,
+        mode: str = "notify",
+        stop_condition: str | None = None,
+        max_iterations: int = DEFAULT_MAX_ITERATIONS,
+    ) -> str:
+        """Persist admission before queueing; run only in the injected context.
+
+        These are trusted composition hooks, not tool payload fields. Failure
+        of synchronous before_start admission never queues a worker.
+        """
+        if not all(callable(hook) for hook in (before_start, execution, publish, on_settled)):
+            return "Error: Durable loop admission hooks are required. No loop was started."
         if self.active_count >= MAX_CONCURRENT_LOOPS:
             return (
                 f"Error: Maximum concurrent loops ({MAX_CONCURRENT_LOOPS}) reached. "
@@ -171,10 +193,28 @@ class LoopManager:
             channel_id=str(getattr(channel, "id", "")),
             requester_id=requester_id,
             requester_name=requester_name,
+            _publish=publish,
         )
         self._loops[loop_id] = info
+        try:
+            before_start(info)
+        except BaseException:
+            del self._loops[loop_id]
+            raise
 
-        info._task = asyncio.create_task(self._run_loop(info, channel, iteration_callback))
+        async def _run_admitted():
+            try:
+                async with execution(info):
+                    await self._run_loop(info, channel, iteration_callback)
+            except asyncio.CancelledError:
+                info.status = "stopped"
+                raise
+            except Exception:
+                info.status = "error"
+                raise
+
+        info._task = asyncio.create_task(_run_admitted())
+        info._task.add_done_callback(lambda finished: on_settled(info))
 
         log.info(
             "Loop %s started: goal=%r interval=%ds mode=%s max=%d",
@@ -339,7 +379,7 @@ class LoopManager:
                 if time.monotonic() - start_time > MAX_LOOP_LIFETIME_SECONDS:
                     info.status = "completed"
                     try:
-                        await channel.send(
+                        await self._publish(info,
                             f"Loop `{info.id}` reached maximum lifetime (4 hours). Stopped."
                         )
                     except Exception:
@@ -420,7 +460,7 @@ class LoopManager:
                     if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
                         info.status = "error"
                         try:
-                            await channel.send(
+                            await self._publish(info,
                                 f"Loop `{info.id}` stopped after {MAX_CONSECUTIVE_ERRORS} "
                                 f"consecutive errors. Last error: {err_msg}"
                             )
@@ -474,7 +514,7 @@ class LoopManager:
                             info.interval_seconds,
                         )
                         try:
-                            await channel.send(
+                            await self._publish(info,
                                 f"Loop `{info.id}`: {RUNAWAY_THRESHOLD} identical "
                                 f"outputs detected — increasing interval from "
                                 f"{old_interval}s to {info.interval_seconds}s."
@@ -514,7 +554,7 @@ class LoopManager:
                 else:
                     info.status = "completed"
                     try:
-                        await channel.send(
+                        await self._publish(info,
                             f"Loop `{info.id}` completed after {info.iteration_count} iterations."
                         )
                     except Exception:
@@ -526,7 +566,7 @@ class LoopManager:
             info.status = "error"
             log.error("Loop %s crashed: %s", info.id, e, exc_info=True)
             try:
-                await channel.send(
+                await self._publish(info,
                     f"Loop `{info.id}` encountered an error and stopped: "
                     f"{format_user_facing_error(e)}"
                 )
@@ -605,9 +645,12 @@ class LoopManager:
                 )
                 return
 
-        # Native/durable conversation publication needs an actual neutral
-        # consumer. Do not emulate the removed transport or claim success.
-        raise RuntimeError(
-            "Autonomous loop conversation delivery unavailable. "
-            "Do not replay the iteration."
-        )
+        await self._publish(info, response)
+
+    @staticmethod
+    async def _publish(info: LoopInfo, text: str) -> None:
+        if info._publish is None:
+            raise RuntimeError(
+                "Durable loop publication is not configured. Do not replay the iteration."
+            )
+        await info._publish(info, scrub_output_secrets(text))
