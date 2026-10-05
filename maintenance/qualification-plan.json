@@ -1686,9 +1686,19 @@
         "tests/test_desktop_ipc.py",
         "tests/test_desktop_command_journal.py",
         "tests/test_desktop_event_journal.py",
-        "tests/test_desktop_journal_snapshot.py"
+        "tests/test_desktop_journal_snapshot.py",
+        "tests/test_campaign_execution_risk.py",
+        "tests/test_channel_state_recent_action_failure.py",
+        "tests/test_computer_audit_output_r21.py",
+        "tests/test_computer_checkpoint_privacy_r5.py",
+        "tests/test_computer_frame_boundary.py",
+        "tests/test_connection_lifecycle_d1.py",
+        "tests/test_local_supervisor_wrapper_r10.py",
+        "tests/test_desktop_phase2_process_corpus.py",
+        "tests/test_restored_process_shutdown.py",
+        "tests/test_desktop_phase2_suite_map.py"
       ],
-      "reason": "Phase 2 step 1 Desktop-origin temporary-profile process, parent EOF, private framing/authentication, durable receipts and retention. Step 5 adapts lifecycle/IPC/retention to minor 3 and served management, not upstream corpus assertions. No native desktop input."
+      "reason": "Phase 2 step 1 Desktop-origin temporary-profile process, parent EOF, private framing/authentication, durable receipts and retention. Step 5 adapts lifecycle/IPC/retention to minor 3 and served management, not upstream corpus assertions. Step 8 part 1 restores eight unchanged inherited helper suites and every process-manager case through a frozen adapter with authentic temporary owner/workspace; mapping binds all 326 historical suites. No native desktop input."
     },
     {
       "name": "phase2-step5-profile-management",

@@ -66,3 +66,31 @@ def test_runner_refuses_an_empty_unclassified_selection(tmp_path, monkeypatch):
     )
     with pytest.raises(SystemExit, match="unclassified"):
         runner.main()
+
+
+def test_default_selection_runs_full_adapter_instead_of_obsolete_original(tmp_path, monkeypatch):
+    import json
+
+    runner = load_runner()
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner.sys, "argv", ["runner"])
+    (tmp_path / "maintenance").mkdir()
+    (tmp_path / "tests").mkdir()
+    adapter = "tests/test_desktop_frozen_process.py"
+    (tmp_path / adapter).write_text("def test_entire_corpus(): pass\n")
+    (tmp_path / "maintenance/test-plan.json").write_text(json.dumps({
+        "safe_pass_now": ["tests/test_original_process.py", "tests/test_direct_helper.py"],
+    }))
+    (tmp_path / "maintenance/phase2-suite-map.json").write_text(json.dumps({
+        "entries": [{"path": "tests/test_original_process.py", "status": "restored",
+                     "restoration": {"mode": "frozen-adapter", "selectors": [adapter]}}],
+    }))
+    captured = []
+    monkeypatch.setattr(runner.subprocess, "call",
+                        lambda command, **kwargs: captured.append(command) or 0)
+    assert runner.main() == 0
+    command = captured[0]
+    assert "tests/test_original_process.py" not in command
+    assert "tests/test_direct_helper.py" in command
+    assert adapter in command
+    assert command.count(adapter) == 1

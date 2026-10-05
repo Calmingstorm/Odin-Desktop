@@ -42,7 +42,8 @@ onMounted(loadSettings)
 </script>
 
 <template>
-  <div class="settings">
+  <main class="settings" aria-label="Settings">
+    <h1 class="sr-only">Settings</h1>
     <nav class="settings-nav" aria-label="Settings sections">
       <button class="ghost back" @click="state.view = 'chat'">← Back to chat</button>
       <button
@@ -56,10 +57,10 @@ onMounted(loadSettings)
         {{ section.title }}
       </button>
     </nav>
-    <section class="settings-body">
+    <section class="settings-body" tabindex="0" :aria-label="`${title} settings content`">
       <FirstRunBanner />
-      <h2>{{ title }}</h2>
-      <p v-if="settings.error" class="warn">
+      <h2 id="settings-section-title">{{ title }}</h2>
+      <p v-if="settings.error" class="warn" role="status">
         {{ settings.error }} <button class="ghost" @click="loadSettings">Try again</button>
       </p>
       <p v-if="settings.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Core settings') }}</p>
@@ -69,5 +70,5 @@ onMounted(loadSettings)
         <SchemaForm :fields="group.fields" />
       </div>
     </section>
-  </div>
+  </main>
 </template>

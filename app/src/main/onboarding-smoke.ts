@@ -50,7 +50,8 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     const previous = JSON.parse(readFileSync(controlFile, 'utf8')) as Record<string, unknown>
     writeFileSync(controlFile, JSON.stringify({ ...previous, ...change }), { mode: 0o600 })
   }
-  const fieldId = (path: string): string => `#field-${path.replace(/\W/g, '-')}`
+  // Use the renderer's collision-free ID contract without importing renderer modules into main.
+  const fieldId = (path: string): string => `[id=${JSON.stringify(`settings-field-${encodeURIComponent(path)}`)}]`
   const fieldText = (path: string): Promise<string> => run(`document.querySelector(${JSON.stringify(fieldId(path))})?.closest('.field')?.innerText ?? ''`)
   const edit = async (path: string, value: string | boolean): Promise<void> => {
     const id = fieldId(path)

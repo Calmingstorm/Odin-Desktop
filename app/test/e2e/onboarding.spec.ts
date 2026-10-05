@@ -50,13 +50,13 @@ async function launch(scenario: string, profile: string, initial: Record<string,
   const env = { ...process.env,
     // Electron adds its own invalid D-Bus sentinel during startup. Drop only
     // that child environment value; adapter still rejects any inherited bus.
-    ODIN_DESKTOP_CORE_CMD: JSON.stringify(['/usr/bin/env', '-u', 'DBUS_SESSION_BUS_ADDRESS', '-u', 'DBUS_SYSTEM_BUS_ADDRESS', python, '-B', join(repository, 'app/test/e2e/auth-core.py')]),
+    ODIN_DESKTOP_CORE_CMD: JSON.stringify(['/usr/bin/env', '-u', 'DBUS_SESSION_BUS_ADDRESS', '-u', 'DBUS_SYSTEM_BUS_ADDRESS', python, '-B', '-P', join(repository, 'app/test/e2e/auth-core.py')]),
     ODIN_SMOKE_ONBOARDING: scenario, ODIN_SMOKE_CONTROL: control, ODIN_SMOKE_OUT: resultFile
   }
   let output = ''
   await new Promise<void>((accept, reject) => {
     const child = spawn(join(appDir, 'node_modules/.bin/electron'), [appDir, '--smoke-test'], {
-      cwd: repository, env, stdio: ['ignore', 'pipe', 'pipe']
+      cwd: appDir, env, stdio: ['ignore', 'pipe', 'pipe']
     })
     child.stdout.on('data', (chunk: Buffer) => { output += chunk.toString() })
     child.stderr.on('data', (chunk: Buffer) => { output += chunk.toString() })
