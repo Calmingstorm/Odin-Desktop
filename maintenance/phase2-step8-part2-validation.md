@@ -120,6 +120,16 @@ text and its generated result receipt changed afterward. Internal final
 accounting/generator review approved the applied maps and narrow selector
 transition, with112 accounting and18 runtimeA tests passing independently.
 
+Final pre-delivery main moved again: #33 supplied the same import-only correction,
+and #20 added separate qualification-lab tooling. Parent rebased on
+`main@1c72a3f1`, kept both sides of the ledger conflict, and verified **every
+src module, every selected qualification file, the qualification plan and the
+lock remain byte-identical to the second fresh full run**. Only newly merged,
+unselected lab tooling/tests differ. Safe fake-boundary lab tests plus accounting
+returned **337 passed** in the sanctioned namespace; no lab guest was started.
+Final drift, map and no-new-lint checks pass. The full gate is not claimed to
+execute the separate unselected lab corpus.
+
 ## Qualification boundaries
 
 - Native knowledge and provider shutdown direct originals qualify retained
