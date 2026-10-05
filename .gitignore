@@ -15,3 +15,5 @@ dist/
 .lint-format-evidence/
 app/node_modules/
 app/dist/
+/.packaging-stage
+/.packaging-candidates/
