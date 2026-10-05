@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { renderMarkdown } from '../markdown'
-import { loadOlder, state, steersFor, stopPending, type SteerLine } from '../store'
+import { loadOlder, retry, state, steersFor, stopPending, type SteerLine } from '../store'
 import ToolActivity from './ToolActivity.vue'
 
 const scroller = ref<HTMLElement | null>(null)
@@ -10,6 +10,7 @@ const messages = computed(() => view.value?.messages ?? [])
 const running = computed(() => view.value?.running ?? null)
 const queuedCount = computed(() => view.value?.queued.length ?? 0)
 const pending = computed(() => state.pending.filter((p) => p.conversation_id === state.activeId))
+const loadError = computed(() => (state.activeId ? state.loadErrors[state.activeId] : undefined))
 const steers = computed(() =>
   running.value && state.activeId ? steersFor(state.activeId, running.value.request_id, running.value.generation) : []
 )
@@ -76,7 +77,11 @@ function older(): void {
 
 <template>
   <section ref="scroller" class="message-scroll">
-    <p v-if="!state.loaded || !view?.hasData" class="empty">{{ state.app.link === 'ready' ? 'Loading…' : 'Connecting to Odin…' }}</p>
+    <div v-if="!view?.hasData && loadError" class="empty" role="alert">
+      <p>Couldn't load this conversation: {{ loadError }}</p>
+      <button class="ghost" @click="retry">Retry</button>
+    </div>
+    <p v-else-if="!state.loaded || !view?.hasData" class="empty">{{ state.app.link === 'ready' ? 'Loading…' : 'Connecting to Odin…' }}</p>
     <template v-else>
       <div v-if="view.hasMore" class="older">
         <button class="ghost" :disabled="view.loadingOlder" @click="older">

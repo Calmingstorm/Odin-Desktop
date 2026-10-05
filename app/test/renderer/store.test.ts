@@ -471,4 +471,48 @@ describe('reconnect recovery', () => {
     await until(() => store.canAct('c1'))
     expect(store.state.views.c1!.running?.request_id).toBe('r-live')
   })
+
+  it('shows a failed recovery snapshot as an error, routes nothing, and Retry restores authority', async () => {
+    await start(snapshot({ watermark: '1' }))
+    setApp({ ...READY, link: 'reconnecting' })
+    setApp(READY)
+    await until(() => bridge.control.snapshots.length === 2)
+    bridge.control.snapshots[1]!.resolve({ ok: false, error: { code: 'busy', message: 'Odin is busy right now.', disposition: 'not_dispatched' } })
+    await until(() => store.state.loadErrors.c1 !== undefined)
+    expect(store.state.loadErrors.c1).toBe('Odin is busy right now.')
+    expect(store.canAct('c1')).toBe(false)
+    expect(await store.send('hello', 'queue')).toBe(false)
+    expect(bridge.calls.submit).toHaveLength(0)
+
+    void store.retry()
+    await until(() => bridge.control.snapshots.length === 3)
+    expect(store.state.loadErrors.c1).toBeUndefined() // in flight again, not failed
+    bridge.control.snapshots[2]!.resolve(snapshot({ watermark: '5' }))
+    await until(() => store.canAct('c1'))
+    expect(await store.send('hello', 'queue')).toBe(true)
+  })
+
+  it('reloads a conversation selected while its in-flight load belongs to an earlier recovery', async () => {
+    const other = { ...CONVERSATION, id: 'c2', title: 'Other' }
+    bridge.control.list = [
+      { ...CONVERSATION, activity: { running: null, queued: [] } },
+      { ...other, activity: { running: null, queued: [] } }
+    ]
+    await start(snapshot({ watermark: '1' }))
+    void store.select('c2') // its first load is held
+    await until(() => bridge.control.snapshots.length === 2)
+    await store.select('c1')
+    setApp({ ...READY, link: 'reconnecting' })
+    setApp(READY)
+    await until(() => bridge.control.snapshots.length === 3)
+    bridge.control.snapshots[2]!.resolve(snapshot({ watermark: '10' }))
+    await until(() => store.canAct('c1'))
+
+    void store.select('c2') // its in-flight load is from before the outage, so it must load again
+    await until(() => bridge.control.snapshots.length === 4)
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '2', conversation: other })) // the old answer
+    bridge.control.snapshots[3]!.resolve(snapshot({ watermark: '11', conversation: other }))
+    await until(() => store.canAct('c2'))
+    expect(store.state.views.c2!.epoch).toBe(store.state.recoveryEpoch)
+  })
 })

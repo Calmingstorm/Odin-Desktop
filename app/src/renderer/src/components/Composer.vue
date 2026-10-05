@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { canAct, send, state, stop, stopPending, type ComposerMode } from '../store'
+import { canAct, retry, send, state, stop, stopPending, type ComposerMode } from '../store'
 
 const text = ref('')
 const mode = ref<ComposerMode>('steer')
@@ -12,7 +12,8 @@ const stopping = computed(() =>
 )
 // Until the open conversation's snapshot arrives, nothing is routed; the draft can still be edited.
 const ready = computed(() => canAct(state.activeId))
-const loading = computed(() => state.app.link === 'ready' && Boolean(state.activeId) && !ready.value)
+const loadError = computed(() => (state.activeId ? state.loadErrors[state.activeId] : undefined))
+const loading = computed(() => state.app.link === 'ready' && Boolean(state.activeId) && !ready.value && !loadError.value)
 const buttonLabel = computed(() => (running.value ? (mode.value === 'steer' ? 'Steer' : 'Queue') : 'Send'))
 const placeholder = computed(() =>
   running.value ? (mode.value === 'steer' ? 'Steer the current task…' : 'Queue a follow-up…') : 'Message Odin…'
@@ -60,7 +61,11 @@ function onKey(event: KeyboardEvent): void {
         </button>
       </div>
     </div>
-    <p v-if="loading" class="notice" role="status">Loading this conversation…</p>
+    <p v-if="loadError" class="notice error" role="alert">
+      Couldn't load this conversation: {{ loadError }}
+      <button type="button" class="ghost" @click="retry">Retry</button>
+    </p>
+    <p v-else-if="loading" class="notice" role="status">Loading this conversation…</p>
     <p v-else-if="state.notice" class="notice" role="status">{{ state.notice }}</p>
   </form>
 </template>
