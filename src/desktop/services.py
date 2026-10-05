@@ -469,12 +469,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     agents.set_completion_classifier(completion)
 
     async def read_history(message, *, limit):
-        engine._assert_request(message)
+        engine.requests.assert_bound_request(message)
         rows = engine.requests.transcript.read_conversation(message.conversation_id, limit=limit)
         return [f"{row['role']}: {row['text']}" for row in rows]
 
     def current_conversation(message):
-        engine._assert_request(message)
+        engine.requests.assert_bound_request(message)
         return message.conversation_id
 
     class TranscriptHistoryTools:
