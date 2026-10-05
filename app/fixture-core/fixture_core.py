@@ -38,7 +38,8 @@ RECENT_OUTCOMES = 20
 READ_METHODS = {"status.get", "events.subscribe", "conversations.list", "messages.list", "conversation.snapshot",
                 "search.query", "messages.around", "usage.get", "artifacts.read", "reports.page", "work.list",
                 "tool.detail", "tool.output", "settings.schema", "codex.accounts.list", "codex.login.poll",
-                "models.agents.get"}
+                "models.agents.get", "tools.list", "tools.timeouts.get", "skills.list", "skills.get", "skills.validate",
+                "skills.config.get", "mcp.status", "mcp.tools"}
 # Idempotent by offset, so it keeps no durable receipt (protocol.md, Conventions).
 NO_RECEIPT_METHODS = READ_METHODS | {"attachments.chunk"}
 CHUNK_BYTES = 512 * 1024
@@ -119,8 +120,8 @@ SETTINGS = [
           constraints={"minimum": 1, "maximum": 25}),
     field("tools.command_shell", "string", "Command shell", "auto", apply_mode="live_for_new_work",
           enum=["auto", "bash", "sh"]),
-    field("tools.tool_timeouts", "object", "Per-tool timeouts (s)", {}, 'For example {"run_command": 900}.',
-          "live_for_new_work"),
+    field("tools.tool_timeouts", "object", "Per-tool timeouts (s)", {"run_command": 900},
+          'For example {"run_command": 900}.', "live_apply", apply_handler="tools.timeouts.set"),
     field("computer.enabled", "boolean", "Computer use", False, apply_mode="activation_required",
           apply_handler="computer.activation.set",
           activation_policy="On activates computer use for the running core; off revokes it."),
@@ -157,6 +158,56 @@ def check_field_value(spec: dict, value) -> str | None:
     if kind == "object" and not isinstance(value, dict):
         return "must be an object"
     return None
+
+
+# Built-in tools: (name, description, core). A subset of Odin's 67, in Odin's inventory shape.
+BUILTIN_TOOLS = [
+    ("run_command", "Run a shell command on a host.", True),
+    ("read_file", "Read a file from a host.", True),
+    ("write_file", "Write a file on a host.", True),
+    ("apply_patch", "Apply a patch to files on a host.", True),
+    ("manage_process", "Start, poll, write to or stop a background process.", True),
+    ("web_search", "Search the web.", False),
+    ("fetch_url", "Fetch a web page or file.", False),
+    ("generate_image", "Generate an image from a prompt.", False),
+    ("spawn_agent", "Start an agent on a goal.", False),
+    ("memory_manage", "Read and write persistent memory.", False),
+    ("schedule_task", "Schedule a task or a check.", False),
+    ("email_send", "Send an email.", False),
+    ("computer_act", "Act on the desktop: click, type, scroll.", False),
+]
+WEATHER_SKILL = '''"""Weather lookup."""
+SKILL_DEFINITION = {
+    "name": "weather",
+    "description": "Look up the weather for a city.",
+    "input_schema": {"type": "object", "properties": {"city": {"type": "string"}}},
+}
+
+
+async def execute(inp, context):
+    return f"Weather for {inp.get('city', 'nowhere')}: fine."
+'''
+
+
+def validate_skill(code: str) -> dict:
+    """Odin's validate_skill_code report: compiled, never run."""
+    errors, warnings = [], []
+    try:
+        compile(code, "<skill>", "exec")
+    except SyntaxError as exc:
+        return {"valid": False, "errors": [f"Syntax error at line {exc.lineno}: {exc.msg}"], "warnings": [],
+                "metadata": None, "definition_keys": []}
+    if "SKILL_DEFINITION" not in code:
+        errors.append("SKILL_DEFINITION is missing.")
+    if "def execute" not in code:
+        errors.append("execute() is missing.")
+    elif "async def execute" not in code:
+        warnings.append("execute() is not async. It should be 'async def execute(inp, context)'.")
+    return {"valid": not errors, "errors": errors, "warnings": warnings, "metadata": None,
+            "definition_keys": ["name", "description", "input_schema"] if not errors else []}
+
+
+MCP_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 # A 24x24 PNG in the app's accent colour, for "image" requests.
@@ -269,6 +320,30 @@ class Core:
         ]
         self.codex_current = 0
         self.logins: dict[str, dict] = {}
+        self.disabled_tools = {"email_send"}
+        self.default_timeout = 300
+        self.skills = {
+            "weather": {"code": WEATHER_SKILL, "status": "loaded", "description": "Look up the weather for a city.",
+                        "version": "1.2.0", "author": "odin", "tags": ["web"], "executions": 4,
+                        "config_schema": {"type": "object", "properties": {
+                            "units": {"type": "string", "enum": ["metric", "imperial"], "default": "metric"},
+                            "days": {"type": "integer", "minimum": 1, "maximum": 14, "default": 3}}},
+                        "config": {"units": "metric", "days": 3}},
+            "broken_sync": {"code": "def broken(:\n    pass\n", "status": "error",
+                            "description": "Syntax error at line 1: invalid syntax", "version": "0.0.0",
+                            "author": "", "tags": [], "executions": 0, "config_schema": {}, "config": {}},
+        }
+        self.mcp = {"enabled": True, "max_published_tools_per_server": 40, "max_published_tools_global": 40}
+        self.mcp_servers = {
+            "LMMS": {"transport": "stdio", "command": "/opt/lmms-mcp/run", "args": [], "cwd": None, "url": None,
+                     "timeout_seconds": 360, "enabled": True, "tool_allowlist": None, "headers": {},
+                     "env": {"LMMS_HOME": "/srv/lmms"}, "state": "connected", "last_error": "",
+                     "tools": ["create_track", "add_note", "export_song"]},
+            "Grafana": {"transport": "http", "command": None, "args": [], "cwd": None,
+                        "url": "https://grafana.example/mcp", "timeout_seconds": 60, "enabled": False,
+                        "tool_allowlist": None, "headers": {"Authorization": "Bearer secret"}, "env": {},
+                        "state": "disabled", "last_error": "", "tools": ["query_dashboards"]},
+        }
         self.attachments: dict[str, dict] = {}
         self.results: dict[str, tuple[str, dict]] = {}  # command ID -> (binding, response)
         self.tombstones: dict[str, str] = {}  # pruned command ID -> binding
@@ -761,6 +836,266 @@ class Core:
         self.codex_accounts.append(account)
         login["done"] = {"status": "authenticated", "email": account["email"], "account_id": account["account_id"]}
         return login["done"]
+
+    # ---------------------------------------------------------------- tools
+    def tool_inventory(self) -> dict:
+        tools = []
+        for name, description, core in BUILTIN_TOOLS:
+            enabled = name not in self.disabled_tools
+            hidden = name.startswith("computer_") and not self.settings_values["computer.enabled"]
+            state = "disabled" if not enabled else "unavailable" if hidden else "available"
+            tools.append({"name": name, "description": description, "is_core": core, "enabled": enabled,
+                          "state": state, "input_schema": {"type": "object", "properties": {}}})
+        return {"global_enabled": True, "disabled_count": len(self.disabled_tools), "tools": tools}
+
+    def m_tools_list(self, _params: dict, _writer) -> dict:
+        return self.tool_inventory()
+
+    def m_tools_set_enabled(self, params: dict, _writer) -> dict:
+        name = params.get("name")
+        if name not in {t[0] for t in BUILTIN_TOOLS}:
+            raise CoreError("not_found", f"'{name}' is not a built-in tool")
+        if not isinstance(params.get("enabled"), bool):
+            raise CoreError("bad_request", "enabled must be a boolean")
+        (self.disabled_tools.discard if params["enabled"] else self.disabled_tools.add)(name)
+        return self.tool_inventory()
+
+    def m_tools_timeouts_get(self, _params: dict, _writer) -> dict:
+        return {"default_timeout": self.default_timeout, "overrides": dict(self.settings_values["tools.tool_timeouts"])}
+
+    def m_tools_timeouts_set(self, params: dict, _writer) -> dict:
+        overrides = params.get("overrides")
+        default = params.get("default_timeout")
+        if overrides is not None:
+            if not isinstance(overrides, dict):
+                raise CoreError("bad_request", "overrides must be a dict")
+            for key, value in overrides.items():
+                if type(value) is not int or value <= 0:
+                    raise CoreError("bad_request", f"invalid timeout for '{key}': must be a positive integer")
+        if default is not None and (type(default) is not int or default <= 0):
+            raise CoreError("bad_request", "default_timeout must be a positive integer")
+        if overrides is not None:
+            self.settings_values["tools.tool_timeouts"] = dict(overrides)
+        if default is not None:
+            self.default_timeout = default
+        return self.m_tools_timeouts_get({}, _writer)
+
+    # --------------------------------------------------------------- skills
+    def require_skill(self, params: dict) -> tuple[str, dict]:
+        name = params.get("name")
+        skill = self.skills.get(name)
+        if skill is None:
+            raise CoreError("not_found", "skill not found")
+        return name, skill
+
+    def skill_summary(self, name: str, skill: dict) -> dict:
+        diagnostics = [{"level": "error", "message": skill["description"]}] if skill["status"] == "error" else []
+        return {"name": name, "description": skill["description"], "loaded_at": "2026-10-05T09:00:00+00:00",
+                "status": skill["status"], "version": skill["version"], "author": skill["author"],
+                "tags": skill["tags"], "dependencies": [], "has_config": bool(skill["config_schema"]),
+                "diagnostics": diagnostics, "total_executions": skill["executions"], "last_execution": None,
+                "code": skill["code"], "execution_count": skill["executions"]}
+
+    def m_skills_list(self, _params: dict, _writer) -> list:
+        return [self.skill_summary(name, skill) for name, skill in self.skills.items()]
+
+    def m_skills_get(self, params: dict, _writer) -> dict:
+        name, skill = self.require_skill(params)
+        if skill["status"] == "error":
+            raise CoreError("not_found", "skill not found")  # as Odin: a module that failed to load has no detail
+        return {**self.skill_summary(name, skill), "input_schema": {"type": "object", "properties": {}},
+                "file_path": f"skills/{name}.py", "handoff_to_codex": False, "config": dict(skill["config"]),
+                "metadata": {"version": skill["version"], "author": skill["author"], "homepage": "",
+                             "tags": skill["tags"], "dependencies": [], "has_config": bool(skill["config_schema"]),
+                             "config_schema": skill["config_schema"]}}
+
+    def m_skills_validate(self, params: dict, _writer) -> dict:
+        code = str(params.get("code") or "").strip()
+        if not code:
+            raise CoreError("bad_request", "code is required")
+        return validate_skill(code)
+
+    def m_skills_save(self, params: dict, _writer) -> dict:
+        name, code = str(params.get("name") or "").strip(), str(params.get("code") or "").strip()
+        if not name or not code:
+            raise CoreError("bad_request", "name and code are required")
+        exists = name in self.skills
+        if params.get("create") and exists:
+            raise CoreError("bad_request", f"Skill '{name}' already exists.")
+        if not params.get("create") and not exists:
+            raise CoreError("not_found", "skill not found")
+        report = validate_skill(code)
+        if not report["valid"]:
+            raise CoreError("bad_request", f"Skill '{name}' failed to load: " + "; ".join(report["errors"]))
+        previous = self.skills.get(name, {})
+        self.skills[name] = {"code": code, "status": "loaded", "description": f"Skill {name}.",
+                             "version": previous.get("version", "0.1.0"), "author": previous.get("author", ""),
+                             "tags": previous.get("tags", []), "executions": previous.get("executions", 0),
+                             "config_schema": previous.get("config_schema", {}), "config": previous.get("config", {})}
+        return {"result": f"Skill '{name}' {'created' if not exists else 'updated'}."}
+
+    def m_skills_test(self, params: dict, _writer) -> dict:
+        name, skill = self.require_skill(params)
+        if skill["status"] != "loaded":
+            return {"result": f"Skill '{name}' is {skill['status']}.", "is_error": True}
+        skill["executions"] += 1
+        return {"result": f"{name} ran with empty input: fine.", "is_error": False}
+
+    def m_skills_set_enabled(self, params: dict, _writer) -> dict:
+        name, skill = self.require_skill(params)
+        if skill["status"] == "error":
+            raise CoreError("bad_request", f"Skill '{name}' failed to load; fix it before enabling it.")
+        skill["status"] = "loaded" if params.get("enabled") else "disabled"
+        return {"result": f"Skill '{name}' {'enabled' if params.get('enabled') else 'disabled'}."}
+
+    def m_skills_delete(self, params: dict, _writer) -> dict:
+        name, _skill = self.require_skill(params)
+        del self.skills[name]
+        return {"result": f"Skill '{name}' deleted."}
+
+    def m_skills_config_get(self, params: dict, _writer) -> dict:
+        _name, skill = self.require_skill(params)
+        return {"config": dict(skill["config"]), "schema": skill["config_schema"]}
+
+    def m_skills_config_set(self, params: dict, _writer) -> dict:
+        _name, skill = self.require_skill(params)
+        config = params.get("config")
+        if not isinstance(config, dict):
+            raise CoreError("bad_request", "config must be an object")
+        properties = skill["config_schema"].get("properties", {})
+        for key, value in config.items():
+            spec = properties.get(key)
+            if spec is None:
+                raise CoreError("bad_request", f"{key}: not a setting of this skill")
+            if "enum" in spec and value not in spec["enum"]:
+                raise CoreError("bad_request", f"{key}: must be one of {', '.join(spec['enum'])}")
+            if spec.get("type") == "integer" and (type(value) is not int or not spec.get("minimum", value) <= value <= spec.get("maximum", value)):
+                raise CoreError("bad_request", f"{key}: must be a whole number from {spec.get('minimum')} to {spec.get('maximum')}")
+        skill["config"].update(config)
+        return {"config": dict(skill["config"])}
+
+    # ------------------------------------------------------------------ mcp
+    def require_mcp(self, params: dict) -> tuple[str, dict]:
+        name = params.get("name")
+        server = self.mcp_servers.get(name)
+        if server is None:
+            raise CoreError("not_found", "server not found")
+        return name, server
+
+    @staticmethod
+    def mcp_allowed(server: dict, tool: str) -> bool:
+        """As Odin: with an allowlist, a tool not on it is excluded; without one, every tool is offered."""
+        allow = server.get("tool_allowlist")
+        return allow is None or tool in allow
+
+    def mcp_row(self, name: str, server: dict) -> dict:
+        discovered = server["tools"] if server["state"] == "connected" else []
+        published = [tool for tool in discovered if self.mcp_allowed(server, tool)]
+        return {"name": name, "transport": server["transport"], "enabled": server["enabled"], "state": server["state"],
+                "discovered_count": len(discovered),
+                "published_count": len(published), "excluded_count": len(discovered) - len(published),
+                "published_tools": sorted(published),
+                "original_tools": list(server["tools"]), "last_error": server["last_error"], "blocked_reason": "",
+                "last_refresh_age_seconds": 12 if server["state"] == "connected" else None, "stderr_tail": "",
+                "generation": 1, "header_keys": sorted(server["headers"]), "env_keys": sorted(server["env"]),
+                "url_display": re.sub(r"//[^/]+", "//•••", server["url"]) if server["transport"] == "http" else None,
+                "instructions": ""}
+
+    def mcp_status(self) -> dict:
+        rows = [self.mcp_row(name, server) for name, server in self.mcp_servers.items()]
+        return {**self.mcp, "server_count": len(rows), "enabled_server_count": sum(r["enabled"] for r in rows),
+                "connected_count": sum(r["state"] == "connected" for r in rows),
+                "published_tool_count": sum(r["published_count"] for r in rows), "servers": rows}
+
+    def mcp_mutation(self, name: str) -> dict:
+        server = self.mcp_servers.get(name)
+        state = server["state"] if server else "unknown"
+        return {"saved": True, "connected": state == "connected", "state": state,
+                "last_error": server["last_error"] if server else ""}
+
+    def m_mcp_status(self, _params: dict, _writer) -> dict:
+        return self.mcp_status()
+
+    def m_mcp_save(self, params: dict, _writer) -> dict:
+        name = str(params.get("name") or "")
+        if not MCP_NAME.match(name) or len(name) > 128:
+            raise CoreError("bad_request", f"invalid server name {name!r}: letters, digits, underscores, no leading digit")
+        exists = name in self.mcp_servers
+        if params.get("create") and exists:
+            raise CoreError("bad_request", f"server '{name}' already exists")
+        if not params.get("create") and not exists:
+            raise CoreError("not_found", "server not found")
+        base = dict(self.mcp_servers.get(name) or {"transport": "stdio", "command": None, "args": [], "cwd": None,
+                                                    "url": None, "timeout_seconds": 60, "enabled": True,
+                                                    "tool_allowlist": None, "headers": {}, "env": {},
+                                                    "last_error": "", "tools": ["echo"]})
+        for key in ("transport", "command", "args", "url", "cwd", "timeout_seconds", "enabled", "tool_allowlist"):
+            if key in params:
+                base[key] = params[key]
+        for field_name in ("headers", "env"):
+            mapping = dict(base[field_name])
+            for key, value in (params.get(f"{field_name}_set") or {}).items():
+                if value == REDACTED:
+                    raise CoreError("bad_request", f"{field_name}_set contains a redaction mask; secrets must be re-entered")
+                mapping[key] = value
+            for key in params.get(f"{field_name}_remove") or []:
+                mapping.pop(key, None)
+            base[field_name] = mapping
+        if base["transport"] not in ("stdio", "http"):
+            raise CoreError("bad_request", f"{name}: transport must be 'stdio' or 'http'")
+        if base["transport"] == "stdio" and not base.get("command"):
+            raise CoreError("bad_request", f"{name}: stdio transport requires 'command'")
+        if base["transport"] == "http" and not re.match(r"^https?://", str(base.get("url") or "")):
+            raise CoreError("bad_request", f"{name}: http transport requires an http(s) 'url'")
+        base["state"] = "connected" if base["enabled"] and self.mcp["enabled"] else "disabled"
+        self.mcp_servers[name] = base
+        return self.mcp_mutation(name)
+
+    def m_mcp_set_enabled(self, params: dict, _writer) -> dict:
+        name, server = self.require_mcp(params)
+        server["enabled"] = bool(params.get("enabled"))
+        server["state"] = "connected" if server["enabled"] and self.mcp["enabled"] else "disabled"
+        return self.mcp_status()  # Odin's per-server switch answers the whole status
+
+    def m_mcp_delete(self, params: dict, _writer) -> dict:
+        name, _server = self.require_mcp(params)
+        del self.mcp_servers[name]
+        return {"saved": True, "connected": False, "state": "removed", "last_error": ""}
+
+    def m_mcp_reconnect(self, params: dict, _writer) -> dict:
+        name, server = self.require_mcp(params)
+        if server["enabled"] and self.mcp["enabled"]:
+            server["state"], server["last_error"] = "connected", ""
+        return self.mcp_mutation(name)
+
+    def m_mcp_refresh_tools(self, params: dict, _writer) -> dict:
+        name, _server = self.require_mcp(params)
+        return self.mcp_mutation(name)
+
+    def m_mcp_tools(self, params: dict, _writer) -> dict:
+        name, server = self.require_mcp(params)
+        connected = server["state"] == "connected"
+        return {"server": name, "tools": [
+            {"original_name": tool, "published_name": f"mcp_{name}_{tool}",
+             "published": connected and self.mcp_allowed(server, tool), "excluded": not self.mcp_allowed(server, tool),
+             "exclusion_reason": "" if self.mcp_allowed(server, tool) else "not in the tool allowlist",
+             "description": f"{tool.replace('_', ' ').capitalize()}."}
+            for tool in server["tools"]]}
+
+    def m_mcp_set_global_enabled(self, params: dict, _writer) -> dict:
+        self.mcp["enabled"] = bool(params.get("enabled"))
+        for server in self.mcp_servers.values():
+            server["state"] = "connected" if server["enabled"] and self.mcp["enabled"] else "disabled"
+        status = self.mcp_status()
+        return {"saved": True, "enabled": status["enabled"], "connected_count": status["connected_count"]}  # Odin's answer
+
+    def m_mcp_set_limits(self, params: dict, _writer) -> dict:
+        for key in ("max_published_tools_per_server", "max_published_tools_global"):
+            if key in params:
+                if type(params[key]) is not int or params[key] < 0:
+                    raise CoreError("bad_request", "publication limits must be integers")
+                self.mcp[key] = params[key]
+        return {"saved": True, **self.mcp_status()}
 
     def m_resume(self, params: dict, _writer) -> dict:
         req = self.requests.get(str(params.get("request_id")))
@@ -1311,6 +1646,28 @@ METHODS = {
     "codex.accounts.remove": Core.m_codex_remove,
     "codex.login.begin": Core.m_codex_login_begin,
     "codex.login.poll": Core.m_codex_login_poll,
+    "tools.list": Core.m_tools_list,
+    "tools.set_enabled": Core.m_tools_set_enabled,
+    "tools.timeouts.get": Core.m_tools_timeouts_get,
+    "tools.timeouts.set": Core.m_tools_timeouts_set,
+    "skills.list": Core.m_skills_list,
+    "skills.get": Core.m_skills_get,
+    "skills.validate": Core.m_skills_validate,
+    "skills.save": Core.m_skills_save,
+    "skills.test": Core.m_skills_test,
+    "skills.set_enabled": Core.m_skills_set_enabled,
+    "skills.delete": Core.m_skills_delete,
+    "skills.config.get": Core.m_skills_config_get,
+    "skills.config.set": Core.m_skills_config_set,
+    "mcp.status": Core.m_mcp_status,
+    "mcp.save": Core.m_mcp_save,
+    "mcp.set_enabled": Core.m_mcp_set_enabled,
+    "mcp.delete": Core.m_mcp_delete,
+    "mcp.reconnect": Core.m_mcp_reconnect,
+    "mcp.refresh_tools": Core.m_mcp_refresh_tools,
+    "mcp.tools": Core.m_mcp_tools,
+    "mcp.set_global_enabled": Core.m_mcp_set_global_enabled,
+    "mcp.set_limits": Core.m_mcp_set_limits,
     "runtime.reload": Core.m_reload,
     "attachments.begin": Core.m_attach_begin,
     "attachments.chunk": Core.m_attach_chunk,

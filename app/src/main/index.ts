@@ -575,6 +575,18 @@ async function interfaceShots(win: BrowserWindow, out: string, broker: Broker): 
   await run(`[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.includes('Models')).click()`)
   await pause(800)
   await shoot('settings-models')
+  await run(`document.querySelector('.field-intent').scrollIntoView({ block: 'center' })`)
+  await shoot('settings-image')
+  const sections: Array<[string, string]> = [
+    ['Tools', 'settings-tools'],
+    ['Skills', 'settings-skills'],
+    ['MCP servers', 'settings-mcp']
+  ]
+  for (const [section, name] of sections) {
+    await run(`[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.trim() === ${JSON.stringify(section)}).click()`)
+    await pause(800)
+    await shoot(name)
+  }
   await run(`document.querySelector('.settings-nav .back').click()`)
   await pause(300)
   // A very long reply, as a regression signal: how long reopening its conversation takes (fetch, render, paint), and

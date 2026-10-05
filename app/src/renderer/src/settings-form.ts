@@ -120,6 +120,12 @@ export function imageLeafOf(field: ConfigField): ImageLeaf | null {
   return field.path === 'image.openai.image_model' ? 'image_model' : field.path === 'image.openai.outer_model' ? 'outer_model' : null
 }
 
+/** False for a field a section's own controls change (for example tool timeouts): the form shows it, read-only. */
+export function editableHere(field: ConfigField): boolean {
+  const handler = field.apply_handler
+  return isSecret(field) || !handler || handler === 'settings.set' || dedicatedMethod(field) !== null || settingsShapedMethod(field) !== null
+}
+
 export function dedicatedMethod(field: ConfigField): DedicatedMethod | null {
   return (DEDICATED as readonly string[]).includes(field.apply_handler ?? '') ? (field.apply_handler as DedicatedMethod) : null
 }
