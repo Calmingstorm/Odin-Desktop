@@ -1,14 +1,15 @@
-"""Supervised bundled Chromium owner, never the user's browser or session.
+"""Supervised bundled Chromium or explicitly configured CDP browser owner.
 
-Part-B request wiring uses the executor manager only after ``await start()`` and
-checks ``readiness()`` at publication. Copied handlers retain URL, connect-time
-network and disposable-context rules. This owner grants no request authority,
+Part-B request wiring uses the lazy runtime seam after ``await start()``. Actual
+readiness stays separate from retry availability. Copied handlers retain URL,
+connect-time network and disposable-context rules. This owner grants no request authority,
 shell route or workspace access. Browser config is a restart-only snapshot.
 """
 from __future__ import annotations
 
 import asyncio
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from ..runtime_paths import runtime_install_root
@@ -33,10 +34,13 @@ def resolve_bundled_chromium(bundle_root: Path) -> Path:
     if not root.is_absolute():
         raise RuntimeError("Browser unavailable: Chromium bundle root must be absolute.")
     root = root.resolve()
-    candidates = [root / parent / layout / "chrome"
-                  for parent in ("chromium", "")
-                  for layout in ("chrome-linux64", "chrome-linux")]
-    for revision in sorted(root.glob("chromium-*"), reverse=True):
+    candidates = [root / "browser/chromium/chrome-headless-shell-linux64/chrome-headless-shell"]
+    # Retain development bundles; P4.1 resources are the packaging authority.
+    legacy_root = root / "browser" if (root / "browser").is_dir() else root
+    candidates.extend(legacy_root / parent / layout / "chrome"
+                      for parent in ("chromium", "")
+                      for layout in ("chrome-linux64", "chrome-linux"))
+    for revision in sorted(legacy_root.glob("chromium-*"), reverse=True):
         candidates.extend(revision / layout / "chrome"
                           for layout in ("chrome-linux64", "chrome-linux"))
     for candidate in candidates:
@@ -86,18 +90,23 @@ class DesktopBrowserManager(BrowserManager):
                 return
             self._qualified_browser = None
             try:
-                await super()._ensure_connected()
-                browser = self._browser
-                context, _page = await _await_bounded(
-                    self._create_page(), _STARTUP_TIMEOUT, "qualifying bundled Chromium"
-                )
-                await _await_bounded(context.close(), 5.0, "closing browser qualification context")
-                if browser is not self._browser or not browser.is_connected() or self._closed:
-                    raise RuntimeError("Bundled Chromium disconnected during qualification.")
-                self._qualified_browser = browser
+                await _await_bounded(self._qualify(), _STARTUP_TIMEOUT,
+                                     "qualifying browser")
             except BaseException:
                 await super().shutdown()
                 raise
+
+    async def _qualify(self) -> None:
+        # One budget covers driver startup, launch/CDP, guards, page and close.
+        # This also bounds CDP, whose copied connect has no separate deadline.
+        # Failed qualification still gets the copied bounded shutdown afterwards.
+        await super()._ensure_connected()
+        browser = self._browser
+        context, _page = await self._create_page()
+        await context.close()
+        if browser is not self._browser or not browser.is_connected() or self._closed:
+            raise RuntimeError("Browser disconnected during qualification.")
+        self._qualified_browser = browser
 
     async def start(self) -> None:
         await self._ensure_connected()
@@ -114,7 +123,8 @@ class BrowserRuntime:
 
     ``config`` accepts SettingsService, full config, or BrowserConfig. Saved
     browser changes do not mutate this boot snapshot or prove readiness. Desktop
-    uses bundled headless Chromium even when legacy CDP is configured.
+    honors configured CDP, otherwise uses only bundled headless Chromium. After
+    startup settles the executor owns a lazy seam, not an unqualified manager.
     """
 
     def __init__(self, config, paths=None, executor=None, *, bundle_root: Path | None = None,
@@ -124,12 +134,14 @@ class BrowserRuntime:
         self.paths = paths
         self.executor = executor
         self.bundle_root = (Path(bundle_root) if bundle_root is not None
-                            else runtime_install_root() / "assets" / "browser")
+                            else Path(os.environ.get("ODIN_DESKTOP_BUNDLE_ROOT")
+                                      or runtime_install_root() / "assets"))
         self._manager_factory = manager_factory
         self._manager = None
         self._lock = asyncio.Lock()
         self._closed = False
         self._state = "pending" if self._config.enabled else "disabled"
+        self._started = False
         self._reason = None
 
     @property
@@ -146,6 +158,38 @@ class BrowserRuntime:
             state = "unavailable"
         return {"state": state, "ready": self.readiness(), "reason": self._reason}
 
+    def available(self) -> bool:
+        """A wired retry seam, not a claim that a browser has qualified."""
+        return bool(self._config.enabled and self._started and not self._closed)
+
+    @property
+    def allowed_urls(self):
+        return list(self._config.allow_private_targets)
+
+    def wait_timeout_ms(self, value=None) -> int:
+        # Pure copied timeout policy, with no driver, connection or launch.
+        return BrowserManager(
+            max_wait_timeout_seconds=self._config.max_wait_timeout_seconds,
+        ).wait_timeout_ms(value)
+
+    @asynccontextmanager
+    async def new_page(self, timeout_ms=None):
+        if self._closed:
+            raise RuntimeError("Browser runtime is closed.")
+        if not await self.start():
+            raise RuntimeError(self._reason or "Browser runtime is unavailable.")
+        manager = self.manager
+        if manager is None:
+            raise RuntimeError("Browser runtime is unavailable.")
+        async with manager.new_page(timeout_ms) as page:
+            yield page
+
+    def _publish_retry_seam(self) -> None:
+        if not self._closed:
+            self._started = True
+            if self.executor is not None:
+                self.executor._browser_manager = self
+
     async def start(self) -> bool:
         async with self._lock:
             if self._closed:
@@ -156,16 +200,16 @@ class BrowserRuntime:
             if self.readiness():
                 return True
             previous, self._manager = self._manager, None
-            if self.executor is not None and self.executor._browser_manager is previous:
-                self.executor._browser_manager = None
             if previous is not None:
                 await previous.shutdown()
             candidate = None
             self._state, self._reason = "qualifying", None
             try:
-                executable = resolve_bundled_chromium(self.bundle_root)
+                executable = (None if self._config.cdp_url
+                              else resolve_bundled_chromium(self.bundle_root))
                 candidate = self._manager_factory(
-                    cdp_url="", bundled_executable=str(executable),
+                    cdp_url=self._config.cdp_url,
+                    bundled_executable=str(executable) if executable is not None else None,
                     default_timeout_ms=self._config.default_timeout_ms,
                     max_wait_timeout_seconds=self._config.max_wait_timeout_seconds,
                     viewport_width=self._config.viewport_width,
@@ -177,28 +221,30 @@ class BrowserRuntime:
                 )
                 await candidate.start()
                 if not candidate.readiness() or self._closed:
-                    raise RuntimeError("Bundled Chromium did not qualify.")
+                    raise RuntimeError("Browser did not qualify.")
                 self._manager = candidate
-                if self.executor is not None:
-                    self.executor._browser_manager = candidate
+                self._publish_retry_seam()
                 self._state = "ready"
                 return True
             except BaseException as exc:
                 self._state = "unavailable"
                 # Playwright exceptions can include URLs, paths or credentials.
                 self._reason = (
+                    "Browser qualification failed; check the configured CDP endpoint."
+                    if self._config.cdp_url else
                     "Bundled Chromium qualification failed; repair the desktop installation.")
                 if candidate is not None:
                     await candidate.shutdown()
                 if not isinstance(exc, Exception):
                     raise
+                self._publish_retry_seam()
                 return False
 
     async def close(self) -> None:
         self._closed = True
         async with self._lock:
             manager, self._manager = self._manager, None
-            if self.executor is not None and self.executor._browser_manager is manager:
+            if self.executor is not None and self.executor._browser_manager is self:
                 self.executor._browser_manager = None
             self._state, self._reason = "closed", None
             if manager is not None:

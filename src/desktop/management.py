@@ -164,7 +164,9 @@ class ManagementService:
             ready = {name: True for name in EXECUTOR_HANDLERS}
             for name in ready:
                 if name.startswith("browser_"):
-                    ready[name] = browser.readiness()
+                    # This is a qualify-before-use lazy handler. Withdrawing it
+                    # after failure would remove the only route to retry.
+                    ready[name] = browser.available()
                 if name.startswith("email_"):
                     ready[name] = settings.config.email.enabled
             return ready
