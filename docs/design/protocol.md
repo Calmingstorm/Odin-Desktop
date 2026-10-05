@@ -63,22 +63,39 @@ Every message has a type field `t`. An unknown `t` is a protocol error. Unknown 
    - **Otherwise,** it sends `bye` with a reason (`unauthorized`, `incompatible` or `wrong_profile`) and closes.
 3. After `welcome`, the app may send `req` frames. Events flow only after `events.subscribe`.
 
-## Methods (minor 1)
+## Methods (minor 2)
 
 | Method | Params | Result |
 |---|---|---|
 | `status.get` | `{}` | `{phase, core_instance_id, version, capabilities}`. Phase is one of `starting`, `ready`, `degraded`, `quiescing`. |
-| `events.subscribe` | `{after: cursor or null}` | `{event_high, reset_required}`. If `after` is unknown or expired, `reset_required` is true: the app reloads state with the list methods, then subscribes from `event_high`. |
+| `events.subscribe` | `{after: cursor or null}` | `{event_high, reset_required}`. If `after` is unknown or expired, `reset_required` is true: see **Reset** under the delivery rules. |
 | `conversations.list` | `{}` | `{items: [{id, title, rev, parent_id, updated_at, unread, archived}]}` |
 | `conversations.create` | `{title?, parent_id?}` | `{conversation}`. A `parent_id` makes a child seeded from the parent's current context. |
 | `conversations.update` | `{id, expected_rev, title?, archived?}` | `{conversation}`, or the error `stale_binding` if `expected_rev` doesn't match |
-| `messages.list` | `{conversation_id, before?, limit}` | `{items, has_more}`. Committed messages only, newest last. `limit` is at most 100. |
+| `messages.list` | `{conversation_id, before?, limit}` | `{items, has_more, watermark}`. Committed messages only, newest last. `limit` is at most 100. Used for older pages; the current state comes from `conversation.snapshot`. |
+| `conversation.snapshot` | `{conversation_id, limit?}` | The conversation's authoritative state at `watermark`: see **Snapshots** below. |
 | `submission.send` | `{client_submission_id, conversation_id, text}` | `{disposition, request_id?, message_id?}`, where disposition is `accepted` or `rejected`. Sending the same `client_submission_id` again returns the original answer and never admits a second request. |
 | `control.stop` | `{control_command_id, conversation_id, request_id, generation}` | `{disposition}`: `requested`, `not_running` or `stale_binding`. Settlement arrives as events. |
 | `control.steer` | `{control_command_id, conversation_id, request_id, generation, text}` | `{disposition, sequence?}`: `queued`, `closed` or `stale_binding` |
 | `runtime.shutdown` | `{reason}` | `{disposition: "accepted"}`. The core then stops admitting work, settles or cancels it, persists, and exits. Pending or unknown work is reported as events, and again at the next start. |
 
 Attachments, artifacts, settings, schedules and the rest of the management surface arrive in later minors.
+
+### Snapshots
+
+`conversation.snapshot` returns everything a conversation view shows, so the app can rebuild it exactly after a
+reconnect, a reset or a window reload, without relying on events it may have missed:
+
+| Field | Contents |
+|---|---|
+| `watermark` | The profile cursor through which the snapshot is complete |
+| `conversation` | The conversation record |
+| `messages` | `{items, has_more}`: the latest committed messages (at most `limit`, default 100), newest last |
+| `running` | `{request_id, generation, started_at}` or `null`. The only valid Stop and Steer target. |
+| `queued` | `[{request_id, generation, message_id}]`, oldest first. Follow-ups waiting behind `running`. |
+| `recent` | The latest terminal outcomes, newest last: `[{request_id, generation, outcome, unknown_effects, at}]`. `outcome` is `completed`, `failed`, `cancelled`, `interrupted` or `suspended`. Unknown effects stay visible here even after the request ended. |
+| `tools` | `{<request_id>: [{invocation_id, tool, target?, summary, outcome?, exit_code?, duration_ms?}]}` for the running request and the requests behind the listed messages |
+| `controls` | `[{control_command_id, kind, request_id, disposition, sequence?}]`: every Stop and Steer bound to the running or queued requests, with its latest disposition |
 
 ## Events
 
@@ -91,7 +108,7 @@ Attachments, artifacts, settings, schedules and the rest of the management surfa
 | `request.completed`, `request.failed`, `request.cancelled`, `request.interrupted`, `request.suspended` | `{conversation_id, request_id, generation, unknown_effects}` |
 | `tool.started` | `{conversation_id, request_id, invocation_id, tool, target?, summary}` (scrubbed) |
 | `tool.settled` | `{conversation_id, request_id, invocation_id, outcome, exit_code?, duration_ms, evidence_ref?}`. `outcome` is one of `success`, `failure`, `unknown`. |
-| `control.receipt` | `{control_command_id, kind, disposition}`. `kind` is `stop` or `steer`. `disposition` is one of `requested`, `confirmed`, `queued`, `consumed`, `closed`, `stale_binding`. |
+| `control.receipt` | `{conversation_id, request_id, control_command_id, kind, disposition}`. `kind` is `stop` or `steer`. `disposition` is one of `requested`, `confirmed`, `queued`, `consumed`, `closed`, `stale_binding`. |
 
 **No event ever carries reply text that the guards have not accepted** (D9).
 
@@ -100,11 +117,32 @@ Attachments, artifacts, settings, schedules and the rest of the management surfa
 - **Ordering.** `seq` is monotonic across the whole profile. `cursor` is opaque; in v0 it is the decimal `seq`. Gaps are
   normal, so the app never assumes events are contiguous.
 - **Duplicates.** Events reach the app at least once, so the app deduplicates by `seq`.
-- **Reconnect.** The app sends `hello`, then `events.subscribe` with `after` set to the last cursor it applied.
+- **Reconnect.** The app sends `hello`, then `events.subscribe` with `after` set to the last cursor it received.
+- **Snapshot and tail.** A snapshot is complete through its `watermark`: every event with `seq` at or below it is
+  already reflected. The app applies a snapshot, then only events above its watermark. While a snapshot is in flight,
+  the app holds that conversation's events and replays the ones above the watermark when it arrives. A snapshot older
+  than state the app has already applied is discarded, and so is the answer to a superseded snapshot request.
+- **Reset.** `reset_required` means the interval since the app's cursor is unknown, never empty. The app's event
+  cursor moves to `event_high`, every conversation projection is discarded, and each open view fetches a fresh
+  snapshot. Nothing from the old projections survives a reset.
 - **A lost receipt.** If a `req` gets no `res` (a timeout or disconnect), the app re-sends the **same `id`** after
-  reconnecting. It never invents a new one. The core answers a known `id` with its original result.
+  reconnecting. It never invents a new one. The core answers a known `id` with its original result. Until then the
+  outcome is unknown, which the app shows as "waiting for confirmation", never as a failure.
 - **Core restart.** A new `core.instance_id` means a new incarnation. The app handshakes again and catches up from its
   cursor. Work interrupted by the crash is reported by the core as `request.interrupted`, never replayed.
+
+## Command identity
+
+- **Binding.** A command ID (`req.id`) is bound to the profile, the method and the canonical params (JSON with sorted
+  keys). The same ID with the same method and params returns the original result. The same ID with a different method
+  or params is refused with `id_conflict` and runs nothing.
+- **Durability.** Receipts for commands that admit or change something (`submission.send`, `control.*`,
+  `conversations.create`, `conversations.update`, `runtime.shutdown`) are durable and survive core restarts. Read
+  methods (`status.get`, `*.list`, `conversation.snapshot`, `events.subscribe`) are not cached.
+- **Expiry.** When a receipt's body is pruned, a tombstone of its binding stays for the profile's lifetime. Re-sending
+  that ID returns `receipt_expired` with disposition `outcome_unknown`. An expired ID is never admitted as new.
+- **The development fixture** keeps receipts in memory only, so it doesn't meet the durability rule across its own
+  restarts. The real core (Phase 2) must.
 
 ## Errors
 
@@ -118,6 +156,8 @@ Attachments, artifacts, settings, schedules and the rest of the management surfa
 | `capability_unavailable` | The feature isn't available or qualified |
 | `storage_unavailable` | Durable admission couldn't be established |
 | `busy` | Temporarily refused; retry with the same `id` |
+| `id_conflict` | The command ID is already bound to a different method or params. Nothing ran. |
+| `receipt_expired` | The ID was used before and its receipt was pruned. Its outcome is unknown; it is never re-admitted. |
 | `internal` | A bounded, scrubbed description of a core fault |
 
 `disposition` uses the core-contracts vocabulary: `rejected`, `not_dispatched`, `accepted`, `outcome_unknown` and so on.

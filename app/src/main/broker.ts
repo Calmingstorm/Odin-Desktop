@@ -1,7 +1,10 @@
 // The only holder of the core socket (docs/design/protocol.md). The window never talks to the core directly.
 //
 // Delivery rules it enforces:
-// - Events are deduplicated by `seq`; the last applied cursor is kept for catch-up after a reconnect.
+// - Events are deduplicated by `seq`; the last received cursor is kept for catch-up after a reconnect.
+// - Exactly one event subscription per connection, renewed by the broker itself after every reconnect.
+// - A reset (the core can't replay the interval since our cursor) is emitted as 'reset', so every view is rebuilt
+//   from snapshots. The missing interval is never treated as empty.
 // - A request with no receipt is never re-sent with a new ID. Its frame is kept and re-sent with the SAME ID after
 //   reconnecting; the core answers a known ID with its original result, which is emitted as a late 'receipt'.
 import { randomUUID } from 'node:crypto'
@@ -10,7 +13,7 @@ import { createConnection, type Socket } from 'node:net'
 import type { CoreError, CoreEvent, LinkState } from '../shared/api'
 import { DEFAULT_MAX_FRAME, FrameDecoder, ProtocolError, encodeFrame } from './framing'
 
-export const PROTOCOL = { major: 0, minor: 1 } as const
+export const PROTOCOL = { major: 0, minor: 2 } as const
 
 export interface BrokerOptions {
   socketPath: string
@@ -62,7 +65,7 @@ export class Broker extends EventEmitter {
   private readonly unreceipted = new Map<string, Record<string, unknown>>()
   private lastSeq = 0
   private lastCursor: string | null = null
-  private subscribed = false
+  private wantEvents = false
   private closedByUs = false
   private reconnectAttempt = 0
   private reconnectTimer: NodeJS.Timeout | null = null
@@ -132,16 +135,23 @@ export class Broker extends EventEmitter {
     })
   }
 
-  /** Starts (or resumes) the event stream from the last applied cursor. */
+  /** Turns the event stream on: now if connected, and again after every reconnect. Idempotent. */
+  startEvents(): void {
+    if (this.wantEvents) return
+    this.wantEvents = true
+    if (this.link === 'ready') void this.subscribe()
+  }
+
+  /** Subscribes on the current connection from the last received cursor. */
   async subscribe(): Promise<Settled> {
-    this.subscribed = true
+    this.wantEvents = true
     const settled = await this.request('events.subscribe', { after: this.lastCursor })
     if (settled.ok) {
       const result = settled.result as { event_high?: string; reset_required?: boolean }
       if (result.reset_required && typeof result.event_high === 'string') {
         this.lastCursor = result.event_high
         this.lastSeq = Number(result.event_high) || 0
-        this.emit('reset', result)
+        this.emit('reset', { event_high: result.event_high })
       }
     }
     return settled
@@ -232,11 +242,12 @@ export class Broker extends EventEmitter {
     this.welcomeFrame = welcome
     this.reconnectAttempt = 0
     this.setLink('ready')
+    // Re-send commands that never got a receipt, with their original IDs, then renew the one subscription. Both
+    // happen before 'welcome' is emitted, so a listener can't add a second subscription on this connection.
+    for (const frame of this.unreceipted.values()) socket.write(encodeFrame(frame, this.maxFrame))
+    if (this.wantEvents) void this.subscribe()
     this.emit('welcome', welcome)
     if (previous && previous !== welcome.core.instance_id) this.emit('core-changed', welcome.core.instance_id)
-    // Re-send commands that never got a receipt, with their original IDs.
-    for (const frame of this.unreceipted.values()) socket.write(encodeFrame(frame, this.maxFrame))
-    if (this.subscribed) void this.subscribe()
   }
 
   private onResponse(frame: Record<string, unknown>): void {

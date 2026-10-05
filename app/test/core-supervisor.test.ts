@@ -71,3 +71,41 @@ describe('core supervisor', () => {
     expect(restarted).toBe(false)
   })
 })
+
+describe('core supervisor start failures', () => {
+  function missing(extra: Partial<ConstructorParameters<typeof CoreSupervisor>[0]> = {}) {
+    // A path that can't exist: spawning it fails with ENOENT and runs nothing.
+    return supervisor('', { command: join(tmpdir(), `odin-missing-core-${process.pid}`, 'core'), args: [], ...extra })
+  }
+
+  it('treats a core that cannot start like a crash: bounded restarts, then failure, each start ended once', async () => {
+    const s = missing({ maxRestarts: 2, restartWindowMs: 60_000 })
+    const restarts: number[] = []
+    let ended = 0
+    let failed = false
+    let started = false
+    s.on('restarting', ({ attempt }: { attempt: number }) => restarts.push(attempt))
+    s.on('exited', () => (ended += 1))
+    s.on('failed', () => (failed = true))
+    s.on('started', () => (started = true))
+    s.start()
+    await waitFor(() => failed, 5_000)
+    await new Promise((r) => setTimeout(r, 100))
+    expect(restarts).toEqual([1, 2])
+    expect(ended).toBe(3)
+    expect(started).toBe(false)
+    expect(s.current).toBe('failed')
+    expect(s.pid).toBeUndefined()
+  })
+
+  it('stops a core that never started at once, without restarting it', async () => {
+    const s = missing()
+    let restarted = false
+    s.on('restarting', () => (restarted = true))
+    s.start()
+    expect(await s.stop(200, 200)).toBe('not-running')
+    await new Promise((r) => setTimeout(r, 150))
+    expect(restarted).toBe(false)
+    expect(s.current).toBe('stopped')
+  })
+})

@@ -9,14 +9,17 @@ import {
   listMessagesSchema,
   parseRequest,
   setAutostartSchema,
+  snapshotConversationSchema,
   steerSchema,
   submitSchema
 } from './schemas'
-import { isTrustedSender } from './security-policy'
+import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-policy'
 
 export interface IpcDeps {
   broker: Broker
   windowId: () => number | null
+  /** The window's top frame; requests from any other frame are refused. */
+  mainFrame: () => FrameIdentity | null
   getSettings: () => Settings
   setAutostart: (enabled: boolean) => Settings
   appState: () => AppState
@@ -33,7 +36,8 @@ function fromSettled<T>(settled: Settled): Result<T> {
 
 export function registerIpc(deps: IpcDeps): void {
   const trusted = (event: IpcMainInvokeEvent): boolean =>
-    isTrustedSender(event.senderFrame?.url, event.sender.id, deps.windowId())
+    isTrustedSender(event.senderFrame?.url, event.sender.id, deps.windowId()) &&
+    isSameFrame(event.senderFrame, deps.mainFrame())
 
   function handle<S extends z.ZodType>(
     channel: string,
@@ -63,6 +67,9 @@ export function registerIpc(deps: IpcDeps): void {
   )
   handle(IPC.listMessages, listMessagesSchema, async (v) =>
     fromSettled(await deps.broker.request('messages.list', { limit: 100, ...v }))
+  )
+  handle(IPC.snapshotConversation, snapshotConversationSchema, async (v) =>
+    fromSettled(await deps.broker.request('conversation.snapshot', { limit: 100, ...v }))
   )
   // The client-generated ID doubles as the command ID, so a lost receipt is always re-sent under the same ID.
   handle(IPC.submit, submitSchema, async (v) =>

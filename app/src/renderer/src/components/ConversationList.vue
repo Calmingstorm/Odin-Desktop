@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { newConversation, select, state } from '../store'
+import { isBusy, newConversation, select, state } from '../store'
 </script>
 
 <template>
@@ -12,7 +12,7 @@ import { newConversation, select, state } from '../store'
       <li v-for="c in state.conversations" :key="c.id">
         <button :class="['conv', { active: c.id === state.activeId }]" @click="select(c.id)">
           <span class="conv-title">{{ c.title }}</span>
-          <span v-if="state.active[c.id]" class="busy-dot" title="Odin is working in this conversation" />
+          <span v-if="isBusy(c.id)" class="busy-dot" title="Odin is working in this conversation" />
         </button>
       </li>
     </ul>

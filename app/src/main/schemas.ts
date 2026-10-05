@@ -12,6 +12,10 @@ export const listMessagesSchema = z
   .object({ conversation_id: coreId, before: coreId.optional(), limit: z.number().int().min(1).max(100).optional() })
   .strict()
 
+export const snapshotConversationSchema = z
+  .object({ conversation_id: coreId, limit: z.number().int().min(1).max(100).optional() })
+  .strict()
+
 // 32,000 characters matches Odin's existing chat API limit.
 export const submitSchema = z
   .object({ client_submission_id: z.uuid(), conversation_id: coreId, text: z.string().min(1).max(32_000) })

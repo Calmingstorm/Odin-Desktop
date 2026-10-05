@@ -78,7 +78,8 @@ function run(): void {
     win?.webContents.send(IPC.receipt, receipt)
     publishAppState()
   })
-  broker.on('welcome', () => void broker.subscribe())
+  // The interval since our cursor is unknown: the window rebuilds every view from fresh snapshots.
+  broker.on('reset', (reset) => win?.webContents.send(IPC.reset, reset))
 
   supervisor.on('restarting', () => {
     supervisorLink = 'core-restarting'
@@ -143,6 +144,7 @@ function run(): void {
     registerIpc({
       broker,
       windowId: () => win?.webContents.id ?? null,
+      mainFrame: () => win?.webContents.mainFrame ?? null,
       getSettings: settings,
       setAutostart: (enabled) => {
         setAutostart(enabled, launchCommand())
@@ -203,6 +205,7 @@ function run(): void {
 
     supervisor.start()
     broker.connect()
+    broker.startEvents()
 
     if (flags.smokeTest) runSmokeTest(win, broker, exitOdin)
   })

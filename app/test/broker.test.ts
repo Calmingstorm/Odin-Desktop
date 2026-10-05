@@ -215,3 +215,144 @@ describe('broker receipts', () => {
     expect(broker.unreceiptedCount).toBe(0)
   })
 })
+
+describe('broker subscription', () => {
+  async function fakeCore(onSubscribe: (connection: number) => Record<string, unknown>) {
+    const dir = mkdtempSync(join(tmpdir(), 'odin-fake-core-'))
+    const socketPath = join(dir, 'core.sock')
+    const subscribes: number[] = []
+    const sockets: Socket[] = []
+    let connection = 0
+    const server: Server = createServer((socket) => {
+      connection += 1
+      const mine = connection
+      sockets.push(socket)
+      const decoder = new FrameDecoder()
+      socket.on('data', (chunk) => {
+        for (const frame of decoder.push(chunk)) {
+          if (frame.t === 'hello') {
+            socket.write(encodeFrame({ t: 'welcome', protocol: { major: 0, minor: 2 }, core: { instance_id: 'fake', version: '0' }, profile_id: 'default', capabilities: [], features: [], max_frame: 4194304, event_high: '0' }))
+          } else if (frame.t === 'req' && frame.method === 'events.subscribe') {
+            subscribes.push(mine)
+            socket.write(encodeFrame({ t: 'res', id: frame.id, ok: true, result: onSubscribe(mine) }))
+          }
+        }
+      })
+    })
+    await new Promise<void>((r) => server.listen(socketPath, () => r()))
+    cleanups.push(() => {
+      for (const s of sockets) s.destroy()
+      server.close()
+      rmSync(dir, { recursive: true, force: true })
+    })
+    const broker = new Broker({ socketPath, readToken: () => 'x'.repeat(64), profileId: 'default', clientVersion: 'test', reconnectDelaysMs: [50] })
+    cleanups.push(() => broker.close())
+    return { broker, subscribes }
+  }
+
+  it('subscribes exactly once per connection, including after a reconnect', async () => {
+    const { broker, subscribes } = await fakeCore(() => ({ event_high: '0', reset_required: false }))
+    broker.on('welcome', () => undefined) // a listener on 'welcome' must not add a subscription
+    broker.connect()
+    broker.startEvents()
+    await waitFor(() => subscribes.length === 1)
+    ;(broker as unknown as { socket: Socket }).socket.destroy()
+    await waitFor(() => broker.linkState === 'reconnecting')
+    await waitFor(() => subscribes.length === 2)
+    await new Promise((r) => setTimeout(r, 200))
+    expect(subscribes).toEqual([1, 2])
+  })
+
+  it('reports a reset with the new cursor so the window rebuilds from snapshots', async () => {
+    const { broker } = await fakeCore(() => ({ event_high: '42', reset_required: true }))
+    const resets: Array<{ event_high: string }> = []
+    broker.on('reset', (r: { event_high: string }) => resets.push(r))
+    broker.connect()
+    broker.startEvents()
+    await waitFor(() => resets.length === 1)
+    expect(resets[0]).toEqual({ event_high: '42' })
+    expect(broker.cursor).toBe('42')
+  })
+})
+
+describe('fixture core snapshots and command identity', () => {
+  async function conversation(broker: Broker): Promise<string> {
+    const created = (await broker.request('conversations.create', {})) as { ok: true; result: { conversation: { id: string } } }
+    return created.result.conversation.id
+  }
+
+  async function submit(broker: Broker, cid: string, text: string): Promise<string> {
+    const sub = uuid()
+    const sent = (await broker.request('submission.send', { client_submission_id: sub, conversation_id: cid, text }, sub)) as {
+      ok: true
+      result: { request_id: string }
+    }
+    return sent.result.request_id
+  }
+
+  it('snapshots the running task, queued follow-ups and their controls', async () => {
+    const core = await withFixture()
+    const { broker, events } = await connectedBroker(core)
+    const cid = await conversation(broker)
+    const running = await submit(broker, cid, 'slow first')
+    await waitFor(() => events.some((e) => e.type === 'request.started'))
+    const queued = await submit(broker, cid, 'second')
+    await waitFor(() => events.some((e) => e.type === 'request.queued'))
+    const steer = uuid()
+    await broker.request('control.steer', { control_command_id: steer, conversation_id: cid, request_id: running, generation: 1, text: 'note' }, steer)
+
+    const snap = (await broker.request('conversation.snapshot', { conversation_id: cid })) as { ok: true; result: Record<string, unknown> }
+    expect(snap.ok).toBe(true)
+    const result = snap.result as {
+      watermark: string
+      running: { request_id: string; generation: number }
+      queued: Array<{ request_id: string }>
+      controls: Array<{ control_command_id: string; disposition: string }>
+      messages: { items: unknown[] }
+    }
+    expect(result.running).toMatchObject({ request_id: running, generation: 1 })
+    expect(result.queued.map((q) => q.request_id)).toEqual([queued])
+    expect(result.controls).toEqual([expect.objectContaining({ control_command_id: steer, disposition: 'queued' })])
+    expect(Number(result.watermark)).toBeGreaterThanOrEqual(Math.max(...events.map((e) => e.seq)))
+    expect(result.messages.items).toHaveLength(2)
+
+    const stop = uuid()
+    await broker.request('control.stop', { control_command_id: stop, conversation_id: cid, request_id: running, generation: 1 }, stop)
+  })
+
+  it('withdraws a queued follow-up when it is stopped, so it never starts', async () => {
+    const core = await withFixture()
+    const { broker, events } = await connectedBroker(core)
+    const cid = await conversation(broker)
+    const running = await submit(broker, cid, 'slow first')
+    await waitFor(() => events.some((e) => e.type === 'request.started'))
+    const queued = await submit(broker, cid, 'second')
+    const stopQueued = uuid()
+    const result = await broker.request('control.stop', { control_command_id: stopQueued, conversation_id: cid, request_id: queued, generation: 1 }, stopQueued)
+    expect(result).toMatchObject({ ok: true, result: { disposition: 'requested' } })
+    await waitFor(() => events.some((e) => e.type === 'request.cancelled' && e.payload.request_id === queued))
+    const receipt = events.find((e) => e.type === 'control.receipt' && e.payload.control_command_id === stopQueued)
+    expect(receipt?.payload).toMatchObject({ kind: 'stop', disposition: 'confirmed', request_id: queued, conversation_id: cid })
+
+    const stopRunning = uuid()
+    await broker.request('control.stop', { control_command_id: stopRunning, conversation_id: cid, request_id: running, generation: 1 }, stopRunning)
+    await waitFor(() => events.some((e) => e.type === 'request.cancelled' && e.payload.request_id === running))
+    await new Promise((r) => setTimeout(r, 300))
+    expect(events.some((e) => e.type === 'request.started' && e.payload.request_id === queued)).toBe(false)
+  })
+
+  it('refuses a command ID reused for a different command, and answers a true repeat with the original result', async () => {
+    const core = await withFixture()
+    const { broker } = await connectedBroker(core)
+    const cid = await conversation(broker)
+    const id = uuid()
+    const first = await broker.request('submission.send', { client_submission_id: id, conversation_id: cid, text: 'once' }, id)
+    expect(first.ok).toBe(true)
+    const repeat = await broker.request('submission.send', { client_submission_id: id, conversation_id: cid, text: 'once' }, id)
+    expect(repeat).toEqual(first)
+    const conflict = await broker.request('conversations.create', { title: 'other' }, id)
+    expect(conflict).toMatchObject({ ok: false, error: { code: 'id_conflict' } })
+    const listed = (await broker.request('conversations.list')) as { ok: true; result: { items: unknown[] } }
+    expect(listed.result.items).toHaveLength(1)
+  })
+})

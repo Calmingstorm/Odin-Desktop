@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { send, state, stop, type ComposerMode } from '../store'
+import { send, state, stop, stopPending, type ComposerMode } from '../store'
 
 const text = ref('')
 const mode = ref<ComposerMode>('steer')
 const busy = ref(false)
-const running = computed(() => Boolean(state.activeId && state.active[state.activeId]))
+const runningRequest = computed(() => (state.activeId ? (state.views[state.activeId]?.running ?? null) : null))
+const running = computed(() => Boolean(runningRequest.value))
+const stopping = computed(() => Boolean(runningRequest.value && stopPending(runningRequest.value.request_id)))
 const ready = computed(() => state.app.link === 'ready' && Boolean(state.activeId))
 const buttonLabel = computed(() => (running.value ? (mode.value === 'steer' ? 'Steer' : 'Queue') : 'Send'))
 const placeholder = computed(() =>
@@ -49,7 +51,9 @@ function onKey(event: KeyboardEvent): void {
       />
       <div class="buttons">
         <button type="submit" class="primary" :disabled="!ready || busy || !text.trim()">{{ buttonLabel }}</button>
-        <button v-if="running" type="button" class="danger" title="Stop the current task (Ctrl+.)" @click="stop">Stop</button>
+        <button v-if="running" type="button" class="danger" title="Stop the current task (Ctrl+.)" :disabled="stopping" @click="stop">
+          {{ stopping ? 'Stopping…' : 'Stop' }}
+        </button>
       </div>
     </div>
     <p v-if="state.notice" class="notice" role="status">{{ state.notice }}</p>

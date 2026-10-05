@@ -4,6 +4,7 @@ import {
   CONTENT_SECURITY_POLICY,
   isAppUrl,
   isSafeExternalUrl,
+  isSameFrame,
   isTrustedSender,
   mimeTypeFor,
   resolveAppPath
@@ -31,6 +32,15 @@ describe('window hardening policy (never limits Odin itself)', () => {
     expect(isTrustedSender('https://example.com/', 7, 7)).toBe(false)
     expect(isTrustedSender(undefined, 7, 7)).toBe(false)
     expect(isTrustedSender('app://odin/index.html', 7, null)).toBe(false)
+  })
+
+  it('trusts only the window’s top frame, never a subframe of the same page', () => {
+    const main = { processId: 41, routingId: 1 }
+    expect(isSameFrame({ processId: 41, routingId: 1 }, main)).toBe(true)
+    expect(isSameFrame({ processId: 41, routingId: 2 }, main)).toBe(false)
+    expect(isSameFrame({ processId: 42, routingId: 1 }, main)).toBe(false)
+    expect(isSameFrame(null, main)).toBe(false)
+    expect(isSameFrame({ processId: 41, routingId: 1 }, null)).toBe(false)
   })
 
   it('never resolves a path outside the packaged renderer', () => {

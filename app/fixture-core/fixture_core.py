@@ -7,11 +7,15 @@ built and tested before Odin's real engine is wired in (Phase 2). Standard libra
 Scripted behaviour, for tests:
 - every request emits one simulated tool call, then an assistant reply "Echo: <text>";
 - a message containing "slow" keeps working in 0.25 s steps for about 15 s, so stop and steer can be exercised.
+
+Unlike the real core, it keeps everything in memory, including command receipts, so it does not meet the protocol's
+receipt-durability rule across its own restarts.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import hmac
 import json
 import os
@@ -26,6 +30,9 @@ PROTOCOL = {"major": 0, "minor": 1}
 MAX_FRAME = 4 * 1024 * 1024
 EVENT_RETENTION = 5000
 RESULT_CACHE = 2000
+RECENT_OUTCOMES = 20
+# Read methods are answered fresh every time; only commands that admit or change something keep a receipt.
+READ_METHODS = {"status.get", "events.subscribe", "conversations.list", "messages.list", "conversation.snapshot"}
 
 
 def now() -> str:
@@ -34,6 +41,12 @@ def now() -> str:
 
 def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:16]}"
+
+
+def binding(method: object, params: dict) -> str:
+    """A command ID is bound to its method and canonical params."""
+    canonical = json.dumps({"method": method, "params": params}, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 class CoreError(Exception):
@@ -79,8 +92,12 @@ class Core:
         self.requests: dict[str, dict] = {}
         self.active: dict[str, str] = {}  # conversation_id -> request_id
         self.queued: dict[str, list[str]] = {}
+        self.recent: dict[str, list[dict]] = {}  # conversation_id -> latest terminal outcomes
+        self.tools: dict[str, list[dict]] = {}  # request_id -> tool entries
+        self.controls: dict[str, dict] = {}  # control_command_id -> latest disposition
         self.submissions: dict[str, dict] = {}
-        self.results: dict[str, dict] = {}
+        self.results: dict[str, tuple[str, dict]] = {}  # command ID -> (binding, response)
+        self.tombstones: dict[str, str] = {}  # pruned command ID -> binding
         self.stopping = asyncio.Event()
 
     # ---------------------------------------------------------------- events
@@ -167,11 +184,23 @@ class Core:
 
     def dispatch(self, writer: asyncio.StreamWriter, frame: dict) -> None:
         req_id = str(frame.get("id", ""))
-        if req_id in self.results:  # the same command ID always gets its original answer
-            writer.write(encode(self.results[req_id]))
-            return
         method = frame.get("method")
         params = frame.get("params") or {}
+        if method not in READ_METHODS:
+            bound = binding(method, params)
+            if req_id in self.results:  # the same command ID always gets its original answer
+                original_binding, original = self.results[req_id]
+                if original_binding == bound:
+                    writer.write(encode(original))
+                else:
+                    writer.write(encode(self.error(req_id, CoreError(
+                        "id_conflict", "that command ID was already used for a different command"))))
+                return
+            if req_id in self.tombstones:
+                writer.write(encode(self.error(req_id, CoreError(
+                    "receipt_expired", "that command ID was used before; its outcome is unknown",
+                    "outcome_unknown"))))
+                return
         try:
             handler = METHODS.get(method)
             if handler is None:
@@ -179,12 +208,12 @@ class Core:
             result = handler(self, params, writer)
             response = {"t": "res", "id": req_id, "ok": True, "result": result}
         except CoreError as error:
-            response = {"t": "res", "id": req_id, "ok": False,
-                        "error": {"code": error.code, "message": error.message, "disposition": error.disposition}}
-        if method != "events.subscribe":
-            self.results[req_id] = response
+            response = self.error(req_id, error)
+        if method not in READ_METHODS:
+            self.results[req_id] = (binding(method, params), response)
             if len(self.results) > RESULT_CACHE:
-                self.results.pop(next(iter(self.results)))
+                oldest = next(iter(self.results))
+                self.tombstones[oldest] = self.results.pop(oldest)[0]
         writer.write(encode(response))
         if method == "events.subscribe" and response["ok"]:
             after = params.get("after")
@@ -193,6 +222,11 @@ class Core:
                     if event["seq"] > int(after):
                         writer.write(encode(event))
             self.subscribers.add(writer)
+
+    @staticmethod
+    def error(req_id: str, error: CoreError) -> dict:
+        return {"t": "res", "id": req_id, "ok": False,
+                "error": {"code": error.code, "message": error.message, "disposition": error.disposition}}
 
     # -------------------------------------------------------------- methods
     def m_status(self, _params: dict, _writer) -> dict:
@@ -251,7 +285,37 @@ class Core:
             index = next((i for i, m in enumerate(items) if m["id"] == before), len(items))
             items = items[:index]
         limit = max(1, min(int(params.get("limit") or 100), 100))
-        return {"items": items[-limit:], "has_more": len(items) > limit}
+        return {"items": items[-limit:], "has_more": len(items) > limit, "watermark": str(self.seq)}
+
+    def m_snapshot(self, params: dict, _writer) -> dict:
+        cid = str(params.get("conversation_id"))
+        conv = self.conversations.get(cid)
+        if conv is None:
+            raise CoreError("not_found", "conversation not found")
+        limit = max(1, min(int(params.get("limit") or 100), 100))
+        items = self.messages[cid]
+        page = items[-limit:]
+        running_id = self.active.get(cid)
+        running = None
+        if running_id:
+            req = self.requests[running_id]
+            running = {"request_id": running_id, "generation": req["generation"], "started_at": req["started_at"]}
+        queued = [{"request_id": rid, "generation": self.requests[rid]["generation"],
+                   "message_id": self.requests[rid]["message_id"]} for rid in self.queued.get(cid, [])]
+        shown = {m["request_id"] for m in page if m.get("request_id")}
+        if running_id:
+            shown.add(running_id)
+        bound = {q["request_id"] for q in queued} | ({running_id} if running_id else set())
+        return {
+            "watermark": str(self.seq),
+            "conversation": conv,
+            "messages": {"items": page, "has_more": len(items) > limit},
+            "running": running,
+            "queued": queued,
+            "recent": list(self.recent.get(cid, [])),
+            "tools": {rid: [dict(t) for t in self.tools[rid]] for rid in sorted(shown) if self.tools.get(rid)},
+            "controls": [dict(c) for c in self.controls.values() if c["request_id"] in bound],
+        }
 
     def m_submit(self, params: dict, _writer) -> dict:
         sub_id = str(params.get("client_submission_id", ""))
@@ -263,17 +327,18 @@ class Core:
         text = str(params.get("text", ""))
         if not text or len(text) > 32000:
             raise CoreError("bad_request", "text must be 1 to 32,000 characters")
+        rid = new_id("r")
         message = {"id": new_id("m"), "role": "user", "text": text, "created_at": now(),
-                   "client_submission_id": sub_id}
+                   "client_submission_id": sub_id, "request_id": rid}
         self.messages[cid].append(message)
         self.emit("message.committed", "message", message["id"], {"conversation_id": cid, "message": message})
-        rid = new_id("r")
         self.requests[rid] = {"id": rid, "conversation_id": cid, "generation": 1, "text": text, "state": "queued",
-                              "steers": [], "stop_commands": [], "task": None}
-        message["request_id"] = rid
+                              "steers": [], "stop_commands": [], "task": None, "message_id": message["id"],
+                              "started_at": None}
         if cid in self.active:
             self.queued.setdefault(cid, []).append(rid)
-            self.emit("request.queued", "request", rid, {"conversation_id": cid, "request_id": rid, "generation": 1})
+            self.emit("request.queued", "request", rid,
+                      {"conversation_id": cid, "request_id": rid, "generation": 1, "message_id": message["id"]})
         else:
             self.start_request(rid)
         result = {"disposition": "accepted", "request_id": rid, "message_id": message["id"]}
@@ -288,27 +353,63 @@ class Core:
 
     def m_stop(self, params: dict, _writer) -> dict:
         req = self.check_target(params)
+        command_id = str(params.get("control_command_id"))
         if req["state"] not in ("running", "queued"):
             return {"disposition": "not_running"}
-        req["stop_commands"].append(str(params.get("control_command_id")))
+        self.record_control(command_id, "stop", req, "requested", emit=False)
+        if req["state"] == "queued":
+            # It never started, so it is withdrawn outright and can't start later.
+            self.queued[req["conversation_id"]].remove(req["id"])
+            req["state"] = "cancelled"
+            self.record_control(command_id, "stop", req, "confirmed")
+            self.finish(req, "request.cancelled")
+            return {"disposition": "requested"}
+        req["stop_commands"].append(command_id)
         req["state"] = "stop_requested"
         return {"disposition": "requested"}
 
     def m_steer(self, params: dict, _writer) -> dict:
         req = self.check_target(params)
+        command_id = str(params.get("control_command_id"))
         if req["state"] != "running":
             return {"disposition": "closed"}
-        req["steers"].append((str(params.get("control_command_id")), str(params.get("text", ""))[:4000]))
-        return {"disposition": "queued", "sequence": len(req["steers"])}
+        req["steers"].append((command_id, str(params.get("text", ""))[:4000]))
+        sequence = len(req["steers"])
+        self.record_control(command_id, "steer", req, "queued", emit=False, sequence=sequence)
+        return {"disposition": "queued", "sequence": sequence}
 
     def m_shutdown(self, _params: dict, _writer) -> dict:
         asyncio.get_running_loop().call_soon(self.request_stop)
         return {"disposition": "accepted"}
 
     # ------------------------------------------------------------- requests
+    def record_control(self, command_id: str, kind: str, req: dict, disposition: str, *, emit: bool = True,
+                       sequence: int | None = None) -> None:
+        record = self.controls.setdefault(command_id, {"control_command_id": command_id, "kind": kind,
+                                                       "request_id": req["id"]})
+        record["disposition"] = disposition
+        if sequence is not None:
+            record["sequence"] = sequence
+        if emit:
+            self.emit("control.receipt", "control", command_id,
+                      {"conversation_id": req["conversation_id"], "request_id": req["id"],
+                       "control_command_id": command_id, "kind": kind, "disposition": disposition})
+
+    def finish(self, req: dict, terminal: str) -> None:
+        cid = req["conversation_id"]
+        outcome = {"request_id": req["id"], "generation": req["generation"], "outcome": terminal.split(".", 1)[1],
+                   "unknown_effects": 0, "at": now()}
+        recent = self.recent.setdefault(cid, [])
+        recent.append(outcome)
+        del recent[:-RECENT_OUTCOMES]
+        self.emit(terminal, "request", req["id"],
+                  {"conversation_id": cid, "request_id": req["id"], "generation": req["generation"],
+                   "unknown_effects": 0})
+
     def start_request(self, rid: str) -> None:
         req = self.requests[rid]
         req["state"] = "running"
+        req["started_at"] = now()
         self.active[req["conversation_id"]] = rid
         self.emit("request.started", "request", rid,
                   {"conversation_id": req["conversation_id"], "request_id": rid, "generation": req["generation"]})
@@ -317,10 +418,12 @@ class Core:
     async def run_request(self, req: dict) -> None:
         cid, rid = req["conversation_id"], req["id"]
         inv = new_id("i")
-        self.emit("tool.started", "invocation", inv, {"conversation_id": cid, "request_id": rid, "invocation_id": inv,
-                                                     "tool": "echo", "target": "localhost",
-                                                     "summary": f"echo {len(req['text'])} characters"})
+        entry = {"invocation_id": inv, "tool": "echo", "target": "localhost",
+                 "summary": f"echo {len(req['text'])} characters"}
+        self.tools.setdefault(rid, []).append(entry)
+        self.emit("tool.started", "invocation", inv, {"conversation_id": cid, "request_id": rid, **entry})
         await asyncio.sleep(0.3)
+        entry.update({"outcome": "success", "exit_code": 0, "duration_ms": 300})
         self.emit("tool.settled", "invocation", inv, {"conversation_id": cid, "request_id": rid, "invocation_id": inv,
                                                      "outcome": "success", "exit_code": 0, "duration_ms": 300})
         consumed: list[str] = []
@@ -331,21 +434,17 @@ class Core:
             while req["steers"]:
                 command_id, text = req["steers"].pop(0)
                 consumed.append(text)
-                self.emit("control.receipt", "control", command_id,
-                          {"control_command_id": command_id, "kind": "steer", "disposition": "consumed"})
+                self.record_control(command_id, "steer", req, "consumed")
             await asyncio.sleep(0.25)
         for command_id, _text in req["steers"]:
-            self.emit("control.receipt", "control", command_id,
-                      {"control_command_id": command_id, "kind": "steer", "disposition": "closed"})
+            self.record_control(command_id, "steer", req, "closed")
         req["steers"].clear()
         if req["state"] == "stop_requested" or self.stopping.is_set():
             terminal = "request.cancelled" if req["state"] == "stop_requested" else "request.interrupted"
             req["state"] = "cancelled"
             for command_id in req["stop_commands"]:
-                self.emit("control.receipt", "control", command_id,
-                          {"control_command_id": command_id, "kind": "stop", "disposition": "confirmed"})
-            self.emit(terminal, "request", rid,
-                      {"conversation_id": cid, "request_id": rid, "generation": req["generation"], "unknown_effects": 0})
+                self.record_control(command_id, "stop", req, "confirmed")
+            self.finish(req, terminal)
         else:
             reply = f"Echo: {req['text']}"
             if consumed:
@@ -354,8 +453,7 @@ class Core:
             self.messages[cid].append(message)
             self.emit("message.committed", "message", message["id"], {"conversation_id": cid, "message": message})
             req["state"] = "completed"
-            self.emit("request.completed", "request", rid,
-                      {"conversation_id": cid, "request_id": rid, "generation": req["generation"], "unknown_effects": 0})
+            self.finish(req, "request.completed")
         self.active.pop(cid, None)
         queue = self.queued.get(cid) or []
         if queue and not self.stopping.is_set():
@@ -373,6 +471,7 @@ METHODS = {
     "conversations.create": Core.m_conv_create,
     "conversations.update": Core.m_conv_update,
     "messages.list": Core.m_messages,
+    "conversation.snapshot": Core.m_snapshot,
     "submission.send": Core.m_submit,
     "control.stop": Core.m_stop,
     "control.steer": Core.m_steer,

@@ -52,6 +52,17 @@ export function isTrustedSender(senderFrameUrl: string | undefined, senderId: nu
   return typeof senderFrameUrl === 'string' && isAppUrl(senderFrameUrl)
 }
 
+export interface FrameIdentity {
+  processId: number
+  routingId: number
+}
+
+/** True only for the window's own top frame: a subframe of the same page never counts as the window. */
+export function isSameFrame(sender: FrameIdentity | null | undefined, main: FrameIdentity | null | undefined): boolean {
+  if (!sender || !main) return false
+  return sender.processId === main.processId && sender.routingId === main.routingId
+}
+
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',

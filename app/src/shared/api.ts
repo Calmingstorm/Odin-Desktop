@@ -1,5 +1,5 @@
 // Types shared by the main process, the preload bridge and the renderer.
-// They mirror docs/design/protocol.md (v0, minor 1).
+// They mirror docs/design/protocol.md (v0, minor 2).
 
 export type CorePhase = 'starting' | 'ready' | 'degraded' | 'quiescing'
 
@@ -30,6 +30,57 @@ export interface Message {
   request_id?: string
   /** Present on user messages: the submission they were admitted under. */
   client_submission_id?: string
+}
+
+export interface RequestRef {
+  request_id: string
+  generation: number
+}
+
+export interface RunningRequest extends RequestRef {
+  started_at: string
+}
+
+export interface QueuedRequest extends RequestRef {
+  message_id: string
+}
+
+export type TerminalKind = 'completed' | 'failed' | 'cancelled' | 'interrupted' | 'suspended'
+
+export interface TerminalOutcome extends RequestRef {
+  outcome: TerminalKind
+  unknown_effects: number
+  at: string
+}
+
+export interface ToolEntry {
+  invocation_id: string
+  tool: string
+  target?: string
+  summary: string
+  outcome?: 'success' | 'failure' | 'unknown'
+  exit_code?: number
+  duration_ms?: number
+}
+
+export interface ControlRecord {
+  control_command_id: string
+  kind: 'stop' | 'steer'
+  request_id: string
+  disposition: string
+  sequence?: number
+}
+
+/** A conversation's authoritative state, complete through `watermark` (protocol.md, Snapshots). */
+export interface ConversationSnapshot {
+  watermark: string
+  conversation: Conversation
+  messages: { items: Message[]; has_more: boolean }
+  running: RunningRequest | null
+  queued: QueuedRequest[]
+  recent: TerminalOutcome[]
+  tools: Record<string, ToolEntry[]>
+  controls: ControlRecord[]
 }
 
 export interface CoreEvent {
@@ -84,7 +135,8 @@ export interface OdinApi {
   status(): Promise<Result<CoreStatus>>
   listConversations(): Promise<Result<{ items: Conversation[] }>>
   createConversation(params: { title?: string; parent_id?: string }): Promise<Result<{ conversation: Conversation }>>
-  listMessages(params: { conversation_id: string; before?: string; limit?: number }): Promise<Result<{ items: Message[]; has_more: boolean }>>
+  listMessages(params: { conversation_id: string; before?: string; limit?: number }): Promise<Result<{ items: Message[]; has_more: boolean; watermark: string }>>
+  snapshotConversation(params: { conversation_id: string; limit?: number }): Promise<Result<ConversationSnapshot>>
   submit(params: SubmitParams): Promise<Result<{ disposition: string; request_id?: string; message_id?: string }>>
   stop(params: ControlTarget): Promise<Result<{ disposition: string }>>
   steer(params: ControlTarget & { text: string }): Promise<Result<{ disposition: string; sequence?: number }>>
@@ -95,6 +147,12 @@ export interface OdinApi {
   onAppState(listener: (state: AppState) => void): () => void
   /** Late receipts for commands whose first answer was 'no_receipt'. */
   onReceipt(listener: (receipt: LateReceipt) => void): () => void
+  /** The core could not replay the events since the app's cursor: every view must be rebuilt from snapshots. */
+  onReset(listener: (reset: ResetNotice) => void): () => void
+}
+
+export interface ResetNotice {
+  event_high: string
 }
 
 export interface LateReceipt {
@@ -107,6 +165,7 @@ export const IPC = {
   listConversations: 'odin:conversations:list',
   createConversation: 'odin:conversations:create',
   listMessages: 'odin:messages:list',
+  snapshotConversation: 'odin:conversation:snapshot',
   submit: 'odin:submit',
   stop: 'odin:stop',
   steer: 'odin:steer',
@@ -115,5 +174,6 @@ export const IPC = {
   getAppState: 'odin:app-state:get',
   event: 'odin:event',
   appState: 'odin:app-state',
-  receipt: 'odin:receipt'
+  receipt: 'odin:receipt',
+  reset: 'odin:reset'
 } as const

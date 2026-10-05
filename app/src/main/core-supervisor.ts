@@ -3,6 +3,8 @@
 // - The core's stdin is a pipe the app holds. If the app dies, the pipe closes and the core shuts itself down, so it
 //   never carries on as an unsupervised daemon.
 // - A crash is restarted within a bounded budget. Nothing is replayed: the core reports interrupted work itself.
+// - A core that fails to start (a missing or unrunnable executable) goes through the same budget. Each child's end is
+//   handled exactly once, whichever of 'error' and 'exit' reports it.
 // - Stop asks for an orderly shutdown, then escalates only if the core doesn't exit in time.
 import { spawn, type ChildProcess } from 'node:child_process'
 import { EventEmitter } from 'node:events'
@@ -19,7 +21,7 @@ export interface SupervisorOptions {
   maxLogBytes?: number
 }
 
-export type SupervisorState = 'idle' | 'running' | 'restarting' | 'stopping' | 'stopped' | 'failed'
+export type SupervisorState = 'idle' | 'starting' | 'running' | 'restarting' | 'stopping' | 'stopped' | 'failed'
 
 export class CoreSupervisor extends EventEmitter {
   private child: ChildProcess | null = null
@@ -49,20 +51,44 @@ export class CoreSupervisor extends EventEmitter {
   }
 
   start(): void {
-    if (this.state === 'running' || this.state === 'stopping') return
+    if (this.state === 'starting' || this.state === 'running' || this.state === 'stopping') return
     this.openLog()
-    const child = spawn(this.options.command, this.options.args, {
-      env: this.options.env ?? process.env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      detached: false
-    })
+    this.setState('starting')
+    let child: ChildProcess
+    try {
+      child = spawn(this.options.command, this.options.args, {
+        env: this.options.env ?? process.env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: false
+      })
+    } catch (error) {
+      // Invalid arguments throw synchronously; treat it like any other failed start.
+      this.writeLog(Buffer.from(`[supervisor] spawn error: ${(error as Error).message}\n`))
+      this.child = null
+      setImmediate(() => this.onEnded(null, null, null))
+      return
+    }
     this.child = child
-    this.setState('running')
+    let ended = false
+    const end = (code: number | null, signal: NodeJS.Signals | null): void => {
+      if (ended) return
+      ended = true
+      this.onEnded(child, code, signal)
+    }
     child.stdout?.on('data', (chunk: Buffer) => this.writeLog(chunk))
     child.stderr?.on('data', (chunk: Buffer) => this.writeLog(chunk))
-    child.on('error', (error) => this.writeLog(Buffer.from(`[supervisor] spawn error: ${error.message}\n`)))
-    child.on('exit', (code, signal) => this.onExit(child, code, signal))
-    this.emit('started', child.pid)
+    child.once('spawn', () => {
+      if (this.child !== child || this.state !== 'starting') return
+      this.setState('running')
+      this.emit('started', child.pid)
+    })
+    child.on('error', (error) => {
+      // A child that never got a PID never started, and Node may not emit 'exit' for it.
+      const started = child.pid !== undefined
+      this.writeLog(Buffer.from(`[supervisor] ${started ? 'process' : 'spawn'} error: ${error.message}\n`))
+      if (!started) end(null, null)
+    })
+    child.once('exit', (code, signal) => end(code, signal))
   }
 
   /** Orderly stop: close the parent-link pipe, wait, then SIGTERM, then SIGKILL. Resolves once the process is gone. */
@@ -72,8 +98,9 @@ export class CoreSupervisor extends EventEmitter {
       this.restartTimer = null
     }
     const child = this.child
-    if (!child || child.exitCode !== null || child.signalCode !== null) {
+    if (!child || child.pid === undefined || child.exitCode !== null || child.signalCode !== null) {
       this.setState('stopped')
+      this.closeLog()
       return Promise.resolve('not-running')
     }
     this.setState('stopping')
@@ -96,9 +123,9 @@ export class CoreSupervisor extends EventEmitter {
     })
   }
 
-  private onExit(child: ChildProcess, code: number | null, signal: NodeJS.Signals | null): void {
+  private onEnded(child: ChildProcess | null, code: number | null, signal: NodeJS.Signals | null): void {
     if (child !== this.child) return
-    this.writeLog(Buffer.from(`[supervisor] core exited code=${code} signal=${signal}\n`))
+    this.writeLog(Buffer.from(`[supervisor] core ended code=${code} signal=${signal}\n`))
     this.emit('exited', { code, signal })
     if (this.state === 'stopping' || this.state === 'stopped') {
       this.setState('stopped')
