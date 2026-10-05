@@ -389,9 +389,10 @@ def integrated_graph(request):
     return request.getfixturevalue("graph")
 
 
-@pytest.mark.parametrize("unknown_effect", [False, True])
+@pytest.mark.parametrize(("unknown_effect", "reset_mode"), [
+    (False, "none"), (True, "none"), (False, "reset"), (False, "reset-and-new-turn")])
 async def test_integrated_real_suspension_guarded_resume_and_committed_result(
-        integrated_graph, unknown_effect):
+        integrated_graph, unknown_effect, reset_mode):
     """Parent integration gate: real runner, manager, ledger and publication."""
     from src.desktop.controls import ControlService
     from src.llm.errors import LLMCapacityError
@@ -427,9 +428,11 @@ async def test_integrated_real_suspension_guarded_resume_and_committed_result(
     assert checkpoint["operations"][0]["state"] == OpState.APPLIED
     assert spent["iteration"] >= 1 and spent["tools_used_in_loop"] == ["parse_time"]
 
+    reply_text = ["Finished the exact preserved request."]
+
     async def available(**kwargs):
         provider.calls.append(kwargs)
-        return LLMResponse(text="Finished the exact preserved request.")
+        return LLMResponse(text=reply_text[0])
 
     provider.chat_with_tools = available
     breaker = engine.deps.llm_gateway.capacity_breaker_for()
@@ -437,6 +440,22 @@ async def test_integrated_real_suspension_guarded_resume_and_committed_result(
     probe = breaker.acquire_attempt()
     if not isinstance(probe, float):
         breaker.attempt_succeeded(probe)
+    new_context = None
+    new_session_history = None
+    if reset_mode != "none":
+        requests.conversations.reset_context(cid, requests.conversations.get(cid)["rev"])
+        assert transcript.model_context(cid) == []
+        if reset_mode == "reset-and-new-turn":
+            reply_text[0] = "NEW LINEAGE ANSWER"
+            requests.submit({"client_submission_id": "new-lineage", "conversation_id": cid,
+                             "text": "NEW LINEAGE INPUT"})
+            await requests.after_commit()
+            await asyncio.gather(*requests._tasks)
+            assert "Say something brief" not in str(provider.calls[-1]["messages"])
+            new_session_history = engine.deps.sessions.get_history(cid)
+            reply_text[0] = "Finished the exact preserved request."
+        new_context = transcript.model_context(cid)
+        calls_before = len(provider.calls)
     manager = TurnResumeManager(
         store=engine.deps.turn_store, tool_loop=engine.runner,
         llm_gateway=engine.deps.llm_gateway, channel_state=engine.deps.channel_state,
@@ -494,7 +513,8 @@ async def test_integrated_real_suspension_guarded_resume_and_committed_result(
     assert engine.deps.turn_store.turn_status_sync(
         TurnKey("conversation", cid, rid)) == TurnStatus.TERMINAL_COMPLETED
     rows = transcript.read_conversation(cid)
-    assert len([item for item in rows if item["role"] == "user"]) == 1
+    assert len([item for item in rows if item["role"] == "user"]) == (
+        2 if reset_mode == "reset-and-new-turn" else 1)
     assert rows[-1]["text"] == "Finished the exact preserved request."
     assert len(provider.calls) == calls_before + 1
     operation_count = engine.deps.turn_store._conn.execute(
@@ -502,3 +522,23 @@ async def test_integrated_real_suspension_guarded_resume_and_committed_result(
     assert operation_count == operations_before
     assert await controls.dispatch("control.resume", params) == answer
     assert len(provider.calls) == calls_before + 1
+    if reset_mode != "none":
+        assert transcript.model_context(cid) == new_context
+        pin = requests.store.connection.execute(
+            "SELECT context_position FROM desktop_request_context WHERE request_id=?", (rid,)
+        ).fetchone()[0]
+        assert pin == 0
+        if new_session_history is not None:
+            assert engine.deps.sessions.get_history(cid) == new_session_history
+        requests.submit({"client_submission_id": "after-resume", "conversation_id": cid,
+                         "text": "AFTER RESUME INPUT"})
+        reply_text[0] = "AFTER RESUME ANSWER"
+        await requests.after_commit()
+        await asyncio.gather(*requests._tasks)
+        next_history = str(provider.calls[-1]["messages"])
+        assert "AFTER RESUME INPUT" in next_history
+        assert "Say something brief" not in next_history
+        assert "Finished the exact preserved request." not in next_history
+        if reset_mode == "reset-and-new-turn":
+            assert "NEW LINEAGE INPUT" in next_history
+            assert "NEW LINEAGE ANSWER" in next_history
