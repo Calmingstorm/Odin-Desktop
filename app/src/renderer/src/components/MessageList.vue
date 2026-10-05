@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { backToLatest, loadFailure, loadOlder, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
+import { backToLatest, loadFailure, loadOlder, resumeTarget, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
 import Message from './Message.vue'
+import ResumeBanner from './ResumeBanner.vue'
 import ToolActivity from './ToolActivity.vue'
 
 const scroller = ref<HTMLElement | null>(null)
@@ -26,11 +27,11 @@ const OUTCOME_TEXT: Record<string, string> = {
   suspended: 'The task is suspended and can be resumed.'
 }
 
-/** The last task's outcome when it didn't simply complete. */
+/** The last task's outcome when it didn't simply complete. A task that can resume shows the resume banner instead. */
 const outcomeLine = computed(() => {
   const v = view.value
   const last = v?.recent[v.recent.length - 1]
-  if (!v || !last || v.running || last.outcome === 'completed') return ''
+  if (!v || !last || v.running || last.outcome === 'completed' || resumeTarget(v)) return ''
   return OUTCOME_TEXT[last.outcome] ?? `The task ended: ${last.outcome}.`
 })
 
@@ -137,7 +138,7 @@ function older(): void {
         <div class="body plain">{{ p.text }}</div>
       </article>
       <div v-if="running" class="working">
-        <ToolActivity :entries="view.tools[running.request_id] ?? []" live />
+        <ToolActivity :entries="view.tools[running.request_id] ?? []" :request-id="running.request_id" live />
         <ul v-if="steers.length" class="steers" aria-label="Steering for this task">
           <li v-for="s in steers" :key="s.control_command_id" :class="['steer', s.status]">
             <span class="steer-text">{{ s.text ?? 'Steer' }}</span>
@@ -151,6 +152,7 @@ function older(): void {
         </div>
       </div>
       <p v-if="outcomeLine" class="outcome" role="status">{{ outcomeLine }}</p>
+      <ResumeBanner v-if="state.activeId" :conversation-id="state.activeId" />
       <p v-for="(line, index) in unresolvedLines" :key="index" class="outcome unresolved" role="status">{{ line }}</p>
     </template>
   </section>

@@ -27,7 +27,7 @@ import socket
 import struct
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 PROTOCOL = {"major": 0, "minor": 3}
 MAX_FRAME = 4 * 1024 * 1024
@@ -36,7 +36,8 @@ RESULT_CACHE = 2000
 RECENT_OUTCOMES = 20
 # Read methods are answered fresh every time; only commands that admit or change something keep a receipt.
 READ_METHODS = {"status.get", "events.subscribe", "conversations.list", "messages.list", "conversation.snapshot",
-                "search.query", "messages.around", "usage.get", "artifacts.read", "reports.page"}
+                "search.query", "messages.around", "usage.get", "artifacts.read", "reports.page", "work.list",
+                "tool.detail", "tool.output"}
 # Idempotent by offset, so it keeps no durable receipt (protocol.md, Conventions).
 NO_RECEIPT_METHODS = READ_METHODS | {"attachments.chunk"}
 CHUNK_BYTES = 512 * 1024
@@ -54,6 +55,16 @@ AROUND_LIMIT = 50
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def iso_in(seconds: float) -> tuple[datetime, str]:
+    at = datetime.now(timezone.utc) + timedelta(seconds=seconds)
+    return at, at.isoformat()
+
+
+def words(text: str) -> set[str]:
+    """Whole lowercase words, for the scripted behaviours below."""
+    return set(re.findall(r"[a-z]+", text.lower()))
 
 
 def new_id(prefix: str) -> str:
@@ -125,6 +136,11 @@ class Core:
         self.uploads: dict[str, dict] = {}
         self.artifacts: dict[str, dict] = {}  # ref -> {name, mime, data}
         self.reports: dict[str, dict] = {}  # report id -> {conversation_id, pages}
+        self.tool_records: dict[str, dict] = {}  # invocation_id -> arguments, previews, retained output
+        self.work: dict[str, dict] = {"s_daily": {
+            "kind": "schedule", "id": "s_daily", "title": "Daily health report", "state": "active",
+            "detail": "Every day at 09:00", "actions": ["pause", "run_now"]}}
+        self.background: set[asyncio.Task] = set()
         self.attachments: dict[str, dict] = {}
         self.results: dict[str, tuple[str, dict]] = {}  # command ID -> (binding, response)
         self.tombstones: dict[str, str] = {}  # pruned command ID -> binding
@@ -270,15 +286,129 @@ class Core:
         }
 
     def m_usage(self, params: dict, _writer) -> dict:
-        unknown = {"value": None, "kind": "unknown"}
         period = params.get("period") or "7d"
         if period not in ("24h", "7d", "30d", "all"):
             raise CoreError("bad_request", "usage ranges are 24h, 7d, 30d and all")
-        return {"period": period, "tokens": unknown, "quota": [], "context": unknown,
-                "summary": "The development core doesn't measure usage."}
+        sent = sum(len(r["text"]) for r in self.requests.values())
+        tokens = {"value": sent // 4, "kind": "estimated"}
+        return {
+            "period": period,
+            "tokens": tokens,
+            "context": {"used": tokens, "budget": {"value": 272000, "kind": "measured"}},
+            "quota": [{"account": "fixture", "window": "weekly", "used_percent": {"value": None, "kind": "unknown"},
+                       "resets_at": None}],
+            "summary": f"Development core: about {tokens['value']} tokens sent, estimated from characters. No quota.",
+        }
 
     def m_reload(self, params: dict, _writer) -> dict:
         return {"disposition": "reloaded", "summary": f"Reloaded {params.get('scope') or 'context'}: nothing to load in the development core."}
+
+    # ----------------------------------------------------------------- work
+    def publish_work(self, item: dict) -> None:
+        payload = {"kind": item["kind"], "id": item["id"], "state": item["state"]}
+        if item.get("conversation_id"):
+            payload["conversation_id"] = item["conversation_id"]
+        self.emit("work.updated", "work", item["id"], payload)
+
+    def later(self, seconds: float, action) -> None:
+        async def run() -> None:
+            await asyncio.sleep(seconds)
+            action()
+        task = asyncio.get_running_loop().create_task(run())
+        self.background.add(task)
+        task.add_done_callback(self.background.discard)
+
+    def spawn_work(self, kind: str, title: str, req: dict, detail: str, seconds: float) -> None:
+        item = {"kind": kind, "id": new_id(kind[0]), "title": title, "state": "running",
+                "conversation_id": req["conversation_id"], "request_id": req["id"], "started_at": now(),
+                "detail": detail, "actions": ["stop"]}
+        self.work[item["id"]] = item
+        self.publish_work(item)
+
+        def finish() -> None:
+            if item["state"] == "running":
+                item.update(state="completed", detail="Finished", actions=[])
+                self.publish_work(item)
+        self.later(seconds, finish)
+
+    def m_work_list(self, params: dict, _writer) -> dict:
+        kind, cid = params.get("kind"), params.get("conversation_id")
+        items = [dict(item, actions=list(item["actions"])) for item in self.work.values()
+                 if (not kind or item["kind"] == kind) and (not cid or item.get("conversation_id") == cid)]
+        return {"items": items}
+
+    def m_work_control(self, params: dict, _writer) -> dict:
+        item = self.work.get(str(params.get("id")))
+        if item is None or item["kind"] != params.get("kind"):
+            raise CoreError("not_found", "that work is no longer listed")
+        action = params.get("action")
+        if action not in item["actions"]:
+            return {"disposition": "not_available"}
+        if action in ("stop", "cancel"):
+            item.update(state="stopping", actions=[])
+            self.publish_work(item)
+
+            def stopped() -> None:
+                item.update(state="stopped", detail="Stopped by you")
+                self.publish_work(item)
+            self.later(0.3, stopped)
+            return {"disposition": "requested"}
+        if action == "pause":
+            item.update(state="paused", actions=["resume", "run_now"])
+        elif action == "resume":
+            item.update(state="active", actions=["pause", "run_now"])
+        elif action == "run_now":
+            item["detail"] = f"{item['detail'].split(' · ')[0]} · ran just now"
+        self.publish_work(item)
+        return {"disposition": "done"}
+
+    def m_tool_detail(self, params: dict, _writer) -> dict:
+        record = self.tool_records.get(str(params.get("invocation_id")))
+        if record is None or record["request_id"] != params.get("request_id"):
+            raise CoreError("not_found", "no such tool call")
+        output = {}
+        if record["retained"]:
+            output = {"cursor": f"out:{params['invocation_id']}:0", "expires_at": record["retained"]["expires_at"]}
+        return {"tool": record["tool"], "target": record["target"], "arguments": record["arguments"],
+                "previews": record["previews"], "output": output}
+
+    def m_tool_output(self, params: dict, _writer) -> dict:
+        try:
+            _, invocation_id, offset_text = str(params.get("cursor")).split(":")
+            offset = int(offset_text)
+        except ValueError:
+            raise CoreError("bad_request", "invalid output cursor") from None
+        record = self.tool_records.get(invocation_id)
+        retained = record and record["retained"]
+        if not retained:
+            raise CoreError("not_found", "no retained output for that cursor")
+        if retained["expires"] <= datetime.now(timezone.utc):
+            raise CoreError("expired", "Odin no longer keeps this output.")
+        limit = max(1, min(int(params.get("limit") or 65536), 65536))
+        text = retained["text"][offset:offset + limit]
+        end = offset + len(text)
+        result = {"text": text, "attachments": [], "eof": end >= len(retained["text"]),
+                  "expires_at": retained["expires_at"]}
+        if not result["eof"]:
+            result["next_cursor"] = f"out:{invocation_id}:{end}"
+        return result
+
+    def m_resume(self, params: dict, _writer) -> dict:
+        req = self.requests.get(str(params.get("request_id")))
+        if not req or req["conversation_id"] != params.get("conversation_id") or req["generation"] != params.get("generation"):
+            raise CoreError("stale_binding", "that is not the preserved request", "stale_binding")
+        cid = req["conversation_id"]
+        if req["state"] not in ("interrupted", "suspended"):
+            return {"disposition": "rejected", "reason": "Only an interrupted or suspended request can resume."}
+        if any(o["request_id"] == req["id"] for o in self.unresolved.get(cid, [])):
+            return {"disposition": "rejected",
+                    "reason": "Odin may have changed something it couldn't confirm. Reconcile that first."}
+        if cid in self.active or self.queued.get(cid):
+            return {"disposition": "rejected", "reason": "Odin is working in this conversation. Wait, or stop it first."}
+        req["generation"] += 1
+        req["resumed"] = True
+        self.start_request(req["id"])
+        return {"disposition": "admitted"}
 
     def m_artifact_read(self, params: dict, _writer) -> dict:
         artifact = self.artifacts.get(str(params.get("ref")))
@@ -656,10 +786,10 @@ class Core:
                        "generation": req["generation"], "control_command_id": command_id, "kind": kind,
                        "disposition": disposition})
 
-    def finish(self, req: dict, terminal: str) -> None:
+    def finish(self, req: dict, terminal: str, unknown_effects: int = 0) -> None:
         cid = req["conversation_id"]
         outcome = {"request_id": req["id"], "generation": req["generation"], "outcome": terminal.split(".", 1)[1],
-                   "unknown_effects": 0, "at": now()}
+                   "unknown_effects": unknown_effects, "at": now()}
         recent = self.recent.setdefault(cid, [])
         recent.append(outcome)
         del recent[:-RECENT_OUTCOMES]
@@ -668,7 +798,7 @@ class Core:
             self.unresolved.setdefault(cid, []).append(dict(outcome))
         self.emit(terminal, "request", req["id"],
                   {"conversation_id": cid, "request_id": req["id"], "generation": req["generation"],
-                   "unknown_effects": 0})
+                   "unknown_effects": unknown_effects})
 
     def start_request(self, rid: str) -> None:
         req = self.requests[rid]
@@ -679,17 +809,51 @@ class Core:
                   {"conversation_id": req["conversation_id"], "request_id": rid, "generation": req["generation"]})
         req["task"] = asyncio.get_running_loop().create_task(self.run_request(req))
 
+    @staticmethod
+    def tool_record(rid: str, text: str, said: set[str]) -> dict:
+        """What tool.detail shows: scrubbed arguments, labeled previews, and retained output on request."""
+        scrubbed = re.sub(r"(?i)\b(password|token|secret)=\S+", r"\1=•••", text)
+        retained = None
+        if "output" in said:
+            body = "\n".join(f"build step {n}: ok" for n in range(1, 2001))
+            expires, expires_at = iso_in(-60 if "expire" in said else 86400)
+            retained = {"text": body, "expires": expires, "expires_at": expires_at}
+            previews = [{"label": "Output, first 5 lines", "text": "\n".join(body.split("\n")[:5]), "truncated": True}]
+        else:
+            previews = [{"label": "Output", "text": f"Echoed {len(text)} characters.", "truncated": False}]
+        return {"request_id": rid, "tool": "echo", "target": "localhost", "arguments": {"text": scrubbed},
+                "previews": previews, "retained": retained}
+
     async def run_request(self, req: dict) -> None:
         cid, rid = req["conversation_id"], req["id"]
+        said = words(req["text"])
+        scripted = not req.get("resumed")  # a resumed request runs to completion
         inv = new_id("i")
         entry = {"invocation_id": inv, "tool": "echo", "target": "localhost",
                  "summary": f"echo {len(req['text'])} characters"}
         self.tools.setdefault(rid, []).append(entry)
+        self.tool_records[inv] = self.tool_record(rid, req["text"], said)
         self.emit("tool.started", "invocation", inv, {"conversation_id": cid, "request_id": rid, **entry})
+        if scripted and "agent" in said:
+            self.spawn_work("agent", "Research agent", req, "Iteration 1 of 120", 8)
+        if scripted and "process" in said:
+            self.spawn_work("process", "tail -f build.log", req, "Running on localhost", 600)
         await asyncio.sleep(0.3)
-        entry.update({"outcome": "success", "exit_code": 0, "duration_ms": 300})
+        unknown = scripted and "unknown" in said
+        settled = {"outcome": "unknown", "duration_ms": 300} if unknown else \
+            {"outcome": "success", "exit_code": 0, "duration_ms": 300}
+        entry.update(settled)
         self.emit("tool.settled", "invocation", inv, {"conversation_id": cid, "request_id": rid, "invocation_id": inv,
-                                                     "outcome": "success", "exit_code": 0, "duration_ms": 300})
+                                                     **settled})
+        if scripted and ("interrupt" in said or unknown):
+            # As if the core stopped mid-turn: the request is preserved for a guarded resume.
+            req["state"] = "interrupted"
+            self.finish(req, "request.interrupted", unknown_effects=1 if unknown else 0)
+            self.active.pop(cid, None)
+            queue = self.queued.get(cid) or []
+            if queue and not self.stopping.is_set():
+                self.start_request(queue.pop(0))
+            return
         consumed: list[str] = []
         steps = 60 if "slow" in req["text"] else 1
         for _ in range(steps):
@@ -752,6 +916,11 @@ METHODS = {
     "usage.get": Core.m_usage,
     "artifacts.read": Core.m_artifact_read,
     "reports.page": Core.m_report_page,
+    "work.list": Core.m_work_list,
+    "work.control": Core.m_work_control,
+    "tool.detail": Core.m_tool_detail,
+    "tool.output": Core.m_tool_output,
+    "control.resume": Core.m_resume,
     "runtime.reload": Core.m_reload,
     "attachments.begin": Core.m_attach_begin,
     "attachments.chunk": Core.m_attach_chunk,

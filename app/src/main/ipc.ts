@@ -8,6 +8,10 @@ import type { Broker, Settled } from './broker'
 import type { DraftStore } from './drafts'
 import {
   artifactActionSchema,
+  toolDetailSchema,
+  toolOutputSchema,
+  workControlSchema,
+  workListSchema,
   copyTextSchema,
   fetchArtifactSchema,
   reportPageSchema,
@@ -144,6 +148,15 @@ export function registerIpc(deps: IpcDeps): void {
     deps.attachments.cancel(v.id)
     return { ok: true, result: { cancelled: true } }
   })
+  handle(IPC.workList, workListSchema, async (v) => fromSettled(await deps.broker.request('work.list', v)))
+  handle(IPC.workControl, workControlSchema, async (v) =>
+    fromSettled(await deps.broker.request('work.control', v, v.control_command_id))
+  )
+  handle(IPC.resumeRequest, controlSchema, async (v) =>
+    fromSettled(await deps.broker.request('control.resume', v, v.control_command_id))
+  )
+  handle(IPC.toolDetail, toolDetailSchema, async (v) => fromSettled(await deps.broker.request('tool.detail', v)))
+  handle(IPC.toolOutput, toolOutputSchema, async (v) => fromSettled(await deps.broker.request('tool.output', v)))
   handle(IPC.fetchArtifact, fetchArtifactSchema, async (v) => {
     const bytes = await deps.artifacts.fetchBytes(v.ref)
     return bytes.ok ? { ok: true, result: { data: new Uint8Array(bytes.result) } } : bytes

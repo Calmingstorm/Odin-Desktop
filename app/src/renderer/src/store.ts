@@ -137,8 +137,41 @@ export const state = reactive({
   /** The message a jump points at, highlighted and scrolled into view. */
   highlightId: null as string | null,
   /** Output of a command such as /status, shown in the window and never sent to Odin. */
-  panel: null as { title: string; text: string } | null
+  panel: null as { title: string; text: string } | null,
+  /** Resume requests by `request_id:generation`, until the resumed request starts or the core says no. */
+  resumes: {} as Record<string, ResumeState | undefined>
 })
+
+export interface ResumeState {
+  /** `unknown`: no answer yet. It stays under its first command, never sent again, until its receipt settles it. */
+  status: 'sending' | 'admitted' | 'rejected' | 'failed' | 'unknown'
+  reason?: string
+  commandId?: string
+}
+
+type EventListener = (event: CoreEvent) => void
+const eventListeners: EventListener[] = []
+const readyListeners: Array<() => void> = []
+const receiptListeners: Array<(receipt: LateReceipt) => void> = []
+
+/** Lets other stores settle their own commands from late receipts. */
+export function onLateReceipt(listener: (receipt: LateReceipt) => void): void {
+  receiptListeners.push(listener)
+}
+
+/** Lets the work and status stores see every core event, without this store importing them. */
+export function onCoreEvent(listener: EventListener): void {
+  eventListeners.push(listener)
+}
+
+/** Runs whenever the link becomes ready: at start, and after every recovery. */
+export function onReady(listener: () => void): void {
+  readyListeners.push(listener)
+}
+
+function notifyReady(): void {
+  for (const listener of readyListeners) listener()
+}
 
 export function showPanel(title: string, text: string): void {
   state.panel = { title, text }
@@ -179,7 +212,7 @@ function errorText(result: Result<unknown>): string {
 }
 
 /** No receipt, or a receipt that says the outcome is unknown: the command may have been admitted. */
-function isUnknownOutcome(error: CoreError): boolean {
+export function isUnknownOutcome(error: CoreError): boolean {
   return error.code === 'no_receipt' || error.disposition === 'outcome_unknown'
 }
 
@@ -201,7 +234,10 @@ export async function init(): Promise<void> {
     if (lostLink || coreChanged) state.recoveryEpoch += 1
     const becameReady = app.link === 'ready' && (previous.link !== 'ready' || coreChanged)
     state.app = app
-    if (becameReady) void loadAll()
+    if (becameReady) {
+      notifyReady()
+      void loadAll()
+    }
   })
   window.odin.onEvent(applyEvent)
   window.odin.onReceipt(applyReceipt)
@@ -218,7 +254,10 @@ export async function init(): Promise<void> {
   if (app) state.app = app
   const settings = await window.odin.getSettings()
   if (settings.ok) state.autostart = settings.result.autostart
-  if (state.app.link === 'ready') await loadAll()
+  if (state.app.link === 'ready') {
+    notifyReady()
+    await loadAll()
+  }
 }
 
 let loadAllInFlight: { epoch: number; promise: Promise<void> } | null = null
@@ -812,6 +851,8 @@ export async function send(
     return steer(conversationId, running, text)
   }
 
+  // Sending ends a search jump: the view returns to the latest messages and follows the reply, as on Discord.
+  backToLatest()
   state.pending.push({
     client_submission_id: crypto.randomUUID(),
     conversation_id: conversationId,
@@ -943,7 +984,14 @@ export async function setAutostart(enabled: boolean): Promise<void> {
   if (result.ok) state.autostart = result.result.autostart
 }
 
-function applyReceipt(receipt: LateReceipt): void {
+export function applyReceipt(receipt: LateReceipt): void {
+  for (const listener of receiptListeners) listener(receipt)
+  for (const [key, attempt] of Object.entries(state.resumes)) {
+    if (attempt?.status !== 'unknown' || attempt.commandId !== receipt.id) continue
+    if (!receipt.settled.ok && isUnknownOutcome(receipt.settled.error)) return
+    state.resumes[key] = resumeAnswer(receipt.settled as Result<{ disposition: string; reason?: string }>)
+    return
+  }
   const command = unconfirmed.get(receipt.id)
   if (command) {
     if (!receipt.settled.ok && isUnknownOutcome(receipt.settled.error)) return
@@ -1044,6 +1092,7 @@ function trackBusy(event: CoreEvent): void {
 }
 
 export function applyEvent(event: CoreEvent): void {
+  for (const listener of eventListeners) listener(event)
   const p = event.payload
   if (event.type === 'conversation.created' || event.type === 'conversation.updated') {
     const conversation = p.conversation as Conversation
@@ -1177,4 +1226,53 @@ function applyToView(view: ConversationView, event: CoreEvent): void {
       }
     }
   }
+}
+
+/** A conversation's preserved request: its latest outcome was interrupted or suspended, and nothing runs after it. */
+export interface ResumeTarget {
+  outcome: TerminalOutcome
+  /** Why it can't resume, when its effects are unknown. The core makes the final decision. */
+  blocked: string | null
+}
+
+export function resumeTarget(view: ConversationView | undefined): ResumeTarget | null {
+  if (!view || view.running || view.queued.length) return null
+  const last = view.recent[view.recent.length - 1]
+  if (!last || (last.outcome !== 'interrupted' && last.outcome !== 'suspended')) return null
+  // `unresolved` is the authority: an entry leaves it only when the effects are reconciled (effects.resolved).
+  const unknown = view.unresolved.some((o) => o.request_id === last.request_id && o.generation === last.generation)
+  return {
+    outcome: last,
+    blocked: unknown ? "Odin may have changed something it couldn't confirm, so it won't carry on until that is reconciled." : null
+  }
+}
+
+export function resumeKey(outcome: TerminalOutcome): string {
+  return `${outcome.request_id}:${outcome.generation}`
+}
+
+function resumeAnswer(result: Result<{ disposition: string; reason?: string }>): ResumeState {
+  if (!result.ok) return { status: 'failed', reason: errorText(result) }
+  if (result.result.disposition === 'rejected') return { status: 'rejected', reason: result.result.reason ?? 'Odin declined to resume it.' }
+  return { status: 'admitted' }
+}
+
+/**
+ * Asks the core to carry on with exactly this preserved request. One attempt; the core decides. An attempt with no
+ * answer stays under its own command until its receipt arrives, so it is never sent again under a new one.
+ */
+export async function resume(conversationId: string, outcome: TerminalOutcome): Promise<void> {
+  const key = resumeKey(outcome)
+  const status = state.resumes[key]?.status
+  if (!canAct(conversationId) || status === 'sending' || status === 'admitted' || status === 'unknown') return
+  state.resumes[key] = { status: 'sending' }
+  const commandId = crypto.randomUUID()
+  const result = await window.odin.resumeRequest({
+    control_command_id: commandId,
+    conversation_id: conversationId,
+    request_id: outcome.request_id,
+    generation: outcome.generation
+  })
+  if (!result.ok && isUnknownOutcome(result.error)) state.resumes[key] = { status: 'unknown', commandId }
+  else state.resumes[key] = resumeAnswer(result)
 }

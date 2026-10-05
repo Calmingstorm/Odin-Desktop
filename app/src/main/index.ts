@@ -417,6 +417,44 @@ async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
     box.value = ''
     box.dispatchEvent(new Event('input'))
   })()`)
+  // Running work, a tool call's details and retained output, and the resume banner.
+  const sendAndWait = (text: string, ready: string): Promise<unknown> =>
+    run(`(async () => {
+      const box = document.querySelector('.composer-form textarea')
+      box.value = ${JSON.stringify(text)}
+      box.dispatchEvent(new Event('input'))
+      box.form.requestSubmit()
+      for (let i = 0; i < 250; i++) {
+        await new Promise((r) => setTimeout(r, 20))
+        if (${ready}) return true
+      }
+      throw new Error('never ready: ' + ${JSON.stringify(text)})
+    })()`)
+  await sendAndWait(
+    'start an agent and a process, and show the output',
+    `[...document.querySelectorAll('.msg.assistant .body')].some((b) => b.textContent.includes('start an agent'))`
+  )
+  await run(`document.querySelector('.work-toggle').click()`)
+  await pause(500)
+  await shoot('work')
+  await run(`document.querySelector('.work-toggle').click()`)
+  await run(`(async () => {
+    const toggles = document.querySelectorAll('.msg.assistant .tools-toggle')
+    toggles[toggles.length - 1].click()
+    await new Promise((r) => setTimeout(r, 100))
+    const rows = document.querySelectorAll('.msg.assistant .tool-row')
+    rows[rows.length - 1].click()
+    for (let i = 0; i < 100 && !document.querySelector('.tool-output button'); i++) await new Promise((r) => setTimeout(r, 20))
+    document.querySelector('.tool-output button').click()
+    for (let i = 0; i < 100 && !document.querySelector('.tool-output pre'); i++) await new Promise((r) => setTimeout(r, 20))
+    document.querySelector('.tool-detail').scrollIntoView({ block: 'center' })
+  })()`)
+  await pause(300)
+  await shoot('tool')
+  await sendAndWait('please interrupt', `document.querySelector('.resume-banner')`)
+  await run(`document.querySelector('.resume-banner').scrollIntoView({ block: 'end' })`)
+  await pause(300)
+  await shoot('resume')
   // A very long reply, as a regression signal: how long reopening its conversation takes (fetch, render, paint), and
   // how long narrowing it by a pixel takes to re-lay it out, as a window resize does.
   const timing = await run(`(async () => {

@@ -98,6 +98,25 @@ export const uploadAttachmentSchema = z.object({ id: z.uuid(), conversation_id: 
 
 export const cancelAttachmentSchema = z.object({ id: z.uuid() }).strict()
 
+const workKind = z.enum(['agent', 'task', 'loop', 'process', 'schedule', 'workflow'])
+
+export const workListSchema = z.object({ kind: workKind.optional(), conversation_id: coreId.optional() }).strict()
+
+export const workControlSchema = z
+  .object({
+    control_command_id: z.uuid(),
+    kind: workKind,
+    id: coreId,
+    action: z.enum(['stop', 'cancel', 'restart', 'pause', 'resume', 'run_now'])
+  })
+  .strict()
+
+export const toolDetailSchema = z.object({ request_id: coreId, invocation_id: coreId }).strict()
+
+export const toolOutputSchema = z
+  .object({ cursor: z.string().min(1).max(512), limit: z.number().int().min(1).max(65_536) })
+  .strict()
+
 export const fetchArtifactSchema = z.object({ ref: coreId }).strict()
 
 export const artifactActionSchema = z.object({ ref: coreId, name: z.string().min(1).max(255) }).strict()
