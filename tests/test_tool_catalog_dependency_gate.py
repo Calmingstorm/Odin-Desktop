@@ -1,34 +1,27 @@
-"""PDF remains offered independently of installed extras, with Odin's wording."""
+"""Environment-gated tool-catalog coverage independent of installed extras."""
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 from src.config.schema import Config
 from src.discord.tool_catalog import ToolCatalog
-from src.tools.affordances import decorate_description
-from src.tools.defs.browser_web import TOOLS_SECTION
-from src.tools.registry import get_tool_definitions
 
 
-def test_missing_pdf_dependency_is_offered_with_unchanged_description():
-    config = Config()
+def test_missing_pdf_dependency_is_hidden_with_actionable_log():
+    config = Config(discord={"token": "pin"}, permissions={"default_tier": "admin"})
     catalog = ToolCatalog(
         get_config=lambda: config,
         skill_manager=MagicMock(get_tool_definitions=lambda: []),
     )
-    # A configured handler must still be admitted by the owning engine. Absence
-    # of the optional wheel alone must not remove it from the backend catalog.
-    with (patch.dict("sys.modules", {"fitz": None}),
-          patch("src.discord.tool_catalog.get_tool_definitions", lambda **kwargs:
-                get_tool_definitions(readiness={"analyze_pdf": True}, **kwargs))):
-        assert "analyze_pdf" not in catalog.backend_hidden_names()
-        definitions = {tool["name"]: tool for tool in catalog.merged_definitions()}
-    original = next(tool for tool in TOOLS_SECTION if tool["name"] == "analyze_pdf")
-    assert original["description"] == (
-        "Extracts text from a PDF (URL or host:path). Returns markdown text; large results "
-        "have retained previews and get_tool_output(cursor=...) continuation. "
-        "For image-heavy PDFs, use browser_screenshot."
-    )
-    assert definitions["analyze_pdf"]["description"] == decorate_description(
-        "analyze_pdf", original["description"],
+
+    with (
+        patch("src.discord.tool_catalog.importlib.util.find_spec", return_value=None),
+        patch("src.discord.tool_catalog.log.info") as info,
+    ):
+        names = {tool["name"] for tool in catalog.merged_definitions()}
+
+    assert "analyze_pdf" not in names
+    assert any(
+        "analyze_pdf hidden from the tool catalog" in str(call.args[0])
+        for call in info.call_args_list
     )

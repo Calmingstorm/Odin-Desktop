@@ -1454,7 +1454,9 @@
         "tests/test_desktop_strip_native.py",
         "tests/test_desktop_strip_root.py",
         "tests/test_desktop_strip_web.py",
-        "tests/test_desktop_test_plan.py"
+        "tests/test_desktop_test_plan.py",
+        "tests/test_pdf_resources.py",
+        "tests/test_desktop_pdf_catalog.py"
       ],
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups."
     },
