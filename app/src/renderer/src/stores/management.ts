@@ -29,12 +29,12 @@ export const management = reactive({
   error: ''
 })
 
-function failure(result: Result<unknown>): string {
+export function failure(result: Result<unknown>): string {
   return result.ok ? '' : result.error.message
 }
 
 /** Runs one action at a time per key, notes what the core said, then refreshes what it changed. */
-async function act<T>(key: string, run: () => Promise<Result<T>>, done: (answer: T) => string, refresh?: () => Promise<void>): Promise<boolean> {
+export async function act<T>(key: string, run: () => Promise<Result<T>>, done: (answer: T) => string, refresh?: () => Promise<void>): Promise<boolean> {
   if (management.busy[key]) return false
   management.busy[key] = true
   const result = await run()

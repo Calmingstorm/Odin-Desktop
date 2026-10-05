@@ -417,6 +417,174 @@ export interface McpSave {
   env_remove?: string[]
 }
 
+export interface HostTest {
+  ok?: boolean
+  at?: string
+  detail?: string
+  [key: string]: unknown
+}
+
+/** One managed host, as Odin's GET /api/hosts lists it. */
+export interface HostRow {
+  alias: string
+  host_id: string
+  address: string
+  ssh_user: string
+  os: string
+  port: number
+  description: string
+  enabled: boolean
+  active: boolean
+  targetable: boolean
+  trust_mode: string
+  trust_state: string
+  last_test: HostTest | null
+  diagnostic: string | null
+  draining: boolean
+  generation: number
+}
+
+export interface HostList {
+  hosts: HostRow[]
+  /** Empty: Odin needs every command to name its host. */
+  default_host: string
+  generation: number
+  tofu_enabled: boolean
+}
+
+/** The body of Odin's POST /api/hosts/candidates. */
+export interface HostPrepare {
+  alias: string
+  address: string
+  ssh_user: string
+  port?: number
+  os?: 'linux' | 'macos'
+  description?: string
+  trust_mode: 'pinned' | 'ca' | 'tofu'
+  expected_fingerprints?: string[]
+  candidate_fingerprints?: string[]
+  confirm_tofu?: boolean
+  confirm_local?: boolean
+}
+
+export interface HostCandidate {
+  candidate_token: string
+  alias: string
+  host_id: string
+  fingerprints: string[]
+  trust_mode: string
+  tested: boolean
+}
+
+export interface HostTestResult {
+  candidate_token: string
+  tested: boolean
+  last_test: HostTest | null
+  error?: string
+}
+
+export interface HostSaved {
+  result: string
+  alias: string
+  host_id: string
+}
+
+export interface HostReference {
+  kind: string
+  location: string
+}
+
+export interface HostRevoked {
+  result: string
+  leases_interrupted: number
+  processes: { attempted: number; killed: number; unknown: number }
+}
+
+export interface PublicKeyInfo {
+  public_key: string
+  fingerprint: string
+  authorized_keys_command: string
+  permissions: string
+  effective_key_path: string
+  desired_key_path: string
+  restart_pending: boolean
+}
+
+export type ScheduleAction = 'reminder' | 'check' | 'workflow' | 'webhook'
+
+/** One schedule, in the shape of Odin's GET /api/schedules. */
+export interface ScheduleRow {
+  id: string
+  description: string
+  action: ScheduleAction
+  /** The conversation it reports to; empty for a webhook. */
+  channel_id: string
+  created_at: string
+  cron?: string | null
+  run_at?: string | null
+  one_time?: boolean
+  /** The zone a cron expression runs in, when it has one of its own. */
+  timezone?: string | null
+  next_run?: string | null
+  last_run?: string | null
+  paused?: boolean
+  message?: string | null
+  tool_name?: string | null
+  tool_input?: Record<string, unknown> | null
+  report_format?: string | null
+  steps?: unknown[] | null
+  webhook_config?: Record<string, unknown> | null
+  trigger?: Record<string, unknown> | null
+  max_retries?: number
+  retry_backoff_seconds?: number
+  consecutive_failures?: number
+  retry_count?: number
+  retry_at?: string | null
+  last_error?: string | null
+  last_error_at?: string | null
+  /** Why the schedule can no longer fire, such as a one-time run whose time passed while paused. */
+  inert_reason?: string | null
+}
+
+/** Fields both creating and changing a schedule take. Changing sends only what changed. */
+interface ScheduleFields {
+  description?: string
+  channel_id?: string
+  cron?: string
+  run_at?: string
+  cron_timezone?: string
+  message?: string
+  tool_name?: string
+  tool_input?: Record<string, unknown>
+  report_format?: string
+  steps?: unknown[]
+  webhook_config?: Record<string, unknown>
+  max_retries?: number
+  retry_backoff_seconds?: number
+}
+
+/** A new schedule (POST /api/schedules), or a change to one (PUT /api/schedules/{id}). The action is set once. */
+export type ScheduleSave = (ScheduleFields & { action?: ScheduleAction }) | (ScheduleFields & { id: string; paused?: boolean })
+
+/** One run, as Odin's schedule history records it. */
+export interface ScheduleRun {
+  timestamp: string
+  schedule_id: string
+  description: string
+  action: ScheduleAction
+  status: 'success' | 'failure'
+  duration_ms: number
+  error?: string
+  retry_attempt?: number
+}
+
+export interface ScheduleRunResult {
+  status: 'success' | 'failure' | 'skipped'
+  schedule_id: string
+  error?: string
+  warning?: string
+}
+
 type Empty = Record<string, never>
 
 /** Each management bridge method: its params and its answer. */
@@ -443,6 +611,23 @@ export interface ManagementCalls {
   mcpTools: [{ name: string }, { server: string; tools: McpTool[] }]
   mcpSetGlobalEnabled: [{ enabled: boolean }, McpStatus & { saved: boolean }]
   mcpSetLimits: [{ max_published_tools_per_server?: number; max_published_tools_global?: number }, McpStatus & { saved: boolean }]
+  hostsList: [Empty, HostList]
+  hostsSettings: [{ default_host?: string; allow_host_tofu?: boolean }, { result: string }]
+  hostsPublicKey: [Empty, PublicKeyInfo]
+  hostsPrepare: [HostPrepare, HostCandidate]
+  hostsTest: [{ token: string }, HostTestResult]
+  hostsCommit: [{ token: string }, HostSaved]
+  hostsSetEnabled: [{ alias: string; enabled: boolean }, HostSaved]
+  hostsReferences: [{ alias: string }, { alias: string; references: HostReference[] }]
+  hostsDelete: [{ alias: string }, HostSaved]
+  hostsForceRevoke: [{ alias: string }, HostRevoked]
+  schedulesList: [Empty, ScheduleRow[]]
+  schedulesSave: [ScheduleSave, ScheduleRow]
+  schedulesDelete: [{ id: string }, { status: string }]
+  schedulesRun: [{ id: string }, ScheduleRunResult]
+  schedulesResetFailures: [{ id: string }, ScheduleRow]
+  schedulesHistory: [{ id?: string; limit?: number }, ScheduleRun[]]
+  schedulesValidateCron: [{ expression: string }, { valid: boolean; next_runs: string[] }]
 }
 
 export type ManagementMethod = keyof ManagementCalls
@@ -477,7 +662,24 @@ export const MANAGEMENT: { [K in ManagementMethod]: { channel: string; core: str
   mcpRefreshTools: { channel: 'odin:manage:mcp.refresh_tools', core: 'mcp.refresh_tools', command: true },
   mcpTools: { channel: 'odin:manage:mcp.tools', core: 'mcp.tools', command: false },
   mcpSetGlobalEnabled: { channel: 'odin:manage:mcp.set_global_enabled', core: 'mcp.set_global_enabled', command: true },
-  mcpSetLimits: { channel: 'odin:manage:mcp.set_limits', core: 'mcp.set_limits', command: true }
+  mcpSetLimits: { channel: 'odin:manage:mcp.set_limits', core: 'mcp.set_limits', command: true },
+  hostsList: { channel: 'odin:manage:hosts.list', core: 'hosts.list', command: false },
+  hostsSettings: { channel: 'odin:manage:hosts.settings', core: 'hosts.settings', command: true },
+  hostsPublicKey: { channel: 'odin:manage:hosts.public_key', core: 'hosts.public_key', command: false },
+  hostsPrepare: { channel: 'odin:manage:hosts.prepare', core: 'hosts.prepare', command: true },
+  hostsTest: { channel: 'odin:manage:hosts.test', core: 'hosts.test', command: true },
+  hostsCommit: { channel: 'odin:manage:hosts.commit', core: 'hosts.commit', command: true },
+  hostsSetEnabled: { channel: 'odin:manage:hosts.set_enabled', core: 'hosts.set_enabled', command: true },
+  hostsReferences: { channel: 'odin:manage:hosts.references', core: 'hosts.references', command: false },
+  hostsDelete: { channel: 'odin:manage:hosts.delete', core: 'hosts.delete', command: true },
+  hostsForceRevoke: { channel: 'odin:manage:hosts.force_revoke', core: 'hosts.force_revoke', command: true },
+  schedulesList: { channel: 'odin:manage:schedules.list', core: 'schedules.list', command: false },
+  schedulesSave: { channel: 'odin:manage:schedules.save', core: 'schedules.save', command: true },
+  schedulesDelete: { channel: 'odin:manage:schedules.delete', core: 'schedules.delete', command: true },
+  schedulesRun: { channel: 'odin:manage:schedules.run', core: 'schedules.run', command: true },
+  schedulesResetFailures: { channel: 'odin:manage:schedules.reset_failures', core: 'schedules.reset_failures', command: true },
+  schedulesHistory: { channel: 'odin:manage:schedules.history', core: 'schedules.history', command: false },
+  schedulesValidateCron: { channel: 'odin:manage:schedules.validate_cron', core: 'schedules.validate_cron', command: false }
 }
 
 export interface QuotaWindow {

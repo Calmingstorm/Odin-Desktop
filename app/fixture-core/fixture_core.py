@@ -39,7 +39,8 @@ READ_METHODS = {"status.get", "events.subscribe", "conversations.list", "message
                 "search.query", "messages.around", "usage.get", "artifacts.read", "reports.page", "work.list",
                 "tool.detail", "tool.output", "settings.schema", "codex.accounts.list", "codex.login.poll",
                 "models.agents.get", "tools.list", "tools.timeouts.get", "skills.list", "skills.get", "skills.validate",
-                "skills.config.get", "mcp.status", "mcp.tools"}
+                "skills.config.get", "mcp.status", "mcp.tools", "hosts.list", "hosts.public_key", "hosts.references",
+                "schedules.list", "schedules.history", "schedules.validate_cron"}
 # Idempotent by offset, so it keeps no durable receipt (protocol.md, Conventions).
 NO_RECEIPT_METHODS = READ_METHODS | {"attachments.chunk"}
 CHUNK_BYTES = 512 * 1024
@@ -186,6 +187,47 @@ def validate_skill(code: str) -> dict:
 
 
 MCP_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+HOST_ALIAS = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
+
+
+def fingerprint_of(address: str) -> str:
+    """A stable stand-in for scanning a host's key: OpenSSH's SHA256: form."""
+    return "SHA256:" + base64.b64encode(hashlib.sha256(address.encode()).digest()).decode().rstrip("=")
+
+
+def cron_matches(field: str, value: int) -> bool:
+    for part in field.split(","):
+        step = 1
+        if "/" in part:
+            part, step_text = part.split("/", 1)
+            step = int(step_text)
+        if part == "*":
+            low, high = 0, 10**6
+        elif "-" in part:
+            low, high = (int(x) for x in part.split("-", 1))
+        else:
+            low = high = int(part)
+        if low <= value <= high and (value - (low if part != "*" else 0)) % step == 0:
+            return True
+    return False
+
+
+def next_cron_runs(expression: str, count: int = 3) -> list[str]:
+    """The next runs of a five-field cron expression, in UTC: enough for the fixture's checks."""
+    fields = expression.split()
+    if len(fields) != 5 or any(not re.fullmatch(r"[0-9*/,\-]+", f) for f in fields):
+        raise ValueError("a cron expression has five fields: minute hour day month weekday")
+    minute, hour, day, month, weekday = fields
+    at = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    runs = []
+    for _ in range(60 * 24 * 32):
+        at += timedelta(minutes=1)
+        if (cron_matches(minute, at.minute) and cron_matches(hour, at.hour) and cron_matches(day, at.day)
+                and cron_matches(month, at.month) and cron_matches(weekday, (at.weekday() + 1) % 7)):
+            runs.append(at.isoformat())
+            if len(runs) == count:
+                break
+    return runs
 
 
 # A 24x24 PNG in the app's accent colour, for "image" requests.
@@ -282,9 +324,27 @@ class Core:
         self.artifacts: dict[str, dict] = {}  # ref -> {name, mime, data}
         self.reports: dict[str, dict] = {}  # report id -> {conversation_id, pages}
         self.tool_records: dict[str, dict] = {}  # invocation_id -> arguments, previews, retained output
-        self.work: dict[str, dict] = {"s_daily": {
-            "kind": "schedule", "id": "s_daily", "title": "Daily health report", "state": "active",
-            "detail": "Every day at 09:00", "actions": ["pause", "run_now"]}}
+        self.work: dict[str, dict] = {}  # agents, processes and the like; schedules come from self.schedules
+        self.schedules: dict[str, dict] = {"5d0a7c21": {
+            "id": "5d0a7c21", "description": "Post the daily status to the dashboard", "action": "webhook",
+            "channel_id": "", "created_at": now(), "last_run": None, "paused": False, "cron": "0 9 * * *",
+            "one_time": False, "timezone": "UTC", "next_run": next_cron_runs("0 9 * * *", 1)[0],
+            "webhook_config": {"url": "https://status.example.net/hook", "method": "POST"},
+            "max_retries": 0, "retry_backoff_seconds": 60, "consecutive_failures": 0, "retry_count": 0,
+            "last_error": None, "last_error_at": None}}
+        self.schedule_runs: list[dict] = []
+        self.hosts: dict[str, dict] = {
+            "localhost": {"address": "127.0.0.1", "ssh_user": "odin", "os": "linux", "port": 22,
+                          "description": "The machine Odin runs on.", "enabled": True, "trust_mode": "local",
+                          "fingerprints": []},
+            "build_box": {"address": "10.0.0.5", "ssh_user": "deploy", "os": "linux", "port": 22,
+                          "description": "8 cores, 32 GB.", "enabled": True, "trust_mode": "pinned",
+                          "fingerprints": [fingerprint_of("10.0.0.5")]},
+        }
+        self.default_host = "localhost"
+        self.allow_host_tofu = False
+        self.host_candidates: dict[str, dict] = {}
+        self.host_generation = 1
         self.background: set[asyncio.Task] = set()
         self.notification_acks: dict[str, str] = {}  # dedupe_key -> what the app did
         self.settings_values = {path: spec["default"] for path, spec in SETTINGS_FIELDS.items()}
@@ -511,13 +571,44 @@ class Core:
                 self.publish_work(item)
         self.later(seconds, finish)
 
+    @staticmethod
+    def schedule_item(row: dict) -> dict:
+        """A schedule as the Work panel lists it."""
+        if row.get("inert_reason"):
+            state, actions = "inert", []
+        elif row.get("paused"):
+            state, actions = "paused", ["resume", "run_now"]
+        else:
+            state, actions = "active", ["pause", "run_now"]
+        when = f"cron {row['cron']} ({row.get('timezone') or 'UTC'})" if row.get("cron") else f"once at {row.get('run_at')}"
+        item = {"kind": "schedule", "id": row["id"], "title": row["description"], "state": state,
+                "detail": when + (" · ran just now" if row.get("last_run") else ""), "actions": actions}
+        if row.get("channel_id"):
+            item["conversation_id"] = row["channel_id"]
+        return item
+
     def m_work_list(self, params: dict, _writer) -> dict:
+        self.settle_due_schedules()
         kind, cid = params.get("kind"), params.get("conversation_id")
-        items = [dict(item, actions=list(item["actions"])) for item in self.work.values()
+        everything = [*self.work.values(), *(self.schedule_item(row) for row in self.schedules.values())]
+        items = [dict(item, actions=list(item["actions"])) for item in everything
                  if (not kind or item["kind"] == kind) and (not cid or item.get("conversation_id") == cid)]
         return {"items": items}
 
     def m_work_control(self, params: dict, _writer) -> dict:
+        if params.get("kind") == "schedule":
+            row = self.schedules.get(str(params.get("id")))
+            if row is None:
+                raise CoreError("not_found", "that work is no longer listed")
+            action = params.get("action")
+            if action not in self.schedule_item(row)["actions"]:
+                return {"disposition": "not_available"}
+            if action in ("pause", "resume"):
+                row["paused"] = action == "pause"
+            else:
+                self.run_schedule(row, manual=True)
+            self.publish_work(self.schedule_item(row))
+            return {"disposition": "done"}
         item = self.work.get(str(params.get("id")))
         if item is None or item["kind"] != params.get("kind"):
             raise CoreError("not_found", "that work is no longer listed")
@@ -1018,6 +1109,371 @@ class Core:
                     raise CoreError("bad_request", "publication limits must be integers")
                 self.mcp[key] = params[key]
         return {"saved": True, **self.mcp_status()}
+
+    # ---------------------------------------------------------------- hosts
+    def host_row(self, alias: str, host: dict) -> dict:
+        local = host["trust_mode"] == "local"
+        return {"alias": alias, "host_id": f"h_{hashlib.sha256(alias.encode()).hexdigest()[:8]}",
+                "address": host["address"], "ssh_user": host["ssh_user"], "os": host["os"], "port": host["port"],
+                "description": host["description"], "enabled": host["enabled"], "active": host["enabled"],
+                "targetable": host["enabled"], "trust_mode": host["trust_mode"],
+                "trust_state": "local" if local else "trusted",
+                "last_test": {"ok": True, "at": now(), "detail": "connected"}, "diagnostic": None,
+                "draining": False, "generation": self.host_generation}
+
+    def m_hosts_list(self, _params: dict, _writer) -> dict:
+        return {"hosts": [self.host_row(alias, host) for alias, host in self.hosts.items()],
+                "default_host": self.default_host, "generation": self.host_generation,
+                "tofu_enabled": self.allow_host_tofu}
+
+    def m_hosts_settings(self, params: dict, _writer) -> dict:
+        if set(params) - {"default_host", "allow_host_tofu"}:
+            raise CoreError("bad_request", "only default_host and allow_host_tofu may be changed")
+        default = params.get("default_host", self.default_host)
+        if not isinstance(default, str):
+            raise CoreError("bad_request", "default_host must be a string")
+        default = default.strip()
+        if default and default not in self.hosts:  # empty: every command names its host
+            raise CoreError("bad_request", "default_host must name a configured host")
+        tofu = params.get("allow_host_tofu", self.allow_host_tofu)
+        if not isinstance(tofu, bool):
+            raise CoreError("bad_request", "allow_host_tofu must be boolean")
+        old = (self.default_host, self.allow_host_tofu)
+        self.default_host, self.allow_host_tofu = default, tofu
+        return {"result": "saved", "old_default_host": old[0], "new_default_host": default,
+                "old_allow_host_tofu": old[1], "new_allow_host_tofu": tofu}
+
+    def m_hosts_public_key(self, _params: dict, _writer) -> dict:
+        key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFixtureKeyForTheDevelopmentCore odin@desktop"
+        return {"public_key": key, "fingerprint": fingerprint_of(key),
+                "authorized_keys_command": f"mkdir -p ~/.ssh && echo '{key}' >> ~/.ssh/authorized_keys",
+                "permissions": "~/.ssh permissions must be 0700 and authorized_keys 0600",
+                "effective_key_path": "keys/id_ed25519", "desired_key_path": "keys/id_ed25519",
+                "restart_pending": False}
+
+    def m_hosts_prepare(self, params: dict, _writer) -> dict:
+        alias = str(params.get("alias") or "")
+        if not HOST_ALIAS.fullmatch(alias):
+            raise CoreError("bad_request", "alias must start with a letter and use letters, digits, . _ or -")
+        address = str(params.get("address") or "").strip()
+        if not address or " " in address:
+            raise CoreError("bad_request", "address is not a plain hostname or IP address")
+        if params.get("os", "linux") not in ("linux", "macos"):
+            raise CoreError("bad_request", "os must be 'linux' or 'macos'")
+        port = params.get("port", 22)
+        if type(port) is not int or not 1 <= port <= 65535:
+            raise CoreError("bad_request", "port must be an integer between 1 and 65535")
+        local = address in ("localhost", "::1") or address.startswith("127.")
+        if local and params.get("confirm_local") is not True:
+            raise CoreError("bad_request", "local targets execute inside Odin and require confirm_local=true")
+        mode = params.get("trust_mode")
+        scanned = [fingerprint_of(address)]
+        confirmed = False
+        if mode in ("pinned", "ca"):
+            expected = params.get("expected_fingerprints") or []
+            if not expected:
+                raise CoreError("bad_request", "expected_fingerprints is required")
+            if any(not str(e).startswith("SHA256:") for e in expected):
+                raise CoreError("bad_request", "expected fingerprint must use OpenSSH SHA256: form")
+            if not set(expected) & set(scanned):
+                raise CoreError("bad_request", "scanned host key does not match the expected fingerprint")
+        elif mode == "tofu":
+            if not self.allow_host_tofu:
+                raise CoreError("bad_request", "TOFU is disabled by configuration")
+            offered = params.get("candidate_fingerprints")
+            if offered:
+                if params.get("confirm_tofu") is not True or list(offered) != scanned:
+                    raise CoreError("bad_request", "TOFU requires confirm_tofu=true bound to the exact candidate_fingerprints")
+                confirmed = True
+        else:
+            raise CoreError("bad_request", "trust_mode must be legacy, pinned, ca, or tofu")
+        token = str(uuid.uuid4())
+        self.host_candidates[token] = {"alias": alias, "address": address, "ssh_user": str(params.get("ssh_user") or ""),
+                                       "os": params.get("os", "linux"), "port": port,
+                                       "description": str(params.get("description") or ""), "trust_mode": mode,
+                                       "fingerprints": scanned, "tested": False, "tofu_confirmed": confirmed}
+        return {"candidate_token": token, "alias": alias, "host_id": f"h_{hashlib.sha256(alias.encode()).hexdigest()[:8]}",
+                "fingerprints": scanned, "trust_mode": mode, "tested": False}
+
+    def require_candidate(self, params: dict) -> dict:
+        candidate = self.host_candidates.get(str(params.get("token")))
+        if candidate is None:
+            raise CoreError("not_found", "unknown or expired candidate")
+        return candidate
+
+    def m_hosts_test(self, params: dict, _writer) -> dict:
+        candidate = self.require_candidate(params)
+        ok = "unreachable" not in candidate["address"]
+        candidate["tested"] = ok
+        result = {"candidate_token": params["token"], "tested": ok,
+                  "last_test": {"ok": ok, "at": now(), "detail": "connected" if ok else "connection refused"}}
+        if not ok:
+            result["error"] = "connection refused"
+        return result
+
+    def m_hosts_commit(self, params: dict, _writer) -> dict:
+        candidate = self.require_candidate(params)
+        if not candidate["tested"]:
+            raise CoreError("bad_request", "candidate must pass the connection test before activation")
+        if candidate["trust_mode"] == "tofu" and not candidate["tofu_confirmed"]:
+            raise CoreError("bad_request", "TOFU candidate requires a second confirmation bound to its exact fingerprints")
+        alias = candidate["alias"]
+        self.hosts[alias] = {key: candidate[key] for key in ("address", "ssh_user", "os", "port", "description", "trust_mode", "fingerprints")}
+        self.hosts[alias]["enabled"] = True
+        del self.host_candidates[params["token"]]
+        self.host_generation += 1
+        return {"result": "saved", "alias": alias, "host_id": self.host_row(alias, self.hosts[alias])["host_id"]}
+
+    def require_host(self, params: dict) -> tuple[str, dict]:
+        alias = params.get("alias")
+        host = self.hosts.get(alias)
+        if host is None:
+            raise CoreError("not_found", "host not found")
+        return alias, host
+
+    def host_references(self, alias: str) -> list[dict]:
+        refs = []
+        if self.default_host == alias:
+            refs.append({"kind": "default_host", "location": "tools.default_host"})
+        for row in self.schedules.values():
+            if (row.get("tool_input") or {}).get("host") == alias:
+                refs.append({"kind": "schedule", "location": f"schedule {row['id']}: {row['description']}"})
+        return refs
+
+    def m_hosts_set_enabled(self, params: dict, _writer) -> dict:
+        alias, host = self.require_host(params)
+        host["enabled"] = bool(params.get("enabled"))
+        self.host_generation += 1
+        return {"result": "saved", "alias": alias, "host_id": self.host_row(alias, host)["host_id"]}
+
+    def m_hosts_references(self, params: dict, _writer) -> dict:
+        alias, _host = self.require_host(params)
+        return {"alias": alias, "references": self.host_references(alias)}
+
+    def m_hosts_delete(self, params: dict, _writer) -> dict:
+        alias, host = self.require_host(params)
+        refs = self.host_references(alias)
+        if refs:
+            raise CoreError("bad_request", "host deletion is blocked by configured references: "
+                            + "; ".join(r["location"] for r in refs))
+        row = self.host_row(alias, host)
+        del self.hosts[alias]
+        self.host_generation += 1
+        return {"result": "saved", "alias": alias, "host_id": row["host_id"]}
+
+    def m_hosts_force_revoke(self, params: dict, _writer) -> dict:
+        _alias, _host = self.require_host(params)
+        revoked = [self.host_generation]
+        self.host_generation += 1
+        return {"result": "revoked", "leases_interrupted": 0, "processes": {"attempted": 0, "killed": 0, "unknown": 0},
+                "process_outcome": "none", "revoked_generations": revoked, "registry_generation": self.host_generation}
+
+    # ------------------------------------------------------------ schedules
+    ALLOWED_CHECK_TOOLS = ("run_command", "run_command_multi", "run_script")
+    REPORT_FORMATS = ("paginated_embed_v1",)
+    WEBHOOK_METHODS = ("POST", "PUT", "PATCH", "GET", "DELETE")
+
+    def settle_due_schedules(self) -> None:
+        """What time passing does: a one-time run whose time came fires once and goes, or goes inert if paused."""
+        at = datetime.now(timezone.utc)
+        for row in list(self.schedules.values()):
+            if not row.get("one_time") or row.get("inert_reason"):
+                continue
+            if datetime.fromisoformat(row["run_at"]) > at:
+                continue
+            if row.get("paused"):
+                row["inert_reason"] = "Its one-time run time passed while it was paused. Set a new time to re-arm it."
+                row["next_run"] = None
+            else:
+                self.run_schedule(row)
+                del self.schedules[row["id"]]
+        for row in self.schedules.values():
+            if row.get("cron") and row.get("next_run") and datetime.fromisoformat(row["next_run"]) <= at:
+                row["next_run"] = next_cron_runs(row["cron"], 1)[0]
+
+    def run_schedule(self, row: dict, manual: bool = False) -> dict:
+        started = datetime.now(timezone.utc)
+        url = str((row.get("webhook_config") or {}).get("url") or "")
+        error = "HTTP 500 from the webhook" if row["action"] == "webhook" and "/fail" in url else None
+        row["last_run"] = started.isoformat()
+        if error:
+            row["consecutive_failures"] = row.get("consecutive_failures", 0) + 1
+            row.update(last_error=error, last_error_at=started.isoformat())
+        else:
+            row["consecutive_failures"] = 0
+        entry = {"timestamp": started.isoformat(), "schedule_id": row["id"], "description": row["description"],
+                 "action": row["action"], "status": "failure" if error else "success", "duration_ms": 40}
+        if error:
+            entry["error"] = error
+        self.schedule_runs.insert(0, entry)
+        return entry
+
+    def require_schedule(self, params: dict) -> dict:
+        self.settle_due_schedules()
+        row = self.schedules.get(str(params.get("id")))
+        if row is None:
+            raise CoreError("not_found", f"Schedule '{params.get('id')}' not found")
+        return row
+
+    @staticmethod
+    def instant(value: object) -> str:
+        """run_at is an explicit instant: a time with its UTC offset."""
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            raise CoreError("bad_request", "run_at must be an ISO 8601 time") from None
+        if parsed.tzinfo is None:
+            raise CoreError("bad_request", "run_at needs its UTC offset, such as 2026-10-05T09:00:00-04:00")
+        if parsed <= datetime.now(timezone.utc):
+            raise CoreError("bad_request", "run_at must be in the future")
+        return parsed.astimezone(timezone.utc).isoformat()
+
+    def check_action_fields(self, action: str, fields: dict) -> None:
+        for key, owner in (("message", "reminder"), ("tool_name", "check"), ("tool_input", "check"),
+                           ("report_format", "check"), ("steps", "workflow"), ("webhook_config", "webhook")):
+            if fields.get(key) not in (None, "", {}) and action != owner:
+                raise CoreError("bad_request", f"{key} is only valid for '{owner}' actions")
+        if fields.get("report_format") and fields["report_format"] not in self.REPORT_FORMATS:
+            raise CoreError("bad_request", f"Unsupported scheduled report format: {fields['report_format']}")
+        if "tool_name" in fields and action == "check" and fields["tool_name"] not in self.ALLOWED_CHECK_TOOLS:
+            raise CoreError("bad_request", f"Tool '{fields['tool_name']}' is not allowed for scheduled checks. "
+                                           f"Allowed: {', '.join(sorted(self.ALLOWED_CHECK_TOOLS))}")
+        if "steps" in fields and action == "workflow":
+            steps = fields["steps"]
+            if not isinstance(steps, list) or not steps:
+                raise CoreError("bad_request", "'steps' (list) is required for 'workflow' actions")
+            for i, step in enumerate(steps):
+                if not isinstance(step, dict) or not step.get("tool_name"):
+                    raise CoreError("bad_request", f"Step {i}: must be a dict with 'tool_name'")
+                if step.get("on_failure", "abort") not in ("abort", "continue"):
+                    raise CoreError("bad_request", f"Step {i}: on_failure is abort or continue")
+        if "webhook_config" in fields and action == "webhook":
+            config = fields["webhook_config"]
+            if not isinstance(config, dict):
+                raise CoreError("bad_request", "'webhook_config' (dict) is required for 'webhook' actions")
+            if not str(config.get("url") or "").startswith(("http://", "https://")):
+                raise CoreError("bad_request", "webhook_config.url must be an http or https URL")
+            if config.get("method", "POST") not in self.WEBHOOK_METHODS:
+                raise CoreError("bad_request", f"webhook_config.method must be one of {', '.join(self.WEBHOOK_METHODS)}")
+
+    def apply_timing(self, row: dict, fields: dict) -> None:
+        """Changing the timing replaces the old timing, as in Odin."""
+        if fields.get("cron") and fields.get("run_at"):
+            raise CoreError("bad_request", "Choose either cron or run_at, not both")
+        if fields.get("cron"):
+            try:
+                next_run = next_cron_runs(fields["cron"], 1)[0]
+            except (ValueError, IndexError) as exc:
+                raise CoreError("bad_request", f"Invalid cron expression: {exc}") from None
+            row.update(cron=fields["cron"], run_at=None, one_time=False, next_run=next_run, inert_reason=None)
+            row["timezone"] = fields.get("cron_timezone") or row.get("timezone") or "UTC"
+        elif fields.get("run_at"):
+            at = self.instant(fields["run_at"])
+            row.update(run_at=at, next_run=at, cron=None, one_time=True, inert_reason=None)
+            row.pop("timezone", None)
+        elif fields.get("cron_timezone") and row.get("cron"):
+            row["timezone"] = fields["cron_timezone"]
+
+    FIELDS = ("description", "channel_id", "cron", "run_at", "cron_timezone", "message", "tool_name", "tool_input",
+              "report_format", "steps", "webhook_config", "max_retries", "retry_backoff_seconds")
+
+    def m_schedules_list(self, _params: dict, _writer) -> list:
+        self.settle_due_schedules()
+        return [dict(row) for row in self.schedules.values()]
+
+    def m_schedules_save(self, params: dict, _writer) -> dict:
+        fields = {key: params[key] for key in self.FIELDS if key in params}
+        if "description" in fields:
+            fields["description"] = str(fields["description"]).strip()
+            if not fields["description"]:
+                raise CoreError("bad_request", "description is required")
+        if params.get("id"):
+            if "action" in params:
+                raise CoreError("bad_request", "A schedule's action is set when it is created")
+            row = self.require_schedule(params)
+            self.check_action_fields(row["action"], fields)
+            changed = dict(row)
+            self.apply_timing(changed, fields)
+            for key in ("description", "channel_id", "message", "tool_name", "tool_input", "report_format", "steps",
+                        "webhook_config", "max_retries", "retry_backoff_seconds"):
+                if key in fields:
+                    changed[key] = fields[key]
+            if changed["action"] != "webhook" and not changed.get("channel_id"):
+                raise CoreError("bad_request", "channel_id is required")
+            if "paused" in params:
+                changed["paused"] = bool(params["paused"])
+            self.schedules[row["id"]] = changed
+            self.publish_work(self.schedule_item(changed))
+            return dict(changed)
+        action = params.get("action", "reminder")
+        if action not in ("reminder", "check", "workflow", "webhook"):
+            raise CoreError("bad_request", f"Unknown action: {action}")
+        if not fields.get("description") or (action != "webhook" and not str(fields.get("channel_id") or "").strip()):
+            raise CoreError("bad_request", "description is required" if action == "webhook"
+                            else "description and channel_id are required")
+        if not fields.get("cron") and not fields.get("run_at"):
+            raise CoreError("bad_request", "Either cron or run_at is required")
+        if action == "check" and not fields.get("tool_name"):
+            raise CoreError("bad_request", "tool_name is required for 'check' actions")
+        if action == "workflow" and "steps" not in fields:
+            raise CoreError("bad_request", "'steps' (list) is required for 'workflow' actions")
+        if action == "webhook" and "webhook_config" not in fields:
+            raise CoreError("bad_request", "'webhook_config' (dict) is required for 'webhook' actions")
+        self.check_action_fields(action, fields)
+        row = {"id": uuid.uuid4().hex[:8], "description": fields["description"], "action": action,
+               "channel_id": str(fields.get("channel_id") or ""), "created_at": now(), "last_run": None,
+               "paused": False}
+        self.apply_timing(row, fields)
+        if action == "reminder":
+            row["message"] = fields.get("message") or fields["description"]
+        elif action == "check":
+            row.update(tool_name=fields["tool_name"], tool_input=fields.get("tool_input") or {})
+            if fields.get("report_format"):
+                row["report_format"] = fields["report_format"]
+        elif action == "workflow":
+            row["steps"] = fields["steps"]
+        else:
+            row["webhook_config"] = fields["webhook_config"]
+        row.update(max_retries=fields.get("max_retries", 0), retry_backoff_seconds=fields.get("retry_backoff_seconds", 60),
+                   consecutive_failures=0, retry_count=0, last_error=None, last_error_at=None)
+        self.schedules[row["id"]] = row
+        self.publish_work(self.schedule_item(row))
+        return dict(row)
+
+    def m_schedules_delete(self, params: dict, _writer) -> dict:
+        row = self.require_schedule(params)
+        del self.schedules[row["id"]]
+        self.emit("work.updated", "work", row["id"], {"kind": "schedule", "id": row["id"], "state": "deleted"})
+        return {"status": "deleted"}
+
+    def m_schedules_run(self, params: dict, _writer) -> dict:
+        row = self.require_schedule(params)
+        if row.get("inert_reason"):
+            raise CoreError("bad_request", row["inert_reason"])
+        entry = self.run_schedule(row, manual=True)
+        self.publish_work(self.schedule_item(row))
+        result = {"status": entry["status"], "schedule_id": row["id"]}
+        if entry.get("error"):
+            result["error"] = entry["error"]
+        if row.get("paused"):
+            result["warning"] = "schedule is paused — this was a manual override"
+        return result
+
+    def m_schedules_reset_failures(self, params: dict, _writer) -> dict:
+        row = self.require_schedule(params)
+        row.update(consecutive_failures=0, retry_count=0, last_error=None, last_error_at=None)
+        row.pop("retry_at", None)
+        return dict(row)
+
+    def m_schedules_history(self, params: dict, _writer) -> list:
+        entries = [e for e in self.schedule_runs if not params.get("id") or e["schedule_id"] == params["id"]]
+        return entries[: int(params.get("limit") or 50)]
+
+    def m_schedules_validate_cron(self, params: dict, _writer) -> dict:
+        try:
+            return {"valid": True, "next_runs": next_cron_runs(str(params.get("expression") or ""), 5)}
+        except ValueError as exc:
+            raise CoreError("bad_request", f"Invalid cron expression: {exc}") from None
 
     def m_resume(self, params: dict, _writer) -> dict:
         req = self.requests.get(str(params.get("request_id")))
@@ -1588,6 +2044,23 @@ METHODS = {
     "mcp.tools": Core.m_mcp_tools,
     "mcp.set_global_enabled": Core.m_mcp_set_global_enabled,
     "mcp.set_limits": Core.m_mcp_set_limits,
+    "hosts.list": Core.m_hosts_list,
+    "hosts.settings": Core.m_hosts_settings,
+    "hosts.public_key": Core.m_hosts_public_key,
+    "hosts.prepare": Core.m_hosts_prepare,
+    "hosts.test": Core.m_hosts_test,
+    "hosts.commit": Core.m_hosts_commit,
+    "hosts.set_enabled": Core.m_hosts_set_enabled,
+    "hosts.references": Core.m_hosts_references,
+    "hosts.delete": Core.m_hosts_delete,
+    "hosts.force_revoke": Core.m_hosts_force_revoke,
+    "schedules.list": Core.m_schedules_list,
+    "schedules.save": Core.m_schedules_save,
+    "schedules.delete": Core.m_schedules_delete,
+    "schedules.run": Core.m_schedules_run,
+    "schedules.reset_failures": Core.m_schedules_reset_failures,
+    "schedules.history": Core.m_schedules_history,
+    "schedules.validate_cron": Core.m_schedules_validate_cron,
     "runtime.reload": Core.m_reload,
     "attachments.begin": Core.m_attach_begin,
     "attachments.chunk": Core.m_attach_chunk,
