@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { controlSchema, createConversationSchema, parseRequest, searchSchema, steerSchema, submitSchema } from '../src/main/schemas'
+import { MANAGEMENT } from '../src/shared/api'
+import { MANAGEMENT_SCHEMAS, controlSchema, createConversationSchema, parseRequest, searchSchema, steerSchema, submitSchema } from '../src/main/schemas'
 
 const uuid = '0b6f1c1e-9a3e-4a8e-9d43-2f1f0c7d5a10'
 
@@ -51,6 +52,26 @@ describe('review round 1: no limits Odin does not have', () => {
   it('requires the window to name each conversation command', () => {
     expect(parseRequest(createConversationSchema, { title: 'Chat' }).ok).toBe(false)
     expect(parseRequest(createConversationSchema, { command_id: crypto.randomUUID(), title: 'Chat' }).ok).toBe(true)
+  })
+})
+
+describe('management methods', () => {
+  it('give every bridge method its own channel, one core method and its own strict schema', () => {
+    const names = Object.keys(MANAGEMENT)
+    expect(Object.keys(MANAGEMENT_SCHEMAS).sort()).toEqual([...names].sort())
+    expect(new Set(names.map((n) => MANAGEMENT[n as keyof typeof MANAGEMENT].channel)).size).toBe(names.length)
+    for (const name of names) {
+      // An unknown field never reaches the core.
+      expect(parseRequest(MANAGEMENT_SCHEMAS[name as keyof typeof MANAGEMENT_SCHEMAS], { surprise: true }).ok).toBe(false)
+    }
+  })
+
+  it("follows Odin's bounds: skill names up to 100 characters, MCP server names as Odin's manager accepts them", () => {
+    expect(parseRequest(MANAGEMENT_SCHEMAS.skillsGet, { name: 'a skill with spaces' }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.skillsGet, { name: 'x'.repeat(101) }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.skillsSave, { name: 's', code: 'x'.repeat(50_000), create: true }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.mcpDelete, { name: '_Lmms2' }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.mcpDelete, { name: '2lmms' }).ok).toBe(false)
   })
 })
 

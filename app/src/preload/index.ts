@@ -3,17 +3,29 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import {
   IPC,
+  MANAGEMENT,
   type AppState,
   type AttachmentProgress,
   type CoreEvent,
   type LateReceipt,
+  type ManagementApi,
+  type ManagementMethod,
   type OdinApi,
   type ResetNotice,
   type Result,
   type StagedBatch
 } from '../shared/api'
 
+// The management methods: one named method per entry of the shared table, each with its own channel.
+const management = Object.fromEntries(
+  (Object.keys(MANAGEMENT) as ManagementMethod[]).map((name) => [
+    name,
+    (params?: unknown) => ipcRenderer.invoke(MANAGEMENT[name].channel, params ?? {})
+  ])
+) as ManagementApi
+
 const api: OdinApi = {
+  ...management,
   status: () => ipcRenderer.invoke(IPC.status),
   listConversations: () => ipcRenderer.invoke(IPC.listConversations),
   createConversation: (params) => ipcRenderer.invoke(IPC.createConversation, params),

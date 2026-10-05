@@ -1,6 +1,6 @@
 // Shapes of every request the window may make. Anything that doesn't match is refused before it reaches the core.
 import { z } from 'zod'
-import type { CoreError } from '../shared/api'
+import type { CoreError, ManagementMethod } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
@@ -197,3 +197,65 @@ export function parseRequest<T>(schema: z.ZodType<T>, raw: unknown): ParseResult
     error: { code: 'bad_request', message: `invalid request${where}: ${first?.message ?? 'malformed'}`, disposition: 'rejected' }
   }
 }
+
+// ---- Management methods: one schema each (shared/api.ts, MANAGEMENT) -----------------------------------------------
+// Bounds follow Odin's own: skill names up to 100 characters and code up to 50,000 (web/api_common.py), MCP server
+// names as Odin's manager accepts them (tools/mcp/manager.py).
+
+const empty = z.object({}).strict()
+const toolName = z.string().min(1).max(128)
+const skillName = z.string().min(1).max(100)
+const skillCode = z.string().min(1).max(50_000)
+const mcpName = z.string().min(1).max(128).regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+const text = z.string().max(16_384)
+const secretMap = z.record(z.string().min(1).max(256), text)
+
+export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
+  toolsList: empty,
+  toolsSetEnabled: z.object({ name: toolName, enabled: z.boolean() }).strict(),
+  toolsTimeoutsGet: empty,
+  toolsTimeoutsSet: z
+    .object({ default_timeout: z.number().int().positive().optional(), overrides: z.record(toolName, z.number().int().positive()).optional() })
+    .strict(),
+  skillsList: empty,
+  skillsGet: z.object({ name: skillName }).strict(),
+  skillsSave: z.object({ name: skillName, code: skillCode, create: z.boolean() }).strict(),
+  skillsValidate: z.object({ code: skillCode }).strict(),
+  skillsTest: z.object({ name: skillName }).strict(),
+  skillsSetEnabled: z.object({ name: skillName, enabled: z.boolean() }).strict(),
+  skillsDelete: z.object({ name: skillName }).strict(),
+  skillsConfigGet: z.object({ name: skillName }).strict(),
+  skillsConfigSet: z.object({ name: skillName, config: z.record(z.string().max(256), z.json()) }).strict(),
+  mcpStatus: empty,
+  mcpSave: z
+    .object({
+      name: mcpName,
+      create: z.boolean(),
+      transport: z.enum(['stdio', 'http']).optional(),
+      command: text.optional(),
+      args: z.array(text).max(256).optional(),
+      url: text.optional(),
+      cwd: text.optional(),
+      timeout_seconds: z.number().positive().max(86_400).optional(),
+      enabled: z.boolean().optional(),
+      tool_allowlist: z.array(z.string().max(256)).max(4096).nullable().optional(),
+      headers_set: secretMap.optional(),
+      headers_remove: z.array(z.string().max(256)).max(256).optional(),
+      env_set: secretMap.optional(),
+      env_remove: z.array(z.string().max(256)).max(256).optional()
+    })
+    .strict(),
+  mcpSetEnabled: z.object({ name: mcpName, enabled: z.boolean() }).strict(),
+  mcpDelete: z.object({ name: mcpName }).strict(),
+  mcpReconnect: z.object({ name: mcpName }).strict(),
+  mcpRefreshTools: z.object({ name: mcpName }).strict(),
+  mcpTools: z.object({ name: mcpName }).strict(),
+  mcpSetGlobalEnabled: z.object({ enabled: z.boolean() }).strict(),
+  mcpSetLimits: z
+    .object({
+      max_published_tools_per_server: z.number().int().min(0).max(1_000_000).optional(),
+      max_published_tools_global: z.number().int().min(0).max(1_000_000).optional()
+    })
+    .strict()
+}
+

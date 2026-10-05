@@ -298,6 +298,188 @@ export interface SettingsSetResult {
   fields: ConfigField[]
 }
 
+// ---- Management domains (protocol.md): each in the shape of the Odin route it maps to ---------------------------------
+
+export interface BuiltinTool {
+  name: string
+  description: string
+  is_core: boolean
+  enabled: boolean
+  /** What the model experiences: the switch, the global switch, or a backend that hides the tool. */
+  state: 'available' | 'disabled' | 'global_disabled' | 'unavailable'
+  input_schema: Record<string, unknown>
+}
+
+export interface ToolInventory {
+  global_enabled: boolean
+  disabled_count: number
+  tools: BuiltinTool[]
+}
+
+export interface ToolTimeouts {
+  default_timeout: number
+  overrides: Record<string, number>
+}
+
+export interface SkillSummary {
+  name: string
+  description: string
+  loaded_at: string
+  status: 'loaded' | 'disabled' | 'error'
+  version: string
+  author?: string
+  tags?: string[]
+  dependencies?: string[]
+  has_config?: boolean
+  diagnostics?: Array<{ level: string; message: string }>
+  total_executions?: number
+  execution_count?: number
+  code?: string | null
+}
+
+export interface SkillDetail extends SkillSummary {
+  input_schema: Record<string, unknown>
+  file_path: string
+  metadata: { version: string; author?: string; homepage?: string; tags?: string[]; dependencies?: string[]; has_config: boolean; config_schema: Record<string, unknown> }
+  config: Record<string, unknown>
+  handoff_to_codex: boolean
+}
+
+export interface SkillValidation {
+  valid: boolean
+  errors: string[]
+  warnings: string[]
+  metadata: unknown
+  definition_keys: string[]
+}
+
+export interface McpServer {
+  name: string
+  transport: 'stdio' | 'http'
+  enabled: boolean
+  state: string
+  discovered_count: number
+  published_count: number
+  excluded_count: number
+  published_tools: string[]
+  last_error: string
+  blocked_reason: string
+  last_refresh_age_seconds: number | null
+  stderr_tail: string
+  /** Names only: header and environment values are never read back. */
+  header_keys: string[]
+  env_keys: string[]
+  url_display: string | null
+  instructions?: string
+}
+
+export interface McpStatus {
+  enabled: boolean
+  max_published_tools_per_server: number
+  max_published_tools_global: number
+  server_count: number
+  enabled_server_count: number
+  connected_count: number
+  published_tool_count: number
+  servers: McpServer[]
+}
+
+export interface McpTool {
+  original_name: string
+  published_name: string
+  published: boolean
+  excluded: boolean
+  exclusion_reason: string
+  description: string
+}
+
+export interface McpMutation {
+  saved: boolean
+  connected: boolean
+  state: string
+  last_error: string
+}
+
+export interface McpSave {
+  name: string
+  create: boolean
+  transport?: 'stdio' | 'http'
+  command?: string
+  args?: string[]
+  url?: string
+  cwd?: string
+  timeout_seconds?: number
+  enabled?: boolean
+  tool_allowlist?: string[] | null
+  headers_set?: Record<string, string>
+  headers_remove?: string[]
+  env_set?: Record<string, string>
+  env_remove?: string[]
+}
+
+type Empty = Record<string, never>
+
+/** Each management bridge method: its params and its answer. */
+export interface ManagementCalls {
+  toolsList: [Empty, ToolInventory]
+  toolsSetEnabled: [{ name: string; enabled: boolean }, ToolInventory]
+  toolsTimeoutsGet: [Empty, ToolTimeouts]
+  toolsTimeoutsSet: [{ default_timeout?: number; overrides?: Record<string, number> }, ToolTimeouts]
+  skillsList: [Empty, SkillSummary[]]
+  skillsGet: [{ name: string }, SkillDetail]
+  skillsSave: [{ name: string; code: string; create: boolean }, { result: string }]
+  skillsValidate: [{ code: string }, SkillValidation]
+  skillsTest: [{ name: string }, { result: string; is_error: boolean }]
+  skillsSetEnabled: [{ name: string; enabled: boolean }, { result: string }]
+  skillsDelete: [{ name: string }, { result: string }]
+  skillsConfigGet: [{ name: string }, { config: Record<string, unknown>; schema: Record<string, unknown> }]
+  skillsConfigSet: [{ name: string; config: Record<string, unknown> }, { config: Record<string, unknown> }]
+  mcpStatus: [Empty, McpStatus]
+  mcpSave: [McpSave, McpMutation]
+  mcpSetEnabled: [{ name: string; enabled: boolean }, McpMutation]
+  mcpDelete: [{ name: string }, McpMutation]
+  mcpReconnect: [{ name: string }, McpMutation]
+  mcpRefreshTools: [{ name: string }, McpMutation]
+  mcpTools: [{ name: string }, { server: string; tools: McpTool[] }]
+  mcpSetGlobalEnabled: [{ enabled: boolean }, McpStatus & { saved: boolean }]
+  mcpSetLimits: [{ max_published_tools_per_server?: number; max_published_tools_global?: number }, McpStatus & { saved: boolean }]
+}
+
+export type ManagementMethod = keyof ManagementCalls
+export type ManagementApi = {
+  [K in ManagementMethod]: (params: ManagementCalls[K][0]) => Promise<Result<ManagementCalls[K][1]>>
+}
+
+/**
+ * Each management bridge method's own IPC channel and the one core method it maps to. `command` methods change
+ * something and travel with a command ID. The main process validates each one with its own schema
+ * (schemas.ts, MANAGEMENT_SCHEMAS): there is no generic passthrough.
+ */
+export const MANAGEMENT: { [K in ManagementMethod]: { channel: string; core: string; command: boolean } } = {
+  toolsList: { channel: 'odin:manage:tools.list', core: 'tools.list', command: false },
+  toolsSetEnabled: { channel: 'odin:manage:tools.set_enabled', core: 'tools.set_enabled', command: true },
+  toolsTimeoutsGet: { channel: 'odin:manage:tools.timeouts.get', core: 'tools.timeouts.get', command: false },
+  toolsTimeoutsSet: { channel: 'odin:manage:tools.timeouts.set', core: 'tools.timeouts.set', command: true },
+  skillsList: { channel: 'odin:manage:skills.list', core: 'skills.list', command: false },
+  skillsGet: { channel: 'odin:manage:skills.get', core: 'skills.get', command: false },
+  skillsSave: { channel: 'odin:manage:skills.save', core: 'skills.save', command: true },
+  skillsValidate: { channel: 'odin:manage:skills.validate', core: 'skills.validate', command: false },
+  skillsTest: { channel: 'odin:manage:skills.test', core: 'skills.test', command: true },
+  skillsSetEnabled: { channel: 'odin:manage:skills.set_enabled', core: 'skills.set_enabled', command: true },
+  skillsDelete: { channel: 'odin:manage:skills.delete', core: 'skills.delete', command: true },
+  skillsConfigGet: { channel: 'odin:manage:skills.config.get', core: 'skills.config.get', command: false },
+  skillsConfigSet: { channel: 'odin:manage:skills.config.set', core: 'skills.config.set', command: true },
+  mcpStatus: { channel: 'odin:manage:mcp.status', core: 'mcp.status', command: false },
+  mcpSave: { channel: 'odin:manage:mcp.save', core: 'mcp.save', command: true },
+  mcpSetEnabled: { channel: 'odin:manage:mcp.set_enabled', core: 'mcp.set_enabled', command: true },
+  mcpDelete: { channel: 'odin:manage:mcp.delete', core: 'mcp.delete', command: true },
+  mcpReconnect: { channel: 'odin:manage:mcp.reconnect', core: 'mcp.reconnect', command: true },
+  mcpRefreshTools: { channel: 'odin:manage:mcp.refresh_tools', core: 'mcp.refresh_tools', command: true },
+  mcpTools: { channel: 'odin:manage:mcp.tools', core: 'mcp.tools', command: false },
+  mcpSetGlobalEnabled: { channel: 'odin:manage:mcp.set_global_enabled', core: 'mcp.set_global_enabled', command: true },
+  mcpSetLimits: { channel: 'odin:manage:mcp.set_limits', core: 'mcp.set_limits', command: true }
+}
+
 export interface QuotaWindow {
   used_percent: number
   window_minutes: number
@@ -380,7 +562,7 @@ export interface ControlTarget {
 }
 
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
-export interface OdinApi {
+export interface OdinApi extends ManagementApi {
   status(): Promise<Result<CoreStatus>>
   listConversations(): Promise<Result<{ items: ConversationListItem[]; watermark: string }>>
   createConversation(params: {

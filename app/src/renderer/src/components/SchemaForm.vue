@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 import type { ConfigField } from '../../../shared/api'
-import { dedicatedMethod, differenceNote, effectText, fromInput, isSecret, STATE_LABELS, toInput } from '../settings-form'
+import { dedicatedMethod, differenceNote, editableHere, effectText, fromInput, isSecret, STATE_LABELS, toInput } from '../settings-form'
 import { clearSecret, resetField, saveField, setSecret, settings } from '../stores/settings'
 
 defineProps<{ fields: ConfigField[] }>()
@@ -63,7 +63,11 @@ const inputId = (field: ConfigField): string => `field-${field.path.replace(/\W/
       </div>
       <p v-if="field.description" class="field-desc">{{ field.description }}</p>
 
-      <div v-if="isSecret(field)" class="field-input secret">
+      <div v-if="!editableHere(field)" class="field-input readonly">
+        <code class="field-value">{{ JSON.stringify(field.desired) }}</code>
+        <span class="field-desc">Changed with the controls above.</span>
+      </div>
+      <div v-else-if="isSecret(field)" class="field-input secret">
         <span class="secret-state">{{ field.desired ? 'Set' : 'Not set' }}</span>
         <input
           :id="inputId(field)"
@@ -123,7 +127,7 @@ const inputId = (field: ConfigField): string => `field-${field.path.replace(/\W/
       <p v-if="errors[field.path]" class="warn">{{ errors[field.path] }}</p>
       <p v-else-if="settings.fields[field.path]?.status === 'error'" class="warn">{{ settings.fields[field.path]?.message }}</p>
       <p v-else-if="settings.fields[field.path]?.status === 'saved'" class="field-saved">Saved.</p>
-      <button v-if="!isSecret(field) && !dedicatedMethod(field) && field.configured" class="ghost field-reset" @click="reset(field)">
+      <button v-if="editableHere(field) && !isSecret(field) && !dedicatedMethod(field) && field.configured" class="ghost field-reset" @click="reset(field)">
         Reset to default
       </button>
     </div>

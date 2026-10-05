@@ -108,6 +108,12 @@ export function isSecret(field: ConfigField): boolean {
   return field.sensitivity !== 'public'
 }
 
+/** False for a field a section's own controls change (for example tool timeouts): the form shows it, read-only. */
+export function editableHere(field: ConfigField): boolean {
+  const handler = field.apply_handler
+  return isSecret(field) || !handler || handler === 'settings.set' || dedicatedMethod(field) !== null
+}
+
 export function dedicatedMethod(field: ConfigField): DedicatedMethod | null {
   return (DEDICATED as readonly string[]).includes(field.apply_handler ?? '') ? (field.apply_handler as DedicatedMethod) : null
 }
