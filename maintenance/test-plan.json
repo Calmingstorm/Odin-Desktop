@@ -6,8 +6,20 @@
     "tracked_test_paths": 869,
     "archive": "maintenance/odin-v4.13.0.tar.gz"
   },
-  "execution_status": "Historical eligibility inventory only, NOT passing evidence or corrected executable gate. Observed broad runs:116 failures interrupted then259 failures complete bounded. qualification-plan.json supplies exact original/adapter groups and dispositions; hashes and inventory unchanged.",
+  "execution_status": "Historical eligibility inventory, not whole-product parity or acceptance. Step 8 part 1 requalifies nine complete inherited suites in the existing 29 groups; all 326 original deferred paths remain in phase2 plus phase2_restored with original hashes and reasons in phase2-suite-map.json. Historical116/259 failure evidence is unchanged.",
   "qualification_plan": "maintenance/qualification-plan.json",
+  "phase2_suite_map": "maintenance/phase2-suite-map.json",
+  "phase2_restored": [
+    "tests/test_campaign_execution_risk.py",
+    "tests/test_channel_state_recent_action_failure.py",
+    "tests/test_computer_audit_output_r21.py",
+    "tests/test_computer_checkpoint_privacy_r5.py",
+    "tests/test_computer_frame_boundary.py",
+    "tests/test_connection_lifecycle_d1.py",
+    "tests/test_local_supervisor_wrapper_r10.py",
+    "tests/test_process_manager.py",
+    "tests/test_restored_process_shutdown.py"
+  ],
   "methodology": {
     "imports": "AST Import/ImportFrom relative resolution, package initializers, cross-test helper closure. Deduplicated pinned source import closure below. Literal src patch references also recorded. No source imported.",
     "selection": "Filename list whole-file safe selection. Mixed domain/transport suites retained Phase2, not deleted. Explicit foundation fixture mismatch adaptation-gated, not mislabeled Phase2. Native and prohibited literals safety-gated.",
@@ -21,10 +33,10 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 326,
+    "phase2": 317,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "safe_pass_now": 357,
+    "safe_pass_now": 366,
     "safety_manual_gated": 100
   },
   "entries": [
@@ -3368,8 +3380,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Step 8 part 1 restores all 18 original observational-risk and real audit-helper cases unchanged: no request admission or external effects. phase2-suite-map.json binds whole-suite qualification and preserves historical membership.",
       "phase2_seams": [
         "src/discord/tool_loop.py"
       ]
@@ -4701,8 +4713,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Step 8 part 1 restores both original recent-action formatting assertions unchanged against the real retained registry. No intake/control admission; phase2-suite-map.json binds complete qualification.",
       "phase2_seams": [
         "src/discord/channel_state.py"
       ]
@@ -6272,8 +6284,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Step 8 part 1 restores all nine original private-audit projection, fanout and integrity cases unchanged with temporary audit storage. No computer admission or desktop access; phase2-suite-map.json binds whole-suite qualification.",
       "phase2_seams": [
         "src/discord/tool_loop.py"
       ]
@@ -6547,8 +6559,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/codec.py: install-bound context reconstruction. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Step 8 part 1 restores all three original codec privacy cases unchanged with synthetic image data. No resume, controller or desktop input; phase2-suite-map.json binds whole-suite qualification.",
       "phase2_seams": [
         "src/discord/tool_loop.py",
         "src/turn_state/codec.py"
@@ -7203,8 +7215,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Step 8 part 1 restores all four original synthetic-frame binding cases unchanged against the retained static validator. No integration instance or native backend is constructed; phase2-suite-map.json binds qualification.",
       "phase2_seams": [
         "src/computer/integration.py",
         "src/discord/client.py"
@@ -12359,8 +12371,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/wiring.py: Desktop owner/intake/control/durable delivery adapter: wiring. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Step 8 part 1 restores the complete once-only lifecycle cleanup case unchanged through close_computer_once and a harmless collaborator. No session/backend admission; phase2-suite-map.json binds qualification.",
       "phase2_seams": [
         "src/discord/wiring.py"
       ]
@@ -18441,8 +18453,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/restart.py: app-supervised relaunch. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Step 8 part 1 restores all 22 original supervisor protocol, ownership, settlement and relaunch-veto cases unchanged with isolated globals and inert workers. No relaunch performed; phase2-suite-map.json binds whole-suite qualification.",
       "phase2_seams": [
         "src/restart.py"
       ]
@@ -21160,8 +21172,8 @@
         ],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/wiring.py: Desktop owner/intake/control/durable delivery adapter: wiring; src/restart.py: app-supervised relaunch. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Step 8 part 1 restores all 162 inherited cases through test_desktop_phase2_process_corpus.py. Authentic temporary owner/profile, current local host resolution and workspace replace eight obsolete handler-setup nodes; all 374 assertions and parameter expressions remain exact. No containment or settlement method is replaced. phase2-suite-map.json binds the complete frozen adapter, not the unadapted duplicate.",
       "phase2_seams": [
         "src/discord/wiring.py",
         "src/restart.py"
@@ -22299,8 +22311,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/wiring.py: Desktop owner/intake/control/durable delivery adapter: wiring; src/restart.py: app-supervised relaunch. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Step 8 part 1 restores all six original retained-manifest and live-unproven-cleanup veto cases unchanged with temporary retention roots. No remote transport or restored-evidence termination; phase2-suite-map.json binds whole-suite qualification.",
       "phase2_seams": [
         "src/discord/wiring.py",
         "src/restart.py"
@@ -36368,7 +36380,6 @@
     "tests/test_campaign_discord_resume.py",
     "tests/test_campaign_display_binding_coverage.py",
     "tests/test_campaign_execution_outcomes.py",
-    "tests/test_campaign_execution_risk.py",
     "tests/test_campaign_finish_boundaries.py",
     "tests/test_campaign_health_coverage.py",
     "tests/test_campaign_loops.py",
@@ -36389,7 +36400,6 @@
     "tests/test_channel_logger.py",
     "tests/test_channel_logger_edge_regressions.py",
     "tests/test_channel_privacy_campaign.py",
-    "tests/test_channel_state_recent_action_failure.py",
     "tests/test_chat_loop_recovery.py",
     "tests/test_chat_session.py",
     "tests/test_chat_steering_admission.py",
@@ -36412,16 +36422,13 @@
     "tests/test_computer_admission_http_r8.py",
     "tests/test_computer_api.py",
     "tests/test_computer_api_recovery_r18.py",
-    "tests/test_computer_audit_output_r21.py",
     "tests/test_computer_boundary_guidance_regression.py",
     "tests/test_computer_catalog.py",
-    "tests/test_computer_checkpoint_privacy_r5.py",
     "tests/test_computer_clean_interruption_integration.py",
     "tests/test_computer_config_admin_r19.py",
     "tests/test_computer_config_toolloop_coverage_r10.py",
     "tests/test_computer_dispatch_r3.py",
     "tests/test_computer_emergency_release_campaign.py",
-    "tests/test_computer_frame_boundary.py",
     "tests/test_computer_hyprland_app_group_controller.py",
     "tests/test_computer_hyprland_dialog_scope_r35.py",
     "tests/test_computer_hyprland_durable_fence_r42.py",
@@ -36461,7 +36468,6 @@
     "tests/test_config.py",
     "tests/test_config_campaign_v410.py",
     "tests/test_config_liveness_wiring.py",
-    "tests/test_connection_lifecycle_d1.py",
     "tests/test_connection_pools.py",
     "tests/test_context_budget_activation.py",
     "tests/test_context_density_calibration.py",
@@ -36511,7 +36517,6 @@
     "tests/test_learning_transport_switch.py",
     "tests/test_listener_consent.py",
     "tests/test_listener_credential_provenance.py",
-    "tests/test_local_supervisor_wrapper_r10.py",
     "tests/test_local_workspace.py",
     "tests/test_log_search.py",
     "tests/test_main_exit_codes.py",
@@ -36553,7 +36558,6 @@
     "tests/test_preserved_reasoning_accounting.py",
     "tests/test_process_api_provenance.py",
     "tests/test_process_command_visibility.py",
-    "tests/test_process_manager.py",
     "tests/test_process_retention_security.py",
     "tests/test_process_tail_correctness.py",
     "tests/test_process_zero_offset.py",
@@ -36566,7 +36570,6 @@
     "tests/test_recovery.py",
     "tests/test_resource_usage.py",
     "tests/test_restart.py",
-    "tests/test_restored_process_shutdown.py",
     "tests/test_resume_admission.py",
     "tests/test_round40_reviewer.py",
     "tests/test_runtime_output_delivery.py",
@@ -36713,6 +36716,15 @@
     "tests/supervised_shell_double.py"
   ],
   "safe_pass_now": [
+    "tests/test_campaign_execution_risk.py",
+    "tests/test_channel_state_recent_action_failure.py",
+    "tests/test_computer_audit_output_r21.py",
+    "tests/test_computer_checkpoint_privacy_r5.py",
+    "tests/test_computer_frame_boundary.py",
+    "tests/test_connection_lifecycle_d1.py",
+    "tests/test_local_supervisor_wrapper_r10.py",
+    "tests/test_process_manager.py",
+    "tests/test_restored_process_shutdown.py",
     "tests/computer/test_hyprland_backend.py",
     "tests/test_adaptive_compaction.py",
     "tests/test_agent_cascade_retention.py",
