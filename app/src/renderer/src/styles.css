@@ -423,6 +423,7 @@ textarea:focus { border-color: var(--accent-dim); outline: none; }
 .apply-state.invalid { color: var(--bad); border-color: var(--bad); }
 .field-desc, .field-effect, .field-diff, .field-saved { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
 .field-diff { color: var(--warn); }
+.field-intent { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: var(--muted); }
 .field-saved { color: var(--ok); }
 .field-input { display: flex; gap: 8px; align-items: center; margin-top: 6px; max-width: 520px; }
 input.field-input, select.field-input, textarea.field-input, .field-input input[type='password'] {

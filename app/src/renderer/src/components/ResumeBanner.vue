@@ -16,11 +16,12 @@ const what = computed(() => (target.value?.outcome.outcome === 'suspended' ? 'wa
     <button
       v-if="!target.blocked"
       class="ghost"
-      :disabled="attempt?.status === 'sending' || !canAct(conversationId)"
+      :disabled="attempt?.status === 'sending' || attempt?.status === 'unknown' || !canAct(conversationId)"
       @click="resume(conversationId, target.outcome)"
     >
       {{ attempt?.status === 'sending' ? 'Resuming…' : 'Resume' }}
     </button>
+    <p v-if="attempt?.status === 'unknown'" class="tool-note">Waiting for Odin to confirm the resume. It is never sent twice.</p>
     <p v-if="attempt?.status === 'rejected' || attempt?.status === 'failed'" class="warn">{{ attempt.reason }}</p>
   </div>
 </template>

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 import type { ConfigField } from '../../../shared/api'
-import { dedicatedMethod, differenceNote, editableHere, effectText, fromInput, isSecret, STATE_LABELS, toInput } from '../settings-form'
-import { clearSecret, resetField, saveField, setSecret, settings } from '../stores/settings'
+import { dedicatedMethod, differenceNote, editableHere, effectText, fromInput, imageLeafOf, isSecret, STATE_LABELS, toInput } from '../settings-form'
+import { clearSecret, resetField, saveField, setImageIntent, setSecret, settings } from '../stores/settings'
 
 defineProps<{ fields: ConfigField[] }>()
 
@@ -123,6 +123,21 @@ const inputId = (field: ConfigField): string => `field-${field.path.replace(/\W/
       />
 
       <p class="field-effect">{{ effectText(field) }}</p>
+      <template v-for="leaf in [imageLeafOf(field)]" :key="`intent-${field.path}`">
+        <div v-if="leaf && settings.meta?.image_models?.[leaf]" class="field-intent">
+          <span v-if="settings.meta.image_models[leaf].status === 'follow'">
+            Follows Odin's default ({{ settings.meta.image_models[leaf].default }}), and changes when that does.
+          </span>
+          <span v-else>Pinned to {{ settings.meta.image_models[leaf].effective }}.</span>
+          <button
+            class="ghost"
+            :disabled="settings.fields[field.path]?.status === 'saving'"
+            @click="setImageIntent(leaf, settings.meta.image_models[leaf].status === 'follow' ? 'pin' : 'follow')"
+          >
+            {{ settings.meta.image_models[leaf].status === 'follow' ? 'Pin this value' : "Follow Odin's default" }}
+          </button>
+        </div>
+      </template>
       <p v-if="differenceNote(field)" class="field-diff">{{ differenceNote(field) }}</p>
       <p v-if="errors[field.path]" class="warn">{{ errors[field.path] }}</p>
       <p v-else-if="settings.fields[field.path]?.status === 'error'" class="warn">{{ settings.fields[field.path]?.message }}</p>

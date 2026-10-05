@@ -34,8 +34,8 @@ export const markReadSchema = z.object({ id: coreId, through_message_id: coreId 
 
 export const searchSchema = z
   .object({
-    // Odin sets no query limit; this bound only keeps one request inside a frame.
-    query: z.string().trim().min(1).max(200_000),
+    // Odin sets no query limit. The frame limit is the only bound, and the broker refuses a larger request by name.
+    query: z.string().trim().min(1),
     conversation_id: coreId.optional(),
     limit: z.number().int().min(1).max(50).optional(),
     cursor: z.string().max(64).optional()
@@ -83,7 +83,8 @@ export const draftGetSchema = z.object({ conversation_id: coreId }).strict()
 
 export const draftSetSchema = z.object({ conversation_id: coreId, text: z.string().max(32_000) }).strict()
 
-export const attachPathsSchema = z.object({ paths: z.array(z.string().min(1).max(4_096)).min(1).max(20) }).strict()
+// No count of its own: the renderer applies the core's announced per-turn limit to every way of attaching.
+export const attachPathsSchema = z.object({ paths: z.array(z.string().min(1).max(4_096)).min(1) }).strict()
 
 export const attachBytesSchema = z
   .object({
@@ -174,6 +175,16 @@ export const secretSetSchema = z.object({ path: settingsPath, value: z.string().
 export const secretClearSchema = z.object({ path: settingsPath }).strict()
 
 /** The dedicated desktop methods a field may name as its apply handler. Nothing else passes. */
+export const imageIntentSchema = z
+  .object({
+    expected_revision: z.string().min(1).max(128),
+    operations: z
+      .object({ image_model: z.enum(['follow', 'pin']).optional(), outer_model: z.enum(['follow', 'pin']).optional() })
+      .strict()
+      .refine((ops) => Object.keys(ops).length > 0, 'name image_model and/or outer_model')
+  })
+  .strict()
+
 export const LEAF_EDITORS = ['models.main.set', 'models.agents.set'] as const
 export const editLeafSchema = z
   .object({ method: z.enum(LEAF_EDITORS), params: z.record(z.string().regex(/^[A-Za-z0-9_]+$/), leafValue) })

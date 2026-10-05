@@ -1,8 +1,17 @@
 // The settings menu's state: Odin's settings as the core describes them (GET /api/config/meta shape), saved one field
 // at a time through settings.set or the field's dedicated method, plus the Codex accounts with their device login.
 import { reactive } from 'vue'
-import type { CodexStatus, ConfigField, ConfigMeta, Result } from '../../../shared/api'
-import { dedicatedMethod, isSecret } from '../settings-form'
+import {
+  SETTINGS_SHAPED,
+  type CodexStatus,
+  type ConfigField,
+  type ConfigMeta,
+  type ImageLeaf,
+  type Result,
+  type SettingsSetParams,
+  type SettingsSetResult
+} from '../../../shared/api'
+import { dedicatedMethod, isSecret, settingsShapedMethod } from '../settings-form'
 
 export interface FieldState {
   status: 'saving' | 'saved' | 'error'
@@ -62,6 +71,12 @@ async function changedElsewhere(path: string): Promise<void> {
   settings.fields[path] = { status: 'error', message: 'Settings changed elsewhere, so they were reloaded. Check, then save again.' }
 }
 
+/** The method that saves a field: its owner's settings-shaped method, which runs the owner's transaction, or settings.set. */
+function saverFor(field: ConfigField): (params: SettingsSetParams) => Promise<Result<SettingsSetResult>> {
+  const method = settingsShapedMethod(field)
+  return method ? (params) => window.odin[SETTINGS_SHAPED[method].call](params) : (params) => window.odin.settingsSet(params)
+}
+
 /** Saves one field: through its dedicated method when Odin applies it that way, otherwise settings.set. */
 export async function saveField(field: ConfigField, value: unknown): Promise<boolean> {
   if (!settings.meta || isSecret(field)) return false
@@ -78,7 +93,7 @@ export async function saveField(field: ConfigField, value: unknown): Promise<boo
     settings.fields[field.path] = { status: 'saved' }
     return true
   }
-  const result = await window.odin.settingsSet({ expected_revision: settings.meta.revision, changes: [{ path: field.path, value }] })
+  const result = await saverFor(field)({ expected_revision: settings.meta.revision, changes: [{ path: field.path, value }] })
   if (!result.ok) {
     if (result.error.code === 'stale_binding') await changedElsewhere(field.path)
     else settings.fields[field.path] = { status: 'error', message: message(result) }
@@ -89,11 +104,31 @@ export async function saveField(field: ConfigField, value: unknown): Promise<boo
   return true
 }
 
+/**
+ * An image model follows Odin's shipped default, or is pinned to the value in effect now, even one equal to the
+ * default. Bound to the intent's own revision.
+ */
+export async function setImageIntent(leaf: ImageLeaf, operation: 'follow' | 'pin'): Promise<boolean> {
+  const revision = settings.meta?.image_models_revision
+  if (!revision) return false
+  const path = `image.openai.${leaf}`
+  settings.fields[path] = { status: 'saving' }
+  const result = await window.odin.imageModelIntent({ expected_revision: revision, operations: { [leaf]: operation } })
+  if (!result.ok) {
+    if (result.error.code === 'stale_binding') await changedElsewhere(path)
+    else settings.fields[path] = { status: 'error', message: message(result) }
+    return false
+  }
+  await loadSettings() // the saved values changed with the intent
+  settings.fields[path] = { status: 'saved' }
+  return true
+}
+
 /** Back to Odin's default for that field. */
 export async function resetField(field: ConfigField): Promise<boolean> {
   if (!settings.meta || isSecret(field) || dedicatedMethod(field)) return false
   settings.fields[field.path] = { status: 'saving' }
-  const result = await window.odin.settingsSet({ expected_revision: settings.meta.revision, changes: [{ path: field.path, delete: true }] })
+  const result = await saverFor(field)({ expected_revision: settings.meta.revision, changes: [{ path: field.path, delete: true }] })
   if (!result.ok) {
     if (result.error.code === 'stale_binding') await changedElsewhere(field.path)
     else settings.fields[field.path] = { status: 'error', message: message(result) }

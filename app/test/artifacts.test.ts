@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -193,11 +194,27 @@ describe('review round 1: the private cache follows the core', () => {
   function storeFor(requester: Requester) {
     const cache = scratch()
     const opened: string[] = []
+    const revealed: string[] = []
     const store = new ArtifactStore(requester, cache, () => 1024, {
       openPath: async (path) => (opened.push(path), ''),
-      showItemInFolder: () => undefined
+      showItemInFolder: (path) => void revealed.push(path)
     })
-    return { store, cache, opened }
+    return { store, cache, opened, revealed }
+  }
+
+  /** The fake core, with reads that wait for the test: one-byte checks, or the chunks of a download. */
+  function holdingCore(files: Record<string, string>) {
+    const { requester } = fakeCore(files)
+    const hold = { checks: false, chunks: false }
+    const held: Array<() => void> = []
+    const holding: Requester = {
+      request: async (method, params) => {
+        const check = Number(params?.length) === 1
+        if ((check && hold.checks) || (!check && hold.chunks)) await new Promise<void>((resolve) => held.push(resolve))
+        return requester.request(method, params)
+      }
+    }
+    return { requester: holding, hold, held }
   }
 
   it('keeps references that a file name would make alike apart', async () => {
@@ -232,5 +249,41 @@ describe('review round 1: the private cache follows the core', () => {
     await store.forget('f2')
     expect(existsSync(cached.result)).toBe(false)
   })
-})
 
+  it('reports a file forgotten during its check as gone, and never reveals it', async () => {
+    const { requester, hold, held } = holdingCore({ f3: 'cached' })
+    const { store, revealed } = storeFor(requester)
+    expect((await store.cached('f3', 'notes.txt')).ok).toBe(true)
+    hold.checks = true
+    const revealing = store.reveal('f3', 'notes.txt')
+    await waitFor(() => held.length === 1)
+    await store.forget('f3')
+    held[0]!()
+    expect(await revealing).toEqual({ ok: false, error: { code: 'not_found', message: 'That file is no longer available.', disposition: 'not_dispatched' } })
+    expect(revealed).toEqual([])
+  })
+
+  it('never puts a file forgotten during its download into the cache', async () => {
+    const { requester, hold, held } = holdingCore({ f4: 'arriving' })
+    const { store, cache } = storeFor(requester)
+    hold.chunks = true
+    const filling = store.cached('f4', 'notes.txt')
+    await waitFor(() => held.length === 1)
+    await store.forget('f4')
+    held[0]!()
+    expect(await filling).toMatchObject({ ok: false, error: { code: 'not_found' } })
+    expect(existsSync(join(cache, 'artifacts', createHash('sha256').update('f4').digest('hex')))).toBe(false)
+  })
+
+  it('checks a file with one byte, and forgets one the core no longer has', async () => {
+    const files: Record<string, string> = { f5: 'here' }
+    const { requester } = fakeCore(files)
+    const { store } = storeFor(requester)
+    const cached = await store.cached('f5', 'notes.txt')
+    if (!cached.ok) throw new Error('not cached')
+    expect(await store.check('f5')).toEqual({ ok: true, result: { available: true } })
+    delete files.f5
+    expect(await store.check('f5')).toEqual({ ok: true, result: { available: false } })
+    expect(existsSync(cached.result)).toBe(false)
+  })
+})

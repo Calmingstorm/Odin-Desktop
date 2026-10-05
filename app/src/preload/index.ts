@@ -4,6 +4,8 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'ele
 import {
   IPC,
   MANAGEMENT,
+  SETTINGS_SHAPED,
+  type SettingsShapedApi,
   type AppState,
   type AttachmentProgress,
   type CoreEvent,
@@ -24,8 +26,14 @@ const management = Object.fromEntries(
   ])
 ) as ManagementApi
 
+// One named function per settings-shaped method, each on its own channel.
+const settingsShaped = Object.fromEntries(
+  Object.values(SETTINGS_SHAPED).map(({ call, channel }) => [call, (params: unknown) => ipcRenderer.invoke(channel, params)])
+) as SettingsShapedApi
+
 const api: OdinApi = {
   ...management,
+  ...settingsShaped,
   status: () => ipcRenderer.invoke(IPC.status),
   listConversations: () => ipcRenderer.invoke(IPC.listConversations),
   createConversation: (params) => ipcRenderer.invoke(IPC.createConversation, params),
@@ -75,6 +83,7 @@ const api: OdinApi = {
   toolDetail: (params) => ipcRenderer.invoke(IPC.toolDetail, params),
   toolOutput: (params) => ipcRenderer.invoke(IPC.toolOutput, params),
   fetchArtifact: (ref) => ipcRenderer.invoke(IPC.fetchArtifact, { ref }),
+  checkArtifact: (ref) => ipcRenderer.invoke(IPC.checkArtifact, { ref }),
   openArtifact: (params) => ipcRenderer.invoke(IPC.openArtifact, params),
   saveArtifact: (params) => ipcRenderer.invoke(IPC.saveArtifact, params),
   revealArtifact: (params) => ipcRenderer.invoke(IPC.revealArtifact, params),
@@ -85,6 +94,7 @@ const api: OdinApi = {
   setNotifications: (change) => ipcRenderer.invoke(IPC.setNotifications, change),
   settingsSchema: () => ipcRenderer.invoke(IPC.settingsSchema),
   settingsSet: (params) => ipcRenderer.invoke(IPC.settingsSet, params),
+  imageModelIntent: (params) => ipcRenderer.invoke(IPC.imageModelIntent, params),
   secretsSet: (params) => ipcRenderer.invoke(IPC.secretsSet, params),
   secretsClear: (params) => ipcRenderer.invoke(IPC.secretsClear, params),
   editLeaf: (params) => ipcRenderer.invoke(IPC.editLeaf, params),

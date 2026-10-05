@@ -72,7 +72,8 @@ function run(): void {
   const listConversations = (): void => {
     void broker.request('conversations.list').then((listed) => {
       if (!listed.ok) return
-      conversations.reset((listed.result as { items: Array<{ id: string; title: string; unread: number }> }).items)
+      const { items, watermark } = listed.result as { items: Array<{ id: string; title: string; unread: number }>; watermark: string }
+      conversations.reset(items, Number(watermark) || 0)
       refreshTray()
     })
   }
@@ -100,7 +101,7 @@ function run(): void {
         return
       case 'conversation.created':
       case 'conversation.updated':
-        conversations.upsert(p.conversation as { id: string; title: string; unread: number })
+        conversations.upsert(p.conversation as { id: string; title: string; unread: number }, event.seq)
         refreshTray()
         return
       case 'artifact.unavailable':
@@ -109,7 +110,7 @@ function run(): void {
         return
       case 'conversation.deleted': {
         const id = String(p.conversation_id)
-        conversations.remove(id)
+        conversations.remove(id, event.seq)
         if (notificationSettings.muted.includes(id)) {
           notificationSettings = setMuted(notificationSettings, id, false)
           savePersisted()
@@ -152,6 +153,8 @@ function run(): void {
   }
 
   broker.on('state', publishAppState)
+  // A new core numbers its events afresh, so the index orders by its lists and events from here on.
+  broker.on('core-changed', () => conversations.restart())
   broker.on('event', (event) => {
     win?.webContents.send(IPC.event, event)
     onCoreEvent(event)
@@ -572,6 +575,8 @@ async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
   await run(`[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.includes('Models')).click()`)
   await pause(800)
   await shoot('settings-models')
+  await run(`document.querySelector('.field-intent').scrollIntoView({ block: 'center' })`)
+  await shoot('settings-image')
   const sections: Array<[string, string]> = [
     ['Tools', 'settings-tools'],
     ['Skills', 'settings-skills'],

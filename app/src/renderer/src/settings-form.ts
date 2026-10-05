@@ -1,6 +1,6 @@
 // How the settings view presents Odin's settings: the menu section each belongs to, how a value is edited as text, and
 // what an apply state means. Presentation only: the core owns values, validation and how each change applies.
-import type { ApplyState, ConfigField } from '../../shared/api'
+import { SETTINGS_SHAPED, type ApplyState, type ConfigField, type ImageLeaf, type SettingsShapedMethod } from '../../shared/api'
 
 export interface NavSection {
   id: string
@@ -108,10 +108,21 @@ export function isSecret(field: ConfigField): boolean {
   return field.sensitivity !== 'public'
 }
 
+/** The settings-shaped method that saves this field, if its owner has one: settings.set's params, its own transaction. */
+export function settingsShapedMethod(field: ConfigField): SettingsShapedMethod | null {
+  const handler = field.apply_handler ?? ''
+  return Object.hasOwn(SETTINGS_SHAPED, handler) ? (handler as SettingsShapedMethod) : null
+}
+
+/** An image-model leaf, which follows Odin's shipped default until pinned. */
+export function imageLeafOf(field: ConfigField): ImageLeaf | null {
+  return field.path === 'image.openai.image_model' ? 'image_model' : field.path === 'image.openai.outer_model' ? 'outer_model' : null
+}
+
 /** False for a field a section's own controls change (for example tool timeouts): the form shows it, read-only. */
 export function editableHere(field: ConfigField): boolean {
   const handler = field.apply_handler
-  return isSecret(field) || !handler || handler === 'settings.set' || dedicatedMethod(field) !== null
+  return isSecret(field) || !handler || handler === 'settings.set' || dedicatedMethod(field) !== null || settingsShapedMethod(field) !== null
 }
 
 export function dedicatedMethod(field: ConfigField): DedicatedMethod | null {
