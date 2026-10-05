@@ -72,3 +72,42 @@ describe('changing a schedule', () => {
     expect(formFor(once, newYork)).toMatchObject({ timing: 'once', run_at: '2026-07-04T09:00', cron_timezone: '' })
   })
 })
+
+describe('review round 4: changing a schedule clears what was emptied, and keeps a trigger', () => {
+  const row = (fields: Partial<ScheduleRow>): ScheduleRow =>
+    ({ id: 'sched01', description: 'Disk report', action: 'check', channel_id: 'c1', cron: '0 9 * * *', timezone: 'UTC', ...fields }) as ScheduleRow
+
+  it('sends an empty report format for Plain text (15.R4.5)', () => {
+    const original = row({ tool_name: 'run_command', tool_input: { command: 'df -h' }, report_format: 'paginated_embed_v1' })
+    const form = formFor(original, newYork)
+    form.report_format = ''
+    form.description = 'Changed report'
+    expect(buildSave(form, original, newYork)).toEqual({ id: 'sched01', description: 'Changed report', report_format: '' })
+  })
+
+  it('sends an empty message and no tool input when they are cleared (15.R4.5)', () => {
+    const reminder = row({ action: 'reminder', message: 'Stand up' })
+    const form = formFor(reminder, newYork)
+    form.message = ''
+    expect(buildSave(form, reminder, newYork)).toEqual({ id: 'sched01', message: '' })
+    const check = row({ tool_name: 'run_command', tool_input: { command: 'df -h' } })
+    const checkForm = formFor(check, newYork)
+    checkForm.tool_input = ''
+    expect(buildSave(checkForm, check, newYork)).toEqual({ id: 'sched01', tool_input: {} })
+  })
+
+  it("says Odin keeps retries once set, rather than saving as if they were cleared", () => {
+    const original = row({ action: 'reminder', message: 'Stand up', max_retries: 3 })
+    const form = formFor(original, newYork)
+    form.max_retries = ''
+    expect(buildSave(form, original, newYork)).toMatch(/keeps the number of retries/)
+  })
+
+  it("keeps a trigger schedule's timing when only its description changes (15.R4.6)", () => {
+    const original = row({ action: 'reminder', message: 'Deployed', cron: null, timezone: null, run_at: null, trigger: { event: 'deploy' } })
+    const form = formFor(original, newYork)
+    expect(form.timing).toBe('trigger')
+    form.description = 'Deploy notice'
+    expect(buildSave(form, original, newYork)).toEqual({ id: 'sched01', description: 'Deploy notice' })
+  })
+})

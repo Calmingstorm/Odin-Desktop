@@ -9,7 +9,8 @@ export interface ScheduleForm {
   action: ScheduleAction
   /** The conversation it reports to. */
   channel_id: string
-  timing: 'cron' | 'once'
+  /** A trigger only shows for an existing schedule that has one, and leaves its timing as it is. */
+  timing: 'cron' | 'once' | 'trigger'
   cron: string
   /** Empty: the core's own time zone. */
   cron_timezone: string
@@ -89,7 +90,7 @@ export function formFor(row: ScheduleRow, zone: Zone = SYSTEM_ZONE): ScheduleFor
     description: row.description,
     action: row.action,
     channel_id: row.channel_id ?? '',
-    timing: row.cron ? 'cron' : 'once',
+    timing: row.cron ? 'cron' : row.trigger && !row.run_at ? 'trigger' : 'once',
     cron: row.cron ?? '',
     cron_timezone: row.cron ? (row.timezone ?? '') : '',
     run_at: runAt,
@@ -136,7 +137,7 @@ function fieldsOf(form: ScheduleForm, zone: Zone): Fields | string {
     if (!form.cron.trim()) return 'Enter a cron expression, or choose a one-time run.'
     fields.cron = form.cron.trim()
     if (form.cron_timezone.trim()) fields.cron_timezone = form.cron_timezone.trim()
-  } else {
+  } else if (form.timing === 'once') {
     // The field is this computer's wall clock. Odin takes an explicit instant, so a time the clocks skip is refused
     // and a time that happens twice is an explicit choice.
     const time = analyzeLocalDateTime(form.run_at, zone)
@@ -220,6 +221,14 @@ function fieldsOf(form: ScheduleForm, zone: Zone): Fields | string {
 
 const TIMING = ['cron', 'cron_timezone', 'run_at']
 
+/** What clears a field Odin keeps when it is emptied: no message, no tool input, a plain text report. */
+const CLEARED: Fields = { message: '', tool_input: {}, report_format: '' }
+/** Odin keeps these once set: an update can change them but not unset them. */
+const KEPT: Record<string, string> = {
+  max_retries: 'Odin keeps the number of retries once set: enter 0 for none.',
+  retry_backoff_seconds: 'Odin keeps the wait between retries once set: enter 0 for none.'
+}
+
 /**
  * The body to send, or what is wrong with the form. With `original`, only what changed goes: Odin's update leaves
  * out what it isn't given, and new timing replaces the old.
@@ -237,6 +246,12 @@ export function buildSave(form: ScheduleForm, original?: ScheduleRow, zone: Zone
   }
   for (const key of Object.keys(after)) {
     if (!TIMING.includes(key) && !same(key)) change[key] = after[key]
+  }
+  // A field emptied in the form is sent as its clear value, since an update leaves out what it isn't given.
+  for (const key of Object.keys(before)) {
+    if (TIMING.includes(key) || key in after) continue
+    if (key in KEPT) return KEPT[key]!
+    if (key in CLEARED) change[key] = CLEARED[key]
   }
   if (Object.keys(change).length === 1) return 'Nothing changed.'
   return change as ScheduleSave

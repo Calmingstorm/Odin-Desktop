@@ -4,6 +4,7 @@
 import { reactive } from 'vue'
 import type { CoreEvent, Result, WorkAction, WorkItem, WorkKind } from '../../../shared/api'
 import { isUnknownOutcome, onCoreEvent, onLateReceipt, onReady } from '../store'
+import { busy } from './locks'
 
 export const work = reactive({
   open: false,
@@ -12,8 +13,11 @@ export const work = reactive({
   error: '',
   /** What the last control on an item did, by `workKey`. */
   notes: {} as Record<string, string | undefined>,
-  /** Items with a control on its way to the core, or not yet confirmed, by `workKey`. */
-  busy: {} as Record<string, boolean | undefined>
+  /**
+   * Items with a control on its way to the core, or not yet confirmed, by `workKey`. Shared with the settings menu,
+   * whose schedules section runs and pauses the same schedules.
+   */
+  busy
 })
 
 /** An item's identity: its kind and id together, since items of different kinds may share an id. */

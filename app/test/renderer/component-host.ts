@@ -15,6 +15,10 @@ export class Host {
   /** What a form control holds, as v-model and bound props read and set it. */
   value: unknown = ''
   checked = false
+  /** A select's state, and an option's, as v-model on a select reads and sets them. */
+  selectedIndex = -1
+  selected = false
+  multiple = false
   private top = 0
   private readonly listeners: Record<string, Array<(event: unknown) => void>> = {}
 
@@ -70,6 +74,22 @@ export class Host {
     return prop?.(e)
   }
 
+  /** v-model asks which document an element is in, to leave alone the one being typed in. Ours are in none. */
+  getRootNode(): Host {
+    return this.parent ? this.parent.getRootNode() : this
+  }
+
+  get options(): Host[] {
+    return this.findAll((host) => host.tag === 'option')
+  }
+
+  /** Picks a select's option by its place, as a user would: what v-model and a change listener see. */
+  choose(index: number): unknown {
+    this.options.forEach((option, i) => (option.selected = i === index))
+    this.selectedIndex = index
+    return this.fire('change')
+  }
+
   /** Types into a text control: what v-model and an input listener see. */
   type(text: string): unknown {
     this.value = text
@@ -82,6 +102,11 @@ export class Host {
     return this.text + this.children.map((child) => child.textContent()).join('')
   }
 }
+
+// v-model checks `instanceof Document` and `instanceof ShadowRoot`, which Node doesn't define.
+const g = globalThis as unknown as Record<string, unknown>
+g.Document ??= class Document {}
+g.ShadowRoot ??= class ShadowRoot {}
 
 const renderer = createRenderer<Host, Host>({
   createElement: (tag) => new Host(tag),
