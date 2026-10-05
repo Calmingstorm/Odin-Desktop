@@ -77,3 +77,29 @@ rerun status must be checked separately; local success is not hosted success.
   `validation.md`. Cleanup is verified; it is not erased by test success.
 
 No merge, deployment, restart, coverage percentage or release parity is claimed.
+
+## Second hosted portability correction
+
+Run `37248121752` proved the FTS correction and trusted interpreter copy: the
+first two groups passed in hosted CI. The remaining Hyprland group exposed two
+previously ambient test dependencies:
+
+- The old `_trusted_filesystem` fixture globally rewrote `os.fstat` owner to
+  root, including the actual non-root hosted test interpreter. Its frozen
+  autoload cases now use an exact setup-import adaptation whose root ownership
+  model applies only to the temporary artifact tree and its ancestors. Real
+  interpreter/process measurements retain their real UID/mode. All 66 original
+  cases and one new fixture-scope regression passed; no production trust check
+  changes or native input were used.
+- `test_hyprland_input_loss_campaign.py` imports a real native guardian Client
+  and requires an existing fixed `/tmp` executable. Direct-only spawn scanning
+  missed that import closure. The seven cases are now explicitly native/manual
+  gated, alongside the original wire helper suite, rather than building or
+  invoking an ambient executable to make CI pass. Their bytes remain frozen.
+  Prior local successes used that ambient native helper and are not qualifying
+  evidence for authorized neutral scope. This narrows the current executable
+  gate; it does not assert those native contracts are implemented or disproved.
+
+The seven native cases were not among the 259 historical failures or 876
+foundation definition populations. Those exact neutral mappings remain closed.
+`test-plan.json` now has 357 neutral candidate paths and 100 native/manual paths.

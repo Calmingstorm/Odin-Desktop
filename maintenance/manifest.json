@@ -19628,11 +19628,11 @@
       "fixtures_closure": "retained-test-support",
       "owner": "Odin",
       "path": "tests/test_hyprland_input_loss_campaign.py",
-      "reason": "Neutral retained engine unit suite: direct source and cross-test helper imports have no known new intake/delivery/control seam, no prohibited/native trigger identified. Full baseline closure provenance is not automatic gating. Eligible only clean isolated PID namespace; audit ran no imports/tests. Failures require Phase1 fixes or precise evidence, never avoidance waiver.",
+      "reason": "Native guardian wire execution via imported Client was missed by direct-spawn scanning. Seven cases require fixed external /tmp guardian binary, real subprocess input and signal lifecycle. Baseline bytes retained; Phase 3 hard-isolated native qualification, not a neutral missing-fixture waiver. Prior local runs encountered ambient binary and do not qualify this scope.",
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "safe_pass_now",
+      "test_classification": "safety_manual_gated",
       "test_closure_id": "8fe82f7b1da402a3",
       "upstream_sha256": "b2aeafa42aec456c214ad523b45e9cfa82e920627ecbcbf655d658505323ba33"
     },

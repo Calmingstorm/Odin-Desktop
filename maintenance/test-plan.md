@@ -12,8 +12,8 @@
 | `phase2` | 326 |
 | `retained_adaptation_gated` | 38 |
 | `retained_support` | 30 |
-| `safe_pass_now` | 358 |
-| `safety_manual_gated` | 99 |
+| `safe_pass_now` | 357 |
+| `safety_manual_gated` | 100 |
 
 ## Explicit selections
 

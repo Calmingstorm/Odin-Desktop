@@ -24,8 +24,8 @@
     "phase2": 326,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "safe_pass_now": 358,
-    "safety_manual_gated": 99
+    "safe_pass_now": 357,
+    "safety_manual_gated": 100
   },
   "entries": [
     {
@@ -15333,8 +15333,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "safe_pass_now",
-      "reason": "Neutral retained engine unit suite: direct source and cross-test helper imports have no known new intake/delivery/control seam, no prohibited/native trigger identified. Full baseline closure provenance is not automatic gating. Eligible only clean isolated PID namespace; audit ran no imports/tests. Failures require Phase1 fixes or precise evidence, never avoidance waiver.",
+      "classification": "safety_manual_gated",
+      "reason": "Native guardian wire execution via imported Client was missed by direct-spawn scanning. Seven cases require fixed external /tmp guardian binary, real subprocess input and signal lifecycle. Baseline bytes retained; Phase 3 hard-isolated native qualification, not a neutral missing-fixture waiver. Prior local runs encountered ambient binary and do not qualify this scope.",
       "phase2_seams": []
     },
     {
@@ -36918,7 +36918,6 @@
     "tests/test_hyprland_exact_retirement_build.py",
     "tests/test_hyprland_handoff_campaign.py",
     "tests/test_hyprland_input_evidence_campaign.py",
-    "tests/test_hyprland_input_loss_campaign.py",
     "tests/test_hyprland_instance_endpoint_b0.py",
     "tests/test_hyprland_inventory_diagnostics.py",
     "tests/test_hyprland_live_field_permits.py",
@@ -37073,6 +37072,7 @@
     "tests/test_webhook_text.py"
   ],
   "safety_manual_gated": [
+    "tests/test_hyprland_input_loss_campaign.py",
     "tests/test_attached_apps_r6_harness.py",
     "tests/test_campaign_a_validation.py",
     "tests/test_campaign_governor_skills.py",

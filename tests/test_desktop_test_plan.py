@@ -36,7 +36,8 @@ def test_disjoint_classifications_and_guard_safety_selection():
     assert "tests/test_turn_checkpoint_codec.py" in plan["safe_pass_now"]
     for filename in ("test_risk_classifier.py", "test_command_shell_policy.py",
                      "test_governor_policy_floor.py", "test_campaign_a_validation.py",
-                     "test_computer_dispatch_native_r19.py"):
+                     "test_computer_dispatch_native_r19.py",
+                     "test_hyprland_input_loss_campaign.py"):
         assert "tests/" + filename in plan["safety_manual_gated"]
 
 
