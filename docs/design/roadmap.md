@@ -60,6 +60,20 @@ integration gates, complete in Phase 2. Deferred gates are recorded explicitly; 
   - running alongside a server install with fresh data and no shared state;
   - if Aaron includes webhook triggers, the section-8 ingress acceptance cases.
 
+  **Inherited-suite closure is also a Phase 2 exit criterion.** All **326 Phase-2-deferred suites** listed in
+  `maintenance/test-plan.json` must come back in Phase 2, adapted to the Desktop transport and **never dropped**.
+  The original assertions, case data and budgets remain the behavior contract; a smoke test, a renamed exclusion
+  or an aggregate passing count is not closure. Record each suite's Desktop execution/adapter mapping and results
+  in the maintenance accounting, with no unaccounted deferred cases at the exit gate. This includes:
+  - `tests/characterization/test_chat_tool_loop.py`: continuation, the completion judge and nudges;
+  - the deferred agent suites: nested agents, completion, budgets, lifecycle, transcripts and delivery;
+  - `tests/test_recovery.py` and `tests/test_tool_loop_helpers.py`;
+  - `tests/test_codex_replay_boundaries.py` and `tests/test_codex_replay_matrix.py`.
+
+  Existing safety/manual gates still apply. "Come back" requires reviewed safe adapters or pure cases where needed,
+  not running prohibited inputs, weakening assertions or dispatching against live state. See
+  `maintenance/test-plan.md` for the frozen selection and case-by-case acceptance record.
+
 ## Phase 3: the app v1 (Linux)
 
 - **Work:**

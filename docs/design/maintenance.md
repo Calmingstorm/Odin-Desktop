@@ -60,6 +60,32 @@ Where engine code is shared, test **assertions, case data and budgets stay byte-
 
 Platform proofs remain platform-specific and additional to unit tests. Desktop lifecycle and computer-input tests run only in hard-isolated graphical environments or explicitly approved acceptance sessions; no installer/autostart/teardown experiment in Aaron's active desktop. No project test runs from `/opt/odin` or against its live state.
 
+### Governor suites: upstream evidence and safe requalification
+
+The following inherited suites remain **safety/manual-gated** in Desktop:
+`tests/test_risk_classifier.py`, `tests/test_governor_policy_floor.py`,
+`tests/test_governor_shape_fixtures.py` and `tests/test_governor_shape_matrix.py`.
+Some cases drive the executor with a mocked transport and destructive command literals. A mock does not make
+those inputs eligible under `CONTRIBUTING.md`; do not import or run the whole suites as a local parity shortcut.
+
+At the Phase 1 baseline, `src/tools/risk_classifier.py` (including `CommandGovernor`) and its imports
+`src/tools/command_shapes.py` and `src/tools/command_authority.py` are byte-identical to Odin v4.13.0.
+The inherited suite coverage is supported by Odin CI against those same bytes, not by a claimed Desktop run.
+Baseline evidence is [Odin Tests run 36951324132](https://github.com/Calmingstorm/Odin/actions/runs/36951324132),
+successful at `cd7530906e9cfa10a0fa900247d7ce2a8bb33e25`. This does not qualify Desktop executor wiring;
+the separate harmless owner/admin parity boundary tests cover that adaptation.
+
+**Porting a governor change requires its upstream CI evidence** in the port ledger: exact upstream commit,
+successful run and relevant suite outcomes, plus byte identity of the governor and its transitive imports after
+the port. Prior baseline evidence cannot certify newly changed bytes. Missing evidence leaves the affected port
+unqualified. Run the permitted Desktop boundary tests separately.
+
+**If the governor's imports diverge, re-qualify only the pure classification cases** in reviewed disposable
+fixtures, with harmless/inert inputs and no executor dispatch or prohibited command literals. Account for the
+remaining safety/manual-gated cases and the divergence explicitly; do not relabel a partial run full parity or
+lift the gate on a mixed suite. A new shared-policy divergence still requires independent review and equivalent
+upstream evidence before the affected capability can ship.
+
 ### "Removed features leave no references": a checkable definition
 
 No removed feature remains in executable registrations, import/dependency closure, tool schemas/names/descriptions, config fields/defaults/apply modes, native methods/routes/menus, model-facing errors/status/guard instructions, shipped default context/help, packaging hooks, autostart/service units or generated assets. Verify source, resolved dependencies **and the built distribution**, plus the runtime offered catalog and management inventory in isolated acceptance.
