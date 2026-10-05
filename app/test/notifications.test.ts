@@ -113,13 +113,58 @@ describe('the tray tooltip', () => {
 
   it('follows the conversation list and its events', () => {
     const index = new ConversationIndex()
-    index.reset([{ id: 'c1', title: 'Chat', unread: 1 }])
-    index.upsert({ id: 'c2', title: 'Backups', unread: 2 })
+    index.reset([{ id: 'c1', title: 'Chat', unread: 1 }], 0)
+    index.upsert({ id: 'c2', title: 'Backups', unread: 2 }, 1)
     expect(index.tooltip()).toBe('Odin: 3 unread messages in 2 conversations')
     expect(index.titleOf('c2')).toBe('Backups')
-    index.remove('c2')
+    index.remove('c2', 2)
     expect(index.tooltip()).toBe('Odin: 1 unread message')
     expect(index.titleOf('c2')).toBeNull()
+  })
+})
+
+describe('review round 2: the tray index follows the newest facts', () => {
+  it('keeps an event that arrived before an older list answered', () => {
+    const index = new ConversationIndex()
+    index.upsert({ id: 'c1', title: 'Chat', unread: 1 }, 11) // dispatched first, though the list was asked for earlier
+    index.reset([{ id: 'c1', title: 'Chat', unread: 0 }], 10)
+    expect(index.tooltip()).toBe('Odin: 1 unread message')
+  })
+
+  it('lets no older list undo a newer one', () => {
+    const index = new ConversationIndex()
+    index.reset([{ id: 'c1', title: 'Chat', unread: 0 }, { id: 'c2', title: 'Backups', unread: 2 }], 20)
+    index.reset([{ id: 'c1', title: 'Chat', unread: 0 }], 10)
+    expect(index.titleOf('c2')).toBe('Backups')
+    expect(index.tooltip()).toBe('Odin: 2 unread messages')
+  })
+
+  it('keeps a deletion final, even against a list asked for before it', () => {
+    const index = new ConversationIndex()
+    index.reset([{ id: 'c2', title: 'Backups', unread: 3 }], 1)
+    index.remove('c2', 5)
+    index.reset([{ id: 'c2', title: 'Backups', unread: 3 }], 4)
+    index.reset([{ id: 'c2', title: 'Backups', unread: 3 }], 9) // even a later one: deleted IDs are never reused
+    index.upsert({ id: 'c2', title: 'Backups', unread: 4 }, 10)
+    expect(index.titleOf('c2')).toBeNull()
+    expect(index.tooltip()).toBe('Odin')
+  })
+
+  it('drops a conversation a newer list no longer has, unless an event since says otherwise', () => {
+    const index = new ConversationIndex()
+    index.reset([{ id: 'c1', title: 'Chat', unread: 0 }, { id: 'c2', title: 'Old', unread: 1 }], 5)
+    index.upsert({ id: 'c3', title: 'New', unread: 1 }, 12)
+    index.reset([{ id: 'c1', title: 'Chat', unread: 0 }], 10)
+    expect(index.titleOf('c2')).toBeNull()
+    expect(index.titleOf('c3')).toBe('New')
+  })
+
+  it("orders a new core's lists afresh", () => {
+    const index = new ConversationIndex()
+    index.reset([{ id: 'c1', title: 'Chat', unread: 0 }], 50)
+    index.restart()
+    index.reset([{ id: 'c1', title: 'Chat', unread: 2 }], 3)
+    expect(index.tooltip()).toBe('Odin: 2 unread messages')
   })
 })
 

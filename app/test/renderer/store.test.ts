@@ -1144,3 +1144,21 @@ describe('review round 2: an unconfirmed resume is never sent again', () => {
   })
 })
 
+describe('review round 2: a notification opens the news', () => {
+  it('shows the latest messages and reads them, even with a search window open in that conversation', async () => {
+    setAttention(true)
+    await start(snapshot({ watermark: '1', messages: { items: [message('m1')], has_more: false } }))
+    bridge.control.aroundResult = { ok: true, result: { items: [message('m-old')], has_before: false, has_after: true } }
+    await store.jumpTo({ conversation_id: 'c1', message_id: 'm-old', role: 'assistant', snippet: '', created_at: '2026-10-05T00:00:00Z' })
+    expect(store.state.jump?.messageId).toBe('m-old')
+    emit(event(2, 'message.committed', { message: message('m2') }))
+    emit(event(3, 'conversation.updated', { conversation: { ...CONVERSATION, unread: 1, rev: 2 } }))
+    const before = bridge.calls.markRead.length
+    bridge.listeners.open.forEach((l) => l('c1'))
+    await until(() => bridge.calls.markRead.length === before + 1)
+    expect(store.state.jump).toBeNull()
+    expect(store.state.highlightId).toBeNull()
+    expect(bridge.calls.markRead[before]).toMatchObject({ id: 'c1', through_message_id: 'm2' })
+  })
+})
+

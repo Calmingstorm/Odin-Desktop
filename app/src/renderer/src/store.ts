@@ -245,8 +245,8 @@ export async function init(): Promise<void> {
   window.odin.onEvent(applyEvent)
   window.odin.onReceipt(applyReceipt)
   window.odin.onReset(() => void resetViews())
-  // A clicked notification brings the window forward on its conversation.
-  window.odin.onOpenConversation((conversationId) => void select(conversationId))
+  // A clicked notification brings the window forward on its conversation, at the latest messages, where the news is.
+  window.odin.onOpenConversation((conversationId) => void openLatest(conversationId))
   if (typeof document !== 'undefined') {
     // Coming back to the window counts as reading what is on screen.
     const attend = (): void => {
@@ -801,6 +801,12 @@ function clearNavigation(): void {
   jumpPending = null
   state.jump = null
   state.highlightId = null
+}
+
+/** Opens a conversation at its latest messages, ending any search window, even one in that conversation. */
+export async function openLatest(conversationId: string): Promise<void> {
+  clearNavigation()
+  await open(conversationId)
 }
 
 /** The user went back to the latest messages, so they are on screen again. */
