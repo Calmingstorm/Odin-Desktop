@@ -40,7 +40,9 @@ READ_METHODS = {"status.get", "events.subscribe", "conversations.list", "message
                 "tool.detail", "tool.output", "settings.schema", "codex.accounts.list", "codex.login.poll",
                 "models.agents.get", "tools.list", "tools.timeouts.get", "skills.list", "skills.get", "skills.validate",
                 "skills.config.get", "mcp.status", "mcp.tools", "hosts.list", "hosts.public_key", "hosts.references",
-                "schedules.list", "schedules.history", "schedules.validate_cron"}
+                "schedules.list", "schedules.history", "schedules.validate_cron", "personality.get", "memory.list",
+                "memory.get", "lists.list", "lists.get", "knowledge.list", "knowledge.search", "knowledge.versions",
+                "audit.query", "audit.verify", "health.get", "logs.search", "turn_state.list", "computer.status"}
 # Idempotent by offset, so it keeps no durable receipt (protocol.md, Conventions).
 NO_RECEIPT_METHODS = READ_METHODS | {"attachments.chunk"}
 CHUNK_BYTES = 512 * 1024
@@ -346,6 +348,20 @@ class Core:
         self.artifacts: dict[str, dict] = {}  # ref -> {name, mime, data}
         self.reports: dict[str, dict] = {}  # report id -> {conversation_id, pages}
         self.tool_records: dict[str, dict] = {}  # invocation_id -> arguments, previews, retained output
+        self.personality = {"preset": "odin", "custom_name": "", "custom_identity": "", "custom_voice": ""}
+        self.user_presets: dict[str, dict] = {}
+        self.memory: dict[str, dict] = {"global": {"deploy_window": "Deploys happen after 18:00."},
+                                        "owner": {"preferred_editor": "Uses VS Code."}}
+        self.lists: dict[str, dict] = {"groceries": {"items": ["milk", "eggs", "coffee"], "updated_at": now()}}
+        self.knowledge: dict[str, dict] = {}
+        self.knowledge_versions: dict[str, list[dict]] = {}
+        self.audit: list[dict] = [{"timestamp": now(), "type": "tool", "tool_name": "run_command", "user_id": "owner",
+                                   "tool_input": {"host": "localhost", "command": "uptime"}, "approved": True,
+                                   "result_summary": "up 3 days", "execution_time_ms": 42, "error": None, "host": "localhost"}]
+        self.logs: list[dict] = [{"timestamp": now(), "level": "INFO", "message": "Core started.", "tool": None},
+                                 {"timestamp": now(), "level": "ERROR", "message": "MCP server Grafana: disabled.", "tool": None}]
+        self.computer_sessions: list[dict] = [{"session_id": "cs_7f3a", "generation": 3, "target": "x11 :0",
+                                               "state": "quarantined", "started_at": iso_in(-3600)[1], "quarantined": True}]
         self.work: dict[str, dict] = {}  # agents, processes and the like; schedules come from self.schedules
         self.schedules: dict[str, dict] = {"5d0a7c21": {
             "id": "5d0a7c21", "description": "Post the daily status to the dashboard", "action": "webhook",
@@ -1540,6 +1556,286 @@ class Core:
         except ValueError as exc:
             raise CoreError("bad_request", f"Invalid cron expression: {exc}") from None
 
+    # ---------------------------------------------------------------- personality
+    BUILTIN_PRESETS = {
+        "odin": {"name": "Odin, the All-Father", "identity": "A wise old god, patient with mortal machines.",
+                 "voice": "Dry wit, short sentences, never cruel."},
+        "professional": {"name": "Mimir", "identity": "A precise, reliable operations assistant.",
+                         "voice": "Concise and professional."},
+        "friendly": {"name": "Bragi", "identity": "A helpful, approachable assistant.", "voice": "Warm and conversational."},
+    }
+
+    def m_personality_get(self, _params: dict, _writer) -> dict:
+        return {**self.personality, "presets": {**self.BUILTIN_PRESETS, **self.user_presets},
+                "builtin_presets": list(self.BUILTIN_PRESETS), "user_presets": list(self.user_presets)}
+
+    def m_personality_set(self, params: dict, _writer) -> dict:
+        preset = str(params.get("preset") or "odin")
+        if preset != "custom" and preset not in self.BUILTIN_PRESETS and preset not in self.user_presets:
+            raise CoreError("bad_request", f"unknown preset '{preset}'")
+        self.personality = {"preset": preset, "custom_name": str(params.get("custom_name", "")),
+                            "custom_identity": str(params.get("custom_identity", "")),
+                            "custom_voice": str(params.get("custom_voice", ""))}
+        return {"status": "updated", "preset": preset}
+
+    def m_personality_presets_save(self, params: dict, _writer) -> dict:
+        name = str(params.get("name") or "").strip().lower().replace(" ", "_")
+        if not name:
+            raise CoreError("bad_request", "name is required")
+        if not re.fullmatch(r"[a-z0-9_-]+", name):
+            raise CoreError("bad_request", "preset name must contain only lowercase letters, numbers, hyphens, and underscores")
+        if name in self.BUILTIN_PRESETS:
+            raise CoreError("bad_request", f"cannot overwrite built-in preset '{name}'")
+        identity, voice = str(params.get("identity", "")), str(params.get("voice", ""))
+        if not identity and not voice:
+            raise CoreError("bad_request", "identity or voice is required")
+        self.user_presets[name] = {"name": str(params.get("display_name") or name), "identity": identity, "voice": voice}
+        return {"status": "saved", "name": name}
+
+    def m_personality_presets_delete(self, params: dict, _writer) -> dict:
+        name = str(params.get("name") or "")
+        if name in self.BUILTIN_PRESETS:
+            raise CoreError("bad_request", f"cannot delete built-in preset '{name}'")
+        if name not in self.user_presets:
+            raise CoreError("not_found", "preset not found")
+        del self.user_presets[name]
+        if self.personality["preset"] == name:
+            self.personality["preset"] = "odin"
+        return {"status": "deleted", "name": name}
+
+    # ---------------------------------------------------------------- memory and lists
+    def m_memory_list(self, _params: dict, _writer) -> dict:
+        return {scope: {"keys": list(entries), "count": len(entries)} for scope, entries in self.memory.items()}
+
+    def m_memory_get(self, params: dict, _writer) -> dict:
+        scope = str(params.get("scope"))
+        if scope not in self.memory:
+            raise CoreError("not_found", "scope not found")
+        key = params.get("key")
+        if key is None:
+            return {"scope": scope, "entries": dict(self.memory[scope])}
+        if key not in self.memory[scope]:
+            raise CoreError("not_found", "key not found")
+        return {"scope": scope, "key": key, "value": self.memory[scope][key]}
+
+    def m_memory_set(self, params: dict, _writer) -> dict:
+        if params.get("value") is None:
+            raise CoreError("bad_request", "value is required")
+        scope, key = str(params.get("scope")), str(params.get("key"))
+        self.memory.setdefault(scope, {})[key] = params["value"]
+        return {"status": "saved", "scope": scope, "key": key}
+
+    def m_memory_delete(self, params: dict, _writer) -> dict:
+        scope, key = str(params.get("scope")), str(params.get("key"))
+        if key not in self.memory.get(scope, {}):
+            raise CoreError("not_found", "key not found")
+        del self.memory[scope][key]
+        return {"status": "deleted", "scope": scope, "key": key}
+
+    def m_memory_bulk_delete(self, params: dict, _writer) -> dict:
+        entries = params.get("entries")
+        if not isinstance(entries, list) or not entries:
+            raise CoreError("bad_request", "entries must be a non-empty list of {scope, key}")
+        deleted = 0
+        for entry in entries:
+            if not isinstance(entry, dict) or not entry.get("scope") or not entry.get("key"):
+                raise CoreError("bad_request", "each entry must contain a scope and key")
+        for entry in entries:
+            if self.memory.get(entry["scope"], {}).pop(entry["key"], None) is not None:
+                deleted += 1
+        return {"status": "deleted", "count": deleted}
+
+    def m_lists_list(self, _params: dict, _writer) -> dict:
+        return {"items": [{"name": name, "count": len(data["items"]), "updated_at": data["updated_at"]}
+                          for name, data in self.lists.items()]}
+
+    def m_lists_get(self, params: dict, _writer) -> dict:
+        name = str(params.get("name"))
+        if name not in self.lists:
+            raise CoreError("not_found", "list not found")
+        return {"name": name, "items": list(self.lists[name]["items"])}
+
+    def m_lists_delete(self, params: dict, _writer) -> dict:
+        name = str(params.get("name"))
+        if self.lists.pop(name, None) is None:
+            raise CoreError("not_found", "list not found")
+        return {"status": "deleted", "name": name}
+
+    # ---------------------------------------------------------------- knowledge
+    @staticmethod
+    def chunked(content: str) -> list[str]:
+        return [content[i:i + 400] for i in range(0, len(content), 400)] or [content]
+
+    def knowledge_version(self, source: str, action: str, content: str, summary: str) -> None:
+        versions = self.knowledge_versions.setdefault(source, [])
+        versions.append({"id": sum(len(v) for v in self.knowledge_versions.values()) + 1, "version": len(versions) + 1,
+                         "content_hash": hashlib.sha256(content.encode()).hexdigest()[:16],
+                         "chunk_count": len(self.chunked(content)), "uploader": "owner", "action": action,
+                         "created_at": now(), "diff_summary": summary, "content": content})
+
+    def store_knowledge(self, source: str, content: str, action: str) -> dict:
+        digest = hashlib.sha256(content.encode()).hexdigest()[:16]
+        current = self.knowledge.get(source)
+        if current and current["content_hash"] == digest:
+            return {"source": source, "chunks": len(current["chunks"]), "status": "already stored, unchanged",
+                    "outcome": "unchanged"}
+        for other, data in self.knowledge.items():
+            if other == source:
+                continue
+            if data["content_hash"] == digest:
+                return {"source": source, "status": "identical content already stored elsewhere; not ingested",
+                        "outcome": "duplicate", "duplicate_of": other,
+                        "message": f"Identical content is already stored as '{other}'; no new source was created."}
+            if data["content"][:200] == content[:200]:
+                return {"source": source, "status": "near-duplicate of existing knowledge; not stored",
+                        "outcome": "conflict", "duplicate_of": other,
+                        "message": f"Near-duplicate content conflicts with '{other}'; the new content was not stored."}
+        chunks = self.chunked(content)
+        self.knowledge[source] = {"content": content, "content_hash": digest, "chunks": chunks, "ingested_at": now()}
+        self.knowledge_version(source, action, content, f"{len(chunks)} chunks")
+        return {"source": source, "chunks": len(chunks), "status": "stored", "outcome": "created"}
+
+    def m_knowledge_list(self, _params: dict, _writer) -> list:
+        return [{"source": source, "chunks": len(data["chunks"]), "uploader": "owner", "ingested_at": data["ingested_at"],
+                 "content_hash": data["content_hash"],
+                 "preview": data["content"][:200] + ("..." if len(data["content"]) > 200 else "")}
+                for source, data in self.knowledge.items()]
+
+    def m_knowledge_search(self, params: dict, _writer) -> list:
+        words = str(params.get("q") or "").lower().split()
+        if not words:
+            raise CoreError("bad_request", "q parameter required")
+        hits = []
+        for source, data in self.knowledge.items():
+            for index, chunk in enumerate(data["chunks"]):
+                found = sum(word in chunk.lower() for word in words)
+                if found:
+                    hits.append({"chunk_id": f"{source}:{index}", "content": chunk, "source": source,
+                                 "score": round(found / len(words), 3), "chunk_index": index})
+        hits.sort(key=lambda h: -h["score"])
+        return hits[: int(params.get("limit") or 10)]
+
+    def m_knowledge_ingest(self, params: dict, _writer) -> dict:
+        source, content = str(params.get("source") or "").strip(), str(params.get("content") or "").strip()
+        if not source or not content:
+            raise CoreError("bad_request", "source and content are required")
+        return self.store_knowledge(source, content, "ingest")
+
+    def require_source(self, params: dict) -> tuple[str, dict]:
+        source = str(params.get("source"))
+        if source not in self.knowledge:
+            raise CoreError("not_found", "source not found")
+        return source, self.knowledge[source]
+
+    def m_knowledge_reingest(self, params: dict, _writer) -> dict:
+        source, data = self.require_source(params)
+        return {"source": source, "chunks": len(data["chunks"]), "status": "already stored, unchanged", "outcome": "unchanged"}
+
+    def m_knowledge_delete(self, params: dict, _writer) -> dict:
+        source, data = self.require_source(params)
+        del self.knowledge[source]
+        return {"status": "deleted", "chunks_removed": len(data["chunks"])}
+
+    def m_knowledge_versions(self, params: dict, _writer) -> list:
+        source = str(params.get("source"))
+        return [{k: v for k, v in version.items() if k != "content"} for version in self.knowledge_versions.get(source, [])]
+
+    def m_knowledge_restore(self, params: dict, _writer) -> dict:
+        source, version = str(params.get("source")), params.get("version")
+        found = next((v for v in self.knowledge_versions.get(source, []) if v["version"] == version), None)
+        if found is None:
+            raise CoreError("not_found", "version not found")
+        chunks = self.chunked(found["content"])
+        self.knowledge[source] = {"content": found["content"], "content_hash": found["content_hash"], "chunks": chunks,
+                                  "ingested_at": now()}
+        self.knowledge_version(source, "restore", found["content"], f"restored version {version}")
+        return {"status": "restored", "source": source, "version": version, "chunks": len(chunks)}
+
+    # ---------------------------------------------------------------- records
+    def m_audit_query(self, params: dict, _writer) -> list:
+        entries = list(reversed(self.audit))
+        if params.get("tool"):
+            entries = [e for e in entries if e["tool_name"] == params["tool"]]
+        if params.get("host"):
+            entries = [e for e in entries if e.get("host") == params["host"]]
+        if params.get("q"):
+            needle = str(params["q"]).lower()
+            entries = [e for e in entries if needle in json.dumps(e).lower()]
+        if params.get("error_only"):
+            entries = [e for e in entries if e.get("error")]
+        return entries[: int(params.get("limit") or 100)]
+
+    def m_audit_verify(self, _params: dict, _writer) -> dict:
+        return {"valid": True, "total": len(self.audit), "verified": len(self.audit), "first_bad": None,
+                "status": "verified", "segments": 1}
+
+    def m_health_get(self, _params: dict, _writer) -> dict:
+        mcp = self.m_mcp_status({}, None)
+        components = [
+            {"name": "core", "healthy": True, "status": "healthy", "detail": "Running."},
+            {"name": "codex", "healthy": True, "status": "healthy", "detail": "2 accounts, Primary in use."},
+            {"name": "knowledge", "healthy": True, "status": "healthy", "detail": f"{len(self.knowledge)} sources."},
+            {"name": "mcp", "healthy": mcp["connected_count"] == mcp["server_count"],
+             "status": "healthy" if mcp["connected_count"] == mcp["server_count"] else "degraded",
+             "detail": f"{mcp['connected_count']} of {mcp['server_count']} servers connected."},
+            {"name": "computer", "healthy": False, "status": "unconfigured", "detail": "Computer use is off."},
+        ]
+        count = lambda status: sum(1 for c in components if c["status"] == status)  # noqa: E731
+        overall = "healthy" if all(c["status"] in ("healthy", "unconfigured") for c in components) else "degraded"
+        return {"overall": overall, "components": components, "healthy_count": count("healthy"),
+                "degraded_count": count("degraded"), "down_count": count("down"),
+                "unconfigured_count": count("unconfigured"), "total": len(components), "checked_at": now()}
+
+    def m_logs_search(self, params: dict, _writer) -> dict:
+        level = params.get("level") or "all"
+        if level not in ("error", "info", "all"):
+            raise CoreError("bad_request", "level must be 'error', 'info', or 'all'")
+        entries = list(reversed(self.logs))
+        if level == "error":
+            entries = [e for e in entries if e["level"] == "ERROR"]
+        elif level == "info":
+            entries = [e for e in entries if e["level"] == "INFO"]
+        if params.get("tool"):
+            entries = [e for e in entries if e.get("tool") == params["tool"]]
+        if params.get("q"):
+            entries = [e for e in entries if str(params["q"]).lower() in e["message"].lower()]
+        entries = entries[: int(params.get("limit") or 100)]
+        return {"entries": entries, "count": len(entries)}
+
+    def m_turn_state_list(self, params: dict, _writer) -> dict:
+        turns = []
+        for req in self.requests.values():
+            unknown = sum(o.get("unknown_effects", 0) for o in self.unresolved.get(req["conversation_id"], [])
+                          if o.get("request_id") == req["id"])
+            if req["state"] not in ("interrupted", "suspended", "running") and not unknown:
+                continue
+            turns.append({"conversation_id": req["conversation_id"], "request_id": req["id"],
+                          "turn_generation": req["generation"], "status": req["state"].upper(),
+                          "created_at": req.get("started_at") or now(), "last_progress_at": req.get("started_at"),
+                          "suspended_at": None, "has_checkpoint": req["state"] in ("interrupted", "suspended"),
+                          "manual_resolution_operations": 0, "outcome_unknown_operations": unknown,
+                          "attention": req["state"] == "suspended"})
+        turns = turns[: int(params.get("limit") or 50)]
+        return {"schema_version": 1, "availability": "available", "observed_at": now(),
+                "data": {"total_matching": len(turns), "attention_count": sum(t["attention"] for t in turns), "turns": turns}}
+
+    def m_computer_status(self, _params: dict, _writer) -> dict:
+        enabled = bool(self.settings_values.get("computer.enabled"))
+        quarantined = any(s["quarantined"] for s in self.computer_sessions)
+        state = "quarantined" if quarantined else ("idle" if enabled else "disabled")
+        return {"enabled": enabled, "state": state,
+                "reason": "A session's input release couldn't be verified." if quarantined else None,
+                "sessions": [dict(s) for s in self.computer_sessions]}
+
+    def m_computer_reconcile(self, params: dict, _writer) -> dict:
+        session = next((s for s in self.computer_sessions if s["session_id"] == params.get("session_id")), None)
+        if session is None or session["generation"] != params.get("generation"):
+            raise CoreError("not_found", "no such session at that generation")
+        if params.get("acknowledgment") != f"ACKNOWLEDGE UNVERIFIED CLEANUP {session['session_id']}":
+            raise CoreError("bad_request", "explicit_acknowledgment_required")
+        self.computer_sessions.remove(session)
+        return {"status": "reconciled", "session_id": session["session_id"]}
+
     def m_resume(self, params: dict, _writer) -> dict:
         req = self.requests.get(str(params.get("request_id")))
         if not req or req["conversation_id"] != params.get("conversation_id") or req["generation"] != params.get("generation"):
@@ -1980,6 +2276,12 @@ class Core:
                  "summary": f"echo {len(req['text'])} characters"}
         self.tools.setdefault(rid, []).append(entry)
         self.tool_records[inv] = self.tool_record(rid, req["text"], said)
+        record = self.tool_records[inv]
+        self.audit.append({"timestamp": now(), "type": "tool", "tool_name": record["tool"], "user_id": "owner",
+                           "tool_input": record["arguments"], "approved": True,
+                           "result_summary": record["previews"][0]["text"][:200], "execution_time_ms": 3, "error": None,
+                           "host": record["target"]})
+        self.logs.append({"timestamp": now(), "level": "INFO", "message": f"Tool {record['tool']} ran.", "tool": record["tool"]})
         self.emit("tool.started", "invocation", inv, {"conversation_id": cid, "request_id": rid, **entry})
         if scripted and "agent" in said:
             self.spawn_work("agent", "Research agent", req, "Iteration 1 of 120", 8)
@@ -2128,6 +2430,32 @@ METHODS = {
     "schedules.reset_failures": Core.m_schedules_reset_failures,
     "schedules.history": Core.m_schedules_history,
     "schedules.validate_cron": Core.m_schedules_validate_cron,
+    "personality.get": Core.m_personality_get,
+    "personality.set": Core.m_personality_set,
+    "personality.presets.save": Core.m_personality_presets_save,
+    "personality.presets.delete": Core.m_personality_presets_delete,
+    "memory.list": Core.m_memory_list,
+    "memory.get": Core.m_memory_get,
+    "memory.set": Core.m_memory_set,
+    "memory.delete": Core.m_memory_delete,
+    "memory.bulk_delete": Core.m_memory_bulk_delete,
+    "lists.list": Core.m_lists_list,
+    "lists.get": Core.m_lists_get,
+    "lists.delete": Core.m_lists_delete,
+    "knowledge.list": Core.m_knowledge_list,
+    "knowledge.search": Core.m_knowledge_search,
+    "knowledge.ingest": Core.m_knowledge_ingest,
+    "knowledge.reingest": Core.m_knowledge_reingest,
+    "knowledge.delete": Core.m_knowledge_delete,
+    "knowledge.versions": Core.m_knowledge_versions,
+    "knowledge.restore": Core.m_knowledge_restore,
+    "audit.query": Core.m_audit_query,
+    "audit.verify": Core.m_audit_verify,
+    "health.get": Core.m_health_get,
+    "logs.search": Core.m_logs_search,
+    "turn_state.list": Core.m_turn_state_list,
+    "computer.status": Core.m_computer_status,
+    "computer.reconcile": Core.m_computer_reconcile,
     "runtime.reload": Core.m_reload,
     "attachments.begin": Core.m_attach_begin,
     "attachments.chunk": Core.m_attach_chunk,

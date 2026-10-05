@@ -226,6 +226,9 @@ const newHostAlias = z.string().regex(/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/)
 const sshUser = z.string().regex(/^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/)
 const fingerprint = z.string().regex(/^SHA256:[A-Za-z0-9+/]{20,64}$/)
 const scheduleId = z.string().min(1).max(64)
+const memoryScope = z.string().min(1).max(128)
+const memoryKey = z.string().min(1).max(256)
+const knowledgeSource = z.string().min(1).max(500)
 const scheduleFields = {
   description: z.string().min(1).max(500).optional(),
   channel_id: z.string().max(128).optional(),
@@ -323,6 +326,64 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
   schedulesRun: z.object({ id: scheduleId }).strict(),
   schedulesResetFailures: z.object({ id: scheduleId }).strict(),
   schedulesHistory: z.object({ id: scheduleId.optional(), limit: z.number().int().min(1).max(500).optional() }).strict(),
-  schedulesValidateCron: z.object({ expression: z.string().min(1).max(256) }).strict()
+  schedulesValidateCron: z.object({ expression: z.string().min(1).max(256) }).strict(),
+  personalityGet: empty,
+  personalitySet: z
+    .object({
+      preset: z.string().min(1).max(64),
+      custom_name: z.string().max(200).optional(),
+      custom_identity: z.string().max(20_000).optional(),
+      custom_voice: z.string().max(20_000).optional()
+    })
+    .strict(),
+  personalityPresetsSave: z
+    .object({
+      name: z.string().min(1).max(64),
+      display_name: z.string().max(200).optional(),
+      identity: z.string().max(20_000).optional(),
+      voice: z.string().max(20_000).optional()
+    })
+    .strict(),
+  personalityPresetsDelete: z.object({ name: z.string().min(1).max(64) }).strict(),
+  memoryList: empty,
+  memoryGet: z.object({ scope: memoryScope, key: memoryKey.optional() }).strict(),
+  memorySet: z.object({ scope: memoryScope, key: memoryKey, value: z.json() }).strict(),
+  memoryDelete: z.object({ scope: memoryScope, key: memoryKey }).strict(),
+  memoryBulkDelete: z.object({ entries: z.array(z.object({ scope: memoryScope, key: memoryKey }).strict()).min(1).max(1000) }).strict(),
+  listsList: empty,
+  listsGet: z.object({ name: z.string().min(1).max(200) }).strict(),
+  listsDelete: z.object({ name: z.string().min(1).max(200) }).strict(),
+  knowledgeList: empty,
+  knowledgeSearch: z.object({ q: z.string().trim().min(1), limit: z.number().int().min(1).max(100).optional() }).strict(),
+  knowledgeIngest: z.object({ source: knowledgeSource, content: z.string().min(1) }).strict(),
+  knowledgeReingest: z.object({ source: knowledgeSource }).strict(),
+  knowledgeDelete: z.object({ source: knowledgeSource }).strict(),
+  knowledgeVersions: z.object({ source: knowledgeSource }).strict(),
+  knowledgeRestore: z.object({ source: knowledgeSource, version: z.number().int().min(1) }).strict(),
+  auditQuery: z
+    .object({
+      tool: z.string().max(128).optional(),
+      host: z.string().max(128).optional(),
+      q: z.string().max(1000).optional(),
+      date: z.string().max(32).optional(),
+      error_only: z.boolean().optional(),
+      limit: z.number().int().min(1).max(1000).optional()
+    })
+    .strict(),
+  auditVerify: empty,
+  healthGet: empty,
+  logsSearch: z
+    .object({
+      q: z.string().max(1000).optional(),
+      level: z.enum(['error', 'info', 'all']).optional(),
+      tool: z.string().max(128).optional(),
+      start: z.string().max(64).optional(),
+      end: z.string().max(64).optional(),
+      limit: z.number().int().min(1).max(1000).optional()
+    })
+    .strict(),
+  turnStateList: z.object({ limit: z.number().int().min(1).max(500).optional() }).strict(),
+  computerStatus: empty,
+  computerReconcile: z.object({ session_id: z.string().min(1).max(128), generation: z.number().int().min(0), acknowledgment: z.string().max(300) }).strict()
 }
 
