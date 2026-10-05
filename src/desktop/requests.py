@@ -9,11 +9,13 @@ from dataclasses import dataclass, field
 from uuid import uuid4
 
 from ..discord.response_guards import scrub_response_secrets
+from ..error_presentation import format_user_facing_error
 from ..turn_state.codec import compute_content_digest
 from ..turn_state.durability import TurnDurability
 from ..turn_state.store import TurnKey, TurnStatus
 from .commands import canonical_json, response_error
 from .conversations import ConversationError, domain_transaction, now, require_string
+from .errors import NoLLMProviderError
 
 REQUEST_SCHEMA = {
     "desktop_requests": {"request_id", "conversation_id", "message_id", "owner", "generation",
@@ -430,8 +432,10 @@ class RequestService:
         self.assert_request(message)
         store = self.engine.deps.turn_store
         handle = TurnDurability.disabled()
+        if store is None:
+            return handle
         handle.blocked = "admission_error"
-        if store is None or not store.available:
+        if not store.available:
             return handle
         def digest(text):
             return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -502,8 +506,10 @@ class RequestService:
 
     async def _execute(self, message, st=None):
         token = _execution.set((self, asyncio.current_task(), message))
+        failure_notice = False
         try:
             self.assert_request(message)
+            failure_notice = True
             if st is None:
                 self._seed_session_context(message)
             images = []
@@ -546,7 +552,11 @@ class RequestService:
                                 + canonical_json(manifest))
             result = (await self.engine.runner.run_resumed(st) if st is not None
                       else await self.engine.run(message, content=content, image_blocks=images))
-            status = self.engine.deps.turn_store.turn_status_sync(message.turn_key)
+            # A returned result owns its existing guarded reply. Publication or
+            # accounting failures must not add a contradictory execution notice.
+            failure_notice = False
+            ledger = self.engine.deps.turn_store
+            status = ledger.turn_status_sync(message.turn_key) if ledger is not None else None
             outcome = ("suspended" if status == TurnStatus.SUSPENDED else
                        "cancelled" if status == TurnStatus.TERMINAL_CANCELLED else
                        "failed" if result[2] else "completed")
@@ -566,12 +576,26 @@ class RequestService:
             self._finish(message, "interrupted")
             raise
         except Exception as error:
-            # No invented model reply and no effect replay after storage or
-            # execution failure. Durable state reports the independent outcome.
+            # D17: Odin explains pre-reply failures in the conversation. This is
+            # typed core provenance, never an invented model reply or an effect retry.
             self._finish(message, "failed")
             from ..odin_log import get_logger
             get_logger("desktop.requests").error("Admitted request failed: %s",
                                                  type(error).__name__)
+            if failure_notice:
+                text = ("No LLM provider available. Please try again later."
+                        if isinstance(error, NoLLMProviderError) else
+                        f"Tool execution timed out: {format_user_facing_error(error)}"
+                        if isinstance(error, TimeoutError) else
+                        f"Tool execution failed: {format_user_facing_error(error)}")
+                try:
+                    await self.delivery.send(message, text)
+                except Exception as publication_error:
+                    # Keep the terminal request fenced even if its notice cannot
+                    # be stored or published. Never retry the runner to repair it.
+                    get_logger("desktop.requests").error(
+                        "Request failure notice could not be published: %s",
+                        type(publication_error).__name__)
         finally:
             try:
                 self._fence_settled_context(message)
@@ -587,7 +611,10 @@ class RequestService:
                 return
             unknown = json.loads(row["unknown_effects"])
             ledger = self.engine.deps.turn_store
-            if ledger is not None:
+            # A dead store may refuse before obtaining a ledger lease. There
+            # are no admitted effects to project in that case. If a lease did
+            # exist, preserve fail-closed projection instead of losing unknowns.
+            if ledger is not None and (ledger.available or row["ledger_generation"] is not None):
                 # This projection is complete for the bound request, unlike
                 # the deliberately bounded diagnostics observer. Terminal
                 # unknown effects cannot disappear behind its page limit.

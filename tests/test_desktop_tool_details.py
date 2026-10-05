@@ -81,8 +81,28 @@ def test_scope_tool_and_host_rechecked_every_page(stores):
     assert exc.value.code == "unauthorized"
     allowed.add("get_tool_output")
     generation[0] = 2
+    detail = details.detail("request", "invocation", owner="owner")
+    assert detail["previews"][0]["text"]
+    assert detail["output"] == {}
     with pytest.raises(ResultReadError) as exc:
-        details.detail("request", "invocation", owner="owner")
+        details.output(cursor, 100, owner="owner", conversation_id="conversation")
+    assert exc.value.code == "unauthorized"
+
+
+def test_stored_receipt_survives_origin_disable_but_not_foreign_binding(stores):
+    _, _, _, details, _, allowed, _ = stores
+    record(details, "stored receipt")
+    allowed.remove("run_command")
+    detail = details.detail("request", "invocation", owner="owner",
+                            conversation_id="conversation")
+    assert detail["previews"][0]["text"] == "stored receipt"
+    assert detail["output"] == {}
+    for owner, conversation in [("foreign", "conversation"), ("owner", "foreign")]:
+        with pytest.raises(ResultReadError) as exc:
+            details.detail("request", "invocation", owner=owner, conversation_id=conversation)
+        assert exc.value.code == "not_found"
+    with pytest.raises(ResultReadError) as exc:
+        record(details, "new output")
     assert exc.value.code == "unauthorized"
 
 

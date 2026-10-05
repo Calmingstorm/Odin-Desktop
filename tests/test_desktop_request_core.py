@@ -149,9 +149,10 @@ async def test_ipc_dedup_queue_disconnect_guarded_delivery_artifact_and_restart(
         assert (await request(reader, writer, "artifacts.read", {
             "ref": ref, "offset": 0, "length": 1}, read_id))["ok"]
         core.config.tools.disabled_tools.append("read_file")
-        denied = await request(reader, writer, "artifacts.read", {
+        saved = await request(reader, writer, "artifacts.read", {
             "ref": ref, "offset": 0, "length": 1}, read_id)
-        assert denied["error"]["code"] == "unauthorized"
+        assert saved["ok"]
+        assert base64.b64decode(saved["result"]["data_b64"]) == b"h"
         assert core.store.connection.execute(
             "SELECT COUNT(*) FROM command_receipts WHERE command_id=?", (read_id,)
         ).fetchone()[0] == 0

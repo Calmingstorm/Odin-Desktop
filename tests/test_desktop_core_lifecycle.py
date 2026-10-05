@@ -131,6 +131,10 @@ async def test_real_core_status_ping_events_and_shutdown_are_ordered():
                 "phase": "ready", "core_instance_id": instance,
                 "version": welcome["core"]["version"], "capabilities": list(CAPABILITIES),
                 "limits": service.attachments.limits,
+                "diagnostics": {
+                    "turn_durability": {"state": "on", "reason": None},
+                    "compatible_provider": {"state": "off", "reason": None},
+                },
             }
             await send(writer, {"t": "ping", "n": 42})
             assert await receive(reader) == {"t": "pong", "n": 42}

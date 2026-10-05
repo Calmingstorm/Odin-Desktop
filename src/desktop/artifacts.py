@@ -163,8 +163,10 @@ class ArtifactStore:
                     or (conversation_id is not None and row["conversation_id"] != conversation_id)
                     or (row["expires_at"] is not None and row["expires_at"] <= self.clock())):
                 raise ResultReadError("not_found", "Artifact is unavailable")
-            if not self._allowed(row["tool"], tuple(json.loads(row["hosts"])), owner,
-                                 evidence=row["source_cursor"] is not None):
+            # Posted bytes are transcript content (D17), not live evidence. Only
+            # source-cursor references retain the originating output authority.
+            if row["source_cursor"] is not None and not self._allowed(
+                    row["tool"], tuple(json.loads(row["hosts"])), owner, evidence=True):
                 raise ResultReadError(
                     "unauthorized", "Originating result scope is no longer authorized")
             if offset > row["size"]:
