@@ -275,6 +275,8 @@ export interface OdinApi {
   onAttachmentProgress(listener: (progress: AttachmentProgress) => void): () => void
   /** An image's bytes, for showing it inline. */
   fetchArtifact(ref: string): Promise<Result<{ data: Uint8Array }>>
+  /** Whether the core still has a file: one byte read. A file it no longer has is dropped from the private cache. */
+  checkArtifact(ref: string): Promise<Result<{ available: boolean }>>
   openArtifact(params: { ref: string; name: string }): Promise<Result<{ opened: boolean }>>
   saveArtifact(params: { ref: string; name: string }): Promise<Result<{ saved: boolean }>>
   revealArtifact(params: { ref: string; name: string }): Promise<Result<{ revealed: boolean }>>
@@ -326,6 +328,7 @@ export const IPC = {
   cancelAttachment: 'odin:attachments:cancel',
   attachmentProgress: 'odin:attachments:progress',
   fetchArtifact: 'odin:artifacts:fetch',
+  checkArtifact: 'odin:artifacts:check',
   openArtifact: 'odin:artifacts:open',
   saveArtifact: 'odin:artifacts:save',
   revealArtifact: 'odin:artifacts:reveal',

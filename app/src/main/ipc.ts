@@ -148,6 +148,7 @@ export function registerIpc(deps: IpcDeps): void {
     const bytes = await deps.artifacts.fetchBytes(v.ref)
     return bytes.ok ? { ok: true, result: { data: new Uint8Array(bytes.result) } } : bytes
   })
+  handle(IPC.checkArtifact, fetchArtifactSchema, (v) => deps.artifacts.check(v.ref))
   handle(IPC.openArtifact, artifactActionSchema, (v) => deps.artifacts.open(v.ref, v.name))
   handle(IPC.saveArtifact, artifactActionSchema, async (v) => deps.artifacts.saveAs(v.ref, await deps.chooseSavePath(v.name)))
   handle(IPC.revealArtifact, artifactActionSchema, (v) => deps.artifacts.reveal(v.ref, v.name))

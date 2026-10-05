@@ -205,6 +205,8 @@ function fakeBridge() {
       calls.stop.push(params)
       return control.stopResult
     },
+    fetchArtifact: async () => ({ ok: true, result: { data: new Uint8Array(4) } }),
+    checkArtifact: async () => ({ ok: true, result: { available: true } }),
     onEvent: (l: (e: CoreEvent) => void) => (listeners.event.push(l), () => undefined),
     onAppState: (l: (s: AppState) => void) => (listeners.appState.push(l), () => undefined),
     onReceipt: (l: (r: LateReceipt) => void) => (listeners.receipt.push(l), () => undefined),
@@ -1025,3 +1027,17 @@ describe('review round 2: lists, commands, search and jumps', () => {
     expect(store.state.conversations.find((c) => c.id === 'c2')?.unread).toBe(5)
   })
 })
+
+describe('review round 2: a file that is gone leaves the window', () => {
+  it("drops the window's copy of an image when the core says it is gone, loaded conversation or not", async () => {
+    await start()
+    const { images } = await import('../../src/renderer/src/artifacts')
+    const shown = images.acquire({ ref: 'r-img', name: 'a.png', mime: 'image/png', size: 4, kind: 'image', available: true })
+    await shown.url
+    shown.release()
+    expect(images.cached().map(([ref]) => ref)).toEqual(['r-img'])
+    emit(event(9, 'artifact.unavailable', { conversation_id: 'c-elsewhere', message_id: 'm9', ref: 'r-img' }))
+    expect(images.cached()).toEqual([])
+  })
+})
+
