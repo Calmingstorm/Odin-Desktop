@@ -105,3 +105,23 @@ describe('review round 2: image-model intent', () => {
   })
 })
 
+describe('hosts and schedules bridge methods', () => {
+  it("takes a new host only under Odin's alias, user and fingerprint rules", () => {
+    const host = { alias: 'gpu_box', address: '10.0.0.9', ssh_user: 'odin', trust_mode: 'pinned', expected_fingerprints: ['SHA256:' + 'A'.repeat(43)] }
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsPrepare, host).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsPrepare, { ...host, alias: '-gpu' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsPrepare, { ...host, ssh_user: 'a b' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsPrepare, { ...host, expected_fingerprints: ['MD5:aa'] }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsPrepare, { ...host, trust_mode: 'legacy' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsSettings, { default_host: '' }).ok).toBe(true)
+  })
+
+  it('names the action when a schedule is created, and never when it is changed', () => {
+    expect(parseRequest(MANAGEMENT_SCHEMAS.schedulesSave, { description: 'x', action: 'check', cron: '0 9 * * *' }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.schedulesSave, { id: 'ab12cd34', description: 'y', paused: true }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.schedulesSave, { id: 'ab12cd34', action: 'reminder' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.schedulesSave, { description: 'x', paused: true }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.schedulesSave, { description: 'x'.repeat(501) }).ok).toBe(false)
+  })
+})
+

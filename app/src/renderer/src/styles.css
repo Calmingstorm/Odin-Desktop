@@ -22,7 +22,7 @@ body {
   color: var(--text);
   font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', Ubuntu, Cantarell, sans-serif;
 }
-button, input, textarea { font: inherit; color: inherit; }
+button, input, textarea, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: default; opacity: 0.5; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -431,6 +431,12 @@ input.field-input, select.field-input, textarea.field-input, .field-input input[
 }
 textarea.field-input { font-family: ui-monospace, 'JetBrains Mono', monospace; font-size: 12px; }
 .field-input.toggle { width: auto; }
+/* Inputs inside a labelled row, as the management forms build them. */
+label.field-input > input:not([type='checkbox']):not([type='radio']), label.field-input > select, label.field-input > textarea,
+div.field-input > input:not([type='checkbox']):not([type='radio']), .limit select {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px;
+}
+label.field-input > input:not([type='checkbox']):not([type='radio']), label.field-input > select, label.field-input > textarea { flex: 1; min-width: 0; }
 .secret-state { color: var(--muted); font-size: 12px; min-width: 56px; }
 .field-reset { margin-top: 6px; font-size: 12px; }
 .accounts { list-style: none; padding: 0; margin: 0; }
@@ -474,4 +480,17 @@ textarea.field-input { font-family: ui-monospace, 'JetBrains Mono', monospace; f
 .limits .panel-hint { flex: none; }
 .limit { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; }
 .limit input { width: 90px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; }
+/* Hosts: enrollment steps, references and fingerprints. */
+.steps { display: flex; gap: 6px; list-style: none; padding: 0; margin: 8px 0; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.steps li { border: 1px solid var(--border); border-radius: 999px; padding: 1px 9px; }
+.steps li.current { color: var(--accent); border-color: var(--accent); }
+.steps li.done { color: var(--ok); border-color: var(--ok); }
+.refs { margin: 4px 0 0; padding-left: 18px; }
+.fingerprint { display: inline-block; margin-right: 8px; font-size: 12px; }
+/* Schedules: a schedule's runs. */
+.schedule-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.runs { margin-top: 6px; border-collapse: collapse; font-size: 12px; color: var(--muted); }
+.runs td { padding: 2px 12px 2px 0; }
+.runs td.ok { color: var(--ok); }
+.runs td.bad { color: var(--bad); }
 

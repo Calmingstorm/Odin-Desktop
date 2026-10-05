@@ -14,6 +14,7 @@ import type {
 } from '../../../shared/api'
 import { adoptSkill, type Loaded, type SkillEditor } from '../skill-editor'
 import { isUnknownOutcome, onLateReceipt } from '../store'
+import { busy } from './locks'
 
 export const management = reactive({
   tools: null as ToolInventory | null,
@@ -30,7 +31,8 @@ export const management = reactive({
   mcpTools: {} as Record<string, McpTool[] | undefined>,
   /** What the last action on each thing did, by key: `tool:<name>`, `skill:<name>`, `mcp:<name>` or a section. */
   notes: {} as Record<string, string | undefined>,
-  busy: {} as Record<string, boolean | undefined>,
+  /** Shared with the work list, which acts on schedules too. */
+  busy,
   error: ''
 })
 

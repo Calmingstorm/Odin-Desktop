@@ -220,6 +220,27 @@ const skillCode = z.string().min(1).max(50_000)
 const mcpName = z.string().min(1).max(128).regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
 const text = z.string().max(16_384)
 const secretMap = z.record(z.string().min(1).max(256), text)
+const hostAlias = z.string().min(1).max(64)
+// Odin's rules for a new host (tools/hosts/control.py): existing aliases are only looked up, so they stay plain text.
+const newHostAlias = z.string().regex(/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/)
+const sshUser = z.string().regex(/^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/)
+const fingerprint = z.string().regex(/^SHA256:[A-Za-z0-9+/]{20,64}$/)
+const scheduleId = z.string().min(1).max(64)
+const scheduleFields = {
+  description: z.string().min(1).max(500).optional(),
+  channel_id: z.string().max(128).optional(),
+  cron: z.string().min(1).max(256).optional(),
+  run_at: z.string().min(1).max(64).optional(),
+  cron_timezone: z.string().min(1).max(64).optional(),
+  message: z.string().max(4000).optional(),
+  tool_name: z.string().min(1).max(128).optional(),
+  tool_input: z.record(z.string(), z.json()).optional(),
+  report_format: z.string().max(64).optional(),
+  steps: z.array(z.json()).min(1).max(100).optional(),
+  webhook_config: z.record(z.string(), z.json()).optional(),
+  max_retries: z.number().int().min(0).max(100).optional(),
+  retry_backoff_seconds: z.number().int().min(0).max(86_400).optional()
+}
 
 export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
   toolsList: empty,
@@ -267,6 +288,41 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
       max_published_tools_per_server: z.number().int().min(0).max(1_000_000).optional(),
       max_published_tools_global: z.number().int().min(0).max(1_000_000).optional()
     })
-    .strict()
+    .strict(),
+  hostsList: empty,
+  hostsSettings: z.object({ default_host: z.string().max(64).optional(), allow_host_tofu: z.boolean().optional() }).strict(),
+  hostsPublicKey: empty,
+  hostsPrepare: z
+    .object({
+      alias: newHostAlias,
+      address: z.string().min(1).max(253),
+      ssh_user: sshUser,
+      port: z.number().int().min(1).max(65_535).optional(),
+      os: z.enum(['linux', 'macos']).optional(),
+      description: z.string().max(200).optional(),
+      trust_mode: z.enum(['pinned', 'ca', 'tofu']),
+      expected_fingerprints: z.array(fingerprint).max(16).optional(),
+      candidate_fingerprints: z.array(fingerprint).max(16).optional(),
+      confirm_tofu: z.boolean().optional(),
+      confirm_local: z.boolean().optional()
+    })
+    .strict(),
+  hostsTest: z.object({ token: z.uuid() }).strict(),
+  hostsCommit: z.object({ token: z.uuid() }).strict(),
+  hostsSetEnabled: z.object({ alias: hostAlias, enabled: z.boolean() }).strict(),
+  hostsReferences: z.object({ alias: hostAlias }).strict(),
+  hostsDelete: z.object({ alias: hostAlias }).strict(),
+  hostsForceRevoke: z.object({ alias: hostAlias }).strict(),
+  schedulesList: empty,
+  // A new schedule names its action; a change names the schedule, and its action stays what it was.
+  schedulesSave: z.union([
+    z.object({ ...scheduleFields, action: z.enum(['reminder', 'check', 'workflow', 'webhook']).optional() }).strict(),
+    z.object({ ...scheduleFields, id: scheduleId, paused: z.boolean().optional() }).strict()
+  ]),
+  schedulesDelete: z.object({ id: scheduleId }).strict(),
+  schedulesRun: z.object({ id: scheduleId }).strict(),
+  schedulesResetFailures: z.object({ id: scheduleId }).strict(),
+  schedulesHistory: z.object({ id: scheduleId.optional(), limit: z.number().int().min(1).max(500).optional() }).strict(),
+  schedulesValidateCron: z.object({ expression: z.string().min(1).max(256) }).strict()
 }
 
