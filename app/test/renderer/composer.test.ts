@@ -9,6 +9,7 @@ let heldDrafts: Array<() => void> = []
 let holdBytes = false
 let heldBytes: Array<() => void> = []
 let failBytes = false
+let throwBytes = false
 let drafts: Record<string, string> = {}
 let perTurn = 10
 
@@ -26,6 +27,7 @@ function fakeBridge() {
       result: { staged: [{ id: 'id-picked', name: 'picked.pdf', mime: 'application/pdf', size: 10 }], errors: ["shortcut.lnk isn't a regular file."] }
     }),
     attachBytes: async (p: { name: string; mime: string; data: Uint8Array }) => {
+      if (throwBytes) throw new Error('bridge gone')
       calls.attachBytes.push({ name: p.name, mime: p.mime })
       if (holdBytes) await new Promise<void>((resolve) => heldBytes.push(resolve))
       if (failBytes) return { ok: false, error: { code: 'internal', message: `Couldn't keep ${p.name}.` } }
@@ -75,6 +77,7 @@ beforeEach(async () => {
   holdBytes = false
   heldBytes = []
   failBytes = false
+  throwBytes = false
   drafts = {}
   perTurn = 10
   bridge = fakeBridge()
@@ -287,3 +290,30 @@ describe('review round 2: drafts and attachment places', () => {
     expect(composer.attachmentsFor('c1').map((a) => a.name)).toEqual(['fine.png'])
   })
 })
+
+describe('review round 3: a paste that fails part-way gives its places back', () => {
+  const image = (name: string, readable = true): File => {
+    const file = new File([new Uint8Array(4)], name, { type: 'image/png' })
+    if (!readable) Object.defineProperty(file, 'arrayBuffer', { value: () => Promise.reject(new Error('clipboard gone')) })
+    return file
+  }
+
+  it('keeps going past an image it can\'t read, says which, and leaves every place free again', async () => {
+    perTurn = 2
+    await composer.addPasted('c1', [image('broken.png', false), image('also-broken.png', false)])
+    expect(composer.attachmentsFor('c1')).toHaveLength(0)
+    expect(composer.composer.errors.join(' ')).toMatch(/Couldn't attach broken\.png.*Couldn't attach also-broken\.png/)
+    await composer.addPasted('c1', [image('one.png'), image('two.png')])
+    expect(composer.attachmentsFor('c1').map((a) => a.name)).toEqual(['one.png', 'two.png'])
+  })
+
+  it('gives back the places of images it never reached when staging throws', async () => {
+    perTurn = 2
+    throwBytes = true
+    await composer.addPasted('c1', [image('a.png'), image('b.png')]).catch(() => undefined)
+    throwBytes = false
+    await composer.addPasted('c1', [image('c.png'), image('d.png')])
+    expect(composer.attachmentsFor('c1').map((a) => a.name)).toEqual(['c.png', 'd.png'])
+  })
+})
+

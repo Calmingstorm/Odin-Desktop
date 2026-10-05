@@ -58,12 +58,38 @@ function steerState(item: SteerLine): string {
   return item.detail ? `${text}: ${item.detail}` : text
 }
 
+/**
+ * Scrolls to the latest message. Messages skipped while off screen (content-visibility) have estimated heights that
+ * settle as they render, so the end moves; keep going, a frame at a time, until it stays put.
+ */
+async function scrollToEnd(): Promise<void> {
+  await nextTick()
+  const el = scroller.value
+  if (!el) return
+  let height = -1
+  let steady = 0
+  for (let frame = 0; frame < 60; frame++) {
+    el.scrollTop = el.scrollHeight
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+    const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 2
+    // Done once the end hasn't moved for three frames: the messages scrolled into view have rendered.
+    steady = atEnd && el.scrollHeight === height ? steady + 1 : 0
+    if (steady >= 3) return
+    height = el.scrollHeight
+  }
+}
+
 watch(
   () => [messages.value.length, pending.value.length, running.value?.request_id, steers.value.length, state.activeId],
-  async () => {
-    await nextTick()
-    if (!state.highlightId) scroller.value?.scrollTo({ top: scroller.value.scrollHeight })
+  () => {
+    if (!state.highlightId) void scrollToEnd()
   }
+)
+
+// Back to the latest messages, from a search window or a notification: scroll there once they are on screen.
+watch(
+  () => state.latestScroll,
+  () => void scrollToEnd()
 )
 
 watch(

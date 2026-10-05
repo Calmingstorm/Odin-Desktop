@@ -81,7 +81,10 @@ export class ArtifactStore {
 
   /** Whether the core still has a file: one byte read. A file it no longer has is forgotten here too. */
   async check(ref: string): Promise<Result<{ available: boolean }>> {
+    const generation = this.generationOf(ref)
     const answer = await this.core.request('artifacts.read', { ref, offset: 0, length: 1 })
+    // Forgotten while the read was on its way: the core has since said it's gone.
+    if (this.generationOf(ref) !== generation) return { ok: true, result: { available: false } }
     if (answer.ok) return { ok: true, result: { available: true } }
     if (answer.error.code !== 'not_found' && answer.error.code !== 'expired') return answer
     await this.forget(ref)

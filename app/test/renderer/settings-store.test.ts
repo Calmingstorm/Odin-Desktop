@@ -21,12 +21,26 @@ let calls: {
   schema: number
   shaped: Array<[string, Record<string, unknown>]>
   intent: Array<Record<string, unknown>>
+  removed: number[]
 }
 let setAnswer: Result<{ revision: string; fields: ConfigField[] }> | null
+let holdSchema = false
+let heldSchema: Array<(answer: Result<ConfigMeta>) => void> = []
+let accountsAnswer: Result<unknown>
+let releaseRemove: (() => void) | null = null
+let holdAccounts = false
+let releaseAccounts: (() => void) | null = null
+const account = (index: number, id: string) => ({ index, account_id: id, email: `${id}@example.com`, plan_type: 'pro' })
 
 beforeEach(async () => {
   vi.resetModules()
-  calls = { set: [], edit: [], schema: 0, shaped: [], intent: [] }
+  calls = { set: [], edit: [], schema: 0, shaped: [], intent: [], removed: [] }
+  holdSchema = false
+  heldSchema = []
+  releaseRemove = null
+  holdAccounts = false
+  releaseAccounts = null
+  accountsAnswer = { ok: true, result: { configured: true, accounts: [account(0, 'acct_1'), account(1, 'acct_2')] } }
   setAnswer = null
   meta = {
     schema_version: 1,
@@ -53,9 +67,19 @@ beforeEach(async () => {
   }
   ;(globalThis as unknown as { window: unknown }).window = {
     odin: {
-      settingsSchema: async () => {
+      settingsSchema: () => {
         calls.schema += 1
-        return { ok: true, result: structuredClone(meta) }
+        const answer: Result<ConfigMeta> = { ok: true, result: structuredClone(meta) }
+        if (!holdSchema) return Promise.resolve(answer)
+        return new Promise<Result<ConfigMeta>>((resolve) => heldSchema.push(resolve))
+      },
+      codexAccounts: () => {
+        if (!holdAccounts) return Promise.resolve(accountsAnswer)
+        return new Promise<Result<unknown>>((resolve) => (releaseAccounts = () => resolve(accountsAnswer)))
+      },
+      codexRemove: (params: { index: number }) => {
+        calls.removed.push(params.index)
+        return new Promise<Result<unknown>>((resolve) => (releaseRemove = () => resolve({ ok: true, result: { status: 'deleted' } })))
       },
       settingsSet: async (params: Record<string, unknown>) => {
         calls.set.push(params)
@@ -129,6 +153,67 @@ describe('review round 2: each field saves through the method that owns it', () 
     const before = calls.schema
     expect(await store.setImageIntent('image_model', 'pin')).toBe(true)
     expect(calls.intent).toEqual([{ expected_revision: 'img-1', operations: { image_model: 'pin' } }])
+    expect(calls.schema).toBe(before + 1)
+  })
+})
+
+describe('review round 3: accounts are acted on by who they are', () => {
+  it("stays locked until the refreshed list is in, then refuses an action meant for an account that moved", async () => {
+    await store.loadCodex()
+    const shown = store.settings.codex.status!.accounts[0]!
+    const removing = store.removeAccount(shown)
+    await store.removeAccount(shown) // a second confirmed click while the first is on its way
+    expect(calls.removed).toEqual([0])
+    accountsAnswer = { ok: true, result: { configured: true, accounts: [account(0, 'acct_2')] } }
+    holdAccounts = true
+    releaseRemove!()
+    await new Promise((r) => setTimeout(r, 0))
+    await store.removeAccount(shown) // answered, but the refreshed list isn't in yet
+    expect(calls.removed).toEqual([0])
+    releaseAccounts!()
+    await removing
+    expect(store.settings.codex.busy).toBe(false)
+    await store.removeAccount(shown) // the dialog still showed the first account at index 0
+    expect(calls.removed).toEqual([0])
+    expect(store.settings.codex.notes.acct_1).toMatch(/accounts changed/)
+  })
+
+  it('keeps every account control locked when the list could not be refreshed', async () => {
+    await store.loadCodex()
+    const shown = store.settings.codex.status!.accounts[1]!
+    const removing = store.removeAccount(shown)
+    accountsAnswer = { ok: false, error: { code: 'unavailable', message: 'core restarting', disposition: 'not_dispatched' } }
+    releaseRemove!()
+    await removing
+    expect(store.settings.codex.stale).toBe(true)
+    await store.removeAccount(store.settings.codex.status!.accounts[0]!)
+    expect(calls.removed).toEqual([1])
+  })
+})
+
+describe('review round 3: settings stay the newest the window has seen', () => {
+  it('never lets an older read replace a newer one or an adopted answer', async () => {
+    holdSchema = true
+    void store.loadSettings()
+    meta = { ...meta, revision: 'rev-9' }
+    void store.loadSettings()
+    heldSchema[1]!({ ok: true, result: structuredClone(meta) })
+    await new Promise((r) => setTimeout(r, 0))
+    heldSchema[0]!({ ok: true, result: { ...structuredClone(meta), revision: 'rev-1' } })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(store.settings.meta!.revision).toBe('rev-9')
+    void store.loadSettings() // still on its way when a save lands
+    holdSchema = false
+    await store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')
+    heldSchema[2]!({ ok: true, result: { ...structuredClone(meta), revision: 'rev-older' } })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(store.settings.meta!.revision).toBe('rev-2')
+  })
+
+  it("rereads the image model's follow or pin after its value is saved", async () => {
+    const image = store.settings.meta!.fields.find((f) => f.path === 'image.openai.image_model')!
+    const before = calls.schema
+    await store.saveField(image, 'gpt-image-3')
     expect(calls.schema).toBe(before + 1)
   })
 })
