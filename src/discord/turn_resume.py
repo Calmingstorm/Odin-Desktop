@@ -135,10 +135,10 @@ class TurnResumeManager:
 
     def on_turn_suspended(self, key: TurnKey, generation: str) -> None:
         """Called by the tool loop when a turn suspends. In-process only."""
+        if not callable(getattr(self, "_launch_auto_resume", None)):
+            _require_phase2_wiring()
         if not self._auto_resume_enabled:
             return
-        if not callable(self._launch_auto_resume):
-            _require_phase2_wiring()
         # Mutation revision AT SUSPENSION, captured synchronously inside
         # the suspending turn (which still holds the channel lock) — the
         # monotonic advance-check anchor (round-4 blocker #3, PR #242).
@@ -227,7 +227,7 @@ class TurnResumeManager:
     async def _run_auto_resume(
         self, key: TurnKey, row: dict, allowed: set[int]
     ) -> None:
-        if not callable(self._launch_auto_resume):
+        if not callable(getattr(self, "_launch_auto_resume", None)):
             _require_phase2_wiring()
         if self._unresolved_ops(row):
             # Never auto-continue over ambiguous external effects — a human

@@ -5781,16 +5781,16 @@
       ]
     },
     {
-      "after_sha256": "0a3eb9444122be9b2991d9f419fd69db9d392301da345d4a7822eb31a0782c32",
+      "after_sha256": "1ce7e5cb35d38dc6a47c3c85bcf41b46c113cb6b21ef8b92db80be2bdfb2f5ec",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "618e4c8ed16a279093310254d2131418ebcf5fd62b5af1f5d36aed5cebbdac29",
-      "contract": "Original breaker revision current tools author content budget lease and unresolved checks remain; exact trigger grammar unchanged",
+      "contract": "Copied inert-entry boundary remains; composed auto recovery preserves breaker revision current catalog budgets and lease checks",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "No model call over uncertainty fresh fallback or leaked lease after cancelled rebuild",
+      "invariant": "No dependency access without trusted handoff no uncertain effect execution no fresh fallback or cancelled-rebuild lease leak",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Odin to Desktop",
       "owner": "Odin",
@@ -5850,14 +5850,14 @@
           "start": 4427
         },
         {
-          "end": 5130,
-          "new_base64": "ICAgICAgICBpZiBub3QgY2FsbGFibGUoc2VsZi5fbGF1bmNoX2F1dG9fcmVzdW1lKToKICAgICAgICAgICAgX3JlcXVpcmVfcGhhc2UyX3dpcmluZygpCg==",
+          "end": 5069,
+          "new_base64": "ICAgICAgICBpZiBub3QgY2FsbGFibGUoZ2V0YXR0cihzZWxmLCAiX2xhdW5jaF9hdXRvX3Jlc3VtZSIsIE5vbmUpKToKICAgICAgICAgICAgX3JlcXVpcmVfcGhhc2UyX3dpcmluZygpCg==",
           "old_base64": "",
-          "start": 5130
+          "start": 5069
         },
         {
           "end": 9667,
-          "new_base64": "ICAgICAgICBpZiBub3QgY2FsbGFibGUoc2VsZi5fbGF1bmNoX2F1dG9fcmVzdW1lKToKICAgICAgICAgICAgX3JlcXVpcmVfcGhhc2UyX3dpcmluZygpCg==",
+          "new_base64": "ICAgICAgICBpZiBub3QgY2FsbGFibGUoZ2V0YXR0cihzZWxmLCAiX2xhdW5jaF9hdXRvX3Jlc3VtZSIsIE5vbmUpKToKICAgICAgICAgICAgX3JlcXVpcmVfcGhhc2UyX3dpcmluZygpCg==",
           "old_base64": "",
           "start": 9667
         },
@@ -5935,7 +5935,7 @@
         }
       ],
       "path": "src/discord/turn_resume.py",
-      "reason": "Retain automatic recovery trusted handoff and refresh final protocol-correct bare-trigger witness",
+      "reason": "Retain uncomposed execution guard before all dependency access while wiring automatic recovery to task-owned resumed admission",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
