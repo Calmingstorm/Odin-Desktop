@@ -26,6 +26,7 @@ from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion
 
 from ..desktop.paths import private_directory
+from ..llm.secret_scrubber import is_credential_key, scrub_output_secrets
 from ..odin_log import get_logger
 from .registry import TOOLS
 from .skill_context import ResourceTracker, SkillContext
@@ -58,11 +59,6 @@ def validate_skill_definition(definition: Any) -> None:
     # JSON round-trip also rejects non-JSON values before provider conversion.
     json.dumps(schema, allow_nan=False)
     validator_for(schema).check_schema(schema)
-    dependencies = definition.get("dependencies", [])
-    if (not isinstance(dependencies, list) or len(dependencies) > MAX_SKILL_DEPENDENCIES
-            or any(not isinstance(spec, str) or not is_safe_dependency_spec(spec)
-                   for spec in dependencies)):
-        raise ValueError("invalid skill dependencies")
 
     def check_required(node: Any) -> None:
         if isinstance(node, dict):
@@ -274,6 +270,23 @@ def _is_package_installed(spec: str, _seen: set[str] | None = None) -> bool:
         return False
 
 
+def _pip_failure_output(stdout: str | bytes | None, stderr: str | bytes | None) -> str:
+    """Keep pip's explanation without reflecting authenticated index credentials."""
+    parts = [value.decode("utf-8", errors="replace") if isinstance(value, bytes) else value
+             for value in (stdout, stderr) if value]
+    output = "\n".join(parts).strip()
+    # Pip/plugins can echo inherited credentials without an identifying key.
+    # Apply the copied credential-key rule, even for short/non-pattern tokens.
+    values = {value for key, value in os.environ.items() if value and is_credential_key(key)}
+    for value in sorted(values, key=len, reverse=True):
+        output = output.replace(value, "[REDACTED]")
+    # The copied scrubber covers credential assignments and token formats, but
+    # HTTP index URL userinfo needs masking too (pip does not always mask it).
+    output = re.sub(r"(https?://)[^/\s]+@", r"\1[REDACTED]@", output,
+                    flags=re.IGNORECASE)
+    return scrub_output_secrets(output)
+
+
 def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> tuple[bool, str]:
     """Retained Odin pip installation into the engine's Python environment.
 
@@ -292,11 +305,13 @@ def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> 
              "--disable-pip-version-check", *specs],
             capture_output=True, text=True, timeout=timeout,
         )
-        # Pip can reflect authenticated index URLs. Never return its raw output
-        # to diagnostics, receipts or the model.
-        return result.returncode == 0, "" if result.returncode == 0 else "pip installation failed"
-    except subprocess.TimeoutExpired:
-        return False, f"pip install timed out after {timeout}s"
+        if result.returncode == 0:
+            return True, ""
+        return False, (_pip_failure_output(result.stdout, result.stderr)
+                       or "pip installation failed")
+    except subprocess.TimeoutExpired as exc:
+        output = _pip_failure_output(exc.stdout, exc.stderr)
+        return False, f"pip install timed out after {timeout}s" + (f"\n{output}" if output else "")
     except Exception:
         return False, "pip installation could not start"
 
@@ -741,10 +756,6 @@ class SkillManager:
     def _load_all(self) -> None:
         for path in sorted(self.skills_dir.glob("*.py")):
             skill = self._load_skill(path)
-            if skill and skill.name != path.stem:
-                self.definition_errors[path.name] = "LoadError: skill name must match filename"
-                sys.modules.pop(skill.module_name, None)
-                skill = None
             if skill:
                 self._skills[skill.name] = skill
         # Apply persisted disabled state
@@ -775,12 +786,6 @@ class SkillManager:
             for d in dep_diagnostics:
                 lvl = log.warning if d.level == "warn" else log.error
                 lvl("Skill %s deps: %s", path.name, d.message)
-            if any(d.level == "error" for d in dep_diagnostics):
-                self.definition_errors[path.name] = (
-                    "DependencyError: skill dependencies unavailable"
-                )
-                return None
-
         try:
             spec = importlib.util.spec_from_file_location(module_name, path)
             if not spec or not spec.loader:
@@ -799,14 +804,19 @@ class SkillManager:
             definition = getattr(module, "SKILL_DEFINITION", None)
             validate_skill_definition(definition)
             assert isinstance(definition, dict)
-            # Dynamic trusted definitions still load, but their dependency
-            # contract must qualify too before joining the callable catalog.
+            # Dependency failures are diagnostics, not publication refusals.
+            # Trusted modules may import successfully using existing packages;
+            # malformed metadata is handled by SkillMetadata below. Installation
+            # still refuses unsafe specs inside resolve_dependencies.
             actual_deps = definition.get("dependencies", [])
-            if actual_deps != pre_deps:
+            if (isinstance(actual_deps, list)
+                    and all(isinstance(dep, str) for dep in actual_deps)
+                    and actual_deps != pre_deps):
                 _, _, dynamic_diagnostics = resolve_dependencies(actual_deps)
                 dep_diagnostics.extend(dynamic_diagnostics)
-                if any(d.level == "error" for d in dynamic_diagnostics):
-                    raise ValueError("skill dependencies unavailable")
+                for d in dynamic_diagnostics:
+                    lvl = log.warning if d.level == "warn" else log.error
+                    lvl("Skill %s deps: %s", path.name, d.message)
 
             # Validate execute function
             execute_fn = getattr(module, "execute", None)
@@ -1345,15 +1355,8 @@ class SkillManager:
                 f"Skill '{tool_name}' is disabled. Use enable_skill to re-activate it."
             )
 
-        # Direct manager calls and invoke_skill must meet the published schema
-        # too, rather than relying on one foreground provider's validation.
-        try:
-            validator_for(skill.definition["input_schema"])(
-                skill.definition["input_schema"]
-            ).validate(tool_input)
-        except Exception:
-            return ToolFailure("Invalid skill input: published schema validation failed.")
-
+        # As in Odin, the published schema guides callers, not runtime input
+        # admission. Trusted skills handle optional blank/null/default values.
         # Load config with defaults applied
         skill_config = self.get_skill_config(tool_name)
 

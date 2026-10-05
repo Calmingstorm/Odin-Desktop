@@ -16,7 +16,7 @@ from src.desktop.paths import ProfilePaths
 from src.desktop.secrets import ProfileSecretStore
 from src.desktop.skills import SkillsService
 from src.permissions.manager import PermissionManager
-from src.tools.skill_manager import SkillManager, _install_packages
+from src.tools.skill_manager import SkillManager, _install_packages, resolve_dependencies
 
 
 def code(name="demo", *, schema=None, dependencies=None, config=None, body="return 'ok'"):
@@ -182,7 +182,7 @@ async def test_test_delivery_seam_does_not_run_skill(graph):
         PermissionManager.reset_request_owner(token)
 
 
-async def test_direct_dispatch_schema_and_current_permission(graph):
+async def test_direct_dispatch_leaves_input_handling_to_skill_and_checks_permission(graph):
     await graph.service.start()
     token = owner(graph)
     try:
@@ -190,14 +190,32 @@ async def test_direct_dispatch_schema_and_current_permission(graph):
                   "required": ["label"]}
         await graph.service.handle("skills.save", {"name": "demo", "code": code(schema=schema)})
         manager = graph.service.skill_manager
-        assert "schema validation failed" in await manager.execute(
-            "demo", {}, requester_id=graph.authority.owner_id)
+        assert await manager.execute(
+            "demo", {}, requester_id=graph.authority.owner_id) == "ok"
         assert await manager.execute(
             "demo", {"label": "ordinary"}, requester_id=graph.authority.owner_id) == "ok"
     finally:
         PermissionManager.reset_request_owner(token)
     assert "Permission denied" in await manager.execute(
         "demo", {"label": "ordinary"}, requester_id=graph.authority.owner_id)
+
+
+@pytest.mark.parametrize("value", ["", 0, None])
+async def test_blank_optional_input_reaches_skill_unchanged(graph, value):
+    await graph.service.start()
+    token = owner(graph)
+    try:
+        schema = {"type": "object", "properties": {
+            "optional": {"type": "integer", "minimum": 1}}}
+        await graph.service.handle("skills.save", {"name": "demo", "code": code(
+            schema=schema, body="return repr(inp)")})
+        supplied = {"optional": value}
+        manager = graph.service.skill_manager
+        assert await manager.execute(
+            "demo", supplied, requester_id=graph.authority.owner_id) == repr(supplied)
+        assert manager._skills["demo"].total_executions == 1
+    finally:
+        PermissionManager.reset_request_owner(token)
 
 
 def test_pip_retained_arguments_success_failure_timeout(monkeypatch):
@@ -209,6 +227,8 @@ def test_pip_retained_arguments_success_failure_timeout(monkeypatch):
                        "--disable-pip-version-check", "example-package>=1"]
     assert kwargs["timeout"] == 120
     run.return_value = SimpleNamespace(returncode=1, stdout="opaque index detail", stderr="")
+    assert _install_packages(["example-package"])[1] == "opaque index detail"
+    run.return_value = SimpleNamespace(returncode=1, stdout="", stderr="")
     assert _install_packages(["example-package"])[1] == "pip installation failed"
     run.side_effect = subprocess.TimeoutExpired("pip", 120)
     assert "timed out" in _install_packages(["example-package"])[1]
@@ -217,7 +237,7 @@ def test_pip_retained_arguments_success_failure_timeout(monkeypatch):
     run.assert_not_called()
 
 
-async def test_dependency_install_and_failure_before_import(graph, monkeypatch):
+async def test_dependency_install_failure_is_diagnostic_if_imports_work(graph, monkeypatch):
     monkeypatch.setattr("src.tools.skill_manager._is_package_installed", lambda _spec: False)
     run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
     monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
@@ -229,10 +249,16 @@ async def test_dependency_install_and_failure_before_import(graph, monkeypatch):
         assert run.call_count == 1
         assert graph.service.get_tool_definitions()[0]["name"] == "demo"
         run.return_value.returncode = 1
+        run.return_value.stderr = "ERROR: No matching distribution found for example-package"
+        await graph.service.handle("skills.save", {
+            "name": "absent", "code": code("absent", dependencies=["example-package"])})
+        skill = graph.service.skill_manager._skills["absent"]
+        assert any("No matching distribution found" in d.message for d in skill.diagnostics)
         with pytest.raises(MethodError):
             await graph.service.handle("skills.save", {
-                "name": "absent", "code": code("absent", dependencies=["example-package"])})
-        assert not graph.service.skill_manager.has_skill("absent")
+                "name": "broken", "code": code("broken") +
+                "raise ImportError('disposable import failure')\n"})
+        assert not graph.service.skill_manager.has_skill("broken")
     finally:
         PermissionManager.reset_request_owner(token)
 
@@ -289,14 +315,21 @@ async def test_failed_startup_module_listing_delete_and_reload(graph):
         "type": "object", "properties": {}, "required": ["undefined"]}))
     (directory / "wrong.py").write_text(code("foreign"))
     await graph.service.start()
-    assert graph.service.get_tool_definitions() == []
+    assert [row["name"] for row in graph.service.get_tool_definitions()] == ["foreign"]
+    assert graph.service.skill_manager._skills["foreign"].file_path.name == "wrong.py"
+    module_name = graph.service.skill_manager._skills["foreign"].module_name
+    assert module_name in sys.modules
+    assert "wrong.py" not in graph.service.skill_manager.definition_errors
     listing = await graph.service.handle("skills.list", {})
-    assert {row["name"] for row in listing} == {"bad", "wrong"}
+    assert {row["name"] for row in listing} == {"bad", "foreign"}
     token = owner(graph)
     try:
         await graph.service.handle("skills.delete", {"name": "bad"})
         await graph.service.reload()
-        assert [row["name"] for row in await graph.service.handle("skills.list", {})] == ["wrong"]
+        assert [row["name"] for row in await graph.service.handle("skills.list", {})] == ["foreign"]
+        await graph.service.handle("skills.delete", {"name": "foreign"})
+        assert not (directory / "wrong.py").exists()
+        assert module_name not in sys.modules
     finally:
         PermissionManager.reset_request_owner(token)
 
@@ -386,14 +419,111 @@ async def test_builtin_name_reserved_and_catalog_hook(graph):
         PermissionManager.reset_request_owner(token)
 
 
-async def test_dynamic_dependency_contract_must_qualify(graph, monkeypatch):
+async def test_dynamic_dependency_failure_does_not_block_publication(graph, monkeypatch):
     await graph.service.start()
     monkeypatch.setattr("src.tools.skill_manager._is_package_installed", lambda _spec: False)
     token = owner(graph)
     try:
         dynamic = code() + "SKILL_DEFINITION['dependencies'] = ['example-package']\n"
-        with pytest.raises(MethodError):
-            await graph.service.handle("skills.save", {"name": "demo", "code": dynamic})
-        assert graph.service.get_tool_definitions() == []
+        await graph.service.handle("skills.save", {"name": "demo", "code": dynamic})
+        assert [row["name"] for row in graph.service.get_tool_definitions()] == ["demo"]
+        assert any(d.level == "error" for d in graph.service.skill_manager._skills["demo"].diagnostics)
     finally:
         PermissionManager.reset_request_owner(token)
+
+
+@pytest.mark.parametrize("dynamic", [False, True])
+@pytest.mark.parametrize("dependencies, diagnostic", [
+    (["example package"], "Refused unsafe dependency"),
+    (["example-package @ https://example.com/package.whl"], "Refused unsafe dependency"),
+    (["example-package"] * 11, "Too many dependencies"),
+    ("example-package", "dependencies must be a list of strings"),
+    ([None], "dependencies must be a list of strings"),
+])
+async def test_dependency_metadata_diagnostic_only_at_load(
+        graph, monkeypatch, dynamic, dependencies, diagnostic):
+    run = MagicMock(side_effect=AssertionError("unsafe specs must never reach pip"))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    source = code(dependencies=dependencies)
+    if dynamic:
+        source = code() + f"SKILL_DEFINITION['dependencies'] = {dependencies!r}\n"
+    source = "import json\n" + source
+    directory = graph.settings.paths.data_dir / "skills"
+    directory.mkdir()
+    (directory / "demo.py").write_text(source)
+    await graph.service.start()
+    manager = graph.service.skill_manager
+    assert [row["name"] for row in manager.get_tool_definitions()] == ["demo"]
+    assert any(diagnostic in d.message for d in manager._skills["demo"].diagnostics)
+    assert manager.validate_skill_code(source)["valid"] is True
+    assert manager.definition_errors == {}
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize("specs", [
+    ["example package"], ["example-package @ https://example.com/package.whl"],
+    ["example-package"] * 11,
+])
+def test_install_dependency_refusal_remains_before_pip(monkeypatch, specs):
+    run = MagicMock(side_effect=AssertionError("unsafe specs must never reach pip"))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    assert _install_packages(specs)[0] is False
+    installed, new, diagnostics = resolve_dependencies(specs)
+    assert installed == new == []
+    assert any(d.level == "error" for d in diagnostics)
+    run.assert_not_called()
+
+
+def test_pip_failure_returns_both_streams_scrubbed_in_dependency_diagnostics(monkeypatch):
+    # Synthetic credentials only. Exercise copied assignments/JSON/token rules
+    # and authenticated HTTP index userinfo while preserving pip's explanation.
+    token = "ghp_" + "x" * 36
+    stdout = 'Looking in indexes: https://test-user:fake-pass@example.com/simple\npassword=fake-pass'
+    stderr = (f'ERROR: No matching distribution found for example-package\n{token}\n'
+              '{"api_key":"fake-key"}')
+    run = MagicMock(return_value=SimpleNamespace(returncode=1, stdout=stdout, stderr=stderr))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    monkeypatch.setattr("src.tools.skill_manager._is_package_installed", lambda _spec: False)
+    _, _, diagnostics = resolve_dependencies(["example-package"])
+    output = diagnostics[0].message
+    assert "Looking in indexes" in output
+    assert "No matching distribution found for example-package" in output
+    assert "example.com/simple" in output
+    assert "[REDACTED]" in output
+    for secret in ("test-user", "fake-pass", "fake-key", token):
+        assert secret not in output
+
+
+def test_pip_echoed_environment_tokens_and_url_userinfo_scrubbed(monkeypatch):
+    monkeypatch.setenv("PIP_AUTH_TOKEN", "synthetic-short")
+    monkeypatch.setenv("PACKAGE_PASSWORD", "synthetic-pass")
+    stdout = ("ERROR: proxy authentication failed: synthetic-short synthetic-pass\n"
+              "https://fake-user:p@ss@example.com/simple\n"
+              "https://fake-user:p%40ss@example.com/simple")
+    run = MagicMock(return_value=SimpleNamespace(returncode=1, stdout=stdout, stderr=""))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    success, output = _install_packages(["example-package"])
+    assert not success
+    assert "proxy authentication failed" in output
+    assert output.count("example.com/simple") == 2
+    for secret in ("synthetic-short", "synthetic-pass", "fake-user", "p@ss", "p%40ss"):
+        assert secret not in output
+
+
+def test_pip_cannot_start_exception_does_not_reflect_secrets(monkeypatch):
+    run = MagicMock(side_effect=OSError("password=synthetic-pass"))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    assert _install_packages(["example-package"]) == (
+        False, "pip installation could not start")
+
+
+def test_pip_timeout_partial_streams_are_useful_and_scrubbed(monkeypatch):
+    run = MagicMock(side_effect=subprocess.TimeoutExpired(
+        "pip", 120, output=b"Retrying index: password=fake-pass",
+        stderr=b"ERROR: index unreachable"))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    success, output = _install_packages(["example-package"])
+    assert not success
+    assert "timed out after 120s" in output
+    assert "Retrying index" in output and "index unreachable" in output
+    assert "fake-pass" not in output

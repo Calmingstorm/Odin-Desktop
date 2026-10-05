@@ -166,7 +166,7 @@ def test_missing_skill_dependencies_use_retained_installer(monkeypatch):
     assert calls == [["example-package>=1"]]
 
 
-def test_missing_dependencies_prevent_module_execution(tmp_path, monkeypatch):
+def test_missing_dependencies_leave_import_failure_to_module(tmp_path, monkeypatch):
     manager = SkillManager(str(tmp_path), SimpleNamespace(), allowed_urls=("http://127.0.0.1:8188",))
     monkeypatch.setattr("src.tools.skill_manager._is_package_installed", lambda _spec: False)
     monkeypatch.setattr("src.tools.skill_manager._install_packages",
@@ -175,14 +175,15 @@ def test_missing_dependencies_prevent_module_execution(tmp_path, monkeypatch):
         'SKILL_DEFINITION = {"name": "missing", "description": "test", '
         '"input_schema": {"type": "object", "properties": {}}, '
         '"dependencies": ["example-package>=1"]}\n'
-        'raise RuntimeError("module execution must not occur")\n'
+        'raise ImportError("disposable missing import")\n'
         'async def execute(inp, context):\n'
         '    return "ok"\n'
     )
     result = manager.create_skill("missing", code)
-    assert "DependencyError" in manager.definition_errors["missing.py"]
+    assert "ImportError" in manager.definition_errors["missing.py"]
     assert "missing" not in manager._skills
-    assert isinstance(result, str)
+    assert "failed to load" in result
+    manager.close()
 
 
 def test_reference_scan_uses_explicit_engine_repositories_only():
