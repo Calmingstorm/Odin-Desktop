@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import pwd
 import subprocess
@@ -16,10 +17,14 @@ def command(*argv):
 
 
 def session_info():
-    sessions = json.loads(command("loginctl", "list-sessions", "--json=short"))
-    for session in sessions:
-        if session.get("user") == "odq":
-            values = command("loginctl", "show-session", str(session["session"]),
+    # Ubuntu 24.04's systemd 255 does not offer list-sessions --json.
+    # Only use the stable leading session/UID/user columns; show-session is
+    # authoritative for the graphical session properties.
+    sessions = command("loginctl", "list-sessions", "--no-legend", "--no-pager")
+    for line in sessions.splitlines():
+        columns = line.split()
+        if len(columns) >= 3 and columns[2] == "odq":
+            values = command("loginctl", "show-session", columns[0],
                              "-p", "Type", "-p", "Active", "-p", "Desktop", "-p", "State")
             result = dict(line.split("=", 1) for line in values.splitlines())
             if result.get("Active") == "yes" and result.get("Type") in ("x11", "wayland"):
@@ -43,6 +48,7 @@ def session_environment(uid, expected_type):
             continue
     for environment in candidates:
         if (environment.get("DBUS_SESSION_BUS_ADDRESS")
+                and environment.get("XDG_CURRENT_DESKTOP")
                 and environment.get("XDG_SESSION_TYPE") == expected_type
                 and (expected_type != "wayland" or environment.get("WAYLAND_DISPLAY"))):
             # Never inherit arbitrary guest credentials into a proof helper.
@@ -67,9 +73,18 @@ def smoke(desktop):
         raise RuntimeError(f"Expected {expected}, got {info['Type']}")
     expected_desktops = {"cinnamon": ("cinnamon",), "gnome": ("gnome",),
                          "kde": ("plasma", "kde"), "hyprland": ("hyprland",)}[desktop]
-    if not any(value in info.get("Desktop", "").lower() for value in expected_desktops):
-        raise RuntimeError(f"Wrong desktop identity: {info}")
     environment = session_environment(account.pw_uid, expected)
+    identity = info.get("Desktop", "")
+    if not identity:
+        # GDM 46 can leave logind Desktop empty for a custom Wayland session.
+        # Require both a matching live user environment and an actual owned
+        # compositor, not a guessed desktop from the recipe name.
+        identity = environment.get("XDG_CURRENT_DESKTOP", "")
+        compositor = {"cinnamon": "cinnamon", "gnome": "gnome-shell",
+                      "kde": "kwin_wayland", "hyprland": "Hyprland"}[desktop]
+        command("pgrep", "-u", str(account.pw_uid), "-x", compositor)
+    if not any(value in identity.lower() for value in expected_desktops):
+        raise RuntimeError(f"Wrong desktop identity: {info}")
     orca = command("pgrep", "-u", str(account.pw_uid), "-f", "(^|/)orca( |$)")
     if not orca:
         raise RuntimeError("Orca is not running as odq")
@@ -92,12 +107,17 @@ def smoke(desktop):
     listeners = command("ss", "-H", "-lntup")
     for line in listeners.splitlines():
         address = line.split()[4].rsplit(":", 1)[0].strip("[]")
-        if address not in ("127.0.0.1", "::1"):
+        try:
+            loopback = ipaddress.ip_address(address.split("%", 1)[0]).is_loopback
+        except ValueError:
+            loopback = False
+        if not loopback:
             # DHCP clients bind the managed interface for NAT networking.
             if not (line.startswith("udp")
                     and line.split()[4].rsplit(":", 1)[1] in ("68", "546")):
                 raise RuntimeError(f"Guest exposes a listener: {line}")
     return {"passed": True, "session": info, "orca_pids": orca.splitlines(),
+            "desktop_identity": identity,
             "screenshot_size": size, "timestamp": int(time.time()),
             "capture_output": capture.stdout, "listeners": listeners,
             "limits": "Orca process start only, not verified speech or app accessibility"}

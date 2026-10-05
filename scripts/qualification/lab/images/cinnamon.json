@@ -36,6 +36,6 @@
     "Base image fingerprint is pinned; Ubuntu apt packages remain repository-resolved, with installed versions recorded in packages.tsv.",
     "Daily upstream images expire. Preserve verified image artifacts in the Incus cache; never silently substitute a moving alias.",
     "Mesa llvmpipe and virtual X11 display prove guest paths only, not physical GPU, host input, host audio or actual monitor layout.",
-    "Boot, autologin, Orca event loop and screenshot remain unqualified until real guest smoke runs. Storage pool unavailable during recipe development."
+    "Smoke evidence is tracked in maintenance/phase3-lab.md; process presence and screenshot do not prove spoken output or application accessibility."
   ]
 }

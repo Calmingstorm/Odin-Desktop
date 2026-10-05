@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib.util
-import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -23,15 +22,44 @@ def test_logind_requires_odq_active_graphical_session(monkeypatch):
     def command(*args):
         calls.append(args)
         if args[1] == "list-sessions":
-            return json.dumps([{"user": "other", "session": "1"},
-                               {"user": "odq", "session": "2"}])
+            assert args[2:] == ("--no-legend", "--no-pager")
+            return "1 1001 other seat0 tty1\n2 1000 odq seat0 tty2\n"
         return "Type=wayland\nActive=yes\nDesktop=GNOME\nState=active"
     monkeypatch.setattr(guest, "command", command)
     assert guest.session_info()["Type"] == "wayland"
     assert calls[1][2] == "2"
-    monkeypatch.setattr(guest, "command", lambda *a: "[]")
+    monkeypatch.setattr(guest, "command", lambda *a: "")
     with pytest.raises(RuntimeError, match="No active odq"):
         guest.session_info()
+
+
+def test_logind_rejects_malformed_other_or_inactive_sessions(monkeypatch):
+    def command(*args):
+        if args[1] == "list-sessions":
+            return "bad\n1 1001 other seat0 tty1\n2 1000 odq seat0 tty2\n"
+        assert args[2] == "2"
+        return "Type=x11\nActive=no\nDesktop=Cinnamon\nState=online"
+    monkeypatch.setattr(guest, "command", command)
+    with pytest.raises(RuntimeError, match="No active odq"):
+        guest.session_info()
+
+
+def test_session_environment_skips_display_manager_incomplete_environment(tmp_path, monkeypatch):
+    processes = tmp_path / "proc"
+    processes.mkdir()
+    base = {"DISPLAY": ":0", "XDG_SESSION_TYPE": "x11",
+            "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"}
+    for pid, environment in (("1", base), ("2", {**base, "XDG_CURRENT_DESKTOP": "X-Cinnamon"})):
+        process = processes / pid
+        process.mkdir()
+        (process / "environ").write_bytes(b"\0".join(
+            f"{key}={value}".encode() for key, value in environment.items()))
+    real_path = Path
+    monkeypatch.setattr(guest, "Path",
+                        lambda path: processes if path == "/proc" else real_path(path))
+    result = guest.session_environment(processes.stat().st_uid, "x11")
+    assert result["XDG_CURRENT_DESKTOP"] == "X-Cinnamon"
+    assert result["DISPLAY"] == ":0"
 
 
 @pytest.mark.parametrize("desktop,session", [
@@ -42,6 +70,7 @@ def test_wrong_session_type_or_desktop_cannot_pass(monkeypatch, desktop, session
     monkeypatch.setattr(guest, "command", lambda *a: "kvm")
     monkeypatch.setattr(guest.pwd, "getpwnam", lambda _: SimpleNamespace(pw_uid=1000))
     monkeypatch.setattr(guest, "session_info", lambda: session)
+    monkeypatch.setattr(guest, "session_environment", lambda *a: {})
     with pytest.raises(RuntimeError):
         guest.smoke(desktop)
 
@@ -52,23 +81,32 @@ def test_smoke_cannot_execute_outside_vm(monkeypatch):
         guest.smoke("gnome")
 
 
-@pytest.mark.parametrize("capture_kind", ["good", "uniform", "bad", "small", "listener"])
+@pytest.mark.parametrize("capture_kind", [
+    "good", "empty_desktop", "loopback", "uniform", "bad", "small", "listener",
+])
 def test_smoke_validates_capture_and_listeners(tmp_path, monkeypatch, capture_kind):
     actual_path = Path
     screenshot = tmp_path / "guest.png"
     monkeypatch.setattr(guest, "Path", lambda _: screenshot)
-    monkeypatch.setattr(guest, "session_info", lambda: {"Type": "wayland", "Desktop": "GNOME"})
+    monkeypatch.setattr(guest, "session_info", lambda: {
+        "Type": "wayland", "Desktop": "" if capture_kind == "empty_desktop" else "GNOME",
+    })
     monkeypatch.setattr(guest, "session_environment", lambda *a: {
         "XDG_SESSION_TYPE": "wayland", "DBUS_SESSION_BUS_ADDRESS": "unix:path=guest-only",
+        "XDG_CURRENT_DESKTOP": "GNOME",
     })
     monkeypatch.setattr(guest.pwd, "getpwnam", lambda _: SimpleNamespace(pw_uid=1000))
     def command(*args):
         if args[0] == "systemd-detect-virt":
             return "kvm"
         if args[0] == "pgrep":
+            if capture_kind == "empty_desktop" and "-x" in args:
+                assert args[-1] == "gnome-shell"
             return "123"
         if capture_kind == "listener":
             return 'tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd"))'
+        if capture_kind == "loopback":
+            return "udp UNCONN 0 0 127.0.0.54:53 0.0.0.0:*\nudp UNCONN 0 0 [::1]:53 [::]:*"
         return "tcp LISTEN 0 128 127.0.0.1:631 0.0.0.0:*"
     monkeypatch.setattr(guest, "command", command)
     calls = []
@@ -84,7 +122,7 @@ def test_smoke_validates_capture_and_listeners(tmp_path, monkeypatch, capture_ki
             image.save(screenshot)
         return SimpleNamespace(stdout="actual guest helper output")
     monkeypatch.setattr(guest.subprocess, "run", capture)
-    if capture_kind == "good":
+    if capture_kind in ("good", "loopback", "empty_desktop"):
         proof = guest.smoke("gnome")
         assert proof["passed"] is True
         assert "not verified speech" in proof["limits"]

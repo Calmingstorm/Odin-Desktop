@@ -33,12 +33,12 @@
     "status": "unqualified",
     "note": "Aquamarine/GBM EGL initialization and DRM presentation may fail with software rendering. Environment variables request a renderer; they do not prove it works. No virgl, host GPU or headless fallback is authorized. Review actual EGL renderer logs plus capture before promotion."
   },
-  "runtime_status": "BLOCKED: Incus ZFS pool exported and unavailable; no guest created or booted",
+  "runtime_status": "Smoke evidence and qualification limits are recorded in maintenance/phase3-lab.md",
   "limitations": [
     "Ubuntu 24.04 and Debian trixie base repositories lack the required packaged Hyprland. Ubuntu 26.04 universe provides this version; Arch current is rolling and now uses a different Lua-config compositor release.",
     "The base VM disk and metadata are pinned, not the entire apt dependency closure. Record installed package versions after provisioning; package and remote image retention are not guaranteed.",
-    "This pin was researched from SimpleStreams metadata, not imported or boot-verified. Fail closed if its exact fingerprint is no longer offered; never substitute the moving alias.",
-    "No runtime success, accessible UI tree, receiver-confirmed input, audible speech or graphical autologin is claimed. Orca process presence and accessibility bus response are only startup smoke checks.",
+    "Fail closed if the exact fingerprint is no longer offered; never substitute the moving alias. Runtime evidence is separate from this immutable image pin.",
+    "Orca process presence and accessibility bus response are only startup smoke checks, not accessible UI tree, receiver-confirmed input or audible speech qualification.",
     "A grim PNG proves guest capture availability, not physical GPU/display/input/audio compatibility or host-desktop qualification."
   ]
 }

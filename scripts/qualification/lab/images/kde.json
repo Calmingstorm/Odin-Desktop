@@ -34,7 +34,7 @@
     "kde-spectacle": "23.08.5-0ubuntu3"
   },
   "package_pinning": "Image immutable; apt packages use current Ubuntu noble repositories, not an immutable package snapshot. Record dpkg versions after provisioning.",
-  "rendering": "Emulated virtual GPU only, no physical GPU/input/audio passthrough. Guest Mesa forced to llvmpipe. Virtual GPU must expose a working DRM/KMS device for KWin Wayland.",
+  "rendering": "Emulated virtual GPU only, no physical GPU/input/audio passthrough. Guest Mesa is configured for llvmpipe. Virtual GPU must expose a working DRM/KMS device for KWin Wayland.",
   "capture": {
     "helper": "/usr/local/lib/odq/capture",
     "backend": "Spectacle 23.08 forced to Qt Wayland via KWin org.kde.KWin.ScreenShot2, never the XWayland screenshot backend",
@@ -51,5 +51,5 @@
     "https://raw.githubusercontent.com/KDE/spectacle/v23.08.5/src/Platforms/PlatformKWinWayland.cpp"
   ],
   "researched_at": "2026-10-05",
-  "qualification_status": "BLOCKED: host Incus pool unavailable/exported; recipe not boot-tested and no VM smoke proof exists."
+  "qualification_status": "Runtime smoke status and limits are tracked in maintenance/phase3-lab.md."
 }

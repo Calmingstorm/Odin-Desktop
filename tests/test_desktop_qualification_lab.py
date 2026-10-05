@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -17,6 +18,7 @@ SPEC = importlib.util.spec_from_file_location(
 )
 lab = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(lab)
+REAL_STORAGE_USAGE = lab.storage_usage
 
 
 def instance(name="odq-gnome", status="Stopped"):
@@ -26,7 +28,7 @@ def instance(name="odq-gnome", status="Stopped"):
         "expanded_config": {"limits.cpu": "4", "limits.memory": "8GiB",
                             "boot.autostart": "false"},
         "expanded_devices": {
-            "root": {"type": "disk", "path": "/", "pool": "default", "size": "40GiB"},
+            "root": {"type": "disk", "path": "/", "pool": lab.POOL, "size": "40GiB"},
             "eth0": {"type": "nic", "network": "incusbr0", "name": "eth0"},
         },
     }
@@ -36,18 +38,21 @@ class FakeIncus:
     def __init__(self):
         self.items = []
         self.calls = []
-        self.pool = {"status": "Created", "driver": "zfs"}
+        self.pool = {"status": "Created", "driver": "dir",
+                     "config": {"source": str(lab.POOL_SOURCE)}}
         self.network = {"type": "bridge", "managed": True,
                         "config": {"ipv4.nat": "true"}}
         self.available = 250 * lab.GIB
         self.memory = 30 * lab.GIB
 
-    def query(self, path):
+    def query(self, path, **kwargs):
         self.calls.append(("query", path))
+        if path.startswith("/1.0/instances/"):
+            return copy.deepcopy(lab.find(self.items, path.rsplit("/", 1)[1]))
         return {
-            "/1.0/storage-pools/default": self.pool,
+            "/1.0/storage-pools/odq-lab": self.pool,
             "/1.0/networks/incusbr0": self.network,
-            "/1.0/storage-pools/default/resources": {
+            "/1.0/storage-pools/odq-lab/resources": {
                 "space": {"total": self.available, "used": 0},
             },
             "/1.0/resources": {"memory": {"total": self.memory, "used": 0}},
@@ -62,7 +67,7 @@ class FakeIncus:
             self.items.append(instance(args[2]))
         elif args[0] == "start":
             self.items[0]["status"] = "Running"
-        elif args[0] == "stop":
+        elif args == ("exec", "odq-gnome", "--", "systemctl", "poweroff", "--no-block"):
             self.items[0]["status"] = "Stopped"
         return ""
 
@@ -71,23 +76,186 @@ def writes(api):
     return [call for call in api.calls if call[0] != "query"]
 
 
+@pytest.fixture(autouse=True)
+def simulated_host_storage(monkeypatch, tmp_path):
+    # Never inspect real storage during orchestration tests. Dedicated tests
+    # exercise the measurement helper with subprocess and statvfs stubs.
+    monkeypatch.setattr(lab, "storage_usage", lambda: (20 * lab.GIB, 200 * lab.GIB))
+    # The PID namespace does not isolate /tmp. Tests must not contend with a
+    # real provisioning operation or with another independent test checkout.
+    monkeypatch.setattr(lab, "LOCK_PATH", str(tmp_path / "lab.lock"))
+
+
 def test_unavailable_pool_stops_before_any_host_mutation():
     api = FakeIncus()
     api.pool["status"] = "Unavailable"
     with pytest.raises(lab.LabError, match="never imports"):
         lab.preflight(api, creating=True)
     assert not writes(api)
-    assert api.calls == [("query", "/1.0/storage-pools/default")]
+    assert api.calls == [("query", "/1.0/storage-pools/odq-lab")]
 
 
-def test_55_gib_pool_refuses_four_disks_and_preserves_bots():
+def test_55_gib_pool_allows_one_disk_not_four_and_preserves_bots():
     api = FakeIncus()
     api.available = 55 * lab.GIB
     api.items = [{"name": "bots", "type": "container", "status": "Stopped"}]
-    with pytest.raises(lab.LabError, match="180.0 GiB"):
-        lab.create(api, "odq-gnome")
+    check = lab.preflight(api, creating=True)
+    assert check["required_bytes"] == 50 * lab.GIB
     assert not writes(api)
     assert api.items == [{"name": "bots", "type": "container", "status": "Stopped"}]
+
+
+@pytest.mark.parametrize("used", [0, 20, 50])
+def test_budget_and_floor_exact_boundaries_allow_thin_disks(monkeypatch, used):
+    api = FakeIncus()
+    api.available = 150 * lab.GIB  # dir resources are the shared filesystem
+    api.items = [instance(name) for name in lab.NAMES]
+    monkeypatch.setattr(lab, "storage_usage",
+                        lambda: (used * lab.GIB, (150 - used) * lab.GIB))
+    check = lab.preflight(api, creating=True)
+    assert check["allocated_bytes"] == used * lab.GIB
+    assert check["required_bytes"] == 50 * lab.GIB
+    assert check["filesystem_required_bytes"] == (150 - used) * lab.GIB
+    assert check["budget_bytes"] == 100 * lab.GIB
+    assert all("/storage-pools/default" not in str(call) for call in api.calls)
+
+
+@pytest.mark.parametrize("operation", ["create", "start", "provision", "smoke", "snapshot"])
+@pytest.mark.parametrize("failure", ["budget", "floor", "pool-headroom"])
+def test_all_storage_consuming_operations_gate_before_writes(
+    tmp_path, monkeypatch, operation, failure,
+):
+    api = FakeIncus()
+    api.items = ([] if operation == "create" else
+                 [instance(status="Running" if operation in ("provision", "smoke")
+                           else "Stopped")])
+    if failure == "budget":
+        monkeypatch.setattr(lab, "storage_usage", lambda: (50 * lab.GIB + 1, 200 * lab.GIB))
+        message = "100 GiB aggregate budget"
+    elif failure == "floor":
+        # 100 GiB free would fit one guest+reserve+floor, but not the complete
+        # remaining 80 GiB pool budget. Keep that backing space protected too.
+        monkeypatch.setattr(lab, "storage_usage", lambda: (20 * lab.GIB, 100 * lab.GIB))
+        message = "50 GiB filesystem floor"
+    else:
+        api.available = 50 * lab.GIB - 1
+        message = "one thin 40 GiB disk"
+    target = tmp_path / "evidence"
+    with pytest.raises(lab.LabError, match=message):
+        if operation == "snapshot":
+            lab.snapshot(api, "odq-gnome", "configured")
+        elif operation == "smoke":
+            lab.smoke(api, "odq-gnome", target)
+        else:
+            getattr(lab, operation)(api, "odq-gnome")
+    assert not writes(api)
+    assert not target.exists()
+
+
+@pytest.mark.parametrize("change", ["driver", "source", "status", "config"])
+def test_only_exact_created_lab_dir_pool_is_accepted(change):
+    api = FakeIncus()
+    if change == "config":
+        del api.pool["config"]
+    elif change == "source":
+        api.pool["config"]["source"] = "/mnt/storage/incus"
+    else:
+        api.pool[change] = "zfs" if change == "driver" else "Unavailable"
+    with pytest.raises(lab.LabError, match="create it externally"):
+        lab.preflight(api)
+    assert api.calls == [("query", "/1.0/storage-pools/odq-lab")]
+
+
+def test_old_pool_root_is_not_owned_even_with_lab_marker():
+    api = FakeIncus()
+    item = instance()
+    item["expanded_devices"]["root"]["pool"] = "default"
+    api.items = [item]
+    with pytest.raises(lab.LabError, match="caps/devices/isolation"):
+        lab.remove(api, "odq-gnome")
+    assert not writes(api)
+
+
+def test_storage_measurement_counts_allocated_pool_bytes_and_available_filesystem(
+    tmp_path, monkeypatch,
+):
+    pool = tmp_path / "odq-lab"
+    pool.mkdir()
+    monkeypatch.setattr(lab, "POOL_SOURCE", pool)
+    monkeypatch.setattr(lab, "STORAGE_PATH", tmp_path)
+    calls = []
+    def execute(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return SimpleNamespace(returncode=0, stdout=f"123456\t{pool}\n", stderr="")
+    monkeypatch.setattr(lab.subprocess, "run", execute)
+    monkeypatch.setattr(lab.os, "statvfs", lambda _: SimpleNamespace(
+        f_bavail=1000, f_bfree=2000, f_frsize=4096,
+    ))
+    assert REAL_STORAGE_USAGE() == (123456, 1000 * 4096)
+    assert calls[0][0] == ["sudo", "-n", "du", "-s", "-B1", "--", str(pool)]
+    assert calls[0][1]["stdin"] == subprocess.DEVNULL
+    assert calls[0][1]["timeout"] == 60
+
+
+@pytest.mark.parametrize("output,returncode", [("", 0), ("invalid", 0), ("-1", 0),
+                                               ("12345", 1)])
+def test_failed_partial_or_invalid_du_is_not_zero_usage(tmp_path, monkeypatch, output, returncode):
+    pool = tmp_path / "odq-lab"
+    pool.mkdir()
+    monkeypatch.setattr(lab, "POOL_SOURCE", pool)
+    monkeypatch.setattr(lab, "STORAGE_PATH", tmp_path)
+    monkeypatch.setattr(lab.subprocess, "run", lambda *a, **k: SimpleNamespace(
+        returncode=returncode, stdout=output, stderr="partial traversal denied",
+    ))
+    with pytest.raises(lab.LabError):
+        REAL_STORAGE_USAGE()
+
+
+def test_storage_source_symlink_refuses_measurement(tmp_path, monkeypatch):
+    real = tmp_path / "real"
+    real.mkdir()
+    pool = tmp_path / "odq-lab"
+    pool.symlink_to(real, target_is_directory=True)
+    monkeypatch.setattr(lab, "POOL_SOURCE", pool)
+    monkeypatch.setattr(lab, "STORAGE_PATH", tmp_path)
+    monkeypatch.setattr(lab.subprocess, "run", lambda *a, **k: pytest.fail("no du on symlink"))
+    with pytest.raises(lab.LabError, match="real directory"):
+        REAL_STORAGE_USAGE()
+
+
+def test_snapshots_require_explicit_cli_opt_in():
+    with pytest.raises(SystemExit):
+        lab.main(["snapshot", "odq-gnome"])
+
+
+@pytest.mark.parametrize("action", ["create", "start", "stop", "provision", "snapshot",
+                                    "remove", "smoke"])
+def test_cli_dispatches_only_explicit_owned_action(action, monkeypatch, tmp_path):
+    api = FakeIncus()
+    monkeypatch.setattr(lab, "Incus", lambda: api)
+    calls = []
+    monkeypatch.setattr(lab, action, lambda *args: calls.append(args))
+    argv = [action, "odq-gnome"]
+    if action == "snapshot":
+        argv.extend(["--label", "configured"])
+    if action == "smoke":
+        argv.extend(["--evidence", str(tmp_path / "proof")])
+    assert lab.main(argv) == 0
+    assert calls[0][:2] == (api, "odq-gnome")
+    assert len(calls) == 1
+    if action == "snapshot":
+        assert calls[0][2] == "configured"
+
+
+def test_cli_preflight_reports_storage_policy_without_writes(monkeypatch, capsys):
+    api = FakeIncus()
+    monkeypatch.setattr(lab, "Incus", lambda: api)
+    assert lab.main(["preflight"]) == 0
+    check = json.loads(capsys.readouterr().out)
+    assert check["pool"] == "odq-lab"
+    assert check["budget_bytes"] == 100 * lab.GIB
+    assert check["filesystem_floor_bytes"] == 50 * lab.GIB
+    assert not writes(api)
 
 
 @pytest.mark.parametrize("status", ["Running", "Starting", "Frozen", "Error"])
@@ -149,17 +317,17 @@ def test_insufficient_memory_or_non_nat_network_blocks():
     assert not writes(api)
 
 
-def test_create_uses_exact_image_no_profiles_and_reserved_disk(monkeypatch):
+def test_create_uses_exact_image_no_profiles_and_thin_disk(monkeypatch):
     api = FakeIncus()
     monkeypatch.setattr(lab, "image_spec", lambda _: {"fingerprint": "a" * 64})
     lab.create(api, "odq-gnome")
-    init, reservation = writes(api)
+    [init] = writes(api)
     assert init[:4] == ("init", f"images:{'a' * 64}", "odq-gnome", "--vm")
     assert "--no-profiles" in init
     assert "limits.cpu=4" in init and "limits.memory=8GiB" in init
     assert "root,size=40GiB" in init and "boot.autostart=false" in init
-    assert reservation == ("storage", "volume", "set", "default",
-                           "virtual-machine/odq-gnome", "zfs.reserve_space=true")
+    assert init[init.index("--storage") + 1] == lab.POOL
+    assert "reserve_space" not in str(api.calls)
     assert len(api.items) == 1
 
 
@@ -178,8 +346,26 @@ def test_start_then_graceful_stop(monkeypatch):
     lab.start(api, "odq-gnome")
     assert api.items[0]["status"] == "Running"
     lab.stop(api, "odq-gnome")
-    assert writes(api) == [("start", "odq-gnome"), ("stop", "odq-gnome", "--timeout", "120")]
+    assert writes(api) == [("start", "odq-gnome"),
+                           ("exec", "odq-gnome", "--", "systemctl", "poweroff", "--no-block")]
     assert api.items[0]["status"] == "Stopped"
+
+
+def test_stop_uses_agent_poweroff_not_acpi_suspend():
+    api = FakeIncus()
+    api.items = [instance("odq-cinnamon", status="Running")]
+    def execute(*args, **kwargs):
+        api.calls.append(args)
+        if args[0] == "stop":
+            api.items[0]["status"] = "Frozen"  # observed ACPI suspend failure
+            pytest.fail("ACPI power-key stop can suspend Cinnamon and lose the agent")
+        assert args == ("exec", "odq-cinnamon", "--", "systemctl", "poweroff", "--no-block")
+        assert kwargs == {"capture": True, "timeout": 10}
+        api.items[0]["status"] = "Stopped"
+        return ""
+    api.run = execute
+    lab.stop(api, "odq-cinnamon")
+    assert len(writes(api)) == 1
 
 
 def test_stop_does_not_force_after_timeout():
@@ -191,7 +377,85 @@ def test_stop_does_not_force_after_timeout():
     api.run = fail
     with pytest.raises(lab.LabError, match="timeout"):
         lab.stop(api, "odq-gnome")
-    assert writes(api) == [("stop", "odq-gnome", "--timeout", "120")]
+    assert writes(api) == [("exec", "odq-gnome", "--", "systemctl", "poweroff", "--no-block")]
+
+
+@pytest.mark.parametrize("failure", [lab.LabError("agent unavailable"),
+                                    subprocess.TimeoutExpired("incus exec", 10)])
+def test_stop_unavailable_agent_is_explicit_without_replay(failure):
+    api = FakeIncus()
+    api.items = [instance(status="Running")]
+    def fail(*args, **kwargs):
+        api.calls.append(args)
+        raise failure
+    api.run = fail
+    message = "Guest agent poweroff failed or outcome unknown.*no forced stop/replay"
+    with pytest.raises(lab.LabError, match=message):
+        lab.stop(api, "odq-gnome")
+    assert writes(api) == [("exec", "odq-gnome", "--", "systemctl", "poweroff", "--no-block")]
+
+
+@pytest.mark.parametrize("stopped", [False, True])
+def test_stop_polls_bounded_status_without_replaying_request(monkeypatch, stopped):
+    api = FakeIncus()
+    api.items = [instance(status="Running")]
+    elapsed = [0]
+    polls = []
+    monkeypatch.setattr(lab.time, "monotonic", lambda: elapsed[0])
+    def sleep(seconds):
+        elapsed[0] += seconds
+    monkeypatch.setattr(lab.time, "sleep", sleep)
+    def query(path, **kwargs):
+        assert path == "/1.0/instances/odq-gnome"
+        polls.append(kwargs["timeout"])
+        if stopped and len(polls) == 3:
+            api.items[0]["status"] = "Stopped"
+        return copy.deepcopy(api.items[0])
+    api.query = query
+    api.run = lambda *args, **kwargs: api.calls.append(args)
+    if stopped:
+        lab.stop(api, "odq-gnome")
+        assert len(polls) == 3
+    else:
+        with pytest.raises(lab.LabError, match="Stopped after 180s; no forced stop/replay"):
+            lab.stop(api, "odq-gnome")
+        assert elapsed[0] == 180
+    assert all(0 < timeout <= 10 for timeout in polls)
+    assert writes(api) == [("exec", "odq-gnome", "--", "systemctl", "poweroff", "--no-block")]
+
+
+@pytest.mark.parametrize("change", ["owner", "caps", "devices"])
+def test_stop_refuses_changed_ownership_or_isolation_before_poweroff(change):
+    api = FakeIncus()
+    api.items = [instance(status="Running")]
+    if change == "owner":
+        api.items[0]["config"].clear()
+    elif change == "caps":
+        api.items[0]["expanded_config"]["limits.cpu"] = "8"
+    else:
+        api.items[0]["expanded_devices"]["share"] = {"type": "disk"}
+    with pytest.raises(lab.LabError):
+        lab.stop(api, "odq-gnome")
+    assert not writes(api)
+
+
+@pytest.mark.parametrize("failure", [lab.LabError("metadata unavailable"),
+                                    subprocess.TimeoutExpired("incus query", 10),
+                                    "ownership"])
+def test_stop_status_failure_or_ownership_change_cannot_replay(failure):
+    api = FakeIncus()
+    api.items = [instance(status="Running")]
+    def query(path, **kwargs):
+        if failure == "ownership":
+            api.items[0]["config"].clear()
+            return copy.deepcopy(api.items[0])
+        raise failure
+    api.query = query
+    api.run = lambda *args, **kwargs: api.calls.append(args)
+    message = "Cannot confirm guest poweroff.*no forced stop/replay"
+    with pytest.raises(lab.LabError, match=message):
+        lab.stop(api, "odq-gnome")
+    assert writes(api) == [("exec", "odq-gnome", "--", "systemctl", "poweroff", "--no-block")]
 
 
 @pytest.mark.parametrize("operation", ["snapshot", "remove"])
@@ -243,7 +507,7 @@ def test_provision_uploads_only_guest_recipes_then_stops(monkeypatch):
     assert changes[4] == ("exec", "odq-gnome", "--", "bash", "/root/odq/gnome.sh")
     assert changes[5] == ("exec", "odq-gnome", "--", "bash", "-c",
                           "source /root/odq/common.sh; odq_finalize")
-    assert changes[6] == ("stop", "odq-gnome", "--timeout", "120")
+    assert changes[6] == ("exec", "odq-gnome", "--", "systemctl", "poweroff", "--no-block")
 
 
 def test_cli_never_accepts_bots_as_mutation_target():
@@ -274,6 +538,7 @@ def test_incus_commands_are_local_default_project_without_shell(monkeypatch):
     assert calls[1][0] == ["sudo", "-n", "incus", "--force-local", "query",
                            "/1.0/instances?recursion=1&project=default"]
     assert all("shell" not in kwargs for _, kwargs in calls)
+    assert all(kwargs["stdin"] == subprocess.DEVNULL for _, kwargs in calls)
 
 
 @pytest.mark.parametrize("query", [False, True])
@@ -287,6 +552,16 @@ def test_cli_errors_do_not_become_silent_success(monkeypatch, query):
             api.query("/1.0/resources")
         else:
             api.run("list")
+
+
+def test_incus_capture_failure_preserves_guest_stdout_error(monkeypatch):
+    error = '{"passed": false, "error": "native capture denied"}\n'
+    monkeypatch.setattr(lab.subprocess, "run", lambda *a, **k: SimpleNamespace(
+        returncode=1, stdout=error, stderr="",
+    ))
+    with pytest.raises(lab.LabError, match="native capture denied"):
+        lab.Incus().run("exec", "odq-gnome", "--", "python3",
+                        "/root/odq/smoke.py", "gnome", capture=True)
 
 
 def test_pinned_image_uses_full_vm_digest(tmp_path, monkeypatch):
@@ -327,8 +602,14 @@ def test_smoke_saves_fresh_guest_evidence_without_claiming_visual_success(
     def execute(*args, **kwargs):
         api.calls.append(args)
         if args[0] == "exec":
+            if args[3] == "sha256sum":
+                return guest_hash_output(args[5:])
             return json.dumps({"passed": True, "session": {"Type": "wayland"}})
         if args[:2] == ("file", "pull"):
+            local = Path(args[3])
+            assert local.is_file()
+            assert local.stat().st_uid == lab.os.getuid()
+            assert local.stat().st_mode & 0o777 == 0o600
             Path(args[3]).write_bytes(b"\x89PNG\r\n\x1a\nfixture")
         return ""
     api.run = execute
@@ -338,6 +619,12 @@ def test_smoke_saves_fresh_guest_evidence_without_claiming_visual_success(
     lab.smoke(api, "odq-gnome", target)
     saved = json.loads((target / "proof.json").read_text())
     assert saved["source_sha"] == "fixture-sha"
+    assert saved["source_dirty"] is True
+    assert saved["source_matches"] is True
+    assert saved["image"] == {"fingerprint": "a" * 64}
+    assert saved["host_files_sha256"][
+        "scripts/qualification/lab/images/gnome.json"
+    ] == hashlib.sha256((lab.HERE / "images/gnome.json").read_bytes()).hexdigest()
     assert saved["visual_inspection"] == "required"
     assert len(saved["screenshot_sha256"]) == 64
     assert (target / "packages.tsv").is_file()
@@ -369,6 +656,121 @@ def test_smoke_bad_png_cannot_produce_pass_record(tmp_path):
     with pytest.raises(lab.LabError, match="not a PNG"):
         lab.smoke(api, "odq-gnome", target)
     assert not (target / "proof.json").exists()
+
+
+def guest_hash_output(paths, *, stale=None):
+    """Simulate sha256sum, including a separately generated capture artifact."""
+    lines = []
+    for path in paths:
+        data = (b"generated guest capture\n" if path == "/usr/local/lib/odq/capture"
+                else (lab.HERE / "guest" / Path(path).name).read_bytes())
+        if path == stale:
+            data += b"stale guest recipe\n"
+        lines.append(f"{hashlib.sha256(data).hexdigest()}  {path}\n")
+    return "".join(lines)
+
+
+@pytest.mark.parametrize("name", lab.NAMES)
+@pytest.mark.parametrize("dirty", [False, True])
+def test_smoke_provenance_exact_host_guest_image_fixture(tmp_path, monkeypatch, name, dirty):
+    root = tmp_path / "checkout"
+    here = root / "scripts/qualification/lab"
+    (here / "guest").mkdir(parents=True)
+    (here / "images").mkdir()
+    desktop = name[4:]
+    files = {"lab.py": b"fixture orchestration\n", "guest/common.sh": b"common\n",
+             "guest/smoke.py": b"smoke\n", f"guest/{desktop}.sh": desktop.encode(),
+             f"images/{desktop}.json": b'{"fingerprint":"fixture image"}\n'}
+    for relative, data in files.items():
+        (here / relative).write_bytes(data)
+    monkeypatch.setattr(lab, "ROOT", root)
+    monkeypatch.setattr(lab, "HERE", here)
+    git_calls = []
+    def git(argv, **kwargs):
+        git_calls.append((argv, kwargs))
+        return "base-commit\n" if argv[1] == "rev-parse" else (" M lab.py\n" if dirty else "")
+    monkeypatch.setattr(lab.subprocess, "check_output", git)
+    api = FakeIncus()
+    def execute(*args, **kwargs):
+        api.calls.append(args)
+        assert kwargs == {"capture": True, "timeout": 30}
+        return guest_hash_output(args[5:])
+    api.run = execute
+    proof = lab.smoke_provenance(api, name)
+    host = {f"scripts/qualification/lab/{path}": hashlib.sha256(data).hexdigest()
+            for path, data in files.items()}
+    uploaded = {f"/root/odq/{Path(path).name}": f"scripts/qualification/lab/{path}"
+                for path in files if path.startswith("guest/")}
+    capture = "/usr/local/lib/odq/capture"
+    assert proof == {
+        "source_sha": "base-commit", "source_dirty": dirty,
+        "host_files_sha256": host,
+        "guest_files_sha256": {
+            **{path: host[source] for path, source in uploaded.items()},
+            capture: hashlib.sha256(b"generated guest capture\n").hexdigest(),
+        },
+        "source_comparison": {
+            **{path: {"host_path": source, "matches": True}
+               for path, source in uploaded.items()},
+            capture: {"host_path": None, "matches": None,
+                      "reason": "Generated guest artifact; no host byte-equivalent comparison"},
+        },
+        "source_matches": True,
+    }
+    assert api.calls == [("exec", name, "--", "sha256sum", "--", *uploaded, capture)]
+    assert git_calls == [
+        (["git", "rev-parse", "HEAD"], {"cwd": root, "text": True}),
+        (["git", "status", "--porcelain", "--untracked-files=all"],
+         {"cwd": root, "text": True}),
+    ]
+
+
+@pytest.mark.parametrize("stale", ["common.sh", "smoke.py", "gnome.sh"])
+def test_smoke_stale_uploaded_script_records_truthful_failure(tmp_path, monkeypatch, stale):
+    api = FakeIncus()
+    api.items = [instance(status="Running")]
+    stale_path = f"/root/odq/{stale}"
+    def execute(*args, **kwargs):
+        api.calls.append(args)
+        if args[0] == "exec":
+            if args[3] == "sha256sum":
+                return guest_hash_output(args[5:], stale=stale_path)
+            return '{"passed": true}'
+        Path(args[3]).write_bytes(b"\x89PNG\r\n\x1a\nfixture")
+        return ""
+    api.run = execute
+    monkeypatch.setattr(lab.subprocess, "check_output", lambda *a, **k: "base-commit\n")
+    target = tmp_path / "stale"
+    with pytest.raises(lab.LabError, match="reprovision required"):
+        lab.smoke(api, "odq-gnome", target)
+    proof = json.loads((target / "proof.json").read_text())
+    assert proof["passed"] is False
+    assert proof["source_matches"] is False
+    assert proof["source_comparison"][stale_path]["matches"] is False
+    host_path = proof["source_comparison"][stale_path]["host_path"]
+    assert proof["host_files_sha256"][host_path] != proof["guest_files_sha256"][stale_path]
+    assert proof["image"] == lab.image_spec("odq-gnome")
+    assert (target / "guest.png").is_file()
+    assert all(call[0] in ("query", "exec", "file") for call in api.calls)
+
+
+@pytest.mark.parametrize("failure", ["missing", "duplicate", "invalid", "unexpected"])
+def test_guest_hash_output_cannot_forge_provenance(failure):
+    api = FakeIncus()
+    def execute(*args, **kwargs):
+        lines = guest_hash_output(args[5:]).splitlines()
+        if failure == "missing":
+            lines.pop()
+        elif failure == "duplicate":
+            lines.append(lines[0])
+        elif failure == "invalid":
+            lines[0] = "not a sha256sum digest"
+        else:
+            lines[0] = "a" * 64 + "  /unexpected"
+        return "\n".join(lines)
+    api.run = execute
+    with pytest.raises(lab.LabError, match="guest sha256sum provenance output"):
+        lab.smoke_provenance(api, "odq-gnome")
 
 
 def test_creation_and_smoke_require_owned_names_and_running_state(tmp_path):

@@ -2,43 +2,34 @@
 
 ## Status at 2026-10-05
 
-**Partial build, runtime blocked. Not a completed qualification lab.** Branched
-from pulled `main@a3eca761f53713daeb8a329357f6aab3e63624f9`. Four image/guest
-lanes were built in parallel; integration and checks are recorded below.
+**Four-VM lab smoke passed. Not P3.3-P3.6 acceptance.** Branched
+from pulled `main@a3eca761f53713daeb8a329357f6aab3e63624f9`. The lab-only Incus
+directory pool is available. All four guests have booted into their required
+sessions with Orca running and guest screenshots captured and inspected.
+The later packaged application and native P3/P4 gates remain separate.
 
-The host preflight found:
+The host preflight and subsequent setup found:
 
 - Incus client/server **7.5.1**, QEMU driver **11.1.2**; `/dev/kvm` present.
-- Existing `default` ZFS storage pool reports **Unavailable**. Its configured
-  source is `incus`; the `incus` zpool is exported, not imported.
-- `/mnt/storage/incus/incus.img` is **107,374,182,400 bytes (100 GiB)**.
-  Read-only `zpool import -d /mnt/storage/incus` discovers it ONLINE; this was
-  discovery only, **not** `zpool import incus`.
-- Offline `zdb -e -p /mnt/storage/incus -d incus` reports the existing
-  `incus/containers/bots` dataset as **44.2 GiB**. No bots files were opened.
-- Read-only metaslab inspection estimates **55.84 GiB free**, rounded from
-  199 metaslabs. This is **not** imported ZFS `available`, does not account for
-  all reservations/slop, and does not make Incus usable.
-- Backing filesystem `/mnt/storage`: **214 GiB available** at inspection.
-  Host memory had approximately **44 GiB available** by `free -h`.
-- Only existing instance: `bots`, **Stopped**. It remains untouched. The
-  managed `incusbr0` bridge already has IPv4 and IPv6 NAT. No forwarded lab
-  services, profiles or instances were created.
+- The existing `default` ZFS pool and `bots` instance were left unchanged; the
+  former offline pool is not used or repaired by this lab.
+- Created the lab-only Incus `dir` pool `odq-lab`, sourced from
+  `/mnt/storage/odq-lab`. Incus refused the proposed custom loop-file command
+  `incus storage create odq-lab zfs source=/mnt/storage/odq-lab.img size=100GiB`.
+  The directory driver avoids the hand-managed loop attachment/reboot problem.
+  No reboot or service restart test has been performed.
+- Each VM has a **thin 40 GiB** root disk. Admission uses a **100 GiB aggregate
+  allocated-space budget**, reserves one heavy guest's 40 GiB disk growth plus
+  10 GiB overhead, and conservatively preserves a **50 GiB free filesystem
+  floor after all remaining pool-budget growth**. Optional snapshots are not
+  the default; rebuild disposable guests instead.
+- The existing managed `incusbr0` NAT bridge remains in use. `bots` was not
+  modified; its Incus metadata was compared before/after, not its files.
 
-**Required external decision before runtime:** restore availability of the
-existing pool without altering `bots`, and provide sufficient storage. The
-tool conservatively requires **180 GiB available** before the first creation:
-four 40 GiB disks plus 20 GiB image/snapshot/headroom budget. It uses Incus
-`zfs.reserve_space=true` on each lab volume rather than silently overcommitting
-the pool. Current offline free estimate is approximately **124 GiB short**,
-before ZFS slop. A roughly **256 GiB total pool** would be a reasonable target,
-subject to operator validation of real imported availability and backing-disk
-headroom. **No import, resize, replacement pool, host package installation,
-Incus restart or bots cleanup was attempted.**
-
-Reducing the disks or accepting thin overcommit requires a separate decision;
-the scripts do neither. The existing 100 GiB pool cannot meet the chosen
-conservative capacity gate even if restored.
+Thin disks are logical caps, not reservations. Capacity checks fail closed if
+the aggregate allocation budget, single-heavy-guest reserve, filesystem floor,
+guest exclusivity, or host-memory preconditions are not met. The lab tool does
+not create, import, repair, resize or replace storage.
 
 ## Pinned images and guest recipes
 
@@ -77,13 +68,14 @@ not the whole apt dependency closure. Except Hyprland's explicit package
 version, packages resolve through the guest's distro repositories. Installed
 versions are captured in `packages.tsv`; exact post-provision reproduction
 requires keeping the configured VM snapshot. Daily upstream images can expire.
-The tool fails rather than substitute a moving image alias. The image pins
-have been checked against public metadata, but not imported or boot-verified.
+The tool fails rather than substitute a moving image alias. Image pins have
+been checked against public metadata; Noble has now been booted for Cinnamon
+GNOME and KDE smoke. Resolute has been imported and boot-verified for Hyprland.
 
 ## Resource and ownership boundaries
 
-- Each VM: **4 vCPU, 8 GiB RAM, 40 GiB disk**. `boot.autostart=false`.
-- Empty profile list, explicit root disk in `default`, one NIC on the existing
+- Each VM: **4 vCPU, 8 GiB RAM, thin 40 GiB disk**. `boot.autostart=false`.
+- Empty profile list, explicit root disk in `odq-lab`, one NIC on the existing
   `incusbr0` NAT bridge. **No shared host directory, physical GPU/display,
   input or audio device, proxy device, raw QEMU override or host credential.**
 - Unique `user.odq.owner=odin-desktop-qualification-v1` marker; commands also
@@ -93,36 +85,42 @@ have been checked against public metadata, but not imported or boot-verified.
   outside this lab. Commands take a same-operator cross-checkout lock; manual
   Incus actions bypass that lock, so operators must not race the lab runner.
 - At least 12 GiB host memory headroom before create/start/provision/smoke.
-- Only graceful stop, bounded agent waits; no automatic force, replay,
-  background start, storage repair or global profile mutation.
-- Guest-only user `odq`, locked password, explicit graphical autologin,
+- One heavy guest at a time; 100 GiB aggregate allocation budget, 40 GiB disk
+  growth plus 10 GiB reserve, and conservative 50 GiB filesystem floor. No
+  snapshots by default; rebuild disposable guests.
+- Graceful guest-agent poweroff and bounded agent waits; no automatic force,
+  replay, background start, storage repair or global profile mutation.
+- Guest-only user `odq`, no known password, explicit graphical autologin,
   Orca/accessibility startup. SSH, discovery, printing and RPC network
   listeners are masked in the guest. Smoke rejects non-loopback listeners,
-  apart from DHCP client ports required for NAT networking.
+  apart from DHCP client ports required for NAT networking. Cinnamon/GNOME use
+  a locked password; KDE/Hyprland use a random unexposed password hash because
+  SDDM's PAM account checks can reject locked accounts even for autologin.
 - Repository files and evidence/lock scratch are the only non-Incus files
   written by the host-side workflow. No service or active desktop is changed.
 
 ## Operator commands
 
 Use Python 3.12 or the repository `.venv/bin/python`. The host must already
-have Incus, KVM, ZFS, sufficient storage and non-interactive Incus access via
-`sudo -n`. No script installs host prerequisites.
+have Incus, KVM, the pre-created `odq-lab` directory pool, sufficient storage
+and non-interactive Incus access via `sudo -n`. No script installs host
+prerequisites. The lab tool never accesses the old `default` pool.
 
 ```bash
 python3 scripts/qualification/lab/lab.py preflight
-# Currently exits 1 with BLOCKED: default ZFS pool is unavailable.
+# Reports the odq-lab pool and current capacity preflight.
 ```
 
-After external storage restoration/capacity approval, run this lifecycle
-**for one named VM at a time**, substituting each of the four accepted names.
-The first start is only for the Incus guest agent and provisioning. Provision
-stops the VM; the second start exercises the configured graphical autologin.
+Run this lifecycle **for one named VM at a time**, substituting each of the
+four accepted names. The first start is only for the Incus guest agent and
+provisioning. Provision stops the VM; the second start exercises graphical
+autologin. Snapshots are optional and omitted by default; rebuild guests unless
+there is a specific reason to retain one.
 
 ```bash
 python3 scripts/qualification/lab/lab.py create odq-cinnamon
 python3 scripts/qualification/lab/lab.py start odq-cinnamon
 python3 scripts/qualification/lab/lab.py provision odq-cinnamon
-python3 scripts/qualification/lab/lab.py snapshot odq-cinnamon --label configured
 python3 scripts/qualification/lab/lab.py start odq-cinnamon
 # Allow session startup, then run once with a NEW evidence directory.
 python3 scripts/qualification/lab/lab.py smoke odq-cinnamon \
@@ -134,11 +132,16 @@ python3 scripts/qualification/lab/lab.py remove odq-cinnamon
 
 `provision` uploads only the common/desktop recipe and smoke helper through
 Incus file transport; runs apt and configuration **inside the guest**; records
-packages; then gracefully stops. Failure leaves an explicit error and may
-leave the VM running, so inspect and stop it with the named lab command before
-continuing. `snapshot` and `remove` require stopped, marked instances. Scripts
-are sourceable/generated-fixture capable for offline tests; **never execute
-guest provisioning directly on the workstation**.
+packages; then requests `systemctl poweroff --no-block` through the guest agent
+and polls Incus state for up to 180 seconds. It does not use Incus ACPI stop,
+which can suspend Cinnamon, and never automatically force-stops, replays, or
+falls back to ACPI if poweroff is unconfirmed. On timeout inspect the disposable
+guest before explicit recovery. One manual emergency force-stop was needed for
+the exact disposable `odq-cinnamon` after its first ACPI stop suspended it; a
+subsequent agent poweroff stopped it cleanly. This was exceptional recovery,
+not routine lifecycle policy. `snapshot` and `remove` require stopped, marked
+instances. Scripts are sourceable/generated-fixture capable for offline tests;
+**never execute guest provisioning directly on the workstation**.
 
 The `smoke` command requires a running owned VM. It verifies active `odq`
 logind session identity and X11/Wayland type, reads that guest session's
@@ -148,6 +151,15 @@ capture helper, decodes/non-uniformity checks the PNG, and pulls `guest.png`,
 SHA and screenshot hash. **Open and inspect the screenshot before describing
 its pixels.** Failed captures cannot write a passing proof. Existing evidence
 directories are refused, not overwritten.
+
+`source_sha` identifies the checkout's base commit; `source_dirty` says whether
+that checkout had local changes. Host source digests cover the runner, uploaded
+recipes/smoke and image manifest. Guest digests cover the actual uploaded
+scripts and generated capture helper. Stale uploaded scripts record a failed
+proof and require reprovision. The initial proof paths below were development
+runs at base `3337716` with working-tree fixes; they do not claim that base
+commit alone contains the successful implementation. Final committed-source
+reprovision/smoke evidence is added separately, preserving these originals.
 
 GNOME/KDE capture can be denied by native policy or require guest interaction.
 No unsafe GNOME mode, caller spoof, X11 fallback for a Wayland desktop, or
@@ -159,23 +171,51 @@ Wayland.
 
 | VM | Graphical boot | Orca starts | Guest screenshot | Verdict |
 |---|---|---|---|---|
-| `odq-cinnamon` | Not run | Not run | None | **BLOCKED: unavailable/undersized storage** |
-| `odq-gnome` | Not run | Not run | None | **BLOCKED: unavailable/undersized storage** |
-| `odq-kde` | Not run | Not run | None | **BLOCKED: unavailable/undersized storage** |
-| `odq-hyprland` | Not run | Not run | None | **BLOCKED: unavailable/undersized storage** |
+| `odq-cinnamon` | 1280x800 X11 active | Orca process present | Captured and visually inspected: `/home/odin/reviews/desktop-lab-storage-20261005/cinnamon-smoke/guest.png` | **Smoke passed** |
+| `odq-gnome` | 1280x800 Wayland active; GNOME identity verified | Orca process present | Captured: `/home/odin/reviews/desktop-lab-storage-20261005/gnome-smoke-3/guest.png` | **Smoke passed** |
+| `odq-kde` | 1280x800 Wayland active; KWin/Plasma | Orca process present | Captured and visually inspected: `/home/odin/reviews/desktop-lab-storage-20261005/kde-smoke-2/guest.png` | **Smoke passed** |
+| `odq-hyprland` | 1280x800 native Wayland, Virtual-1 | Orca process present; accessibility bus responds | Captured and visually inspected: `/home/odin/reviews/desktop-lab-storage-20261005/hyprland-smoke-2/guest.png` | **Smoke passed** |
 
-No screenshots are attached because no guest was created. Offline behavioral
-tests are not smoke proofs. This PR delivers scripts/recipes/preflight evidence,
-**not P3.3-P3.6 runtime acceptance**. Resume with approved external storage work.
+The proof directories contain guest `proof.json`, screenshot, package list and
+listener evidence. Smoke proves guest session identity/type, Orca process
+presence and a decodable guest capture; it does **not** prove spoken output or
+application accessibility. GNOME setup required typed dconf arrays
+(`enabled-extensions` as `@as []`) and disabling extensions; no tray extension
+is installed. Its native EGL startup segfault was fixed by removing
+`LIBGL_ALWAYS_SOFTWARE` while retaining `GALLIUM_DRIVER=llvmpipe`; the actual
+session and capture then passed. Keep runtime implementation detail here, not
+in image pin manifests.
+
+Shared guest smoke uses systemd 255, which does not provide the prior JSON
+`loginctl` output. It parses supported output and can identify a session using
+the actual guest environment and owned compositor when logind's `Desktop`
+field is empty. Listener checks allow the complete loopback `127.0.0.0/8`, not
+only selected resolver addresses. These observations do not claim any unrun
+desktop lane. KDE also needed writable intermediate `.config` directories and
+the same software-device flag correction. Hyprland needed those directory
+ownership fixes, explicit GLib command packages, and activation on its actual
+nested D-Bus without `--systemd`. Its screenshot shows the native Foot terminal;
+no XWayland process was present. Privileged file pulls now precreate private
+operator-owned files, preserving access to grim's mode-0600 PNG.
+
+After the first four smokes all guests were stopped. Actual pool allocation was
+**15.04 GiB**, with **198.56 GiB** free on `/mnt/storage`. The 100 GiB workflow
+budget is an admission check, **not a kernel quota or continuous monitor**.
+Do not race this runner with manual Incus changes or unrelated storage writers.
+No snapshots were retained. These are lab smoke proofs, not P3.3-P3.6 acceptance.
 
 ## Virtual GPU meaning
 
 No `gpu` device is added. Incus/QEMU's emulated display is rendered in the
-guest using requested Mesa llvmpipe. Runtime must still establish virtual
-DRM/KMS/GBM/EGL compatibility, especially Hyprland/Aquamarine. Environment
-switches, source compilation and VM existence alone prove nothing about that.
+guest using Mesa llvmpipe configuration appropriate to each compositor. GNOME's
+native Wayland EGL path unsets `LIBGL_ALWAYS_SOFTWARE` and sets
+`GALLIUM_DRIVER=llvmpipe`; blindly forcing that variable caused a native EGL
+startup failure. KWin logs explicitly reported llvmpipe and DRM presentation.
+Hyprland/Aquamarine enumerated virtio_gpu and Virtual-1, and grim captured its
+native terminal. EGL device-query warnings remain; smoke success is not a
+blanket renderer qualification or hardware-performance claim.
 
-A passing future smoke can prove graphical session startup, an Orca process,
+A passing smoke can prove graphical session startup, an Orca process,
 guest capture and the inspected pixels under this virtual hardware. It cannot
 prove physical GPU drivers/performance, Aaron's monitor layout, host input or
 audio, actual spoken Orca output, Electron accessibility trees, real portal
@@ -193,4 +233,6 @@ PID-namespace launcher; no VM/native receiver is involved in these tests.
 
 Final source and test counts are recorded in the PR. The engine drift/lint
 gates and existing qualification groups are rerun from a fresh checkout. No
-merge, deployment, restart, host package installation or active-session input.
+merge, deployment, host-service restart, host package installation or
+active-session input. Guest installs, graphical restarts and guest shutdowns
+are part of the isolated lab lifecycle.

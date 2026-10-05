@@ -4,6 +4,7 @@ import configparser
 import json
 import os
 import runpy
+import shlex
 import socket
 import subprocess
 import sys
@@ -78,6 +79,70 @@ def test_session_launcher_refuses_other_user(generated, tmp_path):
     assert result.returncode == 77
 
 
+def test_ready_uses_nested_bus_without_systemd_and_reaches_orca(generated, tmp_path):
+    """A nested dbus-run-session has no org.freedesktop.systemd1 service."""
+    stubs = tmp_path / "ready-stubs"
+    stubs.mkdir()
+    log = tmp_path / "ready.jsonl"
+    runtime = tmp_path / "ready-runtime"
+    runtime.mkdir()
+    session = {
+        "WAYLAND_DISPLAY": "wayland-7", "XDG_RUNTIME_DIR": str(runtime),
+        "DBUS_SESSION_BUS_ADDRESS": "unix:path=/fixture/nested-session-bus",
+        "HYPRLAND_INSTANCE_SIGNATURE": "ready-fixture", "XDG_SESSION_TYPE": "wayland",
+        "XDG_CURRENT_DESKTOP": "Hyprland",
+    }
+    for command in ("dbus-update-activation-environment", "gsettings", "gdbus", "orca"):
+        stub = stubs / command
+        stub.write_text(
+            f"#!{sys.executable}\n"
+            "import json, os, sys\nfrom pathlib import Path\n"
+            "name = Path(sys.argv[0]).name\n"
+            "with open(os.environ['ODQ_TEST_LOG'], 'a') as stream:\n"
+            "    stream.write(json.dumps({'command': name, 'args': sys.argv[1:], "
+            "'bus': os.environ['DBUS_SESSION_BUS_ADDRESS']}) + '\\n')\n"
+            "if name == 'dbus-update-activation-environment' and '--systemd' in sys.argv:\n"
+            "    sys.exit(42)\n"
+            "if name == 'orca':\n"
+            "    assert (Path(os.environ['XDG_RUNTIME_DIR']) / "
+            "'odq-hyprland-session.json').is_file()\n"
+        )
+        stub.chmod(0o755)
+    subprocess.run(
+        ["bash", str(generated / "usr/local/lib/odq/hyprland-ready")], check=True,
+        env={"PATH": f"{stubs}:/usr/bin:/bin", "ODQ_TEST_LOG": str(log), **session},
+        capture_output=True, text=True,
+    )
+    calls = [json.loads(row) for row in log.read_text().splitlines()]
+    assert [call["command"] for call in calls] == [
+        "dbus-update-activation-environment", "gsettings", "gsettings", "gdbus", "orca",
+    ]
+    assert calls[0]["args"] == [
+        "WAYLAND_DISPLAY", "XDG_CURRENT_DESKTOP", "XDG_SESSION_TYPE",
+        "HYPRLAND_INSTANCE_SIGNATURE",
+    ]
+    assert calls[1]["args"] == [
+        "set", "org.gnome.desktop.interface", "toolkit-accessibility", "true",
+    ]
+    assert calls[2]["args"] == [
+        "set", "org.gnome.desktop.a11y.applications", "screen-reader-enabled", "true",
+    ]
+    assert calls[3]["args"] == [
+        "call", "--session", "--dest", "org.a11y.Bus", "--object-path", "/org/a11y/bus",
+        "--method", "org.a11y.Bus.GetAddress",
+    ]
+    assert calls[4]["args"] == ["--replace"]
+    assert all(call["bus"] == session["DBUS_SESSION_BUS_ADDRESS"] for call in calls)
+    record = runtime / "odq-hyprland-session.json"
+    assert json.loads(record.read_text()) == session
+    assert record.stat().st_mode & 0o777 == 0o600
+
+
+def test_generated_config_disables_xwayland(generated):
+    config = (generated / "home/odq/.config/hypr/hyprland.conf").read_text()
+    assert "xwayland {\n    enabled = false\n}" in config
+
+
 @pytest.mark.parametrize("distro,release,architecture,expected", [
     ("ubuntu", "resolute", "x86_64", 0),
     ("ubuntu", "noble", "x86_64", 77),
@@ -122,6 +187,51 @@ def test_install_refuses_non_root_before_guest_operations(tmp_path):
     )
     assert result.returncode == 77
     assert "Guest root required" in result.stderr
+
+
+def test_install_explicitly_supplies_pam_and_orca_speech_module(tmp_path):
+    """No guest commands run: each provisioning side effect is a shell stub."""
+    log = tmp_path / "provision.log"
+    subprocess.run(
+        ["bash", "-c", '''
+source "$1"
+id() { echo 0; }
+systemd-detect-virt() { echo kvm; }
+hostname() { echo odq-hyprland; }
+odq_hyprland_platform() { :; }
+source() {
+    [[ "$1" == /root/odq/common.sh ]] || return 1
+    odq_common() { :; }
+    odq_finalize() { :; }
+}
+apt-get() { printf '%s\\n' "$*" >> "$ODQ_TEST_LOG"; }
+odq_hyprland_files() { [[ "$1" == / ]]; }
+chown() { printf 'chown %s\\n' "$*" >> "$ODQ_TEST_LOG"; }
+systemctl() { :; }
+odq_hyprland_install
+''', "provision-fixture", str(RECIPE)],
+        env={"PATH": "/usr/bin:/bin", "ODQ_TEST_LOG": str(log)}, check=True,
+    )
+    install = next(shlex.split(row) for row in log.read_text().splitlines()
+                   if row.startswith("install "))
+    assert "--no-install-recommends" in install
+    assert "hyprland=0.53.3+ds-4" in install
+    assert "libpam-systemd" in install  # SDDM only recommends runtime/logind PAM.
+    assert "speech-dispatcher-espeak-ng" in install  # espeak-ng is not the module.
+    # Owners of non-base commands/imports in emitted launcher, ready and capture.
+    helper_packages = {
+        "hyprland=0.53.3+ds-4",  # Hyprland, hyprctl
+        "dbus-daemon",  # dbus-run-session, dbus-update-activation-environment
+        "libglib2.0-bin",  # gsettings, gdbus (schemas alone do not supply commands)
+        "orca", "procps", "grim", "foot",  # orca, pgrep, grim, terminal
+        "python3-gi", "gir1.2-gdkpixbuf-2.0",  # capture's fresh PNG decoder
+        "gsettings-desktop-schemas", "at-spi2-core",  # schemas and a11y bus service
+    }
+    assert helper_packages <= set(install)
+    ownership = [shlex.split(row) for row in log.read_text().splitlines()
+                 if row.startswith("chown ")]
+    assert ["chown", "odq:odq", "/home/odq/.config"] in ownership
+    assert ["chown", "-R", "odq:odq", "/home/odq/.config/hypr"] in ownership
 
 
 @pytest.fixture

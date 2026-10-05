@@ -62,7 +62,9 @@ EOF
 #!/bin/bash
 set -euo pipefail
 # Called inside Hyprland: activation receives the compositor's actual environment.
-dbus-update-activation-environment --systemd \
+# This nested dbus-run-session bus has no systemd user manager. Update only
+# its activation environment, never the main PAM user's manager/bus environment.
+dbus-update-activation-environment \
     WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE HYPRLAND_INSTANCE_SIGNATURE
 gsettings set org.gnome.desktop.interface toolkit-accessibility true
 gsettings set org.gnome.desktop.a11y.applications screen-reader-enabled true
@@ -190,11 +192,20 @@ odq_hyprland_install() {
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
     # Refuse silently changing compositor version if this build disappears.
+    # SDDM only recommends pam_systemd; without it PAM need not create the
+    # logind session/runtime directory required by the native launcher.
+    # espeak-ng alone does not install Speech Dispatcher's espeak output module.
+    # Ready needs gsettings/gdbus (libglib2.0-bin), not just their schemas.
+    # Explicitly supply the launcher's D-Bus tools and capture's pgrep too.
     apt-get install -y --no-install-recommends hyprland=0.53.3+ds-4 \
-        sddm grim foot dbus-x11 libgl1-mesa-dri mesa-utils \
-        orca at-spi2-core speech-dispatcher espeak-ng gsettings-desktop-schemas \
+        sddm libpam-systemd grim foot dbus-x11 dbus-daemon libglib2.0-bin procps \
+        libgl1-mesa-dri mesa-utils \
+        orca at-spi2-core speech-dispatcher speech-dispatcher-espeak-ng espeak-ng \
+        gsettings-desktop-schemas \
         gir1.2-gdkpixbuf-2.0 python3-gi fonts-dejavu-core
     odq_hyprland_files /
+    # install -d may create the intermediate .config as root; Orca needs it writable.
+    chown odq:odq /home/odq/.config
     chown -R odq:odq /home/odq/.config/hypr
     systemctl disable --now gdm3.service lightdm.service 2>/dev/null || true
     systemctl enable sddm.service

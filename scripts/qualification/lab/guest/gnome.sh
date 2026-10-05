@@ -62,7 +62,11 @@ X-GDM-SessionRegisters=true
 CONF
     cat > "$root/usr/local/lib/odq/gnome-session" <<'CONF'
 #!/bin/sh
-export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+# Mutter explicitly selects the virtual DRM device for native Wayland EGL.
+# LIBGL_ALWAYS_SOFTWARE conflicts with that device API; select llvmpipe via
+# Gallium without forcing EGL software rendering on the selected device.
+unset LIBGL_ALWAYS_SOFTWARE
+export GALLIUM_DRIVER=llvmpipe
 export GNOME_SHELL_SESSION_MODE=gnome
 exec /usr/bin/gnome-session --session=gnome
 CONF
@@ -80,13 +84,12 @@ Session=odq-gnome
 CONF
     cat > "$root/etc/systemd/system/gdm.service.d/odq-software.conf" <<'CONF'
 [Service]
-Environment=LIBGL_ALWAYS_SOFTWARE=1
+UnsetEnvironment=LIBGL_ALWAYS_SOFTWARE
 Environment=GALLIUM_DRIVER=llvmpipe
 CONF
     # GNOME Shell may be activated by the systemd user manager rather than as
     # a direct child of the session wrapper. Cover that activation path too.
     cat > "$root/etc/environment.d/60-odq-software.conf" <<'CONF'
-LIBGL_ALWAYS_SOFTWARE=1
 GALLIUM_DRIVER=llvmpipe
 CONF
     cat > "$root/etc/dconf/profile/user" <<'CONF'
@@ -95,7 +98,7 @@ system-db:odq
 CONF
     cat > "$root/etc/dconf/db/odq.d/00-gnome" <<'CONF'
 [org/gnome/shell]
-enabled-extensions=[]
+enabled-extensions=@as []
 disable-user-extensions=true
 welcome-dialog-last-shown-version='46'
 

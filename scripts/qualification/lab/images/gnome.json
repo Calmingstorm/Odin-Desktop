@@ -12,8 +12,7 @@
   "desktop": "GNOME",
   "session": "wayland",
   "guest_script": "guest/gnome.sh",
-  "software_renderer": "Mesa llvmpipe, LIBGL_ALWAYS_SOFTWARE=1, GALLIUM_DRIVER=llvmpipe",
-  "runtime_status": "BLOCKED: host Incus ZFS storage pool unavailable; no VM created, provisioned, booted or smoke-tested",
+  "software_renderer": "Mesa llvmpipe via GALLIUM_DRIVER=llvmpipe; unset LIBGL_ALWAYS_SOFTWARE for native Wayland EGL",
   "provenance": {
     "source": "https://images.linuxcontainers.org/streams/v1/images.json",
     "observed_at": "2026-10-05",
@@ -27,8 +26,9 @@
   },
   "limitations": [
     "The image fingerprint pins the base only. GNOME 46 family packages come from Ubuntu noble apt repositories at provisioning time; exact installed versions must be captured by smoke evidence.",
-    "No tray extensions installed or enabled. The GNOME Wayland-only session name, GDM WaylandEnable and AccountsService SessionType are preferences, not proof: runtime GDM/udev autologin policy can still prevent a Wayland login. Smoke must reject X11 fallback rather than altering runtime policy to hide it.",
+    "No tray extensions installed or enabled; dconf pins enabled-extensions to an empty typed string array and disables user extensions. The GNOME Wayland-only session name, GDM WaylandEnable and AccountsService SessionType are preferences, not proof: smoke rejects X11 fallback.",
     "gnome-screenshot is attempted in the guest user session, then GNOME Shell Screenshot D-Bus. Wayland caller restrictions may reject capture; no unsafe Shell mode, caller-name spoof or XWayland-only capture is used. Failure produces no screenshot proof.",
-    "Virtual software rendering exercises desktop/session/protocol behavior, not physical GPU/display performance, hardware input/audio, multi-monitor fidelity or passthrough. No host GPU device is requested."
+    "Virtual software rendering exercises desktop/session/protocol behavior, not physical GPU/display performance, hardware input/audio, multi-monitor fidelity or passthrough. No host GPU device is requested.",
+    "Runtime smoke observations and the native EGL renderer fix are recorded in maintenance/phase3-lab.md, not here."
   ]
 }

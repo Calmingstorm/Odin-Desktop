@@ -7,6 +7,7 @@ are decoded using guest-equivalent Pillow, not word assertions.
 from __future__ import annotations
 
 import configparser
+import json
 import os
 import shlex
 import subprocess
@@ -55,7 +56,7 @@ def test_generated_wayland_session_and_autologin(tmp_path):
 def test_generated_extension_lock_and_accessibility(tmp_path):
     render(tmp_path)
     config = configuration(tmp_path / "etc/dconf/db/odq.d/00-gnome")
-    assert config["org/gnome/shell"]["enabled-extensions"] == "[]"
+    assert config["org/gnome/shell"]["enabled-extensions"] == "@as []"
     assert config["org/gnome/shell"].getboolean("disable-user-extensions")
     assert config["org/gnome/desktop/a11y/applications"].getboolean("screen-reader-enabled")
     assert config["org/gnome/desktop/interface"].getboolean("toolkit-accessibility")
@@ -64,6 +65,58 @@ def test_generated_extension_lock_and_accessibility(tmp_path):
         "/org/gnome/shell/enabled-extensions",
         "/org/gnome/shell/disable-user-extensions",
     }
+
+
+def test_native_drm_llvmpipe_environment_has_no_egl_software_force(tmp_path):
+    render(tmp_path)
+    gdm = configuration(tmp_path / "etc/systemd/system/gdm.service.d/odq-software.conf")
+    assert gdm["Service"]["Environment"] == "GALLIUM_DRIVER=llvmpipe"
+    assert gdm["Service"]["UnsetEnvironment"] == "LIBGL_ALWAYS_SOFTWARE"
+    environment = (tmp_path / "etc/environment.d/60-odq-software.conf").read_text()
+    assert environment.splitlines() == ["GALLIUM_DRIVER=llvmpipe"]
+
+
+@pytest.mark.parametrize("inherited_force", [None, "1"])
+def test_session_wrapper_clears_inherited_force_and_uses_standard_gnome(tmp_path, inherited_force):
+    render(tmp_path)
+    wrapper = (tmp_path / "usr/local/lib/odq/gnome-session").read_text()
+    invocation = "exec /usr/bin/gnome-session --session=gnome"
+    assert wrapper.count(invocation) == 1
+    session = tmp_path / "stub-session"
+    session.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, sys\n"
+        "print(json.dumps({'argv': sys.argv[1:], 'env': dict(os.environ)}))\n"
+    )
+    session.chmod(0o755)
+    # Substitute ONLY the executable, leaving shell environment setup and
+    # arguments intact. Never launch a real desktop or connect to a host bus.
+    env = {"PATH": "/usr/bin:/bin", "ODQ_TEST_SESSION": str(session)}
+    if inherited_force is not None:
+        env["LIBGL_ALWAYS_SOFTWARE"] = inherited_force
+    result = subprocess.run(
+        ["sh", "-c", wrapper.replace(invocation, 'exec "$ODQ_TEST_SESSION" --session=gnome')],
+        env=env, capture_output=True, text=True, check=True,
+    )
+    observed = json.loads(result.stdout)
+    assert observed["argv"] == ["--session=gnome"]
+    assert observed["env"]["GALLIUM_DRIVER"] == "llvmpipe"
+    assert observed["env"]["GNOME_SHELL_SESSION_MODE"] == "gnome"
+    assert "LIBGL_ALWAYS_SOFTWARE" not in observed["env"]
+
+
+def test_generated_dconf_keyfile_compiles_with_installed_dconf(tmp_path):
+    render(tmp_path)
+    keyfile_dir = tmp_path / "etc/dconf/db/odq.d"
+    database = tmp_path / "compiled-dconf"
+    # Compile directly from the isolated generated keyfile directory. This
+    # exercises the installed dconf parser without reading/writing host DBs.
+    result = subprocess.run(
+        ["dconf", "compile", str(database), str(keyfile_dir)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert database.is_file() and database.stat().st_size > 0
 
 
 @pytest.fixture
