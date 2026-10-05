@@ -1,7 +1,10 @@
 # Desktop PR 2: FTS shared-connection read/write race
 
-Status: implemented and locally verified, **review pending**. Parent owns delta-ledger
-registration and the PR. This task made no commit and no upstream change.
+Status: intentional divergence, implemented and locally verified, **review pending**.
+This is an **upstream-candidate** shared-connection correctness fix, not a
+Desktop-only transport boundary. Parent owns final delta-ledger registration and
+the PR. The original FTS task made no commit or upstream change; PR 2 items 5-7
+review work preserves those source/test bytes and records the candidate explicitly.
 
 ## Origin and unchanged evidence
 
@@ -127,4 +130,6 @@ No live data/config/service, system install, real endpoint, upstream repository
 mutation, native lifecycle, desktop input, commit, staging, or spawned agent.
 Tests use temporary databases and harmless injected SQLite faults. No full
 suite, new CI run, reviewer approval or coverage percentage is claimed.
-Parent must ledger this source adaptation and obtain the required review.
+Parent must ledger this source adaptation with backport disposition
+`upstream-candidate; applicability/independent review pending` and obtain the
+required review. No upstream issue, patch or release was created by this work.

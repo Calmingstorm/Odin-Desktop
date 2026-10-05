@@ -313,12 +313,7 @@ class HostEnrollmentManager:
     async def test(self, token: str) -> HostCandidate:
         candidate = self.get(token)
         if is_local_address(candidate.address):
-            argv = [
-                "sh", "-c",
-                "printf 'odin-host-test '; "
-                "case \"$(uname -s)\" in Linux) echo linux;; "
-                "Darwin) echo macos;; *) echo unknown;; esac",
-            ]
+            argv = ["sh", "-c", "printf 'odin-host-test linux\\n'"]
         else:
             legacy = candidate.trust_mode == "legacy"
             key_alias = (

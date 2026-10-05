@@ -225,17 +225,17 @@ async def test_enrollment_requires_exact_trust_then_successful_test(tmp_path, mo
         manager.consume(candidate.token)
 
 
-async def test_local_enrollment_requires_consent_and_actual_platform_probe(tmp_path, monkeypatch):
+async def test_local_enrollment_requires_consent_and_baseline_linux_check(tmp_path, monkeypatch):
     manager = HostEnrollmentManager(HostRegistry({}, trust_dir=tmp_path))
     with pytest.raises(HostTrustError, match="confirm_local"):
         await manager.prepare("local", {"address": "localhost", "os": "linux"}, allow_tofu=False)
     candidate = await manager.prepare(
-        "local", {"address": "localhost", "os": "macos", "confirm_local": True}, allow_tofu=False
+        "local", {"address": "localhost", "os": "linux", "confirm_local": True}, allow_tofu=False
     )
-    probe = AsyncMock(return_value=(0, b"odin-host-test macos\n"))
+    probe = AsyncMock(return_value=(0, b"odin-host-test linux\n"))
     monkeypatch.setattr("src.tools.hosts.control._run_argv", probe)
     assert (await manager.test(candidate.token)).tested
-    assert "uname -s" in probe.await_args.args[0][2]
+    probe.assert_awaited_once_with(["sh", "-c", "printf 'odin-host-test linux\\n'"], 15.0)
 
 
 async def test_generation_leases_drain_and_force_revoke_keeps_uncertainty(tmp_path):

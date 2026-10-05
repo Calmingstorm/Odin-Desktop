@@ -491,6 +491,7 @@ _TOOL_RISK_MAP: dict[str, RiskLevel] = {
     "stop_loop": RiskLevel.MEDIUM,
     "cancel_task": RiskLevel.MEDIUM,
     "kill_agent": RiskLevel.MEDIUM,
+    "add_reaction": RiskLevel.MEDIUM,
     "post_file": RiskLevel.MEDIUM,
     "generate_file": RiskLevel.MEDIUM,
     # High — arbitrary code execution
