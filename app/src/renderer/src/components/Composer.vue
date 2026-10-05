@@ -11,6 +11,7 @@ import {
   edit,
   pickFiles,
   removeAttachment,
+  runBoxCommand,
   sendBox,
   setKnowledge,
   showDraft
@@ -80,9 +81,8 @@ async function runCommand(): Promise<void> {
   if (!command) return
   const { arg } = parseCommand(text.value)
   busy.value = true
-  const outcome = await dispatch(command, arg)
+  await runBoxCommand(() => dispatch(command, arg))
   busy.value = false
-  if (outcome !== false) text.value = ''
 }
 
 function onKey(event: KeyboardEvent): void {

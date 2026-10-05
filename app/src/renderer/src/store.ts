@@ -241,6 +241,7 @@ function loadAll(): Promise<void> {
 async function loadAllOnce(epoch: number): Promise<void> {
   if (epoch !== state.recoveryEpoch) return
   state.recoveryError = undefined
+  appliedWatermark = -1
   listLoading = true
   const generation = ++listGeneration
   const listed = await window.odin.listConversations()
@@ -281,6 +282,8 @@ const deleted = new Set<string>()
 /** Each list request's generation, and when the window learned of a conversation outside any list. */
 let listGeneration = 0
 const learnedIn = new Map<string, number>()
+/** The watermark of the newest complete list applied since the core last started; an older one is obsolete. */
+let appliedWatermark = -1
 
 /**
  * The list is complete through `watermark`: it replaces what the window knows, except where an event after the
@@ -288,6 +291,12 @@ const learnedIn = new Map<string, number>()
  * the sidebar's activity and applies what came after.
  */
 function applyList(items: ConversationListItem[], watermark: number, generation: number, held?: CoreEvent[]): void {
+  if (watermark < appliedWatermark) {
+    // An answer to an earlier list: everything in it is already known, and a newer list says what's gone.
+    if (held) for (const event of held) trackBusy(event)
+    return
+  }
+  appliedWatermark = watermark
   const listed = new Set(items.map((item) => item.id))
   for (const item of items) {
     if (deleted.has(item.id) || (conversationSeq.get(item.id) ?? 0) > watermark) continue
@@ -303,7 +312,8 @@ function applyList(items: ConversationListItem[], watermark: number, generation:
   for (const conversation of [...state.conversations]) {
     if (listed.has(conversation.id) || (conversationSeq.get(conversation.id) ?? 0) > watermark) continue
     if ((learnedIn.get(conversation.id) ?? -1) >= generation) continue
-    removeConversation(conversation.id)
+    // Missing from a complete list: gone for now, but not a deletion. Only a deletion is final.
+    removeConversation(conversation.id, false)
   }
   if (held) for (const event of held) if (event.seq > watermark) trackBusy(event)
 }
@@ -423,6 +433,11 @@ export async function select(conversationId: string): Promise<void> {
   // Navigation belongs to the conversation it was made in: leaving it ends any jump or highlight, and fences a jump
   // still on its way.
   if (conversationId !== state.activeId || (state.jump && state.jump.conversationId !== conversationId)) clearNavigation()
+  await open(conversationId)
+}
+
+/** Shows a conversation: a cached view at once, otherwise once its snapshot loads. */
+async function open(conversationId: string): Promise<void> {
   state.activeId = conversationId
   const view = state.views[conversationId]
   // A view from an earlier recovery is shown but must be refreshed before anything is routed to it, and so must one
@@ -466,7 +481,8 @@ async function markReadIfAttentive(conversationId: string): Promise<void> {
   const view = state.views[conversationId]
   const last = view?.messages[view.messages.length - 1]
   if (!conversation || conversation.unread <= 0 || state.activeId !== conversationId || !last) return
-  if (state.jump?.conversationId === conversationId) return
+  // A search jump shows older messages, or is on its way to: the latest ones aren't on screen.
+  if (state.jump?.conversationId === conversationId || jumpPending === conversationId) return
   if (!isAuthoritative(view) || !attentive()) return
   markingRead.set(conversationId, false)
   try {
@@ -489,8 +505,11 @@ function conversationById(id: string): Conversation | undefined {
  * can never create a second thread or reset twice.
  */
 const unconfirmed = new Map<string, { key: string; settle: (answer: Result<unknown>, late: boolean) => void }>()
+/** Keys with a command on its way, before any answer. */
+const sending = new Set<string>()
 
 function awaitingConfirmation(key: string): boolean {
+  if (sending.has(key)) return true
   for (const command of unconfirmed.values()) if (command.key === key) return true
   return false
 }
@@ -506,7 +525,13 @@ async function conversationCommand<T>(
     return null
   }
   const commandId = crypto.randomUUID()
-  const answer = await send(commandId)
+  sending.add(key)
+  let answer: Result<T>
+  try {
+    answer = await send(commandId)
+  } finally {
+    sending.delete(key)
+  }
   if (!answer.ok && isUnknownOutcome(answer.error)) {
     unconfirmed.set(commandId, { key, settle: settle as (answer: Result<unknown>, late: boolean) => void })
     note('Waiting for Odin to confirm that change. It is never sent twice.')
@@ -530,9 +555,10 @@ function settleConversation(result: Result<{ conversation: Conversation }>): boo
 }
 
 async function refreshConversations(): Promise<void> {
+  const epoch = state.recoveryEpoch
   const generation = ++listGeneration
   const listed = await window.odin.listConversations()
-  if (!listed.ok) return
+  if (!listed.ok || epoch !== state.recoveryEpoch) return
   applyList(listed.result.items, Number(listed.result.watermark) || 0, generation)
 }
 
@@ -610,9 +636,12 @@ export async function startThread(parentId: string, fromMessageId?: string): Pro
   )
 }
 
-/** Drops everything the window holds for a deleted conversation, and moves to another one if it was open. */
-function removeConversation(id: string): void {
-  deleted.add(id)
+/**
+ * Drops everything the window holds for a conversation, and moves to another one if it was open. A deletion is final;
+ * missing from a list is not, since a newer fact can bring it back.
+ */
+function removeConversation(id: string, final = true): void {
+  if (final) deleted.add(id)
   state.conversations = state.conversations.filter((c) => c.id !== id)
   // Nothing found in it can be shown or opened any more.
   state.search.hits = state.search.hits.filter((h) => h.conversation_id !== id)
@@ -648,7 +677,7 @@ export async function runSearch(query: string): Promise<void> {
     state.search.error = result.error.message
     return
   }
-  state.search.hits = result.result.hits
+  state.search.hits = result.result.hits.filter((h) => !deleted.has(h.conversation_id))
   state.search.nextCursor = result.result.next_cursor ?? null
 }
 
@@ -665,21 +694,34 @@ export async function moreResults(): Promise<void> {
     return
   }
   const known = new Set(state.search.hits.map((h) => h.message_id))
-  state.search.hits = [...state.search.hits, ...result.result.hits.filter((h) => !known.has(h.message_id))]
+  state.search.hits = [
+    ...state.search.hits,
+    ...result.result.hits.filter((h) => !known.has(h.message_id) && !deleted.has(h.conversation_id))
+  ]
   state.search.nextCursor = result.result.next_cursor ?? null
 }
 
 /** Each jump's generation: going back to the latest, another jump, a switch or a reset fences an older one. */
 let jumpGeneration = 0
+/** The conversation a jump is opening. Until it lands, the latest messages aren't what the user is shown. */
+let jumpPending: string | null = null
 
 /** Opens a hit's conversation at the message: in place when it is loaded, otherwise in a window around it. */
 export async function jumpTo(hit: SearchHit): Promise<void> {
-  await select(hit.conversation_id)
-  const mine = ++jumpGeneration
+  // Fence what came before, and hold back reading, before anything loads.
+  clearNavigation()
+  const mine = jumpGeneration
+  jumpPending = hit.conversation_id
+  const current = (): boolean => mine === jumpGeneration && state.activeId === hit.conversation_id
+  await open(hit.conversation_id)
+  if (!current()) return
   const view = state.views[hit.conversation_id]
   if (view?.messages.some((m) => m.id === hit.message_id)) {
+    // In place: the latest messages are on screen after all.
+    jumpPending = null
     state.jump = null
     state.highlightId = hit.message_id
+    void markReadIfAttentive(hit.conversation_id)
     return
   }
   const result = await window.odin.messagesAround({
@@ -688,8 +730,13 @@ export async function jumpTo(hit: SearchHit): Promise<void> {
     before: 20,
     after: 20
   })
-  if (mine !== jumpGeneration || state.activeId !== hit.conversation_id) return
-  if (!result.ok) return note(result.error.message)
+  if (!current()) return
+  jumpPending = null
+  if (!result.ok) {
+    note(result.error.message)
+    void markReadIfAttentive(hit.conversation_id) // the latest messages stay on screen
+    return
+  }
   state.jump = {
     conversationId: hit.conversation_id,
     messageId: hit.message_id,
@@ -703,6 +750,7 @@ export async function jumpTo(hit: SearchHit): Promise<void> {
 /** Ends any jump or highlight, and fences a jump still on its way. */
 function clearNavigation(): void {
   jumpGeneration += 1
+  jumpPending = null
   state.jump = null
   state.highlightId = null
 }

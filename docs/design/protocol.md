@@ -196,10 +196,39 @@ records what happened. An outcome of `shown` means the OS accepted it, not that 
 
 | Method | Params | Result |
 |---|---|---|
-| `settings.schema` | `{}` | Odin's `GET /api/config/meta`: `{schema_version, revision, fields, status}`. Each field keeps Odin's apply-registry record: `path`, `label`, `description`, `type`, `enum`, `constraints`, `default`, `nullable`, `sensitivity`, `apply_mode` (`live_read`, `live_apply`, `live_for_new_work`, `restart`, `activation_required` or `dormant`), `apply_handler`, `restart_reason`, `activation_policy`, `consumers`, `save_effect`, `runtime_effect`, `desired`, `effective`, `pending_restart` and `apply_state` (`applied`, `pending_restart`, `dormant`, `invalid`, `drift` or `unknown`). Saved and effective values stay distinct, and a sensitive field's values are redacted. Where Odin's `apply_handler` is a dedicated route, the core names the desktop method that does the same (for example `models.main.set`). |
-| `settings.set` | `{expected_revision, changes: [{path, value} or {path, delete: true}]}` | Odin's `PUT /api/config` semantics: partial, validated as a whole, persisted before the runtime changes. The result is `{revision, fields}`: the changed fields' records, saying what saving did and what the running core does now. A field whose `apply_handler` is a dedicated method is refused here, naming that method. Validation errors name the field, and nothing is applied. |
+| `settings.schema` | `{}` | Odin's `GET /api/config/meta`: `{schema_version, revision, fields, status}`. Each field keeps Odin's apply-registry record: `path`, `label`, `description`, `type`, `enum`, `constraints`, `default`, `nullable`, `sensitivity`, `apply_mode` (`live_read`, `live_apply`, `live_for_new_work`, `restart`, `activation_required` or `dormant`), `apply_handler`, `restart_reason`, `activation_policy`, `consumers`, `save_effect`, `runtime_effect`, `desired`, `effective`, `pending_restart` and `apply_state` (`applied`, `pending_restart`, `dormant`, `invalid`, `drift` or `unknown`). Saved and effective values stay distinct, and a sensitive field's values are redacted. Where Odin's `apply_handler` is a dedicated route, the core names the desktop method that does the same (see Dedicated settings methods). The result also carries Odin's image-model intent: `image_models` `{image_model, outer_model}`, each `{effective, default, status}`, where `status` is `follow` (no saved value, so it moves with the shipped default) or `pin` (saved), and `image_models_revision`. |
+| `settings.set` | `{expected_revision, changes: [{path, value} or {path, delete: true}]}` | Odin's `PUT /api/config` semantics: partial, validated as a whole, persisted before the runtime changes. The result is `{revision, fields}`: the changed fields' records, saying what saving did and what the running core does now. A field whose `apply_handler` is a dedicated method is refused here, naming that method. A stale `expected_revision` is refused as `stale_binding`. Validation errors name the field. Either way, nothing is applied. |
 | `secrets.set` | `{path, value}` | `{set: true}`. The value is stored in the profile's keyring and never echoed. |
 | `secrets.clear` | `{path}` | `{set: false}` |
+
+#### Dedicated settings methods
+
+A field record's `apply_handler` names the method that changes it. There are two kinds, and the method name says which.
+
+- **Settings-shaped methods** take exactly `settings.set`'s params, `{expected_revision, changes}`, and answer its result, `{revision, fields}`. Each accepts only the fields whose `apply_handler` names it, and refuses any other field, naming the right method. It runs its owner's transaction instead of the generic one: validate, save, then apply to the running owner. If applying fails, the previous saved values are restored and the error is the answer, so saved and running values never part silently. A secret field of the same owner is set with `secrets.set`, which applies it through the same transaction.
+- **Section methods** have their own params, listed under Management domains. The settings form shows their fields read-only, pointing at the section's own controls.
+
+| Settings-shaped method | Odin route | Fields |
+|---|---|---|
+| `providers.codex.set` | `PUT /api/llm/codex/config`; the request and retry fields apply as `POST /api/codex/reload` does | `openai_codex.*`, except `openai_codex.auxiliary.*` |
+| `providers.auxiliary.set` | `PUT /api/llm/auxiliary/config` | `openai_codex.auxiliary.*` |
+| `providers.ollama.set` | `PUT /api/llm/ollama/config` | `ollama.*` |
+| `providers.compat.set` | `PUT /api/openai-compatible/config` | `openai_compatible.*` |
+| `computer.activation.set` | `POST /api/computer/enabled` | `computer.enabled`: on is activation, off is revocation |
+
+| Section method | Fields |
+|---|---|
+| `models.main.set` | `llm_provider.*` |
+| `models.agents.set` | `agents.model`, `agents.auto_model_allowlist`, `agents.thinking_mode`, `agents.model_selection_hints` |
+| `tools.set_enabled` | `tools.disabled_tools` |
+| `tools.timeouts.set` | `tools.tool_timeouts` |
+| `hosts.settings`, and the other `hosts.*` methods | `tools.default_host`, `tools.allow_host_tofu`, `tools.hosts` |
+| `mcp.save`, `mcp.set_global_enabled`, `mcp.set_limits` | `mcp.*` |
+| `webhooks.outbound.*` | `outbound_webhooks.*` |
+
+A field Odin saves with its generic route, such as `personality.user_presets`, names `settings.set`, and the core does what Odin's route does after saving it (here, republishing the presets).
+
+**Image-model intent.** `models.image.intent` `{expected_revision, operations}` is Odin's `POST /api/config/image-models`. `operations` maps `image_model` and/or `outer_model` to `follow` or `pin`. `follow` removes the saved value, so the leaf follows the shipped default from then on; `pin` saves the value in effect now, even when it equals the default. A plain `settings.set` of one of these leaves keeps Odin's rule: a value equal to the default keeps following. `expected_revision` is the last `image_models_revision`; a stale one is refused as `stale_binding`, and nothing changes. The answer is `{image_models, image_models_revision, revision}`: the intent changes the saved settings, so `revision` moves too.
 
 ### Management domains
 
@@ -208,11 +237,12 @@ Each method has the Odin shape of the listed route.
 | Domain | Methods | Odin shape |
 |---|---|---|
 | Codex accounts | `codex.accounts.list`, `codex.accounts.activate`, `codex.accounts.remove`, `codex.accounts.label`, `codex.login.begin`, `codex.login.poll` | `GET /api/codex/status`, `POST /api/codex/account/{index}/activate`, `DELETE /api/codex/account/{index}`, `PUT /api/codex/account/{index}/label`, `POST /api/codex/device-code`, `POST /api/codex/device-poll` |
-| Models | `models.main.set`, `models.agents.get`, `models.agents.set`, `models.discover` | `PUT /api/llm/main-model`, `GET` / `PUT /api/agents/model`. `models.discover` `{provider, base_url?}` lists the models an endpoint offers, including one configured but not enabled yet: `POST /api/ollama/probe-models` for `ollama`, `GET /api/openai-compatible/models` for `compat`. |
+| Models | `models.main.set`, `models.agents.get`, `models.agents.set`, `models.discover`, `models.image.intent` | `PUT /api/llm/main-model`, `GET` / `PUT /api/agents/model`, `POST /api/config/image-models` (see Image-model intent). `models.discover` `{provider, base_url?}` lists the models an endpoint offers, including one configured but not enabled yet: `POST /api/ollama/probe-models` for `ollama`, `GET /api/openai-compatible/models` for `compat`. Odin's compatible route answers 503 until its client exists, so the core asks the endpoint itself, with the given or saved `base_url` and the stored key, and never needs the provider enabled first. |
 | Personality | `personality.get`, `personality.set`, `personality.presets.save`, `personality.presets.delete` | `/api/personality`, `/api/personality/presets` |
 | Tools | `tools.list`, `tools.set_enabled`, `tools.timeouts.get`, `tools.timeouts.set` | `GET /api/tools/builtins`, `POST /api/tools/builtins/{name}/enabled`, `/api/tools/timeouts` |
 | Skills | `skills.list`, `skills.get`, `skills.save`, `skills.validate`, `skills.test`, `skills.set_enabled`, `skills.delete`, `skills.config.get`, `skills.config.set` | `/api/skills` and its sub-routes |
-| MCP servers | `mcp.list`, `mcp.status`, `mcp.save`, `mcp.set_enabled`, `mcp.delete`, `mcp.reconnect`, `mcp.refresh_tools`, `mcp.tools` | `/api/mcp/*` |
+| MCP servers | `mcp.list`, `mcp.status`, `mcp.save`, `mcp.set_enabled`, `mcp.delete`, `mcp.reconnect`, `mcp.refresh_tools`, `mcp.tools`, `mcp.set_global_enabled`, `mcp.set_limits` | `/api/mcp/*`. `mcp.set_global_enabled` `{enabled}` is `POST /api/mcp/enabled`; `mcp.set_limits` `{max_published_tools_per_server?, max_published_tools_global?}` is `POST /api/mcp/limits`. |
+| Outbound webhooks | `webhooks.outbound.list`, `webhooks.outbound.save`, `webhooks.outbound.delete`, `webhooks.outbound.test` | `/api/outbound-webhooks*`. `webhooks.outbound.save` without `id` is `POST`, and with `id` is `PUT /api/outbound-webhooks/{id}`, with Odin's fields: `name`, `url`, `secret`, `events`, `enabled`, `scrub_secrets`, `verify_ssl`. The secret is write-only: answers say only whether one is set. `webhooks.outbound.test` `{id}` sends Odin's test delivery. |
 | Hosts and trust | `hosts.list`, `hosts.prepare`, `hosts.test`, `hosts.commit`, `hosts.set_enabled`, `hosts.references`, `hosts.delete`, `hosts.public_key`, `hosts.force_revoke` | `/api/hosts`, `/api/hosts/candidates`, `/candidates/{token}/test` and `/commit`, `/{alias}/references`, `POST /api/hosts/{alias}/force-revoke` (immediate revocation of leased host generations) and the rest |
 | Schedules | `schedules.list`, `schedules.save`, `schedules.delete`, `schedules.run`, `schedules.reset_failures`, `schedules.history`, `schedules.validate_cron` | `/api/schedules/*` |
 | Memory | `memory.list`, `memory.get`, `memory.set`, `memory.delete`, `memory.bulk_delete` | `/api/memory/*` |
