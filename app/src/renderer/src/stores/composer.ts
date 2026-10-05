@@ -130,18 +130,26 @@ export async function addPasted(conversationId: string, files: readonly File[]):
   const images = files.filter((f) => f.type.startsWith('image/'))
   const others = files.filter((f) => !f.type.startsWith('image/'))
   if (others.length) await addFiles(conversationId, others)
-  for (const image of await fitting(conversationId, images)) {
-    try {
-      const staged = await window.odin.attachBytes({
-        name: image.name || `pasted-image.${image.type.split('/')[1] ?? 'png'}`,
-        mime: image.type,
-        data: new Uint8Array(await image.arrayBuffer())
-      })
-      if (staged.ok) start(conversationId, staged.result, URL.createObjectURL(image))
-      else composer.errors = [staged.error.message]
-    } finally {
-      release(conversationId)
+  const kept = await fitting(conversationId, images)
+  let settled = 0
+  try {
+    for (const image of kept) {
+      const name = image.name || `pasted-image.${image.type.split('/')[1] ?? 'png'}`
+      try {
+        const staged = await window.odin.attachBytes({ name, mime: image.type, data: new Uint8Array(await image.arrayBuffer()) })
+        if (staged.ok) start(conversationId, staged.result, URL.createObjectURL(image))
+        else composer.errors = [...composer.errors, staged.error.message]
+      } catch {
+        // One image that can't be read or staged doesn't stop the rest.
+        composer.errors = [...composer.errors, `Couldn't attach ${name}.`]
+      } finally {
+        settled += 1
+        release(conversationId)
+      }
     }
+  } finally {
+    // Whatever stops the batch, every place it reserved is given back.
+    for (; settled < kept.length; settled += 1) release(conversationId)
   }
 }
 

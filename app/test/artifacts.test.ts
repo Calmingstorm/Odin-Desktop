@@ -286,4 +286,17 @@ describe('review round 1: the private cache follows the core', () => {
     expect(await store.check('f5')).toEqual({ ok: true, result: { available: false } })
     expect(existsSync(cached.result)).toBe(false)
   })
+
+  it('reports a file forgotten during its one-byte check as unavailable', async () => {
+    const { requester, hold, held } = holdingCore({ f6: 'here' })
+    const { store } = storeFor(requester)
+    expect((await store.cached('f6', 'notes.txt')).ok).toBe(true)
+    hold.checks = true
+    const checking = store.check('f6')
+    await waitFor(() => held.length === 1)
+    await store.forget('f6')
+    held[0]!()
+    expect(await checking).toEqual({ ok: true, result: { available: false } })
+  })
 })
+
