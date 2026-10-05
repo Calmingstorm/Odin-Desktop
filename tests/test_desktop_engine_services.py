@@ -4,10 +4,11 @@ import asyncio
 import pytest
 
 from src.config.schema import Config
+from src.desktop.artifacts import ArtifactStore
 from src.desktop.authority import OwnerAuthority
 from src.desktop.commands import JournalStore
 from src.desktop.conversations import ConversationStore
-from src.desktop.delivery import DurableDelivery, PublicationEventJournal
+from src.desktop.delivery import ArtifactPublisher, DurableDelivery, PublicationEventJournal
 from src.desktop.paths import ProfilePaths
 from src.desktop.requests import RequestService
 from src.desktop.services import build_engine_services
@@ -103,6 +104,29 @@ async def test_actual_native_dispatch_and_completion_judge(graph):
     assert len(provider.calls) == 2
     assert transcript.read_conversation(cid)[-1]["text"] == "The time conversion is complete."
     assert provider.judges == 1
+
+
+@pytest.mark.asyncio
+async def test_actual_generate_file_posts_durable_binary_artifact(graph):
+    import base64
+
+    requests, engine, provider, transcript, cid = graph
+    artifacts = ArtifactStore(requests.store,
+                              authorize=engine.deps.tool_executor._authorize_output)
+    requests.delivery.artifact_converter = ArtifactPublisher(artifacts, requests.events)
+    provider.responses = [LLMResponse(tool_calls=[ToolCall("file", "generate_file", {
+        "filename": "result.txt", "content": "durable text"})], stop_reason="tool_use"),
+        LLMResponse(text="The file has been created.")]
+    requests.submit({"client_submission_id": "file", "conversation_id": cid,
+                     "text": "Create a text file"})
+    await requests.after_commit()
+    await asyncio.gather(*requests._tasks)
+    files = [item for item in transcript.list(cid)["items"] if item.get("artifacts")]
+    assert len(files) == 1
+    ref = files[0]["artifacts"][0]["ref"]
+    page = artifacts.read(ref, 0, 100, owner=requests.authority.owner_id)
+    assert base64.b64decode(page["data_b64"]) == b"durable text"
+    assert "generate_file" in {tool["name"] for tool in provider.calls[0]["tools"]}
 
 
 @pytest.mark.asyncio

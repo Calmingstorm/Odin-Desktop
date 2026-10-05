@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import mimetypes
 import time
 from collections.abc import Mapping
+from contextvars import ContextVar
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -429,7 +431,9 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             ready[name] = bool(executor._email_config and executor._email_config.enabled)
         ready["analyze_pdf"] = importlib.util.find_spec("fitz") is not None
         ready.update({"parse_time": True, "search_history": True, "search_audit": True,
-                      "read_conversation": engine.requests is not None})
+                      "read_conversation": engine.requests is not None,
+                      "generate_file": engine.requests is not None,
+                      "post_file": engine.requests is not None})
         for name in ("search_knowledge", "ingest_document", "bulk_ingest_knowledge", "list_knowledge", "delete_knowledge"):
             ready[name] = knowledge is not None and bool(get_config().search.enabled)
         extra = getattr(runtime, "native_readiness", None)
@@ -491,7 +495,44 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     owners.setdefault("scheduling", SchedulingTools(scheduler=scheduler, tool_catalog=catalog))
     owners.setdefault("knowledge", KnowledgeTools(sessions=sessions,
         get_knowledge_store=lambda: knowledge, embedder=embedder, audit=audit))
-    owners.setdefault("media", MediaTools(get_config=get_config, browser_manager=browser, tool_executor=executor))
+    publication_tool = ContextVar("desktop_media_publication_tool", default=None)
+
+    class DesktopMediaTools(MediaTools):
+        """Adapt only the copied media handler's durable-publication seam."""
+
+        def _delivery_available(self):
+            return engine.requests is not None
+
+        async def _publish_attachment(self, message, data, filename, caption=""):
+            from ..tools.output_authorization import accessed_hosts
+            from .delivery import ArtifactPost
+
+            engine.requests.assert_bound_request(message)
+            tool = publication_tool.get()
+            if tool is None:
+                raise PermissionError("No admitted artifact producer")
+            mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+            artifact = ArtifactPost(data, filename, mime,
+                "image" if mime.startswith("image/") else "file", tool,
+                tuple((accessed_hosts.get() or {}).values()))
+            return await delivery.send(message.channel, caption, files=[artifact])
+
+        async def _handle_generate_file(self, message, inp):
+            token = publication_tool.set("generate_file")
+            try:
+                return await super()._handle_generate_file(message, inp)
+            finally:
+                publication_tool.reset(token)
+
+        async def _handle_post_file(self, message, inp):
+            token = publication_tool.set("post_file")
+            try:
+                return await super()._handle_post_file(message, inp)
+            finally:
+                publication_tool.reset(token)
+
+    owners.setdefault("media", DesktopMediaTools(
+        get_config=get_config, browser_manager=browser, tool_executor=executor))
     owners["transcript_history"] = TranscriptHistoryTools()
     dispatcher = _ReadyDispatcher(owners=owners, skill_manager=skills, tool_catalog=catalog,
         prompt_builder=prompt, channel_state=state, builtin_policy=policy)

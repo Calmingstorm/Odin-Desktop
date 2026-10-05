@@ -31,7 +31,7 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
     adapted = {
         "run", "run_resumed", "_prepare_chat_turn", "_scoped_tools_for_request",
         "_call_llm", "run_autonomous", "_finalize_loop", "__init__",
-        "_run_chat_tool", "_audit_tool_outcome",
+        "_run_one_tool_captured", "_audit_tool_outcome",
     }
     assert baseline.keys() == desktop.keys()
     for name in baseline.keys() - adapted:

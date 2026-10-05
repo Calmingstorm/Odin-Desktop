@@ -785,6 +785,8 @@ class ToolLoopRunner:
         same guard envelope as a fresh one. The iteration loop starts from
         ``st.iteration`` — the restored transcript already contains every
         earlier generation."""
+        if not callable(getattr(self, "_assert_request", None)):
+            _require_phase2_wiring()
         self._assert_request(st.message)
         st._cancel = self._channel_state.set_active_request(st._ch_id, st._req_id, st._cancel)
         # Only consumed directives survive in the checkpoint transcript. Never
@@ -1073,6 +1075,8 @@ class ToolLoopRunner:
         """Turn setup: prompt/tools resolution, request preamble, permission
         filtering, trajectory + correlation init, cancellation wiring."""
 
+        if not callable(getattr(self, "_assert_request", None)):
+            _require_phase2_wiring()
         self._assert_request(message)
         system_prompt = system_prompt_override or self._get_default_system_prompt()
         messages = list(history)
