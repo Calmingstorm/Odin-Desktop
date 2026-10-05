@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import type { ArtifactRef } from '../../../shared/api'
+import { onCodeCopyClick } from '../code-copy'
 import { renderMarkdown } from '../markdown'
 
 const props = defineProps<{ artifact: ArtifactRef }>()
@@ -43,6 +44,6 @@ onMounted(() => {
     <p v-if="!artifact.available" class="report-note">This report is no longer available.</p>
     <p v-else-if="error" class="report-note warn">{{ error }}</p>
     <p v-else-if="loading && !text" class="report-note">Loading…</p>
-    <div v-else class="md report-body" v-html="renderMarkdown(text)" />
+    <div v-else class="md report-body" @click="onCodeCopyClick" v-html="renderMarkdown(text)" />
   </section>
 </template>

@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import type { ArtifactRef } from '../../../shared/api'
 
-const props = defineProps<{ artifact: ArtifactRef }>()
+const props = defineProps<{ artifact: ArtifactRef; /** Only the buttons, under an image already on screen. */ actionsOnly?: boolean }>()
 const busy = ref(false)
 const status = ref('')
 
@@ -31,13 +31,14 @@ async function act(kind: 'open' | 'save' | 'reveal'): Promise<void> {
 </script>
 
 <template>
-  <div :class="['file-card', { unavailable: !artifact.available }]">
-    <span class="file-icon" aria-hidden="true">{{ extension }}</span>
-    <div class="file-body">
+  <div :class="['file-card', { unavailable: !artifact.available, 'actions-only': actionsOnly }]">
+    <span v-if="!actionsOnly" class="file-icon" aria-hidden="true">{{ extension }}</span>
+    <div v-if="!actionsOnly" class="file-body">
       <span class="file-name" :title="artifact.name">{{ artifact.name }}</span>
       <span class="file-meta">{{ artifact.available ? `${size} · ${artifact.mime}` : 'No longer available' }}</span>
       <span v-if="status" class="file-status" role="status">{{ status }}</span>
     </div>
+    <span v-if="actionsOnly && status" class="file-status" role="status">{{ status }}</span>
     <div v-if="artifact.available" class="file-actions">
       <button class="ghost" :disabled="busy" title="Open with your default app" @click="act('open')">Open</button>
       <button class="ghost" :disabled="busy" @click="act('save')">Save as…</button>

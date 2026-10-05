@@ -1,24 +1,25 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { matchCommands, parseCommand } from '../commands'
+import { dispatch, matchCommands, parseCommand } from '../commands'
 import { canAct, loadFailure, retry, send, state, stop, stopPending, type ComposerMode } from '../store'
 import {
   addFiles,
   addPasted,
   attachmentsFor,
-  clearAttachments,
+  box,
   composer,
-  loadDraft,
+  edit,
   pickFiles,
-  readyAttachments,
   removeAttachment,
-  saveDraft,
-  setKnowledge
+  sendBox,
+  setKnowledge,
+  showDraft
 } from '../stores/composer'
 import AttachmentTray from './AttachmentTray.vue'
 import CommandPalette from './CommandPalette.vue'
 
-const text = ref('')
+// The box's text is its conversation's draft (stores/composer.ts); typing saves it.
+const text = computed({ get: () => box.text, set: (value: string) => edit(value) })
 const mode = ref<ComposerMode>('steer')
 const busy = ref(false)
 const dragging = ref(false)
@@ -40,6 +41,7 @@ const matches = computed(() => (paletteOpen.value ? matchCommands(text.value) : 
 const canSend = computed(
   () =>
     ready.value &&
+    box.owner === state.activeId &&
     !busy.value &&
     !uploading.value &&
     !failedAttachment.value &&
@@ -50,49 +52,35 @@ const placeholder = computed(() =>
   running.value ? (mode.value === 'steer' ? 'Steer the current task…' : 'Queue a follow-up…') : 'Message Odin… (/ for commands)'
 )
 
-// Each conversation keeps its own draft, saved as you type.
-let switching = false
+// Each conversation keeps its own draft. While switching, the box belongs to no conversation until the next draft
+// has loaded, so nothing typed or shown can be sent to the wrong one.
 watch(
   () => state.activeId,
-  async (id) => {
+  (id) => {
     selected.value = 0
-    if (!id) {
-      text.value = ''
-      return
-    }
-    switching = true
-    const draft = await loadDraft(id)
-    if (state.activeId === id) text.value = draft
-    switching = false
+    void showDraft(id, () => state.activeId === id)
   },
   { immediate: true }
 )
-watch(text, (value) => {
-  if (state.activeId && !switching) saveDraft(state.activeId, value)
+watch(text, () => {
   if (selected.value >= matches.value.length) selected.value = 0
 })
 
 async function submit(): Promise<void> {
   if (paletteOpen.value && matches.value.length) return runCommand()
-  const conversationId = state.activeId
-  if (!conversationId || !canSend.value) return
-  const refs = readyAttachments(conversationId)
-  if (refs === null) return
+  if (!canSend.value) return
   busy.value = true
-  const accepted = await send(text.value.trim(), running.value ? mode.value : 'queue', refs)
+  await sendBox(state.activeId, (body, refs) => send(body, running.value ? mode.value : 'queue', refs))
   busy.value = false
-  if (accepted) {
-    text.value = ''
-    clearAttachments(conversationId)
-  }
 }
 
 async function runCommand(): Promise<void> {
+  if (busy.value) return
   const command = matches.value[selected.value]
   if (!command) return
   const { arg } = parseCommand(text.value)
   busy.value = true
-  const outcome = await command.run(arg)
+  const outcome = await dispatch(command, arg)
   busy.value = false
   if (outcome !== false) text.value = ''
 }

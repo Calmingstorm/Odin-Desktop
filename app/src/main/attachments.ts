@@ -90,7 +90,7 @@ export class AttachmentManager extends EventEmitter {
   }
 
   private stage(source: Source, name: string, mime: string, size: number): Result<StagedAttachment> {
-    if (size <= 0) return failure('bad_request', `${name} is empty.`)
+    if (size < 0) return failure('bad_request', `${name} has no size.`) // empty files are fine, as in Odin
     const limit = this.limits().attachment_bytes
     if (size > limit) return failure('too_large', `${name} is larger than the ${Math.round(limit / (1024 * 1024))} MiB limit.`)
     const entry: Entry = { id: randomUUID(), name, mime, size, source, cancelled: false, uploading: false }
@@ -112,33 +112,46 @@ export class AttachmentManager extends EventEmitter {
         size: entry.size,
         mime: entry.mime
       })
-      if (!begun.ok) return begun
+      if (!begun.ok) return this.drop(id, begun)
       const { upload_id: uploadId, chunk_bytes: offered } = begun.result as { upload_id: string; chunk_bytes: number }
+      // From here on, any way out other than a commit cancels the upload in the core.
+      const abandon = async <T>(result: Result<T>): Promise<Result<T>> => {
+        await this.core.request('attachments.cancel', { upload_id: uploadId })
+        return this.drop(id, result)
+      }
       const chunkBytes = Math.max(1, Math.min(offered || this.limits().chunk_bytes, this.limits().chunk_bytes))
       const digest = createHash('sha256')
       let offset = 0
-      for await (const chunk of this.chunks(entry, chunkBytes)) {
-        if (entry.cancelled) {
-          this.entries.delete(id)
-          await this.core.request('attachments.cancel', { upload_id: uploadId })
-          return failure('cancelled', 'Attachment cancelled.')
+      try {
+        for await (const chunk of this.chunks(entry, chunkBytes)) {
+          if (entry.cancelled) return abandon(failure('cancelled', 'Attachment cancelled.'))
+          digest.update(chunk)
+          const sent = await this.core.request('attachments.chunk', { upload_id: uploadId, offset, data_b64: chunk.toString('base64') })
+          if (!sent.ok) return abandon(sent)
+          offset += chunk.length
+          this.emit('progress', { id, sent: offset, size: entry.size })
         }
-        digest.update(chunk)
-        const sent = await this.core.request('attachments.chunk', { upload_id: uploadId, offset, data_b64: chunk.toString('base64') })
-        if (!sent.ok) return sent
-        offset += chunk.length
-        this.emit('progress', { id, sent: offset, size: entry.size })
+      } catch {
+        return abandon(failure('internal', `Couldn't read ${entry.name}.`))
       }
-      if (offset !== entry.size) return failure('bad_request', `${entry.name} changed while it was being attached.`)
+      if (offset !== entry.size) return abandon(failure('bad_request', `${entry.name} changed while it was being attached.`))
+      // A cancel that came during the last chunk still wins: nothing is committed after it.
+      if (entry.cancelled) return abandon(failure('cancelled', 'Attachment cancelled.'))
       const committed = await this.core.request('attachments.commit', { upload_id: uploadId, sha256: digest.digest('hex') })
-      if (!committed.ok) return committed
+      if (!committed.ok) return abandon(committed)
       this.entries.delete(id)
       return { ok: true, result: (committed.result as { attachment: AttachmentRef }).attachment }
     } catch {
-      return failure('internal', `Couldn't read ${entry.name}.`)
+      return this.drop(id, failure('internal', `Couldn't attach ${entry.name}.`))
     } finally {
       entry.uploading = false
     }
+  }
+
+  /** Forgets a staged attachment, including any bytes it holds, and passes the failure on. */
+  private drop<T>(id: string, result: Result<T>): Result<T> {
+    this.entries.delete(id)
+    return result
   }
 
   /** Stops an upload between chunks, or drops an attachment that hasn't started. */

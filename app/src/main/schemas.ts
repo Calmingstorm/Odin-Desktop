@@ -4,23 +4,38 @@ import type { CoreError } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
+/** The window names each conversation command, so a lost answer is reconciled by its late receipt, never re-sent. */
+const commandId = z.uuid()
+
 export const createConversationSchema = z
-  .object({ title: z.string().trim().min(1).max(200).optional(), parent_id: coreId.optional(), from_message_id: coreId.optional() })
+  .object({
+    command_id: commandId,
+    title: z.string().trim().min(1).max(200).optional(),
+    parent_id: coreId.optional(),
+    from_message_id: coreId.optional()
+  })
   .strict()
 
 const revision = z.number().int().nonnegative()
 
 export const updateConversationSchema = z
-  .object({ id: coreId, expected_rev: revision, title: z.string().trim().min(1).max(200).optional(), archived: z.boolean().optional() })
+  .object({
+    command_id: commandId,
+    id: coreId,
+    expected_rev: revision,
+    title: z.string().trim().min(1).max(200).optional(),
+    archived: z.boolean().optional()
+  })
   .strict()
 
-export const conversationRevisionSchema = z.object({ id: coreId, expected_rev: revision }).strict()
+export const conversationRevisionSchema = z.object({ command_id: commandId, id: coreId, expected_rev: revision }).strict()
 
 export const markReadSchema = z.object({ id: coreId, through_message_id: coreId }).strict()
 
 export const searchSchema = z
   .object({
-    query: z.string().trim().min(1).max(500),
+    // Odin sets no query limit; this bound only keeps one request inside a frame.
+    query: z.string().trim().min(1).max(200_000),
     conversation_id: coreId.optional(),
     limit: z.number().int().min(1).max(50).optional(),
     cursor: z.string().max(64).optional()
@@ -52,14 +67,15 @@ export const submitSchema = z
     text: z.string().max(32_000),
     attachments: z
       .array(z.object({ ref: coreId, add_to_knowledge: z.boolean() }).strict())
-      .max(10)
+      // The core's attachments_per_turn applies; this bound only keeps one submission inside a frame.
+      .max(1000)
       .optional()
   })
   .strict()
   // As on Discord, a message may be only attachments.
   .refine((v) => v.text.trim().length > 0 || (v.attachments?.length ?? 0) > 0, { message: 'a message needs text or attachments' })
 
-export const usageSchema = z.object({ period: z.enum(['session', 'day', 'week']) }).strict()
+export const usageSchema = z.object({ period: z.enum(['24h', '7d', '30d', 'all']) }).strict()
 
 export const reloadSchema = z.object({ scope: z.enum(['skills', 'config', 'context']) }).strict()
 

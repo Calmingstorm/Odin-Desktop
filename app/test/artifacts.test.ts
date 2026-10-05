@@ -91,7 +91,7 @@ describe('artifact store against the fixture core', () => {
     const fetched = reads.length
     expect(fetched).toBe(2) // 25 bytes in 16-byte chunks, read once
     await store.cached(notes.ref, notes.name)
-    expect(reads.length).toBe(fetched)
+    expect(reads.length).toBe(fetched + 1) // a later use checks with the core once, without downloading again
     if (!first.ok) throw new Error('not cached')
     expect(readdirSync(dirname(first.result))).toEqual(['notes.txt']) // no temporary files left behind
   })
@@ -169,3 +169,68 @@ describe('file names written to disk', () => {
     expect(safeFileName('x'.repeat(300))).toHaveLength(200)
   })
 })
+
+describe('review round 1: the private cache follows the core', () => {
+  /** A core that serves each reference's own bytes, and can forget one. */
+  function fakeCore(files: Record<string, string>) {
+    const reads: string[] = []
+    const requester: Requester = {
+      request: async (method, params) => {
+        const ref = String(params?.ref)
+        reads.push(ref)
+        if (method !== 'artifacts.read' || !(ref in files)) {
+          return { ok: false, error: { code: 'not_found', message: 'that file is no longer available', disposition: 'not_dispatched' } }
+        }
+        const data = Buffer.from(files[ref]!)
+        const offset = Number(params?.offset ?? 0)
+        const chunk = data.subarray(offset, offset + Number(params?.length ?? data.length))
+        return { ok: true, result: { data_b64: chunk.toString('base64'), size: data.length, eof: offset + chunk.length >= data.length } }
+      }
+    }
+    return { requester, reads }
+  }
+
+  function storeFor(requester: Requester) {
+    const cache = scratch()
+    const opened: string[] = []
+    const store = new ArtifactStore(requester, cache, () => 1024, {
+      openPath: async (path) => (opened.push(path), ''),
+      showItemInFolder: () => undefined
+    })
+    return { store, cache, opened }
+  }
+
+  it('keeps references that a file name would make alike apart', async () => {
+    const { requester } = fakeCore({ '.ref': 'first', ref: 'second' })
+    const { store } = storeFor(requester)
+    const first = await store.cached('.ref', 'notes.txt')
+    const second = await store.cached('ref', 'notes.txt')
+    if (!first.ok || !second.ok) throw new Error('not cached')
+    expect(first.result).not.toBe(second.result)
+    expect(readFileSync(first.result, 'utf8')).toBe('first')
+    expect(readFileSync(second.result, 'utf8')).toBe('second')
+  })
+
+  it('checks a cached copy with the core each time, and drops it once the core no longer has the file', async () => {
+    const files: Record<string, string> = { f1: 'kept here' }
+    const { requester } = fakeCore(files)
+    const { store, opened } = storeFor(requester)
+    const cached = await store.cached('f1', 'notes.txt')
+    if (!cached.ok) throw new Error('not cached')
+    expect(await store.open('f1', 'notes.txt')).toEqual({ ok: true, result: { opened: true } })
+    delete files.f1
+    expect(await store.open('f1', 'notes.txt')).toMatchObject({ ok: false, error: { code: 'not_found' } })
+    expect(opened).toHaveLength(1)
+    expect(existsSync(cached.result)).toBe(false)
+  })
+
+  it('forgets a cached copy when the core says the file is unavailable', async () => {
+    const { requester } = fakeCore({ f2: 'soon gone' })
+    const { store } = storeFor(requester)
+    const cached = await store.cached('f2', 'notes.txt')
+    if (!cached.ok) throw new Error('not cached')
+    await store.forget('f2')
+    expect(existsSync(cached.result)).toBe(false)
+  })
+})
+

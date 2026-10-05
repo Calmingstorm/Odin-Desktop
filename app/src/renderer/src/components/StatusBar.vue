@@ -31,7 +31,7 @@ const usageTitle = computed(() => {
         `Quota, ${q.account} (${q.window}): ${percent(q.used_percent)} used (${basis(q.used_percent)})` +
         (q.resets_at ? `, resets ${new Date(q.resets_at).toLocaleString()}` : '')
     ),
-    `Tokens this session: ${count(u.tokens)} (${basis(u.tokens)})`,
+    `Tokens in the last 24 hours: ${count(u.tokens)} (${basis(u.tokens)})`,
     'Click for the full /usage report.'
   ].join('\n')
 })
@@ -61,7 +61,7 @@ function onAutostart(event: Event): void {
       ● {{ p.name }}
     </span>
     <button v-if="usage && context" class="status-item" :title="usageTitle" @click="report('usage')">
-      Context {{ percent(context) }} · Quota {{ quota ? percent(quota.used_percent) : '—' }} · {{ count(usage.tokens) }} tokens
+      Context {{ percent(context) }} · Quota {{ quota ? percent(quota.used_percent) : '—' }} · {{ count(usage.tokens) }} tokens in 24h
     </button>
     <span v-if="state.app.coreInstanceId" class="core">core {{ state.app.coreInstanceId.slice(0, 8) }}</span>
     <span v-if="state.app.unreceipted" class="warn">{{ state.app.unreceipted }} awaiting receipt</span>
