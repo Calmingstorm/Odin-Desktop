@@ -44,8 +44,15 @@ Claude's protocol/design documents and app files are unchanged.
   Snapshot transaction tests prove the journal composition primitive, not the deferred conversation snapshot method.
 - Drift records are exact per path and pending review. Changed evidence pins on unchanged source records are
   evidence-only refreshes, not source recapture or new approval. Original upstream tests remain unchanged.
-- Fresh-checkout full gate results are recorded below after execution. The added qualification group is
-  `phase2-core-transport`; existing deferred suites and native gates are not silently promoted or discarded.
+- Fresh checkout at `0923bb32`: locked dependency installation, drift, lint and ownership checker passed.
+  **29/29 qualification groups passed**, with **13,289 passing executions, 2 skips, 0 failures and 0 errors**.
+  The separate file-plan behavior suite passed **30/30**. The final core-transport group passed **144/144**.
+  Group totals include existing overlapping adapters, not unique-case or full inherited-suite claims.
+  Inherited AsyncMock/unawaited-coroutine warnings remain visible; this is not a warning-clean claim.
+  Logs: `/home/odin/reviews/desktop-step1-fresh-{install,gates}.log`; JUnit:
+  `/home/odin/reviews/desktop-step1-fresh/.test-state/qualification-{0..28}.xml`.
+  The added group is `phase2-core-transport`; existing deferred suites and native gates are not silently promoted
+  or discarded. Only this evidence document changes after that verified code commit.
 
 ## Scope exclusions
 
