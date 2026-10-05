@@ -7,6 +7,8 @@ import MessageList from './components/MessageList.vue'
 import Composer from './components/Composer.vue'
 import SearchPanel from './components/SearchPanel.vue'
 import StatusBar from './components/StatusBar.vue'
+import WorkPanel from './components/WorkPanel.vue'
+import { activeCount, work } from './stores/work'
 
 function onKey(event: KeyboardEvent): void {
   if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'f') {
@@ -30,8 +32,12 @@ const active = computed(() => state.conversations.find((c) => c.id === state.act
     <main class="main">
       <header class="topbar">
         <h1>{{ active?.title ?? 'Odin' }}</h1>
+        <button class="ghost work-toggle" :aria-expanded="work.open" title="Agents, tasks, loops, processes and schedules" @click="work.open = !work.open">
+          Work<span v-if="activeCount()" class="badge">{{ activeCount() }}</span>
+        </button>
       </header>
       <SearchPanel v-if="state.search.open" />
+      <WorkPanel v-if="work.open" />
       <MessageList class="messages" />
       <div class="composer">
         <Composer />

@@ -168,22 +168,22 @@ The app never executes artifact content (no HTML or SVG rendering); it shows ima
 | Method | Params | Result |
 |---|---|---|
 | `tool.detail` | `{request_id, invocation_id}` | `{tool, target?, arguments, previews: [{label, text, truncated}], output: {cursor?, expires_at?}}`. Arguments are scrubbed; previews are labeled as previews. |
-| `tool.output` | `{cursor, limit}` | `{text, next_cursor?, eof, expires_at}`. Retained output, fetched without re-running anything (Odin's `get_tool_output` contract). |
+| `tool.output` | `{cursor, limit}` | `{text, next_cursor?, eof, expires_at}`. Retained output, fetched without re-running anything (Odin's `get_tool_output` contract). `limit` is in characters, at most 65,536. Once the output is no longer kept, the error is `expired`. |
 
 ### Running work and resume
 
 | Method | Params | Result |
 |---|---|---|
-| `work.list` | `{kind?, conversation_id?}` | `{items: [{kind, id, title, state, conversation_id?, request_id?, started_at?, detail}]}`. `kind` is `agent`, `task`, `loop`, `process`, `schedule` or `workflow`. |
-| `work.control` | `{control_command_id, kind, id, action}` | `{disposition}`. `action` is what Odin offers for that kind today: `stop`, `cancel`, `restart`, `pause`, `resume` or `run_now`. |
-| `control.resume` | `{control_command_id, conversation_id, request_id, generation}` | `{disposition: "admitted" or "rejected", reason?}`. Guarded resume binds the exact preserved request; unknown effects reject it. |
+| `work.list` | `{kind?, conversation_id?}` | `{items: [{kind, id, title, state, conversation_id?, request_id?, started_at?, detail, actions}]}`. `kind` is `agent`, `task`, `loop`, `process`, `schedule` or `workflow`. `actions` lists the controls Odin offers for that item now, so the app never guesses them. |
+| `work.control` | `{control_command_id, kind, id, action}` | `{disposition}`. `action` is one of the item's `actions`: `stop`, `cancel`, `restart`, `pause`, `resume` or `run_now`. `disposition` is `requested` (settled later as `work.updated`), `done`, or `not_available` when the item no longer offers that action. |
+| `control.resume` | `{control_command_id, conversation_id, request_id, generation}` | `{disposition: "admitted" or "rejected", reason?}`. Guarded resume binds the exact preserved request: one whose latest outcome is `interrupted` or `suspended`. Unknown effects reject it, and so does other work running in the conversation. Admitted work starts again as that request with a new `generation`. |
 
 ### Status, usage and reload
 
 | Method | Params | Result |
 |---|---|---|
 | `status.get` | `{}` | Minor 1's fields plus `model: {main, effort, provider}`, `providers: [{name, health}]`, `limits: {chunk_bytes, attachment_bytes, attachments_per_turn}` and `summary`, the text Odin's `/status` shows |
-| `usage.get` | `{period}` (`session`, `day` or `week`) | Usage, quota and context, each value tagged `measured`, `estimated` or `unknown`, never an invented number, plus `summary`, the text Odin's `/usage` shows |
+| `usage.get` | `{period}` (`session`, `day` or `week`) | `{period, tokens, context: {used, budget}, quota: [{account, window, used_percent, resets_at}], summary}`. Every number is `{value, kind}`: `kind` is `measured`, `estimated` or `unknown`, and `value` is null when unknown, never an invented number. `quota` lists the account in use first. `summary` is the text Odin's `/usage` shows. |
 | `runtime.reload` | `{scope}` (`skills`, `config` or `context`) | `{disposition, summary}`. With `context`, it is Odin's `/reload`: reload the context files and show what is in context. |
 
 ### Notifications

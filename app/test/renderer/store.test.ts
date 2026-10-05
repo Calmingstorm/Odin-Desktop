@@ -89,7 +89,8 @@ function fakeBridge() {
     snapshot: [] as unknown[],
     listMessages: [] as Array<Record<string, unknown>>,
     steer: [] as Array<Record<string, unknown>>,
-    stop: [] as Array<Record<string, unknown>>
+    stop: [] as Array<Record<string, unknown>>,
+    resume: [] as Array<Record<string, unknown>>
   }
   const control = {
     list: [{ ...CONVERSATION, activity: { running: null, queued: [] } }] as ConversationListItem[],
@@ -100,6 +101,7 @@ function fakeBridge() {
     snapshots: [] as Array<Deferred<Result<ConversationSnapshot>>>,
     steerResult: { ok: true, result: { disposition: 'queued' } } as Result<{ disposition: string }>,
     stopResult: { ok: true, result: { disposition: 'requested' } } as Result<{ disposition: string }>,
+    resumeResult: { ok: true, result: { disposition: 'admitted' } } as Result<{ disposition: 'admitted' | 'rejected'; reason?: string }>,
     updateResult: null as Result<{ conversation: Conversation }> | null,
     deleteResult: { ok: true, result: { disposition: 'deleted' } } as Result<{ disposition: string }>,
     searchResults: [] as Array<Deferred<Result<SearchResult>>>,
@@ -112,7 +114,7 @@ function fakeBridge() {
   }
   const api = {
     status: async () => ({ ok: true, result: { phase: 'ready', core_instance_id: 'core-1', version: 'test', capabilities: [], summary: 'Core core-1: ready.' } }),
-    usage: async () => ({ ok: true, result: { period: 'session', tokens: { value: null, kind: 'unknown' }, context: { value: null, kind: 'unknown' }, quota: [], summary: 'Usage unknown.' } }),
+    usage: async () => ({ ok: true, result: { period: 'session', tokens: { value: null, kind: 'unknown' }, context: { used: { value: null, kind: 'unknown' }, budget: { value: null, kind: 'unknown' } }, quota: [], summary: 'Usage unknown.' } }),
     reload: async () => ({ ok: true, result: { disposition: 'reloaded', summary: 'Context: none.' } }),
     getAppState: async (): Promise<AppState> => ({ link: 'ready', coreInstanceId: 'core-1', noTray: false, unreceipted: 0 }),
     getSettings: async () => ({ ok: true, result: { autostart: false } }),
@@ -179,6 +181,10 @@ function fakeBridge() {
     stop: async (params: Record<string, unknown>) => {
       calls.stop.push(params)
       return control.stopResult
+    },
+    resumeRequest: async (params: Record<string, unknown>) => {
+      calls.resume.push(params)
+      return control.resumeResult
     },
     onEvent: (l: (e: CoreEvent) => void) => (listeners.event.push(l), () => undefined),
     onAppState: (l: (s: AppState) => void) => (listeners.appState.push(l), () => undefined),
@@ -738,3 +744,59 @@ describe('results', () => {
     expect(store.state.views.c1!.messages[0]!.artifacts![0]!.available).toBe(false)
   })
 })
+
+describe('guarded resume', () => {
+  const interrupted = { request_id: 'r1', generation: 1, outcome: 'interrupted' as const, unknown_effects: 0, at: '2026-10-04T00:00:00Z' }
+
+  it('offers the latest interrupted or suspended request, and nothing while work runs or after it completed', async () => {
+    await start(snapshot({ watermark: '1', recent: [interrupted] }))
+    const view = store.state.views.c1!
+    expect(store.resumeTarget(view)).toEqual({ outcome: interrupted, blocked: null })
+    emit(event(2, 'request.started', { request_id: 'r2', generation: 1 }))
+    expect(store.resumeTarget(view)).toBeNull()
+    emit(event(3, 'request.completed', { request_id: 'r2', generation: 1, unknown_effects: 0 }))
+    expect(store.resumeTarget(view)).toBeNull() // a later outcome replaced it
+    emit(event(4, 'request.suspended', { request_id: 'r3', generation: 2, unknown_effects: 0 }))
+    expect(store.resumeTarget(view)?.outcome.request_id).toBe('r3')
+  })
+
+  it('explains, instead of offering, a resume blocked by unknown effects, and offers it once they are reconciled', async () => {
+    const unknown = { ...interrupted, unknown_effects: 2 }
+    await start(snapshot({ watermark: '1', recent: [unknown], unresolved: [unknown] }))
+    expect(store.resumeTarget(store.state.views.c1!)?.blocked).toMatch(/couldn't confirm/)
+    emit(event(2, 'effects.resolved', { request_id: 'r1', generation: 1, remaining: 1 }))
+    expect(store.resumeTarget(store.state.views.c1!)?.blocked).toMatch(/couldn't confirm/)
+    emit(event(3, 'effects.resolved', { request_id: 'r1', generation: 1, remaining: 0 }))
+    expect(store.resumeTarget(store.state.views.c1!)?.blocked).toBeNull()
+  })
+
+  it('binds the exact request and generation, sends once, and shows the core refusing', async () => {
+    await start(snapshot({ watermark: '1', recent: [interrupted] }))
+    bridge.control.resumeResult = { ok: true, result: { disposition: 'rejected', reason: 'Odin is working in this conversation.' } }
+    await store.resume('c1', interrupted)
+    expect(bridge.calls.resume).toEqual([
+      { control_command_id: expect.any(String), conversation_id: 'c1', request_id: 'r1', generation: 1 }
+    ])
+    expect(store.state.resumes['r1:1']).toEqual({ status: 'rejected', reason: 'Odin is working in this conversation.' })
+    bridge.control.resumeResult = { ok: true, result: { disposition: 'admitted' } }
+    await store.resume('c1', interrupted)
+    expect(store.state.resumes['r1:1']).toEqual({ status: 'admitted' })
+    await store.resume('c1', interrupted) // admitted already: never a second resume
+    expect(bridge.calls.resume).toHaveLength(2)
+  })
+})
+
+describe('search highlights', () => {
+  it('ends when the user sends a message or opens another conversation, so the view follows new messages again', async () => {
+    await start(snapshot({ watermark: '1', messages: { items: [message('m1')], has_more: false } }))
+    store.state.highlightId = 'm1'
+    await store.send('hello', 'queue')
+    expect(store.state.highlightId).toBeNull()
+    store.state.highlightId = 'm1'
+    await store.select('c1')
+    expect(store.state.highlightId).toBe('m1') // staying in the same conversation keeps it
+    void store.select('c2')
+    expect(store.state.highlightId).toBeNull()
+  })
+})
+

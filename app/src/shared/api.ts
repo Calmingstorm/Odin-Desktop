@@ -24,10 +24,44 @@ export interface Measured {
 export interface UsageResult {
   period: string
   tokens: Measured
-  context: Measured
+  /** Tokens in Odin's context now, against the budget the core derives for the model. */
+  context: { used: Measured; budget: Measured }
   quota: Array<{ account: string; window: string; used_percent: Measured; resets_at: string | null }>
   /** The text Odin's /usage shows. */
   summary: string
+}
+
+export type WorkKind = 'agent' | 'task' | 'loop' | 'process' | 'schedule' | 'workflow'
+export type WorkAction = 'stop' | 'cancel' | 'restart' | 'pause' | 'resume' | 'run_now'
+
+/** Background work Odin is running or keeps: an agent, task, loop, process, schedule or workflow. */
+export interface WorkItem {
+  kind: WorkKind
+  id: string
+  title: string
+  state: string
+  conversation_id?: string
+  request_id?: string
+  started_at?: string
+  detail: string
+  /** The controls Odin offers for this item now. */
+  actions: WorkAction[]
+}
+
+/** One tool call's scrubbed arguments, labeled previews and a cursor to its retained output. */
+export interface ToolDetail {
+  tool: string
+  target?: string
+  arguments: unknown
+  previews: Array<{ label: string; text: string; truncated: boolean }>
+  output: { cursor?: string; expires_at?: string }
+}
+
+export interface ToolOutputPage {
+  text: string
+  next_cursor?: string
+  eof: boolean
+  expires_at: string
 }
 
 /** A file, image or stored report Odin produced, by core reference. */
@@ -262,6 +296,16 @@ export interface OdinApi {
   uploadAttachment(params: { id: string; conversation_id: string }): Promise<Result<AttachmentRef>>
   cancelAttachment(id: string): Promise<Result<{ cancelled: boolean }>>
   onAttachmentProgress(listener: (progress: AttachmentProgress) => void): () => void
+  workList(params?: { kind?: WorkKind; conversation_id?: string }): Promise<Result<{ items: WorkItem[] }>>
+  workControl(params: { control_command_id: string; kind: WorkKind; id: string; action: WorkAction }): Promise<Result<{ disposition: string }>>
+  resumeRequest(params: {
+    control_command_id: string
+    conversation_id: string
+    request_id: string
+    generation: number
+  }): Promise<Result<{ disposition: 'admitted' | 'rejected'; reason?: string }>>
+  toolDetail(params: { request_id: string; invocation_id: string }): Promise<Result<ToolDetail>>
+  toolOutput(params: { cursor: string; limit: number }): Promise<Result<ToolOutputPage>>
   /** An image's bytes, for showing it inline. */
   fetchArtifact(ref: string): Promise<Result<{ data: Uint8Array }>>
   openArtifact(params: { ref: string; name: string }): Promise<Result<{ opened: boolean }>>
@@ -314,6 +358,11 @@ export const IPC = {
   uploadAttachment: 'odin:attachments:upload',
   cancelAttachment: 'odin:attachments:cancel',
   attachmentProgress: 'odin:attachments:progress',
+  workList: 'odin:work:list',
+  workControl: 'odin:work:control',
+  resumeRequest: 'odin:resume',
+  toolDetail: 'odin:tool:detail',
+  toolOutput: 'odin:tool:output',
   fetchArtifact: 'odin:artifacts:fetch',
   openArtifact: 'odin:artifacts:open',
   saveArtifact: 'odin:artifacts:save',

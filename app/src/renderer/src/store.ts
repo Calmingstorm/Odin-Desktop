@@ -136,8 +136,33 @@ export const state = reactive({
   /** The message a jump points at, highlighted and scrolled into view. */
   highlightId: null as string | null,
   /** Output of a command such as /status, shown in the window and never sent to Odin. */
-  panel: null as { title: string; text: string } | null
+  panel: null as { title: string; text: string } | null,
+  /** Resume requests by `request_id:generation`, until the resumed request starts or the core says no. */
+  resumes: {} as Record<string, ResumeState | undefined>
 })
+
+export interface ResumeState {
+  status: 'sending' | 'admitted' | 'rejected' | 'failed'
+  reason?: string
+}
+
+type EventListener = (event: CoreEvent) => void
+const eventListeners: EventListener[] = []
+const readyListeners: Array<() => void> = []
+
+/** Lets the work and status stores see every core event, without this store importing them. */
+export function onCoreEvent(listener: EventListener): void {
+  eventListeners.push(listener)
+}
+
+/** Runs whenever the link becomes ready: at start, and after every recovery. */
+export function onReady(listener: () => void): void {
+  readyListeners.push(listener)
+}
+
+function notifyReady(): void {
+  for (const listener of readyListeners) listener()
+}
 
 export function showPanel(title: string, text: string): void {
   state.panel = { title, text }
@@ -200,7 +225,10 @@ export async function init(): Promise<void> {
     if (lostLink || coreChanged) state.recoveryEpoch += 1
     const becameReady = app.link === 'ready' && (previous.link !== 'ready' || coreChanged)
     state.app = app
-    if (becameReady) void loadAll()
+    if (becameReady) {
+      notifyReady()
+      void loadAll()
+    }
   })
   window.odin.onEvent(applyEvent)
   window.odin.onReceipt(applyReceipt)
@@ -217,7 +245,10 @@ export async function init(): Promise<void> {
   if (app) state.app = app
   const settings = await window.odin.getSettings()
   if (settings.ok) state.autostart = settings.result.autostart
-  if (state.app.link === 'ready') await loadAll()
+  if (state.app.link === 'ready') {
+    notifyReady()
+    await loadAll()
+  }
 }
 
 let loadAllInFlight: { epoch: number; promise: Promise<void> } | null = null
@@ -395,6 +426,8 @@ async function resetViews(): Promise<void> {
 
 export async function select(conversationId: string): Promise<void> {
   if (state.jump && state.jump.conversationId !== conversationId) backToLatest()
+  // A highlight belongs to the conversation it was found in; elsewhere it would only stop the view following along.
+  if (conversationId !== state.activeId) state.highlightId = null
   state.activeId = conversationId
   const view = state.views[conversationId]
   // A view from an earlier recovery is shown but must be refreshed before anything is routed to it, and so must one
@@ -640,6 +673,8 @@ export async function send(
     return steer(conversationId, running, text)
   }
 
+  // Sending ends a search jump: the view returns to the latest messages and follows the reply, as on Discord.
+  backToLatest()
   state.pending.push({
     client_submission_id: crypto.randomUUID(),
     conversation_id: conversationId,
@@ -863,6 +898,7 @@ function trackBusy(event: CoreEvent): void {
 }
 
 export function applyEvent(event: CoreEvent): void {
+  for (const listener of eventListeners) listener(event)
   const p = event.payload
   if (event.type === 'conversation.created' || event.type === 'conversation.updated') {
     const conversation = p.conversation as Conversation
@@ -986,4 +1022,44 @@ function applyToView(view: ConversationView, event: CoreEvent): void {
       }
     }
   }
+}
+
+/** A conversation's preserved request: its latest outcome was interrupted or suspended, and nothing runs after it. */
+export interface ResumeTarget {
+  outcome: TerminalOutcome
+  /** Why it can't resume, when its effects are unknown. The core makes the final decision. */
+  blocked: string | null
+}
+
+export function resumeTarget(view: ConversationView | undefined): ResumeTarget | null {
+  if (!view || view.running || view.queued.length) return null
+  const last = view.recent[view.recent.length - 1]
+  if (!last || (last.outcome !== 'interrupted' && last.outcome !== 'suspended')) return null
+  // `unresolved` is the authority: an entry leaves it only when the effects are reconciled (effects.resolved).
+  const unknown = view.unresolved.some((o) => o.request_id === last.request_id && o.generation === last.generation)
+  return {
+    outcome: last,
+    blocked: unknown ? "Odin may have changed something it couldn't confirm, so it won't carry on until that is reconciled." : null
+  }
+}
+
+export function resumeKey(outcome: TerminalOutcome): string {
+  return `${outcome.request_id}:${outcome.generation}`
+}
+
+/** Asks the core to carry on with exactly this preserved request. One attempt; the core decides. */
+export async function resume(conversationId: string, outcome: TerminalOutcome): Promise<void> {
+  const key = resumeKey(outcome)
+  if (!canAct(conversationId) || state.resumes[key]?.status === 'sending' || state.resumes[key]?.status === 'admitted') return
+  state.resumes[key] = { status: 'sending' }
+  const result = await window.odin.resumeRequest({
+    control_command_id: crypto.randomUUID(),
+    conversation_id: conversationId,
+    request_id: outcome.request_id,
+    generation: outcome.generation
+  })
+  if (!result.ok) state.resumes[key] = { status: 'failed', reason: errorText(result) }
+  else if (result.result.disposition === 'rejected') {
+    state.resumes[key] = { status: 'rejected', reason: result.result.reason ?? 'Odin declined to resume it.' }
+  } else state.resumes[key] = { status: 'admitted' }
 }

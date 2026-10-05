@@ -82,7 +82,7 @@ function onBodyClick(event: MouseEvent): void {
 
 <template>
   <article :id="`m-${message.id}`" :class="['msg', message.role, { highlight }]">
-    <ToolActivity v-if="message.role === 'assistant' && tools?.length" :entries="tools" />
+    <ToolActivity v-if="message.role === 'assistant' && tools?.length" :entries="tools" :request-id="message.request_id" />
     <div class="meta">
       <span class="who">{{ who(message.role) }}</span>
       <time :datetime="message.created_at">{{ time(message.created_at) }}</time>
