@@ -93,6 +93,18 @@ async def test_refusals_are_durable_and_reads_do_not_write(graph):
     assert (await manager.invoke("arbitrary.call", {}))["error"]["code"] == "capability_unavailable"
 
 
+async def test_keyed_scheme_cannot_be_impersonated_by_request_shape(graph):
+    manager, domain, store = graph
+    params = {"value": "dummy-credential"}
+    assert (await manager.execute("scheme-1", "example.save", params))["ok"]
+    binding = store.connection.execute("SELECT binding FROM command_receipts").fetchone()[0]
+    assert binding.startswith("hmac-v1:")
+    # Sending the public digest envelope is a DIFFERENT semantic request.
+    conflict = await manager.execute("scheme-1", "example.save", manager.identity_params(params))
+    assert conflict["error"]["code"] == "id_conflict"
+    assert domain.calls == 1
+
+
 async def test_raw_exceptions_never_reflect_values(graph):
     manager, domain, _ = graph
 

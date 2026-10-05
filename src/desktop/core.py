@@ -194,15 +194,14 @@ class CoreService:
                 raise PermissionError("profile owner authority is no longer current")
             # Existing identities win even if their method is no longer served.
             # Unknown capabilities must not reserve IDs or persist refusal bodies.
-            binding_params = params
-            if self.management is not None and method != "runtime.shutdown":
-                try:
-                    binding_params = self.management.identity_params(params)
-                except (ValueError, TypeError, RecursionError):
-                    return {"t": "res", "id": command_id, **failure(
-                        "bad_request", "Expected finite JSON parameters",
-                    )}
-            bound = self.commands.check(command_id, method, binding_params)
+            try:
+                bound = (self.management.check(command_id, method, params)
+                         if self.management is not None
+                         else self.commands.check(command_id, method, params))
+            except (ValueError, TypeError, RecursionError):
+                return {"t": "res", "id": command_id, **failure(
+                    "bad_request", "Expected finite JSON parameters",
+                )}
             if bound is not None:
                 return {"t": "res", "id": command_id, **bound}
             if method not in self.capabilities:

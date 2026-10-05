@@ -231,6 +231,24 @@ class ManagementService:
         encoded = canonical_json(params).encode("utf-8")
         return {"hmac_sha256": hmac.new(self._identity_key, encoded, hashlib.sha256).hexdigest()}
 
+    def check(self, command_id: str, method: str, params: Any) -> dict | None:
+        """Replay keyed records while retaining step-one plaintext identities.
+
+        The stored scheme tag selects the comparison, not a request-shaped
+        object that could impersonate a hashed parameter envelope.
+        """
+        row = self.core.store.connection.execute(
+            "SELECT * FROM command_receipts WHERE command_id=?", (command_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        if row["binding"].startswith("hmac-v1:"):
+            binding = "hmac-v1:" + canonical_json([
+                self.core.store.profile_id, method, self.identity_params(params),
+            ])
+            return self.core.commands._replay(row, binding)
+        return self.core.commands.check(command_id, method, params)
+
     async def invoke(self, method: str, params: Any) -> dict:
         if type(params) is not dict:
             return response_error("bad_request", "Method params must be an object")
@@ -259,14 +277,14 @@ class ManagementService:
         readmission or an exactly-once external-effect claim. No SQLite write
         transaction is held across a network or keyring await.
         """
-        commands, store = self.core.commands, self.core.store
+        store = self.core.store
         admitted = False
         try:
             identity = self.identity_params(params)
-            replay = commands.check(command_id, method, identity)
+            replay = self.check(command_id, method, params)
             if replay is not None:
                 return replay
-            binding = "json:" + canonical_json([store.profile_id, method, identity])
+            binding = "hmac-v1:" + canonical_json([store.profile_id, method, identity])
             with store.transaction() as connection:
                 connection.execute(
                     "INSERT INTO command_receipts "
