@@ -6,7 +6,7 @@
     "tracked_test_paths": 869,
     "archive": "maintenance/odin-v4.13.0.tar.gz"
   },
-  "execution_status": "Historical eligibility inventory, not whole-product parity or acceptance. Step 8 part 1 requalifies nine complete inherited suites in the existing 29 groups; all 326 original deferred paths remain in phase2 plus phase2_restored with original hashes and reasons in phase2-suite-map.json. Historical116/259 failure evidence is unchanged.",
+  "execution_status": "Historical eligibility inventory, not whole-product parity or acceptance. Nine whole inherited suites restored; five retired by Claude, review of #26, never passing. All 326 original paths remain in phase2 plus phase2_restored plus phase2_retired with original hashes. Merged main retains 30 qualification groups including phase2-step5-profile-management. Historical116/259 evidence unchanged.",
   "qualification_plan": "maintenance/qualification-plan.json",
   "phase2_suite_map": "maintenance/phase2-suite-map.json",
   "phase2_restored": [
@@ -33,11 +33,12 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 317,
+    "phase2": 312,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
     "safe_pass_now": 366,
-    "safety_manual_gated": 100
+    "safety_manual_gated": 100,
+    "retired": 5
   },
   "entries": [
     {
@@ -5043,11 +5044,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Odin's Discord client (class name, intents, prefix, reaction extension). Report paging is step 6's reports.py, with its own tests.",
       "phase2_seams": [
         "src/discord/client.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #26",
+        "reason": "Retired: Odin's Discord client (class name, intents, prefix, reaction extension). Report paging is step 6's reports.py, with its own tests."
+      }
     },
     {
       "path": "tests/test_codex_55_retirement.py",
@@ -5440,11 +5445,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord slash-command publication.",
       "phase2_seams": [
         "src/discord/client.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #26",
+        "reason": "Retired: Discord slash-command publication."
+      }
     },
     {
       "path": "tests/test_command_shell_callers.py",
@@ -13644,12 +13653,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/connection_supervisor.py: Desktop owner/intake/control/durable delivery adapter: connection_supervisor. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord gateway ready/resume/disconnect races.",
       "phase2_seams": [
         "src/discord/client.py",
         "src/discord/connection_supervisor.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #26",
+        "reason": "Retired: Discord gateway ready/resume/disconnect races."
+      }
     },
     {
       "path": "tests/test_generated_api_reference.py",
@@ -21821,11 +21834,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: it covers only Odin's /api/ routes (src/health/server.py:721-753), and the desktop has no management listener. Odin's incoming webhooks (/webhook/*) aren't rate-limited, so step 7's listener inherits nothing here.",
       "phase2_seams": [
         "src/health/server.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #26",
+        "reason": "Retired: it covers only Odin's /api/ routes (src/health/server.py:721-753), and the desktop has no management listener. Odin's incoming webhooks (/webhook/*) aren't rate-limited, so step 7's listener inherits nothing here."
+      }
     },
     {
       "path": "tests/test_read_file_delivery_budget.py",
@@ -26695,13 +26712,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: the WebSocket stack. The IPC transport has no URL to carry a credential, and step 1's tests prove its handshake authenticates before any method runs.",
       "phase2_seams": [
         "src/health/server.py",
         "src/web/__init__.py",
         "src/web/websocket.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #26",
+        "reason": "Retired: the WebSocket stack. The IPC transport has no URL to carry a credential, and step 1's tests prove its handshake authenticates before any method runs."
+      }
     },
     {
       "path": "tests/test_webui_selected_trace_filters.py",
@@ -36407,12 +36428,10 @@
     "tests/test_chat_steering_parity.py",
     "tests/test_chat_steering_resume.py",
     "tests/test_chat_steering_runtime.py",
-    "tests/test_client.py",
     "tests/test_codex_account_mutation_regressions.py",
     "tests/test_codex_quota_check.py",
     "tests/test_codex_replay_boundaries.py",
     "tests/test_codex_replay_matrix.py",
-    "tests/test_command_reconciliation.py",
     "tests/test_command_shell_callers.py",
     "tests/test_command_shell_framing.py",
     "tests/test_command_shell_round2.py",
@@ -36482,7 +36501,6 @@
     "tests/test_executor_output_retention.py",
     "tests/test_executor_timeout_durability.py",
     "tests/test_fd_health.py",
-    "tests/test_gateway_transition_regressions.py",
     "tests/test_generated_api_reference.py",
     "tests/test_generation_duration_contract.py",
     "tests/test_github_webhook.py",
@@ -36565,7 +36583,6 @@
     "tests/test_provider_campaign_regressions.py",
     "tests/test_provider_shutdown_budget.py",
     "tests/test_provider_stream_acceptance.py",
-    "tests/test_rate_limiter.py",
     "tests/test_reasoning_generation_records.py",
     "tests/test_recovery.py",
     "tests/test_resource_usage.py",
@@ -36638,7 +36655,6 @@
     "tests/test_webhook_campaign.py",
     "tests/test_websocket_bootstrap_auth.py",
     "tests/test_websocket_handler.py",
-    "tests/test_websocket_production_stack.py",
     "tests/test_webui_selected_trace_filters.py",
     "tests/test_window_observer.py",
     "tests/test_write_invariant_integration.py"
@@ -37201,5 +37217,19 @@
       "exclude_expression": "scan_host_references",
       "reason": "Parent verifies 59 unchanged host engine cases pass; one removed bot/user/token inventory expectation adaptation-gated."
     }
+  ],
+  "retired": [
+    "tests/test_client.py",
+    "tests/test_command_reconciliation.py",
+    "tests/test_gateway_transition_regressions.py",
+    "tests/test_rate_limiter.py",
+    "tests/test_websocket_production_stack.py"
+  ],
+  "phase2_retired": [
+    "tests/test_client.py",
+    "tests/test_command_reconciliation.py",
+    "tests/test_gateway_transition_regressions.py",
+    "tests/test_rate_limiter.py",
+    "tests/test_websocket_production_stack.py"
   ]
 }

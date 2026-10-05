@@ -24,9 +24,32 @@ ARCHIVE_SHA256 = "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348
 POPULATION_SHA256 = "a4bcf41b3ee1660c991df903cccbda1583497c2ec01cea6bb2be6425ba43888f"
 HISTORICAL_PLAN_SHA256 = "75a862f004d6780baa11fd85c509b0ef5ddfa7a5c9ad3d9f734df4c1abe2ff9f"
 HISTORICAL_QUALIFICATION_SHA256 = "0e45810c0574b26a79d23842a65fe02f0d1ec0ca6d8c9691ece0680536baff02"
+MERGED_MAIN = "566b7954911154ed36d9e5e751c2db9029e262e2"
+MERGED_QUALIFICATION_SHA256 = "89094765dc426da5fa6844efb8d54273d94d1b79dd54e62e0207d315bfc79956"
+RETIREMENT_REVIEWER = "Claude, review of #26"
+RETIRABLE_SUITES = {
+    "tests/test_client.py", "tests/test_command_reconciliation.py",
+    "tests/test_gateway_transition_regressions.py", "tests/test_rate_limiter.py",
+    "tests/test_websocket_production_stack.py",
+}
+RETIREMENT_REASONS = {
+    "tests/test_client.py": (
+        "Retired: Odin's Discord client (class name, intents, prefix, reaction extension). "
+        "Report paging is step 6's reports.py, with its own tests."),
+    "tests/test_command_reconciliation.py": "Retired: Discord slash-command publication.",
+    "tests/test_gateway_transition_regressions.py": (
+        "Retired: Discord gateway ready/resume/disconnect races."),
+    "tests/test_rate_limiter.py": (
+        "Retired: it covers only Odin's /api/ routes (src/health/server.py:721-753), "
+        "and the desktop has no management listener. Odin's incoming webhooks (/webhook/*) "
+        "aren't rate-limited, so step 7's listener inherits nothing here."),
+    "tests/test_websocket_production_stack.py": (
+        "Retired: the WebSocket stack. The IPC transport has no URL to carry a credential, "
+        "and step 1's tests prove its handshake authenticates before any method runs."),
+}
 WORK_ORDER = "docs/work/phase-2-desktop-engine.md"
 KINDS = ("excluded", "phase2", "retained_adaptation_gated", "retained_support",
-         "safe_pass_now", "safety_manual_gated")
+         "safe_pass_now", "safety_manual_gated", "retired")
 MAP_PATH = "maintenance/phase2-suite-map.json"
 PLAN_PATH = "maintenance/test-plan.json"
 QUALIFICATION_PATH = "maintenance/qualification-plan.json"
@@ -204,20 +227,25 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
 def _check(root: Path) -> tuple[list[str], dict]:
     errors: list[str] = []
     report = {"original_population": 0, "mapped": 0, "restored": 0,
-              "deferred": 0, "by_step": {}, "classifications": {}}
+              "deferred": 0, "retired": 0, "by_step": {}, "classifications": {}}
     try:
         mapping = _json((root / MAP_PATH).read_bytes())
         plan = _json((root / PLAN_PATH).read_bytes())
         qualification = _json((root / QUALIFICATION_PATH).read_bytes())
         historical_bytes = _git_blob(root, SOURCE_MAIN, PLAN_PATH)
         qualification_bytes = _git_blob(root, SOURCE_MAIN, QUALIFICATION_PATH)
+        merged_bytes = _git_blob(root, MERGED_MAIN, QUALIFICATION_PATH)
         if (_digest(historical_bytes) != HISTORICAL_PLAN_SHA256
                 or _digest(qualification_bytes) != HISTORICAL_QUALIFICATION_SHA256):
             raise ValueError("pinned historical accounting object hash changed")
+        if _digest(merged_bytes) != MERGED_QUALIFICATION_SHA256:
+            raise ValueError("pinned merged qualification object hash changed")
+        merged_qualification = _json(merged_bytes)
         historical = _json(historical_bytes)
         historical_qualification = _json(qualification_bytes)
         if not all(isinstance(item, dict) for item in
-                   (mapping, plan, qualification, historical, historical_qualification)):
+                   (mapping, plan, qualification, historical, historical_qualification,
+                    merged_qualification)):
             raise ValueError("mapping/plan/qualification must be JSON objects")
         archive_bytes = (root / "maintenance/odin-v4.13.0.tar.gz").read_bytes()
         if _digest(archive_bytes) != ARCHIVE_SHA256:
@@ -293,9 +321,14 @@ def _check(root: Path) -> tuple[list[str], dict]:
     restored_array = _strings(plan.get("phase2_restored", []), "test-plan phase2_restored",
                               errors, empty=True)
     restored_paths = set(restored_array)
-    if (classified["phase2"] & restored_paths or
-            classified["phase2"] | restored_paths != expected):
-        errors.append("test-plan: phase2 union phase2_restored must preserve exact historical 326")
+    retired_paths = set(_strings(plan.get("phase2_retired", []),
+                                 "test-plan phase2_retired", errors, empty=True))
+    if (classified["phase2"] & restored_paths or classified["phase2"] & retired_paths
+            or restored_paths & retired_paths
+            or classified["phase2"] | restored_paths | retired_paths != expected):
+        errors.append("test-plan: phase2/restored/retired must preserve exact historical 326")
+    if retired_paths != classified["retired"]:
+        errors.append("test-plan: phase2_retired must match retired classification")
     if not restored_paths <= classified["safe_pass_now"]:
         errors.append("test-plan: every phase2_restored suite must be safe_pass_now")
     if "phase2_restored" in counts and (
@@ -303,7 +336,12 @@ def _check(root: Path) -> tuple[list[str], dict]:
         or counts["phase2_restored"] != len(restored_paths)
     ):
         errors.append("test-plan: stale phase2_restored count")
-    if set(counts) - set(KINDS) - {"phase2_restored"}:
+    if "phase2_retired" in counts and (
+        type(counts["phase2_retired"]) is not int
+        or counts["phase2_retired"] != len(retired_paths)
+    ):
+        errors.append("test-plan: stale phase2_retired count")
+    if set(counts) - set(KINDS) - {"phase2_restored", "phase2_retired"}:
         errors.append("test-plan: unknown classification count")
 
     groups = qualification.get("groups")
@@ -322,8 +360,13 @@ def _check(root: Path) -> tuple[list[str], dict]:
         named[name] = group
         _strings(group.get("files"), f"qualification {name} files", errors)
     old_names = {group["name"] for group in old_groups}
-    if len(groups) != 29 or set(named) != old_names:
-        errors.append("qualification: preserve exact 29 named groups, no thirtieth group")
+    merged_groups = merged_qualification["groups"]
+    merged_names = {group["name"] for group in merged_groups}
+    if not old_names <= merged_names or set(named) != merged_names:
+        errors.append("qualification: preserve all historical and merged main named groups")
+    for group in merged_groups:
+        if not set(group["files"]) <= set(named.get(group["name"], {}).get("files", [])):
+            errors.append(f"qualification: lost merged main selectors in {group['name']}")
     if "phase2-core-transport" not in named:
         errors.append("qualification: phase2-core-transport group missing")
 
@@ -338,19 +381,20 @@ def _check(root: Path) -> tuple[list[str], dict]:
         if [row["path"] for row in rows] != sorted(row["path"] for row in rows):
             errors.append("mapping: entries must be sorted by path")
     report["mapped"] = len(mapped)
-    by_step = {str(step): {"total": 0, "restored": 0, "deferred": 0}
+    by_step = {str(step): {"total": 0, "restored": 0, "deferred": 0, "retired": 0}
                for step in (*range(1, 8), "Phase 3")}
     status_counts = Counter()
     mapped_restored = set()
+    mapped_retired = set()
     for path, row in mapped.items():
         step, status = row.get("step"), row.get("status")
         if not (type(step) is int and 1 <= step <= 7 or step == "Phase 3"):
             errors.append(f"mapping: invalid step for {path}")
         else:
             by_step[str(step)]["total"] += 1
-            if status in {"restored", "deferred"}:
+            if status in {"restored", "deferred", "retired"}:
                 by_step[str(step)][status] += 1
-        if status not in {"restored", "deferred"}:
+        if status not in {"restored", "deferred", "retired"}:
             errors.append(f"mapping: invalid status for {path}")
             continue
         status_counts[status] += 1
@@ -362,6 +406,26 @@ def _check(root: Path) -> tuple[list[str], dict]:
         _strings(row.get("surfaces"), f"mapping {path} surfaces", errors)
         if row.get("historical_classification", "phase2") != "phase2":
             errors.append(f"mapping: historical classification changed for {path}")
+        if status == "retired":
+            mapped_retired.add(path)
+            retirement = row.get("retirement", {})
+            if (path not in RETIRABLE_SUITES or type(step) is not int or step != 1
+                    or not isinstance(retirement, dict)
+                    or retirement.get("reviewer") != RETIREMENT_REVIEWER
+                    or retirement.get("reason") != RETIREMENT_REASONS.get(path)):
+                errors.append(f"mapping: retired suite needs exact reviewed disposition: {path}")
+            if path not in retired_paths or path not in classified["retired"]:
+                errors.append(f"mapping: retired suite must be retired in test-plan: {path}")
+            if entries.get(path, {}).get("retirement") != retirement:
+                errors.append(f"mapping: retired review differs from test-plan: {path}")
+            if (row.get("blocked_on", "missing") is not None or "restoration" in row
+                    or row.get("qualification_group") != "not-applicable-retired"):
+                errors.append(
+                    f"mapping: retired suite cannot claim restoration/qualification: {path}")
+            if any(any(selector == path or selector.startswith(path + "::")
+                       for selector in group.get("files", [])) for group in groups):
+                errors.append(f"mapping: retired suite cannot be selected as passing: {path}")
+            continue
         if status == "deferred":
             if path not in classified["phase2"] or path in restored_paths:
                 errors.append(f"mapping: deferred suite no longer classified phase2: {path}")
@@ -430,11 +494,14 @@ def _check(root: Path) -> tuple[list[str], dict]:
                 )
     if mapped_restored != restored_paths:
         errors.append("mapping: restored rows differ from phase2_restored historical marker")
+    if mapped_retired != retired_paths:
+        errors.append("mapping: retired rows differ from phase2_retired historical marker")
     report.update({"restored": status_counts["restored"], "deferred": status_counts["deferred"],
-                   "by_step": by_step})
+                   "retired": status_counts["retired"], "by_step": by_step})
     if "counts" in mapping:
         expected_counts = {"total": len(mapped), "restored": report["restored"],
-                           "deferred": report["deferred"], "by_step": by_step}
+                           "deferred": report["deferred"], "retired": report["retired"],
+                           "by_step": by_step}
         if mapping["counts"] != expected_counts:
             errors.append("mapping: stale recomputed counts")
     return errors, report
@@ -453,11 +520,65 @@ def validate(root: Path | str = ROOT) -> list[str]:
     return _evaluate(Path(root))[0]
 
 
+def record_review_retirements(root: Path) -> None:
+    """Record only the five explicit #26 dispositions; never run or rewrite suites."""
+    mapping = _json((root / MAP_PATH).read_bytes())
+    plan = _json((root / PLAN_PATH).read_bytes())
+    rows = {row["path"]: row for row in mapping["entries"]}
+    entries = {row["path"]: row for row in plan["entries"]}
+    for path, reason in RETIREMENT_REASONS.items():
+        row, entry = rows[path], entries[path]
+        if (row["status"] not in {"deferred", "retired"} or row["step"] != 1
+                or entry["classification"] not in {"phase2", "retired"}
+                or _digest(_regular(root, path).read_bytes()) != row["inherited_sha256"]
+                or entry["sha256"] != row["inherited_sha256"]):
+            raise ValueError(f"retirement requires original held step-1 bytes: {path}")
+    for path, reason in RETIREMENT_REASONS.items():
+        row, entry = rows[path], entries[path]
+        row.update(status="retired", reason=reason, blocked_on=None,
+                   qualification_group="not-applicable-retired",
+                   retirement={"reviewer": RETIREMENT_REVIEWER, "reason": reason})
+        row.pop("pending_contract_disposition", None)
+        entry.update(classification="retired", reason=reason,
+                     retirement={"reviewer": RETIREMENT_REVIEWER, "reason": reason})
+    plan["phase2"] = sorted(path for path in plan["phase2"] if path not in RETIRABLE_SUITES)
+    plan["retired"] = plan["phase2_retired"] = sorted(RETIRABLE_SUITES)
+    plan["counts"]["phase2"] = len(plan["phase2"])
+    plan["counts"]["retired"] = len(plan["retired"])
+    plan["execution_status"] = (
+        "Historical eligibility inventory, not whole-product parity or acceptance. "
+        "Nine whole inherited suites restored; five retired by Claude, review of #26, "
+        "never passing. All 326 original paths remain in phase2 plus phase2_restored "
+        "plus phase2_retired with original hashes. Merged main retains 30 qualification "
+        "groups including phase2-step5-profile-management. Historical116/259 evidence unchanged."
+    )
+    # Preserve the compact one-row-per-suite map, rather than rewriting unrelated rows.
+    text = (root / MAP_PATH).read_text()
+    original = _json(text)
+    for before, after in zip(original["entries"], mapping["entries"], strict=True):
+        if before != after:
+            compact = json.dumps(before, separators=(",", ":"))
+            if compact in text:
+                text = text.replace(compact, json.dumps(after, separators=(",", ":")), 1)
+            else:
+                text = text.replace(json.dumps(before), json.dumps(after), 1)
+    if _json(text) != mapping:
+        raise ValueError("suite map compact serialization changed; no data written")
+    for path, content in ((MAP_PATH, text), (PLAN_PATH, json.dumps(plan, indent=2) + "\n")):
+        target = root / path
+        replacement = target.with_suffix(target.suffix + ".tmp")
+        replacement.write_text(content)
+        replacement.replace(target)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("check", "report"), nargs="?", default="check")
+    parser.add_argument("command", choices=("check", "report", "record-review-retirements"),
+                        nargs="?", default="check")
     parser.add_argument("--root", type=Path, default=ROOT)
     args = parser.parse_args(argv)
+    if args.command == "record-review-retirements":
+        record_review_retirements(args.root)
     errors, counters = _evaluate(args.root)
     print(json.dumps({"command": args.command, "valid": not errors,
                       "errors": errors, "counts": counters}, indent=2, sort_keys=True))

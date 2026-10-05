@@ -1,5 +1,35 @@
 # Phase 2 step 8, part 1: deferred-suite ownership and early restoration
 
+## Review #26 update (supersedes current-state counts below)
+
+Rebased onto `main@566b7954911154ed36d9e5e751c2db9029e262e2`. All original
+29 qualification groups remain, plus main's `phase2-step5-profile-management`,
+for **30 current groups**. The original 29-group historical object and execution
+receipt below remain unchanged, not evidence of a clean current invocation.
+
+The five named step-1 suites are now **retired**, with exact citation
+`Claude, review of #26`: client, command reconciliation, gateway transition
+regressions, rate limiter and WebSocket production stack. Original bytes and
+SHA-256 remain. The map records each review-specific reason, including `/api/`
+versus unthrottled `/webhook/*`, separate step-6 report paging, and no IPC URL
+credential carrier. No replacement equivalence or passing claim is made.
+Historical membership remains **326 = 312 deferred + 9 restored + 5 retired**,
+with its original fixed digest. Step 1 has 9 restored, 5 retired, zero deferred.
+
+`computer_catalog` remains step 6 deferred. Claude's D17 review note remains open:
+if Odin allows a skill to take a disabled builtin's name, Desktop must too.
+No source/product behavior changes are made in this review-fix lane.
+
+The dev extra now declares `pip>=26.2`; `uv lock` generated pip 26.2.1 and
+`uv sync --locked --extra dev` succeeded without manual venv repair. Targeted
+PID-isolated accounting, historical membership, plan and offline wheel tests:
+**144 passed**, including maintenance, isolated-runner and distribution checks.
+Ruff, exact-byte drift report and suite-map checker returned zero errors.
+Parent owns the final clean full invocation; the historical
+failed/retried qualification evidence is not overwritten.
+
+## Historical implementation and execution record
+
 Built from freshly pulled `main@7d919f0c32402e28179e019dee948be8ed3f5407`.
 One review PR, no merge, deployment, live-service change or active-desktop action.
 The concurrent requests/delivery, controls and runtime lanes are not changed.

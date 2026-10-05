@@ -24,6 +24,13 @@ def historical():
     ) for path in (checker.PLAN_PATH, checker.QUALIFICATION_PATH)}
 
 
+@pytest.fixture(scope="session")
+def merged():
+    return subprocess.check_output(
+        ["git", "-C", str(ROOT), "show", f"{checker.MERGED_MAIN}:{checker.QUALIFICATION_PATH}"]
+    )
+
+
 def _write(root, path, data):
     target = root / path
     replacement = target.with_suffix(target.suffix + ".tmp")
@@ -36,7 +43,7 @@ def _read(root, path):
 
 
 @pytest.fixture(scope="session")
-def template(tmp_path_factory, historical):
+def template(tmp_path_factory, historical, merged):
     root = tmp_path_factory.mktemp("phase2-suite-map-offline")
     (root / "maintenance").mkdir()
     archive = ROOT / "maintenance/odin-v4.13.0.tar.gz"
@@ -61,17 +68,20 @@ def template(tmp_path_factory, historical):
                     for path in sorted(plan["phase2"])],
     }
     plan["phase2_restored"] = []
+    plan["retired"] = []
+    plan["counts"]["retired"] = 0
     _write(root, checker.MAP_PATH, mapping)
     _write(root, checker.PLAN_PATH, plan)
-    _write(root, checker.QUALIFICATION_PATH, json.loads(historical[checker.QUALIFICATION_PATH]))
+    _write(root, checker.QUALIFICATION_PATH, json.loads(merged))
     return root
 
 
 @pytest.fixture
-def repo(tmp_path, template, historical, monkeypatch):
+def repo(tmp_path, template, historical, merged, monkeypatch):
     root = tmp_path / "repo"
     shutil.copytree(template, root, copy_function=os.link)
-    monkeypatch.setattr(checker, "_git_blob", lambda root, revision, path: historical[path])
+    monkeypatch.setattr(checker, "_git_blob", lambda root, revision, path:
+                        merged if revision == checker.MERGED_MAIN else historical[path])
     return root
 
 
@@ -135,7 +145,9 @@ def test_whole_suite_restore_preserves_membership_and_counts(repo, adapter, caps
     assert report["counts"]["mapped"] == report["counts"]["original_population"] == 326
     assert report["counts"]["restored"] == 1
     assert report["counts"]["deferred"] == 325
-    assert report["counts"]["by_step"]["1"] == {"total": 326, "restored": 1, "deferred": 325}
+    assert report["counts"]["by_step"]["1"] == {
+        "total": 326, "restored": 1, "deferred": 325, "retired": 0,
+    }
 
 
 @pytest.mark.parametrize("mutation", [
@@ -336,13 +348,93 @@ def test_equal_population_size_cannot_substitute_historical_member(repo):
     assert any("membership mismatch" in error for error in checker.validate(repo))
 
 
-def test_historical_plan_is_hashed_independently(repo, historical, monkeypatch):
+def test_historical_plan_is_hashed_independently(repo, historical, merged, monkeypatch):
     rewritten = json.loads(historical[checker.PLAN_PATH])
     rewritten["phase2"][0] = "tests/test_reclassified.py"
     monkeypatch.setattr(
         checker, "_git_blob",
         lambda root, revision, path:
+        merged if revision == checker.MERGED_MAIN else
         json.dumps(rewritten).encode() if path == checker.PLAN_PATH else historical[path],
     )
     assert any("historical accounting object hash changed" in error
                for error in checker.validate(repo))
+
+
+def test_review_retirements_preserve_bytes_membership_and_are_idempotent(repo):
+    originals = {path: (repo / path).read_bytes() for path in checker.RETIRABLE_SUITES}
+    checker.record_review_retirements(repo)
+    assert checker.validate(repo) == []
+    snapshot = [(repo / path).read_bytes() for path in (checker.MAP_PATH, checker.PLAN_PATH)]
+    checker.record_review_retirements(repo)
+    assert snapshot == [(repo / path).read_bytes()
+                        for path in (checker.MAP_PATH, checker.PLAN_PATH)]
+    for path, original in originals.items():
+        assert (repo / path).read_bytes() == original
+    errors, report = checker._evaluate(repo)
+    assert errors == []
+    assert (report["restored"], report["deferred"], report["retired"]) == (0, 321, 5)
+    plan = _read(repo, checker.PLAN_PATH)
+    assert set(plan["retired"]) == checker.RETIRABLE_SUITES
+    assert set(plan["retired"]).isdisjoint(plan["safe_pass_now"])
+
+
+@pytest.mark.parametrize("mutation", [
+    "reviewer", "reason", "restoration", "group", "selected", "selected_case",
+    "safe", "marker", "hash", "step", "count", "classification", "unreviewed_path",
+])
+def test_retirement_cannot_be_unreviewed_or_claim_passing(repo, mutation):
+    checker.record_review_retirements(repo)
+    mapping, plan, qualification = (_read(repo, path) for path in
+                                  (checker.MAP_PATH, checker.PLAN_PATH,
+                                   checker.QUALIFICATION_PATH))
+    row = next(row for row in mapping["entries"] if row["status"] == "retired")
+    path = row["path"]
+    if mutation == "reviewer":
+        row["retirement"]["reviewer"] = "Claude"
+    elif mutation == "reason":
+        row["retirement"]["reason"] = " "
+    elif mutation == "restoration":
+        row["restoration"] = {"mode": "direct-original", "selectors": [path]}
+    elif mutation == "group":
+        row["qualification_group"] = "phase2-core-transport"
+    elif mutation in {"selected", "selected_case"}:
+        qualification["groups"][0]["files"].append(
+            path if mutation == "selected" else path + "::test_one")
+    elif mutation == "safe":
+        plan["safe_pass_now"].append(path)
+    elif mutation == "marker":
+        plan["phase2_retired"].remove(path)
+    elif mutation == "hash":
+        row["inherited_sha256"] = "0" * 64
+    elif mutation == "step":
+        row["step"] = 5
+    elif mutation == "count":
+        plan["counts"]["retired"] = 0
+    elif mutation == "classification":
+        next(entry for entry in plan["entries"] if entry["path"] == path)["classification"] = (
+            "retained_support")
+    elif mutation == "unreviewed_path":
+        row["path"] = "tests/test_unreviewed_retirement.py"
+    for filename, value in ((checker.MAP_PATH, mapping), (checker.PLAN_PATH, plan),
+                            (checker.QUALIFICATION_PATH, qualification)):
+        _write(repo, filename, value)
+    assert checker.validate(repo), mutation
+
+
+@pytest.mark.parametrize("mutation", ["missing_step5", "lost_selector", "rewritten_pin"])
+def test_merged_main_group_and_selectors_are_preserved(
+    repo, historical, merged, monkeypatch, mutation,
+):
+    qualification = _read(repo, checker.QUALIFICATION_PATH)
+    group = next(g for g in qualification["groups"]
+                 if g["name"] == "phase2-step5-profile-management")
+    if mutation == "missing_step5":
+        qualification["groups"].remove(group)
+    elif mutation == "lost_selector":
+        group["files"].pop()
+    else:
+        monkeypatch.setattr(checker, "_git_blob", lambda root, revision, path:
+                            merged + b" " if revision == checker.MERGED_MAIN else historical[path])
+    _write(repo, checker.QUALIFICATION_PATH, qualification)
+    assert checker.validate(repo)

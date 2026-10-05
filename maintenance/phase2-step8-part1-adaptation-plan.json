@@ -6,7 +6,7 @@
     {
       "path": "scripts/maintenance/phase2_suites.py",
       "reason": "Check the exact historical 326-suite population against immutable baseline bytes, whole-suite restoration selectors and explicit last-surface ownership.",
-      "contract": "Offline validation binds the pinned pre-restoration test plan, all 869 original paths, coherent classifications, all 29 named qualification groups and complete frozen adapters without importing engine or test code.",
+      "contract": "Offline validation binds the pinned pre-restoration test plan, all 869 original paths, coherent classifications, historical 29 groups plus independently pinned merged-main phase2-step5-profile-management (30 current groups), reviewed nonpassing retirements and complete frozen adapters without importing engine or test code.",
       "invariant": "No subset, reclassification, changed assertion corpus or unsupported service can be mistaken for restored parity; independent review remains pending.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_phase2_suite_map.py"]
@@ -39,7 +39,7 @@
       "path": "scripts/run-phase1-tests.py",
       "reason": "Avoid executing obsolete original setup a second time when its complete inherited corpus is qualified through a frozen adapter.",
       "contract": "Default selection retains directly restored originals and chooses the Desktop adapter for adapted suites; all execution still goes through sanitized env-i, nonroot owner and isolated mount/PID namespaces.",
-      "invariant": "No inherited case is dropped; the mapping checker verifies whole-suite adapter admission and all 29 qualification groups remain unchanged.",
+      "invariant": "No inherited case is dropped; all historical 29 groups and merged-main phase2-step5-profile-management remain, 30 current groups. This round refreshes evidence hashes only; runner bytes are unchanged.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_isolated_runner.py", "tests/test_desktop_test_plan.py", "tests/test_desktop_phase2_suite_map.py"]
     },
@@ -54,15 +54,15 @@
     {
       "path": "tests/test_desktop_round2_acceptance.py",
       "reason": "Preserve the immutable historical 326-suite population assertion after nine reviewed-for-restoration suites move into executable qualification.",
-      "contract": "The exact original count, uniqueness, fixed membership digest and required paths now bind phase2 union phase2_restored; restored suites must be safe_pass_now and disjoint from still-deferred paths.",
+      "contract": "The exact original count, uniqueness, fixed membership digest and required paths bind phase2 union phase2_restored union phase2_retired; restored suites must be safe_pass_now, retired suites never passing, and all three sets disjoint.",
       "invariant": "No original membership assertion is weakened or historical path dropped; classification transitions are independently checked against pinned pre-restoration data.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_round2_acceptance.py", "tests/test_desktop_phase2_suite_map.py"]
     },
     {
       "path": "scripts/maintenance/inventory.py",
-      "reason": "Refresh exact evidence-test digests after the historical membership test gains restoration accounting; inventory implementation bytes are unchanged.",
-      "contract": "Only the prompt-changes.md pinned digest and its provenance comment changed in the prior round. Existing selection, baseline archive, exact nine D7 substitutions, two non-runtime guard substitutions, fail-closed drift and independent-review checks remain mandatory. This round refreshes evidence digests only.",
+      "reason": "Recognize retained retired test classification without deleting original suites; refresh historical membership evidence after reviewed retirement accounting.",
+      "contract": "Add retired to allowed test-plan classifications only. Existing selection, archive, exact nine D7 substitutions, two non-runtime guard substitutions, fail-closed drift and independent-review checks remain mandatory. Retired files are exact-byte provenance, never executable passing evidence.",
       "invariant": "This approved document pin is not permission to recapture arbitrary source drift, modify governor/classifier instructions, or mark implementation reviewed. Evidence rebinding is not source approval or assertion replacement.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_maintenance.py", "tests/test_desktop_round2_acceptance.py"]
