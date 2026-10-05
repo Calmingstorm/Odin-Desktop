@@ -1197,8 +1197,6 @@ class ToolLoopRunner:
             )
             if not isinstance(durability, TurnDurability):
                 raise PermissionError("Durable request admission returned no execution ledger")
-            if durability.blocked is None and not durability.enabled:
-                raise PermissionError("Desktop execution requires a live durable request lease")
         except BaseException:
             self._channel_state.close_steer_inbox(_ch_id, _req_id)
             raise

@@ -229,6 +229,7 @@ class CoreService:
             "version": VERSION,
             "capabilities": list(CAPABILITIES),
             "limits": self.attachments.limits,
+            "diagnostics": self.engine.diagnostics(),
         }
 
     def welcome(self) -> dict:

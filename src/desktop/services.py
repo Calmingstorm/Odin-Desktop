@@ -95,6 +95,24 @@ class EngineServices:
             raise RuntimeError("Engine already belongs to another request service")
         self.requests = requests
 
+    def diagnostics(self):
+        """Public, credential-free runtime state for optional engine services."""
+        d = self.deps
+        ledger = d.turn_store
+        if ledger is None:
+            durability = {"state": "off", "reason": d.durability_reason,
+                          "message": "Turn durability off; turns run without checkpoints."}
+        elif not ledger.available:
+            durability = {"state": "unavailable", "reason": "runtime_store_failure",
+                          "message": "Turn ledger unavailable; fresh turn admission is refused."}
+        else:
+            durability = {"state": "on", "reason": None}
+        return {"turn_durability": durability,
+                "compatible_provider": {
+                    "state": "skipped" if d.compatible_skipped else
+                             "available" if d.llm_gateway.compatible_client is not None else "off",
+                    "reason": "missing_api_key" if d.compatible_skipped else None}}
+
     async def close(self):
         """Release this profile's transports after request workers are quiesced."""
         from ..llm.client_lifecycle import shutdown_provider_clients
@@ -164,7 +182,9 @@ class EngineServices:
         if not d.permissions.is_owner(uid):
             raise PermissionError("Authenticated profile owner required")
         if d.llm_gateway.active_client is None:
-            raise RuntimeError("No selected LLM provider configured")
+            from .errors import NoLLMProviderError
+
+            raise NoLLMProviderError("No selected LLM provider configured")
         content = message.content if content is None else content
         d.sessions.add_message(cid, "user", f"[{message.owner_name or uid}]: {content}", user_id=uid)
         try:
@@ -237,7 +257,8 @@ class EngineServices:
         d, cid = self.deps, message.conversation_id
         if not error:
             saved = summarize_tool_response(response, tools) if tools else response[:CHAT_RESPONSE_MAX_CHARS]
-        elif d.turn_store.turn_status_sync(message.turn_key) == "SUSPENDED":
+        elif (d.turn_store is not None
+              and d.turn_store.turn_status_sync(message.turn_key) == "SUSPENDED"):
             note = f" after using tools ({', '.join(tools[:5])})" if tools else ""
             saved = ("[Previous request was interrupted by a model-capacity "
                      f"outage{note}. Its work is PRESERVED and resumable.]")
@@ -360,10 +381,25 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     trajectories = getattr(runtime, "trajectory_saver", None) or TrajectorySaver(str(paths.data_dir / "trajectories"))
     agent_trajectories = getattr(runtime, "agent_trajectory_saver", None) or AgentTrajectorySaver(
         str(paths.data_dir / "agent_trajectories"))
-    ledger = turn_store or getattr(runtime, "turn_store", None) or TurnStateStore(
-        paths.data_dir / "turn_state" / "turns.db")
-    if not ledger.available:
-        raise RuntimeError("Desktop execution requires an available durable turn ledger")
+    # D17: feature-off or failed-open is Odin's legacy, uncheckpointed run.
+    # Keep a successfully opened owner attached: later failure must refuse
+    # admission, not silently convert the runtime to legacy execution.
+    ledger = None
+    durability_reason = None
+    if not cfg.turn_state.enabled:
+        durability_reason = "disabled_by_config"
+        log.info("Desktop turn durability off: disabled by configuration")
+    else:
+        ledger = turn_store if turn_store is not None else getattr(runtime, "turn_store", None)
+        if ledger is None:
+            try:
+                ledger = TurnStateStore(paths.data_dir / "turn_state" / "turns.db")
+            except Exception as error:
+                log.warning("Desktop turn ledger failed to open: %s", type(error).__name__)
+        if ledger is None or not ledger.available:
+            ledger = None
+            durability_reason = "store_open_failed"
+            log.warning("Desktop turn durability off: ledger failed to open; running legacy turns")
     codex_client = codex_client or getattr(runtime, "codex_client", None)
     ollama_client = ollama_client or getattr(runtime, "ollama_client", None)
     compatible_client = compatible_client or getattr(runtime, "compatible_client", None)
@@ -388,9 +424,10 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         ollama_client = OllamaClient(base_url=oc.base_url, model=oc.model,
             max_tokens=oc.max_tokens, num_ctx=oc.num_ctx, timeout=oc.timeout, api_key=oc.api_key)
     pc = cfg.openai_compatible
-    if compatible_client is None and pc.enabled:
-        if not pc.api_key:
-            raise ValueError("Compatible backend requires injected profile credentials")
+    compatible_skipped = compatible_client is None and pc.enabled and not pc.api_key
+    if compatible_skipped:
+        log.warning("Desktop compatible provider skipped: enabled without an API key")
+    if compatible_client is None and pc.enabled and pc.api_key:
         from ..llm.openai_compatible import KIMI_TOOL_ENFORCEMENT, preset_context_overflow_pattern
         from ..reasoning import compatible_reasoning_dialect
 
@@ -542,6 +579,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     compression = getattr(runtime, "context_compressor", cc.context_compression if cc.context_compression.enabled else None)
     d = SimpleNamespace(get_config=get_config, paths=paths, permissions=permissions,
         sessions=sessions, tool_executor=executor, channel_state=state, turn_store=ledger,
+        durability_reason=durability_reason, compatible_skipped=compatible_skipped,
         llm_gateway=gateway, prompt_builder=prompt, tool_catalog=catalog, native_tools=dispatcher,
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         skill_manager=skills, audit=audit, agent_manager=agents, loop_manager=loops,

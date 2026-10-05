@@ -414,8 +414,8 @@ async def test_real_runner_tool_detail_preserves_sink_output_and_live_authorizat
         assert "T" in detail["previews"][0]["text"]
         assert requests.snapshot(cid)["tools"][rid][0]["outcome"] == "success"
         executor._builtin_policy._get_readiness = lambda: {}
-        with pytest.raises(Exception, match="no longer authorized"):
-            delivery.tool_details.detail(rid, "time-call", owner=requests.authority.owner_id)
+        assert delivery.tool_details.detail(
+            rid, "time-call", owner=requests.authority.owner_id) == detail
     finally:
         await requests.close()
         await engine.close()

@@ -54,7 +54,7 @@ def test_binary_bytes_offsets_and_bounds(stores):
     assert artifacts.read(artifact["ref"], len(data), 4, owner="owner")["eof"]
 
 
-def test_reference_has_no_scope_authority(stores):
+def test_posted_file_keeps_owner_and_conversation_binding_not_live_scope(stores):
     _, _, artifacts, _, enabled, checks = stores
     artifact = publish(artifacts)
     for owner, conversation in [("another", None), ("owner", "another")]:
@@ -63,10 +63,13 @@ def test_reference_has_no_scope_authority(stores):
         assert exc.value.code == "not_found"
     artifacts.read(artifact["ref"], 0, 4, owner="owner")
     enabled[0] = False
+    page = artifacts.read(artifact["ref"], 4, 4, owner="owner")
+    assert base64.b64decode(page["data_b64"]) == b"oken"
+    # Publication is authorized once; reading delivered bytes does not recheck.
+    assert len(checks) == 1
     with pytest.raises(ResultReadError) as exc:
-        artifacts.read(artifact["ref"], 4, 4, owner="owner")
+        publish(artifacts)
     assert exc.value.code == "unauthorized"
-    assert len(checks) == 3
 
 
 def test_artifact_lifetime_not_evidence_ttl_or_quota(stores):
