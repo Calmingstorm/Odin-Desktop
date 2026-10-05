@@ -69,7 +69,7 @@ Every message has a type field `t`. An unknown `t` is a protocol error. Unknown 
 |---|---|---|
 | `status.get` | `{}` | `{phase, core_instance_id, version, capabilities}`. Phase is one of `starting`, `ready`, `degraded`, `quiescing`. |
 | `events.subscribe` | `{after: cursor or null}` | `{event_high, reset_required}`. If `after` is unknown or expired, `reset_required` is true: see **Reset** under the delivery rules. |
-| `conversations.list` | `{}` | `{items, watermark}`. Each item is `{id, title, rev, parent_id, updated_at, unread, archived, activity}`, where `activity` is `{running: {request_id, generation} or null, queued: [{request_id, generation}]}`. The list is complete through `watermark`, under the same snapshot rules as below. |
+| `conversations.list` | `{}` | `{items, watermark}`. Each item is `{id, title, rev, parent_id, inherited_from, updated_at, unread, archived, activity}`, where `activity` is `{running: {request_id, generation} or null, queued: [{request_id, generation}]}` and `inherited_from` is null, or for a child `{conversation_id, message_id, title}`: the parent, the message its context was copied through, and the parent's title when the child was made. The list is complete through `watermark`, under the same snapshot rules as below. |
 | `conversations.create` | `{title?, parent_id?}` | `{conversation}`. A `parent_id` makes a child seeded from the parent's current context. |
 | `conversations.update` | `{id, expected_rev, title?, archived?}` | `{conversation}`, or the error `stale_binding` if `expected_rev` doesn't match |
 | `messages.list` | `{conversation_id, before?, limit}` | `{items, has_more, watermark}`. Committed messages only, newest last. `limit` is at most 100. Used for older pages; the current state comes from `conversation.snapshot`. |
@@ -126,8 +126,8 @@ second policy layer.
 
 | Method | Params | Result |
 |---|---|---|
-| `conversations.create` | `{title?, parent_id?, from_message_id?}` | `{conversation}`. With `parent_id`, a child seeded from the parent's context through `from_message_id` (default: its latest message), and labeled as inherited. |
-| `conversations.delete` | `{id, expected_rev}` | `{disposition: "deleted"}`, or `busy` while a request in it is running or queued (stop it first). The visible transcript and its artifacts go; admitted-ID tombstones stay. |
+| `conversations.create` | `{title?, parent_id?, from_message_id?}` | `{conversation}`. With `parent_id`, a child seeded from the parent's context through `from_message_id` (default: its latest message). The child's `inherited_from` records that origin and cutoff, and never changes. |
+| `conversations.delete` | `{id, expected_rev}` | `{disposition: "deleted"}`. While a request in it is running or queued, the error `busy` (`not_dispatched`): nothing changed. Stop the work, then delete again as a new command with a new ID. The visible transcript and its artifacts go; admitted-ID tombstones stay. |
 | `conversations.reset_context` | `{id, expected_rev}` | `{conversation}`. Odin's model context restarts; the visible transcript stays. A `notice` message records it. |
 | `conversations.mark_read` | `{id, through_message_id}` | `{conversation}` with its new `unread` |
 
@@ -166,7 +166,7 @@ The app never executes artifact content (no HTML or SVG rendering); it shows ima
 | Method | Params | Result |
 |---|---|---|
 | `tool.detail` | `{request_id, invocation_id}` | `{tool, target?, arguments, previews: [{label, text, truncated}], output: {cursor?, expires_at?}}`. Arguments are scrubbed; previews are labeled as previews. |
-| `tool.output` | `{cursor, limit}` | `{text, next_cursor?, eof, expires_at}`. Retained output, fetched without re-running anything (Odin's `get_tool_output` contract). |
+| `tool.output` | `{cursor, limit}` | `{text, attachments, next_cursor?, eof, expires_at}`. Retained output, fetched without re-running anything (Odin's `get_tool_output` contract). `text` is the scrubbed text output. Binary output is never decoded as text: `attachments` lists each retained binary as `{ref, kind, mime, size, sha256}`, and its bytes are read with `artifacts.read` by offset, so the type, digest, byte offsets and continuation survive. |
 
 ### Running work and resume
 
@@ -181,7 +181,7 @@ The app never executes artifact content (no HTML or SVG rendering); it shows ima
 | Method | Params | Result |
 |---|---|---|
 | `status.get` | `{}` | Minor 1's fields plus `model: {main, effort, provider}`, `providers: [{name, health}]` and `limits: {chunk_bytes, attachment_bytes, attachments_per_turn}` |
-| `usage.get` | `{period}` (`session`, `day` or `week`) | Usage, quota and context, each value tagged `measured`, `estimated` or `unknown`. Never an invented number. |
+| `usage.get` | `{period}`: Odin's `/usage` ranges, `24h`, `7d`, `30d` or `all`; `7d` when omitted, as in Odin | Usage, quota and context, each value tagged `measured`, `estimated` or `unknown`. Never an invented number. |
 | `runtime.reload` | `{scope}` (`skills`, `config` or `context`) | `{disposition}`: Discord's `/reload` |
 
 ### Notifications
@@ -194,8 +194,8 @@ records what happened. An outcome of `shown` means the OS accepted it, not that 
 
 | Method | Params | Result |
 |---|---|---|
-| `settings.schema` | `{}` | `{rev, sections: [{id, title, leaves: [{path, type, title, description, default, value, enum?, min?, max?, apply, sensitive}]}]}`. `apply` is `live` or `restart` (Odin's apply registry). A sensitive leaf's `value` is `{set}`. |
-| `settings.set` | `{expected_rev, changes: [{path, value} or {path, delete: true}]}` | `{rev, restart_required, applied}`. Partial: only the submitted leaves change. Validation errors name the leaf, and nothing is applied. |
+| `settings.schema` | `{}` | Odin's `GET /api/config/meta`: `{schema_version, revision, fields, status}`. Each field keeps Odin's apply-registry record: `path`, `label`, `description`, `type`, `enum`, `constraints`, `default`, `nullable`, `sensitivity`, `apply_mode` (`live_read`, `live_apply`, `live_for_new_work`, `restart`, `activation_required` or `dormant`), `apply_handler`, `restart_reason`, `activation_policy`, `consumers`, `save_effect`, `runtime_effect`, `desired`, `effective`, `pending_restart` and `apply_state` (`applied`, `pending_restart`, `dormant`, `invalid`, `drift` or `unknown`). Saved and effective values stay distinct, and a sensitive field's values are redacted. Where Odin's `apply_handler` is a dedicated route, the core names the desktop method that does the same (for example `models.main.set`). |
+| `settings.set` | `{expected_revision, changes: [{path, value} or {path, delete: true}]}` | Odin's `PUT /api/config` semantics: partial, validated as a whole, persisted before the runtime changes. The result is `{revision, fields}`: the changed fields' records, saying what saving did and what the running core does now. A field whose `apply_handler` is a dedicated method is refused here, naming that method. Validation errors name the field, and nothing is applied. |
 | `secrets.set` | `{path, value}` | `{set: true}`. The value is stored in the profile's keyring and never echoed. |
 | `secrets.clear` | `{path}` | `{set: false}` |
 
@@ -206,12 +206,12 @@ Each method has the Odin shape of the listed route.
 | Domain | Methods | Odin shape |
 |---|---|---|
 | Codex accounts | `codex.accounts.list`, `codex.accounts.activate`, `codex.accounts.remove`, `codex.accounts.label`, `codex.login.begin`, `codex.login.poll` | `GET /api/codex/status`, `POST /api/codex/account/{index}/activate`, `DELETE /api/codex/account/{index}`, `PUT /api/codex/account/{index}/label`, `POST /api/codex/device-code`, `POST /api/codex/device-poll` |
-| Models | `models.main.set`, `models.agents.get`, `models.agents.set` | `PUT /api/llm/main-model`, `GET` / `PUT /api/agents/model` |
+| Models | `models.main.set`, `models.agents.get`, `models.agents.set`, `models.discover` | `PUT /api/llm/main-model`, `GET` / `PUT /api/agents/model`. `models.discover` `{provider, base_url?}` lists the models an endpoint offers, including one configured but not enabled yet: `POST /api/ollama/probe-models` for `ollama`, `GET /api/openai-compatible/models` for `compat`. |
 | Personality | `personality.get`, `personality.set`, `personality.presets.save`, `personality.presets.delete` | `/api/personality`, `/api/personality/presets` |
 | Tools | `tools.list`, `tools.set_enabled`, `tools.timeouts.get`, `tools.timeouts.set` | `GET /api/tools/builtins`, `POST /api/tools/builtins/{name}/enabled`, `/api/tools/timeouts` |
 | Skills | `skills.list`, `skills.get`, `skills.save`, `skills.validate`, `skills.test`, `skills.set_enabled`, `skills.delete`, `skills.config.get`, `skills.config.set` | `/api/skills` and its sub-routes |
 | MCP servers | `mcp.list`, `mcp.status`, `mcp.save`, `mcp.set_enabled`, `mcp.delete`, `mcp.reconnect`, `mcp.refresh_tools`, `mcp.tools` | `/api/mcp/*` |
-| Hosts and trust | `hosts.list`, `hosts.prepare`, `hosts.test`, `hosts.commit`, `hosts.set_enabled`, `hosts.references`, `hosts.delete`, `hosts.public_key` | `/api/hosts`, `/api/hosts/candidates`, `/candidates/{token}/test` and `/commit`, `/{alias}/references` and the rest |
+| Hosts and trust | `hosts.list`, `hosts.prepare`, `hosts.test`, `hosts.commit`, `hosts.set_enabled`, `hosts.references`, `hosts.delete`, `hosts.public_key`, `hosts.force_revoke` | `/api/hosts`, `/api/hosts/candidates`, `/candidates/{token}/test` and `/commit`, `/{alias}/references`, `POST /api/hosts/{alias}/force-revoke` (immediate revocation of leased host generations) and the rest |
 | Schedules | `schedules.list`, `schedules.save`, `schedules.delete`, `schedules.run`, `schedules.reset_failures`, `schedules.history`, `schedules.validate_cron` | `/api/schedules/*` |
 | Memory | `memory.list`, `memory.get`, `memory.set`, `memory.delete`, `memory.bulk_delete` | `/api/memory/*` |
 | Named lists | `lists.list` `{}` → `{items: [{name, count, updated_at}]}`; `lists.get` `{name}` → `{name, items}`; `lists.delete` `{name}` | No Odin route: the core reads and writes the same store as Odin's `manage_list` tool |
@@ -280,6 +280,9 @@ Each method has the Odin shape of the listed route.
 - **Binding.** A command ID (`req.id`) is bound to the profile, the method and the canonical params (JSON with sorted
   keys). The same ID with the same method and params returns the original result. The same ID with a different method
   or params is refused with `id_conflict` and runs nothing.
+- **Refusals are answers.** A refusal (`busy`, `stale_binding`, a validation error) is that command's final answer,
+  and the same ID returns it again. Re-sending the same ID is for an outcome the app never received. After the cause of
+  a refusal clears, trying again is a new command with a new ID.
 - **Durability.** Receipts for commands that admit or change something (`submission.send`, `control.*`,
   `conversations.create`, `conversations.update`, `runtime.shutdown`) are durable and survive core restarts. Read
   methods (`status.get`, `*.list`, `conversation.snapshot`, `events.subscribe`) are not cached.
@@ -299,7 +302,7 @@ Each method has the Odin shape of the listed route.
 | `stale_binding` | The expected revision, request or generation doesn't match. The command is refused and never retargeted. |
 | `capability_unavailable` | The feature isn't available or qualified |
 | `storage_unavailable` | Durable admission couldn't be established |
-| `busy` | Temporarily refused; retry with the same `id` |
+| `busy` | Refused for now, and nothing happened. After the cause clears, try again as a new command with a new `id`; the same `id` returns this answer again. |
 | `id_conflict` | The command ID is already bound to a different method or params. Nothing ran. |
 | `receipt_expired` | The ID was used before and its receipt was pruned. Its outcome is unknown; it is never re-admitted. |
 | `internal` | A bounded, scrubbed description of a core fault |
