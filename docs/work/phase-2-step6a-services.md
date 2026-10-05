@@ -51,6 +51,10 @@ retain bounded management authority; arbitrary child tasks do not inherit it.
   Worker-only GI discovery never changes core search paths/environment or qualifies
   a native backend. The immutable original GI cases execute through a worker-placement
   adapter, with unchanged assertions and parameter identities.
+  Copied unsafe-storage refusal does not crash otherwise usable IPC startup: only
+  computer status is offered, reporting unavailable storage; activation/cleanup
+  effects are withheld. No unrelated XDG ancestor is chmodded or aliased native
+  storage adopted to manufacture qualification.
 - **Diagnostics:** existing `health.get` includes bounded local workspace collection
   from the actual executor resolver. Fixed argv, no shell/fetch/network, bounded output,
   entry/depth/time caps and single-flight timeout workers. Local refs do not prove

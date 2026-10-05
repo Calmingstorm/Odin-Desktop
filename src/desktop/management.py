@@ -422,3 +422,9 @@ class ManagementService:
                 result = start()
                 if inspect.isawaitable(result):
                     await result
+        # Optional store qualification may leave observation usable while its
+        # native management effects are unavailable. Do not publish those.
+        self.methods = {method: service for service in self.services
+                        for method in getattr(service, "management_methods", service.METHODS)}
+        self.read_methods = {method for service in self.services
+                             for method in service.READ_METHODS if method in self.methods}

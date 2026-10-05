@@ -32,6 +32,7 @@ class ComputerBindingService:
         self._integration = None
         self._started = False
         self._closed = False
+        self._startup_error = None
         self._bindings = contextvars.ContextVar("desktop_computer_management", default=None)
         self._lifecycle = asyncio.Lock()
 
@@ -45,7 +46,14 @@ class ComputerBindingService:
         return {"management_available": self._started and not self._closed,
                 "foreground_available": False, "native_qualified": False,
                 "input_supported": False, "dispatch": "none",
-                "reason": "foreground_binding_and_native_qualification_pending"}
+                "reason": self._startup_error or
+                          "foreground_binding_and_native_qualification_pending"}
+
+    @property
+    def management_methods(self):
+        # An unavailable private store must not make the whole transport fail,
+        # nor advertise cleanup/activation operations that it cannot perform.
+        return self.METHODS if self._started and not self._closed else self.READ_METHODS
 
     async def start(self):
         """Open private durable state only. Never start a native desktop/helper."""
@@ -57,7 +65,13 @@ class ComputerBindingService:
             if self.controller is None:
                 from ..computer.integration import ComputerIntegration
 
-                integration = ComputerIntegration(SimpleNamespace(config=self.settings.config))
+                try:
+                    integration = ComputerIntegration(SimpleNamespace(config=self.settings.config))
+                except ComputerError:
+                    # Keep the copied storage fence. Do not chmod unrelated XDG
+                    # ancestors, follow unsafe aliases or create a second store.
+                    self._startup_error = "computer_storage_unavailable"
+                    return
                 self._integration = integration
                 self.controller = integration.controller
             self.controller.authorize = self._authorize
@@ -111,6 +125,8 @@ class ComputerBindingService:
         if method == "computer.activation.set":
             return await self.settings.handle(method, params)
         self._params(method, params)
+        if method == "computer.status" and self._startup_error and not self._closed:
+            return {"session": None, "readiness": self.readiness()}
         if not self._started or self._closed:
             raise MethodError("capability_unavailable", "Computer management is not running")
         context = ManagementContext(owner.owner_id, "localhost")

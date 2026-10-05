@@ -58,6 +58,24 @@ def test_retained_neutral_modules_byte_identical(path):
         # exemption for the real retained catalog or its merge/cache algorithms.
         substitutions = (
             (
+                '        get_email_config: Callable | None = None,\n',
+                '        get_email_config: Callable | None = None,\n'
+                '        get_builtin_definitions: Callable | None = None,\n',
+            ),
+            (
+                '        self.get_email_config = get_email_config\n',
+                '        self.get_email_config = get_email_config\n'
+                '        # The desktop composition supplies the existing readiness-gated\n'
+                '        # registry, never the static documentation catalog.\n'
+                '        self.get_builtin_definitions = get_builtin_definitions\n',
+            ),
+            (
+                '        builtin = get_tool_definitions(command_shell=None)\n',
+                '        builtin = (self.get_builtin_definitions() '
+                'if self.get_builtin_definitions is not None\n'
+                '                   else get_tool_definitions(command_shell=None))\n',
+            ),
+            (
                 '        static_names = {t["name"] for t in builtin}\n'
                 '        if computer_cfg is not None and computer_cfg.enabled:\n'
                 '            static_names.update({"computer_session", "computer_observe", '

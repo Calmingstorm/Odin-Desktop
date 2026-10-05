@@ -149,3 +149,37 @@ async def test_failed_close_does_not_strand_other_transport_owners():
         await manager.close()
     assert exc.value.disposition == "outcome_unknown"
     assert calls == ["second", "first", "providers"]
+
+
+async def test_optional_computer_storage_refusal_keeps_transport_without_fake_management(
+    tmp_path, monkeypatch,
+):
+    from src.computer import integration
+    from src.computer.provisioning import ComputerProvisioningError
+
+    def unsafe_store(*args, **kwargs):
+        raise ComputerProvisioningError("storage_not_private")
+
+    monkeypatch.setattr(integration, "ComputerIntegration", unsafe_store)
+    paths, socket_path, token_file = profile(tmp_path)
+    read_fd, write_fd = os.pipe()
+    core = CoreService(paths, socket_path, token_file, secret_backend=TemporaryKeyring())
+    writer = None
+    try:
+        await core.start(read_fd)
+        reader, writer, welcome = await connect(socket_path)
+        assert core.phase == "ready"
+        assert "computer.status" in welcome["capabilities"]
+        assert not {"computer.activation.set", "computer.reconcile", "computer.stop"} & set(
+            welcome["capabilities"])
+        observed = (await request(reader, writer, "computer.status"))["result"]
+        assert observed["readiness"]["reason"] == "computer_storage_unavailable"
+        assert not observed["readiness"]["management_available"]
+        assert core.management.computer.controller is None
+    finally:
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
+        await core.close()
+        os.close(read_fd)
+        os.close(write_fd)

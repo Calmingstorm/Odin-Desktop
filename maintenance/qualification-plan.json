@@ -285,7 +285,7 @@
         "tests/test_computer_recovery_guidance_stance.py",
         "tests/test_computer_region_truthfulness_r21.py",
         "tests/test_computer_round14_grounding.py",
-        "tests/test_computer_runtime_coverage_r10.py",
+        "tests/test_desktop_accessibility_gi_adaptation.py",
         "tests/test_computer_runtime_coverage_r10_worker.py",
         "tests/test_computer_runtime_grounding_r4.py",
         "tests/test_computer_selection_campaign.py",
