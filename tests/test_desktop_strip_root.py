@@ -54,9 +54,10 @@ def test_retained_neutral_modules_byte_identical(path):
     expected = baseline(source)
     if path == "tool_catalog":
         # Readiness-filtered publication cannot reserve the complete static
-        # namespace. This reviewed pending adaptation is exact, not a blanket
-        # exemption for the real retained catalog or its merge/cache algorithms.
+        # namespace. Decision F also removes only the PDF dependency gate:
+        # resolution happens on first use. Every merge/cache byte stays exact.
         substitutions = (
+            ("import importlib.util\n", ""),
             (
                 '        static_names = {t["name"] for t in builtin}\n'
                 '        if computer_cfg is not None and computer_cfg.enabled:\n'
@@ -73,17 +74,15 @@ def test_retained_neutral_modules_byte_identical(path):
                 '        # only; the handler still converts a load failure '
                 'into a clean result,\n'
                 '        # because find_spec proves the module is importable, not that the\n'
-                '        # native library loads.\n',
-                '        # Required bundled dependencies still need a structural readiness check.\n'
-                '        # Importability is not proof the native library '
-                'or packaged assets load.\n',
-            ),
-            (
+                '        # native library loads.\n'
+                '        if importlib.util.find_spec("fitz") is None:\n'
+                '            hidden.add("analyze_pdf")\n'
+                '            log.info(\n'
                 '                "analyze_pdf hidden from the tool catalog: PyMuPDF is not "\n'
                 '                "installed. Install the \'pdf\' extra to enable it "\n'
-                '                "(pip install \'.[pdf]\')."\n',
-                '                "analyze_pdf hidden from the tool catalog: required bundled "\n'
-                '                "PyMuPDF is unavailable; repair the desktop installation."\n',
+                '                "(pip install \'.[pdf]\')."\n'
+                '            )\n',
+                '        # PDF is always offered: its optional dependency resolves on first use.\n',
             ),
         )
         for before, after in substitutions:

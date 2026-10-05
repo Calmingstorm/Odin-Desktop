@@ -1,10 +1,13 @@
 """Mounted individually inside a namespace. Imports no checkout code."""
 import asyncio
+import hashlib
+import importlib.util
 import json
 import math
 import os
 from pathlib import Path
 import secrets
+import shutil
 import socket
 import struct
 import subprocess
@@ -20,7 +23,6 @@ def d14(resources):
     os.environ['TRANSFORMERS_OFFLINE'] = '1'
     from src.tools.browser import BrowserManager
     from src.search.embedder import LocalEmbedder
-    import fitz
     from importlib.resources import files
 
     async def features():
@@ -61,12 +63,7 @@ def d14(resources):
         return browser, {'dimensions': len(vector), 'model': embedder.MODEL}
 
     browser, model = asyncio.run(features())
-    doc = fitz.open()
-    doc.new_page().insert_text((72, 72), 'D14 candidate PDF offline')
-    payload = doc.tobytes()
-    doc.close()
-    with fitz.open(stream=payload, filetype='pdf') as parsed:
-        assert parsed[0].get_text().strip() == 'D14 candidate PDF offline'
+    pdf = first_use_pdf(runtime)
     assets = files('src.computer.runtime').joinpath('assets')
     assert Path(str(assets)).is_relative_to(runtime)
     assert assets.joinpath('session.conf').read_text()
@@ -76,8 +73,54 @@ def d14(resources):
         result = subprocess.run([str(runtime / 'helpers/bin' / name)], capture_output=True, timeout=10)
         assert result.returncode == expected, name
         native[name] = expected
-    return {'browser': browser, 'semantic_model': model, 'pdf': {'text': 'pass', 'version': fitz.VersionBind},
+    return {'browser': browser, 'semantic_model': model, 'pdf': pdf,
             'helpers': {'packaged_assets': True, 'native_usage_exits': native, 'input_attempted': False}}
+
+
+def first_use_pdf(runtime):
+    assert importlib.util.find_spec('fitz') is None, 'PDF payload is bundled'
+    assert importlib.util.find_spec('pymupdf') is None, 'PyMuPDF payload is bundled'
+    from src.runtime import pdf_resources
+    from src.tools.handlers.files_docs import FilesDocsTools
+    lock = json.loads((runtime / 'pdf.lock.json').read_text())
+    assert hashlib.sha256(Path('/pdf-fixture.whl').read_bytes()).hexdigest() == lock['sha256']
+    downloads = []
+    def local_download(url, destination):
+        assert url == lock['url'], 'download did not retain pinned provenance'
+        downloads.append(url)
+        shutil.copyfile('/pdf-fixture.whl', destination)
+    pdf_resources._download_wheel = local_download
+    # Build a valid fixture without importing the not-yet-installed PDF engine.
+    content = b'BT /F1 12 Tf 72 720 Td (D14 candidate PDF offline) Tj ET'
+    objects = [b'<< /Type /Catalog /Pages 2 0 R >>',
+               b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+               b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+               b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+               b'<< /Length ' + str(len(content)).encode() + b' >>\nstream\n' + content + b'\nendstream']
+    payload, offsets = b'%PDF-1.4\n', [0]
+    for number, value in enumerate(objects, 1):
+        offsets.append(len(payload))
+        payload += str(number).encode() + b' 0 obj\n' + value + b'\nendobj\n'
+    xref = len(payload)
+    payload += b'xref\n0 6\n0000000000 65535 f \n'
+    payload += b''.join(('%010d 00000 n \n' % offset).encode() for offset in offsets[1:])
+    payload += b'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + str(xref).encode() + b'\n%%EOF\n'
+    class Stub:
+        def _acquire_host(self, name):
+            return type('Lease', (), {'target': type('Target', (), {'address': 'local', 'ssh_user': 'none',
+                        'key_path': None, 'known_hosts_path': None, 'port': 22, 'host_key_alias': None})(),
+                        'release': lambda self: None,
+                        'run': lambda self, operation: asyncio.sleep(0, result=(payload, ''))})()
+    result = asyncio.run(FilesDocsTools._handle_analyze_pdf(Stub(), {'host': 'offline-proof', 'path': '/fixture.pdf'}))
+    assert result.strip() == '## Page 1\nD14 candidate PDF offline', repr(result)
+    fitz = pdf_resources._ensure_pdf()
+    assert downloads == [lock['url']], 'first use must download exactly once'
+    assert Path(fitz.__file__).resolve().is_relative_to(Path('/work/home')), 'PDF was not installed in private user state'
+    assert not Path(fitz.__file__).resolve().is_relative_to(runtime), 'immutable runtime was modified'
+    assert fitz.VersionBind == lock['version']
+    return {'text': 'pass', 'version': fitz.VersionBind, 'bundled': False,
+            'first_use_downloads': len(downloads), 'wheel_sha256': lock['sha256'],
+            'module': fitz.__file__, 'network': 'disabled; separate local pinned fixture'}
 
 def isolation():
     assert os.getuid() != 0, 'candidate probe must be nonroot'

@@ -1,29 +1,34 @@
-# D14 PDF resource
+# D14 PDF first-use resource
 
-`pdf.py:stage_pdf(bundle_root, cache_dir)` stages PDF evidence from the already
-installed, locked production runtime. It deliberately does not download or
-install wheels: the Python runtime stage owns dependency resolution and makes
-PyMuPDF 1.28.2 available. The wheel must be present in the content-addressed
-`python-runtime/wheelhouse` cache and match both `uv.lock` and
-`pdf.lock.json`. The supported binary here is Linux x86-64, CPython 3.12,
-manylinux 2.28 x86-64 (the wheel uses CPython's abi3 tag).
+Aaron chose automatic first-use PDF download on 2026-10-05. PyMuPDF remains the
+optional `[pdf]` extra, not a production dependency. `pdf.py:stage_pdf` validates
+the optional `uv.lock` wheel pin and copies only `pdf.lock.json` to
+`resources/runtime/pdf.lock.json`. It performs no download and stages no wheel,
+MuPDF shared objects, PyMuPDF packages or `COPYING` notice. Existing PDF payload
+in a stage is rejected instead of silently incorporated.
 
-The returned metadata inventories the wheel provenance and digest, MuPDF
-native shared objects/digests, and the packaged `COPYING` license notice. It
-also runs a subprocess with isolated Python mode and unusable HTTP(S) proxy
-addresses; that subprocess creates a one-page PDF in memory, opens it using
-the staged `fitz.open(stream=..., filetype="pdf")` engine API and extracts
-text. A second isolated subprocess calls the real
-`src.tools.handlers.files_docs.FilesDocsTools._handle_analyze_pdf` with a
-stubbed local host-byte reader and asserts the handler's page-labelled result.
-This proves both native PDF support and the engine's actual extraction path
-can execute without a feature download. It does not prove package-level offline
-qualification by itself.
+The unchanged lock retains the original HTTPS URL, SHA-256, PyMuPDF 1.28.2
+Linux x86-64 CPython abi3/manylinux 2.28 wheel name and license provenance.
+The engine's shared `src.runtime.pdf_resources` resolver reads the immutable pin,
+downloads and hash-checks the wheel, then installs it in the selected profile's
+private writable data directory. It never modifies application resources.
+Concurrent callers share the installation; offline/hash failures leave no usable
+install and the next call retries. PDF attachments, knowledge imports and
+`analyze_pdf` all use that path. `analyze_pdf` remains offered before installation.
 
-**License review required before distribution.** PyMuPDF identifies itself as
-dual licensed under GNU AGPL-3.0 or the Artifex Commercial License. The wheel
-contains a short `COPYING` notice, not the full license texts. The project must
-obtain legal review of applicable AGPL obligations or confirm the required
-commercial license before shipping; this staging code does not resolve that
-choice. The native libraries are bundled inside the PyMuPDF wheel, so their
-third-party notices and license coverage also need review.
+The package qualifier requires `--pdf-wheel <local-pinned-wheel.whl>`. The fixture
+is SHA-256 verified and mounted read-only separately from the candidate in a
+network-disabled namespace. The candidate starts without `fitz` or `pymupdf`;
+only its resolver download transport is replaced with fixture copying. Its actual
+verification/extraction and real extraction handler run against disposable user
+state. The packaged runtime remains read-only, and a second resolution reuses the
+install. No fixture or installed PDF bytes become part of either candidate.
+
+Package/tree and ASAR checks reject PyMuPDF/MuPDF/legacy fitz payload paths,
+including wheel, package, native library and license staging. This is checked on
+actual extracted/installed candidate contents, not merely a dependency declaration.
+
+PyMuPDF identifies itself as AGPL-3.0-or-later or commercially licensed.
+**PyMuPDF/MuPDF is not distributed in these candidates.** Keeping its pinned
+first-use download does not make a legal determination about all resulting
+application use; final distribution licensing remains an owner/legal decision.

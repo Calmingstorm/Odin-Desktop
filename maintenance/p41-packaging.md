@@ -1,5 +1,37 @@
 # P4.1 early candidate packaging evidence, 2026-10-05
 
+## Review round 1 changes and open Ubuntu gate
+
+PR #24 is rebased onto `main@566b7954`, including #19's validated development
+override/visible launch failure and #21's selected-profile runtime management.
+Packaged resolution retains the immutable absolute interpreter, isolated flags
+and no development fallback. PR #22 is still open at this rebase watermark;
+its additional `analyze_pdf` readiness check remains with that lane.
+
+**Aaron's Decision F:** PyMuPDF/MuPDF is not distributed in either candidate.
+The optional `[pdf]` extra is retained; `pdf.lock.json` pins automatic first-use
+download, shared by analyze-PDF, attachments and knowledge import, into private
+user data outside the immutable runtime. No confirmation prompt is added and
+the offered tool description remains Odin's. Failed downloads install nothing
+and retry on the next use. The previous bundled-PDF evidence below is historical,
+not the revised candidate policy. Both formats must be rebuilt because shipped
+engine/dependency/resource bytes change, not merely because the branch rebased.
+
+`.deb` dependencies now include `openssh-client` for `ssh` and `ssh-keygen`.
+**AppImage:** those executables come from the host system and are not bundled.
+
+**Open P2 lab gate, nonblocking for this candidate PR:** stock Ubuntu 24.04
+with `kernel.apparmor_restrict_unprivileged_userns=1` must prove both the bundled
+headless Chromium launch and FUSE-mounted AppImage Electron startup in #20's VM.
+This workstation is observed at `0`; its isolated Xvfb/extracted-package passes
+do not qualify the restricted Ubuntu cases. No host sysctl is changed for tests.
+If the browser fails, add an AppArmor profile for its installed headless-shell
+path. If AppImage sandbox startup fails, present a plain message recommending
+the `.deb` on Ubuntu 24.04 instead of a crash. Never silently disable the sandbox.
+The gate stays open until actual default-setting VM execution passes.
+
+## Historical pre-review candidate evidence
+
 ## Source and boundary
 
 - Candidate build source: `bda44259f17c8bf60561e9f0482ca9ff372663a2`.
@@ -124,9 +156,10 @@ not independently measured by this early lane.
 - Native helpers and sources are present, but absolute install-path/trust defaults,
   AppImage helper trust policy, compositor plugin ABI and GI/AT-SPI/X11 closure
   remain Phase 2/P3.5 acceptance work. No input was attempted.
-- MIT/Chromium/model notices are retained. Desktop product licensing is pending;
-  **PyMuPDF/MuPDF AGPL/commercial terms and complete third-party notice closure
-  must be resolved before public distribution**. These are private local candidates.
+- MIT/Chromium/model notices are retained. Desktop product licensing and complete
+  third-party notice closure remain pending. The historical build below included
+  PyMuPDF/MuPDF, but Decision F removes it from the revised distribution entirely;
+  only lock metadata remains. These are private local candidates.
 - Input hashes are pinned; bit-for-bit installer reproducibility across build hosts
   is not claimed. No custom update feed, self-updater, signing scheme or release
   authorization is introduced.

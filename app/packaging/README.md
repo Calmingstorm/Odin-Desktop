@@ -39,7 +39,12 @@ with production dependencies. `runtime/browser`, `runtime/models` and
 `runtime/helpers` contain D14 assets. The app invokes an absolute interpreter with
 `-I -B -m src`, ignores development overrides and ambient Python configuration,
 and supplies install-relative resource paths. No PATH lookup, editable source,
-runtime installer, pip, ensurepip or first-use downloader is required.
+runtime installer, pip or ensurepip is required. PDF is the explicit exception to
+offline-first bundled capabilities: `runtime/pdf.lock.json` pins its automatic
+first-use download. PyMuPDF is an optional `[pdf]` extra and is not in the
+production closure. Its wheel, MuPDF native libraries and license notice are not
+distributed. The resolver installs verified bytes in private user data outside
+the read-only application and retries after failed downloads.
 
 `resources/bundle-manifest.json` inventories **every file and symlink under
 resources**, including `app.asar`, legal notices and the AppArmor asset. It records
@@ -55,7 +60,8 @@ credential-pattern scanning and namespace isolation. Engine/resource pytest case
 must run inside the PID namespace prescribed by `CONTRIBUTING.md`.
 
 Run `sudo -n python3 -B app/packaging/qualify.py --deb <candidate.deb>
---appimage <candidate.AppImage> --output <evidence-dir> --install --gui --user
+--appimage <candidate.AppImage> --pdf-wheel <local-pinned-wheel.whl>
+--output <evidence-dir> --install --gui --user
 <isolated-unprivileged-user>` from the repository root. It extracts both formats,
 installs with real dpkg into a disposable chroot tree inside a private mount/PID/
 network namespace, and executes candidate code only as the selected nonroot user.
@@ -73,11 +79,24 @@ remain later gates. Do not mistake Xvfb for native desktop qualification.
 
 The candidate probes real core transport and clean shutdown, actual offline
 Chromium rendering with renderer seccomp/no-new-privileges evidence, 384-dimensional
-semantic embeddings, PDF creation/extraction, installed computer assets and
+semantic embeddings, PDF first-use installation/extraction, installed computer assets and
 native helpers' pre-input usage refusal. Helpers are bundled but existing native
 install/trust defaults, compositor plugin ABI and Phase 2 admission are still
 pending. No input is sent to a desktop. User-skill loader/dependency isolation
 waits on the Phase 2 runtime/skill graph, not merely a separate venv.
+
+PDF qualification begins with PyMuPDF absent. A separate read-only fixture wheel,
+verified against the original download SHA-256, replaces only the resolver's
+download transport inside the network-disabled namespace. The real resolver
+verifies/extracts it into disposable user state and the actual `analyze_pdf`
+handler extracts a locally generated document. The second resolution reuses the
+install with exactly one fixture download. Package scanning rejects PyMuPDF,
+MuPDF, legacy `fitz`, wheel, native library and license payload paths, including
+ASAR entries; the immutable runtime contains the pin only. This proves offline
+installation from known bytes, not a successful internet download.
+
+The `.deb` declares `openssh-client`. AppImage users need host `ssh` and
+`ssh-keygen`; those host tools are not bundled.
 
 ## Legal and release boundaries
 
@@ -85,8 +104,10 @@ Each resource records provenance, digests and available license notices. Electro
 and tool Chromium are distinct update obligations. The headless Chromium build
 avoids proprietary Widevine redistribution. Upstream MIT notices are retained;
 the Desktop product distribution license remains an owner decision. PyMuPDF/MuPDF
-is AGPL-3.0-or-later or commercially licensed: the applicable terms and complete
-third-party notice closure must be resolved **before any public distribution**.
+is AGPL-3.0-or-later or commercially licensed and is **not distributed in these
+candidates**. Its download provenance remains pinned for user-initiated PDF use;
+this packaging change does not assert that downloading resolves every licensing
+question. Other distributed third-party notice closure remains a release gate.
 
 No tag, GitHub Release, asset upload, update service or publishing workflow is
 created. Candidates stay local. Ownership/upgrades and along-side installation

@@ -317,6 +317,8 @@ def stage_runtime(bundle_root: Path, cache_dir: Path) -> dict:
         requirements = cache / "production-requirements.txt"
         export = _run([str(uv), "export", "--frozen", "--no-dev", "--no-default-groups",
                        "--no-emit-project", "--no-header", "--no-annotate"], cache, REPO)
+        if re.search(r"(?im)^\s*(?:pymupdf|mupdf|fitz)(?:\s|[=<>!~\[])", export):
+            raise ValueError("Production export must exclude the first-use PDF extra")
         requirements.write_text(export)
     with tempfile.TemporaryDirectory(dir=bundle_root, prefix=".python-stage-") as temporary:
         work = Path(temporary)
@@ -336,6 +338,8 @@ def stage_runtime(bundle_root: Path, cache_dir: Path) -> dict:
               "--require-hashes", "--only-binary=:all:", "--dest", str(wheels),
               "--index-url", "https://pypi.org/simple", "-r", str(requirements)], cache)
         dependencies = _wheel_inventory(wheels, tomllib.loads((REPO / "uv.lock").read_text()))
+        if any(item["name"] in {"pymupdf", "mupdf", "fitz"} for item in dependencies):
+            raise ValueError("PDF wheel found in production wheelhouse")
         _run([str(python), "-I", "-B", "-m", "pip", "install", "--disable-pip-version-check",
               "--no-index", "--no-deps", "--no-compile", "--require-hashes", "--only-binary=:all:",
               "--find-links", str(wheels), "--target", str(work / SITE),

@@ -501,19 +501,12 @@ END {
             if is_url_blocked(url):
                 return "Error: blocked URL (localhost / private IP / cloud-metadata address).", 1
 
-        # Bundled PyMuPDF is required, but the handler must still fail cleanly:
-        # packaging presence proves the module is
-        # importable, not that its native library loads, and a direct call can
-        # reach here on an install whose catalog was built elsewhere.
+        from ...runtime.pdf_resources import PdfUnavailable, ensure_pdf
+
         try:
-            import fitz
-        except Exception as exc:
-            return (
-                "PDF support unavailable: PyMuPDF could not be loaded "
-                f"({type(exc).__name__}: {exc}). The required bundled "
-                "dependency is unavailable; repair the desktop installation.",
-                1,
-            )
+            fitz = await ensure_pdf()
+        except PdfUnavailable as exc:
+            return str(exc), 1
 
         pdf_bytes: bytes | None = None
 

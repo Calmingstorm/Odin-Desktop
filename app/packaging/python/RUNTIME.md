@@ -15,10 +15,10 @@ No writes to the checkout except the owned implementation, lock and tests.
   and `signal.pidfd_send_signal`; staging opens and closes a real pidfd.
   This preserves the existing safety primitive, rather than adding a fallback.
 - Hash-pinned uv 0.11.26 is build-only. Frozen uv export selects production
-  dependencies, not the project/dev extra. There is no lock resolution/update.
+  dependencies, not the project/dev/pdf extras. There is no lock resolution/update.
 - Bootstrap pip from the pinned interpreter downloads wheel-only requirements
   with `--require-hashes`. Every downloaded wheel hash is cross-checked against
-  uv.lock. Local offline `pip install --target` installs those 60 wheels without
+  uv.lock. Local offline `pip install --target` installs the production wheels without
   dependency resolution or compilation. pip/ensurepip and build-path console
   scripts are removed from the finished runtime.
 - Locked setuptools 84.0.0 builds the engine in a private temporary directory
@@ -50,10 +50,16 @@ duplicate entries and writes through symlink parents are rejected.
 maintenance/UPSTREAM-LICENSE and 21 separately hash-pinned standalone component
 license/notice files at the release's source commit. This is an inventory, not
 a legal compatibility opinion. The Desktop product has no license declaration;
-metadata deliberately says NOASSERTION pending the owner's decision. PyMuPDF's
-AGPL/commercial terms need independent disposition before public distribution.
+metadata deliberately says NOASSERTION pending the owner's decision. PyMuPDF/MuPDF
+is not distributed: its wheel, native libraries and license staging are excluded.
+The optional PDF extra is downloaded into user data on first use using the
+immutable `runtime/pdf.lock.json` pin; see `PDF.md`.
 
-## Measured evidence
+## Historical pre-review measured evidence
+
+The lock/requirements hashes below describe the original bundled-PDF trial, not
+the new first-use candidates. Their production closure is regenerated and must be
+qualified independently after the PDF removal.
 
 - Initial and replacement production stages both completed successfully.
 - Replacement Python executable SHA256:

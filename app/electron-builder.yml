@@ -61,4 +61,5 @@ deb:
     - libasound2t64
     - libxshmfence1
     - libx11-xcb1
+    - openssh-client
 publish: null

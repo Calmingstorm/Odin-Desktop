@@ -200,6 +200,29 @@ class PackageScannerBehaviour(unittest.TestCase):
                      'resources/LICENSES.chromium.html']:
             qualify.inspect_name(name)
 
+    def test_pdf_wheel_native_library_license_and_legacy_package_refused(self):
+        for name in ['runtime/python/site-packages/fitz/__init__.py',
+                     'runtime/python/site-packages/pymupdf/_mupdf.so',
+                     'runtime/python/licenses/pymupdf/COPYING',
+                     'runtime/libmupdf.so.28.2', 'resources/PyMuPDF-1.28.2.whl']:
+            with self.subTest(name=name), self.assertRaises(qualify.QualificationError):
+                qualify.inspect_name(name)
+
+    def test_actual_package_pdf_payload_refused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            asar(root / 'app.asar')
+            root.joinpath('libmupdf.so').write_bytes(b'native PDF bytes')
+            with self.assertRaises(qualify.QualificationError):
+                qualify.scan_package(root)
+
+    def test_pdf_inside_asar_refused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'app.asar'
+            asar(path, 'pymupdf.whl')
+            with self.assertRaises(qualify.QualificationError):
+                qualify.scan_asar(path)
+
     def test_vendored_pem_parser_markers_not_treated_as_private_keys(self):
         qualify.scan_stream(io.BytesIO(b'-----BEGIN RSA PRIVATE KEY-----\0parser constant'), 'crypto.so')
         qualify.scan_stream(io.BytesIO(b'aAKIA' + b'A' * 16 + b'Z embedded image data'), 'ImageFont.py')

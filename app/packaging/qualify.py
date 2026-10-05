@@ -17,6 +17,7 @@ import tempfile
 import time
 
 sys.path.insert(0, str(Path(__file__).parent / 'python'))
+from pdf import assert_no_pdf_payload, is_pdf_payload
 
 class QualificationError(ValueError):
     pass
@@ -53,6 +54,8 @@ def inspect_name(name):
     if (not isinstance(name, str) or not name or name.startswith('/') or '\\' in name
             or '..' in parts or str(PurePosixPath(name)) != name):
         raise QualificationError('unsafe package path')
+    if is_pdf_payload(name):
+        raise QualificationError('PyMuPDF/MuPDF is not distributed: ' + name)
     if (set(parts) & FORBIDDEN_PARTS or 'fixture_core.py' in parts
             or name.endswith(('.map', '.pyc', '.pyo'))
             or any(p.startswith('.env') and p not in {'.env.example', '.env.sample'} for p in parts)):
@@ -112,6 +115,10 @@ def scan_asar(path):
         return count
 
 def scan_package(root):
+    try:
+        pdf_policy = assert_no_pdf_payload(root)
+    except ValueError as exc:
+        raise QualificationError(str(exc)) from exc
     files, entries = inventory(root), 0
     for name, path in files.items():
         inspect_name(name)
@@ -124,6 +131,7 @@ def scan_package(root):
     if not entries:
         raise QualificationError('no inspected application ASAR')
     return {'package_files': len(files), 'asar_entries': entries,
+            'pdf_policy': pdf_policy,
             'secret_scan': 'credential signatures, not universal secret-absence proof'}
 
 def find_resources(root):
@@ -140,7 +148,7 @@ def run(command, timeout=180):
             result.returncode, command[0], result.stdout[-8000:]))
     return result.stdout
 
-def sandbox(root, work, user, command, root_user=False):
+def sandbox(root, work, user, command, root_user=False, pdf_fixture=None):
     account = pwd.getpwnam(user)
     args = ['sudo', '-n', 'bwrap', '--unshare-pid', '--unshare-net', '--unshare-ipc', '--unshare-uts',
             '--die-with-parent', '--new-session',
@@ -166,6 +174,8 @@ def sandbox(root, work, user, command, root_user=False):
              '--setenv', 'HOME', '/work/home', '--setenv', 'PATH', '/usr/bin:/bin',
              '--setenv', 'XDG_CONFIG_HOME', '/work/home/config', '--setenv', 'XDG_DATA_HOME', '/work/home/data',
              '--setenv', 'XDG_CACHE_HOME', '/work/home/cache', '--setenv', 'XDG_RUNTIME_DIR', '/work/run']
+    if pdf_fixture is not None:
+        args += ['--ro-bind', str(Path(pdf_fixture).resolve()), '/pdf-fixture.whl']
     if not root_user:
         command = ['/usr/bin/setpriv', '--reuid=' + str(account.pw_uid), '--regid=' + str(account.pw_gid),
                    '--clear-groups'] + command
@@ -173,7 +183,7 @@ def sandbox(root, work, user, command, root_user=False):
         args += ['--dev', '/work/root/dev']
     return args + ['--'] + command
 
-def probe(root, output, user, gui=False):
+def probe(root, output, user, gui=False, pdf_fixture=None):
     resources = find_resources(root)
     python = '/candidate with spaces/' + str(resources.relative_to(root) / 'runtime/python/bin/python3')
     with tempfile.TemporaryDirectory(prefix='qualification profile ') as temporary:
@@ -186,7 +196,8 @@ def probe(root, output, user, gui=False):
             arguments = ['--gui', '/candidate with spaces/' + str(executables[0].relative_to(root))]
         else:
             arguments = ['/candidate with spaces/' + str(resources.relative_to(root))]
-        text = run(sandbox(root, work, user, [python, '-I', '-B', '/probe.py'] + arguments), timeout=120)
+        text = run(sandbox(root, work, user, [python, '-I', '-B', '/probe.py'] + arguments,
+                           pdf_fixture=pdf_fixture), timeout=120)
         output.write_text(text)
         result = json.loads(text.strip().splitlines()[-1])
         if gui:
@@ -260,6 +271,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--user', default='odin')
     parser.add_argument('--gui', action='store_true')
+    parser.add_argument('--pdf-wheel', type=Path, required=True,
+                        help='hash-pinned local first-use fixture, never included in candidates')
     parser.add_argument('--install', action='store_true')
     parser.add_argument('--installed-root', type=Path,
                         help='tree exported from a parent-qualified disposable container dpkg install')
@@ -274,11 +287,17 @@ def main():
     report = {'schema': 1, 'started': time.time(), 'lanes': {}, 'errors': [], 'gate': 'fail'}
     try:
         from manifest import verify
+        pdf_lock = json.loads(Path(__file__).with_name('python').joinpath('pdf.lock.json').read_text())
+        if not args.pdf_wheel.is_file() or digest(args.pdf_wheel) != pdf_lock['sha256']:
+            raise QualificationError('--pdf-wheel must match the reviewed first-use download hash')
+        report['pdf_fixture'] = {'sha256': pdf_lock['sha256'], 'source': pdf_lock['url'],
+                                 'distribution': 'separate read-only local qualification fixture'}
         if args.resources:
             resources = args.resources.resolve()
-            lane = {'manifest': verify(resources)}
+            lane = {'manifest': verify(resources), 'pdf_policy': assert_no_pdf_payload(resources)}
             report['lanes']['resources-only'] = lane
-            lane['core'] = probe(resources, args.output / 'resources-core.json', args.user)
+            lane['core'] = probe(resources, args.output / 'resources-core.json', args.user,
+                                 pdf_fixture=args.pdf_wheel)
             report['gate'] = 'partial'
             report['errors'].append('resource proof only; candidate package/install/GUI gates remain unproven')
             report['finished'] = time.time()
@@ -313,7 +332,8 @@ def main():
                 report['lanes'][label] = lane
                 tests = [('manifest', lambda: verify(find_resources(root))),
                          ('scan', lambda: scan_package(root)),
-                         ('core', lambda: probe(root, args.output / (label + '-core.json'), args.user))]
+                         ('core', lambda: probe(root, args.output / (label + '-core.json'), args.user,
+                                                pdf_fixture=args.pdf_wheel))]
                 if args.gui:
                     tests.append(('gui', lambda: probe(root, args.output / (label + '-gui.json'), args.user, gui=True)))
                 for name, check in tests:
