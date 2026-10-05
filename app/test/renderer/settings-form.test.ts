@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigField } from '../../src/shared/api'
 import {
+  FieldDrafts,
   dedicatedMethod,
   editableHere,
   differenceNote,
@@ -142,6 +143,32 @@ describe('what the form edits in place', () => {
     expect(editableHere(owned('computer.activation.set'))).toBe(true)
     expect(editableHere(owned('tools.timeouts.set'))).toBe(false) // the Tools section's own controls change it
     expect(editableHere(owned('mcp.set_limits'))).toBe(false)
+  })
+})
+
+describe('review round 3: a field saves once at a time, and keeps newer typing', () => {
+  const tz = () => field({ type: 'string', path: 'timezone', desired: 'UTC' })
+
+  it('sends one save for Enter followed by leaving the field, and keeps what was typed during it', async () => {
+    const form = new FieldDrafts()
+    const sent: unknown[] = []
+    let land!: (ok: boolean) => void
+    const saver = (_f: ConfigField, value: unknown) => (sent.push(value), new Promise<boolean>((resolve) => (land = resolve)))
+    form.edit(tz(), 'Europe/Paris')
+    const first = form.save(tz(), saver)
+    await form.save(tz(), saver) // the blur right after Enter
+    expect(sent).toEqual(['Europe/Paris'])
+    form.edit(tz(), 'Asia/Tokyo')
+    land(true)
+    await first
+    expect(form.current(tz())).toBe('Asia/Tokyo')
+  })
+
+  it('clears the draft once what was sent is saved', async () => {
+    const form = new FieldDrafts()
+    form.edit(tz(), 'Europe/Paris')
+    await form.save(tz(), async () => true)
+    expect(form.drafts.timezone).toBeUndefined()
   })
 })
 

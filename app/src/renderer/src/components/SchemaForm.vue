@@ -1,38 +1,19 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 import type { ConfigField } from '../../../shared/api'
-import { dedicatedMethod, differenceNote, editableHere, effectText, fromInput, imageLeafOf, isSecret, STATE_LABELS, toInput } from '../settings-form'
+import { dedicatedMethod, differenceNote, editableHere, effectText, FieldDrafts, imageLeafOf, isSecret, STATE_LABELS } from '../settings-form'
 import { clearSecret, resetField, saveField, setImageIntent, setSecret, settings } from '../stores/settings'
 
 defineProps<{ fields: ConfigField[] }>()
 
-/** What the user changed, per field, until it is saved. */
-const drafts = reactive<Record<string, string | boolean | undefined>>({})
-const errors = reactive<Record<string, string | undefined>>({})
+/** What the user changed, per field, until it is saved: one save per field at a time, never clearing newer typing. */
+const form = new FieldDrafts()
+const errors = form.errors
 const secrets = reactive<Record<string, string | undefined>>({})
 
-function current(field: ConfigField): string | boolean {
-  return drafts[field.path] ?? toInput(field)
-}
-
-function edit(field: ConfigField, value: string | boolean): void {
-  drafts[field.path] = value
-  errors[field.path] = undefined
-}
-
-function changed(field: ConfigField): boolean {
-  return drafts[field.path] !== undefined && drafts[field.path] !== toInput(field)
-}
-
-async function save(field: ConfigField): Promise<void> {
-  if (!changed(field)) return
-  const parsed = fromInput(field, current(field))
-  if (!parsed.ok) {
-    errors[field.path] = parsed.error
-    return
-  }
-  if (await saveField(field, parsed.value)) drafts[field.path] = undefined
-}
+const current = (field: ConfigField): string | boolean => form.current(field)
+const edit = (field: ConfigField, value: string | boolean): void => form.edit(field, value)
+const save = (field: ConfigField): Promise<void> => form.save(field, saveField)
 
 /** Toggles and choices save at once; typed values save on Enter or when the field loses focus. */
 async function pick(field: ConfigField, value: string | boolean): Promise<void> {
@@ -47,7 +28,7 @@ async function saveSecret(field: ConfigField): Promise<void> {
 }
 
 async function reset(field: ConfigField): Promise<void> {
-  if (await resetField(field)) drafts[field.path] = undefined
+  if (await resetField(field)) form.clear(field)
 }
 
 const inputId = (field: ConfigField): string => `field-${field.path.replace(/\W/g, '-')}`

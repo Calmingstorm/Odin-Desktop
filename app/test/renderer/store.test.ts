@@ -1162,3 +1162,14 @@ describe('review round 2: a notification opens the news', () => {
   })
 })
 
+describe('review round 3: going to the latest messages scrolls there', () => {
+  it('signals the message list on a notification click and on Back to latest', async () => {
+    await start(snapshot({ watermark: '1', messages: { items: [message('m1')], has_more: false } }))
+    const before = store.state.latestScroll
+    await store.openLatest('c1')
+    expect(store.state.latestScroll).toBe(before + 1)
+    store.backToLatest()
+    expect(store.state.latestScroll).toBe(before + 2)
+  })
+})
+

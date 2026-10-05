@@ -441,7 +441,7 @@ function runSmokeTest(win: BrowserWindow, broker: Broker, exitOdin: () => Promis
       if (out) writeFileSync(out, image.toPNG())
       if (out && process.env.ODIN_SMOKE_SHOTS) {
         try {
-          await interfaceShots(win, out)
+          await interfaceShots(win, out, broker)
         } catch (error) {
           process.stderr.write(`smoke: interface shots failed: ${String(error)}\n`)
           app.exit(1)
@@ -485,7 +485,7 @@ function runSmokeTest(win: BrowserWindow, broker: Broker, exitOdin: () => Promis
  * rename dialog and the command menu, and asks for a very long reply, saving a screenshot of each next to the main one
  * so layout can be checked by eye, and printing how quickly the long reply renders. Test tooling only.
  */
-async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
+async function interfaceShots(win: BrowserWindow, out: string, broker: Broker): Promise<void> {
   const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
   const run = (script: string): Promise<unknown> =>
     win.webContents.executeJavaScript(script, true).catch((error: unknown) => {
@@ -637,4 +637,21 @@ async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
   process.stdout.write(`smoke: long reply ${String(timing)}\n`)
   await pause(300)
   await shoot('long')
+  // A clicked notification for the open conversation shows its latest message, even after scrolling away from it.
+  const listed = await broker.request('conversations.list')
+  const openTitle = String(await run(`document.querySelector('.conversations .conv.active .conv-title')?.textContent?.trim() ?? ''`))
+  const items = listed.ok ? (listed.result as { items: Array<{ id: string; title: string }> }).items : []
+  const latest = items.find((c) => c.title === openTitle)?.id
+  if (!latest) throw new Error(`no listed conversation is titled "${openTitle}"`)
+  {
+    await run(`document.querySelector('.message-scroll').scrollTop = 0`)
+    await pause(200)
+    const away = Number(await run(`(() => { const s = document.querySelector('.message-scroll'); return Math.round(s.scrollHeight - s.scrollTop - s.clientHeight) })()`))
+    if (away < 100) throw new Error(`the conversation is too short to scroll away from its latest message (${away}px)`)
+    win.webContents.send(IPC.openConversation, latest)
+    await pause(600)
+    const gap = Number(await run(`(() => { const s = document.querySelector('.message-scroll'); return Math.round(s.scrollHeight - s.scrollTop - s.clientHeight) })()`))
+    process.stdout.write(`smoke: a notification click left the view ${gap}px from the latest message\n`)
+    if (gap > 4) throw new Error(`a notification click left the view ${gap}px from the latest message`)
+  }
 }
