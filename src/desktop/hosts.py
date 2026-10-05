@@ -158,6 +158,7 @@ class HostsService:
         if method == "hosts.list":
             return {"hosts": self.registry.status_rows(),
                     "default_host": self.registry.default_host,
+                    "configured_default_host": tools.default_host,
                     "generation": self.registry.generation, "tofu_enabled": tools.allow_host_tofu}
         if method == "hosts.public_key":
             info = await public_key_info(self.registry.effective_key_path)

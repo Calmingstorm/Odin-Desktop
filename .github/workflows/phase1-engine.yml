@@ -96,7 +96,7 @@ jobs:
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           npm run typecheck
-          npm test -- test/real-core-isolation.test.ts
+          npm test -- test/isolation-launcher.test.ts
           npm run test:real-core
       - name: Explicit pass-now suites in a PID namespace
         id: pass-now

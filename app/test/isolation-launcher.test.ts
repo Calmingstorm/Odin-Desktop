@@ -1,3 +1,4 @@
+// Fake-only launcher tests belong in the ordinary gate, not the real-core contract exclusion.
 // Every process, proc read, timeout and signal here is fake. These tests never launch sudo or a real namespace.
 import { EventEmitter } from 'node:events'
 import { join } from 'node:path'

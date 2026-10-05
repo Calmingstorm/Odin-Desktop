@@ -33,10 +33,15 @@ async function launch(real = false, scenario?: string): Promise<void> {
     DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS!,
     PYTHONDONTWRITEBYTECODE: '1', PYTHONNOUSERSITE: '1'
   }
-  if (real) env.ODIN_DESKTOP_CORE_CMD = JSON.stringify([process.env.ODIN_DESKTOP_ENGINE_PYTHON, '-B', '-m', 'src'])
+  if (real) {
+    env.ODIN_DESKTOP_CORE_CMD = JSON.stringify([process.env.ODIN_DESKTOP_ENGINE_PYTHON, '-B', '-P', '-m', 'src'])
+    // Native dialogs need the private bus in fixture lanes, but this fresh real-core lane must
+    // report a missing vault rather than wait on an unqualified Secret Service unlock prompt.
+    delete env.DBUS_SESSION_BUS_ADDRESS
+  }
   else if (scenario) env.ODIN_DESKTOP_CORE_CMD = JSON.stringify(['/usr/bin/python3', '-B', join(appDir, 'test/e2e/accessibility-core.py'), scenario])
   app = await electron.launch({ executablePath: require('electron'), args: [appDir, '--force-renderer-accessibility'],
-    cwd: resolve(appDir, '..'), env, chromiumSandbox: true })
+    cwd: appDir, env, chromiumSandbox: true })
   page = await app.firstWindow()
   await expect(page.locator('.link.ready')).toContainText('Connected')
   launchEvidence = await app.evaluate(({ BrowserWindow }) => {
@@ -360,22 +365,34 @@ test('200 percent zoom reflow, reduced motion and keyboard view menu', async () 
   await expect.poll(async () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.getZoomFactor())).toBe(1)
 })
 
-test('real core keyboard status usage and all unavailable service panels', async () => {
+test('real core keyboard status usage and every real settings or unavailable service panel', async () => {
   await launch(true)
   await send('/status')
-  await expect(page.locator('.panel-text')).toContainText('Capabilities: status.get')
+  await expect(page.getByRole('region', { name: 'Status', exact: true }).locator('.panel-text')).toContainText('Odin v0.1.0.dev1')
   await send('/usage')
-  await expect(page.locator('.statusbar')).toContainText('Usage is unavailable')
+  await expect(page.getByRole('region', { name: 'Usage, 7d', exact: true }).locator('.panel-text')).toContainText('history unavailable (usage history not enabled)')
+  await expect(page.locator('.statusbar')).not.toContainText('Usage is unavailable in this core')
   await audit('real-core-chat')
   expect(await ax('real-core-chat')).not.toContain('Echo:')
   await page.keyboard.press('Control+,')
   const nav = page.getByRole('navigation', { name: 'Settings sections' })
+  // Schema loading adds Other. Do not race enumeration and silently omit its accessibility audit.
+  await expect(nav.getByRole('button', { name: 'Other', exact: true })).toBeVisible()
   const labels = await nav.locator('.settings-nav-item').allTextContents()
+  expect(labels).toHaveLength(11)
   for (const label of labels) {
     await activate(nav.getByRole('button', { name: label, exact: true }))
     await expect(page.locator('.settings-body')).toContainText(label)
     await page.waitForTimeout(200)
+    if (label === 'Records') {
+      const usage = page.getByRole('region', { name: 'Usage', exact: true })
+      await expect(usage.getByRole('combobox', { name: 'Period', exact: true })).toBeVisible()
+      await expect(usage).toContainText('history unavailable (usage history not enabled)')
+      await expect(usage).toContainText("not measured: Odin doesn't know this value")
+      await expect(usage).not.toContainText('Usage is unavailable in this core')
+    }
     await audit(`real-${label}`)
+    await ax(`real-${label}`)
   }
 })
 
