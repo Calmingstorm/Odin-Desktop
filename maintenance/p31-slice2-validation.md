@@ -71,6 +71,24 @@ fdc1e41c65e437dec501f2e20777079ccd0143abc605742093664c2ede675abf  p31-final-real
 
 ## Limits
 
+### Final enumeration correction and repeated gate
+
+The initial smoke enumerated navigation before the schema could add `Other`.
+Corrected the gate to await the real schema and require all eleven sections.
+Fresh checkout `/home/odin/desktop-p31-slice2-final2` at
+`e71db09102229ab8523f4b34a44ebe86a8ea94a2` repeated dependency installation and
+all four app gates: **554 unit/fixture tests**, **19 real-core tests**, fixture
+smoke and real smoke **23 checkpoints including Other** all passed. Checkout clean.
+The earlier evidence remains historical, not the final enumeration claim.
+
+```text
+cf30caba901e9f773e9115fd4d82bfad6da6f6574eb565b51e412ab0a0af87ba  p31-final2-check.log
+c4031cb73368c496021962e9301feb062c3aebc64e5d3c699eed6471b030d509  p31-final2-fixture-smoke.log
+63ba985fd6d6ba890d8fa1d21c1c33eca3f899ab9abe5cb6164a95f2831e57d5  p31-final2-real-tests.log
+17c85f5dc3ba05cb8c59a4bdad7124b3bd2f59332d10630bf8c047e3b4545ffd  p31-final2-real-smoke.log
+d230b089a36844be21bbcf6cc63e27e4672020824adfe9776d3640416532875a  p31-final2-real-core-evidence.json
+```
+
 This is a settings/runtime slice, not Phase 2 exit or full P3.1 completion. Model adoption
 is not successful generation/endpoint health. Temporary keyring tests are not native Secret
 Service unlock qualification. Existing legacy remote-host enrollment remains unchanged;
