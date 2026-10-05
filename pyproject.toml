@@ -34,6 +34,8 @@ dev = [
     # isolation. Match the backend's SPDX-license support, not editable imports.
     "setuptools>=77",
     "wheel>=0.45",
+    # Offline wheel fixtures invoke python -m pip after a clean locked sync.
+    "pip>=26.2",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-cov",

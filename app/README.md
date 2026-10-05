@@ -20,6 +20,7 @@ npm run build          # out/main, out/preload, out/renderer
 npm run smoke          # launches the built app on an isolated xvfb display with a throwaway profile
 npm run test:real-core  # separate real engine contract gate; never included in npm run check
 npm run smoke:real-core # built Electron app + real engine, isolated PID namespace and xvfb
+npm run test:a11y     # real Electron keyboard/axe/Chromium AX gate, fixture + real step-five core
 ```
 
 `npm run smoke` never touches the real desktop session, the user's Odin Desktop profile or their autostart entries. Set
@@ -30,8 +31,10 @@ screenshot path.
 
 `src/main/core-command.ts` explicitly selects `fixture-core/fixture_core.py` in development when no override is
 set. For a development real-core session, `ODIN_DESKTOP_CORE_CMD` is a JSON array of executable and literal argv,
-for example `["/absolute/engine-venv/bin/python", "-B", "-m", "src"]` when the working directory is the repository
-root. No shell parsing, interpolation or shell launcher is allowed. The app appends its own socket, token-file,
+for example `["/absolute/engine-venv/bin/python", "-B", "-P", "-m", "src"]` with the engine installed in that environment
+(the repository's editable install is supported). `-P` keeps the working directory off Python's import path, so
+launching from `app/` cannot shadow the engine with the TypeScript `app/src` namespace. This override works from
+any working directory. No shell parsing, interpolation or shell launcher is allowed. The app appends its own socket, token-file,
 profile and data-directory arguments. Overrides cannot replace these paths or supply credential flags/IPC-token
 values; the token itself remains exclusively in the profile token file.
 
@@ -67,6 +70,27 @@ named checkpoint; the default screenshots, evidence and profiles are discarded.
 
 The fixture smoke gate explicitly clears real-core overrides, so it remains a fixture regression gate rather
 than accidentally running whichever core a developer shell last selected.
+
+## Accessibility regression gate (P3.4 part 1)
+
+`npm run test:a11y` builds the app, then runs pinned Playwright Electron support and axe-core on a separate
+PID namespace, Xvfb display and private session bus. It uses disposable HOME/XDG profiles, forces Chromium
+accessibility on, and retains the renderer sandbox/CSP/context isolation. Direct Playwright invocation outside
+the owned isolation runner is rejected. It requires the real-core Python environment described above, plus
+`dbus-run-session`, `xdotool` and ImageMagick `import` for native-dialog keyboard input and whole-Xvfb zoom captures.
+No workstation display/bus/profile is inherited. Missing prerequisites fail the gate, not silently skip it.
+
+The fixture lane covers chat, native attachment selection/cancel, copying and saving a generated file, report
+paging/copy, conversation menus/children, Stop/Steer/Queue/Resume, work controls, all settings sections, validation,
+password/code privacy, delayed history/search, command suggestions, retained output and 200/400 percent reflow.
+The real-core lane covers keyboard status/usage reports and all eleven Settings sections with axe and Chromium
+AX audits: step five supplies actual settings/management data, while chat and uncomposed step-six services retain
+explicit unavailable views. Fresh usage is unknown with history not enabled, not a missing `usage.get` service.
+Neither a fixture pass nor a Chromium AX dump proves Orca/AT-SPI speech or Wayland qualification.
+
+Reports, full Chromium AX dumps, axe violations **and incomplete checks**, sandbox/cleanup receipts and screenshots
+are written under ignored `test-results/`. Set `ODIN_APP_A11Y_REPORT` to an absolute JSON path to retain a report
+outside the checkout. Review `../maintenance/phase3-accessibility.md` for findings, dispositions and open native rows.
 
 ## Layout
 

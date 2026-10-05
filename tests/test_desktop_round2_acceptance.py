@@ -21,11 +21,20 @@ GOVERNOR_SUITES = (
 
 def test_all_326_phase2_suites_are_frozen_in_the_machine_readable_plan():
     plan = json.loads((ROOT / "maintenance/test-plan.json").read_text())
-    paths = plan["phase2"]
+    restored = plan.get("phase2_restored", [])
+    retired = plan.get("phase2_retired", [])
+    paths = plan["phase2"] + restored + retired
     assert len(paths) == len(set(paths)) == 326
     assert set(paths) == {
-        entry["path"] for entry in plan["entries"] if entry["classification"] == "phase2"
+        entry["path"] for entry in plan["entries"]
+        if entry["classification"] == "phase2" or entry["path"] in restored + retired
     }
+    assert all(entry["classification"] == "safe_pass_now"
+               for entry in plan["entries"] if entry["path"] in restored)
+    assert set(restored).isdisjoint(plan["phase2"])
+    assert all(entry["classification"] == "retired"
+               for entry in plan["entries"] if entry["path"] in retired)
+    assert set(retired).isdisjoint(plan["phase2"] + restored + plan["safe_pass_now"])
     encoded = ("\n".join(sorted(paths)) + "\n").encode()
     assert hashlib.sha256(encoded).hexdigest() == PHASE2_SET_SHA256
     for required in (

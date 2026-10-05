@@ -30,6 +30,11 @@ watch(
 const shown = computed(() => (choice.preset === 'custom' ? null : stateStore.personality?.presets[choice.preset]))
 const draft = reactive({ name: '', display_name: '', identity: '', voice: '' })
 const presetError = ref('')
+const presetErrorField = ref<'name' | 'content' | null>(null)
+watch(draft, () => {
+  presetError.value = ''
+  presetErrorField.value = null
+})
 watch(() => stateStore.unavailable.personality, (unavailable) => {
   if (unavailable) presetError.value = ''
 })
@@ -55,12 +60,15 @@ async function save(): Promise<void> {
 
 async function saveAsPreset(): Promise<void> {
   presetError.value = ''
+  presetErrorField.value = null
   if (!draft.name.trim()) {
     presetError.value = 'Name the preset.'
+    presetErrorField.value = 'name'
     return
   }
   if (!draft.identity.trim() && !draft.voice.trim()) {
     presetError.value = 'Give it an identity, a voice, or both.'
+    presetErrorField.value = 'content'
     return
   }
   const sent = JSON.stringify(draft)
@@ -104,7 +112,7 @@ async function remove(name: string): Promise<void> {
       <label class="field-input">Voice <textarea v-model="choice.custom_voice" @input="edit('custom_voice')" rows="4" /></label>
     </template>
     <div class="panel-actions">
-      <button class="ghost" :disabled="management.busy.personality" @click="save">Save</button>
+      <button class="ghost" aria-label="Save personality" :disabled="management.busy.personality" @click="save">Save</button>
     </div>
     <p v-if="management.notes.personality" class="manage-note" role="status">{{ management.notes.personality }}</p>
     <p v-if="stateStore.errors.personality" class="warn">{{ stateStore.errors.personality }}</p>
@@ -120,19 +128,19 @@ async function remove(name: string): Promise<void> {
         <div class="manage-line">
           <code class="manage-name">{{ key }}</code>
           <span class="manage-count">{{ stateStore.personality.presets[key]?.name }}</span>
-          <span class="manage-actions"><button class="ghost danger-item" @click="remove(key)">Delete…</button></span>
+          <span class="manage-actions"><button class="ghost danger-item" :aria-label="`Delete preset ${key}…`" @click="remove(key)">Delete…</button></span>
         </div>
         <p v-if="management.notes[`preset:${key}`]" class="manage-note" role="status">{{ management.notes[`preset:${key}`] }}</p>
       </li>
     </ul>
     <p v-if="!stateStore.personality.user_presets.length" class="manage-desc">None yet.</p>
     <h4 class="sub-head">Save a preset</h4>
-    <label class="field-input">Name <input v-model="draft.name" maxlength="64" placeholder="night_shift" /></label>
+    <label class="field-input">Name <input v-model="draft.name" maxlength="64" placeholder="night_shift" :aria-invalid="presetErrorField === 'name' || undefined" :aria-describedby="presetErrorField === 'name' ? 'preset-validation-error' : undefined" /></label>
     <label class="field-input">Shown as <input v-model="draft.display_name" maxlength="200" placeholder="Night shift" /></label>
-    <label class="field-input">Identity <textarea v-model="draft.identity" rows="3" /></label>
-    <label class="field-input">Voice <textarea v-model="draft.voice" rows="3" /></label>
+    <label class="field-input">Identity <textarea v-model="draft.identity" rows="3" :aria-invalid="presetErrorField === 'content' || undefined" :aria-describedby="presetErrorField === 'content' ? 'preset-validation-error' : undefined" /></label>
+    <label class="field-input">Voice <textarea v-model="draft.voice" rows="3" :aria-invalid="presetErrorField === 'content' || undefined" :aria-describedby="presetErrorField === 'content' ? 'preset-validation-error' : undefined" /></label>
     <div class="panel-actions"><button class="ghost" :disabled="management.busy.preset" @click="saveAsPreset">Save preset</button></div>
-    <p v-if="presetError" class="warn">{{ presetError }}</p>
+    <p v-if="presetError" id="preset-validation-error" class="warn" role="alert">{{ presetError }}</p>
     <p v-else-if="management.notes.preset" class="manage-note" role="status">{{ management.notes.preset }}</p>
   </section>
 </template>

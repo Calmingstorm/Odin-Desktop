@@ -155,9 +155,10 @@ export class RealCoreHarness {
     const entry = this.services.memoryKeyring || this.services.authBaseUrl
       ? ['-c', isolatedServicesBootstrap, this.services.memoryKeyring ? 'memory' : 'missing', this.services.authBaseUrl ?? '']
       : ['-m', 'src']
-    const child = spawn(this.python, [...entry, '--socket', this.paths.socketPath,
+    const child = spawn(this.python, ['-B', '-P', ...entry, '--socket', this.paths.socketPath,
       '--token-file', this.paths.tokenPath, '--profile', this.paths.profileId, '--data-dir', this.paths.dataDir],
-    { cwd: repository, env: this.env, stdio: ['pipe', 'pipe', 'pipe'] })
+    // app/src is TypeScript, not the engine. Exercise the installed engine from the shadowing directory.
+    { cwd: join(repository, 'app'), env: this.env, stdio: ['pipe', 'pipe', 'pipe'] })
     this.process = child
     child.stdout.on('data', (chunk: Buffer) => { this.output = (this.output + chunk.toString()).slice(-8_000) })
     child.stderr.on('data', (chunk: Buffer) => { this.output = (this.output + chunk.toString()).slice(-8_000) })

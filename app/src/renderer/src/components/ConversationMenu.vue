@@ -3,17 +3,35 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import type { Conversation } from '../../../shared/api'
 import { ask } from '../dialog'
 import { deleteConversation, isMuted, renameConversation, resetContext, setArchived, setMuted, startThread } from '../store'
+import { menuKey } from '../conversation-menu-keys'
 
-const props = defineProps<{ conversation: Conversation; top: number; left: number }>()
+const props = defineProps<{ conversation: Conversation; top: number; left: number; id?: string }>()
 const MENU_WIDTH = 200
+const menuHeight = ref(0)
 const position = computed(() => ({
-  top: `${props.top}px`,
-  left: `${Math.max(8, Math.min(props.left - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8))}px`
+  top: `${Math.max(8, Math.min(props.top, window.innerHeight - menuHeight.value - 8))}px`,
+  left: `${Math.max(8, Math.min(props.left - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8))}px`,
+  maxWidth: 'calc(100vw - 16px)',
+  maxHeight: 'calc(100vh - 16px)',
+  overflowY: 'auto' as const
 }))
 const emit = defineEmits<{ close: [] }>()
 const menu = ref<HTMLElement | null>(null)
 
+function onKey(event: KeyboardEvent): void {
+  const items = Array.from(menu.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])
+  const action = menuKey(event.key, items.indexOf(document.activeElement as HTMLButtonElement), items.length)
+  if (action === null) return
+  // Tab exits normally from the restored opener; a menu is not a focus-trapping dialog.
+  if (event.key !== 'Tab') event.preventDefault()
+  event.stopPropagation()
+  if (action === 'close') emit('close')
+  else items[action]?.focus()
+}
+
 onMounted(async () => {
+  await nextTick()
+  menuHeight.value = menu.value?.offsetHeight ?? 0
   await nextTick()
   menu.value?.querySelector('button')?.focus()
 })
@@ -73,13 +91,13 @@ async function remove(): Promise<void> {
 <template>
   <Teleport to="body">
     <div class="menu-backdrop" @click="emit('close')" />
-    <div ref="menu" class="menu" role="menu" :style="position" @keydown.escape="emit('close')">
-      <button role="menuitem" @click="rename">Rename…</button>
-      <button role="menuitem" @click="thread">New thread from here</button>
-      <button role="menuitem" @click="mute">{{ isMuted(conversation.id) ? 'Unmute notifications' : 'Mute notifications' }}</button>
-      <button role="menuitem" @click="archive">{{ conversation.archived ? 'Unarchive' : 'Archive' }}</button>
-      <button role="menuitem" @click="reset">Reset context…</button>
-      <button role="menuitem" class="danger-item" @click="remove">Delete…</button>
+    <div :id="id" ref="menu" class="menu" role="menu" :aria-label="`Actions for ${conversation.title}`" :style="position" @keydown="onKey">
+      <button role="menuitem" tabindex="-1" @click="rename">Rename…</button>
+      <button role="menuitem" tabindex="-1" @click="thread">New thread from here</button>
+      <button role="menuitem" tabindex="-1" @click="mute">{{ isMuted(conversation.id) ? 'Unmute notifications' : 'Mute notifications' }}</button>
+      <button role="menuitem" tabindex="-1" @click="archive">{{ conversation.archived ? 'Unarchive' : 'Archive' }}</button>
+      <button role="menuitem" tabindex="-1" @click="reset">Reset context…</button>
+      <button role="menuitem" tabindex="-1" class="danger-item" @click="remove">Delete…</button>
     </div>
   </Teleport>
 </template>
