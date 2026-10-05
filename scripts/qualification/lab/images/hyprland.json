@@ -1,0 +1,44 @@
+{
+  "name": "odq-hyprland",
+  "remote": "images",
+  "alias": "ubuntu/26.04/default",
+  "fingerprint": "beff715a10e50946d610c1e47f6411c41fd50e6d56927019e76810665c847d49",
+  "serial": "20261005_07:42",
+  "architecture": "amd64",
+  "os": "Ubuntu",
+  "release": "resolute",
+  "variant": "default",
+  "type": "virtual-machine",
+  "desktop": "Hyprland",
+  "session": "wayland",
+  "guest_script": "guest/hyprland.sh",
+  "package": "hyprland=0.53.3+ds-4",
+  "provenance": {
+    "index_url": "https://images.linuxcontainers.org/streams/v1/images.json",
+    "product": "ubuntu:resolute:amd64:default",
+    "observed_date": "2026-10-05",
+    "fingerprint_field": "incus.tar.xz.combined_disk-kvm-img_sha256",
+    "metadata_path": "images/ubuntu/resolute/amd64/default/20261005_07:42/incus.tar.xz",
+    "metadata_sha256": "030cd42ec2477d81fed3ce27b20c80dc7190a81c1eccbaec173f6f0cf30c9194",
+    "disk_path": "images/ubuntu/resolute/amd64/default/20261005_07:42/disk.qcow2",
+    "disk_sha256": "97f9f925ea2d03db1464e90f6e4cb486b620793ca304843f5850c903e9d5b205",
+    "package_url": "https://packages.ubuntu.com/resolute/hyprland",
+    "renderer_source_url": "https://raw.githubusercontent.com/hyprwm/Hyprland/v0.53.3/src/render/OpenGL.cpp",
+    "renderer_source_git_blob": "33e380e12048c04724f70c276f26cf4a578e63e0",
+    "config_source_url": "https://raw.githubusercontent.com/hyprwm/Hyprland/v0.53.3/src/config/ConfigManager.cpp"
+  },
+  "software_renderer": {
+    "requested": "Mesa llvmpipe on Incus emulated GPU",
+    "environment": {"LIBGL_ALWAYS_SOFTWARE": "1", "GALLIUM_DRIVER": "llvmpipe", "AQ_NO_MODIFIERS": "1", "HYPRLAND_EGL_NO_MODIFIERS": "1"},
+    "status": "unqualified",
+    "note": "Aquamarine/GBM EGL initialization and DRM presentation may fail with software rendering. Environment variables request a renderer; they do not prove it works. No virgl, host GPU or headless fallback is authorized. Review actual EGL renderer logs plus capture before promotion."
+  },
+  "runtime_status": "BLOCKED: Incus ZFS pool exported and unavailable; no guest created or booted",
+  "limitations": [
+    "Ubuntu 24.04 and Debian trixie base repositories lack the required packaged Hyprland. Ubuntu 26.04 universe provides this version; Arch current is rolling and now uses a different Lua-config compositor release.",
+    "The base VM disk and metadata are pinned, not the entire apt dependency closure. Record installed package versions after provisioning; package and remote image retention are not guaranteed.",
+    "This pin was researched from SimpleStreams metadata, not imported or boot-verified. Fail closed if its exact fingerprint is no longer offered; never substitute the moving alias.",
+    "No runtime success, accessible UI tree, receiver-confirmed input, audible speech or graphical autologin is claimed. Orca process presence and accessibility bus response are only startup smoke checks.",
+    "A grim PNG proves guest capture availability, not physical GPU/display/input/audio compatibility or host-desktop qualification."
+  ]
+}

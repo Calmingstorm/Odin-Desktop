@@ -1,0 +1,34 @@
+{
+  "name": "odq-gnome",
+  "remote": "images",
+  "alias": "ubuntu/24.04",
+  "fingerprint": "7420d4416f4d8bfb3ad6098d2395f86ca5aaf298c2696283ee61200d0b5c9714",
+  "serial": "20261005_07:42",
+  "architecture": "amd64",
+  "os": "Ubuntu",
+  "release": "noble",
+  "variant": "default",
+  "type": "virtual-machine",
+  "desktop": "GNOME",
+  "session": "wayland",
+  "guest_script": "guest/gnome.sh",
+  "software_renderer": "Mesa llvmpipe, LIBGL_ALWAYS_SOFTWARE=1, GALLIUM_DRIVER=llvmpipe",
+  "runtime_status": "BLOCKED: host Incus ZFS storage pool unavailable; no VM created, provisioned, booted or smoke-tested",
+  "provenance": {
+    "source": "https://images.linuxcontainers.org/streams/v1/images.json",
+    "observed_at": "2026-10-05",
+    "product": "ubuntu:noble:amd64:default",
+    "metadata_path": "images/ubuntu/noble/amd64/default/20261005_07:42/incus.tar.xz",
+    "metadata_sha256": "445dd26112d73bf5df65d6bb1769aec57be204b4034689445a59249965b0d0e1",
+    "disk_path": "images/ubuntu/noble/amd64/default/20261005_07:42/disk.qcow2",
+    "disk_sha256": "3f5e2568f600c491aca4bb7512e27614ce3def2eeeb4118b61f0f21aee7a656d",
+    "disk_size_bytes": 305733632,
+    "fingerprint_kind": "combined_disk-kvm-img_sha256"
+  },
+  "limitations": [
+    "The image fingerprint pins the base only. GNOME 46 family packages come from Ubuntu noble apt repositories at provisioning time; exact installed versions must be captured by smoke evidence.",
+    "No tray extensions installed or enabled. The GNOME Wayland-only session name, GDM WaylandEnable and AccountsService SessionType are preferences, not proof: runtime GDM/udev autologin policy can still prevent a Wayland login. Smoke must reject X11 fallback rather than altering runtime policy to hide it.",
+    "gnome-screenshot is attempted in the guest user session, then GNOME Shell Screenshot D-Bus. Wayland caller restrictions may reject capture; no unsafe Shell mode, caller-name spoof or XWayland-only capture is used. Failure produces no screenshot proof.",
+    "Virtual software rendering exercises desktop/session/protocol behavior, not physical GPU/display performance, hardware input/audio, multi-monitor fidelity or passthrough. No host GPU device is requested."
+  ]
+}

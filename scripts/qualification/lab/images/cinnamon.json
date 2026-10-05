@@ -1,0 +1,41 @@
+{
+  "name": "odq-cinnamon",
+  "remote": "images",
+  "alias": "ubuntu/24.04",
+  "fingerprint": "7420d4416f4d8bfb3ad6098d2395f86ca5aaf298c2696283ee61200d0b5c9714",
+  "serial": "20261005_07:42",
+  "architecture": "amd64",
+  "os": "Ubuntu",
+  "release": "24.04",
+  "variant": "default",
+  "type": "virtual-machine",
+  "source": "https://images.linuxcontainers.org",
+  "metadata_url": "https://images.linuxcontainers.org/streams/v1/images.json",
+  "product": "ubuntu:noble:amd64:default",
+  "metadata": {
+    "path": "images/ubuntu/noble/amd64/default/20261005_07:42/incus.tar.xz",
+    "sha256": "445dd26112d73bf5df65d6bb1769aec57be204b4034689445a59249965b0d0e1",
+    "size": 668
+  },
+  "rootfs": {
+    "path": "images/ubuntu/noble/amd64/default/20261005_07:42/disk.qcow2",
+    "sha256": "3f5e2568f600c491aca4bb7512e27614ce3def2eeeb4118b61f0f21aee7a656d",
+    "size": 305733632
+  },
+  "guest_script": "guest/cinnamon.sh",
+  "session": "x11",
+  "desktop": "cinnamon",
+  "packages": [
+    "cinnamon-core", "lightdm", "lightdm-gtk-greeter", "xserver-xorg-video-all",
+    "libgl1-mesa-dri", "scrot", "x11-utils", "dconf-cli", "dbus-user-session"
+  ],
+  "capture_helper": "/usr/local/lib/odq/capture",
+  "smoke_runner": "guest/smoke.py",
+  "limitations": [
+    "Public Mint 22-series amd64 simplestreams products had no VM disk items on 2026-10-05; Ubuntu 24.04 Cinnamon fallback used.",
+    "Base image fingerprint is pinned; Ubuntu apt packages remain repository-resolved, with installed versions recorded in packages.tsv.",
+    "Daily upstream images expire. Preserve verified image artifacts in the Incus cache; never silently substitute a moving alias.",
+    "Mesa llvmpipe and virtual X11 display prove guest paths only, not physical GPU, host input, host audio or actual monitor layout.",
+    "Boot, autologin, Orca event loop and screenshot remain unqualified until real guest smoke runs. Storage pool unavailable during recipe development."
+  ]
+}
