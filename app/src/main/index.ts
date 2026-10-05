@@ -5,8 +5,9 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { BrowserWindow, Menu, Notification, app, dialog } from 'electron'
+import { BrowserWindow, Menu, Notification, app, clipboard, dialog, shell } from 'electron'
 import { IPC, type AppState, type LinkState, type Settings } from '../shared/api'
+import { ArtifactStore, safeFileName } from './artifacts'
 import { AttachmentManager, type AttachmentLimits } from './attachments'
 import { isAutostartEnabled, setAutostart } from './autostart'
 import { Broker } from './broker'
@@ -66,6 +67,10 @@ function run(): void {
   let limits: AttachmentLimits = { attachment_bytes: 25 * 1024 * 1024, chunk_bytes: 512 * 1024 }
   const attachments = new AttachmentManager(broker, () => limits)
   attachments.on('progress', (progress) => win?.webContents.send(IPC.attachmentProgress, progress))
+  const artifacts = new ArtifactStore(broker, paths.cacheDir, () => limits.chunk_bytes, {
+    openPath: (path) => shell.openPath(path),
+    showItemInFolder: (path) => shell.showItemInFolder(path)
+  })
   broker.on('welcome', () => {
     void broker.request('status.get').then((status) => {
       const announced = status.ok ? (status.result as { limits?: Partial<AttachmentLimits> }).limits : undefined
@@ -89,7 +94,11 @@ function run(): void {
   }
 
   broker.on('state', publishAppState)
-  broker.on('event', (event) => win?.webContents.send(IPC.event, event))
+  broker.on('event', (event) => {
+    win?.webContents.send(IPC.event, event)
+    // A file the core no longer has leaves the private cache too.
+    if (event.type === 'artifact.unavailable') void artifacts.forget(String(event.payload.ref))
+  })
   broker.on('receipt', (receipt) => {
     win?.webContents.send(IPC.receipt, receipt)
     publishAppState()
@@ -173,6 +182,18 @@ function run(): void {
           : { canceled: true, filePaths: [] }
         return chosen.canceled ? [] : chosen.filePaths
       },
+      artifacts,
+      chooseSavePath: async (name) => {
+        const chosen = win
+          ? await dialog.showSaveDialog(win, {
+              defaultPath: join(app.getPath('downloads'), safeFileName(name)),
+              title: 'Save file',
+              properties: ['showOverwriteConfirmation', 'createDirectory']
+            })
+          : { canceled: true, filePath: undefined }
+        return chosen.canceled || !chosen.filePath ? null : chosen.filePath
+      },
+      copyText: (text) => clipboard.writeText(text),
       mainFrame: () => win?.webContents.mainFrame ?? null,
       getSettings: settings,
       setAutostart: (enabled) => {
@@ -305,7 +326,15 @@ function runSmokeTest(win: BrowserWindow, broker: Broker, exitOdin: () => Promis
     void exchange().then(() => setTimeout(async () => {
       const image = await win.webContents.capturePage()
       if (out) writeFileSync(out, image.toPNG())
-      if (out && process.env.ODIN_SMOKE_SHOTS) await interfaceShots(win, out)
+      if (out && process.env.ODIN_SMOKE_SHOTS) {
+        try {
+          await interfaceShots(win, out)
+        } catch (error) {
+          process.stderr.write(`smoke: interface shots failed: ${String(error)}\n`)
+          app.exit(1)
+          return
+        }
+      }
       process.stdout.write(`smoke: ok link=${broker.linkState} core=${broker.coreInstanceId}\n`)
       clearTimeout(deadline)
       await exitOdin()
@@ -339,12 +368,16 @@ function runSmokeTest(win: BrowserWindow, broker: Broker, exitOdin: () => Promis
 }
 
 /**
- * With ODIN_SMOKE_SHOTS set, the smoke run also opens the search panel, a conversation menu and the rename dialog,
- * saving a screenshot of each next to the main one, so layout can be checked by eye. Test tooling only.
+ * With ODIN_SMOKE_SHOTS set, the smoke run also opens the search panel, a search result, a conversation menu, the
+ * rename dialog and the command menu, and asks for a very long reply, saving a screenshot of each next to the main one
+ * so layout can be checked by eye, and printing how quickly the long reply renders. Test tooling only.
  */
 async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
   const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
-  const run = (script: string): Promise<unknown> => win.webContents.executeJavaScript(script, true)
+  const run = (script: string): Promise<unknown> =>
+    win.webContents.executeJavaScript(script, true).catch((error: unknown) => {
+      throw new Error(`${String(error)} (script: ${script.trim().slice(0, 90)})`)
+    })
   const shoot = async (name: string): Promise<void> => {
     const image = await win.webContents.capturePage()
     writeFileSync(out.replace(/\.png$/, `-${name}.png`), image.toPNG())
@@ -359,6 +392,11 @@ async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
   })()`)
   await pause(700)
   await shoot('search')
+  await run(`document.querySelector('.hit').click()`)
+  await pause(700)
+  await shoot('jump')
+  await run(`document.querySelector('.jump-banner .ghost')?.click()`) // only when the hit was outside the loaded page
+  await pause(300)
   await run(`document.querySelector('.search-form .ghost').click()`)
   await run(`document.querySelector('.conv-more').click()`)
   await pause(300)
@@ -374,4 +412,57 @@ async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
   })()`)
   await pause(300)
   await shoot('palette')
+  await run(`(() => {
+    const box = document.querySelector('.composer-form textarea')
+    box.value = ''
+    box.dispatchEvent(new Event('input'))
+  })()`)
+  // A very long reply, as a regression signal: how long reopening its conversation takes (fetch, render, paint), and
+  // how long narrowing it by a pixel takes to re-lay it out, as a window resize does.
+  const timing = await run(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    const painted = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+    const longReply = () =>
+      [...document.querySelectorAll('.msg.assistant .body')].find((b) => b.textContent.includes('log line 5000'))
+    const box = document.querySelector('.composer-form textarea')
+    box.value = 'a long reply please'
+    box.dispatchEvent(new Event('input'))
+    box.form.requestSubmit()
+    for (let i = 0; i < 500 && !longReply(); i++) await sleep(20)
+    if (!longReply()) return 'never rendered'
+    await painted()
+    const longButton = document.querySelector('.conversations .conv.active')
+    document.querySelector('.head-actions button + button').click()
+    await sleep(500)
+    const reopened = []
+    for (let i = 0; i < 3; i++) {
+      ;[...document.querySelectorAll('.conversations .conv')].find((b) => b !== longButton).click()
+      await sleep(400)
+      if (longReply()) return 'stayed on the page while another conversation was open'
+      const t = performance.now()
+      longButton.click()
+      for (let k = 0; k < 2500 && !longReply(); k++) await sleep(2)
+      if (!longReply()) return 'never came back'
+      await painted()
+      reopened.push((performance.now() - t).toFixed(0))
+    }
+    const reply = longReply()
+    const article = reply.closest('.msg')
+    const scroller = document.querySelector('.message-scroll')
+    const narrower = article.getBoundingClientRect().width - 1 + 'px'
+    const relayouts = []
+    for (let i = 0; i < 6; i++) {
+      const t = performance.now()
+      article.style.maxWidth = i % 2 ? '' : narrower
+      void scroller.scrollHeight
+      relayouts.push(performance.now() - t)
+    }
+    article.style.maxWidth = ''
+    const relayout = (relayouts.reduce((a, b) => a + b) / relayouts.length).toFixed(1)
+    return reply.children.length + ' blocks; reopened in ' + reopened.join('/') + ' ms; relayout ' + relayout + ' ms; ' +
+      document.querySelectorAll('.code-copy').length + ' code copy buttons'
+  })()`)
+  process.stdout.write(`smoke: long reply ${String(timing)}\n`)
+  await pause(300)
+  await shoot('long')
 }

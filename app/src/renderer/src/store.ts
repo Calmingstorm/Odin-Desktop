@@ -15,6 +15,7 @@
 //   projection, which every snapshot replaces.
 // - Unknown effects stay listed until the core reports them reconciled; later outcomes never push them out.
 import { reactive } from 'vue'
+import { images } from './artifacts'
 import type {
   AppState,
   ControlRecord,
@@ -1060,6 +1061,14 @@ export function applyEvent(event: CoreEvent): void {
     const message = p.message as Message
     if (message.role === 'user' && message.client_submission_id) removePending(message.client_submission_id)
   }
+  const jump = state.jump
+  // Whatever the window holds of a file that is gone goes too, whether or not its conversation is loaded.
+  if (event.type === 'artifact.unavailable') images.invalidate(String(p.ref))
+  if (event.type === 'artifact.unavailable' && jump && jump.conversationId === p.conversation_id) {
+    // The search window shows its own copies of messages; they lose the file too.
+    const artifact = jump.items.find((m) => m.id === String(p.message_id))?.artifacts?.find((a) => a.ref === String(p.ref))
+    if (artifact) artifact.available = false
+  }
   if (event.type === 'control.receipt') {
     const local = state.controls.find((c) => c.control_command_id === String(p.control_command_id))
     if (local) advance(local, String(p.disposition))
@@ -1134,6 +1143,12 @@ function applyToView(view: ConversationView, event: CoreEvent): void {
           status: statusOf(String(p.disposition))
         }
       }
+      return
+    }
+    case 'artifact.unavailable': {
+      const message = view.messages.find((m) => m.id === String(p.message_id))
+      const artifact = message?.artifacts?.find((a) => a.ref === String(p.ref))
+      if (artifact) artifact.available = false
       return
     }
     case 'effects.resolved': {

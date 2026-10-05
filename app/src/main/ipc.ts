@@ -3,9 +3,14 @@ import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { z } from 'zod'
 import { IPC, type AppState, type Result, type Settings, type StagedAttachment, type StagedBatch } from '../shared/api'
 import type { AttachmentManager } from './attachments'
+import type { ArtifactStore } from './artifacts'
 import type { Broker, Settled } from './broker'
 import type { DraftStore } from './drafts'
 import {
+  artifactActionSchema,
+  copyTextSchema,
+  fetchArtifactSchema,
+  reportPageSchema,
   attachBytesSchema,
   attachPathsSchema,
   cancelAttachmentSchema,
@@ -39,6 +44,10 @@ export interface IpcDeps {
   attachments: AttachmentManager
   /** Opens the system file picker and returns the chosen paths. */
   pickFiles: () => Promise<string[]>
+  artifacts: ArtifactStore
+  /** Asks where to save a file; null when the user cancels. */
+  chooseSavePath: (name: string) => Promise<string | null>
+  copyText: (text: string) => void
   getSettings: () => Settings
   setAutostart: (enabled: boolean) => Settings
   appState: () => AppState
@@ -134,6 +143,19 @@ export function registerIpc(deps: IpcDeps): void {
   handle(IPC.cancelAttachment, cancelAttachmentSchema, (v) => {
     deps.attachments.cancel(v.id)
     return { ok: true, result: { cancelled: true } }
+  })
+  handle(IPC.fetchArtifact, fetchArtifactSchema, async (v) => {
+    const bytes = await deps.artifacts.fetchBytes(v.ref)
+    return bytes.ok ? { ok: true, result: { data: new Uint8Array(bytes.result) } } : bytes
+  })
+  handle(IPC.checkArtifact, fetchArtifactSchema, (v) => deps.artifacts.check(v.ref))
+  handle(IPC.openArtifact, artifactActionSchema, (v) => deps.artifacts.open(v.ref, v.name))
+  handle(IPC.saveArtifact, artifactActionSchema, async (v) => deps.artifacts.saveAs(v.ref, await deps.chooseSavePath(v.name)))
+  handle(IPC.revealArtifact, artifactActionSchema, (v) => deps.artifacts.reveal(v.ref, v.name))
+  handle(IPC.reportPage, reportPageSchema, async (v) => fromSettled(await deps.broker.request('reports.page', v)))
+  handle(IPC.copyText, copyTextSchema, (v) => {
+    deps.copyText(v.text)
+    return { ok: true, result: { copied: true } }
   })
   handle(IPC.getSettings, null, () => ({ ok: true, result: deps.getSettings() }))
   handle(IPC.setAutostart, setAutostartSchema, (v) => ({ ok: true, result: deps.setAutostart(v.enabled) }))

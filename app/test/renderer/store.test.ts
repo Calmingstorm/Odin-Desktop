@@ -205,6 +205,8 @@ function fakeBridge() {
       calls.stop.push(params)
       return control.stopResult
     },
+    fetchArtifact: async () => ({ ok: true, result: { data: new Uint8Array(4) } }),
+    checkArtifact: async () => ({ ok: true, result: { available: true } }),
     onEvent: (l: (e: CoreEvent) => void) => (listeners.event.push(l), () => undefined),
     onAppState: (l: (s: AppState) => void) => (listeners.appState.push(l), () => undefined),
     onReceipt: (l: (r: LateReceipt) => void) => (listeners.receipt.push(l), () => undefined),
@@ -754,6 +756,25 @@ describe('commands and attachments', () => {
     expect(bridge.calls.steer).toHaveLength(0)
   })
 })
+
+describe('results', () => {
+  it('marks a file no longer available when the core says so', async () => {
+    const reply: Message = { ...message('m-reply'), artifacts: [{ ref: 'f_1', name: 'notes.txt', mime: 'text/plain', size: 3, kind: 'file', available: true }] }
+    await start(snapshot({ watermark: '1', messages: { items: [reply], has_more: false } }))
+    emit(event(2, 'artifact.unavailable', { message_id: 'm-reply', ref: 'f_1', reason: 'expired' }))
+    expect(store.state.views.c1!.messages[0]!.artifacts![0]!.available).toBe(false)
+  })
+
+  it('marks the file gone in a search window too', async () => {
+    const old: Message = { ...message('m-old'), artifacts: [{ ref: 'f_9', name: 'old.txt', mime: 'text/plain', size: 3, kind: 'file', available: true }] }
+    await start()
+    bridge.control.aroundResult = { ok: true, result: { items: [old], has_before: false, has_after: true } }
+    await store.jumpTo({ conversation_id: 'c1', message_id: 'm-old', role: 'assistant', snippet: '', created_at: '2026-10-05T00:00:00Z' })
+    emit(event(2, 'artifact.unavailable', { message_id: 'm-old', ref: 'f_9', reason: 'expired' }))
+    expect(store.state.jump!.items[0]!.artifacts![0]!.available).toBe(false)
+  })
+})
+
 describe('review round 1: conversation commands are confirmed once', () => {
   it('never retries a lost thread as a second thread; its late receipt adds it without moving the view', async () => {
     await start()
@@ -1006,3 +1027,17 @@ describe('review round 2: lists, commands, search and jumps', () => {
     expect(store.state.conversations.find((c) => c.id === 'c2')?.unread).toBe(5)
   })
 })
+
+describe('review round 2: a file that is gone leaves the window', () => {
+  it("drops the window's copy of an image when the core says it is gone, loaded conversation or not", async () => {
+    await start()
+    const { images } = await import('../../src/renderer/src/artifacts')
+    const shown = images.acquire({ ref: 'r-img', name: 'a.png', mime: 'image/png', size: 4, kind: 'image', available: true })
+    await shown.url
+    shown.release()
+    expect(images.cached().map(([ref]) => ref)).toEqual(['r-img'])
+    emit(event(9, 'artifact.unavailable', { conversation_id: 'c-elsewhere', message_id: 'm9', ref: 'r-img' }))
+    expect(images.cached()).toEqual([])
+  })
+})
+

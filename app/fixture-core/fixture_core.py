@@ -21,6 +21,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import signal
 import socket
 import struct
@@ -35,12 +36,16 @@ RESULT_CACHE = 2000
 RECENT_OUTCOMES = 20
 # Read methods are answered fresh every time; only commands that admit or change something keep a receipt.
 READ_METHODS = {"status.get", "events.subscribe", "conversations.list", "messages.list", "conversation.snapshot",
-                "search.query", "messages.around", "usage.get"}
+                "search.query", "messages.around", "usage.get", "artifacts.read", "reports.page"}
 # Idempotent by offset, so it keeps no durable receipt (protocol.md, Conventions).
 NO_RECEIPT_METHODS = READ_METHODS | {"attachments.chunk"}
 CHUNK_BYTES = 512 * 1024
 ATTACHMENT_BYTES = 25 * 1024 * 1024
 ATTACHMENTS_PER_TURN = 10
+# A 24x24 PNG in the app's accent colour, for "image" requests.
+SAMPLE_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAIAAABvFaqvAAAAH0lEQVR4nGO4u8KfKohh1KBRg0YNGjVo1KBRgwbeIABVkx09d147dQAAAABJRU5ErkJggg=="
+)
 # The development core refuses executables, so the app's "unsupported type" path can be exercised.
 UNSUPPORTED_TYPES = {"application/x-msdownload", "application/x-executable"}
 SEARCH_LIMIT = 50
@@ -118,6 +123,8 @@ class Core:
         self.controls: dict[str, dict] = {}  # control_command_id -> latest disposition
         self.submissions: dict[str, dict] = {}
         self.uploads: dict[str, dict] = {}
+        self.artifacts: dict[str, dict] = {}  # ref -> {name, mime, data}
+        self.reports: dict[str, dict] = {}  # report id -> {conversation_id, pages}
         self.attachments: dict[str, dict] = {}
         self.results: dict[str, tuple[str, dict]] = {}  # command ID -> (binding, response)
         self.tombstones: dict[str, str] = {}  # pruned command ID -> binding
@@ -273,6 +280,49 @@ class Core:
     def m_reload(self, params: dict, _writer) -> dict:
         return {"disposition": "reloaded", "summary": f"Reloaded {params.get('scope') or 'context'}: nothing to load in the development core."}
 
+    def m_artifact_read(self, params: dict, _writer) -> dict:
+        artifact = self.artifacts.get(str(params.get("ref")))
+        if artifact is None:
+            raise CoreError("not_found", "that file is no longer available")
+        offset = max(0, int(params.get("offset") or 0))
+        length = max(1, min(int(params.get("length") or CHUNK_BYTES), CHUNK_BYTES))
+        data = artifact["data"][offset:offset + length]
+        return {"data_b64": base64.b64encode(data).decode(), "size": len(artifact["data"]),
+                "eof": offset + len(data) >= len(artifact["data"])}
+
+    def m_report_page(self, params: dict, _writer) -> dict:
+        report = self.reports.get(str(params.get("report_id")))
+        if report is None:
+            raise CoreError("not_found", "that report is no longer available")
+        pages = report["pages"]
+        page = max(1, min(int(params.get("page") or 1), len(pages)))
+        return {"page": page, "pages": len(pages), "text": pages[page - 1]}
+
+    def make_artifacts(self, cid: str, text: str) -> list[dict]:
+        """Scripted results for tests: whole words in the request ask for a file, an image, a script or a report."""
+        words = {w.rstrip("s") for w in re.findall(r"\b(files?|images?|scripts?|reports?|tiffs?)\b", text.lower())}
+        made = []
+        if "file" in words:
+            made.append(("notes.txt", "text/plain", "file", b"Generated notes\nline two\n"))
+        if "image" in words:
+            made.append(("chart.png", "image/png", "image", SAMPLE_PNG))
+        if "tiff" in words:  # a format Chromium can't decode: the window falls back to a file card
+            made.append(("scan.tiff", "image/tiff", "image", b"II*\x00not really a tiff"))
+        if "script" in words:
+            made.append(("cleanup.sh", "text/x-shellscript", "file", b"#!/bin/sh\necho hello\n"))
+        result = []
+        for name, mime, kind, data in made:
+            ref = new_id("f")
+            self.artifacts[ref] = {"name": name, "mime": mime, "data": data, "conversation_id": cid}
+            result.append({"ref": ref, "name": name, "mime": mime, "size": len(data), "kind": kind, "available": True})
+        if "report" in words:
+            ref = new_id("rep")
+            self.reports[ref] = {"conversation_id": cid,
+                                 "pages": [f"## Page {n}\n\nStored result, page {n} of 3." for n in (1, 2, 3)]}
+            result.append({"ref": ref, "name": "Health report", "mime": "text/markdown", "size": 0, "kind": "report",
+                           "available": True})
+        return result
+
     def m_attach_begin(self, params: dict, _writer) -> dict:
         self.require_conversation(params.get("conversation_id"))
         size = int(params.get("size") or 0)
@@ -405,6 +455,9 @@ class Core:
             raise CoreError("busy", "Odin is working in this conversation. Stop it first.", "not_dispatched")
         for store in (self.conversations, self.messages, self.recent, self.unresolved, self.queued):
             store.pop(cid, None)
+        for files in (self.artifacts, self.reports):
+            for ref in [ref for ref, item in files.items() if item["conversation_id"] == cid]:
+                del files[ref]
         self.emit("conversation.deleted", "conversation", cid, {"conversation_id": cid})
         return {"disposition": "deleted"}
 
@@ -446,10 +499,13 @@ class Core:
             if only and cid != only:
                 continue
             for m in items:
-                at = m["text"].lower().find(needle)
-                if at >= 0:
-                    hits.append({"conversation_id": cid, "message_id": m["id"], "role": m["role"],
-                                 "snippet": snippet(m["text"], at, len(needle)), "created_at": m["created_at"]})
+                # The visible text, then the names of the files it carries.
+                for text in [m["text"], *(a["name"] for a in m.get("artifacts", []))]:
+                    at = text.lower().find(needle)
+                    if at >= 0:
+                        hits.append({"conversation_id": cid, "message_id": m["id"], "role": m["role"],
+                                     "snippet": snippet(text, at, len(needle)), "created_at": m["created_at"]})
+                        break
         hits.sort(key=lambda h: h["created_at"], reverse=True)
         page = hits[offset:offset + limit]
         more = offset + limit < len(hits)
@@ -661,7 +717,14 @@ class Core:
                 reply += "\n\nReceived:\n" + "\n".join(lines)
             if consumed:
                 reply += "\n\nSteered with: " + "; ".join(consumed)
+            if re.search(r"\blong\b", req["text"].lower()):
+                reply += "\n\n" + "\n\n".join(f"Paragraph {n}: the long reply keeps going so the window has to stay "
+                                                 f"quick with thousands of blocks." for n in range(1, 2001))
+                reply += "\n\n```text\n" + "\n".join(f"log line {n}" for n in range(1, 5001)) + "\n```"
             message = {"id": new_id("m"), "role": "assistant", "text": reply, "created_at": now(), "request_id": rid}
+            artifacts = self.make_artifacts(cid, req["text"])
+            if artifacts:
+                message["artifacts"] = artifacts
             self.commit_message(cid, message)
             req["state"] = "completed"
             self.finish(req, "request.completed")
@@ -687,6 +750,8 @@ METHODS = {
     "search.query": Core.m_search,
     "messages.around": Core.m_around,
     "usage.get": Core.m_usage,
+    "artifacts.read": Core.m_artifact_read,
+    "reports.page": Core.m_report_page,
     "runtime.reload": Core.m_reload,
     "attachments.begin": Core.m_attach_begin,
     "attachments.chunk": Core.m_attach_chunk,
