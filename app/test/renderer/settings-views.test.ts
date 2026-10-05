@@ -105,16 +105,25 @@ describe('review round 4: Personality keeps newer edits (16.R4.2)', () => {
 
   it('keeps a choice and an identity made while a save was on its way', async () => {
     const v = await view('Personality')
-    const choice = v.setup.choice as Record<string, string>
-    choice.preset = 'professional'
+    const select = v.root.findAll((node) => node.tag === 'select')[0]!
+    const choose = async (preset: string) => {
+      const index = select.options.findIndex((option) => option.props.value === preset)
+      expect(index).toBeGreaterThanOrEqual(0)
+      select.choose(index)
+      await flush()
+    }
+    await choose('professional')
     void call(v, 'save')
     await flush()
-    choice.preset = 'custom'
-    choice.custom_identity = 'UNSAVED NEW IDENTITY'
+    await choose('custom')
+    const identityLabel = v.root.findAll((node) => node.tag === 'label' && node.textContent().trim() === 'Identity')[0]!
+    const identity = identityLabel.find('textarea')!
+    identity.type('UNSAVED NEW IDENTITY')
+    await flush()
     core = 'professional'
     held.personalitySet!.shift()!()
     await flush()
-    expect(choice).toMatchObject({ preset: 'custom', custom_identity: 'UNSAVED NEW IDENTITY' })
+    expect((v.setup.choice as Record<string, string>)).toMatchObject({ preset: 'custom', custom_identity: 'UNSAVED NEW IDENTITY' })
   })
 
   it('follows what Odin has for a field left as it was', async () => {

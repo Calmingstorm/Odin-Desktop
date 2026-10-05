@@ -19,14 +19,21 @@ export const stateStore = reactive({
 
 // ---- Personality ------------------------------------------------------------------------------------------------------
 
+let personalityAsked = 0
+
 export async function loadPersonality(): Promise<void> {
+  const mine = ++personalityAsked
   const result = await window.odin.personalityGet({})
+  if (mine !== personalityAsked) return
   management.error = failure(result)
   if (result.ok) stateStore.personality = result.result
 }
 
-export async function savePersonality(change: PersonalitySet): Promise<boolean> {
-  return act('personality', () => window.odin.personalitySet(change), () => 'Saved. New requests use it.', loadPersonality)
+export async function savePersonality(change: PersonalitySet, onSaved?: () => void): Promise<boolean> {
+  return act('personality', () => window.odin.personalitySet(change), () => {
+    onSaved?.()
+    return 'Saved. New requests use it.'
+  }, loadPersonality)
 }
 
 export async function savePreset(preset: { name: string; display_name?: string; identity?: string; voice?: string }): Promise<boolean> {

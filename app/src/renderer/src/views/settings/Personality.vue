@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ask } from '../../dialog'
-import { adoptUntouched } from '../../drafts'
 import { management } from '../../stores/management'
 import { deletePreset, loadPersonality, savePersonality, savePreset, stateStore } from '../../stores/state'
 
@@ -9,14 +8,20 @@ onMounted(loadPersonality)
 
 /** The choice as edited here. Each field follows what Odin has until the user changes it. */
 const choice = reactive({ preset: '', custom_name: '', custom_identity: '', custom_voice: '' })
-let adopted: typeof choice | null = null
+type ChoiceField = keyof typeof choice
+const edited = { preset: 0, custom_name: 0, custom_identity: 0, custom_voice: 0 }
+const accepted = { ...edited }
+function edit(field: ChoiceField): void {
+  edited[field] += 1
+}
 watch(
   () => stateStore.personality,
   (p) => {
     if (!p) return
     const incoming = { preset: p.preset, custom_name: p.custom_name, custom_identity: p.custom_identity, custom_voice: p.custom_voice }
-    adoptUntouched(choice, adopted, incoming)
-    adopted = incoming
+    for (const field of Object.keys(incoming) as ChoiceField[]) {
+      if (edited[field] === accepted[field]) choice[field] = incoming[field]
+    }
   },
   { immediate: true }
 )
@@ -26,7 +31,13 @@ const draft = reactive({ name: '', display_name: '', identity: '', voice: '' })
 const presetError = ref('')
 
 async function save(): Promise<void> {
-  await savePersonality(choice.preset === 'custom' ? { ...choice } : { preset: choice.preset })
+  const change = choice.preset === 'custom' ? { ...choice } : { preset: choice.preset }
+  const sent = { ...edited }
+  await savePersonality(change, () => {
+    // Only successful submitted fields can follow the readback. An edit made during the write or readback,
+    // even back to an older value, has a newer generation and stays available for the next Save.
+    for (const field of Object.keys(change) as ChoiceField[]) accepted[field] = sent[field]
+  })
 }
 
 async function saveAsPreset(): Promise<void> {
@@ -59,7 +70,7 @@ async function remove(name: string): Promise<void> {
     </header>
     <label class="field-input">
       Preset
-      <select v-model="choice.preset">
+      <select v-model="choice.preset" @change="edit('preset')">
         <option v-for="key in stateStore.personality.builtin_presets" :key="key" :value="key">{{ stateStore.personality.presets[key]?.name ?? key }}</option>
         <option v-for="key in stateStore.personality.user_presets" :key="key" :value="key">{{ stateStore.personality.presets[key]?.name ?? key }} (yours)</option>
         <option value="custom">Custom</option>
@@ -70,9 +81,9 @@ async function remove(name: string): Promise<void> {
       <p class="manage-desc"><strong>Voice.</strong> {{ shown.voice }}</p>
     </template>
     <template v-else>
-      <label class="field-input">Name <input v-model="choice.custom_name" maxlength="200" /></label>
-      <label class="field-input">Identity <textarea v-model="choice.custom_identity" rows="4" /></label>
-      <label class="field-input">Voice <textarea v-model="choice.custom_voice" rows="4" /></label>
+      <label class="field-input">Name <input v-model="choice.custom_name" @input="edit('custom_name')" maxlength="200" /></label>
+      <label class="field-input">Identity <textarea v-model="choice.custom_identity" @input="edit('custom_identity')" rows="4" /></label>
+      <label class="field-input">Voice <textarea v-model="choice.custom_voice" @input="edit('custom_voice')" rows="4" /></label>
     </template>
     <div class="panel-actions">
       <button class="ghost" :disabled="management.busy.personality" @click="save">Save</button>
