@@ -14,7 +14,8 @@ export interface FixtureCore {
   stop: () => Promise<void>
 }
 
-export async function startFixture(): Promise<FixtureCore> {
+/** `env` sets the fixture's own switches, such as ODIN_FIXTURE_COMPUTER_INSPECTION. */
+export async function startFixture(options: { env?: Record<string, string> } = {}): Promise<FixtureCore> {
   const root = mkdtempSync(join(tmpdir(), 'odin-fixture-'))
   const paths = profilePaths('default', {
     HOME: root,
@@ -28,7 +29,7 @@ export async function startFixture(): Promise<FixtureCore> {
   const child = spawn(
     'python3',
     [FIXTURE, '--socket', paths.socketPath, '--token-file', paths.tokenPath, '--profile', 'default'],
-    { stdio: ['pipe', 'ignore', 'pipe'] }
+    { stdio: ['pipe', 'ignore', 'pipe'], env: { ...process.env, ...options.env } }
   )
   await waitFor(() => existsSync(paths.socketPath), 10_000)
   const stop = async (): Promise<void> => {

@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ask } from '../../dialog'
+import { adoptUntouched } from '../../drafts'
 import { management } from '../../stores/management'
 import { deletePreset, loadPersonality, savePersonality, savePreset, stateStore } from '../../stores/state'
 
 onMounted(loadPersonality)
 
-/** The choice as edited here, from what Odin has. */
+/** The choice as edited here. Each field follows what Odin has until the user changes it. */
 const choice = reactive({ preset: '', custom_name: '', custom_identity: '', custom_voice: '' })
+let adopted: typeof choice | null = null
 watch(
   () => stateStore.personality,
   (p) => {
-    if (p) Object.assign(choice, { preset: p.preset, custom_name: p.custom_name, custom_identity: p.custom_identity, custom_voice: p.custom_voice })
+    if (!p) return
+    const incoming = { preset: p.preset, custom_name: p.custom_name, custom_identity: p.custom_identity, custom_voice: p.custom_voice }
+    adoptUntouched(choice, adopted, incoming)
+    adopted = incoming
   },
   { immediate: true }
 )
@@ -34,9 +39,10 @@ async function saveAsPreset(): Promise<void> {
     presetError.value = 'Give it an identity, a voice, or both.'
     return
   }
-  if (await savePreset({ name: draft.name.trim(), display_name: draft.display_name.trim() || undefined, identity: draft.identity, voice: draft.voice })) {
-    Object.assign(draft, { name: '', display_name: '', identity: '', voice: '' })
-  }
+  const sent = JSON.stringify(draft)
+  const saved = await savePreset({ name: draft.name.trim(), display_name: draft.display_name.trim() || undefined, identity: draft.identity, voice: draft.voice })
+  // Clear only what was saved: a preset typed meanwhile stays.
+  if (saved && JSON.stringify(draft) === sent) Object.assign(draft, { name: '', display_name: '', identity: '', voice: '' })
 }
 
 async function remove(name: string): Promise<void> {

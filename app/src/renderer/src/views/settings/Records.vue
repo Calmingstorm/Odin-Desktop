@@ -1,29 +1,37 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import type { ComputerSession } from '../../../../shared/api'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ask } from '../../dialog'
 import { basis, count, percent } from '../../format'
 import { state } from '../../store'
 import { management } from '../../stores/management'
-import { loadAudit, loadComputer, loadHealth, loadRecords, loadTurns, loadUsage, reconcileComputer, records, searchLogs, verifyAudit } from '../../stores/records'
+import { loadAudit, loadComputer, loadHealth, loadRecords, loadTurns, loadUsage, reasonText, reconcileComputer, records, searchLogs, verifyAudit } from '../../stores/records'
 
 onMounted(loadRecords)
 
-const period = ref<'24h' | '7d' | '30d' | 'all'>('7d')
+const PERIODS = { '24h': 'the last 24 hours', '7d': 'the last 7 days', '30d': 'the last 30 days', all: 'all time' } as const
+const period = ref<keyof typeof PERIODS>('7d')
 const audit = reactive({ q: '', tool: '', error_only: false })
 const logs = reactive<{ q: string; level: 'error' | 'info' | 'all' }>({ q: '', level: 'all' })
 
 const at = (iso: string | null | undefined): string => (iso ? new Date(iso).toLocaleString() : '')
 const conversationTitle = (id: string): string => state.conversations.find((c) => c.id === id)?.title ?? 'a conversation that is gone'
+/** The period the usage shown covers: the answer's own, which lags the choice until its read lands. */
+const usagePeriod = computed(() => {
+  const shown = records.usage?.period
+  return shown && shown in PERIODS ? PERIODS[shown as keyof typeof PERIODS] : shown
+})
+const computerKey = computed(() => `computer:${records.computer?.session_id ?? ''}`)
 
-async function reconcile(session: ComputerSession): Promise<void> {
+async function reconcile(): Promise<void> {
+  const status = records.computer
+  if (!status) return
   const confirmed = await ask({
     title: 'Release this session?',
-    message: `Odin couldn't verify that session ${session.session_id} let go of the mouse and keyboard. Check the computer first. Releasing it acknowledges that the cleanup is unverified.`,
+    message: `Odin couldn't verify that session ${status.session_id} let go of the mouse and keyboard. Check the computer first. Releasing it records that you checked; Odin still treats the cleanup as unverified.`,
     confirmLabel: 'Release',
     danger: true
   })
-  if (confirmed) await reconcileComputer(session)
+  if (confirmed) await reconcileComputer(status)
 }
 </script>
 
@@ -37,6 +45,7 @@ async function reconcile(session: ComputerSession): Promise<void> {
       </span>
       <button class="ghost" @click="loadHealth">Check again</button>
     </header>
+    <p v-if="records.errors.health" class="warn">Couldn't check: {{ records.errors.health }}{{ records.health ? ' Showing the last check.' : '' }}</p>
     <ul class="manage-list">
       <li v-for="c in records.health?.components ?? []" :key="c.name" class="manage-row">
         <div class="manage-line">
@@ -58,8 +67,11 @@ async function reconcile(session: ComputerSession): Promise<void> {
         <option value="all">All time</option>
       </select>
     </header>
+    <p v-if="records.errors.usage" class="warn">Couldn't read usage: {{ records.errors.usage }}{{ records.usage ? ' Showing the last read.' : '' }}</p>
     <template v-if="records.usage">
-      <p class="manage-desc" :title="basis(records.usage.tokens)">{{ count(records.usage.tokens) }} tokens ({{ basis(records.usage.tokens) }}).</p>
+      <p class="manage-desc" :title="basis(records.usage.tokens)">
+        {{ count(records.usage.tokens) }} tokens in {{ usagePeriod }} ({{ basis(records.usage.tokens) }}).
+      </p>
       <p v-for="q in records.usage.quota" :key="`${q.account}:${q.window}`" class="manage-desc">
         {{ q.account }}, {{ q.window }} limit:
         {{ q.used_percent.kind === 'unknown' ? 'use not reported' : `${percent(q.used_percent)} used` }}{{ q.resets_at ? `, resets ${at(q.resets_at)}` : '' }}.
@@ -74,7 +86,8 @@ async function reconcile(session: ComputerSession): Promise<void> {
       <span class="panel-hint">Every tool call, with its input (secrets scrubbed) and result.</span>
       <button class="ghost" @click="verifyAudit">Verify the record</button>
     </header>
-    <p v-if="records.verify" :class="records.verify.valid ? 'field-saved' : 'warn'">
+    <p v-if="records.errors.verify" class="warn">Couldn't check the record: {{ records.errors.verify }}. It is neither verified nor known to be broken.</p>
+    <p v-else-if="records.verify" :class="records.verify.valid ? 'field-saved' : 'warn'">
       {{ records.verify.valid ? `Intact: ${records.verify.verified ?? records.verify.total} entries verified.` : `Not intact: ${records.verify.reason ?? 'the chain is broken'}.` }}
     </p>
     <div class="limits">
@@ -83,17 +96,23 @@ async function reconcile(session: ComputerSession): Promise<void> {
       <label class="toggle-inline"><input v-model="audit.error_only" type="checkbox" /> Errors only</label>
       <button class="ghost" @click="loadAudit(audit)">Show</button>
     </div>
-    <p v-if="management.error" class="warn">{{ management.error }}</p>
+    <p v-if="records.errors.audit" class="warn">Couldn't read the audit: {{ records.errors.audit }}{{ records.loaded.audit ? ' Showing the last read.' : '' }}</p>
     <table class="runs audit">
       <tbody>
         <tr v-for="(e, i) in records.audit" :key="i">
           <td>{{ at(e.timestamp) }}</td>
-          <td><code>{{ e.tool_name }}</code></td>
+          <td>
+            <code>{{ e.tool_name }}</code>
+            <details v-if="e.tool_input && Object.keys(e.tool_input).length" class="audit-input">
+              <summary>Input</summary>
+              <pre class="manage-json">{{ JSON.stringify(e.tool_input, null, 2) }}</pre>
+            </details>
+          </td>
           <td>{{ e.host ?? '' }}</td>
           <td :class="e.error ? 'bad' : ''">{{ e.error ?? e.result_summary ?? e.detail ?? '' }}</td>
           <td>{{ e.execution_time_ms !== undefined ? `${e.execution_time_ms} ms` : '' }}</td>
         </tr>
-        <tr v-if="!records.audit.length"><td>Nothing recorded.</td></tr>
+        <tr v-if="records.loaded.audit && !records.audit.length"><td>Nothing recorded.</td></tr>
       </tbody>
     </table>
   </section>
@@ -108,6 +127,7 @@ async function reconcile(session: ComputerSession): Promise<void> {
       </select>
       <input v-model="logs.q" type="search" class="panel-filter" placeholder="Search" aria-label="Search the logs" @keydown.enter="searchLogs(logs)" />
     </header>
+    <p v-if="records.errors.logs" class="warn">Couldn't search the logs: {{ records.errors.logs }}{{ records.loaded.logs ? ' Showing the last search.' : '' }}</p>
     <table class="runs">
       <tbody>
         <tr v-for="(e, i) in records.logs" :key="i">
@@ -115,7 +135,7 @@ async function reconcile(session: ComputerSession): Promise<void> {
           <td :class="e.level === 'ERROR' ? 'bad' : ''">{{ e.level }}</td>
           <td>{{ e.message }}</td>
         </tr>
-        <tr v-if="!records.logs.length"><td>No entries.</td></tr>
+        <tr v-if="records.loaded.logs && !records.logs.length"><td>No entries.</td></tr>
       </tbody>
     </table>
   </section>
@@ -126,6 +146,7 @@ async function reconcile(session: ComputerSession): Promise<void> {
       <span class="panel-hint">Requests Odin kept so they can resume, and any that need your attention.</span>
       <button class="ghost" @click="loadTurns">Refresh</button>
     </header>
+    <p v-if="records.errors.turns" class="warn">Couldn't read preserved work: {{ records.errors.turns }}{{ records.turns ? ' Showing the last read.' : '' }}</p>
     <p v-if="records.turns && records.turns.availability !== 'available'" class="manage-desc">
       {{ records.turns.availability === 'not_enabled' ? 'Turn state is off.' : 'Turn state is unavailable right now.' }}
     </p>
@@ -138,7 +159,7 @@ async function reconcile(session: ComputerSession): Promise<void> {
         </div>
         <p class="manage-desc">Started {{ at(t.created_at) }}{{ t.has_checkpoint ? '. Progress is kept.' : '.' }}</p>
       </li>
-      <li v-if="!(records.turns?.data.turns ?? []).length" class="manage-desc">Nothing preserved.</li>
+      <li v-if="records.turns && !(records.turns.data.turns ?? []).length" class="manage-desc">Nothing preserved.</li>
     </ul>
   </section>
 
@@ -148,17 +169,21 @@ async function reconcile(session: ComputerSession): Promise<void> {
       <span v-if="records.computer" class="panel-hint">{{ records.computer.enabled ? 'On' : 'Off' }}: {{ records.computer.state }}.</span>
       <button class="ghost" @click="loadComputer">Refresh</button>
     </header>
-    <p v-if="records.computer?.reason" class="warn">{{ records.computer.reason }}</p>
-    <ul class="manage-list">
-      <li v-for="s in records.computer?.sessions ?? []" :key="s.session_id" class="manage-row">
-        <div class="manage-line">
-          <code class="manage-name">{{ s.session_id }}</code>
-          <span class="manage-count">{{ s.target }}, generation {{ s.generation }}, since {{ at(s.started_at) }}</span>
-          <span :class="['state-chip', s.quarantined ? 'failed' : 'connected']">{{ s.state }}</span>
-          <span v-if="s.quarantined" class="manage-actions"><button class="ghost danger-item" @click="reconcile(s)">Release…</button></span>
-        </div>
-        <p v-if="management.notes[`computer:${s.session_id}`]" class="manage-note" role="status">{{ management.notes[`computer:${s.session_id}`] }}</p>
-      </li>
-    </ul>
+    <p v-if="records.errors.computer" class="warn">Couldn't read computer use: {{ records.errors.computer }}{{ records.computer ? ' Showing the last read.' : '' }}</p>
+    <template v-if="records.computer?.session_id">
+      <div class="manage-line">
+        <code class="manage-name">{{ records.computer.session_id }}</code>
+        <span class="manage-count">generation {{ records.computer.session_generation ?? records.computer.generation }}</span>
+        <span :class="['state-chip', records.computer.state === 'quarantined' ? 'failed' : 'connected']">{{ records.computer.state }}</span>
+        <span v-if="records.computer.state === 'quarantined'" class="manage-actions">
+          <button class="ghost danger-item" :disabled="management.busy[computerKey]" @click="reconcile">Release…</button>
+        </span>
+      </div>
+      <p v-if="records.computer.recovery" :class="records.computer.recovery.complete ? 'manage-desc' : 'warn'">
+        Recovery: {{ records.computer.recovery.status.replace(/_/g, ' ') }}, because {{ reasonText(records.computer.recovery.reason) }}.
+        {{ records.computer.recovery.complete ? 'Complete.' : 'Not complete: the cleanup is unverified.' }}
+      </p>
+      <p v-if="management.notes[computerKey]" class="manage-note" role="status">{{ management.notes[computerKey] }}</p>
+    </template>
   </section>
 </template>

@@ -730,20 +730,33 @@ export interface TurnStateReport {
   data: { total_matching?: number; attention_count?: number; turns?: TurnRecord[] }
 }
 
-export interface ComputerSession {
-  session_id: string
-  generation: number
-  target: string
-  state: string
-  started_at: string
-  quarantined: boolean
+/** Where a computer-use session's recovery stands, as Odin records it. `complete` is never implied by success. */
+export interface ComputerRecovery {
+  status: string
+  reason: string
+  complete: boolean
+  released?: boolean
+  receiver_release_verified?: boolean
+  unknown_release?: boolean
 }
 
+/**
+ * Odin's computer-use status (GET /api/computer): one lifecycle at a time. Reconciling binds `session_generation`,
+ * the session's own generation, not the runtime's `generation`.
+ */
 export interface ComputerStatus {
-  enabled: boolean
+  available: boolean
   state: string
-  reason?: string | null
-  sessions: ComputerSession[]
+  session_id: string
+  generation?: number
+  session_generation?: number
+  enabled?: boolean
+  configured_enabled?: boolean
+  runtime_enabled?: boolean
+  last_action?: string
+  last_verification?: string
+  error?: string
+  recovery?: ComputerRecovery
 }
 
 export interface ScheduleRunResult {
@@ -821,7 +834,7 @@ export interface ManagementCalls {
   logsSearch: [{ q?: string; level?: 'error' | 'info' | 'all'; tool?: string; start?: string; end?: string; limit?: number }, { entries: LogEntry[]; count: number }]
   turnStateList: [{ limit?: number }, TurnStateReport]
   computerStatus: [Empty, ComputerStatus]
-  computerReconcile: [{ session_id: string; generation: number; acknowledgment: string }, { status: string }]
+  computerReconcile: [{ session_id: string; generation: number; acknowledgment: string }, ComputerStatus]
 }
 
 export type ManagementMethod = keyof ManagementCalls

@@ -56,14 +56,18 @@ function editEntry(scope: string, key = '', value: unknown = ''): void {
 async function saveEntry(scope: string): Promise<void> {
   const draft = drafts[scope]
   if (!draft?.key.trim()) return
-  if (await setMemory(scope, draft.key.trim(), draft.value)) drafts[scope] = undefined
+  const sent = JSON.stringify(draft)
+  const saved = await setMemory(scope, draft.key.trim(), draft.value)
+  // Close only the editor that was saved, and only if nothing in it changed since.
+  if (saved && drafts[scope] === draft && JSON.stringify(draft) === sent) drafts[scope] = undefined
 }
 
 async function removePicked(scope: string): Promise<void> {
   const keys = picked[scope] ?? []
   if (!keys.length) return
   const confirmed = await ask({ title: `Delete ${keys.length} ${keys.length === 1 ? 'entry' : 'entries'}?`, message: `Odin stops remembering ${keys.join(', ')}.`, confirmLabel: 'Delete', danger: true })
-  if (confirmed && (await deleteMemory(scope, keys))) picked[scope] = []
+  // Unpick only what was deleted: keys picked meanwhile stay picked.
+  if (confirmed && (await deleteMemory(scope, keys))) picked[scope] = (picked[scope] ?? []).filter((key) => !keys.includes(key))
 }
 
 async function removeList(name: string): Promise<void> {
@@ -84,8 +88,10 @@ async function readFile(event: Event): Promise<void> {
 }
 
 async function add(): Promise<void> {
-  if (!source.value.trim() || !content.value.trim()) return
-  if (await ingest(source.value.trim(), content.value)) {
+  const sent = { source: source.value.trim(), content: content.value }
+  if (!sent.source || !sent.content.trim()) return
+  // Clear only what was stored: a document typed meanwhile stays.
+  if ((await ingest(sent.source, sent.content)) && source.value.trim() === sent.source && content.value === sent.content) {
     source.value = ''
     content.value = ''
   }

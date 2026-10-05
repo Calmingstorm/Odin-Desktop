@@ -70,3 +70,60 @@ describe('state and records', () => {
     expect(await adding).toBe(false) // the view keeps the text, so nothing typed is lost
   })
 })
+
+describe('review round 4: records say what they know', () => {
+  const failed = { ok: false, error: { code: 'unavailable', message: 'core restarting', disposition: 'not_dispatched' } } as const
+  const odin = () => (window as unknown as { odin: Record<string, unknown> }).odin
+  const status = (fields: Record<string, unknown>) => ({ available: true, state: 'quarantined', session_id: 's1', generation: 1, session_generation: 3, ...fields })
+
+  it("shows the usage for the period chosen last, whatever order the answers come in (16.R4.4)", async () => {
+    const answers: Array<(answer: Result<unknown>) => void> = []
+    odin().usage = () => new Promise((resolve) => answers.push(resolve))
+    void records.loadUsage('7d')
+    void records.loadUsage('24h')
+    answers[1]!(ok({ period: '24h', tokens: { value: 24, kind: 'measured' }, quota: [], summary: '' }))
+    await settle()
+    answers[0]!(ok({ period: '7d', tokens: { value: 700, kind: 'measured' }, quota: [], summary: '' }))
+    await settle()
+    expect(records.records.usage?.period).toBe('24h')
+  })
+
+  it("keeps a failed read's reason, and never counts it as an answer (16.R4.5)", async () => {
+    odin().logsSearch = async () => failed
+    odin().turnStateList = async () => failed
+    await records.searchLogs()
+    await records.loadTurns()
+    expect(records.records.errors).toMatchObject({ logs: 'core restarting', turns: 'core restarting' })
+    expect(records.records.loaded.logs).toBeUndefined()
+    odin().logsSearch = async () => ok({ entries: [], count: 0 })
+    await records.searchLogs()
+    expect(records.records.errors.logs).toBeUndefined()
+    expect(records.records.loaded.logs).toBe(true)
+  })
+
+  it('gives no verdict when the record could not be checked (16.R4.5)', async () => {
+    odin().auditVerify = async () => ok({ valid: true, total: 3, verified: 3 })
+    await records.verifyAudit()
+    odin().auditVerify = async () => failed
+    await records.verifyAudit()
+    expect(records.records.verify).toBeNull()
+    expect(records.records.errors.verify).toBe('core restarting')
+  })
+
+  it("reconciles under the session's own generation, and says only what Odin recorded (16.R4.1)", async () => {
+    const sent: Array<Record<string, unknown>> = []
+    let answer: Result<unknown> = ok(status({ recovery: { status: 'unknown', reason: 'owned_process_remaining', complete: false } }))
+    odin().computerReconcile = async (params: Record<string, unknown>) => (sent.push(params), answer)
+    odin().computerStatus = async () => answer
+    await records.reconcileComputer(status({}) as never)
+    expect(sent[0]).toMatchObject({ session_id: 's1', generation: 3 })
+    const { management } = await import('../../src/renderer/src/stores/management')
+    expect(management.notes['computer:s1']).toBe('Not released: a process the session started is still running. The session stays quarantined.')
+    answer = ok(status({ state: 'closed', recovery: { status: 'operator_acknowledged_unverified', reason: 'operator_verified_external_cleanup', complete: false } }))
+    await records.reconcileComputer(status({}) as never)
+    expect(management.notes['computer:s1']).toBe('Acknowledged: Odin closed the session on your word. Its cleanup stays unverified.')
+    expect(records.reconcileOutcome(status({ state: 'closed', recovery: { status: 'absence_verified', reason: 'recorded_processes_gone', complete: true } }) as never)).toBe(
+      'Released: Odin verified nothing of the session remains.'
+    )
+  })
+})

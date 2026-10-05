@@ -23,8 +23,8 @@ afterEach(async () => {
 
 type Ok<T> = { ok: true; result: T }
 
-async function connect() {
-  const core = await startFixture()
+async function connect(env?: Record<string, string>) {
+  const core = await startFixture({ env })
   cleanups.push(() => core.stop())
   const broker = new Broker({
     socketPath: core.paths.socketPath,
@@ -157,18 +157,41 @@ describe('records', () => {
     expect(await read<TurnStateReport>('turn_state.list')).toMatchObject({ schema_version: 1, availability: 'available', data: { turns: [] } })
   })
 
-  it("releases a computer-use session only with Odin's acknowledgment", async () => {
+  it("closes a computer-use session on Odin's acknowledgment, and says its cleanup stays unverified (16.R4.1)", async () => {
     const { read, command } = await connect()
     const status = await read<ComputerStatus>('computer.status')
-    expect(status).toMatchObject({ enabled: false, state: 'quarantined', sessions: [{ session_id: 'cs_7f3a', generation: 3, quarantined: true }] })
+    expect(status).toMatchObject({
+      state: 'quarantined',
+      session_id: 'cs_7f3a',
+      generation: 1,
+      session_generation: 3,
+      recovery: { status: 'operator_reconciliation_required', complete: false }
+    })
+    const ack = 'ACKNOWLEDGE UNVERIFIED CLEANUP cs_7f3a'
     expect(await command('computer.reconcile', { session_id: 'cs_7f3a', generation: 3, acknowledgment: 'yes' })).toMatchObject({
       ok: false,
       error: { message: 'explicit_acknowledgment_required' }
     })
-    expect(await command('computer.reconcile', { session_id: 'cs_7f3a', generation: 3, acknowledgment: 'ACKNOWLEDGE UNVERIFIED CLEANUP cs_7f3a' })).toEqual({
-      ok: true,
-      result: { status: 'reconciled', session_id: 'cs_7f3a' }
+    // The runtime's generation is not the session's: Odin binds the session's own.
+    expect(await command('computer.reconcile', { session_id: 'cs_7f3a', generation: 1, acknowledgment: ack })).toMatchObject({
+      ok: false,
+      error: { message: 'stale_generation' }
     })
-    expect(await read<ComputerStatus>('computer.status')).toMatchObject({ state: 'disabled', sessions: [] })
+    const answer = (await command('computer.reconcile', { session_id: 'cs_7f3a', generation: 3, acknowledgment: ack })) as Ok<ComputerStatus>
+    expect(answer.result).toMatchObject({
+      state: 'closed',
+      recovery: { status: 'operator_acknowledged_unverified', reason: 'operator_verified_external_cleanup', complete: false }
+    })
+  })
+
+  it('answers success but keeps the session quarantined when inspection finds its process still running (16.R4.1)', async () => {
+    const { read, command } = await connect({ ODIN_FIXTURE_COMPUTER_INSPECTION: 'owned_process_remaining' })
+    const answer = (await command('computer.reconcile', {
+      session_id: 'cs_7f3a',
+      generation: 3,
+      acknowledgment: 'ACKNOWLEDGE UNVERIFIED CLEANUP cs_7f3a'
+    })) as Ok<ComputerStatus>
+    expect(answer).toMatchObject({ ok: true, result: { state: 'quarantined', recovery: { status: 'unknown', reason: 'owned_process_remaining', complete: false } } })
+    expect(await read<ComputerStatus>('computer.status')).toMatchObject({ state: 'quarantined' })
   })
 })

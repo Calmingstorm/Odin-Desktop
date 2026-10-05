@@ -364,8 +364,13 @@ class Core:
                                    "result_summary": "up 3 days", "execution_time_ms": 42, "error": None, "host": "localhost"}]
         self.logs: list[dict] = [{"timestamp": now(), "level": "INFO", "message": "Core started.", "tool": None},
                                  {"timestamp": now(), "level": "ERROR", "message": "MCP server Grafana: disabled.", "tool": None}]
-        self.computer_sessions: list[dict] = [{"session_id": "cs_7f3a", "generation": 3, "target": "x11 :0",
-                                               "state": "quarantined", "started_at": iso_in(-3600)[1], "quarantined": True}]
+        # Odin's computer use is one lifecycle at a time. This one was left quarantined: its input release couldn't be
+        # verified. What inspecting it finds decides what reconciling can do, as in Odin's controller.
+        self.computer: dict = {"state": "quarantined", "session_id": "cs_7f3a", "generation": 1, "session_generation": 3,
+                               "last_action": "click", "last_verification": "release_unverified",
+                               "recovery": {"status": "operator_reconciliation_required", "reason": "controller_lost",
+                                            "complete": False}}
+        self.computer_inspection = os.environ.get("ODIN_FIXTURE_COMPUTER_INSPECTION", "attestation_eligible")
         self.work: dict[str, dict] = {}  # agents, processes and the like; schedules come from self.schedules
         self.schedules: dict[str, dict] = {"5d0a7c21": {
             "id": "5d0a7c21", "description": "Post the daily status to the dashboard", "action": "webhook",
@@ -1838,22 +1843,33 @@ class Core:
         return {"schema_version": 1, "availability": "available", "observed_at": now(),
                 "data": {"total_matching": len(turns), "attention_count": sum(t["attention"] for t in turns), "turns": turns}}
 
-    def m_computer_status(self, _params: dict, _writer) -> dict:
+    def computer_status(self) -> dict:
         enabled = bool(self.settings_values.get("computer.enabled"))
-        quarantined = any(s["quarantined"] for s in self.computer_sessions)
-        state = "quarantined" if quarantined else ("idle" if enabled else "disabled")
-        return {"enabled": enabled, "state": state,
-                "reason": "A session's input release couldn't be verified." if quarantined else None,
-                "sessions": [dict(s) for s in self.computer_sessions]}
+        return {"available": True, "enabled": enabled, "configured_enabled": enabled, "runtime_enabled": enabled,
+                **{key: value for key, value in self.computer.items() if key != "recovery"},
+                "recovery": dict(self.computer["recovery"])}
+
+    def m_computer_status(self, _params: dict, _writer) -> dict:
+        return self.computer_status()
 
     def m_computer_reconcile(self, params: dict, _writer) -> dict:
-        session = next((s for s in self.computer_sessions if s["session_id"] == params.get("session_id")), None)
-        if session is None or session["generation"] != params.get("generation"):
-            raise CoreError("not_found", "no such session at that generation")
-        if params.get("acknowledgment") != f"ACKNOWLEDGE UNVERIFIED CLEANUP {session['session_id']}":
+        """Odin's operator_reconcile: an acknowledgment frees admission; it is never a claim of clean release."""
+        session_id = params.get("session_id")
+        if params.get("acknowledgment") != f"ACKNOWLEDGE UNVERIFIED CLEANUP {session_id}":
             raise CoreError("bad_request", "explicit_acknowledgment_required")
-        self.computer_sessions.remove(session)
-        return {"status": "reconciled", "session_id": session["session_id"]}
+        if session_id != self.computer["session_id"]:
+            raise CoreError("not_found", "not_found")
+        if params.get("generation") != self.computer["session_generation"]:
+            raise CoreError("stale_binding", "stale_generation", "stale_binding")
+        if self.computer["state"] != "quarantined":
+            raise CoreError("bad_request", "recovery_unavailable")
+        if self.computer_inspection == "attestation_eligible":
+            self.computer["state"] = "closed"
+            self.computer["recovery"] = {"status": "operator_acknowledged_unverified",
+                                         "reason": "operator_verified_external_cleanup", "complete": False}
+        else:
+            self.computer["recovery"] = {"status": "unknown", "reason": self.computer_inspection, "complete": False}
+        return self.computer_status()
 
     def m_resume(self, params: dict, _writer) -> dict:
         req = self.requests.get(str(params.get("request_id")))
