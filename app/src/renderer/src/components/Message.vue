@@ -97,7 +97,7 @@ function onImageError(ref: string): void {
         <button ref="copyButton" class="msg-action" :aria-label="`Copy ${messageLabel}`" :aria-expanded="copyOpen" :aria-controls="`copy-${message.id}`" @click="copyOpen = !copyOpen">Copy</button>
         <button
           class="msg-action"
-          :aria-label="`Thread from ${messageLabel}`"
+          :aria-label="`Thread from here: ${messageLabel}`"
           title="Start a new thread that carries this conversation's context up to here"
           @click="startThread(conversationId, message.id)"
         >

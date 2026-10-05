@@ -85,7 +85,7 @@ async function open(conversationId: string, event: MouseEvent): Promise<void> {
   <p v-if="work.error" :class="work.unavailable ? 'capability-unavailable' : 'warn'" :role="work.unavailable ? 'status' : 'alert'">{{ work.error }}</p>
   <p v-else-if="work.loaded && !groups.length" class="work-empty">{{ emptyText ?? 'Nothing is running.' }}</p>
   <div v-for="group in groups" :key="group.kind" class="work-group">
-    <h3>{{ group.label }} <span class="work-count">{{ group.items.length }}</span></h3>
+    <h2>{{ group.label }} <span class="work-count">{{ group.items.length }}</span></h2>
     <article v-for="item in group.items" :id="itemId(item, 'item')" :key="workKey(item)" :class="['work-item', { done: !isActive(item) }]" tabindex="-1" :aria-labelledby="itemId(item, 'title')" :aria-describedby="itemId(item, 'state')">
       <div class="work-line">
         <span :id="itemId(item, 'state')" :class="['work-state', item.state]">{{ item.state }}</span>

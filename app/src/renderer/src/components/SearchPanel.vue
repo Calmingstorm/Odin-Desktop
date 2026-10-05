@@ -82,7 +82,7 @@ async function more(event: MouseEvent): Promise<void> {
         :aria-invalid="invalid || undefined"
         :aria-describedby="state.search.error ? 'conversation-search-error' : undefined"
       />
-      <button type="button" class="ghost" aria-label="Close search" @click="state.search.open = false">✕</button>
+      <button type="button" class="ghost" aria-label="Close search" @click="state.search.open = false"><span aria-hidden="true">✕</span></button>
     </form>
     <p class="search-note" role="status" aria-atomic="true">{{ statusText }}</p>
     <p v-if="state.search.error" id="conversation-search-error" :class="['search-note', { warn: !state.search.unavailable }]" :role="state.search.unavailable ? 'status' : 'alert'">{{ state.search.error }}</p>

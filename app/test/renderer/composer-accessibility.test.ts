@@ -24,12 +24,12 @@ describe('composer accessibility contract', () => {
     expect(field.props['aria-describedby']).toContain('composer-errors')
     expect(mounted.root.findAll((h) => h.props.id === 'composer-errors')[0]!.textContent()).toContain('refused')
   })
-  it('exposes a combobox, dismisses without erasing a draft and lets Shift+Tab leave', async () => {
+  it('exposes a native multiline textbox with suggestions, dismisses without erasing a draft and lets Shift+Tab leave', async () => {
     mounted.setup.text = '/sta'
     await flush()
     const field = mounted.root.find('textarea')!
-    expect(field.props.role).toBe('combobox')
-    expect(field.props['aria-expanded']).toBe(true)
+    expect(field.props.role).toBeUndefined()
+    expect(field.props['aria-autocomplete']).toBe('list')
     expect(field.props['aria-controls']).toBe('command-palette')
     expect(field.props['aria-activedescendant']).toMatch(/^command-option-/)
     const preventDefault = vi.fn()
@@ -38,7 +38,7 @@ describe('composer accessibility contract', () => {
     field.fire('keydown', { key: 'Escape', preventDefault })
     await flush()
     expect(mounted.setup.text).toBe('/sta')
-    expect(field.props['aria-expanded']).toBe(false)
+    expect(field.props['aria-controls']).toBeUndefined()
     expect(field.props['aria-activedescendant']).toBeUndefined()
   })
   it('completes on Tab once, then allows the next Tab to leave', async () => {
@@ -50,7 +50,7 @@ describe('composer accessibility contract', () => {
     await flush()
     expect(preventDefault).toHaveBeenCalledTimes(1)
     expect(mounted.setup.text).toBe('/status ')
-    expect(field.props['aria-expanded']).toBe(false)
+    expect(field.props['aria-controls']).toBeUndefined()
     field.fire('keydown', { key: 'Tab', shiftKey: false, preventDefault })
     expect(preventDefault).toHaveBeenCalledTimes(1)
   })

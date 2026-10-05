@@ -43,24 +43,18 @@ async function load(target: number): Promise<void> {
   }
 }
 
-async function act(kind: 'copy' | 'save'): Promise<void> {
-  if (actionBusy.value || loading.value || !props.artifact.available || (kind === 'copy' && !pages.value)) return
+async function copyPage(): Promise<void> {
+  if (actionBusy.value || loading.value || !props.artifact.available || !pages.value) return
   actionBusy.value = true
   const name = props.artifact.name
   const copiedPage = page.value
-  status.value = kind === 'copy' ? `Copying page ${copiedPage} of ${name}…` : `Saving ${name}…`
+  status.value = `Copying page ${copiedPage} of ${name}…`
   try {
-    if (kind === 'copy') {
-      const result = await window.odin.copyText(text.value)
-      status.value = !result.ok ? `${name}: ${result.error.message}` : result.result.copied
-        ? `Copied page ${copiedPage} of ${name}.` : `Could not copy page ${copiedPage} of ${name}.`
-    } else {
-      const result = await window.odin.saveArtifact({ ref: props.artifact.ref, name })
-      status.value = !result.ok ? `${name}: ${result.error.message}` : result.result.saved
-        ? `Saved ${name}.` : `Save cancelled for ${name}.`
-    }
+    const result = await window.odin.copyText(text.value)
+    status.value = !result.ok ? `${name}: ${result.error.message}` : result.result.copied
+      ? `Copied page ${copiedPage} of ${name}.` : `Could not copy page ${copiedPage} of ${name}.`
   } catch {
-    status.value = `Could not ${kind} ${name}. Try again.`
+    status.value = `Could not copy ${name}. Try again.`
   } finally {
     actionBusy.value = false
   }
@@ -79,8 +73,7 @@ onMounted(() => {
       <span class="report-nav" title="Pages are the stored result; paging never runs the check again.">
         <button type="button" class="ghost" :aria-label="`Previous page of ${artifact.name}`" :aria-disabled="previousUnavailable" @click="!previousUnavailable && load(page - 1)">Previous</button>
         <button type="button" class="ghost" :aria-label="`Next page of ${artifact.name}`" :aria-disabled="nextUnavailable" @click="!nextUnavailable && load(page + 1)">Next</button>
-        <button type="button" class="ghost" :aria-label="`Copy page of ${artifact.name}`" :aria-disabled="actionBusy || loading || !pages || !artifact.available" @click="act('copy')">Copy page</button>
-        <button type="button" class="ghost" :aria-label="`Save ${artifact.name} as…`" :aria-disabled="actionBusy || loading || !artifact.available" @click="act('save')">Save as…</button>
+        <button type="button" class="ghost" :aria-label="`Copy page of ${artifact.name}`" :aria-disabled="actionBusy || loading || !pages || !artifact.available" @click="copyPage">Copy page</button>
         <button type="button" class="ghost" :aria-label="`Retry loading ${artifact.name}`" :aria-disabled="loading || actionBusy || !error || !artifact.available" @click="error && load(requestedPage)">Retry</button>
       </span>
     </header>

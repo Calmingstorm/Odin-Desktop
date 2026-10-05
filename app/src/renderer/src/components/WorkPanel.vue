@@ -34,7 +34,7 @@ onBeforeUnmount(() => {
       <strong>Work</strong>
       <span class="work-hint">Agents, tasks, loops, processes and schedules, with the controls Odin offers for each.</span>
       <button ref="refresh" class="ghost" aria-label="Refresh work" title="Fetch the list again" @click="loadWork">Refresh</button>
-      <button class="ghost" aria-label="Close work" title="Close work" @click="close">✕</button>
+      <button class="ghost" aria-label="Close work" title="Close work" @click="close"><span aria-hidden="true">✕</span></button>
     </header>
     <WorkList />
   </section>

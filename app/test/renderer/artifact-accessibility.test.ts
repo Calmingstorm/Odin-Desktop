@@ -27,7 +27,7 @@ describe('artifact keyboard controls and live status', () => {
     api.saveArtifact.mockImplementation(() => new Promise((r) => { resolve = r }))
     mounted = mount(FileCard, { artifact, actionsOnly: true })
     const save = mounted.root.button('Save as…')
-    expect(save.props['aria-label']).toBe('Save Disk audit.md as…')
+    expect(save.props['aria-label']).toBe('Save as… Disk audit.md')
     const pending = save.fire('click')
     await flush()
     expect(mounted.root.button('Save as…')).toBe(save)
@@ -84,7 +84,7 @@ describe('artifact keyboard controls and live status', () => {
     expect(mounted.root.button('Previous').props['aria-label']).toBe('Previous page of Disk audit.md')
   })
 
-  it('copies only the displayed stored page and saves the named report', async () => {
+  it('copies only the displayed stored page without treating the report as a downloadable file', async () => {
     mounted = mount(ReportViewer, { artifact })
     await flush()
     const copy = mounted.root.button('Copy page')
@@ -93,17 +93,14 @@ describe('artifact keyboard controls and live status', () => {
     await flush()
     expect(api.copyText).toHaveBeenCalledWith('Stored page 1')
     expect(mounted.root.textContent()).toContain('Copied page 1 of Disk audit.md.')
-    await mounted.root.button('Save as…').fire('click')
-    await flush()
-    expect(api.saveArtifact).toHaveBeenCalledWith({ ref: 'stored-report', name: 'Disk audit.md' })
-    expect(mounted.root.textContent()).toContain('Saved Disk audit.md.')
+    expect(api.saveArtifact).not.toHaveBeenCalled()
     expect(api.reportPage).toHaveBeenCalledTimes(1)
   })
 
   it('keeps unavailable controls named but never dispatches them', async () => {
     mounted = mount(ReportViewer, { artifact: { ...artifact, available: false } })
     await flush()
-    for (const label of ['Previous', 'Next', 'Copy page', 'Save as…', 'Retry']) {
+    for (const label of ['Previous', 'Next', 'Copy page', 'Retry']) {
       expect(mounted.root.button(label).props['aria-disabled']).toBe(true)
       await mounted.root.button(label).fire('click')
     }

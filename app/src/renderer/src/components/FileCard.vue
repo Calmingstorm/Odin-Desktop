@@ -48,8 +48,8 @@ async function act(kind: 'open' | 'save' | 'reveal'): Promise<void> {
     <span class="file-status" role="status" aria-atomic="true">{{ status }}</span>
     <div class="file-actions">
       <button type="button" class="ghost" :aria-disabled="busy || !artifact.available" :aria-label="`Open ${artifact.name}`" title="Open with your default app" @click="act('open')">Open</button>
-      <button type="button" class="ghost" :aria-disabled="busy || !artifact.available" :aria-label="`Save ${artifact.name} as…`" @click="act('save')">Save as…</button>
-      <button type="button" class="ghost" :aria-disabled="busy || !artifact.available" :aria-label="`Show ${artifact.name} in folder`" @click="act('reveal')">Show in folder</button>
+      <button type="button" class="ghost" :aria-disabled="busy || !artifact.available" :aria-label="`Save as… ${artifact.name}`" @click="act('save')">Save as…</button>
+      <button type="button" class="ghost" :aria-disabled="busy || !artifact.available" :aria-label="`Show in folder: ${artifact.name}`" @click="act('reveal')">Show in folder</button>
     </div>
   </div>
 </template>

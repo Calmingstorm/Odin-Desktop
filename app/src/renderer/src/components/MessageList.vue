@@ -199,7 +199,7 @@ async function older(): Promise<void> {
       </p>
       <p v-if="view.status === 'loading'" class="history-loading" role="status">Refreshing conversation. The displayed history remains available.</p>
       <div v-if="view.hasMore || olderUsed" class="older">
-        <button class="ghost" :aria-disabled="view.loadingOlder || !view.hasMore" aria-label="Load older messages" @click="older">
+        <button class="ghost" :aria-disabled="view.loadingOlder || !view.hasMore" :aria-label="view.loadingOlder ? 'Loading… older messages' : view.hasMore ? 'Load older messages' : 'All older messages loaded'" @click="older">
           {{ view.loadingOlder ? 'Loading…' : view.hasMore ? 'Load older messages' : 'All older messages loaded' }}
         </button>
       </div>
