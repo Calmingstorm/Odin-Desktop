@@ -125,3 +125,15 @@ describe('hosts and schedules bridge methods', () => {
   })
 })
 
+describe('personality, state and records bridge methods', () => {
+  it('take only their own fields, within bounds', () => {
+    expect(parseRequest(MANAGEMENT_SCHEMAS.memorySet, { scope: 'global', key: 'k', value: { nested: [1, 'two'] } }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.memorySet, { scope: 'global', key: '', value: 'x' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.memoryBulkDelete, { entries: [] }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.knowledgeRestore, { source: 'a', version: 0 }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.logsSearch, { level: 'debug' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.computerReconcile, { session_id: 's', generation: 3, acknowledgment: 'ACKNOWLEDGE UNVERIFIED CLEANUP s' }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.personalitySet, { preset: 'odin', surprise: 1 }).ok).toBe(false)
+  })
+})
+

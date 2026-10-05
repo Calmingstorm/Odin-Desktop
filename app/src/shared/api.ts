@@ -591,6 +591,174 @@ export interface ScheduleRun {
   retry_attempt?: number
 }
 
+export interface PersonalityPreset {
+  name: string
+  identity: string
+  voice: string
+}
+
+/** Odin's GET /api/personality. */
+export interface Personality {
+  preset: string
+  custom_name: string
+  custom_identity: string
+  custom_voice: string
+  presets: Record<string, PersonalityPreset>
+  builtin_presets: string[]
+  user_presets: string[]
+}
+
+export interface PersonalitySet {
+  preset: string
+  custom_name?: string
+  custom_identity?: string
+  custom_voice?: string
+}
+
+/** Memory scopes and their keys (GET /api/memory). */
+export type MemoryIndex = Record<string, { keys: string[]; count: number }>
+
+export interface NamedList {
+  name: string
+  count: number
+  updated_at: string
+}
+
+export interface KnowledgeSource {
+  source: string
+  chunks: number
+  uploader: string
+  ingested_at: string
+  content_hash: string
+  preview?: string
+}
+
+export interface KnowledgeHit {
+  chunk_id: string
+  content: string
+  source: string
+  score: number
+  chunk_index: number
+}
+
+export interface KnowledgeIngest {
+  source: string
+  chunks?: number
+  status: string
+  outcome: 'created' | 'unchanged' | 'duplicate' | 'conflict'
+  duplicate_of?: string
+  message?: string
+}
+
+export interface KnowledgeVersion {
+  id: number
+  version: number
+  content_hash: string
+  chunk_count: number
+  uploader: string
+  action: string
+  created_at: string
+  diff_summary: string
+}
+
+export interface AuditEntry {
+  timestamp: string
+  tool_name: string
+  tool_input?: Record<string, unknown>
+  approved?: boolean
+  result_summary?: string
+  execution_time_ms?: number
+  error?: string | null
+  host?: string
+  type?: string
+  detail?: string
+}
+
+export interface AuditVerify {
+  valid: boolean
+  total?: number
+  verified?: number
+  first_bad?: number | null
+  reason?: string
+  [key: string]: unknown
+}
+
+export interface HealthComponent {
+  name: string
+  healthy: boolean
+  status: string
+  detail: string
+}
+
+export interface HealthReport {
+  overall: string
+  components: HealthComponent[]
+  healthy_count: number
+  degraded_count: number
+  down_count: number
+  unconfigured_count: number
+  total: number
+  checked_at: string
+}
+
+export interface LogEntry {
+  timestamp: string
+  level: string
+  message: string
+  tool?: string
+}
+
+export interface TurnRecord {
+  conversation_id: string
+  request_id: string
+  turn_generation: number
+  status: string
+  created_at: string
+  last_progress_at: string | null
+  suspended_at: string | null
+  has_checkpoint: boolean
+  manual_resolution_operations: number
+  outcome_unknown_operations: number
+  attention: boolean
+}
+
+/** Odin's turn-state envelope (GET /api/turn-state/turns). */
+export interface TurnStateReport {
+  schema_version: number
+  availability: 'available' | 'not_enabled' | 'unavailable'
+  observed_at: string
+  data: { total_matching?: number; attention_count?: number; turns?: TurnRecord[] }
+}
+
+/** Where a computer-use session's recovery stands, as Odin records it. `complete` is never implied by success. */
+export interface ComputerRecovery {
+  status: string
+  reason: string
+  complete: boolean
+  released?: boolean
+  receiver_release_verified?: boolean
+  unknown_release?: boolean
+}
+
+/**
+ * Odin's computer-use status (GET /api/computer): one lifecycle at a time. Reconciling binds `session_generation`,
+ * the session's own generation, not the runtime's `generation`.
+ */
+export interface ComputerStatus {
+  available: boolean
+  state: string
+  session_id: string
+  generation?: number
+  session_generation?: number
+  enabled?: boolean
+  configured_enabled?: boolean
+  runtime_enabled?: boolean
+  last_action?: string
+  last_verification?: string
+  error?: string
+  recovery?: ComputerRecovery
+}
+
 export interface ScheduleRunResult {
   status: 'success' | 'failure' | 'skipped'
   schedule_id: string
@@ -641,6 +809,32 @@ export interface ManagementCalls {
   schedulesResetFailures: [{ id: string }, ScheduleRow]
   schedulesHistory: [{ id?: string; limit?: number }, ScheduleRun[]]
   schedulesValidateCron: [{ expression: string }, { valid: boolean; next_runs: string[] }]
+  personalityGet: [Empty, Personality]
+  personalitySet: [PersonalitySet, { status: string; preset: string }]
+  personalityPresetsSave: [{ name: string; display_name?: string; identity?: string; voice?: string }, { status: string; name: string }]
+  personalityPresetsDelete: [{ name: string }, { status: string; name: string }]
+  memoryList: [Empty, MemoryIndex]
+  memoryGet: [{ scope: string; key?: string }, { scope: string; entries?: Record<string, unknown>; key?: string; value?: unknown }]
+  memorySet: [{ scope: string; key: string; value: unknown }, { status: string; scope: string; key: string }]
+  memoryDelete: [{ scope: string; key: string }, { status: string; scope: string; key: string }]
+  memoryBulkDelete: [{ entries: Array<{ scope: string; key: string }> }, { status: string; count: number }]
+  listsList: [Empty, { items: NamedList[] }]
+  listsGet: [{ name: string }, { name: string; items: unknown[] }]
+  listsDelete: [{ name: string }, { status: string; name: string }]
+  knowledgeList: [Empty, KnowledgeSource[]]
+  knowledgeSearch: [{ q: string; limit?: number }, KnowledgeHit[]]
+  knowledgeIngest: [{ source: string; content: string }, KnowledgeIngest]
+  knowledgeReingest: [{ source: string }, KnowledgeIngest]
+  knowledgeDelete: [{ source: string }, { status: string; chunks_removed: number }]
+  knowledgeVersions: [{ source: string }, KnowledgeVersion[]]
+  knowledgeRestore: [{ source: string; version: number }, { status: string; source: string; version: number; chunks: number }]
+  auditQuery: [{ tool?: string; host?: string; q?: string; date?: string; error_only?: boolean; limit?: number }, AuditEntry[]]
+  auditVerify: [Empty, AuditVerify]
+  healthGet: [Empty, HealthReport]
+  logsSearch: [{ q?: string; level?: 'error' | 'info' | 'all'; tool?: string; start?: string; end?: string; limit?: number }, { entries: LogEntry[]; count: number }]
+  turnStateList: [{ limit?: number }, TurnStateReport]
+  computerStatus: [Empty, ComputerStatus]
+  computerReconcile: [{ session_id: string; generation: number; acknowledgment: string }, ComputerStatus]
 }
 
 export type ManagementMethod = keyof ManagementCalls
@@ -692,7 +886,33 @@ export const MANAGEMENT: { [K in ManagementMethod]: { channel: string; core: str
   schedulesRun: { channel: 'odin:manage:schedules.run', core: 'schedules.run', command: true },
   schedulesResetFailures: { channel: 'odin:manage:schedules.reset_failures', core: 'schedules.reset_failures', command: true },
   schedulesHistory: { channel: 'odin:manage:schedules.history', core: 'schedules.history', command: false },
-  schedulesValidateCron: { channel: 'odin:manage:schedules.validate_cron', core: 'schedules.validate_cron', command: false }
+  schedulesValidateCron: { channel: 'odin:manage:schedules.validate_cron', core: 'schedules.validate_cron', command: false },
+  personalityGet: { channel: 'odin:manage:personality.get', core: 'personality.get', command: false },
+  personalitySet: { channel: 'odin:manage:personality.set', core: 'personality.set', command: true },
+  personalityPresetsSave: { channel: 'odin:manage:personality.presets.save', core: 'personality.presets.save', command: true },
+  personalityPresetsDelete: { channel: 'odin:manage:personality.presets.delete', core: 'personality.presets.delete', command: true },
+  memoryList: { channel: 'odin:manage:memory.list', core: 'memory.list', command: false },
+  memoryGet: { channel: 'odin:manage:memory.get', core: 'memory.get', command: false },
+  memorySet: { channel: 'odin:manage:memory.set', core: 'memory.set', command: true },
+  memoryDelete: { channel: 'odin:manage:memory.delete', core: 'memory.delete', command: true },
+  memoryBulkDelete: { channel: 'odin:manage:memory.bulk_delete', core: 'memory.bulk_delete', command: true },
+  listsList: { channel: 'odin:manage:lists.list', core: 'lists.list', command: false },
+  listsGet: { channel: 'odin:manage:lists.get', core: 'lists.get', command: false },
+  listsDelete: { channel: 'odin:manage:lists.delete', core: 'lists.delete', command: true },
+  knowledgeList: { channel: 'odin:manage:knowledge.list', core: 'knowledge.list', command: false },
+  knowledgeSearch: { channel: 'odin:manage:knowledge.search', core: 'knowledge.search', command: false },
+  knowledgeIngest: { channel: 'odin:manage:knowledge.ingest', core: 'knowledge.ingest', command: true },
+  knowledgeReingest: { channel: 'odin:manage:knowledge.reingest', core: 'knowledge.reingest', command: true },
+  knowledgeDelete: { channel: 'odin:manage:knowledge.delete', core: 'knowledge.delete', command: true },
+  knowledgeVersions: { channel: 'odin:manage:knowledge.versions', core: 'knowledge.versions', command: false },
+  knowledgeRestore: { channel: 'odin:manage:knowledge.restore', core: 'knowledge.restore', command: true },
+  auditQuery: { channel: 'odin:manage:audit.query', core: 'audit.query', command: false },
+  auditVerify: { channel: 'odin:manage:audit.verify', core: 'audit.verify', command: false },
+  healthGet: { channel: 'odin:manage:health.get', core: 'health.get', command: false },
+  logsSearch: { channel: 'odin:manage:logs.search', core: 'logs.search', command: false },
+  turnStateList: { channel: 'odin:manage:turn_state.list', core: 'turn_state.list', command: false },
+  computerStatus: { channel: 'odin:manage:computer.status', core: 'computer.status', command: false },
+  computerReconcile: { channel: 'odin:manage:computer.reconcile', core: 'computer.reconcile', command: true }
 }
 
 export interface SettingsSetParams {

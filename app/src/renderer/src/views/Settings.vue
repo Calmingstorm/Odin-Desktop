@@ -8,7 +8,10 @@ import { loadSettings, settings } from '../stores/settings'
 import General from './settings/General.vue'
 import Hosts from './settings/Hosts.vue'
 import Mcp from './settings/Mcp.vue'
+import Personality from './settings/Personality.vue'
+import Records from './settings/Records.vue'
 import Skills from './settings/Skills.vue'
+import State from './settings/State.vue'
 import Tools from './settings/Tools.vue'
 import Work from './settings/Work.vue'
 
@@ -20,7 +23,10 @@ const PANELS: Record<string, Component> = {
   skills: Skills,
   mcp: Mcp,
   hosts: Hosts,
-  work: Work
+  work: Work,
+  personality: Personality,
+  state: State,
+  records: Records
 }
 
 const active = ref('general')
