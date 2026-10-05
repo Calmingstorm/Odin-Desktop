@@ -333,20 +333,43 @@ class ManagementService:
             return response_error("internal", "Management outcome is unknown", "outcome_unknown")
 
     async def close(self) -> None:
+        from .resource_cleanup import close_existing_execution_owners
+
+        # Retained barriers keep ambiguous native owners and independently prove
+        # whole process sessions before releasing their transports.
+        resources = await close_existing_execution_owners(self.core, self)
+        failed = False
         for service in reversed(self.services):
             close = getattr(service, "close", None)
             if close is not None:
-                result = close()
-                if inspect.isawaitable(result):
-                    await result
+                try:
+                    result = close()
+                    if inspect.isawaitable(result):
+                        await result
+                except Exception:
+                    failed = True
         providers = getattr(self, "providers", None)
         if providers is not None:
-            await providers.close()
+            try:
+                await providers.close()
+            except Exception:
+                failed = True
         executor = getattr(self, "executor", None)
         pool = getattr(executor, "ssh_pool", None)
         if pool is not None:
             close = getattr(pool, "close", None)
             if close is not None:
-                result = close()
-                if inspect.isawaitable(result):
-                    await result
+                try:
+                    result = close()
+                    if inspect.isawaitable(result):
+                        await result
+                except Exception:
+                    failed = True
+        resources["services"] = {"state": "unknown" if failed else "released"}
+        journal = getattr(self.core, "resource_cleanup", None)
+        if journal is not None:
+            journal.finish(resources)
+        elif failed or any(row["state"] == "unknown" for row in resources.values()):
+            from .resource_cleanup import ResourceCleanupError
+
+            raise ResourceCleanupError("Runtime resource cleanup is unverified")

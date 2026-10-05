@@ -177,6 +177,13 @@ function run(): void {
   broker.on('welcome', () => {
     listConversations()
     void broker.request('status.get').then((status) => {
+      const resourceCleanup = status.ok
+        ? (status.result as { resource_cleanup?: { reconciliation_required?: boolean } }).resource_cleanup
+        : undefined
+      if (resourceCleanup?.reconciliation_required) {
+        cleanup.markUnknown('The core reports unresolved resource cleanup from a previous lifetime. Effects are not undone; native resources require reconciliation. No work is replayed.')
+        showCleanupWarning()
+      }
       const announced = status.ok ? (status.result as { limits?: Partial<AttachmentLimits> }).limits : undefined
       if (announced?.attachment_bytes && announced.chunk_bytes) {
         limits = { attachment_bytes: announced.attachment_bytes, chunk_bytes: Math.min(announced.chunk_bytes, 2 * 1024 * 1024) }
@@ -267,6 +274,15 @@ function run(): void {
     exit: (code) => app.exit(code)
   })
   const exitOdin = async (code = 0): Promise<void> => { await shutdown(code) }
+  let cleanupWarningShown = false
+  const showCleanupWarning = (): void => {
+    if (cleanupWarningShown || !win || !cleanup.warning || lifecycle.quitting) return
+    cleanupWarningShown = true
+    void dialog.showMessageBox(win, { type: 'warning', title: 'Odin cleanup unknown',
+      message: 'Previous cleanup is unknown',
+      detail: `${cleanup.warning.reason}\nNo effects are labelled undone. No work is replayed. This warning remains on future starts.`,
+      buttons: ['Continue'], noLink: true, signal: cleanupNotice.signal })
+  }
 
   // Main-only hooks; not exposed through IPC/preload. The E2E runner enforces isolation before launch.
   if (!app.isPackaged && process.env.ODIN_APP_E2E === '1'
@@ -429,12 +445,7 @@ function run(): void {
     supervisor.start()
     broker.connect()
     broker.startEvents()
-    if (cleanup.warning) {
-      void dialog.showMessageBox(win, { type: 'warning', title: 'Odin cleanup unknown',
-        message: 'Previous cleanup is unknown',
-        detail: `${cleanup.warning.reason}\nNo effects are labelled undone. No work is replayed. This warning remains on future starts.`,
-        buttons: ['Continue'], noLink: true, signal: cleanupNotice.signal })
-    }
+    showCleanupWarning()
 
     if (flags.smokeTest && process.env.ODIN_SMOKE_REAL_CORE === '1') {
       void realCoreSmoke(win, broker, process.env.ODIN_SMOKE_OUT ?? '').then(

@@ -109,7 +109,10 @@ Notification tests exercise actual Electron D-Bus requests, acceptance/refusal a
 inspect the exact older conversation/message in the renderer, including renderer loss. Their conversation and
 acknowledgement service is explicitly a fixture: the current core does not serve real delivery, requests, background work,
 notifications or computer input. D11 trays/login, installed package paths, admitted work/descendant cleanup and
-native input release remain open, not silently qualified by these tests. See
+full native desktop input grants remain open, not silently qualified by these tests. The continuation also
+qualifies actual admitted credential-free management work across hide/Exit, original execution-owner escaped
+descendant cleanup, and real isolated X11 guardian-loss quarantine/no-replay. It does not upgrade missing
+native release proof into success. See
 [`../maintenance/phase3-lifecycle.md`](../maintenance/phase3-lifecycle.md).
 
 ## Layout

@@ -14,6 +14,7 @@ from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .management import ManagementService
 from .paths import ProfilePaths
+from .resource_cleanup import ResourceCleanupJournal
 
 VERSION = "0.1.0.dev1"
 CAPABILITIES = ("status.get", "events.subscribe", "runtime.shutdown")
@@ -107,6 +108,7 @@ class CoreService:
         self._release_runtime_on_close = release_runtime_on_close
         self._receipt_pruner: asyncio.Task | None = None
         self.management: ManagementService | None = None
+        self.resource_cleanup: ResourceCleanupJournal | None = None
         self._secret_backend = secret_backend
         self.capabilities = CAPABILITIES
         self.start_time = time.monotonic()
@@ -144,6 +146,9 @@ class CoreService:
         )
         self.commands = CommandJournal(self.store)
         self.events = EventJournal(self.store)
+        self.resource_cleanup = ResourceCleanupJournal(
+            self.paths.data_dir / "resource-cleanup.json",
+        )
         self.management = ManagementService.compose(self, secret_backend=self._secret_backend)
         self.capabilities = tuple(dict.fromkeys((*CAPABILITIES, *sorted(self.management.methods))))
         self.server = IpcServer(

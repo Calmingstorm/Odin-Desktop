@@ -7,7 +7,8 @@ Branch `app/p33-lifecycle-part1` started from pulled `origin/main`
 `cbda9ba316c5f3460bed79ec311b55a5c8032bbd` before fresh final gates. Main advanced during this task with merged
 runtime management #21, keyboard/accessibility #29 and qualification accounting #26; their reviewed behavior is retained. No unmerged Phase 2,
 qualification-lab or packaging PR is adopted. This is a source-build lifecycle slice, **not completed P3.3 or full
-Phase 2 execution qualification**. This PR makes no `src/` changes relative to its reviewed base.
+Phase 2 execution qualification**. The continuation adds one documented resource-cleanup bridge to the reviewed
+Desktop composition, reusing original execution and native owners without editing their containment/input code.
 D9/D12/D13/D17 policy is not replaced or tightened by an owner execution approval layer.
 
 The initial step-one core advertised only `status.get`, `events.subscribe` and `runtime.shutdown`. The final base
@@ -80,16 +81,49 @@ report pins its exact source commit and artifact hashes outside Git.
   The harness now explicitly requests `chromiumSandbox: true` and refuses disabled sandbox/context isolation
   or Node integration at launch. Only the subsequent clean fresh rerun is final qualification evidence.
 
-## Open handoffs, not passing rows
+## Continued admitted-work, descendant and native-resource qualification
 
-1. **Actual work during hide/Exit, harmless admitted descendants, settle/cancel and durable work reconciliation:**
-   blocked on the remaining reviewed Phase 2 execution graph. No ProcessManager/tool call can be submitted to
-   the current core. Management capability availability is not execution admission.
-   Retained original command-journal/entry/lifetime tests protect unknown outcomes and receipt identity, but are
-   not proof of a launched app shutting down real turns, escaped descendants or active computer input.
-2. **Unknown effect/native-input cleanup:** the app preserves and displays its own unknown lifetime receipt;
-   no core resource-enumeration/reconciliation service is present. It never labels effects undone or clears core
-   quarantine. Full resource release and safe successor admission require later Phase 2/P3.5 evidence.
+The continuation adds `admitted-work.spec.ts`, `execution-containment.spec.ts` and
+`native-reconciliation.spec.ts`. These source-only lanes need no VM or installed package.
+
+- **Actual admitted management work, 3 cases:** a harmless local HTTP receiver counts one `webhooks.outbound.test`
+  effect. Work completes while hidden; same app/core relaunches, durable original response replays without another
+  HTTP request, conflicting parameters refuse. Exit with a short pending call settles durably before shutdown.
+  Exit with a withheld response retains a pending reservation/outcome-unknown; a fresh core does not rerun it.
+  The test-only credential-free keyring seam returns no secrets and forbids credential writes. No fake core method.
+- **Original escaped execution descendants, 4 cases:** actual source core/entry/management compose the original
+  ProcessRegistry in a qualification seam, not a new production chat capability. A TERM-immune leader and a
+  double-fork/setsid descendant have independent effect counters and native PID/start-tick/session identities.
+  Graceful parent EOF, ordinary Electron Exit and abrupt main loss retire the leader, escaped descendant and
+  original local supervisor; counters stop. A pinned pre-bridge baseline exposes missing registry settlement
+  while its original independent supervisor still kills descendants. No survivor leak is invented.
+- **Real X11 native resource loss, 3 cases:** original Guardian, InjectionHelper and native adapter press a harmless
+  Control key in a dedicated private Xvfb receiver. Controller, guardian and actual Electron parent SIGKILL are
+  separate cases. Surviving guardian release is confirmed by receiver KeyRelease and XQueryKeymap. Sole guardian
+  SIGKILL has no manufactured release receipt or blanket key-up. Original controller/store restart preserve
+  quarantine and unknown action identity; repeated action lookup never replays, and fresh session admission stays
+  fenced. The real replacement core binds original ComputerIntegration through an explicit qualification seam;
+  Exit records computer cleanup unknown and the next app shows core reconciliation-required state.
+
+`src/desktop/resource_cleanup.py` persists current/prior cleanup after identity bootstrap. Management teardown
+closes only existing original native and process owners, never instantiates an execution owner just to clean it.
+Original process shutdown establishes whole-session absence. Original native close is read back against the
+same durable store through a pre-opened read-only connection: a dormant quarantine remains unknown even if
+`_live` is empty, while an integration closing its own clean DB is not falsely declared unknown. Cancellation
+propagates; an interrupted running marker remains unknown. Core runtime status reports the receipt and the app
+shows its warning. Prior ambiguity is never cleared by a later clean ordinary Exit or called undone.
+
+## Remaining handoffs, not passing rows
+
+1. **Turns/agents/schedules/workflows:** actual admitted management and original descendant owners now have
+   measured evidence. Full chat/background execution remains absent on reviewed main; those future routes are
+   not fabricated by the composition fixtures.
+2. **Production graphical grant/release-only reconciliation:** source qualification preserves actual X11 unknown
+   cleanup and original durable quarantine, with receiver evidence and no replay. Desktop still intentionally
+   denies the original operator reconciliation surface; the tests assert that denial, then explicitly compose
+   original read-only absence verification/store CAS for the qualification seam. No new foreground authority,
+   automatic native replay, force-released human input or quarantine clearing is added. Full grant/production
+   release-only recovery is a reviewed Phase 2/P3.5 handoff, not a test-server/mock release claim.
 3. **D11 native desktops/trays/login autostart:** Cinnamon/X11, GNOME/Wayland no-tray, KDE/Wayland and Hyprland
    remain open for part 2. No actual tray painting, login, real keyring timing, sleep/wake or D12 schedule recovery
    is counted here. No active desktop operation was performed.
