@@ -585,6 +585,8 @@ class RequestService:
             if failure_notice:
                 text = ("No LLM provider available. Please try again later."
                         if isinstance(error, NoLLMProviderError) else
+                        f"Tool execution timed out: {format_user_facing_error(error)}"
+                        if isinstance(error, TimeoutError) else
                         f"Tool execution failed: {format_user_facing_error(error)}")
                 try:
                     await self.delivery.send(message, text)

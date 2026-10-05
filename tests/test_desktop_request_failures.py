@@ -22,7 +22,7 @@ def without_provider(paths):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure", ["no_provider", "runner", "long_reason"])
+@pytest.mark.parametrize("failure", ["no_provider", "runner", "long_reason", "timeout"])
 async def test_pre_reply_failure_commits_bounded_notice_and_survives_reconnect(
         tmp_path, monkeypatch, failure):
     paths, socket_path, token_file = profile(tmp_path)
@@ -33,8 +33,9 @@ async def test_pre_reply_failure_commits_bounded_notice_and_survives_reconnect(
         core = service(paths, socket_path, token_file, Provider())
         reason = ("Connector refused api_key=fictional-private-key-12345\nprivate second line"
                   if failure == "runner" else "connector refused " + "x" * 5000)
-        error = RuntimeError(reason)
-        expected = f"Tool execution failed: {format_user_facing_error(error)}"
+        error = TimeoutError(reason) if failure == "timeout" else RuntimeError(reason)
+        prefix = "Tool execution timed out" if failure == "timeout" else "Tool execution failed"
+        expected = f"{prefix}: {format_user_facing_error(error)}"
 
         async def fail(*_args, **_kwargs):
             raise error
@@ -61,7 +62,7 @@ async def test_pre_reply_failure_commits_bounded_notice_and_survives_reconnect(
         notice = messages[-1]
         assert notice["text"] == expected
         assert notice["request_id"] == rid
-        assert len(notice["text"]) <= len("Tool execution failed: ") + 200
+        assert len(notice["text"]) <= len("Tool execution timed out: ") + 200
         assert "fictional-private-key-12345" not in json.dumps(snapshot)
         assert "private second line" not in json.dumps(snapshot)
         if failure == "runner":
