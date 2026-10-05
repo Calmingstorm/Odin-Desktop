@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "path": "tests/test_desktop_test_plan.py",
+      "reason": "Audit retired original files alongside every existing disjoint classification, retaining all 869 original paths and frozen hashes.",
+      "contract": "Retired paths remain accounted and byte-identical, never selected safe_pass_now; all existing safety/import assertions remain.",
+      "invariant": "Retirement is provenance, not passing, removal or assertion weakening.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_test_plan.py", "tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "pyproject.toml",
+      "reason": "Carry pip in clean locked dev environments for offline private-wheel fixtures per review #26.",
+      "contract": "Add pip>=26.2 to dev only; retain every existing product dependency and packaging boundary.",
+      "invariant": "No manual venv repair, product behavior or live service change.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_final_distribution.py", "tests/test_desktop_distribution.py"]
+    },
+    {
+      "path": "uv.lock",
+      "reason": "uv lock generated pip 26.2.1 artifacts and hashes from declared dev dependency.",
+      "contract": "uv sync --locked --extra dev carries pip without ambient repair; existing dependency pins stay unchanged.",
+      "invariant": "Generated lock bytes only; no full qualification claim.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_final_distribution.py", "tests/test_desktop_distribution.py"]
+    }
+  ]
+}

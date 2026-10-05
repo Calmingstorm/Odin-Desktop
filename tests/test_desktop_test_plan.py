@@ -24,7 +24,7 @@ def test_disjoint_classifications_and_guard_safety_selection():
     plan = json.loads((ROOT / "maintenance/test-plan.json").read_text())
     selected = set()
     for kind in ("safe_pass_now", "phase2", "excluded", "safety_manual_gated",
-                 "retained_adaptation_gated", "retained_support"):
+                 "retained_adaptation_gated", "retained_support", "retired"):
         expected = {e["path"] for e in plan["entries"] if e["classification"] == kind}
         assert set(plan[kind]) == expected
         assert not (selected & expected)
