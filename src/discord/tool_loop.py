@@ -544,7 +544,8 @@ class ToolLoopRunner:
         return self._prompt_builder.refresh_learned_context(prompt, user_id=user_id)
 
     def __init__(self, deps: ToolLoopDeps) -> None:
-        if not callable(deps.assert_request) or not callable(deps.request_admission):
+        if (not callable(getattr(deps, "assert_request", None))
+                or not callable(getattr(deps, "request_admission", None))):
             _require_phase2_wiring()
         self._assert_request = deps.assert_request
         self._request_admission = deps.request_admission
@@ -737,6 +738,8 @@ class ToolLoopRunner:
         - tools_used: list of tool names called during this loop
         - handoff: True if the response should be handed off to another handler
         """
+        if not callable(getattr(self, "_assert_request", None)):
+            _require_phase2_wiring()
         self._assert_request(message)
         st = await self._prepare_chat_turn(
             message,
