@@ -115,8 +115,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
 
   await click('button[title="Settings (Ctrl+,)"]')
   await until(async () => (await run<number>('document.querySelectorAll(".settings-nav-item").length')) > 1, 'settings navigation')
+  await until(async () => (await count('.settings-group .schema-form')) > 0, 'real settings schema before enumerating all sections')
   const sections = await run<string[]>('Array.from(document.querySelectorAll(".settings-nav-item"), b => b.innerText)')
-  for (const expected of ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust', 'Scheduled and running work', 'State', 'Records']) {
+  for (const expected of ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust', 'Scheduled and running work', 'State', 'Records', 'Other']) {
     assert(sections.includes(expected), `missing settings section ${expected}`)
   }
   const servicePanels: Record<string, string[]> = {
