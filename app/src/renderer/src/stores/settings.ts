@@ -3,6 +3,7 @@
 import { reactive } from 'vue'
 import {
   SETTINGS_SHAPED,
+  type CodexAccount,
   type CodexStatus,
   type ConfigField,
   type ConfigMeta,
@@ -11,7 +12,7 @@ import {
   type SettingsSetParams,
   type SettingsSetResult
 } from '../../../shared/api'
-import { dedicatedMethod, isSecret, settingsShapedMethod } from '../settings-form'
+import { dedicatedMethod, imageLeafOf, isSecret, settingsShapedMethod } from '../settings-form'
 
 export interface FieldState {
   status: 'saving' | 'saved' | 'error'
@@ -36,7 +37,10 @@ export const settings = reactive({
     status: null as CodexStatus | null,
     error: '',
     busy: false,
-    notes: {} as Record<number, string | undefined>,
+    /** The list couldn't be refreshed after a change, so its indexes may be out of date: nothing acts on it. */
+    stale: false,
+    /** What the last action on an account said, by the account's identity (indexes shift when one is removed). */
+    notes: {} as Record<string, string | undefined>,
     login: null as LoginState | null
   }
 })
@@ -45,8 +49,13 @@ function message(result: Result<unknown>): string {
   return result.ok ? '' : result.error.message
 }
 
+/** Moves on with every read and every adopted answer, so an older read never replaces something newer. */
+let settingsGeneration = 0
+
 export async function loadSettings(): Promise<void> {
+  const mine = ++settingsGeneration
   const result = await window.odin.settingsSchema()
+  if (mine !== settingsGeneration) return
   if (!result.ok) {
     settings.error = result.error.message
     return
@@ -58,6 +67,7 @@ export async function loadSettings(): Promise<void> {
 /** Replaces the records a save returned, so each field shows what saving did and what runs now. */
 function adopt(revision: string, records: readonly ConfigField[]): void {
   if (!settings.meta) return
+  settingsGeneration += 1
   settings.meta.revision = revision
   for (const record of records) {
     const index = settings.meta.fields.findIndex((f) => f.path === record.path)
@@ -100,6 +110,7 @@ export async function saveField(field: ConfigField, value: unknown): Promise<boo
     return false
   }
   adopt(result.result.revision, result.result.fields)
+  if (imageLeafOf(field)) await loadSettings() // its follow/pin intent and revision changed too
   settings.fields[field.path] = { status: 'saved' }
   return true
 }
@@ -135,6 +146,7 @@ export async function resetField(field: ConfigField): Promise<boolean> {
     return false
   }
   adopt(result.result.revision, result.result.fields)
+  if (imageLeafOf(field)) await loadSettings() // back to following, with a new revision
   settings.fields[field.path] = { status: 'saved' }
   return true
 }
@@ -158,31 +170,51 @@ export async function clearSecret(field: ConfigField): Promise<boolean> {
 
 // ---- Codex accounts ------------------------------------------------------------------------------------------------
 
-export async function loadCodex(): Promise<void> {
+export async function loadCodex(): Promise<boolean> {
   const result = await window.odin.codexAccounts()
   if (!result.ok) {
     settings.codex.error = result.error.message
-    return
+    return false
   }
   settings.codex.error = ''
   settings.codex.status = result.result
+  settings.codex.stale = false
+  return true
 }
 
-async function accountAction(index: number, run: () => Promise<Result<unknown>>, done: string): Promise<void> {
-  if (settings.codex.busy) return
+/** Who an account is, apart from its place in the list. */
+export function accountIdentity(account: CodexAccount): string {
+  return account.account_id ?? account.email ?? `#${account.index}`
+}
+
+/**
+ * Acts on the account the user saw, by its index, only if that index still holds it. The controls stay locked until
+ * the list is refreshed, since a removal shifts every index after it; if refreshing fails, they stay locked.
+ */
+async function accountAction(account: CodexAccount, run: (index: number) => Promise<Result<unknown>>, done: string): Promise<void> {
+  if (settings.codex.busy || settings.codex.stale) return
+  const identity = accountIdentity(account)
+  const now = settings.codex.status?.accounts.find((a) => a.index === account.index)
+  if (!now || accountIdentity(now) !== identity) {
+    settings.codex.notes[identity] = 'The accounts changed. Check the list, then try again.'
+    return
+  }
   settings.codex.busy = true
-  const result = await run()
-  settings.codex.busy = false
-  settings.codex.notes[index] = result.ok ? done : message(result)
-  await loadCodex()
+  try {
+    const result = await run(account.index)
+    settings.codex.notes[identity] = result.ok ? done : message(result)
+    if (!(await loadCodex())) settings.codex.stale = true
+  } finally {
+    settings.codex.busy = false
+  }
 }
 
-export const activateAccount = (index: number): Promise<void> =>
-  accountAction(index, () => window.odin.codexActivate({ index }), 'Now the active account.')
-export const labelAccount = (index: number, label: string): Promise<void> =>
-  accountAction(index, () => window.odin.codexLabel({ index, label }), 'Label saved.')
-export const removeAccount = (index: number): Promise<void> =>
-  accountAction(index, () => window.odin.codexRemove({ index }), 'Removed.')
+export const activateAccount = (account: CodexAccount): Promise<void> =>
+  accountAction(account, (index) => window.odin.codexActivate({ index }), 'Now the active account.')
+export const labelAccount = (account: CodexAccount, label: string): Promise<void> =>
+  accountAction(account, (index) => window.odin.codexLabel({ index, label }), 'Label saved.')
+export const removeAccount = (account: CodexAccount): Promise<void> =>
+  accountAction(account, (index) => window.odin.codexRemove({ index }), 'Removed.')
 
 let loginRun = 0
 

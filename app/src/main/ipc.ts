@@ -61,6 +61,7 @@ import {
   steerSchema,
   submitSchema
 } from './schemas'
+import { withCommandId } from './command-id'
 import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-policy'
 
 export interface IpcDeps {
@@ -243,9 +244,10 @@ export function registerIpc(deps: IpcDeps): void {
   // The management domains: each named method has its own channel and schema and maps to exactly one core method.
   for (const name of Object.keys(MANAGEMENT) as ManagementMethod[]) {
     const { channel, core, command: changes } = MANAGEMENT[name]
-    handle(channel, MANAGEMENT_SCHEMAS[name], async (v) =>
-      fromSettled(await deps.broker.request(core, v as Record<string, unknown>, changes ? randomUUID() : undefined))
-    )
+    handle(channel, MANAGEMENT_SCHEMAS[name], async (v) => {
+      const commandId = changes ? randomUUID() : undefined
+      return withCommandId(fromSettled(await deps.broker.request(core, v as Record<string, unknown>, commandId)), commandId)
+    })
   }
   handle(IPC.setConversationMuted, setMutedSchema, (v) => ({
     ok: true,

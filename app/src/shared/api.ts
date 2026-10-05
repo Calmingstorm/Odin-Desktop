@@ -234,6 +234,8 @@ export interface CoreError {
   code: string
   message: string
   disposition?: string
+  /** On an unanswered command: its ID, so the window can match the late receipt and never send it again. */
+  command_id?: string
 }
 
 /** Every call through the bridge settles to one of these; nothing throws across it. */
@@ -615,12 +617,12 @@ export interface ManagementCalls {
   skillsConfigSet: [{ name: string; config: Record<string, unknown> }, { config: Record<string, unknown> }]
   mcpStatus: [Empty, McpStatus]
   mcpSave: [McpSave, McpMutation]
-  mcpSetEnabled: [{ name: string; enabled: boolean }, McpMutation]
+  mcpSetEnabled: [{ name: string; enabled: boolean }, McpStatus]
   mcpDelete: [{ name: string }, McpMutation]
   mcpReconnect: [{ name: string }, McpMutation]
   mcpRefreshTools: [{ name: string }, McpMutation]
   mcpTools: [{ name: string }, { server: string; tools: McpTool[] }]
-  mcpSetGlobalEnabled: [{ enabled: boolean }, McpStatus & { saved: boolean }]
+  mcpSetGlobalEnabled: [{ enabled: boolean }, { saved: boolean; enabled: boolean; connected_count: number }]
   mcpSetLimits: [{ max_published_tools_per_server?: number; max_published_tools_global?: number }, McpStatus & { saved: boolean }]
   hostsList: [Empty, HostList]
   hostsSettings: [{ default_host?: string; allow_host_tofu?: boolean }, { result: string }]

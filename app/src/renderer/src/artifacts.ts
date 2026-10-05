@@ -46,13 +46,16 @@ export class ImageCache {
     const existing = this.entries.get(ref)
     if (existing) {
       existing.users += 1
+      // Dropped while the check was on its way (the core said it's gone): never show these bytes again.
+      const current = (): boolean => this.entries.get(ref) === existing
       const url = this.check(ref).then(
         (present) => {
+          if (!current()) return null
           if (present !== false) return existing.url
           this.invalidate(ref)
           return null
         },
-        () => existing.url
+        () => (current() ? existing.url : null)
       )
       return this.handle(ref, existing, url)
     }

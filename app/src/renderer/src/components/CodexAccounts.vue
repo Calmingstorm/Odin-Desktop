@@ -2,7 +2,7 @@
 import { onMounted } from 'vue'
 import type { CodexAccount, QuotaWindow } from '../../../shared/api'
 import { ask } from '../dialog'
-import { activateAccount, beginLogin, labelAccount, loadCodex, removeAccount, settings, stopLogin } from '../stores/settings'
+import { accountIdentity, activateAccount, beginLogin, labelAccount, loadCodex, removeAccount, settings, stopLogin } from '../stores/settings'
 
 onMounted(loadCodex)
 
@@ -31,7 +31,7 @@ async function rename(account: CodexAccount): Promise<void> {
     confirmLabel: 'Save',
     input: { value: account.label ?? '', label: 'Label', maxLength: 80 }
   })
-  if (typeof label === 'string') await labelAccount(account.index, label.trim())
+  if (typeof label === 'string') await labelAccount(account, label.trim())
 }
 
 async function remove(account: CodexAccount): Promise<void> {
@@ -41,7 +41,7 @@ async function remove(account: CodexAccount): Promise<void> {
     confirmLabel: 'Remove',
     danger: true
   })
-  if (confirmed) await removeAccount(account.index)
+  if (confirmed) await removeAccount(account)
 }
 </script>
 
@@ -65,6 +65,10 @@ async function remove(account: CodexAccount): Promise<void> {
       <p v-else class="warn">{{ settings.codex.login.message }}</p>
     </div>
     <p v-if="settings.codex.error" class="warn">{{ settings.codex.error }}</p>
+    <p v-if="settings.codex.stale" class="warn">
+      The list couldn't be refreshed after your last change, so it may be out of date.
+      <button class="ghost" @click="loadCodex">Refresh</button>
+    </p>
     <p v-else-if="settings.codex.status && !settings.codex.status.configured" class="panel-hint">Codex isn't configured.</p>
     <ul class="accounts">
       <li v-for="account in settings.codex.status?.accounts ?? []" :key="account.index" :class="['account', { current: account.is_current }]">
@@ -80,13 +84,13 @@ async function remove(account: CodexAccount): Promise<void> {
           </div>
           <div class="account-meta">{{ quota(account) }}</div>
           <div class="account-actions">
-            <button v-if="!account.is_current" class="ghost" :disabled="settings.codex.busy" @click="activateAccount(account.index)">
+            <button v-if="!account.is_current" class="ghost" :disabled="settings.codex.busy || settings.codex.stale" @click="activateAccount(account)">
               Use this account
             </button>
-            <button class="ghost" :disabled="settings.codex.busy" @click="rename(account)">Label…</button>
-            <button class="ghost danger-item" :disabled="settings.codex.busy" @click="remove(account)">Remove…</button>
+            <button class="ghost" :disabled="settings.codex.busy || settings.codex.stale" @click="rename(account)">Label…</button>
+            <button class="ghost danger-item" :disabled="settings.codex.busy || settings.codex.stale" @click="remove(account)">Remove…</button>
           </div>
-          <p v-if="settings.codex.notes[account.index]" class="account-note">{{ settings.codex.notes[account.index] }}</p>
+          <p v-if="settings.codex.notes[accountIdentity(account)]" class="account-note">{{ settings.codex.notes[accountIdentity(account)] }}</p>
         </template>
       </li>
     </ul>

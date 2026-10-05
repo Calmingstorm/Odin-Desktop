@@ -992,6 +992,8 @@ class Core:
 
     def m_skills_get(self, params: dict, _writer) -> dict:
         name, skill = self.require_skill(params)
+        if skill["status"] == "error":
+            raise CoreError("not_found", "skill not found")  # as Odin: a module that failed to load has no detail
         return {**self.skill_summary(name, skill), "input_schema": {"type": "object", "properties": {}},
                 "file_path": f"skills/{name}.py", "handoff_to_codex": False, "config": dict(skill["config"]),
                 "metadata": {"version": skill["version"], "author": skill["author"], "homepage": "",
@@ -1071,11 +1073,19 @@ class Core:
             raise CoreError("not_found", "server not found")
         return name, server
 
+    @staticmethod
+    def mcp_allowed(server: dict, tool: str) -> bool:
+        """As Odin: with an allowlist, a tool not on it is excluded; without one, every tool is offered."""
+        allow = server.get("tool_allowlist")
+        return allow is None or tool in allow
+
     def mcp_row(self, name: str, server: dict) -> dict:
-        published = server["tools"] if server["state"] == "connected" else []
+        discovered = server["tools"] if server["state"] == "connected" else []
+        published = [tool for tool in discovered if self.mcp_allowed(server, tool)]
         return {"name": name, "transport": server["transport"], "enabled": server["enabled"], "state": server["state"],
-                "discovered_count": len(server["tools"]) if server["state"] == "connected" else 0,
-                "published_count": len(published), "excluded_count": 0, "published_tools": sorted(published),
+                "discovered_count": len(discovered),
+                "published_count": len(published), "excluded_count": len(discovered) - len(published),
+                "published_tools": sorted(published),
                 "original_tools": list(server["tools"]), "last_error": server["last_error"], "blocked_reason": "",
                 "last_refresh_age_seconds": 12 if server["state"] == "connected" else None, "stderr_tail": "",
                 "generation": 1, "header_keys": sorted(server["headers"]), "env_keys": sorted(server["env"]),
@@ -1136,7 +1146,7 @@ class Core:
         name, server = self.require_mcp(params)
         server["enabled"] = bool(params.get("enabled"))
         server["state"] = "connected" if server["enabled"] and self.mcp["enabled"] else "disabled"
-        return self.mcp_mutation(name)
+        return self.mcp_status()  # Odin's per-server switch answers the whole status
 
     def m_mcp_delete(self, params: dict, _writer) -> dict:
         name, _server = self.require_mcp(params)
@@ -1157,15 +1167,18 @@ class Core:
         name, server = self.require_mcp(params)
         connected = server["state"] == "connected"
         return {"server": name, "tools": [
-            {"original_name": tool, "published_name": f"mcp_{name}_{tool}", "published": connected, "excluded": False,
-             "exclusion_reason": "", "description": f"{tool.replace('_', ' ').capitalize()}."}
+            {"original_name": tool, "published_name": f"mcp_{name}_{tool}",
+             "published": connected and self.mcp_allowed(server, tool), "excluded": not self.mcp_allowed(server, tool),
+             "exclusion_reason": "" if self.mcp_allowed(server, tool) else "not in the tool allowlist",
+             "description": f"{tool.replace('_', ' ').capitalize()}."}
             for tool in server["tools"]]}
 
     def m_mcp_set_global_enabled(self, params: dict, _writer) -> dict:
         self.mcp["enabled"] = bool(params.get("enabled"))
         for server in self.mcp_servers.values():
             server["state"] = "connected" if server["enabled"] and self.mcp["enabled"] else "disabled"
-        return {"saved": True, **self.mcp_status()}
+        status = self.mcp_status()
+        return {"saved": True, "enabled": status["enabled"], "connected_count": status["connected_count"]}  # Odin's answer
 
     def m_mcp_set_limits(self, params: dict, _writer) -> dict:
         for key in ("max_published_tools_per_server", "max_published_tools_global"):

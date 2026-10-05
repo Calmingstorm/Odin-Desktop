@@ -12,6 +12,7 @@ import type {
   ToolInventory,
   ToolTimeouts
 } from '../../../shared/api'
+import { isUnknownOutcome, onLateReceipt } from '../store'
 
 export const management = reactive({
   tools: null as ToolInventory | null,
@@ -33,29 +34,64 @@ export function failure(result: Result<unknown>): string {
   return result.ok ? '' : result.error.message
 }
 
-/** Runs one action at a time per key, notes what the core said, then refreshes what it changed. */
+/** Commands that never answered, by ID: each keeps its thing busy until its late receipt settles it. */
+const uncertain = new Map<string, { key: string; done: (answer: unknown) => string; refresh?: () => Promise<void> }>()
+
+/**
+ * Runs one action at a time per key, notes what the core said, then refreshes what it changed. A command with no
+ * answer keeps its key busy, and is never sent again under a new ID; its late receipt settles it as an answer would.
+ */
 export async function act<T>(key: string, run: () => Promise<Result<T>>, done: (answer: T) => string, refresh?: () => Promise<void>): Promise<boolean> {
   if (management.busy[key]) return false
   management.busy[key] = true
   const result = await run()
+  if (!result.ok && isUnknownOutcome(result.error) && result.error.command_id) {
+    uncertain.set(result.error.command_id, { key, done: done as (answer: unknown) => string, refresh })
+    management.notes[key] = "Waiting for Odin to confirm. It's never sent twice."
+    return false
+  }
   management.busy[key] = false
   management.notes[key] = result.ok ? done(result.result) : failure(result)
   if (refresh) await refresh()
   return result.ok
 }
 
+onLateReceipt((receipt) => {
+  const pending = uncertain.get(receipt.id)
+  if (!pending || (!receipt.settled.ok && isUnknownOutcome(receipt.settled.error))) return
+  uncertain.delete(receipt.id)
+  management.busy[pending.key] = false
+  management.notes[pending.key] = receipt.settled.ok ? pending.done(receipt.settled.result) : receipt.settled.error.message
+  void pending.refresh?.()
+})
+
 // ---- Tools -----------------------------------------------------------------------------------------------------------
 
+/**
+ * Reads and switches each answer with the whole tool inventory. The core handles them in the order they are sent, so
+ * an answer is shown only if its request came after the one already shown.
+ */
+let inventorySent = 0
+let inventoryShown = 0
+
+function showInventory(sent: number, inventory: ToolInventory): void {
+  if (sent < inventoryShown) return
+  inventoryShown = sent
+  management.tools = inventory
+}
+
 export async function loadTools(): Promise<void> {
+  const sent = ++inventorySent
   const [tools, timeouts] = await Promise.all([window.odin.toolsList({}), window.odin.toolsTimeoutsGet({})])
   management.error = !tools.ok ? tools.error.message : !timeouts.ok ? timeouts.error.message : ''
-  if (tools.ok) management.tools = tools.result
+  if (tools.ok) showInventory(sent, tools.result)
   if (timeouts.ok) management.timeouts = timeouts.result
 }
 
 export async function setToolEnabled(name: string, enabled: boolean): Promise<void> {
+  const sent = ++inventorySent
   await act(`tool:${name}`, () => window.odin.toolsSetEnabled({ name, enabled }), (inventory) => {
-    management.tools = inventory
+    showInventory(sent, inventory)
     return enabled ? 'On.' : 'Off: Odin no longer sees this tool.'
   })
 }
@@ -75,15 +111,20 @@ export async function loadSkills(): Promise<void> {
   if (result.ok) management.skills = result.result
 }
 
+let skillAsked = 0
+
 export async function openSkill(name: string): Promise<void> {
+  const mine = ++skillAsked
   management.validation = null
   management.testResult = null
   const result = await window.odin.skillsGet({ name })
+  if (mine !== skillAsked) return
   if (result.ok) management.skill = result.result
   else management.notes[`skill:${name}`] = result.error.message
 }
 
 export function closeSkill(): void {
+  skillAsked += 1
   management.skill = null
   management.validation = null
   management.testResult = null
@@ -137,8 +178,13 @@ function mcpOutcome(answer: { state: string; last_error: string }): string {
   return answer.last_error ? `${answer.state}: ${answer.last_error}` : `Now ${answer.state}.`
 }
 
+/** Odin's per-server switch answers the whole status: show it, and say how the server is now. */
 export const setMcpEnabled = (name: string, enabled: boolean): Promise<boolean> =>
-  act(`mcp:${name}`, () => window.odin.mcpSetEnabled({ name, enabled }), mcpOutcome, loadMcp)
+  act(`mcp:${name}`, () => window.odin.mcpSetEnabled({ name, enabled }), (status) => {
+    management.mcp = status
+    const server = status.servers.find((s) => s.name === name)
+    return server ? mcpOutcome(server) : 'Saved.'
+  })
 export const reconnectMcp = (name: string): Promise<boolean> =>
   act(`mcp:${name}`, () => window.odin.mcpReconnect({ name }), mcpOutcome, loadMcp)
 export const refreshMcpTools = (name: string): Promise<boolean> =>
@@ -156,11 +202,14 @@ export async function loadMcpTools(name: string): Promise<void> {
   else management.notes[`mcp:${name}`] = result.error.message
 }
 
+/** Odin's global switch answers only what it saved, so the status is read again for the servers and their tools. */
 export async function setMcpGlobal(enabled: boolean): Promise<void> {
-  await act('mcp', () => window.odin.mcpSetGlobalEnabled({ enabled }), (status) => {
-    management.mcp = status
-    return enabled ? 'MCP is on.' : 'MCP is off: no server runs and no MCP tool is offered.'
-  })
+  await act(
+    'mcp',
+    () => window.odin.mcpSetGlobalEnabled({ enabled }),
+    (answer) => (answer.enabled ? `MCP is on: ${answer.connected_count} servers connected.` : 'MCP is off: no server runs and no MCP tool is offered.'),
+    loadMcp
+  )
 }
 
 export async function setMcpLimits(limits: { max_published_tools_per_server?: number; max_published_tools_global?: number }): Promise<void> {

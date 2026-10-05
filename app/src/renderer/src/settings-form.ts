@@ -1,5 +1,6 @@
 // How the settings view presents Odin's settings: the menu section each belongs to, how a value is edited as text, and
 // what an apply state means. Presentation only: the core owns values, validation and how each change applies.
+import { reactive } from 'vue'
 import { SETTINGS_SHAPED, type ApplyState, type ConfigField, type ImageLeaf, type SettingsShapedMethod } from '../../shared/api'
 
 export interface NavSection {
@@ -184,3 +185,47 @@ export function differenceNote(field: ConfigField): string | null {
   if (JSON.stringify(field.desired) === JSON.stringify(field.effective)) return null
   return `Saved: ${JSON.stringify(field.desired)}. Running: ${JSON.stringify(field.effective)}.`
 }
+
+/**
+ * What the user typed in the settings form, per field. One save runs per field at a time, so Enter followed by leaving
+ * the field sends once; when it lands, the draft goes only if it is still what was sent, so newer typing stays.
+ */
+export class FieldDrafts {
+  readonly drafts = reactive<Record<string, string | boolean | undefined>>({})
+  readonly errors = reactive<Record<string, string | undefined>>({})
+  private readonly saving = new Set<string>()
+
+  current(field: ConfigField): string | boolean {
+    return this.drafts[field.path] ?? toInput(field)
+  }
+
+  edit(field: ConfigField, value: string | boolean): void {
+    this.drafts[field.path] = value
+    this.errors[field.path] = undefined
+  }
+
+  changed(field: ConfigField): boolean {
+    return this.drafts[field.path] !== undefined && this.drafts[field.path] !== toInput(field)
+  }
+
+  clear(field: ConfigField): void {
+    this.drafts[field.path] = undefined
+  }
+
+  async save(field: ConfigField, saveField: (field: ConfigField, value: unknown) => Promise<boolean>): Promise<void> {
+    if (this.saving.has(field.path) || !this.changed(field)) return
+    const submitted = this.drafts[field.path]
+    const parsed = fromInput(field, this.current(field))
+    if (!parsed.ok) {
+      this.errors[field.path] = parsed.error
+      return
+    }
+    this.saving.add(field.path)
+    try {
+      if ((await saveField(field, parsed.value)) && this.drafts[field.path] === submitted) this.drafts[field.path] = undefined
+    } finally {
+      this.saving.delete(field.path)
+    }
+  }
+}
+
