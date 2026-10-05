@@ -11,8 +11,9 @@ Credentials use the existing profile secret paths. Containers are JSON in the
 keyring at mcp.servers.<name>.headers/env, not plaintext config. Endpoint secrets
 use mcp.servers.<name>.url; the saved URL is credential-free recognition data.
 Profile-local mcp-credentials/<name>.json records only credential field presence.
-Empty markers bypass the keyring; unmarked legacy servers migrate once unlocked
-and fail closed individually until then, rather than discarding old credentials.
+Unmarked servers also bypass the keyring. Older keyring-only credentials are
+retained, never inferred or deleted: mcp.migrate_credentials explicitly imports
+their presence once unlocked. Status exposes this migration boundary.
 Only the section controls write these containers. Generic secrets.set is not a
 container-JSON API. prepare_settings is the reload composition seam: adoption is
 await-free, retirement/reconciliation must subsequently be drained by finish().
@@ -39,7 +40,7 @@ from .secrets import SecretStoreError
 METHODS = frozenset({
     "mcp.list", "mcp.status", "mcp.tools", "mcp.save", "mcp.set_enabled",
     "mcp.delete", "mcp.reconnect", "mcp.refresh_tools", "mcp.set_global_enabled",
-    "mcp.set_limits",
+    "mcp.set_limits", "mcp.migrate_credentials",
 })
 READ_METHODS = frozenset({"mcp.list", "mcp.status", "mcp.tools"})
 _PUBLIC_FIELDS = frozenset(MCPServerConfig.model_fields) - {"headers", "env"}
@@ -103,7 +104,7 @@ class MCPService:
         return self.settings.paths.data_dir / "mcp-credentials" / f"{name}.json"
 
     def _credential_fields(self, name):
-        """None is a pre-marker profile, not proof that it has no credentials."""
+        """None means no recorded credentials; legacy vault import is explicit."""
         try:
             raw = self._marker_path(name).read_text()
         except FileNotFoundError:
@@ -117,32 +118,33 @@ class MCPService:
         return set(fields)
 
     def _write_marker(self, name, fields):
-        # Empty markers prove credential-free state. Absence means legacy state.
+        # Only presence is public; credential values stay in the keyring.
         if not write_private_atomic(self._marker_path(name), json.dumps({
             "version": 1, "fields": sorted(fields),
         })):
             self.settings.secrets.durability_degraded = True
             raise OSError("MCP credential marker durability is unproven")
 
-    def _hydrate_server(self, name, row):
+    def _hydrate_server(self, name, row, *, migrate=False):
         value = row.model_dump()
         if value["headers"] or value["env"]:
             raise ValueError("plaintext MCP credentials require explicit migration")
         if value["url"] and _public_url(value["url"]) != value["url"]:
             raise ValueError("plaintext MCP endpoint credentials")
         fields = self._credential_fields(name)
-        legacy = fields is None
-        if legacy:
-            # No presence evidence: probe once when unlocked, fail closed per
-            # server when locked. Never drop old credentials by assuming absence.
+        if migrate:
             fields = set(_CREDENTIAL_FIELDS)
+        elif fields is None:
+            # Fresh public configuration must not unlock or probe a vault.
+            # Legacy credentials remain untouched until explicit migration.
+            fields = set()
         present = set()
         for field in _CREDENTIAL_FIELDS:
             if field not in fields:
                 continue
             stored = self.settings.secrets.get(_secret_path(name, field))
             if stored is None:
-                if not legacy:
+                if not migrate:
                     raise ValueError("marked MCP credential is missing")
                 continue
             present.add(field)
@@ -152,7 +154,7 @@ class MCPService:
                 value[field] = stored
             else:
                 value[field] = _mapping(json.loads(stored))
-        if legacy:
+        if migrate:
             self._write_marker(name, present)
         return value
 
@@ -223,6 +225,15 @@ class MCPService:
 
     def _status(self):
         status = self.manager.get_status()
+        for row in status["servers"]:
+            try:
+                if self._credential_fields(row["name"]) is None:
+                    row["credential_migration"] = (
+                        "No stored credentials recorded; legacy keyring-only credentials "
+                        "require explicit mcp.migrate_credentials before use"
+                    )
+            except Exception:
+                row["credential_migration"] = "Credential marker is unavailable"
         for name, reason in self._unavailable.items():
             row = self.settings.config.mcp.servers.get(name)
             if row is not None:
@@ -274,6 +285,31 @@ class MCPService:
                 self._require_server(name)
                 return {"name": name, "tools": self.manager.server_tools(name)}
             self._check_revision(params)
+            if method == "mcp.migrate_credentials":
+                if set(params) - {"name", "expected_revision"}:
+                    raise MethodError("bad_request", "Unexpected MCP migration field")
+                name = self._name(params)
+                if name not in self.settings.config.mcp.servers:
+                    raise MethodError("not_found", "MCP server not found")
+                try:
+                    if self._credential_fields(name) is not None:
+                        raise MethodError("bad_request", "MCP credential presence is already recorded")
+                    row = self._hydrate_server(
+                        name, self.settings.config.mcp.servers[name], migrate=True,
+                    )
+                except MethodError:
+                    raise
+                except SecretStoreError:
+                    raise MethodError("capability_unavailable", "MCP credential migration requires an available, unlocked profile keyring") from None
+                except Exception:
+                    raise MethodError("capability_unavailable", "MCP credential migration or marker persistence is unavailable") from None
+                transition = self.manager.stage_desired_state(
+                    enabled=self.settings.config.mcp.enabled,
+                    servers=self.manager.desired_servers() | {name: row},
+                )
+                self._unavailable.pop(name, None)
+                await self.manager.finish_desired_state(transition)
+                return self._status()
             if method in {"mcp.reconnect", "mcp.refresh_tools"}:
                 if set(params) - {"name", "expected_revision"}:
                     raise MethodError("bad_request", "Unexpected MCP operation field")
@@ -374,6 +410,16 @@ class MCPService:
                         unavailable.pop(name, None)
                 else:
                     value = copy.deepcopy(runtime[name]) if existing else MCPServerConfig().model_dump()
+                unmarked = existing and self._credential_fields(name) is None
+                if unmarked and method == "mcp.save" and (
+                    any(field + suffix in params for field in ("headers", "env")
+                        for suffix in ("_set", "_remove"))
+                    or "url" in params
+                ):
+                    raise MethodError(
+                        "capability_unavailable",
+                        "Import legacy credential presence with mcp.migrate_credentials before credential edits",
+                    )
                 self._patch_server(method, params, value)
                 try:
                     row = MCPServerConfig.model_validate(value)
@@ -405,6 +451,11 @@ class MCPService:
                         field for field in _CREDENTIAL_FIELDS
                         if vault[_secret_path(name, field)] is not None
                     }
+                    if unmarked:
+                        # A public edit must not erase unimported legacy secrets
+                        # or assert that their absence has been proven.
+                        vault = {}
+                        marker_name = marker_fields = None
                 desired.mcp.servers[name] = MCPServerConfig.model_validate(public)
             path = ("mcp", "servers", name)
 
