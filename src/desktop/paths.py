@@ -67,7 +67,7 @@ class ProfilePaths:
             path = Path(env[key]) if env.get(key) else home_path / fallback
             if not path.is_absolute() or ".." in path.parts or any(ord(c) < 32 for c in str(path)):
                 raise ValueError(f"{key} must be an absolute local path")
-            return path / "odin-desktop" / "profiles" / profile_id
+            return path / "odin-desktop" / profile_id
         config = root("XDG_CONFIG_HOME", ".config")
         data = root("XDG_DATA_HOME", ".local/share")
         cache = root("XDG_CACHE_HOME", ".cache")
@@ -79,6 +79,28 @@ class ProfilePaths:
         ):
             raise ValueError("config, data and cache namespaces must be nonoverlapping")
         return cls(profile_id, config, data, cache, data / "secrets")
+
+    @classmethod
+    def from_app(
+        cls, profile_id: str, *, token_file: Path, data_dir: Path,
+        environ: Mapping[str, str] | None = None, home: Path | str | None = None,
+    ) -> ProfilePaths:
+        """Select the app's explicit roots, never an existing Odin installation.
+
+        The token remains app-owned. No file is opened or provisioned here.
+        Cache uses the same XDG/profile namespace as the app.
+        """
+        defaults = cls.from_xdg(profile_id, environ=environ, home=home)
+        token_file, data_dir = Path(token_file), Path(data_dir)
+        for path in (token_file, data_dir):
+            if (not path.is_absolute() or ".." in path.parts
+                    or any(ord(c) < 32 for c in str(path))):
+                raise ValueError("app paths must be absolute local paths")
+        roots = (token_file.parent, data_dir, defaults.cache_dir)
+        if any(a == b or a in b.parents or b in a.parents
+               for i, a in enumerate(roots) for b in roots[i + 1:]):
+            raise ValueError("config, data and cache namespaces must be nonoverlapping")
+        return cls(profile_id, *roots, data_dir / "secrets")
 
     @property
     def config_file(self) -> Path:

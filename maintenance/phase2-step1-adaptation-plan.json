@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "step": 1,
+  "entries": [
+    {
+      "path": "tests/test_desktop_journal_snapshot.py",
+      "reason": "Prove real SQLite domain/event snapshot visibility and second-writer fencing at the watermark boundary.",
+      "contract": "Domain state and event watermark are captured under one shared journal transaction; uncommitted updates are invisible to independent readers.",
+      "invariant": "No claimed conversation service or live data access; all state is a temporary private journal.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_journal_snapshot.py"]
+    },
+    {
+      "path": "src/__main__.py",
+      "reason": "Compose the app-supervised core with explicit profile roots and the retained subreaper, adopted-zombie and finalization barriers.",
+      "contract": "The app supplies socket, token file, profile and data directory; no daemon or self-reexec.",
+      "invariant": "Containment and emergency-finalization helper bodies stay byte-identical; profile ownership outlives finalization.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_entry.py", "tests/test_desktop_core_lifecycle.py", "tests/test_desktop_strip_root.py"]
+    },
+    {
+      "path": "src/cli.py",
+      "reason": "Parse app-owned core launch arguments and delegate authenticated local diagnostics without starting a service.",
+      "contract": "Missing or invalid launch arguments fail before provisioning; client connects only to the selected local socket.",
+      "invariant": "No legacy server CLI, remote management API or ambient credentials.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_entry.py", "tests/test_desktop_ipc.py", "tests/test_desktop_final_distribution.py", "tests/test_desktop_strip_root.py"]
+    },
+    {
+      "path": "src/runtime_paths.py",
+      "reason": "Resolve explicit app-selected token/data roots consistently across composed services.",
+      "contract": "Profile identifier and both root selections are coherent; partial overrides fail.",
+      "invariant": "Path resolution never provisions or imports another Odin installation.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_entry.py", "tests/test_desktop_core_paths.py"]
+    },
+    {
+      "path": "src/desktop/paths.py",
+      "reason": "Align XDG roots with the approved app/protocol paths and select explicit app token/data roots.",
+      "contract": "Absolute nonoverlapping config/data/cache namespaces; owner-private directory provisioning remains descriptor guarded.",
+      "invariant": "No legacy state adoption, symlink repair or path traversal.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_core_entry.py"]
+    },
+    {
+      "path": "src/desktop/authority.py",
+      "reason": "Recognize the app's pre-core token/log/draft scaffolding and anchor the runtime lock to the profile identity directory.",
+      "contract": "Fresh identity may coexist only with app scaffolding; one owner holds the identity regardless of socket or data override.",
+      "invariant": "No engine configuration or secrets are imported; contexts remain OS-owner and incarnation bound without new tool approval policy.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_core_entry.py", "tests/test_desktop_core_lifecycle.py"]
+    },
+    {
+      "path": "src/desktop/commands.py",
+      "reason": "Add private FULL-synchronous durable command bindings, final receipts and permanent tombstones.",
+      "contract": "Reserve before callback; receipt and event transaction commits before response; refusals are final and pending admissions never replay.",
+      "invariant": "No exactly-once external-effect claim or expired-ID readmission; unknown outcomes are not pruned.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_command_journal.py", "tests/test_desktop_core_lifecycle.py"]
+    },
+    {
+      "path": "src/desktop/events.py",
+      "reason": "Add durable profile-wide sequence, decimal cursors, bounded retention and reset-aware catchup.",
+      "contract": "High/floor survive restart and pruning; unknown or expired cursors never imply an empty interval.",
+      "invariant": "Receipt/event atomicity is supplied by the shared transaction; timestamps are not ordering authority.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_event_journal.py", "tests/test_desktop_command_journal.py", "tests/test_desktop_core_lifecycle.py"]
+    },
+    {
+      "path": "src/desktop/protocol.py",
+      "reason": "Implement bounded v0 minor-2 framing and typed transport envelopes.",
+      "contract": "Four-byte big-endian length, UTF-8 JSON object, 4 MiB ceiling; unknown fields ignored and method validation stays service-owned.",
+      "invariant": "No binary frames or payload-derived fault diagnostics.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_ipc.py", "tests/test_desktop_core_lifecycle.py"]
+    },
+    {
+      "path": "src/desktop/ipc_auth.py",
+      "reason": "Load the app-created private token and authenticate the OS peer under no-follow path guards.",
+      "contract": "Owner UID, private directory/token modes and constant-time token comparison are mandatory local-transport checks.",
+      "invariant": "Core never creates, repairs or logs the credential; payload identity cannot mint owner authority.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_ipc.py", "tests/test_desktop_core_lifecycle.py"]
+    },
+    {
+      "path": "src/desktop/ipc.py",
+      "reason": "Add authenticated local connections, handshake, ping, safe listener startup and ordered closure.",
+      "contract": "Protect live sockets; replace only proven stale owned sockets; send subscription result before catchup and live publication.",
+      "invariant": "Socket cleanup is inode-bound; revoked owner contexts cannot receive or admit work; exceptions are scrubbed.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_ipc.py", "tests/test_desktop_core_lifecycle.py"]
+    },
+    {
+      "path": "src/desktop/local_client.py",
+      "reason": "Supply a bounded authenticated local diagnostic client with no service-start capability.",
+      "contract": "Verify selected socket/server identity before sending token; status.get is the default diagnostic request.",
+      "invariant": "No credential arguments, remote listener or automatic mutation retries.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_ipc.py", "tests/test_desktop_final_distribution.py"]
+    },
+    {
+      "path": "src/desktop/lifecycle.py",
+      "reason": "Own parent-pipe EOF, signal shutdown and admission quiescence without an executor blocked on stdin.",
+      "contract": "One irreversible shutdown edge; stdin is the app-held pipe and the core never detaches.",
+      "invariant": "No broad process signaling, daemon resurrection or bypass of retained finalization.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_lifecycle.py"]
+    },
+    {
+      "path": "src/desktop/core.py",
+      "reason": "Compose one profile owner, shared journals, listener, runtime/status owner and supervised lifecycle.",
+      "contract": "Only step-1 services are available; status uses minor-1 fields and shutdown receipts/events are durable before response.",
+      "invariant": "Reuse sealed owner authority and PermissionManager; no execution-service graph, new approvals or fake readiness.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_lifecycle.py", "tests/test_desktop_core_entry.py"]
+    },
+    {
+      "path": "tests/test_desktop_core_entry.py",
+      "reason": "Exercise selected roots, app bootstrap, identity lock and entry containment/finalization composition.",
+      "contract": "Real temporary profile state plus isolated primitive mocks; no Markdown-wording assertions.",
+      "invariant": "No live config/data, desktop input or unsafe process test literals.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_entry.py"]
+    },
+    {
+      "path": "tests/test_desktop_core_lifecycle.py",
+      "reason": "Prove temporary-profile core handshake, status, journals, restart, lock races and parent EOF using real local processes.",
+      "contract": "Run only through the PID-namespace runner; no engine jobs or external effects.",
+      "invariant": "Protocol receipts do not claim external execution; cleanup releases only this test's resources.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_lifecycle.py"]
+    },
+    {
+      "path": "tests/test_desktop_command_journal.py",
+      "reason": "Exercise reopen, refusals, conflicts, tombstones, pending crash recovery and storage/commit failures.",
+      "contract": "Real SQLite transactions and benign subprocess interruption; exact ambiguous outcomes stay unknown.",
+      "invariant": "No destructive commands or mocked attack inputs.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_command_journal.py"]
+    },
+    {
+      "path": "tests/test_desktop_event_journal.py",
+      "reason": "Exercise durable ordering, retention boundaries, reset-required cursors and transaction rollback.",
+      "contract": "Real private temporary journals, not artifact-existence tests.",
+      "invariant": "Pruning cannot reset profile sequence or imply certainty about lost history.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_event_journal.py"]
+    },
+    {
+      "path": "tests/test_desktop_ipc.py",
+      "reason": "Exercise actual local socket framing/authentication, private credential handling and delivery order.",
+      "contract": "Real Unix peers, bounded frames and scrubbed failure paths in isolated temporary profiles.",
+      "invariant": "No active desktop, live socket/config or destructive inputs.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_ipc.py"]
+    },
+    {
+      "path": "tests/test_desktop_foundation.py",
+      "reason": "Update the path behavior expectation to the app/protocol XDG namespace without the extra profiles component.",
+      "contract": "Existing owner, persistence and host parity behavior tests remain retained.",
+      "invariant": "No upstream original test corpus changes.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_foundation.py"]
+    },
+    {
+      "path": "tests/test_desktop_strip_root.py",
+      "reason": "Replace the Phase-1 unwired root/client expectation with invalid-argument pre-effect refusal, retaining source-identical finalizer checks.",
+      "contract": "Absent app launch arguments still reject before any operations; deferred unrelated entry points remain gated.",
+      "invariant": "No weakened containment-byte or guard behavior assertions.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_strip_root.py"]
+    },
+    {
+      "path": "tests/test_desktop_final_distribution.py",
+      "reason": "Adapt retired entry expectations to the implemented app core and local diagnostic client.",
+      "contract": "Behaviorally prove client delegation and invalid launch rejection; retain wheel, removed REST and packaging checks.",
+      "invariant": "No server entry points, upstream case erasure or active-desktop execution.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_final_distribution.py"]
+    }
+  ]
+}

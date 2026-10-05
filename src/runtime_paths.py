@@ -15,4 +15,13 @@ def runtime_profile_paths():
     """Resolve desktop profile paths without provisioning or importing state."""
     from .desktop.paths import ProfilePaths
 
-    return ProfilePaths.from_xdg(os.environ.get("ODIN_DESKTOP_PROFILE", "default"))
+    profile = os.environ.get("ODIN_DESKTOP_PROFILE", "default")
+    data_dir = os.environ.get("ODIN_DESKTOP_DATA_DIR")
+    token_file = os.environ.get("ODIN_DESKTOP_TOKEN_FILE")
+    if bool(data_dir) != bool(token_file):
+        raise ValueError("desktop app roots must be selected together")
+    if data_dir and token_file:
+        return ProfilePaths.from_app(
+            profile, token_file=Path(token_file), data_dir=Path(data_dir)
+        )
+    return ProfilePaths.from_xdg(profile)

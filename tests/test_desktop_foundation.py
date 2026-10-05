@@ -18,7 +18,7 @@ def paths(tmp_path, profile="default"):
 
 def test_xdg_namespaces(tmp_path):
     first, second = paths(tmp_path), paths(tmp_path, "second")
-    assert first.data_dir == tmp_path / ".local/share/odin-desktop/profiles/default"
+    assert first.data_dir == tmp_path / ".local/share/odin-desktop/default"
     assert first.config_dir != first.data_dir != first.cache_dir
     assert first.environment_file.parent == first.secrets_dir
     assert second.identity_file != first.identity_file

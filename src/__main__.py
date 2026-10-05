@@ -1,4 +1,4 @@
-"""Desktop entry point. App-supervised composition is deferred to Phase 2."""
+"""App-supervised Desktop entry point with retained containment barriers."""
 
 from __future__ import annotations
 
@@ -442,12 +442,62 @@ def _emergency_exit(
 
 
 def main() -> None:
-    """No core authority, listener or delivery until Phase 2 composition."""
+    """Run one profile core, then prove the retained finalization barrier."""
     if "--version" in sys.argv or "-V" in sys.argv:
         from src.version import get_version
         print(f"Odin Desktop {get_version()}")
         return
-    raise RuntimeError("Desktop core composition is deferred to Phase 2")
+    import logging
+
+    from src.cli import parse_core_args
+    from src.desktop.core import CoreService
+
+    options = parse_core_args()
+    # Select paths before service construction. Values are paths, not credentials.
+    os.environ["ODIN_DESKTOP_PROFILE"] = options.paths.profile_id
+    os.environ["ODIN_DESKTOP_TOKEN_FILE"] = str(options.token_file)
+    os.environ["ODIN_DESKTOP_DATA_DIR"] = str(options.paths.data_dir)
+    log = logging.getLogger("odin.desktop")
+    # App captures stderr; no second file handler or live logging configuration.
+    handler = logging.StreamHandler(sys.stderr)
+    log.addHandler(handler)
+    log.setLevel(logging.INFO)
+    if not _enable_process_containment(log):
+        raise SystemExit(1)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    reaper = AdoptedZombieReaper()
+    exit_code = 0
+    service = CoreService(
+        options.paths, options.socket, options.token_file, release_runtime_on_close=False
+    )
+
+    async def supervised() -> int:
+        reaper.start()
+        try:
+            return await service.run()
+        finally:
+            await reaper.stop()
+
+    try:
+        exit_code = loop.run_until_complete(supervised())
+    except KeyboardInterrupt:
+        exit_code = 130
+    except Exception:
+        # No synchronous I/O before the finalization watchdog is armed.
+        # Even scrubbed logging can block on a supervisor's full stderr pipe.
+        exit_code = 1
+    finally:
+        _finalize_and_exit(loop, reaper, log, exit_code)
+        # A successor cannot acquire this profile while async finalizers or
+        # contained descendants might still own it. Emergency exit releases
+        # the kernel lock only by ending this incarnation, never early here.
+        service.release_runtime()
+        asyncio.set_event_loop(None)
+        log.removeHandler(handler)
+        handler.close()
+    if exit_code:
+        raise SystemExit(exit_code)
 
 
 def _command_protected_roots(config) -> list[str]:
