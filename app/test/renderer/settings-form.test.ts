@@ -4,6 +4,7 @@ import {
   FieldDrafts,
   SecretDrafts,
   dedicatedMethod,
+  editableHere,
   differenceNote,
   effectText,
   fromInput,
@@ -127,6 +128,22 @@ describe('review round 2: which method saves a field', () => {
     expect(imageLeafOf(field({ type: 'string', path: 'image.openai.image_model' }))).toBe('image_model')
     expect(imageLeafOf(field({ type: 'string', path: 'image.openai.outer_model' }))).toBe('outer_model')
     expect(imageLeafOf(field({ type: 'string', path: 'image.openai.quality' }))).toBeNull()
+  })
+})
+
+describe('what the form edits in place', () => {
+  const owned = (apply_handler: string | null, extra: Partial<ConfigField> = {}) =>
+    field({ type: 'string', path: 'x.y', apply_handler, ...extra })
+
+  it('edits generic, secret, leaf-editor and settings-shaped fields, and shows section-owned ones read-only', () => {
+    expect(editableHere(owned(null))).toBe(true)
+    expect(editableHere(owned('settings.set'))).toBe(true)
+    expect(editableHere(owned('providers.compat.set', { sensitivity: 'sensitive' }))).toBe(true) // a secret: set, never shown
+    expect(editableHere(owned('models.main.set'))).toBe(true)
+    expect(editableHere(owned('providers.ollama.set'))).toBe(true)
+    expect(editableHere(owned('computer.activation.set'))).toBe(true)
+    expect(editableHere(owned('tools.timeouts.set'))).toBe(false) // the Tools section's own controls change it
+    expect(editableHere(owned('mcp.set_limits'))).toBe(false)
   })
 })
 

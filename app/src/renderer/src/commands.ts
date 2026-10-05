@@ -3,6 +3,7 @@
 import { newConversation, runSearch, send, showPanel, state, stop } from './store'
 import { attachmentsFor } from './stores/composer'
 import { loadSettings, saveField, settings } from './stores/settings'
+import { resultMessage } from './capability'
 
 /** Odin's /usage ranges; 7d when none is given, as in Odin. */
 export const USAGE_RANGES = ['24h', '7d', '30d', 'all'] as const
@@ -54,8 +55,9 @@ export const COMMANDS: PaletteCommand[] = [
     affects: "Shows Odin's runtime configuration and health. Changes nothing.",
     run: async () => {
       const result = await window.odin.status()
-      if (!result.ok) return note(result.error.message)
-      showPanel('Status', result.result.summary ?? `Core ${result.result.core_instance_id}: ${result.result.phase}`)
+      if (!result.ok) return note(resultMessage(result, 'Core status'))
+      const core = result.result
+      showPanel('Status', core.summary ?? `Core ${core.core_instance_id}\nVersion: ${core.version}\nPhase: ${core.phase}\nCapabilities: ${core.capabilities.join(', ')}`)
     }
   },
   {
@@ -69,7 +71,7 @@ export const COMMANDS: PaletteCommand[] = [
         return false
       }
       const result = await window.odin.usage(range)
-      if (!result.ok) return note(result.error.message)
+      if (!result.ok) return note(resultMessage(result, 'Usage'))
       showPanel(`Usage, ${range}`, result.result.summary)
     }
   },
@@ -79,7 +81,7 @@ export const COMMANDS: PaletteCommand[] = [
     affects: "Reloads Odin's context files and shows what is in context.",
     run: async () => {
       const result = await window.odin.reload('context')
-      if (!result.ok) return note(result.error.message)
+      if (!result.ok) return note(resultMessage(result, 'Context reload'))
       showPanel('Reload', result.result.summary)
     }
   },
@@ -121,6 +123,7 @@ export async function dispatch(command: PaletteCommand, arg: string): Promise<bo
  *  exactly as the settings menu does, through the field's own apply path. */
 async function settingShortcut(path: string, title: string, arg: string): Promise<boolean | void> {
   await loadSettings()
+  if (settings.unavailable) return note(`${title} is unavailable in this core.`)
   const field = settings.meta?.fields.find((f) => f.path === path)
   if (!field) return note(`${title} isn't available here.`)
   const choice = arg.trim()

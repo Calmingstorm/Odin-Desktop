@@ -12,7 +12,15 @@ export class Host {
   clientHeight = 0
   /** Every scrollTop the component set, in order. */
   scrolls: number[] = []
+  /** What a form control holds, as v-model and bound props read and set it. */
+  value: unknown = ''
+  checked = false
+  /** A select's state, and an option's, as v-model on a select reads and sets them. */
+  selectedIndex = -1
+  selected = false
+  multiple = false
   private top = 0
+  private readonly listeners: Record<string, Array<(event: unknown) => void>> = {}
 
   constructor(readonly tag: string) {}
 
@@ -47,11 +55,45 @@ export class Host {
     return found[0]!
   }
 
-  /** Calls the listener Vue set for an event, as the element firing it would. */
+  /** v-model listens here. */
+  addEventListener(type: string, listener: (event: unknown) => void): void {
+    ;(this.listeners[type] ??= []).push(listener)
+  }
+
+  removeEventListener(type: string, listener: (event: unknown) => void): void {
+    this.listeners[type] = (this.listeners[type] ?? []).filter((l) => l !== listener)
+  }
+
+  /** Calls every listener for an event, the one Vue set as a prop and v-model's, as the element firing it would. */
   fire(event: string, detail: Record<string, unknown> = {}): unknown {
-    const listener = this.props[`on${event[0]!.toUpperCase()}${event.slice(1)}`] as ((e: unknown) => unknown) | undefined
-    if (!listener) throw new Error(`no ${event} listener on <${this.tag}>`)
-    return listener({ target: this, ...detail })
+    const prop = this.props[`on${event[0]!.toUpperCase()}${event.slice(1)}`] as ((e: unknown) => unknown) | undefined
+    const listeners = this.listeners[event] ?? []
+    if (!prop && !listeners.length) throw new Error(`no ${event} listener on <${this.tag}>`)
+    const e = { target: this, ...detail }
+    for (const listener of listeners) listener(e)
+    return prop?.(e)
+  }
+
+  /** v-model asks which document an element is in, to leave alone the one being typed in. Ours are in none. */
+  getRootNode(): Host {
+    return this.parent ? this.parent.getRootNode() : this
+  }
+
+  get options(): Host[] {
+    return this.findAll((host) => host.tag === 'option')
+  }
+
+  /** Picks a select's option by its place, as a user would: what v-model and a change listener see. */
+  choose(index: number): unknown {
+    this.options.forEach((option, i) => (option.selected = i === index))
+    this.selectedIndex = index
+    return this.fire('change')
+  }
+
+  /** Types into a text control: what v-model and an input listener see. */
+  type(text: string): unknown {
+    this.value = text
+    return this.fire('input')
   }
 
   /** The text a reader would see. */
@@ -60,6 +102,11 @@ export class Host {
     return this.text + this.children.map((child) => child.textContent()).join('')
   }
 }
+
+// v-model checks `instanceof Document` and `instanceof ShadowRoot`, which Node doesn't define.
+const g = globalThis as unknown as Record<string, unknown>
+g.Document ??= class Document {}
+g.ShadowRoot ??= class ShadowRoot {}
 
 const renderer = createRenderer<Host, Host>({
   createElement: (tag) => new Host(tag),
@@ -79,6 +126,8 @@ const renderer = createRenderer<Host, Host>({
   },
   patchProp: (node, key, _previous, next) => {
     node.props[key] = next
+    if (key === 'value') node.value = next
+    if (key === 'checked') node.checked = Boolean(next)
   },
   insert: (node, parent, anchor) => {
     if (node.parent) node.parent.children.splice(node.parent.children.indexOf(node), 1)

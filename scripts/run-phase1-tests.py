@@ -22,7 +22,14 @@ def main() -> int:
     arguments = sys.argv[1:]
     if not any(not argument.startswith("-") for argument in arguments):
         plan = json.loads((ROOT / "maintenance/test-plan.json").read_text())
-        selected = plan["safe_pass_now"]
+        # A qualified frozen adapter executes the complete inherited corpus.
+        # Do not also select its obsolete, unadapted setup as a duplicate.
+        mapping_path = ROOT / "maintenance/phase2-suite-map.json"
+        mapping = json.loads(mapping_path.read_text()) if mapping_path.exists() else {}
+        adapted = {row["path"] for row in mapping.get("entries", [])
+                   if row.get("status") == "restored"
+                   and row.get("restoration", {}).get("mode") == "frozen-adapter"}
+        selected = [path for path in plan["safe_pass_now"] if path not in adapted]
         if not selected:
             raise SystemExit("Refusing an unclassified full-suite invocation")
         arguments.extend(selected)

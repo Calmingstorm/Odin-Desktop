@@ -4,16 +4,22 @@
 import { reactive } from 'vue'
 import type { CoreEvent, Result, WorkAction, WorkItem, WorkKind } from '../../../shared/api'
 import { isUnknownOutcome, onCoreEvent, onLateReceipt, onReady } from '../store'
+import { busy } from './locks'
+import { isUnavailable, resultMessage } from '../capability'
 
 export const work = reactive({
   open: false,
   items: [] as WorkItem[],
   loaded: false,
   error: '',
+  unavailable: false,
   /** What the last control on an item did, by `workKey`. */
   notes: {} as Record<string, string | undefined>,
-  /** Items with a control on its way to the core, or not yet confirmed, by `workKey`. */
-  busy: {} as Record<string, boolean | undefined>
+  /**
+   * Items with a control on its way to the core, or not yet confirmed, by `workKey`. Shared with the settings menu,
+   * whose schedules section runs and pauses the same schedules.
+   */
+  busy
 })
 
 /** An item's identity: its kind and id together, since items of different kinds may share an id. */
@@ -77,9 +83,15 @@ export async function loadWork(): Promise<void> {
   const result = await window.odin.workList()
   if (mine !== latest) return // a newer load answers instead
   if (!result.ok) {
-    work.error = result.error.message
+    work.unavailable = isUnavailable(result.error)
+    work.error = resultMessage(result, 'Work (agents, tasks, loops, processes, workflows and schedules)')
+    if (work.unavailable) {
+      work.items = []
+      work.loaded = true
+    }
     return
   }
+  work.unavailable = false
   work.error = ''
   work.items = result.result.items
   work.loaded = true
@@ -104,7 +116,7 @@ export function applyWorkEvent(event: CoreEvent): void {
 }
 
 function answerNote(action: WorkAction, result: Result<{ disposition: string }>): string {
-  return result.ok ? `${actionLabel(action)}: ${DISPOSITIONS[result.result.disposition] ?? result.result.disposition}` : result.error.message
+  return result.ok ? `${actionLabel(action)}: ${DISPOSITIONS[result.result.disposition] ?? result.result.disposition}` : resultMessage(result, 'Work controls')
 }
 
 /** Controls with no answer yet, by command id. Each stays under its first command until its receipt settles it. */

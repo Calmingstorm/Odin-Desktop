@@ -24,7 +24,7 @@ class OwnerContext:
 
 
 class OwnerAuthority:
-    def __init__(self, paths: ProfilePaths) -> None:
+    def __init__(self, paths: ProfilePaths, *, app_bootstrap: bool = False) -> None:
         paths.create_private()
         self.paths = paths
         self.owner_uid = os.geteuid()
@@ -34,12 +34,17 @@ class OwnerAuthority:
         self.durability_degraded = False
         with self._locked():
             try:
-                fd = os.open(paths.identity_file, os.O_RDONLY | os.O_NOFOLLOW)
+                fd = os.open(paths.identity_file, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
             except FileNotFoundError:
+                app_config, app_data = (
+                    self._app_bootstrap_files() if app_bootstrap else (set(), set())
+                )
                 existing_config = [
-                    p for p in paths.config_dir.iterdir() if p.name != ".identity.lock"
+                    p for p in paths.config_dir.iterdir()
+                    if p.name != ".identity.lock" and p not in app_config
                 ]
-                existing_data = [p for p in paths.data_dir.iterdir() if p != paths.secrets_dir]
+                existing_data = [p for p in paths.data_dir.iterdir()
+                                 if p != paths.secrets_dir and p not in app_data]
                 if existing_config or existing_data or any(paths.secrets_dir.iterdir()):
                     raise ValueError("existing state has no identity; explicit recovery required")
                 data = {
@@ -74,6 +79,43 @@ class OwnerAuthority:
             self.installation_id = data["installation_id"]
             self.profile_id = data["profile_id"]
             self.owner_id = data["owner_id"]
+
+    def _app_bootstrap_files(self) -> tuple[set, set]:
+        """Recognize app-owned scaffolding, not engine state or imported authority.
+
+        The app creates its token, logs, drafts and window preferences before
+        spawning the first core. Those opaque files are neither read as config
+        nor migrated. All engine/config/secret state still requires an identity.
+        """
+        def owned_file(path, *, token=False):
+            info = path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != self.owner_uid
+                    or info.st_nlink != 1
+                    or (token and stat.S_IMODE(info.st_mode) != 0o600)):
+                raise PermissionError("unsafe app bootstrap file")
+
+        config, data = set(), set()
+        for name in ("ipc.token", "app-state.json", "app-state.json.tmp"):
+            path = self.paths.config_dir / name
+            if path.exists() or path.is_symlink():
+                owned_file(path, token=name == "ipc.token")
+                config.add(path)
+        for name in ("drafts.json", "drafts.json.tmp"):
+            drafts = self.paths.data_dir / name
+            if drafts.exists() or drafts.is_symlink():
+                owned_file(drafts)
+                data.add(drafts)
+        logs = self.paths.data_dir / "logs"
+        if logs.exists() or logs.is_symlink():
+            from .paths import private_directory
+
+            private_directory(logs)
+            for path in logs.iterdir():
+                if path.name not in {"core.log", "core.log.1"}:
+                    raise ValueError("existing engine logs have no identity")
+                owned_file(path)
+            data.add(logs)
+        return config, data
 
     @contextlib.contextmanager
     def _locked(self):
@@ -120,7 +162,7 @@ class OwnerAuthority:
         if type(peer_uid) is not int or peer_uid != self.owner_uid:
             raise PermissionError("local peer is not the profile owner")
         self.acquire_runtime()
-        if not self._identity_current():
+        if not self._identity_current() or not self._runtime_current():
             raise PermissionError("profile identity changed; explicit recovery required")
         return OwnerContext(
             self.installation_id,
@@ -142,6 +184,7 @@ class OwnerAuthority:
             and context.owner_id == self.owner_id
             and context.runtime_id == self.runtime_id
             and context.owner_uid == self.owner_uid
+            and self._runtime_current()
             and self._identity_current()
         )
 
@@ -149,7 +192,9 @@ class OwnerAuthority:
         """Existing contexts cannot hide revoked/corrupt or rebound private storage."""
         try:
             self.paths.create_private()
-            fd = os.open(self.paths.identity_file, os.O_RDONLY | os.O_NOFOLLOW)
+            fd = os.open(
+                self.paths.identity_file, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+            )
             with os.fdopen(fd, "r", encoding="utf-8") as stream:
                 info = os.fstat(stream.fileno())
                 if (
@@ -171,10 +216,12 @@ class OwnerAuthority:
     def acquire_runtime(self) -> None:
         """Hold a lifetime profile lock. PID alone is never runtime identity."""
         if self._runtime_lock_fd is not None:
+            if not self._runtime_current():
+                raise PermissionError("profile ownership lock changed")
             return
         self.paths.create_private()
         fd = os.open(
-            self.paths.data_dir / ".core.lock",
+            self.paths.config_dir / ".core.lock",
             os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
             0o600,
         )
@@ -187,10 +234,28 @@ class OwnerAuthority:
             ):
                 raise PermissionError("unsafe runtime lock")
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            current = os.stat(self.paths.config_dir / ".core.lock", follow_symlinks=False)
+            if (current.st_dev, current.st_ino) != (info.st_dev, info.st_ino):
+                raise PermissionError("profile ownership lock changed")
         except BaseException:
             os.close(fd)
             raise
         self._runtime_lock_fd = fd
+
+    def _runtime_current(self) -> bool:
+        """A held descriptor cannot authenticate a replaced profile lock."""
+        if self._runtime_lock_fd is None:
+            return False
+        try:
+            held = os.fstat(self._runtime_lock_fd)
+            current = os.stat(self.paths.config_dir / ".core.lock", follow_symlinks=False)
+            return (
+                stat.S_ISREG(current.st_mode) and current.st_uid == self.owner_uid
+                and stat.S_IMODE(current.st_mode) == 0o600
+                and (held.st_dev, held.st_ino) == (current.st_dev, current.st_ino)
+            )
+        except OSError:
+            return False
 
     def release_runtime(self) -> None:
         if self._runtime_lock_fd is not None:

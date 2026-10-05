@@ -97,7 +97,11 @@ def test_root_entrypoints_gate_before_operations(monkeypatch):
     from src.discord.delivery import DeliveryService
 
     monkeypatch.setattr(__main__.sys, "argv", ["desktop"])
-    for entry in (__main__.main, cli.main, setup_wizard.is_setup_needed, DeliveryService):
+    for entry in (__main__.main, cli.main):
+        with pytest.raises(SystemExit) as rejected:
+            entry()
+        assert rejected.value.code == 2
+    for entry in (setup_wizard.is_setup_needed, DeliveryService):
         with pytest.raises(RuntimeError, match="Phase 2"):
             entry()
     restart.reset()

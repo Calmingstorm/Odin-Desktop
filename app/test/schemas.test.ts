@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { MANAGEMENT } from '../src/shared/api'
 import {
+  MANAGEMENT_SCHEMAS,
   attachPathsSchema,
   controlSchema,
   createConversationSchema,
@@ -73,6 +75,26 @@ describe('review round 1: no limits Odin does not have', () => {
   })
 })
 
+describe('management methods', () => {
+  it('give every bridge method its own channel, one core method and its own strict schema', () => {
+    const names = Object.keys(MANAGEMENT)
+    expect(Object.keys(MANAGEMENT_SCHEMAS).sort()).toEqual([...names].sort())
+    expect(new Set(names.map((n) => MANAGEMENT[n as keyof typeof MANAGEMENT].channel)).size).toBe(names.length)
+    for (const name of names) {
+      // An unknown field never reaches the core.
+      expect(parseRequest(MANAGEMENT_SCHEMAS[name as keyof typeof MANAGEMENT_SCHEMAS], { surprise: true }).ok).toBe(false)
+    }
+  })
+
+  it("follows Odin's bounds: skill names up to 100 characters, MCP server names as Odin's manager accepts them", () => {
+    expect(parseRequest(MANAGEMENT_SCHEMAS.skillsGet, { name: 'a skill with spaces' }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.skillsGet, { name: 'x'.repeat(101) }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.skillsSave, { name: 's', code: 'x'.repeat(50_000), create: true }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.mcpDelete, { name: '_Lmms2' }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.mcpDelete, { name: '2lmms' }).ok).toBe(false)
+  })
+})
+
 describe('review round 2: image-model intent', () => {
   it('takes follow or pin for the two image leaves, bound to a revision, and nothing else', () => {
     expect(parseRequest(imageIntentSchema, { expected_revision: 'r', operations: { image_model: 'pin' } }).ok).toBe(true)
@@ -80,6 +102,38 @@ describe('review round 2: image-model intent', () => {
     expect(parseRequest(imageIntentSchema, { expected_revision: 'r', operations: { image_model: 'lock' } }).ok).toBe(false)
     expect(parseRequest(imageIntentSchema, { expected_revision: 'r', operations: { quality: 'pin' } }).ok).toBe(false)
     expect(parseRequest(imageIntentSchema, { operations: { outer_model: 'follow' } }).ok).toBe(false)
+  })
+})
+
+describe('hosts and schedules bridge methods', () => {
+  it("takes a new host only under Odin's alias, user and fingerprint rules", () => {
+    const host = { alias: 'gpu_box', address: '10.0.0.9', ssh_user: 'odin', trust_mode: 'pinned', expected_fingerprints: ['SHA256:' + 'A'.repeat(43)] }
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsPrepare, host).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsPrepare, { ...host, alias: '-gpu' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsPrepare, { ...host, ssh_user: 'a b' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsPrepare, { ...host, expected_fingerprints: ['MD5:aa'] }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsPrepare, { ...host, trust_mode: 'legacy' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsSettings, { default_host: '' }).ok).toBe(true)
+  })
+
+  it('names the action when a schedule is created, and never when it is changed', () => {
+    expect(parseRequest(MANAGEMENT_SCHEMAS.schedulesSave, { description: 'x', action: 'check', cron: '0 9 * * *' }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.schedulesSave, { id: 'ab12cd34', description: 'y', paused: true }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.schedulesSave, { id: 'ab12cd34', action: 'reminder' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.schedulesSave, { description: 'x', paused: true }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.schedulesSave, { description: 'x'.repeat(501) }).ok).toBe(false)
+  })
+})
+
+describe('personality, state and records bridge methods', () => {
+  it('take only their own fields, within bounds', () => {
+    expect(parseRequest(MANAGEMENT_SCHEMAS.memorySet, { scope: 'global', key: 'k', value: { nested: [1, 'two'] } }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.memorySet, { scope: 'global', key: '', value: 'x' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.memoryBulkDelete, { entries: [] }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.knowledgeRestore, { source: 'a', version: 0 }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.logsSearch, { level: 'debug' }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.computerReconcile, { session_id: 's', generation: 3, acknowledgment: 'ACKNOWLEDGE UNVERIFIED CLEANUP s' }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.personalitySet, { preset: 'odin', surprise: 1 }).ok).toBe(false)
   })
 })
 

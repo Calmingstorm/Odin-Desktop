@@ -1,60 +1,41 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { select, state } from '../store'
-import { actionLabel, controlWork, grouped, isActive, loadWork, work, workKey } from '../stores/work'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { loadWork, work } from '../stores/work'
+import WorkList from './WorkList.vue'
 
-const groups = computed(() => grouped())
+const panel = ref<HTMLElement | null>(null)
+const refresh = ref<HTMLButtonElement | null>(null)
+let opener: HTMLElement | null = null
 
-function titleOf(conversationId: string): string | null {
-  return state.conversations.find((c) => c.id === conversationId)?.title ?? null
+onMounted(() => {
+  opener = document.activeElement as HTMLElement | null
+  refresh.value?.focus?.()
+})
+
+function restoreFocus(): void {
+  if (opener?.isConnected && typeof opener.focus === 'function') opener.focus()
+  else document.querySelector<HTMLButtonElement>('.work-toggle')?.focus()
 }
 
-function started(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function close(): void {
+  work.open = false
+  restoreFocus()
 }
+
+// An inline region, not a modal. Tab may leave it; the rest of chat stays available.
+onBeforeUnmount(() => {
+  if (panel.value?.contains?.(document.activeElement)) restoreFocus()
+})
 </script>
 
 <template>
-  <section class="work-panel" aria-label="Running work">
+  <section ref="panel" class="work-panel" aria-label="Running work" @keydown.esc.prevent.stop="close">
     <header class="work-head">
       <strong>Work</strong>
       <span class="work-hint">Agents, tasks, loops, processes and schedules, with the controls Odin offers for each.</span>
-      <button class="ghost" title="Fetch the list again" @click="loadWork">Refresh</button>
-      <button class="ghost" title="Close" @click="work.open = false">✕</button>
+      <button ref="refresh" class="ghost" aria-label="Refresh work" title="Fetch the list again" @click="loadWork">Refresh</button>
+      <button class="ghost" aria-label="Close work" title="Close work" @click="close"><span aria-hidden="true">✕</span></button>
     </header>
-    <p v-if="work.error" class="warn">{{ work.error }}</p>
-    <p v-else-if="work.loaded && !groups.length" class="work-empty">Nothing is running.</p>
-    <div v-for="group in groups" :key="group.kind" class="work-group">
-      <h3>{{ group.label }} <span class="work-count">{{ group.items.length }}</span></h3>
-      <article v-for="item in group.items" :key="workKey(item)" :class="['work-item', { done: !isActive(item) }]">
-        <div class="work-line">
-          <span :class="['work-state', item.state]">{{ item.state }}</span>
-          <strong class="work-title">{{ item.title }}</strong>
-          <span class="work-actions">
-            <button
-              v-for="action in item.actions"
-              :key="action"
-              class="ghost"
-              :disabled="work.busy[workKey(item)]"
-              @click="controlWork(item, action)"
-            >
-              {{ actionLabel(action) }}
-            </button>
-          </span>
-        </div>
-        <div class="work-meta">
-          <span v-if="item.detail">{{ item.detail }}</span>
-          <span v-if="item.started_at">started {{ started(item.started_at) }}</span>
-          <button
-            v-if="item.conversation_id && titleOf(item.conversation_id)"
-            class="work-link"
-            @click="select(item.conversation_id)"
-          >
-            in {{ titleOf(item.conversation_id) }}
-          </button>
-        </div>
-        <p v-if="work.notes[workKey(item)]" class="work-note" role="status">{{ work.notes[workKey(item)] }}</p>
-      </article>
-    </div>
+    <WorkList />
   </section>
 </template>

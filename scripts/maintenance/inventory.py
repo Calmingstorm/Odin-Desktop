@@ -119,6 +119,7 @@ def test_plan(root, blobs):
         "safety_manual_gated",
         "retained_support",
         "retained_adaptation_gated",
+        "retired",
     }
     for entry in entries.values():
         if not entry.get("reason") or entry.get("classification") not in allowed:

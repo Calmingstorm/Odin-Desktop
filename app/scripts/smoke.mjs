@@ -23,6 +23,10 @@ Object.assign(env, {
   XDG_RUNTIME_DIR: runtime,
   ODIN_SMOKE_OUT: out
 })
+// This gate explicitly chooses the fixture, even if a developer shell is using
+// a real-core override for a different task. No fallback is tested here.
+delete env.ODIN_SMOKE_REAL_CORE
+delete env.ODIN_DESKTOP_CORE_CMD
 
 const electron = join(appDir, 'node_modules', '.bin', 'electron')
 const result = spawnSync('xvfb-run', ['-a', '-s', '-screen 0 1280x800x24', electron, appDir, '--smoke-test'], {

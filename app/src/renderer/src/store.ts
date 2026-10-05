@@ -16,6 +16,7 @@
 // - Unknown effects stay listed until the core reports them reconciled; later outcomes never push them out.
 import { reactive } from 'vue'
 import { images } from './artifacts'
+import { isUnavailable, resultMessage } from './capability'
 import type {
   AppState,
   ControlRecord,
@@ -124,6 +125,8 @@ export const state = reactive({
   loadErrors: {} as Record<string, string | undefined>,
   /** Why the current recovery couldn't load the conversation list (or create the first chat), until a retry. */
   recoveryError: undefined as string | undefined,
+  conversationsUnavailable: false,
+  unavailableViews: {} as Record<string, boolean | undefined>,
   views: {} as Record<string, ConversationView | undefined>,
   /** Requests queued or running per conversation, for the sidebar: from the list, then from events. */
   busy: {} as Record<string, string[] | undefined>,
@@ -132,7 +135,7 @@ export const state = reactive({
   notice: '',
   autostart: false,
   showArchived: false,
-  search: { open: false, query: '', loading: false, hits: [] as SearchHit[], nextCursor: null as string | null, error: '' },
+  search: { open: false, query: '', loading: false, hits: [] as SearchHit[], nextCursor: null as string | null, error: '', unavailable: false },
   /** A window of messages around a search hit that is outside the loaded history. The live view is untouched. */
   jump: null as { conversationId: string; messageId: string; items: Message[]; hasBefore: boolean; hasAfter: boolean } | null,
   /** The message a jump points at, highlighted and scrolled into view. */
@@ -215,7 +218,7 @@ function note(text: string): void {
 }
 
 function errorText(result: Result<unknown>): string {
-  return result.ok ? '' : result.error.message
+  return resultMessage(result, 'This capability')
 }
 
 /** No receipt, or a receipt that says the outcome is unknown: the command may have been admitted. */
@@ -229,11 +232,13 @@ function isAuthoritative(view: ConversationView | undefined): view is Conversati
 
 /** Whether a message, Steer or Stop may be routed to this conversation now. */
 export function canAct(conversationId: string | null): boolean {
-  return Boolean(conversationId && state.app.link === 'ready' && isAuthoritative(state.views[conversationId]))
+  return Boolean(conversationId && !state.conversationsUnavailable && !state.unavailableViews[conversationId] && state.app.link === 'ready' && isAuthoritative(state.views[conversationId]))
 }
 
 export async function init(): Promise<void> {
+  let pushedAppState = false
   window.odin.onAppState((app) => {
+    pushedAppState = true
     const previous = state.app
     const lostLink = previous.link === 'ready' && app.link !== 'ready'
     const coreChanged = Boolean(previous.coreInstanceId && app.coreInstanceId && app.coreInstanceId !== previous.coreInstanceId)
@@ -260,7 +265,9 @@ export async function init(): Promise<void> {
     window.addEventListener('focus', attend)
   }
   const app = await window.odin.getAppState()
-  if (app) state.app = app
+  // A main-process state push can overtake this initial IPC reply. Never put
+  // the window back on an older link/incarnation after it has learned newer state.
+  if (app && !pushedAppState) state.app = app
   const settings = await window.odin.getSettings()
   if (settings.ok) {
     state.autostart = settings.result.autostart
@@ -293,6 +300,7 @@ function loadAll(): Promise<void> {
 async function loadAllOnce(epoch: number): Promise<void> {
   if (epoch !== state.recoveryEpoch) return
   state.recoveryError = undefined
+  state.conversationsUnavailable = false
   appliedWatermark = -1
   listLoading = true
   const generation = ++listGeneration
@@ -303,7 +311,18 @@ async function loadAllOnce(epoch: number): Promise<void> {
   if (!listed.ok || epoch !== state.recoveryEpoch) {
     // A failed list, or one answered for an earlier recovery, never replaces the sidebar.
     for (const event of held) trackBusy(event)
-    if (!listed.ok && epoch === state.recoveryEpoch) state.recoveryError = listed.error.message
+    if (!listed.ok && epoch === state.recoveryEpoch) {
+      if (isUnavailable(listed.error)) {
+        // A previous core may have served these views. Never present them as this core's conversations.
+        state.conversationsUnavailable = true
+        state.conversations = []
+        state.activeId = null
+        state.views = {}
+        state.busy = {}
+        clearNavigation()
+        state.loaded = true
+      } else state.recoveryError = listed.error.message
+    }
     return
   }
   applyList(listed.result.items, Number(listed.result.watermark) || 0, generation, held)
@@ -316,7 +335,10 @@ async function loadAllOnce(epoch: number): Promise<void> {
       }
     )
     if (!created?.ok) {
-      if (epoch === state.recoveryEpoch) state.recoveryError = created ? created.error.message : 'Waiting for Odin to confirm the first conversation.'
+      if (epoch === state.recoveryEpoch) {
+        if (created && !created.ok && isUnavailable(created.error)) state.conversationsUnavailable = true
+        else state.recoveryError = created ? errorText(created) : 'Waiting for Odin to confirm the first conversation.'
+      }
       return
     }
   }
@@ -402,6 +424,7 @@ export async function loadConversation(conversationId: string): Promise<void> {
   view.status = 'loading'
   view.loadEpoch = epoch
   state.loadErrors[conversationId] = undefined
+  state.unavailableViews[conversationId] = false
   const result = await window.odin.snapshotConversation({ conversation_id: conversationId })
   if (state.views[conversationId] !== view || view.loadToken !== token) return
   if (!result.ok || epoch !== state.recoveryEpoch) {
@@ -409,7 +432,12 @@ export async function loadConversation(conversationId: string): Promise<void> {
     if (view.hasData) releaseHeld(view)
     else state.views[conversationId] = undefined
     if (!result.ok) {
-      if (epoch === state.recoveryEpoch) state.loadErrors[conversationId] = result.error.message
+      if (epoch === state.recoveryEpoch) {
+        if (isUnavailable(result.error)) {
+          state.unavailableViews[conversationId] = true
+          state.views[conversationId] = undefined
+        } else state.loadErrors[conversationId] = result.error.message
+      }
     } else if (conversationId === state.activeId && state.app.link === 'ready') {
       // The open conversation must not be left without a load for the current recovery.
       void loadConversation(conversationId)
@@ -502,6 +530,11 @@ async function open(conversationId: string): Promise<void> {
 /** The error that keeps the open conversation from loading, if any: the recovery's own first, then its snapshot's. */
 export function loadFailure(): string | undefined {
   return state.recoveryError ?? (state.activeId ? state.loadErrors[state.activeId] : undefined)
+}
+
+/** Explicit refusal, separate from loading, transport failures and an empty conversation. */
+export function chatUnavailable(): boolean {
+  return state.conversationsUnavailable || Boolean(state.activeId && state.unavailableViews[state.activeId])
 }
 
 /** Retries whatever failed: the whole recovery (list, then snapshot), or just the open conversation's snapshot. */
@@ -602,7 +635,7 @@ function settleConversation(result: Result<{ conversation: Conversation }>): boo
   if (result.error.code === 'stale_binding') {
     note('That conversation changed elsewhere, so it was refreshed. Try again.')
     void refreshConversations()
-  } else note(result.error.message)
+  } else note(resultMessage(result, 'Conversations'))
   return false
 }
 
@@ -658,7 +691,7 @@ export async function deleteConversation(id: string): Promise<boolean> {
       if (result.error.code === 'stale_binding') {
         note('That conversation changed elsewhere, so it was refreshed. Try again.')
         void refreshConversations()
-      } else note(result.error.message)
+      } else note(resultMessage(result, 'Conversations'))
     }
   )
   return Boolean(answer?.ok)
@@ -666,7 +699,7 @@ export async function deleteConversation(id: string): Promise<boolean> {
 
 /** Opens a conversation a command created: at once, or with a note when it was confirmed later. */
 function openCreated(answer: Result<{ conversation: Conversation }>, late: boolean, what: string): void {
-  if (!answer.ok) return note(errorText(answer))
+  if (!answer.ok) return note(resultMessage(answer, 'Conversations'))
   upsertConversation(answer.result.conversation)
   if (late) note(`${what} is ready: “${answer.result.conversation.title}”.`)
   else void select(answer.result.conversation.id)
@@ -720,13 +753,15 @@ export async function runSearch(query: string): Promise<void> {
   state.search.query = query
   state.search.loading = true
   state.search.error = ''
+  state.search.unavailable = false
   const result = await window.odin.search({ query, limit: 20 })
   if (mine !== searchGeneration) return
   state.search.loading = false
   if (!result.ok) {
     state.search.hits = []
     state.search.nextCursor = null
-    state.search.error = result.error.message
+    state.search.unavailable = isUnavailable(result.error)
+    state.search.error = resultMessage(result, 'Search')
     return
   }
   state.search.hits = result.result.hits.filter((h) => !deleted.has(h.conversation_id))
@@ -742,7 +777,12 @@ export async function moreResults(): Promise<void> {
   if (mine !== searchGeneration) return
   state.search.loading = false
   if (!result.ok) {
-    state.search.error = result.error.message
+    state.search.unavailable = isUnavailable(result.error)
+    state.search.error = resultMessage(result, 'Search')
+    if (state.search.unavailable) {
+      state.search.hits = []
+      state.search.nextCursor = null
+    }
     return
   }
   const known = new Set(state.search.hits.map((h) => h.message_id))

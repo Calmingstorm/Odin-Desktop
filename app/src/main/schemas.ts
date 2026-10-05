@@ -1,6 +1,6 @@
 // Shapes of every request the window may make. Anything that doesn't match is refused before it reaches the core.
 import { z } from 'zod'
-import type { CoreError } from '../shared/api'
+import type { CoreError, ManagementMethod } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
@@ -208,3 +208,182 @@ export function parseRequest<T>(schema: z.ZodType<T>, raw: unknown): ParseResult
     error: { code: 'bad_request', message: `invalid request${where}: ${first?.message ?? 'malformed'}`, disposition: 'rejected' }
   }
 }
+
+// ---- Management methods: one schema each (shared/api.ts, MANAGEMENT) -----------------------------------------------
+// Bounds follow Odin's own: skill names up to 100 characters and code up to 50,000 (web/api_common.py), MCP server
+// names as Odin's manager accepts them (tools/mcp/manager.py).
+
+const empty = z.object({}).strict()
+const toolName = z.string().min(1).max(128)
+const skillName = z.string().min(1).max(100)
+const skillCode = z.string().min(1).max(50_000)
+const mcpName = z.string().min(1).max(128).regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+const text = z.string().max(16_384)
+const secretMap = z.record(z.string().min(1).max(256), text)
+const hostAlias = z.string().min(1).max(64)
+// Odin's rules for a new host (tools/hosts/control.py): existing aliases are only looked up, so they stay plain text.
+const newHostAlias = z.string().regex(/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/)
+const sshUser = z.string().regex(/^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/)
+const fingerprint = z.string().regex(/^SHA256:[A-Za-z0-9+/]{20,64}$/)
+const scheduleId = z.string().min(1).max(64)
+const memoryScope = z.string().min(1).max(128)
+const memoryKey = z.string().min(1).max(256)
+const knowledgeSource = z.string().min(1).max(500)
+const scheduleFields = {
+  description: z.string().min(1).max(500).optional(),
+  channel_id: z.string().max(128).optional(),
+  cron: z.string().min(1).max(256).optional(),
+  run_at: z.string().min(1).max(64).optional(),
+  cron_timezone: z.string().min(1).max(64).optional(),
+  message: z.string().max(4000).optional(),
+  tool_name: z.string().min(1).max(128).optional(),
+  tool_input: z.record(z.string(), z.json()).optional(),
+  report_format: z.string().max(64).optional(),
+  steps: z.array(z.json()).min(1).max(100).optional(),
+  webhook_config: z.record(z.string(), z.json()).optional(),
+  max_retries: z.number().int().min(0).max(100).optional(),
+  retry_backoff_seconds: z.number().int().min(0).max(86_400).optional()
+}
+
+export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
+  toolsList: empty,
+  toolsSetEnabled: z.object({ name: toolName, enabled: z.boolean() }).strict(),
+  toolsTimeoutsGet: empty,
+  toolsTimeoutsSet: z
+    .object({ default_timeout: z.number().int().positive().optional(), overrides: z.record(toolName, z.number().int().positive()).optional() })
+    .strict(),
+  skillsList: empty,
+  skillsGet: z.object({ name: skillName }).strict(),
+  skillsSave: z.object({ name: skillName, code: skillCode, create: z.boolean() }).strict(),
+  skillsValidate: z.object({ code: skillCode }).strict(),
+  skillsTest: z.object({ name: skillName }).strict(),
+  skillsSetEnabled: z.object({ name: skillName, enabled: z.boolean() }).strict(),
+  skillsDelete: z.object({ name: skillName }).strict(),
+  skillsConfigGet: z.object({ name: skillName }).strict(),
+  skillsConfigSet: z.object({ name: skillName, config: z.record(z.string().max(256), z.json()) }).strict(),
+  mcpStatus: empty,
+  mcpSave: z
+    .object({
+      name: mcpName,
+      create: z.boolean(),
+      transport: z.enum(['stdio', 'http']).optional(),
+      command: text.optional(),
+      args: z.array(text).max(256).optional(),
+      url: text.optional(),
+      cwd: text.optional(),
+      timeout_seconds: z.number().positive().max(86_400).optional(),
+      enabled: z.boolean().optional(),
+      tool_allowlist: z.array(z.string().max(256)).max(4096).nullable().optional(),
+      headers_set: secretMap.optional(),
+      headers_remove: z.array(z.string().max(256)).max(256).optional(),
+      env_set: secretMap.optional(),
+      env_remove: z.array(z.string().max(256)).max(256).optional()
+    })
+    .strict(),
+  mcpSetEnabled: z.object({ name: mcpName, enabled: z.boolean() }).strict(),
+  mcpDelete: z.object({ name: mcpName }).strict(),
+  mcpReconnect: z.object({ name: mcpName }).strict(),
+  mcpRefreshTools: z.object({ name: mcpName }).strict(),
+  mcpTools: z.object({ name: mcpName }).strict(),
+  mcpSetGlobalEnabled: z.object({ enabled: z.boolean() }).strict(),
+  mcpSetLimits: z
+    .object({
+      max_published_tools_per_server: z.number().int().min(0).max(1_000_000).optional(),
+      max_published_tools_global: z.number().int().min(0).max(1_000_000).optional()
+    })
+    .strict(),
+  hostsList: empty,
+  hostsSettings: z.object({ default_host: z.string().max(64).optional(), allow_host_tofu: z.boolean().optional() }).strict(),
+  hostsPublicKey: empty,
+  hostsPrepare: z
+    .object({
+      alias: newHostAlias,
+      address: z.string().min(1).max(253),
+      ssh_user: sshUser,
+      port: z.number().int().min(1).max(65_535).optional(),
+      os: z.enum(['linux', 'macos']).optional(),
+      description: z.string().max(200).optional(),
+      trust_mode: z.enum(['pinned', 'ca', 'tofu']),
+      expected_fingerprints: z.array(fingerprint).max(16).optional(),
+      candidate_fingerprints: z.array(fingerprint).max(16).optional(),
+      confirm_tofu: z.boolean().optional(),
+      confirm_local: z.boolean().optional()
+    })
+    .strict(),
+  hostsTest: z.object({ token: z.uuid() }).strict(),
+  hostsCommit: z.object({ token: z.uuid() }).strict(),
+  hostsSetEnabled: z.object({ alias: hostAlias, enabled: z.boolean() }).strict(),
+  hostsReferences: z.object({ alias: hostAlias }).strict(),
+  hostsDelete: z.object({ alias: hostAlias }).strict(),
+  hostsForceRevoke: z.object({ alias: hostAlias }).strict(),
+  schedulesList: empty,
+  // A new schedule names its action; a change names the schedule, and its action stays what it was.
+  schedulesSave: z.union([
+    z.object({ ...scheduleFields, action: z.enum(['reminder', 'check', 'workflow', 'webhook']).optional() }).strict(),
+    z.object({ ...scheduleFields, id: scheduleId, paused: z.boolean().optional() }).strict()
+  ]),
+  schedulesDelete: z.object({ id: scheduleId }).strict(),
+  schedulesRun: z.object({ id: scheduleId }).strict(),
+  schedulesResetFailures: z.object({ id: scheduleId }).strict(),
+  schedulesHistory: z.object({ id: scheduleId.optional(), limit: z.number().int().min(1).max(500).optional() }).strict(),
+  schedulesValidateCron: z.object({ expression: z.string().min(1).max(256) }).strict(),
+  personalityGet: empty,
+  personalitySet: z
+    .object({
+      preset: z.string().min(1).max(64),
+      custom_name: z.string().max(200).optional(),
+      custom_identity: z.string().max(20_000).optional(),
+      custom_voice: z.string().max(20_000).optional()
+    })
+    .strict(),
+  personalityPresetsSave: z
+    .object({
+      name: z.string().min(1).max(64),
+      display_name: z.string().max(200).optional(),
+      identity: z.string().max(20_000).optional(),
+      voice: z.string().max(20_000).optional()
+    })
+    .strict(),
+  personalityPresetsDelete: z.object({ name: z.string().min(1).max(64) }).strict(),
+  memoryList: empty,
+  memoryGet: z.object({ scope: memoryScope, key: memoryKey.optional() }).strict(),
+  memorySet: z.object({ scope: memoryScope, key: memoryKey, value: z.json() }).strict(),
+  memoryDelete: z.object({ scope: memoryScope, key: memoryKey }).strict(),
+  memoryBulkDelete: z.object({ entries: z.array(z.object({ scope: memoryScope, key: memoryKey }).strict()).min(1).max(1000) }).strict(),
+  listsList: empty,
+  listsGet: z.object({ name: z.string().min(1).max(200) }).strict(),
+  listsDelete: z.object({ name: z.string().min(1).max(200) }).strict(),
+  knowledgeList: empty,
+  knowledgeSearch: z.object({ q: z.string().trim().min(1), limit: z.number().int().min(1).max(100).optional() }).strict(),
+  knowledgeIngest: z.object({ source: knowledgeSource, content: z.string().min(1) }).strict(),
+  knowledgeReingest: z.object({ source: knowledgeSource }).strict(),
+  knowledgeDelete: z.object({ source: knowledgeSource }).strict(),
+  knowledgeVersions: z.object({ source: knowledgeSource }).strict(),
+  knowledgeRestore: z.object({ source: knowledgeSource, version: z.number().int().min(1) }).strict(),
+  auditQuery: z
+    .object({
+      tool: z.string().max(128).optional(),
+      host: z.string().max(128).optional(),
+      q: z.string().max(1000).optional(),
+      date: z.string().max(32).optional(),
+      error_only: z.boolean().optional(),
+      limit: z.number().int().min(1).max(1000).optional()
+    })
+    .strict(),
+  auditVerify: empty,
+  healthGet: empty,
+  logsSearch: z
+    .object({
+      q: z.string().max(1000).optional(),
+      level: z.enum(['error', 'info', 'all']).optional(),
+      tool: z.string().max(128).optional(),
+      start: z.string().max(64).optional(),
+      end: z.string().max(64).optional(),
+      limit: z.number().int().min(1).max(1000).optional()
+    })
+    .strict(),
+  turnStateList: z.object({ limit: z.number().int().min(1).max(500).optional() }).strict(),
+  computerStatus: empty,
+  computerReconcile: z.object({ session_id: z.string().min(1).max(128), generation: z.number().int().min(0), acknowledgment: z.string().max(300) }).strict()
+}
+

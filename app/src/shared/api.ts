@@ -234,6 +234,8 @@ export interface CoreError {
   code: string
   message: string
   disposition?: string
+  /** On an unanswered command: its ID, so the window can match the late receipt and never send it again. */
+  command_id?: string
 }
 
 /** Every call through the bridge settles to one of these; nothing throws across it. */
@@ -307,6 +309,610 @@ export type SettingsChange = { path: string; value: unknown } | { path: string; 
 export interface SettingsSetResult {
   revision: string
   fields: ConfigField[]
+}
+
+// ---- Management domains (protocol.md): each in the shape of the Odin route it maps to ---------------------------------
+
+export interface BuiltinTool {
+  name: string
+  description: string
+  is_core: boolean
+  enabled: boolean
+  /** What the model experiences: the switch, the global switch, or a backend that hides the tool. */
+  state: 'available' | 'disabled' | 'global_disabled' | 'unavailable'
+  input_schema: Record<string, unknown>
+}
+
+export interface ToolInventory {
+  global_enabled: boolean
+  disabled_count: number
+  tools: BuiltinTool[]
+}
+
+export interface ToolTimeouts {
+  default_timeout: number
+  overrides: Record<string, number>
+}
+
+export interface SkillSummary {
+  name: string
+  description: string
+  loaded_at: string
+  status: 'loaded' | 'disabled' | 'error'
+  version: string
+  author?: string
+  tags?: string[]
+  dependencies?: string[]
+  has_config?: boolean
+  diagnostics?: Array<{ level: string; message: string }>
+  total_executions?: number
+  execution_count?: number
+  code?: string | null
+}
+
+export interface SkillDetail extends SkillSummary {
+  input_schema: Record<string, unknown>
+  file_path: string
+  metadata: { version: string; author?: string; homepage?: string; tags?: string[]; dependencies?: string[]; has_config: boolean; config_schema: Record<string, unknown> }
+  config: Record<string, unknown>
+  handoff_to_codex: boolean
+}
+
+export interface SkillValidation {
+  valid: boolean
+  errors: string[]
+  warnings: string[]
+  metadata: unknown
+  definition_keys: string[]
+}
+
+export interface McpServer {
+  name: string
+  transport: 'stdio' | 'http'
+  enabled: boolean
+  state: string
+  discovered_count: number
+  published_count: number
+  excluded_count: number
+  published_tools: string[]
+  last_error: string
+  blocked_reason: string
+  last_refresh_age_seconds: number | null
+  stderr_tail: string
+  /** Names only: header and environment values are never read back. */
+  header_keys: string[]
+  env_keys: string[]
+  url_display: string | null
+  instructions?: string
+}
+
+export interface McpStatus {
+  enabled: boolean
+  max_published_tools_per_server: number
+  max_published_tools_global: number
+  server_count: number
+  enabled_server_count: number
+  connected_count: number
+  published_tool_count: number
+  servers: McpServer[]
+}
+
+export interface McpTool {
+  original_name: string
+  published_name: string
+  published: boolean
+  excluded: boolean
+  exclusion_reason: string
+  description: string
+}
+
+export interface McpMutation {
+  saved: boolean
+  connected: boolean
+  state: string
+  last_error: string
+}
+
+export interface McpSave {
+  name: string
+  create: boolean
+  transport?: 'stdio' | 'http'
+  command?: string
+  args?: string[]
+  url?: string
+  cwd?: string
+  timeout_seconds?: number
+  enabled?: boolean
+  tool_allowlist?: string[] | null
+  headers_set?: Record<string, string>
+  headers_remove?: string[]
+  env_set?: Record<string, string>
+  env_remove?: string[]
+}
+
+export interface HostTest {
+  ok?: boolean
+  at?: string
+  detail?: string
+  [key: string]: unknown
+}
+
+/** One managed host, as Odin's GET /api/hosts lists it. */
+export interface HostRow {
+  alias: string
+  host_id: string
+  address: string
+  ssh_user: string
+  os: string
+  port: number
+  description: string
+  enabled: boolean
+  active: boolean
+  targetable: boolean
+  trust_mode: string
+  trust_state: string
+  last_test: HostTest | null
+  diagnostic: string | null
+  draining: boolean
+  generation: number
+}
+
+export interface HostList {
+  hosts: HostRow[]
+  /** Empty: Odin needs every command to name its host. */
+  default_host: string
+  generation: number
+  tofu_enabled: boolean
+}
+
+/** The body of Odin's POST /api/hosts/candidates. */
+export interface HostPrepare {
+  alias: string
+  address: string
+  ssh_user: string
+  port?: number
+  os?: 'linux' | 'macos'
+  description?: string
+  trust_mode: 'pinned' | 'ca' | 'tofu'
+  expected_fingerprints?: string[]
+  candidate_fingerprints?: string[]
+  confirm_tofu?: boolean
+  confirm_local?: boolean
+}
+
+export interface HostCandidate {
+  candidate_token: string
+  alias: string
+  host_id: string
+  fingerprints: string[]
+  trust_mode: string
+  tested: boolean
+}
+
+export interface HostTestResult {
+  candidate_token: string
+  tested: boolean
+  last_test: HostTest | null
+  error?: string
+}
+
+export interface HostSaved {
+  result: string
+  alias: string
+  host_id: string
+}
+
+export interface HostReference {
+  kind: string
+  location: string
+}
+
+export interface HostRevoked {
+  result: string
+  leases_interrupted: number
+  processes: { attempted: number; killed: number; unknown: number }
+}
+
+export interface PublicKeyInfo {
+  public_key: string
+  fingerprint: string
+  authorized_keys_command: string
+  permissions: string
+  effective_key_path: string
+  desired_key_path: string
+  restart_pending: boolean
+}
+
+export type ScheduleAction = 'reminder' | 'check' | 'workflow' | 'webhook'
+
+/** One schedule, in the shape of Odin's GET /api/schedules. */
+export interface ScheduleRow {
+  id: string
+  description: string
+  action: ScheduleAction
+  /** The conversation it reports to; empty for a webhook. */
+  channel_id: string
+  created_at: string
+  cron?: string | null
+  run_at?: string | null
+  one_time?: boolean
+  /** The zone a cron expression runs in, when it has one of its own. */
+  timezone?: string | null
+  next_run?: string | null
+  last_run?: string | null
+  paused?: boolean
+  message?: string | null
+  tool_name?: string | null
+  tool_input?: Record<string, unknown> | null
+  report_format?: string | null
+  steps?: unknown[] | null
+  webhook_config?: Record<string, unknown> | null
+  trigger?: Record<string, unknown> | null
+  max_retries?: number
+  retry_backoff_seconds?: number
+  consecutive_failures?: number
+  retry_count?: number
+  retry_at?: string | null
+  last_error?: string | null
+  last_error_at?: string | null
+  /** Why the schedule can no longer fire, such as a one-time run whose time passed while paused. */
+  inert_reason?: string | null
+}
+
+/** Fields both creating and changing a schedule take. Changing sends only what changed. */
+interface ScheduleFields {
+  description?: string
+  channel_id?: string
+  cron?: string
+  run_at?: string
+  cron_timezone?: string
+  message?: string
+  tool_name?: string
+  tool_input?: Record<string, unknown>
+  report_format?: string
+  steps?: unknown[]
+  webhook_config?: Record<string, unknown>
+  max_retries?: number
+  retry_backoff_seconds?: number
+}
+
+/** A new schedule (POST /api/schedules), or a change to one (PUT /api/schedules/{id}). The action is set once. */
+export type ScheduleSave = (ScheduleFields & { action?: ScheduleAction }) | (ScheduleFields & { id: string; paused?: boolean })
+
+/** One run, as Odin's schedule history records it. */
+export interface ScheduleRun {
+  timestamp: string
+  schedule_id: string
+  description: string
+  action: ScheduleAction
+  status: 'success' | 'failure'
+  duration_ms: number
+  error?: string
+  retry_attempt?: number
+}
+
+export interface PersonalityPreset {
+  name: string
+  identity: string
+  voice: string
+}
+
+/** Odin's GET /api/personality. */
+export interface Personality {
+  preset: string
+  custom_name: string
+  custom_identity: string
+  custom_voice: string
+  presets: Record<string, PersonalityPreset>
+  builtin_presets: string[]
+  user_presets: string[]
+}
+
+export interface PersonalitySet {
+  preset: string
+  custom_name?: string
+  custom_identity?: string
+  custom_voice?: string
+}
+
+/** Memory scopes and their keys (GET /api/memory). */
+export type MemoryIndex = Record<string, { keys: string[]; count: number }>
+
+export interface NamedList {
+  name: string
+  count: number
+  updated_at: string
+}
+
+export interface KnowledgeSource {
+  source: string
+  chunks: number
+  uploader: string
+  ingested_at: string
+  content_hash: string
+  preview?: string
+}
+
+export interface KnowledgeHit {
+  chunk_id: string
+  content: string
+  source: string
+  score: number
+  chunk_index: number
+}
+
+export interface KnowledgeIngest {
+  source: string
+  chunks?: number
+  status: string
+  outcome: 'created' | 'unchanged' | 'duplicate' | 'conflict'
+  duplicate_of?: string
+  message?: string
+}
+
+export interface KnowledgeVersion {
+  id: number
+  version: number
+  content_hash: string
+  chunk_count: number
+  uploader: string
+  action: string
+  created_at: string
+  diff_summary: string
+}
+
+export interface AuditEntry {
+  timestamp: string
+  tool_name: string
+  tool_input?: Record<string, unknown>
+  approved?: boolean
+  result_summary?: string
+  execution_time_ms?: number
+  error?: string | null
+  host?: string
+  type?: string
+  detail?: string
+}
+
+export interface AuditVerify {
+  valid: boolean
+  total?: number
+  verified?: number
+  first_bad?: number | null
+  reason?: string
+  [key: string]: unknown
+}
+
+export interface HealthComponent {
+  name: string
+  healthy: boolean
+  status: string
+  detail: string
+}
+
+export interface HealthReport {
+  overall: string
+  components: HealthComponent[]
+  healthy_count: number
+  degraded_count: number
+  down_count: number
+  unconfigured_count: number
+  total: number
+  checked_at: string
+}
+
+export interface LogEntry {
+  timestamp: string
+  level: string
+  message: string
+  tool?: string
+}
+
+export interface TurnRecord {
+  conversation_id: string
+  request_id: string
+  turn_generation: number
+  status: string
+  created_at: string
+  last_progress_at: string | null
+  suspended_at: string | null
+  has_checkpoint: boolean
+  manual_resolution_operations: number
+  outcome_unknown_operations: number
+  attention: boolean
+}
+
+/** Odin's turn-state envelope (GET /api/turn-state/turns). */
+export interface TurnStateReport {
+  schema_version: number
+  availability: 'available' | 'not_enabled' | 'unavailable'
+  observed_at: string
+  data: { total_matching?: number; attention_count?: number; turns?: TurnRecord[] }
+}
+
+/** Where a computer-use session's recovery stands, as Odin records it. `complete` is never implied by success. */
+export interface ComputerRecovery {
+  status: string
+  reason: string
+  complete: boolean
+  released?: boolean
+  receiver_release_verified?: boolean
+  unknown_release?: boolean
+}
+
+/**
+ * Odin's computer-use status (GET /api/computer): one lifecycle at a time. Reconciling binds `session_generation`,
+ * the session's own generation, not the runtime's `generation`.
+ */
+export interface ComputerStatus {
+  available: boolean
+  state: string
+  session_id: string
+  generation?: number
+  session_generation?: number
+  enabled?: boolean
+  configured_enabled?: boolean
+  runtime_enabled?: boolean
+  last_action?: string
+  last_verification?: string
+  error?: string
+  recovery?: ComputerRecovery
+}
+
+export interface ScheduleRunResult {
+  status: 'success' | 'failure' | 'skipped'
+  schedule_id: string
+  error?: string
+  warning?: string
+}
+
+type Empty = Record<string, never>
+
+/** Each management bridge method: its params and its answer. */
+export interface ManagementCalls {
+  toolsList: [Empty, ToolInventory]
+  toolsSetEnabled: [{ name: string; enabled: boolean }, ToolInventory]
+  toolsTimeoutsGet: [Empty, ToolTimeouts]
+  toolsTimeoutsSet: [{ default_timeout?: number; overrides?: Record<string, number> }, ToolTimeouts]
+  skillsList: [Empty, SkillSummary[]]
+  skillsGet: [{ name: string }, SkillDetail]
+  skillsSave: [{ name: string; code: string; create: boolean }, { result: string }]
+  skillsValidate: [{ code: string }, SkillValidation]
+  skillsTest: [{ name: string }, { result: string; is_error: boolean }]
+  skillsSetEnabled: [{ name: string; enabled: boolean }, { result: string }]
+  skillsDelete: [{ name: string }, { result: string }]
+  skillsConfigGet: [{ name: string }, { config: Record<string, unknown>; schema: Record<string, unknown> }]
+  skillsConfigSet: [{ name: string; config: Record<string, unknown> }, { config: Record<string, unknown> }]
+  mcpStatus: [Empty, McpStatus]
+  mcpSave: [McpSave, McpMutation]
+  mcpSetEnabled: [{ name: string; enabled: boolean }, McpStatus]
+  mcpDelete: [{ name: string }, McpMutation]
+  mcpReconnect: [{ name: string }, McpMutation]
+  mcpRefreshTools: [{ name: string }, McpMutation]
+  mcpTools: [{ name: string }, { server: string; tools: McpTool[] }]
+  mcpSetGlobalEnabled: [{ enabled: boolean }, { saved: boolean; enabled: boolean; connected_count: number }]
+  mcpSetLimits: [{ max_published_tools_per_server?: number; max_published_tools_global?: number }, McpStatus & { saved: boolean }]
+  hostsList: [Empty, HostList]
+  hostsSettings: [{ default_host?: string; allow_host_tofu?: boolean }, { result: string }]
+  hostsPublicKey: [Empty, PublicKeyInfo]
+  hostsPrepare: [HostPrepare, HostCandidate]
+  hostsTest: [{ token: string }, HostTestResult]
+  hostsCommit: [{ token: string }, HostSaved]
+  hostsSetEnabled: [{ alias: string; enabled: boolean }, HostSaved]
+  hostsReferences: [{ alias: string }, { alias: string; references: HostReference[] }]
+  hostsDelete: [{ alias: string }, HostSaved]
+  hostsForceRevoke: [{ alias: string }, HostRevoked]
+  schedulesList: [Empty, ScheduleRow[]]
+  schedulesSave: [ScheduleSave, ScheduleRow]
+  schedulesDelete: [{ id: string }, { status: string }]
+  schedulesRun: [{ id: string }, ScheduleRunResult]
+  schedulesResetFailures: [{ id: string }, ScheduleRow]
+  schedulesHistory: [{ id?: string; limit?: number }, ScheduleRun[]]
+  schedulesValidateCron: [{ expression: string }, { valid: boolean; next_runs: string[] }]
+  personalityGet: [Empty, Personality]
+  personalitySet: [PersonalitySet, { status: string; preset: string }]
+  personalityPresetsSave: [{ name: string; display_name?: string; identity?: string; voice?: string }, { status: string; name: string }]
+  personalityPresetsDelete: [{ name: string }, { status: string; name: string }]
+  memoryList: [Empty, MemoryIndex]
+  memoryGet: [{ scope: string; key?: string }, { scope: string; entries?: Record<string, unknown>; key?: string; value?: unknown }]
+  memorySet: [{ scope: string; key: string; value: unknown }, { status: string; scope: string; key: string }]
+  memoryDelete: [{ scope: string; key: string }, { status: string; scope: string; key: string }]
+  memoryBulkDelete: [{ entries: Array<{ scope: string; key: string }> }, { status: string; count: number }]
+  listsList: [Empty, { items: NamedList[] }]
+  listsGet: [{ name: string }, { name: string; items: unknown[] }]
+  listsDelete: [{ name: string }, { status: string; name: string }]
+  knowledgeList: [Empty, KnowledgeSource[]]
+  knowledgeSearch: [{ q: string; limit?: number }, KnowledgeHit[]]
+  knowledgeIngest: [{ source: string; content: string }, KnowledgeIngest]
+  knowledgeReingest: [{ source: string }, KnowledgeIngest]
+  knowledgeDelete: [{ source: string }, { status: string; chunks_removed: number }]
+  knowledgeVersions: [{ source: string }, KnowledgeVersion[]]
+  knowledgeRestore: [{ source: string; version: number }, { status: string; source: string; version: number; chunks: number }]
+  auditQuery: [{ tool?: string; host?: string; q?: string; date?: string; error_only?: boolean; limit?: number }, AuditEntry[]]
+  auditVerify: [Empty, AuditVerify]
+  healthGet: [Empty, HealthReport]
+  logsSearch: [{ q?: string; level?: 'error' | 'info' | 'all'; tool?: string; start?: string; end?: string; limit?: number }, { entries: LogEntry[]; count: number }]
+  turnStateList: [{ limit?: number }, TurnStateReport]
+  computerStatus: [Empty, ComputerStatus]
+  computerReconcile: [{ session_id: string; generation: number; acknowledgment: string }, ComputerStatus]
+}
+
+export type ManagementMethod = keyof ManagementCalls
+export type ManagementApi = {
+  [K in ManagementMethod]: (params: ManagementCalls[K][0]) => Promise<Result<ManagementCalls[K][1]>>
+}
+
+/**
+ * Each management bridge method's own IPC channel and the one core method it maps to. `command` methods change
+ * something and travel with a command ID. The main process validates each one with its own schema
+ * (schemas.ts, MANAGEMENT_SCHEMAS): there is no generic passthrough.
+ */
+export const MANAGEMENT: { [K in ManagementMethod]: { channel: string; core: string; command: boolean } } = {
+  toolsList: { channel: 'odin:manage:tools.list', core: 'tools.list', command: false },
+  toolsSetEnabled: { channel: 'odin:manage:tools.set_enabled', core: 'tools.set_enabled', command: true },
+  toolsTimeoutsGet: { channel: 'odin:manage:tools.timeouts.get', core: 'tools.timeouts.get', command: false },
+  toolsTimeoutsSet: { channel: 'odin:manage:tools.timeouts.set', core: 'tools.timeouts.set', command: true },
+  skillsList: { channel: 'odin:manage:skills.list', core: 'skills.list', command: false },
+  skillsGet: { channel: 'odin:manage:skills.get', core: 'skills.get', command: false },
+  skillsSave: { channel: 'odin:manage:skills.save', core: 'skills.save', command: true },
+  skillsValidate: { channel: 'odin:manage:skills.validate', core: 'skills.validate', command: false },
+  skillsTest: { channel: 'odin:manage:skills.test', core: 'skills.test', command: true },
+  skillsSetEnabled: { channel: 'odin:manage:skills.set_enabled', core: 'skills.set_enabled', command: true },
+  skillsDelete: { channel: 'odin:manage:skills.delete', core: 'skills.delete', command: true },
+  skillsConfigGet: { channel: 'odin:manage:skills.config.get', core: 'skills.config.get', command: false },
+  skillsConfigSet: { channel: 'odin:manage:skills.config.set', core: 'skills.config.set', command: true },
+  mcpStatus: { channel: 'odin:manage:mcp.status', core: 'mcp.status', command: false },
+  mcpSave: { channel: 'odin:manage:mcp.save', core: 'mcp.save', command: true },
+  mcpSetEnabled: { channel: 'odin:manage:mcp.set_enabled', core: 'mcp.set_enabled', command: true },
+  mcpDelete: { channel: 'odin:manage:mcp.delete', core: 'mcp.delete', command: true },
+  mcpReconnect: { channel: 'odin:manage:mcp.reconnect', core: 'mcp.reconnect', command: true },
+  mcpRefreshTools: { channel: 'odin:manage:mcp.refresh_tools', core: 'mcp.refresh_tools', command: true },
+  mcpTools: { channel: 'odin:manage:mcp.tools', core: 'mcp.tools', command: false },
+  mcpSetGlobalEnabled: { channel: 'odin:manage:mcp.set_global_enabled', core: 'mcp.set_global_enabled', command: true },
+  mcpSetLimits: { channel: 'odin:manage:mcp.set_limits', core: 'mcp.set_limits', command: true },
+  hostsList: { channel: 'odin:manage:hosts.list', core: 'hosts.list', command: false },
+  hostsSettings: { channel: 'odin:manage:hosts.settings', core: 'hosts.settings', command: true },
+  hostsPublicKey: { channel: 'odin:manage:hosts.public_key', core: 'hosts.public_key', command: false },
+  hostsPrepare: { channel: 'odin:manage:hosts.prepare', core: 'hosts.prepare', command: true },
+  hostsTest: { channel: 'odin:manage:hosts.test', core: 'hosts.test', command: true },
+  hostsCommit: { channel: 'odin:manage:hosts.commit', core: 'hosts.commit', command: true },
+  hostsSetEnabled: { channel: 'odin:manage:hosts.set_enabled', core: 'hosts.set_enabled', command: true },
+  hostsReferences: { channel: 'odin:manage:hosts.references', core: 'hosts.references', command: false },
+  hostsDelete: { channel: 'odin:manage:hosts.delete', core: 'hosts.delete', command: true },
+  hostsForceRevoke: { channel: 'odin:manage:hosts.force_revoke', core: 'hosts.force_revoke', command: true },
+  schedulesList: { channel: 'odin:manage:schedules.list', core: 'schedules.list', command: false },
+  schedulesSave: { channel: 'odin:manage:schedules.save', core: 'schedules.save', command: true },
+  schedulesDelete: { channel: 'odin:manage:schedules.delete', core: 'schedules.delete', command: true },
+  schedulesRun: { channel: 'odin:manage:schedules.run', core: 'schedules.run', command: true },
+  schedulesResetFailures: { channel: 'odin:manage:schedules.reset_failures', core: 'schedules.reset_failures', command: true },
+  schedulesHistory: { channel: 'odin:manage:schedules.history', core: 'schedules.history', command: false },
+  schedulesValidateCron: { channel: 'odin:manage:schedules.validate_cron', core: 'schedules.validate_cron', command: false },
+  personalityGet: { channel: 'odin:manage:personality.get', core: 'personality.get', command: false },
+  personalitySet: { channel: 'odin:manage:personality.set', core: 'personality.set', command: true },
+  personalityPresetsSave: { channel: 'odin:manage:personality.presets.save', core: 'personality.presets.save', command: true },
+  personalityPresetsDelete: { channel: 'odin:manage:personality.presets.delete', core: 'personality.presets.delete', command: true },
+  memoryList: { channel: 'odin:manage:memory.list', core: 'memory.list', command: false },
+  memoryGet: { channel: 'odin:manage:memory.get', core: 'memory.get', command: false },
+  memorySet: { channel: 'odin:manage:memory.set', core: 'memory.set', command: true },
+  memoryDelete: { channel: 'odin:manage:memory.delete', core: 'memory.delete', command: true },
+  memoryBulkDelete: { channel: 'odin:manage:memory.bulk_delete', core: 'memory.bulk_delete', command: true },
+  listsList: { channel: 'odin:manage:lists.list', core: 'lists.list', command: false },
+  listsGet: { channel: 'odin:manage:lists.get', core: 'lists.get', command: false },
+  listsDelete: { channel: 'odin:manage:lists.delete', core: 'lists.delete', command: true },
+  knowledgeList: { channel: 'odin:manage:knowledge.list', core: 'knowledge.list', command: false },
+  knowledgeSearch: { channel: 'odin:manage:knowledge.search', core: 'knowledge.search', command: false },
+  knowledgeIngest: { channel: 'odin:manage:knowledge.ingest', core: 'knowledge.ingest', command: true },
+  knowledgeReingest: { channel: 'odin:manage:knowledge.reingest', core: 'knowledge.reingest', command: true },
+  knowledgeDelete: { channel: 'odin:manage:knowledge.delete', core: 'knowledge.delete', command: true },
+  knowledgeVersions: { channel: 'odin:manage:knowledge.versions', core: 'knowledge.versions', command: false },
+  knowledgeRestore: { channel: 'odin:manage:knowledge.restore', core: 'knowledge.restore', command: true },
+  auditQuery: { channel: 'odin:manage:audit.query', core: 'audit.query', command: false },
+  auditVerify: { channel: 'odin:manage:audit.verify', core: 'audit.verify', command: false },
+  healthGet: { channel: 'odin:manage:health.get', core: 'health.get', command: false },
+  logsSearch: { channel: 'odin:manage:logs.search', core: 'logs.search', command: false },
+  turnStateList: { channel: 'odin:manage:turn_state.list', core: 'turn_state.list', command: false },
+  computerStatus: { channel: 'odin:manage:computer.status', core: 'computer.status', command: false },
+  computerReconcile: { channel: 'odin:manage:computer.reconcile', core: 'computer.reconcile', command: true }
 }
 
 export interface SettingsSetParams {
@@ -413,7 +1019,7 @@ export interface ControlTarget {
 }
 
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
-export interface OdinApi extends SettingsShapedApi {
+export interface OdinApi extends ManagementApi, SettingsShapedApi {
   status(): Promise<Result<CoreStatus>>
   listConversations(): Promise<Result<{ items: ConversationListItem[]; watermark: string }>>
   createConversation(params: {

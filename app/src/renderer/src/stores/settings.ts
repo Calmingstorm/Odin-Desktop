@@ -13,6 +13,7 @@ import {
   type SettingsSetResult
 } from '../../../shared/api'
 import { dedicatedMethod, imageLeafOf, isSecret, settingsShapedMethod } from '../settings-form'
+import { isUnavailable } from '../capability'
 
 export interface FieldState {
   status: 'saving' | 'saved' | 'error'
@@ -31,11 +32,13 @@ export interface LoginState {
 export const settings = reactive({
   meta: null as ConfigMeta | null,
   error: '',
+  unavailable: false,
   notice: '',
   fields: {} as Record<string, FieldState | undefined>,
   codex: {
     status: null as CodexStatus | null,
     error: '',
+    unavailable: false,
     busy: false,
     /** No list read since the last account action is in, so its indexes may be out of date: nothing acts on it. */
     stale: false,
@@ -57,9 +60,17 @@ export async function loadSettings(): Promise<void> {
   const result = await window.odin.settingsSchema()
   if (mine !== settingsGeneration) return
   if (!result.ok) {
+    if (isUnavailable(result.error)) {
+      settings.meta = null
+      settings.unavailable = true
+      settings.error = ''
+      return
+    }
+    settings.unavailable = false
     settings.error = result.error.message
     return
   }
+  settings.unavailable = false
   settings.error = ''
   settings.meta = result.result
 }
@@ -180,9 +191,20 @@ export async function loadCodex(): Promise<boolean> {
   const result = await window.odin.codexAccounts()
   if (mine !== codexRead) return false // a newer read owns the list
   if (!result.ok) {
+    if (isUnavailable(result.error)) {
+      settings.codex.status = null
+      settings.codex.unavailable = true
+      settings.codex.error = ''
+      settings.codex.stale = false
+      settings.codex.notes = {}
+      settings.codex.login = null
+      return false
+    }
+    settings.codex.unavailable = false
     settings.codex.error = result.error.message
     return false
   }
+  settings.codex.unavailable = false
   settings.codex.error = ''
   settings.codex.status = result.result
   if (mine > codexActedAfter) settings.codex.stale = false
