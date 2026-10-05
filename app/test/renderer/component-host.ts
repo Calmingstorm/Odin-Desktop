@@ -12,7 +12,11 @@ export class Host {
   clientHeight = 0
   /** Every scrollTop the component set, in order. */
   scrolls: number[] = []
+  /** What a form control holds, as v-model and bound props read and set it. */
+  value: unknown = ''
+  checked = false
   private top = 0
+  private readonly listeners: Record<string, Array<(event: unknown) => void>> = {}
 
   constructor(readonly tag: string) {}
 
@@ -47,11 +51,29 @@ export class Host {
     return found[0]!
   }
 
-  /** Calls the listener Vue set for an event, as the element firing it would. */
+  /** v-model listens here. */
+  addEventListener(type: string, listener: (event: unknown) => void): void {
+    ;(this.listeners[type] ??= []).push(listener)
+  }
+
+  removeEventListener(type: string, listener: (event: unknown) => void): void {
+    this.listeners[type] = (this.listeners[type] ?? []).filter((l) => l !== listener)
+  }
+
+  /** Calls every listener for an event, the one Vue set as a prop and v-model's, as the element firing it would. */
   fire(event: string, detail: Record<string, unknown> = {}): unknown {
-    const listener = this.props[`on${event[0]!.toUpperCase()}${event.slice(1)}`] as ((e: unknown) => unknown) | undefined
-    if (!listener) throw new Error(`no ${event} listener on <${this.tag}>`)
-    return listener({ target: this, ...detail })
+    const prop = this.props[`on${event[0]!.toUpperCase()}${event.slice(1)}`] as ((e: unknown) => unknown) | undefined
+    const listeners = this.listeners[event] ?? []
+    if (!prop && !listeners.length) throw new Error(`no ${event} listener on <${this.tag}>`)
+    const e = { target: this, ...detail }
+    for (const listener of listeners) listener(e)
+    return prop?.(e)
+  }
+
+  /** Types into a text control: what v-model and an input listener see. */
+  type(text: string): unknown {
+    this.value = text
+    return this.fire('input')
   }
 
   /** The text a reader would see. */
@@ -79,6 +101,8 @@ const renderer = createRenderer<Host, Host>({
   },
   patchProp: (node, key, _previous, next) => {
     node.props[key] = next
+    if (key === 'value') node.value = next
+    if (key === 'checked') node.checked = Boolean(next)
   },
   insert: (node, parent, anchor) => {
     if (node.parent) node.parent.children.splice(node.parent.children.indexOf(node), 1)

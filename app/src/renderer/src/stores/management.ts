@@ -12,14 +12,18 @@ import type {
   ToolInventory,
   ToolTimeouts
 } from '../../../shared/api'
+import { adoptSkill, type Loaded, type SkillEditor } from '../skill-editor'
 import { isUnknownOutcome, onLateReceipt } from '../store'
 
 export const management = reactive({
   tools: null as ToolInventory | null,
   timeouts: null as ToolTimeouts | null,
   skills: [] as SkillSummary[],
-  /** The skill open in the editor, and what validation or a test said about it. */
+  /** The skill editor: an existing skill, or a new one with a name of its own. */
+  editor: null as SkillEditor | null,
+  /** The detail read for the editor's skill, its settings as edited, and what validation or a test said about it. */
   skill: null as SkillDetail | null,
+  skillConfig: {} as Record<string, unknown>,
   validation: null as SkillValidation | null,
   testResult: null as { result: string; is_error: boolean } | null,
   mcp: null as McpStatus | null,
@@ -111,21 +115,48 @@ export async function loadSkills(): Promise<void> {
   if (result.ok) management.skills = result.result
 }
 
+/** Each time the editor is given to another skill, a new one or nothing. Work begun for an earlier one stays there. */
+let editorEpoch = 0
+/** Each read of a skill's detail: only the newest is shown. */
 let skillAsked = 0
+/** What the editor last loaded, so a reread replaces only what the user hasn't changed since. */
+let loaded: Loaded | null = null
 
 export async function openSkill(name: string): Promise<void> {
+  editorEpoch += 1
+  await readSkill(name)
+}
+
+/** Reads a skill into the editor, keeping what the user changed in it since the last load. */
+async function readSkill(name: string): Promise<void> {
   const mine = ++skillAsked
   management.validation = null
   management.testResult = null
   const result = await window.odin.skillsGet({ name })
   if (mine !== skillAsked) return
-  if (result.ok) management.skill = result.result
-  else management.notes[`skill:${name}`] = result.error.message
+  if (!result.ok) {
+    management.notes[`skill:${name}`] = result.error.message
+    return
+  }
+  const adopted = adoptSkill(management.editor, loaded, JSON.stringify(management.skillConfig), result.result)
+  management.skill = result.result
+  management.editor = adopted.editor
+  if (adopted.replaceConfig) management.skillConfig = { ...result.result.config }
+  loaded = adopted.loaded
+}
+
+export function newSkill(code: string): void {
+  closeSkill()
+  management.editor = { name: '', code, create: true }
 }
 
 export function closeSkill(): void {
+  editorEpoch += 1
   skillAsked += 1
+  loaded = null
+  management.editor = null
   management.skill = null
+  management.skillConfig = {}
   management.validation = null
   management.testResult = null
 }
@@ -136,13 +167,24 @@ export async function validateSkill(code: string): Promise<SkillValidation | nul
   return result.ok ? result.result : null
 }
 
-/** Creates or updates a skill. A new one is validated first, so its problems show before anything is saved. */
-export async function saveSkill(name: string, code: string, create: boolean): Promise<boolean> {
+/**
+ * Creates or updates the editor's skill. A new one is validated first, so its problems show before anything is saved.
+ * Once saved, now or by a late receipt, the skill is read back into the editor if the editor still holds it.
+ */
+export async function saveSkill(): Promise<boolean> {
+  const draft = management.editor
+  const name = draft?.name.trim()
+  if (!draft || !name) return false
+  const { code, create } = draft
+  const epoch = editorEpoch
   const report = await validateSkill(code)
   if (!report?.valid) return false
-  const saved = await act(`skill:${name}`, () => window.odin.skillsSave({ name, code, create }), (answer) => answer.result, loadSkills)
-  if (saved) await openSkill(name)
-  return saved
+  // A new skill's code counts as loaded once sent, so code typed while it is created stays.
+  if (create && epoch === editorEpoch) loaded = { name, code, config: JSON.stringify(management.skillConfig) }
+  return act(`skill:${name}`, () => window.odin.skillsSave({ name, code, create }), (answer) => {
+    if (epoch === editorEpoch && management.editor?.name.trim() === name) void readSkill(name)
+    return answer.result
+  }, loadSkills)
 }
 
 export async function testSkill(name: string): Promise<void> {
@@ -157,21 +199,43 @@ export async function setSkillEnabled(name: string, enabled: boolean): Promise<v
   await act(`skill:${name}`, () => window.odin.skillsSetEnabled({ name, enabled }), (answer) => answer.result, loadSkills)
 }
 
+/** Once deleted, now or by a late receipt, the editor closes if it shows that skill. */
 export async function deleteSkill(name: string): Promise<void> {
-  const deleted = await act(`skill:${name}`, () => window.odin.skillsDelete({ name }), (answer) => answer.result, loadSkills)
-  if (deleted && management.skill?.name === name) closeSkill()
+  await act(`skill:${name}`, () => window.odin.skillsDelete({ name }), (answer) => {
+    if (management.editor && !management.editor.create && management.editor.name === name) closeSkill()
+    return answer.result
+  }, loadSkills)
 }
 
+/** Once saved, the skill is read back into the editor if the editor still holds it. */
 export async function saveSkillConfig(name: string, config: Record<string, unknown>): Promise<boolean> {
-  return act(`skill-config:${name}`, () => window.odin.skillsConfigSet({ name, config }), () => 'Saved.', () => openSkill(name))
+  const epoch = editorEpoch
+  return act(`skill-config:${name}`, () => window.odin.skillsConfigSet({ name, config }), () => {
+    if (epoch === editorEpoch) void readSkill(name)
+    return 'Saved.'
+  })
 }
 
 // ---- MCP servers -----------------------------------------------------------------------------------------------------
 
+/**
+ * Reads, switches and limits each answer with the whole MCP status. The core handles them in the order they are sent,
+ * so a status is shown only if its request came after the one already shown.
+ */
+let mcpSent = 0
+let mcpShown = 0
+
+function showMcp(sent: number, status: McpStatus): void {
+  if (sent < mcpShown) return
+  mcpShown = sent
+  management.mcp = status
+}
+
 export async function loadMcp(): Promise<void> {
+  const sent = ++mcpSent
   const result = await window.odin.mcpStatus({})
   management.error = failure(result)
-  if (result.ok) management.mcp = result.result
+  if (result.ok) showMcp(sent, result.result)
 }
 
 function mcpOutcome(answer: { state: string; last_error: string }): string {
@@ -179,12 +243,14 @@ function mcpOutcome(answer: { state: string; last_error: string }): string {
 }
 
 /** Odin's per-server switch answers the whole status: show it, and say how the server is now. */
-export const setMcpEnabled = (name: string, enabled: boolean): Promise<boolean> =>
-  act(`mcp:${name}`, () => window.odin.mcpSetEnabled({ name, enabled }), (status) => {
-    management.mcp = status
+export function setMcpEnabled(name: string, enabled: boolean): Promise<boolean> {
+  const sent = ++mcpSent
+  return act(`mcp:${name}`, () => window.odin.mcpSetEnabled({ name, enabled }), (status) => {
+    showMcp(sent, status)
     const server = status.servers.find((s) => s.name === name)
     return server ? mcpOutcome(server) : 'Saved.'
   })
+}
 export const reconnectMcp = (name: string): Promise<boolean> =>
   act(`mcp:${name}`, () => window.odin.mcpReconnect({ name }), mcpOutcome, loadMcp)
 export const refreshMcpTools = (name: string): Promise<boolean> =>
@@ -213,8 +279,9 @@ export async function setMcpGlobal(enabled: boolean): Promise<void> {
 }
 
 export async function setMcpLimits(limits: { max_published_tools_per_server?: number; max_published_tools_global?: number }): Promise<void> {
+  const sent = ++mcpSent
   await act('mcp-limits', () => window.odin.mcpSetLimits(limits), (status) => {
-    management.mcp = status
+    showMcp(sent, status)
     return 'Saved.'
   })
 }

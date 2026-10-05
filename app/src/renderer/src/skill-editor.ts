@@ -15,13 +15,17 @@ export interface Loaded {
 }
 
 export interface Adopted {
-  /** The editor to show: replaced for another skill, or when the code is untouched since it was loaded. */
-  editor: SkillEditor | null
+  /** The editor to show: its code replaced for another skill, or when untouched since it was loaded. */
+  editor: SkillEditor
   /** Whether the settings shown are replaced: only for another skill, or when untouched since loaded. */
   replaceConfig: boolean
   loaded: Loaded
 }
 
+/**
+ * The editor once a skill's detail is read. A new skill being created counts as the same skill once its name is the
+ * one created, with the code it sent as what was loaded: code typed since then stays, and the editor leaves create mode.
+ */
 export function adoptSkill(
   current: SkillEditor | null,
   loaded: Loaded | null,
@@ -29,10 +33,10 @@ export function adoptSkill(
   skill: { name: string; code?: string | null; config: Record<string, unknown> }
 ): Adopted {
   const code = skill.code ?? ''
-  const same = Boolean(current && !current.create && current.name === skill.name && loaded?.name === skill.name)
+  const same = Boolean(current && current.name.trim() === skill.name && loaded?.name === skill.name)
   const keepCode = same && current!.code !== loaded!.code
   return {
-    editor: keepCode ? current : { name: skill.name, code, create: false },
+    editor: { name: skill.name, code: keepCode ? current!.code : code, create: false },
     replaceConfig: !same || configShown === loaded!.config,
     loaded: { name: skill.name, code, config: JSON.stringify(skill.config) }
   }

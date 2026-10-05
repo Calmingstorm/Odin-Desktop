@@ -22,6 +22,12 @@ describe('the skill editor across reloads', () => {
     expect(adopted.replaceConfig).toBe(false)
   })
 
+  it('takes a new skill as created once its name is the one saved, keeping code typed since it was sent', () => {
+    const sent = { name: 'fresh', code: 'as sent', config: '{}' }
+    const adopted = adoptSkill({ name: ' fresh ', code: 'typed since', create: true }, sent, '{}', { name: 'fresh', code: 'as sent', config: {} })
+    expect(adopted.editor).toEqual({ name: 'fresh', code: 'typed since', create: false })
+  })
+
   it('shows another skill whole when another one is opened', () => {
     const loaded = { name: 'weather', code: 'v1', config: '{}' }
     const adopted = adoptSkill({ name: 'weather', code: 'edited', create: false }, loaded, '{}', { name: 'news', code: 'n1', config: {} })
