@@ -137,3 +137,22 @@ describe('review round 2: held images follow the core', () => {
   })
 })
 
+describe('review round 3: a check on its way when the file goes', () => {
+  it('shows nothing for a held image dropped while its check was on its way, and lets the bytes go', async () => {
+    const revoked = vi.spyOn(URL, 'revokeObjectURL')
+    const { fetch } = bridge(10)
+    let answer!: (present: boolean) => void
+    const cache = new ImageCache(fetch, 100, () => new Promise<boolean>((resolve) => (answer = resolve)))
+    const first = cache.acquire(image('a'))
+    const url = await first.url
+    first.release()
+    const again = cache.acquire(image('a'))
+    cache.invalidate('a') // the unavailable event arrives while the check is pending
+    answer(true) // the check had read the file just before it went
+    expect(await again.url).toBeNull()
+    again.release()
+    await Promise.resolve()
+    expect(revoked.mock.calls.map(([u]) => u)).toEqual([url])
+  })
+})
+
