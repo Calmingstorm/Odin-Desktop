@@ -52,8 +52,8 @@ live in [`core-contracts.md`](core-contracts.md), owned by Odin. The per-file re
   core directly.
 - **A renderer crash or reload** is unobtrusive: the UI reconnects and catches up from durable events.
 - **A core crash is not hidden.** Restart is bounded and conditional on storage and ownership reconciliation.
-  Interrupted or uncertain work is shown with its durable receipts. Effects are never replayed, and computer-input
-  consent is never renewed automatically.
+  Interrupted or uncertain work is shown with its durable receipts. Effects are never replayed, and computer-use
+  sessions follow Odin's existing recovery rules.
 - **One Odin per user profile:** a second launch focuses the running app.
 
 **When the app is not running,** nothing runs. Schedules due while it was exited, or while the machine slept, follow the
@@ -95,15 +95,17 @@ runtime service and tool authority/platform service. See [`core-contracts.md`](c
 
 - **What goes:** multi-user machinery. Permission tiers, Discord users and roles, per-user host grants, the API-token
   user inventory and guest routing.
-- **What stays.** Local-owner authority still has limits. These all remain:
+- **What stays: Odin's own behaviour, unchanged (D17).** The owner gets exactly what an admin gets in Odin today,
+  never anything stricter. These carry over as they work in Odin:
   - secret redaction;
   - untrusted-source provenance;
-  - the command governor;
-  - host identity and trust;
-  - workspace fences;
+  - the command governor, behaving as it does for an Odin admin with override on: it logs and audits risky commands
+    and never blocks the owner's;
+  - host identity and trust (every host the owner adds is usable; there is no per-user host access);
+  - the command-workspace check that keeps the default working directory away from Odin's own data;
   - retained-output access checks;
   - effect-uncertainty semantics;
-  - explicit consent for supervised computer input.
+  - computer use's existing session rules.
 - **Other local actors get nothing.** An attachment, renderer content or another local process does not become the
   owner by sharing the machine. IPC authenticates its peer.
 - **No root.** The core runs as the logged-in user. Elevated actions stay exact, separately authorized operations.

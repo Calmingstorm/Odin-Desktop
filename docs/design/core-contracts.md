@@ -314,7 +314,7 @@ Proposed initial missed-run policy: overdue reminders produce bounded/coalesced 
 
 Descriptor identifies tool/feature, target platform/host, configured/enabled state, dependencies, qualified guarantees, supported subset, unavailability reason and revision. Management may show unavailable features. **Model catalog contains only configured, qualified tools with truthful target constraints.**
 
-Core grant binds owner, conversation/request/background origin, targets/tools, host trust/runtime generation, deadline and any computer consent. UI can narrow preferences, not manufacture grants. Removing user-tier admin cannot become universal always-admin native/indirect dispatch.
+Core identity binds the authenticated owner, conversation/request/background origin, host trust/runtime generation, deadline and Odin's existing computer-session consent. **D17:** the authenticated owner takes exactly Odin's admin path, including `owner_can_override` (default true); Desktop adds no per-command approval, tool/host allow-list or consent step. Every enrolled, targetable host is usable, with a retained default-host preference. Non-owner sources, including webhook triggers, retain the identity Odin gives their equivalent source; renderer or model payloads cannot manufacture owner identity.
 
 ### Invariants
 
@@ -322,9 +322,9 @@ Core grant binds owner, conversation/request/background origin, targets/tools, h
 2. Reserve native names so skills/MCP cannot shadow disabled tools. Unknown optional features publish no promised-placeholder tools.
 3. Recheck host/trust/lease/output scope at dispatch/retrieval. Alias/cursor is not authority; rebinding host cannot grant old evidence.
 4. Preserve trusted outcome/dispatch provenance through wrappers/IPC, not inferred from tool text/JSON/exit zero/later retry.
-5. Preserve governor/workspaces/transactional patches/process ownership/validation/recovery. Management effects use same core boundary, never alternate direct shell paths.
-6. Computer input is supervised foreground with exact consent/observation/focus/generation bounds. UI presence cannot make an agent/schedule foreground. Unknown release halts input, no alternate bypass.
-7. Local owner, not root. Elevation is an exact approved native operation, no blanket renderer privilege.
+5. Preserve Odin's governor semantics, including the admin override and open behavior when no governor is configured, plus workspaces/transactional patches/process ownership/validation/recovery. Management effects use the same core boundary, never alternate direct shell paths. Desktop adds no approval or stricter blocking.
+6. Computer input follows exactly Odin's existing session and portal consent, observation/focus/generation and release/quarantine rules, with no app-added consent prompt. UI presence cannot make an agent/schedule foreground. Unknown release halts input, no alternate bypass.
+7. The core runs as the local owner. Elevation works as that account allows, without a Desktop-specific approval step; the renderer receives no blanket native privilege.
 8. Capabilities are **target-scoped**. Unsupported local patch/supervision/input stays absent. Qualified remote Linux tools may publish constrained remote-only operations; not local Windows/macOS parity/fallback.
 
 ### Platform boundaries
@@ -348,7 +348,7 @@ Backend earns publication through later qualification. Unsupported OS capability
 | Optional catalog/reservations: `src/discord/tool_catalog.py:121-180`; native dispatch: `src/discord/native_tools/registry.py:119-155,245-256`. | Neutral revisions/target publication. Current filters are not full cross-platform registry. |
 | Live bindings: `src/tools/output_authorization.py:8-54`; authorization before bytes: `src/tools/executor.py:663-689`, `src/tools/output_retention.py:186-219`. | Local owner/grant instead of web bearer/tier adapters, preserving rechecks. |
 | Linux supervision: `src/tools/local_supervisor_worker.py:35-88`; patch primitive: `src/tools/apply_patch.py:963-990`. | Qualified OS implementations, no weaker Windows/macOS emulation approved. |
-| Computer bounds: `src/computer/policy.py:29-45,59-86`; uncertainty: `src/tools/execution_outcome.py:8-68`. | Authenticated desktop foreground/native consent with quarantine intact. |
+| Computer bounds: `src/computer/policy.py:29-45,59-86`; uncertainty: `src/tools/execution_outcome.py:8-68`. | Odin's existing authenticated session/portal consent and quarantine, unchanged; no Desktop-added approval. |
 
 ## 7. Local transport and acceptance
 
