@@ -21,6 +21,31 @@ JSON lists `safe_pass_now`, `phase2`, `excluded`, `safety_manual_gated`, `retain
 
 Neutral completion/response guards, anti-hedging, LLM gateway capacity, governor storage and pure computer geometry/effect/policy are not excluded because of their namespace. Mixed API/domain suites retained for Phase2 are not deleted. A neutral failure is Phase1 evidence to fix, not an excuse to defer.
 
+## Phase 2 exit: all deferred suites return
+
+All **326 Phase-2-deferred suites** in `test-plan.json` must come back in Phase 2, adapted to the Desktop transport
+and **never dropped**. This is an exit criterion, not a selection suggestion. The authoritative frozen set is the
+`phase2` array and the matching `entries[].classification == "phase2"` records at the Phase 1 baseline. Its sorted
+UTF-8 path list, one path per line with a final newline, has SHA-256
+`a4bcf41b3ee1660c991df903cccbda1583497c2ec01cea6bb2be6425ba43888f`.
+
+Phase 2 must record, for every suite and its original cases:
+- the Desktop transport/fixture or exact original execution mapping;
+- preserved assertions, case data and budgets, including failures, recovery and uncertain outcomes;
+- actual qualified results and named remaining safety/manual limitations;
+- no omitted suite, unaccounted case, reclassification-as-exclusion or smoke-test replacement.
+
+Required examples include `tests/characterization/test_chat_tool_loop.py` (continuation, the completion judge and
+nudges), every deferred agent suite, `tests/test_recovery.py`, `tests/test_tool_loop_helpers.py`,
+`tests/test_codex_replay_boundaries.py` and `tests/test_codex_replay_matrix.py`. The list is illustrative; **all 326**
+are required. Original source/test bytes stay frozen for comparison; surface-coupled cases use reviewed adapters,
+not permissive always-admin or always-connected shims. Existing safety/manual and isolated-execution rules remain
+binding: returning a suite is not permission to run its prohibited literals or real endpoints. Any unsafe cases
+need reviewed harmless/pure-case qualification and explicit accounting, not silent deletion.
+
+This requirement is mirrored in `docs/design/roadmap.md`'s Phase 2 exit criteria. A Phase 1 passing aggregate does
+not satisfy it. No Phase 2 result is claimed here.
+
 ## Safety/manual future gates
 
 Only explicit safe list through PID namespace with clean HOME/XDG/DBus. Native computer, lifecycle and installer proofs require Phase3 hard-isolated qualification, never the active desktop. No real endpoints/live `/opt/odin` tests. Prohibited destructive/attack literal inputs remain unexecuted even when classifier-only or subprocess mocked. Original fixtures/cases remain unchanged; harmless stub primitive qualification needs separate reviewed new tests.

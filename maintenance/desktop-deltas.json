@@ -12321,6 +12321,43 @@
       ]
     },
     {
+      "after_sha256": "bf787673cb0165c6fa77fa3599839ba219e98999654947da2d70ce9528a51c96",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Phase 2 exit restores all 326 suites; mixed governor suites remain gated with upstream CI evidence",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Frozen corpus and shared governor bytes unchanged; no prohibited inputs executed",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiU3RhdGljIFBSIDIgQi9DIG9ibGlnYXRpb25zLiBObyBlbmdpbmUgaW1wb3J0cywgY29tbWFuZCBpbnB1dHMgb3IgZW5kcG9pbnRzLiIiIgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgaGFzaGxpYgppbXBvcnQganNvbgppbXBvcnQgdGFyZmlsZQpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKClJPT1QgPSBQYXRoKF9fZmlsZV9fKS5yZXNvbHZlKCkucGFyZW50c1sxXQpQSEFTRTJfU0VUX1NIQTI1NiA9ICJhNGJjZjQxYjNlZTE2NjBjOTkxZGY5MDNjY2NiZGExNTgzNDk3YzJlYzAxY2VhNmJiMmJlNjQyNWJhNDM4ODhmIgpHT1ZFUk5PUl9TVUlURVMgPSAoCiAgICAidGVzdHMvdGVzdF9yaXNrX2NsYXNzaWZpZXIucHkiLAogICAgInRlc3RzL3Rlc3RfZ292ZXJub3JfcG9saWN5X2Zsb29yLnB5IiwKICAgICJ0ZXN0cy90ZXN0X2dvdmVybm9yX3NoYXBlX2ZpeHR1cmVzLnB5IiwKICAgICJ0ZXN0cy90ZXN0X2dvdmVybm9yX3NoYXBlX21hdHJpeC5weSIsCikKCgpkZWYgdGVzdF9hbGxfMzI2X3BoYXNlMl9zdWl0ZXNfYXJlX2Zyb3plbl9hbmRfcmVxdWlyZWRfaW5fYm90aF9leGl0X3JlY29yZHMoKToKICAgIHBsYW4gPSBqc29uLmxvYWRzKChST09UIC8gIm1haW50ZW5hbmNlL3Rlc3QtcGxhbi5qc29uIikucmVhZF90ZXh0KCkpCiAgICBwYXRocyA9IHBsYW5bInBoYXNlMiJdCiAgICBhc3NlcnQgbGVuKHBhdGhzKSA9PSBsZW4oc2V0KHBhdGhzKSkgPT0gMzI2CiAgICBhc3NlcnQgc2V0KHBhdGhzKSA9PSB7CiAgICAgICAgZW50cnlbInBhdGgiXSBmb3IgZW50cnkgaW4gcGxhblsiZW50cmllcyJdIGlmIGVudHJ5WyJjbGFzc2lmaWNhdGlvbiJdID09ICJwaGFzZTIiCiAgICB9CiAgICBlbmNvZGVkID0gKCJcbiIuam9pbihzb3J0ZWQocGF0aHMpKSArICJcbiIpLmVuY29kZSgpCiAgICBhc3NlcnQgaGFzaGxpYi5zaGEyNTYoZW5jb2RlZCkuaGV4ZGlnZXN0KCkgPT0gUEhBU0UyX1NFVF9TSEEyNTYKICAgIGZvciBkb2N1bWVudCBpbiAoImRvY3MvZGVzaWduL3JvYWRtYXAubWQiLCAibWFpbnRlbmFuY2UvdGVzdC1wbGFuLm1kIik6CiAgICAgICAgdGV4dCA9IChST09UIC8gZG9jdW1lbnQpLnJlYWRfdGV4dCgpCiAgICAgICAgYXNzZXJ0ICIzMjYgUGhhc2UtMi1kZWZlcnJlZCBzdWl0ZXMiIGluIHRleHQKICAgICAgICBhc3NlcnQgIm5ldmVyIGRyb3BwZWQiIGluIHRleHQKICAgICAgICBmb3IgcmVxdWlyZWQgaW4gKAogICAgICAgICAgICAidGVzdHMvY2hhcmFjdGVyaXphdGlvbi90ZXN0X2NoYXRfdG9vbF9sb29wLnB5IiwKICAgICAgICAgICAgInRlc3RzL3Rlc3RfcmVjb3ZlcnkucHkiLAogICAgICAgICAgICAidGVzdHMvdGVzdF90b29sX2xvb3BfaGVscGVycy5weSIsCiAgICAgICAgICAgICJ0ZXN0cy90ZXN0X2NvZGV4X3JlcGxheV9ib3VuZGFyaWVzLnB5IiwKICAgICAgICAgICAgInRlc3RzL3Rlc3RfY29kZXhfcmVwbGF5X21hdHJpeC5weSIsCiAgICAgICAgKToKICAgICAgICAgICAgYXNzZXJ0IHJlcXVpcmVkIGluIHRleHQsIChkb2N1bWVudCwgcmVxdWlyZWQpCiAgICAgICAgICAgIGFzc2VydCByZXF1aXJlZCBpbiBwYXRocwoKCmRlZiB0ZXN0X2dvdmVybm9yX21hbnVhbF9nYXRlc19hbmRfdXBzdHJlYW1fZXZpZGVuY2VfcmVtYWluX2V4cGxpY2l0KCk6CiAgICBwbGFuID0ganNvbi5sb2FkcygoUk9PVCAvICJtYWludGVuYW5jZS90ZXN0LXBsYW4uanNvbiIpLnJlYWRfdGV4dCgpKQogICAgcmVjb3JkcyA9IHtlbnRyeVsicGF0aCJdOiBlbnRyeSBmb3IgZW50cnkgaW4gcGxhblsiZW50cmllcyJdfQogICAgdGV4dCA9IChST09UIC8gImRvY3MvZGVzaWduL21haW50ZW5hbmNlLm1kIikucmVhZF90ZXh0KCkKICAgIGZvciBwYXRoIGluIEdPVkVSTk9SX1NVSVRFUzoKICAgICAgICBhc3NlcnQgcGF0aCBpbiBwbGFuWyJzYWZldHlfbWFudWFsX2dhdGVkIl0KICAgICAgICBhc3NlcnQgcmVjb3Jkc1twYXRoXVsiY2xhc3NpZmljYXRpb24iXSA9PSAic2FmZXR5X21hbnVhbF9nYXRlZCIKICAgICAgICBhc3NlcnQgcGF0aCBpbiB0ZXh0CiAgICBhc3NlcnQgIlBvcnRpbmcgYSBnb3Zlcm5vciBjaGFuZ2UgcmVxdWlyZXMgaXRzIHVwc3RyZWFtIENJIGV2aWRlbmNlIiBpbiB0ZXh0CiAgICBhc3NlcnQgInJlLXF1YWxpZnkgb25seSB0aGUgcHVyZSBjbGFzc2lmaWNhdGlvbiBjYXNlcyIgaW4gdGV4dAogICAgYXNzZXJ0ICIzNjk1MTMyNDEzMiIgaW4gdGV4dAogICAgYXNzZXJ0ICJjZDc1MzA5MDZlOWNmYTEwYTBmYTkwMDI0N2Q3Y2UyYThiYjMzZTI1IiBpbiB0ZXh0CgoKZGVmIHRlc3RfZ292ZXJub3JfYW5kX2ltcG9ydHNfa2VlcF90aGVfYnl0ZXNfc3VwcG9ydGVkX2J5X3Vwc3RyZWFtX2NpKCk6CiAgICB3aXRoIHRhcmZpbGUub3BlbihST09UIC8gIm1haW50ZW5hbmNlL29kaW4tdjQuMTMuMC50YXIuZ3oiKSBhcyBhcmNoaXZlOgogICAgICAgIGZvciBwYXRoIGluICgKICAgICAgICAgICAgInNyYy90b29scy9yaXNrX2NsYXNzaWZpZXIucHkiLAogICAgICAgICAgICAic3JjL3Rvb2xzL2NvbW1hbmRfc2hhcGVzLnB5IiwKICAgICAgICAgICAgInNyYy90b29scy9jb21tYW5kX2F1dGhvcml0eS5weSIsCiAgICAgICAgKToKICAgICAgICAgICAgc3RyZWFtID0gYXJjaGl2ZS5leHRyYWN0ZmlsZShwYXRoKQogICAgICAgICAgICBhc3NlcnQgc3RyZWFtIGlzIG5vdCBOb25lCiAgICAgICAgICAgIGFzc2VydCAoUk9PVCAvIHBhdGgpLnJlYWRfYnl0ZXMoKSA9PSBzdHJlYW0ucmVhZCgpLCBwYXRoCg==",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/test_desktop_round2_acceptance.py",
+      "reason": "PR 2 round 2 B/C: pin all deferred suites and governor evidence obligations",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_desktop_round2_acceptance.py": "bf787673cb0165c6fa77fa3599839ba219e98999654947da2d70ce9528a51c96"
+      },
+      "tests": [
+        "tests/test_desktop_round2_acceptance.py"
+      ]
+    },
+    {
       "after_sha256": "2a41ad4d5998cf93d2ce57eeeec1d8fd76b937a1674dfc1dd0249054581ba17c",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
