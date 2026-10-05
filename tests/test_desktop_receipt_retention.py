@@ -10,7 +10,7 @@ from src.desktop.commands import CommandJournal, JournalStorageError, JournalSto
 from tests.test_desktop_core_lifecycle import connect, profile, receive, request, send
 
 UNAVAILABLE = (
-    "usage.get", "work.list", "settings.schema", "control.stop", "control.steer",
+    "usage.get", "work.list", "settings.schema",
     "unknown.method",
     "reports.page",
     "codex.accounts.list", "models.agents.get", "models.discover", "personality.get",
