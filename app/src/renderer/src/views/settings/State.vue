@@ -24,8 +24,15 @@ import {
 
 onMounted(() => void Promise.all([loadMemory(), loadKnowledge()]))
 
-const SCOPE_NAMES: Record<string, string> = { global: 'Everywhere', owner: 'Yours' }
+const scopeName = (scope: string): string => scope === 'global' ? 'Everywhere' : scope.startsWith('user_') ? 'Yours' : scope
 const show = (value: unknown): string => (typeof value === 'string' ? value : JSON.stringify(value))
+const listItem = (value: unknown): string => {
+  if (value && typeof value === 'object' && 'name' in value && typeof value.name === 'string') {
+    return `${'done' in value && value.done ? 'Done: ' : ''}${value.name}`
+  }
+  return show(value)
+}
+const changedAt = (value: string): string => value && !Number.isNaN(Date.parse(value)) ? new Date(value).toLocaleString() : 'unknown'
 
 // Memory: a new or edited entry per scope, and the keys picked for deleting.
 const drafts = reactive<Record<string, { key: string; value: string } | undefined>>({})
@@ -90,7 +97,7 @@ async function readFile(event: Event): Promise<void> {
 
 async function add(): Promise<void> {
   const sent = { source: source.value.trim(), content: content.value }
-  if (!sent.source || !sent.content.trim()) return
+  if (!sent.source || sent.source.length > 100 || !sent.content.trim() || sent.content.trim().length > 500000) return
   // Clear only what was stored: a document typed meanwhile stays.
   if ((await ingest(sent.source, sent.content)) && source.value.trim() === sent.source && content.value === sent.content) {
     source.value = ''
@@ -116,7 +123,7 @@ async function removeSource(name: string): Promise<void> {
     <ul class="manage-list">
       <li v-for="(info, scope) in stateStore.memory ?? {}" :key="scope" class="manage-row">
         <div class="manage-line">
-          <strong>{{ SCOPE_NAMES[scope] ?? scope }}</strong>
+          <strong>{{ scopeName(String(scope)) }}</strong>
           <span class="manage-count">{{ info.count }} {{ info.count === 1 ? 'entry' : 'entries' }}</span>
           <span class="manage-actions">
             <button class="ghost" @click="toggleScope(String(scope))">
@@ -162,7 +169,7 @@ async function removeSource(name: string): Promise<void> {
       <li v-for="list in stateStore.lists" :key="list.name" class="manage-row">
         <div class="manage-line">
           <code class="manage-name">{{ list.name }}</code>
-          <span class="manage-count">{{ list.count }} items, changed {{ new Date(list.updated_at).toLocaleString() }}</span>
+          <span class="manage-count">{{ list.count }} items, changed {{ changedAt(list.updated_at) }}</span>
           <span class="manage-actions">
             <button class="ghost" @click="toggleList(list.name)">
               {{ stateStore.listItems[list.name] ? 'Close' : 'Open' }}
@@ -171,7 +178,7 @@ async function removeSource(name: string): Promise<void> {
           </span>
         </div>
         <ul v-if="stateStore.listItems[list.name]" class="refs">
-          <li v-for="(item, i) in stateStore.listItems[list.name]" :key="i">{{ show(item) }}</li>
+          <li v-for="(item, i) in stateStore.listItems[list.name]" :key="i">{{ listItem(item) }}</li>
         </ul>
       </li>
     </ul>
@@ -216,7 +223,7 @@ async function removeSource(name: string): Promise<void> {
               <td>{{ v.action }}</td>
               <td>{{ new Date(v.created_at).toLocaleString() }}</td>
               <td>{{ v.diff_summary }}</td>
-              <td><button class="ghost" @click="restoreVersion(item.source, v.version)">Restore</button></td>
+              <td><button class="ghost" :disabled="v.action === 'delete' || management.busy[`knowledge:${item.source}`]" @click="restoreVersion(item.source, v.version)">Restore</button></td>
             </tr>
           </tbody>
         </table>
@@ -224,11 +231,11 @@ async function removeSource(name: string): Promise<void> {
       </li>
     </ul>
     <h4 class="sub-head">Add a document</h4>
-    <label class="field-input">Source <input v-model="source" maxlength="500" placeholder="runbook.md" /></label>
-    <label class="field-input">Text <textarea v-model="content" rows="5" /></label>
+    <label class="field-input">Source <input v-model="source" maxlength="100" placeholder="runbook.md" /></label>
+    <label class="field-input">Text <textarea v-model="content" rows="5" maxlength="500000" /></label>
     <div class="panel-actions">
       <label class="ghost file-pick">Load a text file <input type="file" accept=".txt,.md,.markdown,.json,.yml,.yaml,.csv,.log,text/*" @change="readFile" /></label>
-      <button class="ghost" :disabled="!source.trim() || !content.trim() || management.busy.knowledge" @click="add">Add</button>
+      <button class="ghost" :disabled="!source.trim() || source.trim().length > 100 || !content.trim() || content.trim().length > 500000 || management.busy.knowledge" @click="add">Add</button>
     </div>
     <p v-if="management.notes.knowledge" class="manage-note" role="status">{{ management.notes.knowledge }}</p>
     </template>

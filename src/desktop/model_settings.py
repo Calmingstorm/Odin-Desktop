@@ -135,14 +135,31 @@ class ModelSettingsService:
             (("llm_provider", "model"), model),
             (("llm_provider", "active_provider"), provider),
         ]
+        from .management import MethodError
+
+        persist_error = None
+
+        def persist():
+            nonlocal persist_error
+            try:
+                return self._save(changes, "models.main.set", params)
+            except MethodError as exc:
+                # The owner drains persistence and rolls back its unpublished
+                # graph before returning a deliberately generic failure. Keep
+                # the protocol classification without bypassing that cleanup.
+                persist_error = exc
+                raise
+
         result = await switch(
             provider,
-            persist=lambda: self._save(changes, "models.main.set", params),
+            persist=persist,
             model_ref=model,
         )
         if not isinstance(result, dict):
             raise _error("unavailable", "Main-model runtime owner returned no result")
         if "error" in result:
+            if persist_error is not None:
+                raise persist_error
             code = "internal_error" if "persist failed" in str(result["error"]) else "bad_request"
             # Owner messages may contain endpoint auth; keep protocol safe.
             raise _error(code, "Main-model switch failed")

@@ -54,10 +54,10 @@ const inputId = (field: ConfigField): string => `field-${field.path.replace(/\W/
 
       <div v-if="!editableHere(field)" class="field-input readonly">
         <code class="field-value">{{ JSON.stringify(field.desired) }}</code>
-        <span class="field-desc">Changed with the controls above.</span>
+        <span class="field-desc">{{ field.path === 'llm_provider.active_provider' ? 'Selected by the main model reference.' : 'Changed with the controls above.' }}</span>
       </div>
       <div v-else-if="isSecret(field)" class="field-input secret">
-        <span class="secret-state">{{ field.desired ? 'Set' : 'Not set' }}</span>
+        <span class="secret-state">{{ field.configured === null ? 'Keyring unavailable; saved value unknown' : field.configured ? 'Set' : 'Not set' }}</span>
         <input
           :id="inputId(field)"
           :value="secrets.values[field.path] ?? ''"

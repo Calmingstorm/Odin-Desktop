@@ -2,7 +2,7 @@
 import { onMounted } from 'vue'
 import type { CodexAccount, QuotaWindow } from '../../../shared/api'
 import { ask } from '../dialog'
-import { accountIdentity, activateAccount, beginLogin, labelAccount, loadCodex, removeAccount, settings, stopLogin } from '../stores/settings'
+import { accountIdentity, activateAccount, beginLogin, labelAccount, loadCodex, removeAccount, retryLogin, settings, stopLogin } from '../stores/settings'
 import { unavailableText } from '../capability'
 
 onMounted(loadCodex)
@@ -51,7 +51,7 @@ async function remove(account: CodexAccount): Promise<void> {
     <header class="panel-head">
       <h3>Codex accounts</h3>
       <span class="panel-hint">Odin uses one at a time and moves to the next when one hits its limit.</span>
-      <button v-if="!settings.codex.unavailable" class="ghost" :disabled="settings.codex.login?.status === 'waiting'" @click="beginLogin">Add account</button>
+      <button v-if="!settings.codex.unavailable" class="ghost" :disabled="settings.codex.beginning || settings.codex.login?.status === 'waiting'" @click="beginLogin">Add account</button>
     </header>
     <p v-if="settings.codex.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Codex accounts') }}</p>
     <template v-else>
@@ -64,10 +64,11 @@ async function remove(account: CodexAccount): Promise<void> {
         <button class="ghost" @click="stopLogin">Stop waiting</button>
       </template>
       <p v-else-if="settings.codex.login.status === 'done'">{{ settings.codex.login.message }}</p>
-      <p v-else-if="settings.codex.login.status === 'stopped'">Stopped waiting. A login you finish in the browser is still added.</p>
+      <p v-else-if="settings.codex.login.status === 'stopped'">Stopped waiting. This app is no longer checking or finishing that login. Add an account to start again.</p>
       <p v-else class="warn">{{ settings.codex.login.message }}</p>
+      <button v-if="settings.codex.login.status === 'failed'" class="ghost" @click="retryLogin">Retry login</button>
       </div>
-      <p v-if="settings.codex.error" class="warn">{{ settings.codex.error }}</p>
+      <p v-if="settings.codex.error" class="warn">{{ settings.codex.error }} <button class="ghost" @click="loadCodex">Retry</button></p>
       <p v-if="settings.codex.stale && !settings.codex.busy" class="warn">
         The list couldn't be refreshed after your last change, so it may be out of date.
         <button class="ghost" @click="loadCodex">Refresh</button>

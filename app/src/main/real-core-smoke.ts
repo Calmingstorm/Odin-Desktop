@@ -19,10 +19,14 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(status.phase, 'ready')
   assert.equal(status.core_instance_id, broker.coreInstanceId)
   assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? '0.1.0.dev1')
-  assert.deepEqual(status.capabilities, ['status.get', 'events.subscribe', 'runtime.shutdown'])
+  for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
+    'tools.list', 'tools.timeouts.get', 'personality.get', 'hosts.list', 'hosts.public_key',
+    'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get']) {
+    assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
+  }
 
   // Later-slice reads are genuine core refusals, not empty successful lists.
-  for (const method of ['conversations.list', 'search.query', 'work.list', 'settings.schema', 'codex.accounts.list', 'usage.get']) {
+  for (const method of ['conversations.list', 'search.query', 'work.list', 'skills.list', 'mcp.status', 'schedules.list', 'computer.status']) {
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
@@ -35,6 +39,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     }
   }
   const text = (selector: string): Promise<string> => run(`document.querySelector(${JSON.stringify(selector)})?.innerText ?? ''`)
+  const count = (selector: string): Promise<number> => run(`document.querySelectorAll(${JSON.stringify(selector)}).length`)
   const click = async (selector: string): Promise<void> => {
     assert(await run(`Boolean(document.querySelector(${JSON.stringify(selector)}))`), `missing UI control ${selector}`)
     await run(`document.querySelector(${JSON.stringify(selector)}).click()`)
@@ -76,7 +81,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(await run('document.querySelectorAll(".conv-row").length'), 0, 'refused creation must not invent a conversation')
 
   // Slash commands remain useful without chat. Exercise the actual command
-  // palette and bridge; /status must use served fields, /usage must refuse.
+  // palette and bridge; /status and /usage now use real step-five observations.
   for (const command of ['/status', '/usage']) {
     await run(`(() => {
       const input = document.querySelector('.composer textarea');
@@ -89,9 +94,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       screens.push({ screen: '/status', text: await text('.composer .panel-text') })
       await click('.composer .panel button')
     } else {
-      await until(async () => /Usage.*unavailable/i.test(await text('.status')), '/usage refusal in the status bar')
-      assert(!/Usage.*unavailable/i.test(await text('.composer')), 'usage refusal must not be duplicated below the composer')
-      screens.push({ screen: '/usage', text: await text('.status') })
+      await until(async () => (await text('.composer .panel-text')).length > 0, '/usage report')
+      screens.push({ screen: '/usage', text: await text('.composer .panel-text') })
+      await click('.composer .panel button')
     }
   }
 
@@ -111,25 +116,56 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   await click('button[title="Settings (Ctrl+,)"]')
   await until(async () => (await run<number>('document.querySelectorAll(".settings-nav-item").length')) > 1, 'settings navigation')
   const sections = await run<string[]>('Array.from(document.querySelectorAll(".settings-nav-item"), b => b.innerText)')
-  assert.deepEqual(sections, ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust', 'Scheduled and running work', 'State', 'Records', 'Other'])
-  // These are the new screens' own service reads, not just the outer settings.schema refusal.
+  for (const expected of ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust', 'Scheduled and running work', 'State', 'Records']) {
+    assert(sections.includes(expected), `missing settings section ${expected}`)
+  }
   const servicePanels: Record<string, string[]> = {
-    'Models and providers': ['.codex-accounts'],
-    Personality: ['section[aria-label="Personality"]'],
-    Tools: ['section[aria-label="Built-in tools"]', 'section[aria-label="Tool timeouts"]'],
     Skills: ['section[aria-label="Skills"]'],
     'MCP servers': ['section[aria-label="MCP servers"]'],
-    'Hosts and trust': ['section[aria-label="Hosts"]'],
     'Scheduled and running work': ['section[aria-label="Schedules"]', 'section[aria-label="Running work"]'],
-    State: ['section[aria-label="Memory"]', 'section[aria-label="Named lists"]', 'section[aria-label="Knowledge"]'],
-    Records: ['section[aria-label="Health"]', 'section[aria-label="Usage"]', 'section[aria-label="Audit"]', 'section[aria-label="Logs"]', 'section[aria-label="Turn state"]', 'section[aria-label="Computer use"]']
+    Records: ['section[aria-label="Computer use"]']
   }
+  const observations = await run<Record<string, { ok: boolean; result?: unknown; error?: { code: string; message: string } }>>(`(async () => ({
+    settings: await window.odin.settingsSchema(), hosts: await window.odin.hostsList({}),
+    key: await window.odin.hostsPublicKey({}), tools: await window.odin.toolsList({}),
+    timeouts: await window.odin.toolsTimeoutsGet({}), personality: await window.odin.personalityGet({}),
+    memory: await window.odin.memoryList({}), lists: await window.odin.listsList({}),
+    knowledge: await window.odin.knowledgeList({}), audit: await window.odin.auditQuery({}),
+    logs: await window.odin.logsSearch({ level: 'all' }), turns: await window.odin.turnStateList({}),
+    usage: await window.odin.usage('7d'), accounts: await window.odin.codexAccounts()
+  }))()`)
+  for (const [name, answer] of Object.entries(observations)) {
+    if (name === 'accounts') {
+      assert(answer.ok || answer.error?.code === 'keyring_unavailable', 'accounts must report empty accounts or distinct keyring failure')
+    } else assert(answer.ok, `named bridge ${name} failed: ${JSON.stringify(answer.error)}`)
+  }
+  const hostData = observations.hosts!.result as { hosts: Array<{ alias: string; trust_state: string }>; default_host: string }
+  assert.equal(hostData.hosts.length, 1, 'fresh core must have only its actual local host')
+  assert.equal(hostData.hosts[0]!.alias, 'localhost')
+  assert.equal(hostData.hosts[0]!.trust_state, 'local')
+  assert.equal(hostData.default_host, 'localhost')
+  assert.deepEqual(observations.audit!.result, [], 'fresh audit must have no invented tool records')
+  assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [])
+  assert.equal((observations.turns!.result as { availability: string }).availability, 'not_enabled')
   for (let i = 0; i < sections.length; i++) {
     await click(`.settings-nav-item:nth-of-type(${i + 2})`)
     if (sections[i] === 'Models and providers') {
-      await until(async () => /Codex accounts.*unavailable/i.test(await text('.codex-accounts')), 'account capability refusal')
-      assert(!(await text('.codex-accounts')).includes('Add account'), 'unavailable accounts must not offer login')
+      await until(async () => !(await text('.codex-accounts')).includes('Loading'), 'real account observation')
+      assert(!/not (?:yet )?available|not served/i.test(await text('.codex-accounts')), 'served account management must not remain capability-unavailable')
       assert.equal(await run('document.querySelectorAll(".account").length'), 0, 'real session must not display fixture accounts')
+      await until(async () => (await run<number>('document.querySelectorAll(".schema-form").length')) > 0, 'real provider settings')
+    }
+    if (sections[i] === 'Personality') {
+      await until(async () => await run<boolean>('Boolean(document.querySelector("section[aria-label=Personality] select"))'), 'real personality settings')
+    }
+    if (sections[i] === 'Tools') {
+      await until(async () => (await count('section[aria-label="Built-in tools"] .manage-row')) > 0, 'real built-in tools')
+      assert((await text('section[aria-label="Tool timeouts"]')).includes('Timeouts'))
+    }
+    if (sections[i] === 'Hosts and trust') {
+      await until(async () => (await text('section[aria-label=Hosts]')).includes('localhost'), 'real localhost row')
+      assert.equal(await run('document.querySelector("section[aria-label=Hosts] select").value'), 'localhost')
+      await until(async () => (await text('section[aria-label="Odin\'s key"]')).includes('ssh-ed25519'), 'fresh provisioned SSH public key')
     }
     for (const selector of servicePanels[sections[i]!] ?? []) {
       await recordUnavailable(`Settings / ${sections[i]} / ${selector}`, selector)
@@ -137,14 +173,18 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     if (sections[i] === 'State') {
       // Context reload is deliberately on demand, not a screen-mount side effect.
       await click('section[aria-label="Context"] button')
-      await recordUnavailable('Settings / State / Context reload', 'section[aria-label="Context"]')
-      assert.equal(await run('document.querySelectorAll("section[aria-label=Context] button").length'), 0, 'refused context reload must not remain offered')
+      await until(async () => !(await text('section[aria-label="Context"]')).includes('Reloading…') && /reload|loaded|context/i.test(await text('section[aria-label="Context"]')), 'real context reload')
+      assert(!(await text('.settings-body')).includes('Loading'))
+      assert((await text('section[aria-label="Named lists"]')).includes('No lists.'))
     }
-    await recordUnavailable(`Settings / ${sections[i]}`, '.settings-body')
-    assert.equal(await run('document.querySelectorAll(".settings-body .warn, .settings-body [role=alert]").length'), 0, `${sections[i]} must not present capability refusal as a fault`)
-    assert.equal(await run('document.querySelectorAll(".settings-body .manage-row, .settings-body .work-item, .settings-body .account").length'), 0, `${sections[i]} must not display cached or fixture rows`)
-    assert(!/No schedules yet|No lists\.|Nothing recorded\.|Nothing preserved\.|No servers\.|No entries\./.test(await text('.settings-body')), `${sections[i]} must not claim a successful empty read`)
-    assert.equal(await run('document.querySelectorAll(".settings-group .schema-form").length'), 0, 'unavailable core settings must not use a fixture schema')
+    if (sections[i] === 'Records') {
+      await until(async () => (await text('section[aria-label=Audit]')).includes('Nothing recorded.'), 'real empty audit')
+      await until(async () => (await text('section[aria-label=Logs]')).includes('No entries.'), 'real empty logs')
+      await until(async () => (await text('section[aria-label="Turn state"]')).includes('Turn state is off.'), 'real turn-state availability')
+      assert((await text('section[aria-label="Health"]')).includes('host(s) configured'), 'real health must observe profile hosts')
+    }
+    assert(!(await text('.settings-body')).includes('Service is not available yet'), `${sections[i]} must not leak a generic capability refusal`)
+    screens.push({ screen: `Settings / ${sections[i]}`, text: await text('.settings-body') })
     if (i === 0) {
       assert((await text('.settings-body')).includes('Start Odin when you log in'), 'app-local settings remain available')
     }
@@ -152,7 +192,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   }
   writeFileSync(out.replace(/\.png$/i, '') + '-settings.png', (await win.webContents.capturePage()).toPNG())
   assert.equal(broker.linkState, 'ready')
-  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, screens }, null, 2) + '\n')
-  process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ link: broker.linkState, status, screens })}\n`)
+  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, observations, screens }, null, 2) + '\n')
+  process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ link: broker.linkState, status, screens: screens.map(({ screen }) => screen), observations: Object.fromEntries(Object.entries(observations).map(([name, answer]) => [name, answer.ok ? 'observed' : answer.error?.code])) })}\n`)
   process.stdout.write(`real-core-smoke: ok link=ready version=${status.version} screens=${screens.length}\n`)
 }

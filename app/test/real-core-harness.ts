@@ -1,12 +1,60 @@
 // The app's actual Broker against `python -m src`, never the fixture or an in-process service substitute.
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, readlinkSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readlinkSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { Broker, type Welcome } from '../src/main/broker'
 import { ensureProfileDirs, ensureToken, profilePaths, type ProfilePaths } from '../src/main/paths'
 
 const repository = resolve(__dirname, '../..')
+
+// The published named contract, not an arbitrary renderer RPC surface. Step 6 is absent.
+export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', ...[
+  'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'models.image.intent',
+  'providers.codex.set', 'providers.auxiliary.set', 'providers.ollama.set', 'providers.compat.set',
+  'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label',
+  'codex.login.begin', 'codex.login.poll',
+  'hosts.list', 'hosts.settings', 'hosts.prepare', 'hosts.test', 'hosts.commit', 'hosts.set_enabled',
+  'hosts.references', 'hosts.delete', 'hosts.public_key', 'hosts.force_revoke',
+  'memory.list', 'memory.get', 'memory.set', 'memory.delete', 'memory.bulk_delete',
+  'lists.list', 'lists.get', 'lists.delete',
+  'knowledge.list', 'knowledge.search', 'knowledge.ingest', 'knowledge.reingest', 'knowledge.delete',
+  'knowledge.versions', 'knowledge.restore', 'knowledge.import',
+  'audit.query', 'audit.verify', 'health.get', 'logs.search', 'turn_state.list', 'usage.get', 'runtime.reload',
+  'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover',
+  'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
+  'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
+  'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete',
+  'webhooks.outbound.test', 'integrations.email.get'
+].sort()]
+
+type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string }
+
+// Only the external secret/auth boundary is substituted. The entry point, management services,
+// transport, command journal, settings persistence and Broker remain the actual repository code.
+const isolatedServicesBootstrap = `
+import sys, runpy
+from src.desktop.management import ManagementService
+class MemoryKeyring:
+    def __init__(self): self.values = {}
+    def get_password(self, namespace, name): return self.values.get((namespace, name))
+    def set_password(self, namespace, name, value): self.values[(namespace, name)] = value
+    def delete_password(self, namespace, name): self.values.pop((namespace, name), None)
+if sys.argv[1] == 'memory':
+    original = ManagementService.compose.__func__
+    backend = MemoryKeyring()
+    ManagementService.compose = classmethod(lambda cls, core, **kw: original(cls, core, secret_backend=backend))
+base = sys.argv[2]
+if base:
+    import src.desktop.codex_accounts as device
+    import src.llm.codex_auth as auth
+    device.DEVICE_USERCODE_URL = base + '/device/code'
+    device.DEVICE_TOKEN_URL = base + '/device/token'
+    device.DEVICE_VERIFY_URL = base + '/verify'
+    auth.TOKEN_URL = base + '/oauth/token'
+sys.argv = ['src', *sys.argv[3:]]
+runpy.run_module('src', run_name='__main__')
+`
 
 export function assertIsolated(): void {
   if (process.platform !== 'linux' || !process.getuid || process.getuid() === 0) {
@@ -70,8 +118,15 @@ export class RealCoreHarness {
   private exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }> | null = null
   private readonly brokers = new Set<Broker>()
 
-  constructor() {
+  constructor(private readonly services: IsolatedServices = {}) {
     this.python = enginePython()
+    if (services.authBaseUrl) {
+      const url = new URL(services.authBaseUrl)
+      if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port ||
+          url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+        throw new Error('Isolated auth must be a disposable HTTP server on 127.0.0.1 with an explicit port.')
+      }
+    }
     this.root = mkdtempSync(join(process.env.ODIN_REAL_CORE_ROOT!, 'profile-'))
     this.env = {
       PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8', HOME: this.root,
@@ -97,7 +152,10 @@ export class RealCoreHarness {
     assertIsolated()
     if (this.running) throw new Error('Real core is already running.')
     this.output = ''
-    const child = spawn(this.python, ['-m', 'src', '--socket', this.paths.socketPath,
+    const entry = this.services.memoryKeyring || this.services.authBaseUrl
+      ? ['-c', isolatedServicesBootstrap, this.services.memoryKeyring ? 'memory' : 'missing', this.services.authBaseUrl ?? '']
+      : ['-m', 'src']
+    const child = spawn(this.python, [...entry, '--socket', this.paths.socketPath,
       '--token-file', this.paths.tokenPath, '--profile', this.paths.profileId, '--data-dir', this.paths.dataDir],
     { cwd: repository, env: this.env, stdio: ['pipe', 'pipe', 'pipe'] })
     this.process = child
@@ -151,6 +209,18 @@ export class RealCoreHarness {
     this.child.stdin.end()
     return this.waitExit()
   }
+
+  /** Capture only this disposable profile's files; prove write-only values never reach disk. */
+  persistedFilesContain(value: string): boolean {
+    assertIsolated()
+    const visit = (directory: string): boolean => readdirSync(directory, { withFileTypes: true }).some((entry) => {
+      const path = join(directory, entry.name)
+      return entry.isDirectory() ? visit(path) : entry.isFile() && readFileSync(path).includes(Buffer.from(value))
+    })
+    return visit(this.root)
+  }
+
+  get diagnostics(): string { return this.output }
 
   /** Offline time travel, not a fabricated tombstone: startup runs the real receipt pruner. */
   ageReceipt(commandId: string): void {

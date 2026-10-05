@@ -35,12 +35,21 @@ watch(() => stateStore.unavailable.personality, (unavailable) => {
 })
 
 async function save(): Promise<void> {
-  const change = choice.preset === 'custom' ? { ...choice } : { preset: choice.preset }
+  // The core replaces all four fields, defaulting omitted custom fields to empty strings.
+  // A preset switch keeps persisted custom text, not an unsaved hidden custom draft.
+  const custom = stateStore.personality
+  const change = choice.preset === 'custom' ? { ...choice } : {
+    preset: choice.preset,
+    custom_name: custom?.custom_name ?? '',
+    custom_identity: custom?.custom_identity ?? '',
+    custom_voice: custom?.custom_voice ?? ''
+  }
   const sent = { ...edited }
   await savePersonality(change, () => {
     // Only successful submitted fields can follow the readback. An edit made during the write or readback,
     // even back to an older value, has a newer generation and stays available for the next Save.
-    for (const field of Object.keys(change) as ChoiceField[]) accepted[field] = sent[field]
+    const fields: ChoiceField[] = change.preset === 'custom' ? ['preset', 'custom_name', 'custom_identity', 'custom_voice'] : ['preset']
+    for (const field of fields) accepted[field] = sent[field]
   })
 }
 
