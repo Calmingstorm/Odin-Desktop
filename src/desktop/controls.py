@@ -48,6 +48,7 @@ class ControlService:
         self.permissions = permissions
         self.resume_manager = resume_manager
         self.on_changed = on_changed
+        self.work = None
         self._locks: dict[str, asyncio.Lock] = {}
         with store.transaction() as connection:
             connection.execute("""CREATE TABLE IF NOT EXISTS desktop_controls (
@@ -58,6 +59,8 @@ class ControlService:
                 created_at REAL NOT NULL)""")
 
     async def dispatch(self, method: str, params: dict) -> dict:
+        if method == "work.control":
+            return await self._work_control(params)
         if method not in {"control.stop", "control.steer", "control.resume"}:
             return response_error("not_found", "Unknown control method")
         if (type(params) is not dict
@@ -93,6 +96,65 @@ class ControlService:
         except Exception:
             # Leave the reservation pending. An external action may already have
             # happened, so even a fresh transport envelope cannot retry it.
+            return response_error("internal", "Control outcome is unknown", "outcome_unknown")
+
+    async def _work_control(self, params):
+        """Use the same durable control boundary for real manager controls.
+
+        The app names the immutable id it read. Persist the resolved run and
+        generation before any manager action. A replay returns that old receipt,
+        never resolves a successor using the same manager-visible identifier.
+        """
+        if (type(params) is not dict or any(type(params.get(key)) is not str or not params[key]
+                for key in ("control_command_id", "kind", "id", "action"))):
+            return response_error("bad_request", "Expected a work-bound control")
+        if not self.permissions.is_owner(self.authority.owner_id):
+            return response_error("unauthorized", "Current profile owner authority is required")
+        command_id = params["control_command_id"]
+        binding = canonical_json([self.store.profile_id, "work.control", params])
+        try:
+            async with self._locks.setdefault(command_id, asyncio.Lock()):
+                with self.store.transaction() as db:
+                    old = db.execute("SELECT * FROM desktop_controls WHERE control_command_id=?",
+                                     (command_id,)).fetchone()
+                    if old is not None:
+                        if old["binding"] != binding:
+                            return response_error("id_conflict", "Control ID has a different binding")
+                        if old["response"] is None:
+                            return response_error("internal", "Control outcome is unknown",
+                                                  "outcome_unknown")
+                        return json.loads(old["response"])
+                if self.work is None:
+                    return response_error("capability_unavailable", "Work controls are unavailable")
+                records = self.work.list({"kind": params["kind"]}).get("items", [])
+                records = [item for item in records if item["id"] == params["id"]]
+                if len(records) != 1:
+                    return {"ok": True, "result": {"disposition": "not_available"}}
+                record = records[0]
+                normalized = {key: record[key] for key in (
+                    "kind", "id", "manager_generation", "run_id", "generation", "conversation_id")}
+                normalized.update(control_command_id=command_id, action=params["action"])
+                for key in normalized:
+                    if key in params and params[key] != normalized[key]:
+                        return {"ok": True, "result": {"disposition": "not_available"}}
+                if "text" in params:
+                    normalized["text"] = params["text"]
+                if record["kind"] == "schedule":
+                    normalized["revision"] = record["detail"]["revision"]
+                    if "revision" in params and params["revision"] != normalized["revision"]:
+                        return {"ok": True, "result": {"disposition": "not_available"}}
+                self._reserve("work.control", dict(normalized,
+                    request_id=record.get("request_id") or record["run_id"]), binding)
+                owner = self.authority.authenticate_local(peer_uid=self.authority.owner_uid)
+                result = await self.work.apply(normalized, owner_context=owner)
+                answer = result if "ok" in result else {"ok": True, "result": result}
+                self._finish(command_id, answer)
+                self._changed()
+                return answer
+        except (JournalStorageError, sqlite3.Error, OSError):
+            return response_error("storage_unavailable", "Durable control storage is unavailable",
+                                  "outcome_unknown")
+        except Exception:
             return response_error("internal", "Control outcome is unknown", "outcome_unknown")
 
     def _reserve(self, method: str, params: dict, binding: str) -> dict | None:
