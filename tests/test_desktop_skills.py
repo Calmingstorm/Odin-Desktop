@@ -427,7 +427,8 @@ async def test_dynamic_dependency_failure_does_not_block_publication(graph, monk
         dynamic = code() + "SKILL_DEFINITION['dependencies'] = ['example-package']\n"
         await graph.service.handle("skills.save", {"name": "demo", "code": dynamic})
         assert [row["name"] for row in graph.service.get_tool_definitions()] == ["demo"]
-        assert any(d.level == "error" for d in graph.service.skill_manager._skills["demo"].diagnostics)
+        diagnostics = graph.service.skill_manager._skills["demo"].diagnostics
+        assert any(d.level == "error" for d in diagnostics)
     finally:
         PermissionManager.reset_request_owner(token)
 

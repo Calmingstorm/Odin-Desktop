@@ -28,6 +28,10 @@ retain bounded management authority; arbitrary child tasks do not inherit it.
 - **Skills:** real retained-manager create/edit/delete, enable/disable, validate,
   schema publication, reload and profile-keyring configuration. The engine interpreter
   installs validated index dependencies through its declared, locked pip dependency.
+  Dependency diagnostics do not reject otherwise importable skills, and declared
+  names need not match filenames. Published input schemas describe calls rather than
+  rejecting the blank/null optional values tolerated by retained skills. Install-time
+  requirement refusals remain intact; pip failure diagnostics retain scrubbed output.
   `get_tool_definitions` and `list_skills` expose qualified state; `skill_manager` is
   the later request-dispatch seam. `skills.test` is deliberately unadvertised until
   genuine request admission/delivery exists. Skills remain trusted in-process Python,
@@ -35,15 +39,27 @@ retain bounded management authority; arbitrary child tasks do not inherit it.
 - **MCP:** configured supervised startup, desired-state management, current-generation
   qualified tools, bounded publication and reconnect. Header/environment containers
   and credential-bearing endpoints live in the existing profile keyring. Public
-  configuration contains no credential values. The retained `MCPToolOutcome` dispatch
+  configuration contains no credential values. Non-secret profile-local markers
+  record credential field presence per server; credential-free startup never reads
+  the keyring. A marked server with unreadable credentials reports its own reason
+  without stopping the other servers. Unmarked older keyring-only credentials are
+  retained untouched and imported by an explicit existing `mcp.reconnect` after
+  unlock, not a new protocol method or a startup-wide vault probe. Status identifies
+  that legacy boundary; credential edits require reconciliation first. Marker writes
+  fence secret mutations and participate in rollback. The retained `MCPToolOutcome` dispatch
   seam requires genuine current owner context; non-owner/background admission and
   delivery remain part B. Reconnect, reload and rollback never replay a tool call.
-- **Browser:** packaging-owned `assets/browser` Chromium layouts only, never PATH,
-  system browser, personal profile or configured operator CDP. Disabled startup launches
-  nothing. Enabled startup qualifies headless disposable context/page creation and
-  copied HTTP/WebSocket guards before assigning the executor owner. Its boot policy
-  snapshot remains separate from saved restart-only settings. Packaging must provide
-  the binary; stubbed lifecycle tests are not packaged Chromium qualification.
+- **Browser:** use explicitly configured `browser.cdp_url` when present, otherwise
+  packaging-owned Chromium only, never PATH, a system browser or a personal profile.
+  PR #24 owns the resources layout: `ODIN_DESKTOP_BUNDLE_ROOT` contains
+  `browser/chromium/chrome-headless-shell-linux64/chrome-headless-shell`.
+  Resolved executables cannot escape that bundle root. Disabled startup launches
+  nothing. Qualification checks disposable context/page creation and copied
+  HTTP/WebSocket guards; failure remains retryable on the next use with a 30-second
+  qualification bound. Retry eligibility is not a claim that a browser is connected
+  or already qualified. The boot policy snapshot remains separate from saved
+  restart-only settings. Stubbed lifecycle tests are not packaged Chromium or real
+  CDP qualification, and no configured endpoint is contacted during tests.
 - **Computer:** status, exact-generation pause/stop/cancel/close, explicit recovery,
   release-only cleanup and activation/revocation over the retained controller/store.
   No foreground start/resume/observation/export/input. Readiness explicitly says
