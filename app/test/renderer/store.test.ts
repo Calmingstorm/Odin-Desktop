@@ -729,3 +729,12 @@ describe('commands and attachments', () => {
     expect(bridge.calls.steer).toHaveLength(0)
   })
 })
+
+describe('results', () => {
+  it('marks a file no longer available when the core says so', async () => {
+    const reply: Message = { ...message('m-reply'), artifacts: [{ ref: 'f_1', name: 'notes.txt', mime: 'text/plain', size: 3, kind: 'file', available: true }] }
+    await start(snapshot({ watermark: '1', messages: { items: [reply], has_more: false } }))
+    emit(event(2, 'artifact.unavailable', { message_id: 'm-reply', ref: 'f_1', reason: 'expired' }))
+    expect(store.state.views.c1!.messages[0]!.artifacts![0]!.available).toBe(false)
+  })
+})

@@ -1,0 +1,119 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import type { Message } from '../../../shared/api'
+import { images, showsInline, type ImageHandle } from '../artifacts'
+import { plainTextOf, renderMarkdown } from '../markdown'
+import { startThread, type ToolEntry } from '../store'
+import FileCard from './FileCard.vue'
+import ReportViewer from './ReportViewer.vue'
+import ToolActivity from './ToolActivity.vue'
+
+const props = defineProps<{
+  message: Message
+  conversationId: string
+  tools?: ToolEntry[]
+  highlight?: boolean
+  /** Copy and thread actions; off in the view around a search result. */
+  actions?: boolean
+}>()
+
+const copyOpen = ref(false)
+const copied = ref('')
+/** blob: URLs for inline images; null once an image can't be shown, so it falls back to a file card. */
+const sources = reactive<Record<string, string | null | undefined>>({})
+
+const artifacts = computed(() => props.message.artifacts ?? [])
+const inline = computed(() => artifacts.value.filter((a) => showsInline(a) && sources[a.ref] !== null))
+const files = computed(() => artifacts.value.filter((a) => a.kind !== 'report' && (!showsInline(a) || sources[a.ref] === null)))
+const reports = computed(() => artifacts.value.filter((a) => a.kind === 'report'))
+const html = computed(() => renderMarkdown(props.message.text))
+
+const held = new Map<string, ImageHandle>()
+
+function loadImages(): void {
+  for (const artifact of artifacts.value) {
+    if (!showsInline(artifact) || held.has(artifact.ref)) continue
+    const handle = images.acquire(artifact)
+    held.set(artifact.ref, handle)
+    sources[artifact.ref] = undefined
+    void handle.url.then((url) => (sources[artifact.ref] = url))
+  }
+}
+onMounted(loadImages)
+watch(artifacts, loadImages)
+onBeforeUnmount(() => {
+  for (const handle of held.values()) handle.release()
+  held.clear()
+})
+
+function who(role: string): string {
+  return role === 'user' ? 'You' : role === 'assistant' ? 'Odin' : 'Notice'
+}
+
+function time(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+async function copy(kind: 'markdown' | 'plain'): Promise<void> {
+  copyOpen.value = false
+  const text = kind === 'markdown' ? props.message.text : plainTextOf(props.message.text)
+  const result = await window.odin.copyText(text)
+  copied.value = result.ok ? 'Copied' : "Couldn't copy"
+  setTimeout(() => (copied.value = ''), 1500)
+}
+
+/** Copy buttons inside rendered code blocks. */
+function onBodyClick(event: MouseEvent): void {
+  const button = (event.target as HTMLElement | null)?.closest('.code-copy') as HTMLButtonElement | null
+  if (!button) return
+  const code = button.parentElement?.querySelector('code')?.textContent ?? ''
+  void window.odin.copyText(code).then((result) => {
+    button.textContent = result.ok ? 'Copied' : "Couldn't copy"
+    setTimeout(() => (button.textContent = 'Copy'), 1500)
+  })
+}
+</script>
+
+<template>
+  <article :id="`m-${message.id}`" :class="['msg', message.role, { highlight }]">
+    <ToolActivity v-if="message.role === 'assistant' && tools?.length" :entries="tools" />
+    <div class="meta">
+      <span class="who">{{ who(message.role) }}</span>
+      <time :datetime="message.created_at">{{ time(message.created_at) }}</time>
+      <span v-if="actions" class="msg-actions">
+        <span v-if="copied" class="copied" role="status">{{ copied }}</span>
+        <button class="msg-action" :aria-expanded="copyOpen" @click="copyOpen = !copyOpen">Copy</button>
+        <button
+          class="msg-action"
+          title="Start a new thread that carries this conversation's context up to here"
+          @click="startThread(conversationId, message.id)"
+        >
+          Thread from here
+        </button>
+      </span>
+    </div>
+    <div v-if="copyOpen" class="copy-choices">
+      <button class="ghost" @click="copy('markdown')">Copy as Markdown</button>
+      <button class="ghost" @click="copy('plain')">Copy as plain text</button>
+    </div>
+    <div v-if="message.text" class="body md" @click="onBodyClick" v-html="html" />
+    <ul v-if="message.attachments?.length" class="msg-attachments" aria-label="Attachments">
+      <li v-for="a in message.attachments" :key="a.ref">{{ a.name }} · {{ fileSize(a.size) }}</li>
+    </ul>
+    <div v-if="inline.length" class="artifact-images">
+      <figure v-for="a in inline" :key="a.ref" class="artifact-image">
+        <img v-if="sources[a.ref]" :src="sources[a.ref] ?? undefined" :alt="a.name" />
+        <span v-else class="image-loading">Loading {{ a.name }}…</span>
+        <figcaption>{{ a.name }}</figcaption>
+      </figure>
+    </div>
+    <FileCard v-for="a in files" :key="a.ref" :artifact="a" />
+    <ReportViewer v-for="a in reports" :key="a.ref" :artifact="a" />
+  </article>
+</template>

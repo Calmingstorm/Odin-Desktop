@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { renderMarkdown } from '../markdown'
-import { backToLatest, loadFailure, loadOlder, retry, select, startThread, state, steersFor, stopPending, type SteerLine } from '../store'
+import { backToLatest, loadFailure, loadOlder, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
+import Message from './Message.vue'
 import ToolActivity from './ToolActivity.vue'
 
 const scroller = ref<HTMLElement | null>(null)
@@ -77,23 +77,11 @@ function time(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-function who(role: string): string {
-  return role === 'user' ? 'You' : role === 'assistant' ? 'Odin' : 'Notice'
-}
-
 function older(): void {
   if (state.activeId) void loadOlder(state.activeId)
 }
 
-function fileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
 
-function threadFrom(messageId: string): void {
-  if (state.activeId) void startThread(state.activeId, messageId)
-}
 </script>
 
 <template>
@@ -109,13 +97,13 @@ function threadFrom(messageId: string): void {
         <button class="ghost" @click="backToLatest">Back to latest</button>
       </div>
       <p v-if="jump.hasBefore" class="jump-edge">Earlier messages aren't shown here.</p>
-      <article v-for="m in jump.items" :id="`m-${m.id}`" :key="m.id" :class="['msg', m.role, { highlight: m.id === state.highlightId }]">
-        <div class="meta">
-          <span class="who">{{ who(m.role) }}</span>
-          <time :datetime="m.created_at">{{ time(m.created_at) }}</time>
-        </div>
-        <div class="body md" v-html="renderMarkdown(m.text)" />
-      </article>
+      <Message
+        v-for="m in jump.items"
+        :key="m.id"
+        :message="m"
+        :conversation-id="jump.conversationId"
+        :highlight="m.id === state.highlightId"
+      />
       <p v-if="jump.hasAfter" class="jump-edge">Later messages aren't shown here.</p>
     </template>
     <template v-else>
@@ -130,23 +118,15 @@ function threadFrom(messageId: string): void {
         </button>
       </div>
       <p v-if="!messages.length && !pending.length && !running" class="empty">Ask Odin anything.</p>
-      <article v-for="m in messages" :id="`m-${m.id}`" :key="m.id" :class="['msg', m.role, { highlight: m.id === state.highlightId }]">
-        <ToolActivity
-          v-if="m.role === 'assistant' && m.request_id && view.tools[m.request_id]?.length"
-          :entries="view.tools[m.request_id] ?? []"
-        />
-        <div class="meta">
-          <span class="who">{{ who(m.role) }}</span>
-          <time :datetime="m.created_at">{{ time(m.created_at) }}</time>
-          <button class="msg-action" title="Start a new thread that carries this conversation's context up to here" @click="threadFrom(m.id)">
-            Thread from here
-          </button>
-        </div>
-        <div v-if="m.text" class="body md" v-html="renderMarkdown(m.text)" />
-        <ul v-if="m.attachments?.length" class="msg-attachments" aria-label="Attachments">
-          <li v-for="a in m.attachments" :key="a.ref">{{ a.name }} · {{ fileSize(a.size) }}</li>
-        </ul>
-      </article>
+      <Message
+        v-for="m in messages"
+        :key="m.id"
+        :message="m"
+        :conversation-id="state.activeId ?? ''"
+        :tools="m.request_id ? view.tools[m.request_id] : undefined"
+        :highlight="m.id === state.highlightId"
+        actions
+      />
       <article v-for="p in pending" :key="p.client_submission_id" class="msg user pending">
         <div class="meta">
           <span class="who">You</span>

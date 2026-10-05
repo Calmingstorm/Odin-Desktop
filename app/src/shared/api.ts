@@ -30,6 +30,22 @@ export interface UsageResult {
   summary: string
 }
 
+/** A file, image or stored report Odin produced, by core reference. */
+export interface ArtifactRef {
+  ref: string
+  name: string
+  mime: string
+  size: number
+  kind: 'image' | 'file' | 'report'
+  available: boolean
+}
+
+export interface ReportPage {
+  page: number
+  pages: number
+  text: string
+}
+
 /** An attachment the core holds, by reference. */
 export interface AttachmentRef {
   ref: string
@@ -111,6 +127,8 @@ export interface Message {
   client_submission_id?: string
   /** Present on user messages that carried attachments. */
   attachments?: AttachmentRef[]
+  /** Files, images and reports Odin produced with this message. */
+  artifacts?: ArtifactRef[]
 }
 
 export interface RequestRef {
@@ -244,6 +262,13 @@ export interface OdinApi {
   uploadAttachment(params: { id: string; conversation_id: string }): Promise<Result<AttachmentRef>>
   cancelAttachment(id: string): Promise<Result<{ cancelled: boolean }>>
   onAttachmentProgress(listener: (progress: AttachmentProgress) => void): () => void
+  /** An image's bytes, for showing it inline. */
+  fetchArtifact(ref: string): Promise<Result<{ data: Uint8Array }>>
+  openArtifact(params: { ref: string; name: string }): Promise<Result<{ opened: boolean }>>
+  saveArtifact(params: { ref: string; name: string }): Promise<Result<{ saved: boolean }>>
+  revealArtifact(params: { ref: string; name: string }): Promise<Result<{ revealed: boolean }>>
+  reportPage(params: { report_id: string; page: number }): Promise<Result<ReportPage>>
+  copyText(text: string): Promise<Result<{ copied: boolean }>>
   getSettings(): Promise<Result<Settings>>
   setAutostart(enabled: boolean): Promise<Result<Settings>>
   getAppState(): Promise<AppState>
@@ -289,6 +314,12 @@ export const IPC = {
   uploadAttachment: 'odin:attachments:upload',
   cancelAttachment: 'odin:attachments:cancel',
   attachmentProgress: 'odin:attachments:progress',
+  fetchArtifact: 'odin:artifacts:fetch',
+  openArtifact: 'odin:artifacts:open',
+  saveArtifact: 'odin:artifacts:save',
+  revealArtifact: 'odin:artifacts:reveal',
+  reportPage: 'odin:reports:page',
+  copyText: 'odin:clipboard:copy',
   getSettings: 'odin:settings:get',
   setAutostart: 'odin:settings:set-autostart',
   getAppState: 'odin:app-state:get',

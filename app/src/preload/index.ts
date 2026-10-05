@@ -57,6 +57,12 @@ const api: OdinApi = {
       ipcRenderer.removeListener(IPC.attachmentProgress, handler)
     }
   },
+  fetchArtifact: (ref) => ipcRenderer.invoke(IPC.fetchArtifact, { ref }),
+  openArtifact: (params) => ipcRenderer.invoke(IPC.openArtifact, params),
+  saveArtifact: (params) => ipcRenderer.invoke(IPC.saveArtifact, params),
+  revealArtifact: (params) => ipcRenderer.invoke(IPC.revealArtifact, params),
+  reportPage: (params) => ipcRenderer.invoke(IPC.reportPage, params),
+  copyText: (text) => ipcRenderer.invoke(IPC.copyText, { text }),
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
   setAutostart: (enabled) => ipcRenderer.invoke(IPC.setAutostart, { enabled }),
   getAppState: () => ipcRenderer.invoke(IPC.getAppState),

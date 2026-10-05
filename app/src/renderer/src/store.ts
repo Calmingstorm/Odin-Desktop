@@ -954,6 +954,12 @@ function applyToView(view: ConversationView, event: CoreEvent): void {
       }
       return
     }
+    case 'artifact.unavailable': {
+      const message = view.messages.find((m) => m.id === String(p.message_id))
+      const artifact = message?.artifacts?.find((a) => a.ref === String(p.ref))
+      if (artifact) artifact.available = false
+      return
+    }
     case 'effects.resolved': {
       const remaining = Number(p.remaining) || 0
       const index = view.unresolved.findIndex((o) => o.request_id === requestId && o.generation === generation)

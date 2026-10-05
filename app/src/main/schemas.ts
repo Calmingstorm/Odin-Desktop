@@ -81,6 +81,14 @@ export const uploadAttachmentSchema = z.object({ id: z.uuid(), conversation_id: 
 
 export const cancelAttachmentSchema = z.object({ id: z.uuid() }).strict()
 
+export const fetchArtifactSchema = z.object({ ref: coreId }).strict()
+
+export const artifactActionSchema = z.object({ ref: coreId, name: z.string().min(1).max(255) }).strict()
+
+export const reportPageSchema = z.object({ report_id: coreId, page: z.number().int().min(1).max(100_000) }).strict()
+
+export const copyTextSchema = z.object({ text: z.string().max(2_000_000) }).strict()
+
 export const controlSchema = z
   .object({
     control_command_id: z.uuid(),
