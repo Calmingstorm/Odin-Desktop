@@ -5324,7 +5324,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "931d27a9f7eb57d9c59b978dc403d2764ecc3c608de659df5c552f526f721e11",
-      "contract": "Existing phase orchestrators and guards remain; uncertain audit metadata and settled detail publication do not affect tool execution.",
+      "contract": "Existing phase orchestrators and guards remain; Conversation: <name> replaces Channel: #<parent> exactly under D18. Uncertain audit metadata and settled detail publication do not affect tool execution.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
@@ -5612,7 +5612,7 @@
         }
       ],
       "path": "src/discord/tool_loop.py",
-      "reason": "Replace inert Phase-2 gates with trusted request assertion/admission callbacks and passive tool projection.",
+      "reason": "Replace inert Phase-2 gates with trusted request assertion/admission callbacks and passive tool projection; retain approved D18 conversation-label adaptation.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -5622,11 +5622,13 @@
       "test_sha256": {
         "tests/desktop_adapters/test_phase2_runner_characterization.py": "a048b1c644b83f769d7b60ab0f5a8baf01f02e44948398a90ceeabc06aae4f35",
         "tests/test_desktop_engine_services.py": "d4bbf0d6a0a7de167d6416ca97ca4a77968a3afab182a33b6a39a4428c3eca15",
+        "tests/test_desktop_round2_acceptance.py": "7870070c0ab7988bcb53d28ee0333df94fdab3f446ade8bee70173a358a22ff5",
         "tests/test_desktop_strip_loop.py": "a599fd478cdf38bf67bf80dfa86a3ac99df6525ce77226a2d3bc01730ac2673b"
       },
       "tests": [
         "tests/desktop_adapters/test_phase2_runner_characterization.py",
         "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_round2_acceptance.py",
         "tests/test_desktop_strip_loop.py"
       ]
     },
