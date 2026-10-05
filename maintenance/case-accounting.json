@@ -65029,8 +65029,60 @@
       "executable": "tests/test_desktop_capabilities_owner.py::test_lists_do_not_import_legacy_user_data"
     },
     {
-      "original": "tests/test_desktop_capabilities_owner.py::test_probe_missing_host_has_no_root_default",
-      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_missing_host_has_no_root_default"
+      "original": "tests/test_desktop_capabilities_owner.py::test_probe_no_host_matches_upstream_local_fallback[host_input0]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_no_host_matches_upstream_local_fallback[host_input0]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_probe_no_host_matches_upstream_local_fallback[host_input1]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_no_host_matches_upstream_local_fallback[host_input1]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_probe_no_host_matches_upstream_local_fallback[host_input2]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_no_host_matches_upstream_local_fallback[host_input2]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_probe_explicit_host_uses_authorized_generation",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_explicit_host_uses_authorized_generation"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_probe_unknown_explicit_host_never_falls_back_locally",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_unknown_explicit_host_never_falls_back_locally"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[missing-host_input0]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[missing-host_input0]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[missing-host_input1]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[missing-host_input1]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[unsealed-host_input0]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[unsealed-host_input0]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[unsealed-host_input1]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[unsealed-host_input1]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[foreign-host_input0]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[foreign-host_input0]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[foreign-host_input1]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_probe_requires_authenticated_owner_before_either_transport[foreign-host_input1]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_local_probe_keeps_curl_failure_ground_truth[response0-7-http_probe failed (exit 7): curl returned no output]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_local_probe_keeps_curl_failure_ground_truth[response0-7-http_probe failed (exit 7): curl returned no output]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_local_probe_keeps_curl_failure_ground_truth[response1-7-curl: connection failed]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_local_probe_keeps_curl_failure_ground_truth[response1-7-curl: connection failed]"
+    },
+    {
+      "original": "tests/test_desktop_capabilities_owner.py::test_local_probe_keeps_curl_failure_ground_truth[response2-1-http_probe: no response received]",
+      "executable": "tests/test_desktop_capabilities_owner.py::test_local_probe_keeps_curl_failure_ground_truth[response2-1-http_probe: no response received]"
     },
     {
       "original": "tests/test_desktop_capabilities_publication.py::test_publication_defaults_closed_and_missing_readiness_is_false",
@@ -66235,6 +66287,38 @@
     {
       "original": "tests/test_desktop_qualified_runner.py::test_empty_qualification_is_not_success",
       "executable": "tests/test_desktop_qualified_runner.py::test_empty_qualification_is_not_success"
+    },
+    {
+      "original": "tests/test_desktop_round2_acceptance.py::test_all_326_phase2_suites_are_frozen_in_the_machine_readable_plan",
+      "executable": "tests/test_desktop_round2_acceptance.py::test_all_326_phase2_suites_are_frozen_in_the_machine_readable_plan"
+    },
+    {
+      "original": "tests/test_desktop_round2_acceptance.py::test_governor_manual_gates_remain_explicit_in_the_machine_readable_plan",
+      "executable": "tests/test_desktop_round2_acceptance.py::test_governor_manual_gates_remain_explicit_in_the_machine_readable_plan"
+    },
+    {
+      "original": "tests/test_desktop_round2_acceptance.py::test_governor_and_imports_keep_the_bytes_supported_by_upstream_ci",
+      "executable": "tests/test_desktop_round2_acceptance.py::test_governor_and_imports_keep_the_bytes_supported_by_upstream_ci"
+    },
+    {
+      "original": "tests/test_desktop_round2_acceptance.py::test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3",
+      "executable": "tests/test_desktop_round2_acceptance.py::test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3"
+    },
+    {
+      "original": "tests/test_desktop_round2_acceptance.py::test_d18_preamble_covers_normal_and_thread_without_other_changes",
+      "executable": "tests/test_desktop_round2_acceptance.py::test_d18_preamble_covers_normal_and_thread_without_other_changes"
+    },
+    {
+      "original": "tests/test_desktop_round2_acceptance.py::test_d18_is_named_in_the_exact_tool_loop_delta_not_generic_adaptation",
+      "executable": "tests/test_desktop_round2_acceptance.py::test_d18_is_named_in_the_exact_tool_loop_delta_not_generic_adaptation"
+    },
+    {
+      "original": "tests/test_desktop_round2_acceptance.py::test_config_prompt_and_checkpoint_labels_are_exact_approved_c4",
+      "executable": "tests/test_desktop_round2_acceptance.py::test_config_prompt_and_checkpoint_labels_are_exact_approved_c4"
+    },
+    {
+      "original": "tests/test_desktop_round2_acceptance.py::test_http_probe_handler_restores_entire_upstream_module_without_new_policy",
+      "executable": "tests/test_desktop_round2_acceptance.py::test_http_probe_handler_restores_entire_upstream_module_without_new_policy"
     },
     {
       "original": "tests/test_desktop_runtime_retirement.py::test_profile_runtime_retirement_preserves_yaml",

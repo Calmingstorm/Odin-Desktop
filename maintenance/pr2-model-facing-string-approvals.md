@@ -303,17 +303,28 @@ Round 3 applies the named part-E approvals from main `3fac196` and
 [PR review comment 5993851093](https://github.com/Calmingstorm/Odin-Desktop/pull/2#issuecomment-5993851093).
 The corrected C4 labels and D17 local fallback above record the round-3 restoration
 contract. Parent-owned source changes and runtime tests establish those restorations;
-these documentation/static checks do not prove execution or host parity.
-`tests/test_desktop_round3_approval_docs.py` checks exact D19 coverage, the remaining
-NONE inventory, SkillContext documentation rows and the Phase 2 exit requirements.
+documentation/static checks do not prove execution or host parity.
 
-`tests/test_desktop_round2_acceptance.py` statically checks the merged D18 record,
-exact request context construction and table coverage, compares every retained catalog
-schema/string with the frozen baseline plus only the named C1-C3 transformations,
-and protects the explicit uncovered list. No Phase 2 loop, model endpoint, native helper
-or active desktop is exercised by those checks.
+Round 4 removes all Markdown-wording assertions from the round-2 acceptance suite
+and deletes the round-3 documentation-only suite, following Aaron's standing rule
+recorded on main `0c9f9cff` and
+[PR review comment 5994319842](https://github.com/Calmingstorm/Odin-Desktop/pull/2#issuecomment-5994319842).
+Human approval/disposition records are review artifacts, not executable tests.
+`tests/test_desktop_round2_acceptance.py` retains exact request context construction,
+catalog schema/string comparison against the frozen baseline plus only the named
+C1-C3 transformations, exact C4 labels, upstream governor/probe module byte checks,
+and machine-readable plan/ledger checks. No Phase 2 loop, model endpoint, native helper
+or active desktop is exercised by those checks. Inventory-tool tests that consume
+copied documents as real input and knowledge import/search tests remain unchanged.
 
-Observed round-3 local validation on 2026-10-05:
+Observed round-4 local validation: **69 focused cases passed**; complete selected
+qualification passed **28/28 groups, 13,145 executions, two skips, zero failures/errors**.
+The 45-case decrease removes the 44 documentation-only cases and one table-only case,
+not a functional-code waiver. Selection, fresh collection and unchanged original
+dispositions are recorded in [`pr2-round4-test-cleanup.md`](pr2-round4-test-cleanup.md).
+The historical round-2/3 records below remain historical, not current test inventory.
+
+Historical round-3 local validation on 2026-10-05 (before round-4 test removal):
 
 - Focused documentation/approval/owner acceptance: **84 passed**, including **44** new
   static document cases, in the sanitized non-root PID/mount namespace.

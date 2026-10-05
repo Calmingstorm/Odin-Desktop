@@ -75,8 +75,8 @@ insufficient. No real endpoint or live profile is authorized by this requirement
 
 These exit gates are mirrored in `docs/design/roadmap.md`. No model request path is
 wired in Phase 1; deferred work is not qualified behavior and no Phase 2 runtime parity
-result is claimed here. `tests/test_desktop_round3_approval_docs.py` supplies static
-documentation acceptance only, not completion of these runtime exit gates.
+result is claimed here. Human-written exit criteria are reviewed as documents, not
+tested for wording. Phase 2 must prove these gates through actual code behavior.
 
 ## Safety/manual future gates
 

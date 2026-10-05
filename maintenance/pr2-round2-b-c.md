@@ -23,8 +23,10 @@ and isolated-execution rules are preserved.
 
 The exact sorted frozen deferred path set is SHA-256
 `a4bcf41b3ee1660c991df903cccbda1583497c2ec01cea6bb2be6425ba43888f`.
-`tests/test_desktop_round2_acceptance.py` checks its identity, count and matching classifications, as well as
-both acceptance documents. No inherited suite, case, assertion or classification was changed.
+`tests/test_desktop_round2_acceptance.py` checks the machine-readable plan's identity,
+count and matching classifications. Round 4 removed the human-document wording
+assertions; those documents remain review artifacts. No inherited suite, case,
+assertion or classification was changed.
 
 ## C: Governor suites and upstream evidence
 

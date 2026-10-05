@@ -1,4 +1,4 @@
-"""Static PR 2 B/C obligations. No engine imports, command inputs or endpoints."""
+"""PR 2 code/baseline and machine-readable plan checks; no document wording tests."""
 from __future__ import annotations
 
 import ast
@@ -19,7 +19,7 @@ GOVERNOR_SUITES = (
 )
 
 
-def test_all_326_phase2_suites_are_frozen_and_required_in_both_exit_records():
+def test_all_326_phase2_suites_are_frozen_in_the_machine_readable_plan():
     plan = json.loads((ROOT / "maintenance/test-plan.json").read_text())
     paths = plan["phase2"]
     assert len(paths) == len(set(paths)) == 326
@@ -28,33 +28,22 @@ def test_all_326_phase2_suites_are_frozen_and_required_in_both_exit_records():
     }
     encoded = ("\n".join(sorted(paths)) + "\n").encode()
     assert hashlib.sha256(encoded).hexdigest() == PHASE2_SET_SHA256
-    for document in ("docs/design/roadmap.md", "maintenance/test-plan.md"):
-        text = (ROOT / document).read_text()
-        assert "326 Phase-2-deferred suites" in text
-        assert "never dropped" in text
-        for required in (
-            "tests/characterization/test_chat_tool_loop.py",
-            "tests/test_recovery.py",
-            "tests/test_tool_loop_helpers.py",
-            "tests/test_codex_replay_boundaries.py",
-            "tests/test_codex_replay_matrix.py",
-        ):
-            assert required in text, (document, required)
-            assert required in paths
+    for required in (
+        "tests/characterization/test_chat_tool_loop.py",
+        "tests/test_recovery.py",
+        "tests/test_tool_loop_helpers.py",
+        "tests/test_codex_replay_boundaries.py",
+        "tests/test_codex_replay_matrix.py",
+    ):
+        assert required in paths
 
 
-def test_governor_manual_gates_and_upstream_evidence_remain_explicit():
+def test_governor_manual_gates_remain_explicit_in_the_machine_readable_plan():
     plan = json.loads((ROOT / "maintenance/test-plan.json").read_text())
     records = {entry["path"]: entry for entry in plan["entries"]}
-    text = (ROOT / "docs/design/maintenance.md").read_text()
     for path in GOVERNOR_SUITES:
         assert path in plan["safety_manual_gated"]
         assert records[path]["classification"] == "safety_manual_gated"
-        assert path in text
-    assert "Porting a governor change requires its upstream CI evidence" in text
-    assert "re-qualify only the pure classification cases" in text
-    assert "36951324132" in text
-    assert "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25" in text
 
 
 def test_governor_and_imports_keep_the_bytes_supported_by_upstream_ci():
@@ -100,7 +89,6 @@ def test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3():
             "steps, conversation_id, report_format, or paused.",
         ),
     }
-    table = (ROOT / "maintenance/pr2-model-facing-string-approvals.md").read_text()
     with tarfile.open(ROOT / "maintenance/odin-v4.13.0.tar.gz") as archive:
         for module in paths:
             path = f"src/tools/defs/{module}.py"
@@ -109,10 +97,6 @@ def test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3():
             for original in baseline:
                 tool = copy.deepcopy(original)
                 name = tool["name"]
-                if name in retired | description_substitutions.keys() | {
-                    "spawn_agent", "read_channel", "schedule_task"
-                }:
-                    assert name in table
                 if name in retired:
                     continue
                 if name in description_substitutions:
@@ -183,25 +167,6 @@ def test_d18_preamble_covers_normal_and_thread_without_other_changes():
         keyword.value for keyword in call.keywords if keyword.arg == "channel_description"
     )
     assert isinstance(context, ast.Name) and context.id == "channel_ctx"
-    approval = (ROOT / "docs/design/prompt-changes.md").read_text()
-    assert "## D. Request preamble (approved 2026-10-05)" in approval
-    assert "`Channel: #<name>` | `Conversation: <name>`" in approval
-    assert "`Channel: #<parent> → thread: <name>` | `Conversation: <name>`" in approval
-
-
-def test_string_approval_table_preserves_explicit_unapproved_inventory():
-    table = (ROOT / "maintenance/pr2-model-facing-string-approvals.md").read_text()
-    for required in (
-        "D7-A", "D7-B executor", "D7-B chat", "C1-C7", "D18 / part D", "D19 / part E",
-        "D19 coverage and remaining NONE inventory", "not silently declared approved",
-        "Parent conversation context",
-        "Conversation artifact publication is unavailable until Phase 2.",
-        "Tool unavailable:", "Do not replay the tool.", "Checkpoint conversation turns",
-        "The required bundled dependency is unavailable; repair the desktop installation.",
-        "Outstanding wording entries are explicitly NONE",
-    ):
-        assert required in table
-    assert table.count("**NONE") >= 35
 
 
 def test_d18_is_named_in_the_exact_tool_loop_delta_not_generic_adaptation():
