@@ -753,6 +753,15 @@ describe('results', () => {
     emit(event(2, 'artifact.unavailable', { message_id: 'm-reply', ref: 'f_1', reason: 'expired' }))
     expect(store.state.views.c1!.messages[0]!.artifacts![0]!.available).toBe(false)
   })
+
+  it('marks the file gone in a search window too', async () => {
+    const old: Message = { ...message('m-old'), artifacts: [{ ref: 'f_9', name: 'old.txt', mime: 'text/plain', size: 3, kind: 'file', available: true }] }
+    await start()
+    bridge.control.aroundResult = { ok: true, result: { items: [old], has_before: false, has_after: true } }
+    await store.jumpTo({ conversation_id: 'c1', message_id: 'm-old', role: 'assistant', snippet: '', created_at: '2026-10-05T00:00:00Z' })
+    emit(event(2, 'artifact.unavailable', { message_id: 'm-old', ref: 'f_9', reason: 'expired' }))
+    expect(store.state.jump!.items[0]!.artifacts![0]!.available).toBe(false)
+  })
 })
 
 describe('review round 1: conversation commands are confirmed once', () => {

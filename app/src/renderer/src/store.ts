@@ -1012,6 +1012,12 @@ export function applyEvent(event: CoreEvent): void {
     const message = p.message as Message
     if (message.role === 'user' && message.client_submission_id) removePending(message.client_submission_id)
   }
+  const jump = state.jump
+  if (event.type === 'artifact.unavailable' && jump && jump.conversationId === p.conversation_id) {
+    // The search window shows its own copies of messages; they lose the file too.
+    const artifact = jump.items.find((m) => m.id === String(p.message_id))?.artifacts?.find((a) => a.ref === String(p.ref))
+    if (artifact) artifact.available = false
+  }
   if (event.type === 'control.receipt') {
     const local = state.controls.find((c) => c.control_command_id === String(p.control_command_id))
     if (local) advance(local, String(p.disposition))

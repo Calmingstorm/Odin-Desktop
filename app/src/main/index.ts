@@ -94,7 +94,11 @@ function run(): void {
   }
 
   broker.on('state', publishAppState)
-  broker.on('event', (event) => win?.webContents.send(IPC.event, event))
+  broker.on('event', (event) => {
+    win?.webContents.send(IPC.event, event)
+    // A file the core no longer has leaves the private cache too.
+    if (event.type === 'artifact.unavailable') void artifacts.forget(String(event.payload.ref))
+  })
   broker.on('receipt', (receipt) => {
     win?.webContents.send(IPC.receipt, receipt)
     publishAppState()

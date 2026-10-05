@@ -300,12 +300,14 @@ class Core:
 
     def make_artifacts(self, cid: str, text: str) -> list[dict]:
         """Scripted results for tests: whole words in the request ask for a file, an image, a script or a report."""
-        words = {w.rstrip("s") for w in re.findall(r"\b(files?|images?|scripts?|reports?)\b", text.lower())}
+        words = {w.rstrip("s") for w in re.findall(r"\b(files?|images?|scripts?|reports?|tiffs?)\b", text.lower())}
         made = []
         if "file" in words:
             made.append(("notes.txt", "text/plain", "file", b"Generated notes\nline two\n"))
         if "image" in words:
             made.append(("chart.png", "image/png", "image", SAMPLE_PNG))
+        if "tiff" in words:  # a format Chromium can't decode: the window falls back to a file card
+            made.append(("scan.tiff", "image/tiff", "image", b"II*\x00not really a tiff"))
         if "script" in words:
             made.append(("cleanup.sh", "text/x-shellscript", "file", b"#!/bin/sh\necho hello\n"))
         result = []

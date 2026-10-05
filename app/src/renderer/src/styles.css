@@ -339,3 +339,6 @@ textarea:focus { border-color: var(--accent-dim); outline: none; }
 .report-pages { color: var(--muted); font-size: 12px; }
 .report-nav { margin-left: auto; display: flex; gap: 6px; }
 .report-note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.file-card.actions-only { border: 0; background: transparent; padding: 4px 0 0; margin-top: 0; }
+.file-card.actions-only .file-status { color: var(--muted); font-size: 12px; margin-right: auto; }
+

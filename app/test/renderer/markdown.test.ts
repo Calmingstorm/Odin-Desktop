@@ -42,3 +42,21 @@ describe('copy as plain text', () => {
     expect(plainTextOf(text)).toBe('Steps:\n\n1. Pull\n2. Build\n  - fast\n  - clean\n3. Ship\n\n- one\n- two')
   })
 })
+
+describe('review round 1: code copy buttons work wherever Markdown is rendered', () => {
+  it('copies the code of the block whose button was clicked', async () => {
+    const copied: string[] = []
+    ;(globalThis as unknown as { window: unknown }).window = {
+      odin: { copyText: async (text: string) => (copied.push(text), { ok: true, result: { copied: true } }) }
+    }
+    const { onCodeCopyClick } = await import('../../src/renderer/src/code-copy')
+    const button = { textContent: 'Copy', parentElement: { querySelector: () => ({ textContent: 'make test' }) } }
+    onCodeCopyClick({ target: { closest: (selector: string) => (selector === '.code-copy' ? button : null) } as unknown as EventTarget })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(copied).toEqual(['make test'])
+    expect(button.textContent).toBe('Copied')
+    onCodeCopyClick({ target: { closest: () => null } as unknown as EventTarget }) // a click elsewhere copies nothing
+    expect(copied).toHaveLength(1)
+  })
+})
+

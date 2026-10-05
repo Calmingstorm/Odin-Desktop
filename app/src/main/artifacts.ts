@@ -1,7 +1,7 @@
 // Files Odin produced, by core reference (protocol.md, Results). The main process fetches them in bounded chunks and
 // keeps a private copy in the profile cache (owner-only), which it opens, saves or reveals. The window never executes
 // their content; it shows images and offers files.
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { once } from 'node:events'
 import { createWriteStream } from 'node:fs'
 import { mkdir, rename, rm, stat } from 'node:fs/promises'
@@ -59,9 +59,19 @@ export class ArtifactStore {
     return { ok: true, result: Buffer.concat(parts, total) }
   }
 
-  /** The private cached copy, fetched once. */
+  /** Each reference gets its own cache directory: a hash of the exact reference, so distinct ones never collide. */
+  private dirFor(ref: string): string {
+    return join(this.cacheDir, 'artifacts', createHash('sha256').update(ref).digest('hex'))
+  }
+
+  /** Drops the cached copy of a file the core no longer has. */
+  async forget(ref: string): Promise<void> {
+    await rm(this.dirFor(ref), { recursive: true, force: true })
+  }
+
+  /** The private cached copy, fetched once and checked with the core each time it is used. */
   cached(ref: string, name: string): Promise<Result<string>> {
-    const path = join(this.cacheDir, 'artifacts', safeFileName(ref), safeFileName(name))
+    const path = join(this.dirFor(ref), safeFileName(name))
     const pending = this.filling.get(path)
     if (pending) return pending
     const fill = this.fill(ref, path).finally(() => this.filling.delete(path))
@@ -92,10 +102,18 @@ export class ArtifactStore {
   }
 
   private async fill(ref: string, path: string): Promise<Result<string>> {
+    let present = false
     try {
-      if ((await stat(path)).isFile()) return { ok: true, result: path }
+      present = (await stat(path)).isFile()
     } catch {
       /* not cached yet */
+    }
+    if (present) {
+      // A copy is only as good as the core's reference: one deleted or expired since is gone here too.
+      const check = await this.core.request('artifacts.read', { ref, offset: 0, length: 1 })
+      if (check.ok) return { ok: true, result: path }
+      if (check.error.code === 'not_found' || check.error.code === 'expired') await this.forget(ref)
+      return check
     }
     await mkdir(dirname(path), { recursive: true, mode: 0o700 })
     return this.download(ref, path, 0o600)

@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { Message } from '../../../shared/api'
 import { images, showsInline, type ImageHandle } from '../artifacts'
+import { onCodeCopyClick } from '../code-copy'
 import { plainTextOf, renderMarkdown } from '../markdown'
 import { startThread, type ToolEntry } from '../store'
 import FileCard from './FileCard.vue'
@@ -68,15 +69,9 @@ async function copy(kind: 'markdown' | 'plain'): Promise<void> {
   setTimeout(() => (copied.value = ''), 1500)
 }
 
-/** Copy buttons inside rendered code blocks. */
-function onBodyClick(event: MouseEvent): void {
-  const button = (event.target as HTMLElement | null)?.closest('.code-copy') as HTMLButtonElement | null
-  if (!button) return
-  const code = button.parentElement?.querySelector('code')?.textContent ?? ''
-  void window.odin.copyText(code).then((result) => {
-    button.textContent = result.ok ? 'Copied' : "Couldn't copy"
-    setTimeout(() => (button.textContent = 'Copy'), 1500)
-  })
+/** An image the window can't decode (a TIFF, say) is offered as a file instead. */
+function onImageError(ref: string): void {
+  sources[ref] = null
 }
 </script>
 
@@ -102,15 +97,16 @@ function onBodyClick(event: MouseEvent): void {
       <button class="ghost" @click="copy('markdown')">Copy as Markdown</button>
       <button class="ghost" @click="copy('plain')">Copy as plain text</button>
     </div>
-    <div v-if="message.text" class="body md" @click="onBodyClick" v-html="html" />
+    <div v-if="message.text" class="body md" @click="onCodeCopyClick" v-html="html" />
     <ul v-if="message.attachments?.length" class="msg-attachments" aria-label="Attachments">
       <li v-for="a in message.attachments" :key="a.ref">{{ a.name }} · {{ fileSize(a.size) }}</li>
     </ul>
     <div v-if="inline.length" class="artifact-images">
       <figure v-for="a in inline" :key="a.ref" class="artifact-image">
-        <img v-if="sources[a.ref]" :src="sources[a.ref] ?? undefined" :alt="a.name" />
+        <img v-if="sources[a.ref]" :src="sources[a.ref] ?? undefined" :alt="a.name" @error="onImageError(a.ref)" />
         <span v-else class="image-loading">Loading {{ a.name }}…</span>
         <figcaption>{{ a.name }}</figcaption>
+        <FileCard :artifact="a" actions-only />
       </figure>
     </div>
     <FileCard v-for="a in files" :key="a.ref" :artifact="a" />
