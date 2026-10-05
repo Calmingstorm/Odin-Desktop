@@ -154,5 +154,12 @@ Review baseline: `31a48c24d7d3535f0fff2659a5da50d807af7bc7`.
   remains the tested `c1204d9a` implementation. Logs:
   `/home/odin/reviews/desktop-step1-round2-fresh-gates.log` and
   `/home/odin/reviews/desktop-step1-round2-diagnostics.log`.
-- Final qualification is rerun from another clean `0775` checkout, with locked dependencies and the unchanged
-  sanitized PID/mount-namespace launcher. The first failed run remains recorded above, not rewritten as green.
+- Final clean checkout: `e3da247dca8a7ceb1f977265792ccf616672367d`, created after `umask 002` and verified
+  `0775`, with a new copied-interpreter venv and locked dev extras. Drift, lint and ownership checks passed,
+  file-plan behavior tests passed **30/30**, and all **29/29 qualification groups passed**:
+  **13,429 passing executions, 2 skips, 0 failures, 0 errors**. Core transport passed **240/240**.
+  All use the unchanged sanitized PID/mount-namespace launcher. The earlier failed run remains recorded above.
+  Final log: `/home/odin/reviews/desktop-step1-round2-final-gates.log`; JUnit:
+  `/home/odin/reviews/desktop-step1-round2-final/.test-state/qualification-{0..28}.xml`.
+  Inherited unawaited-coroutine warnings remain visible. Only this evidence document changes after the verified
+  code commit; no merge, live-service operation or attribution trailers.
