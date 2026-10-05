@@ -279,7 +279,11 @@ def prove_helpers(bundle_root: Path, metadata: dict | None = None) -> dict:
         for line in dependencies.splitlines():
             if "=>" in line and line.split("=>", 1)[0].strip() not in allowed:
                 raise ValueError("helper dependency not covered by inventory/ABI floor")
-        native.append({"name": name, "no_argument_exit": expected, "ldd": dependencies})
+        # Evidence in the shipped manifest must not embed an ephemeral build
+        # location or ASLR addresses. Runtime closure was checked above.
+        normalized = re.sub(r" \(0x[0-9a-f]+\)", "", dependencies)
+        normalized = normalized.replace(str(root), "${BUNDLE_ROOT}")
+        native.append({"name": name, "no_argument_exit": expected, "ldd": normalized})
     floors = set()
     for path in [*(root / "helpers/bin" / name for name in NATIVE),
                  *(root / "helpers/lib" / row[0] for row in LIBRARIES)]:

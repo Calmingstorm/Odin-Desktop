@@ -33,6 +33,9 @@ with zipfile.ZipFile(electron_archive) as archive:
         if not installed.is_file() or sha256(installed) != hashlib.sha256(archive.read(member)).hexdigest():
             raise ValueError('Installed Electron differs from pinned archive: ' + member.filename)
 seven = REPO / 'app/node_modules/7zip-bin/linux/x64/7za'
+# npm --ignore-scripts deliberately skips 7zip-bin's chmod installer. These
+# locked npm bytes are a project-local build tool, not a system modification.
+seven.chmod(0o755)
 for resource in inputs['builder_binaries']:
     archive = _download(resource, archives)
     target = tools / resource['cache_directory']
