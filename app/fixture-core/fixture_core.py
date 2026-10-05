@@ -1413,6 +1413,8 @@ class Core:
         return parsed.astimezone(timezone.utc).isoformat()
 
     def check_action_fields(self, action: str, fields: dict) -> None:
+        if "retry_backoff_seconds" in fields and fields["retry_backoff_seconds"] < 1:
+            raise CoreError("bad_request", "retry_backoff_seconds must be >= 1")
         for key, owner in (("message", "reminder"), ("tool_name", "check"), ("tool_input", "check"),
                            ("report_format", "check"), ("steps", "workflow"), ("webhook_config", "webhook")):
             if fields.get(key) not in (None, "", {}) and action != owner:
@@ -1482,6 +1484,8 @@ class Core:
                         "webhook_config", "max_retries", "retry_backoff_seconds"):
                 if key in fields:
                     changed[key] = fields[key]
+            if fields.get("report_format") == "":
+                changed.pop("report_format", None)
             if changed["action"] != "webhook" and not changed.get("channel_id"):
                 raise CoreError("bad_request", "channel_id is required")
             if "paused" in params:

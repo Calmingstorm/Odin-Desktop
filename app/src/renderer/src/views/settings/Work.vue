@@ -51,12 +51,18 @@ async function save(): Promise<void> {
     return
   }
   formError.value = ''
-  const sent = JSON.stringify(current.form)
+  const sent = { ...current.form }
   await saveSchedule(body, (row) => {
     if (editing.value !== current) return // another form is open now: it stays as it is
     // Unchanged since it was sent: done. Changed since: it stays open, now editing what was saved.
-    if (JSON.stringify(current.form) === sent) editing.value = null
-    else current.original = row
+    if (JSON.stringify(current.form) === JSON.stringify(sent)) editing.value = null
+    else {
+      const saved = formFor(row)
+      for (const key of Object.keys(saved) as Array<keyof ScheduleForm>) {
+        if (current.form[key] === sent[key]) Object.assign(current.form, { [key]: saved[key] })
+      }
+      current.original = row
+    }
   })
 }
 
@@ -169,7 +175,7 @@ async function remove(row: ScheduleRow): Promise<void> {
       <label class="field-input">Description <input v-model="f.description" maxlength="500" /></label>
       <label v-if="!editing.original" class="field-input">
         It
-        <select v-model="f.action">
+        <select v-model="f.action" :disabled="management.busy[formKey]">
           <option v-for="a in ACTIONS" :key="a.value" :value="a.value">{{ a.label }}: {{ a.hint }}</option>
         </select>
       </label>
@@ -236,8 +242,8 @@ async function remove(row: ScheduleRow): Promise<void> {
         <label class="field-input">Expected statuses <input v-model="f.webhook_expected" placeholder="200, 204" /></label>
       </template>
       <div class="field-input">
-        <label class="limit">Retries <input v-model="f.max_retries" type="number" min="0" placeholder="0" /></label>
-        <label class="limit">seconds between <input v-model="f.retry_backoff_seconds" type="number" min="0" placeholder="60" /></label>
+        <label class="limit">Retries <input :value="f.max_retries" @input="f.max_retries = ($event.target as HTMLInputElement).value" type="number" min="0" placeholder="0" /></label>
+        <label class="limit">seconds between <input :value="f.retry_backoff_seconds" @input="f.retry_backoff_seconds = ($event.target as HTMLInputElement).value" type="number" min="1" placeholder="60" /></label>
       </div>
       <div class="panel-actions">
         <button class="ghost" :disabled="management.busy[formKey]" @click="save">{{ editing.original ? 'Save' : 'Create' }}</button>
