@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { ask } from '../../dialog'
 import { configValue } from '../../skill-config'
+import { unavailableText } from '../../capability'
 import {
   closeSkill,
   deleteSkill,
@@ -58,10 +59,11 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
     <header class="panel-head">
       <h3>Skills</h3>
       <span class="panel-hint">Tools written as Python files that Odin loads alongside his own.</span>
-      <button class="ghost" @click="newSkill(TEMPLATE)">New skill</button>
+      <button v-if="!management.unavailable.skills" class="ghost" @click="newSkill(TEMPLATE)">New skill</button>
     </header>
-    <p v-if="management.error" class="warn">{{ management.error }}</p>
-    <ul class="manage-list">
+    <p v-if="management.unavailable.skills" class="capability-unavailable" role="status">{{ unavailableText('Skill management') }}</p>
+    <p v-else-if="management.errors.skills" class="warn">{{ management.errors.skills }}</p>
+    <ul v-if="!management.unavailable.skills" class="manage-list">
       <li v-for="skill in management.skills" :key="skill.name" :class="['manage-row', skill.status]">
         <div class="manage-line">
           <code class="manage-name">{{ skill.name }}</code>
@@ -84,7 +86,7 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
     </ul>
   </section>
 
-  <section v-if="editing" class="panel skill-editor" aria-label="Skill editor">
+  <section v-if="editing && !management.unavailable.skills" class="panel skill-editor" aria-label="Skill editor">
     <header class="panel-head">
       <h3>{{ editing.create ? 'New skill' : editing.name }}</h3>
       <span class="panel-hint">Validation compiles the code without running it. Saving loads it into Odin.</span>

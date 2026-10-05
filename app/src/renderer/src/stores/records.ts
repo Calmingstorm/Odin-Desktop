@@ -1,8 +1,9 @@
 // The Records section: what Odin did and how he is, in the shapes of Odin's /api/audit, /api/usage,
 // /api/health/components, /api/logs, /api/turn-state and /api/computer routes. Read-only, except computer-use cleanup.
 import { reactive } from 'vue'
-import type { AuditEntry, AuditVerify, ComputerStatus, HealthReport, LogEntry, TurnStateReport, UsageResult } from '../../../shared/api'
-import { act } from './management'
+import type { AuditEntry, AuditVerify, ComputerStatus, HealthReport, LogEntry, Result, TurnStateReport, UsageResult } from '../../../shared/api'
+import { isUnavailable, resultMessage } from '../capability'
+import { act, management } from './management'
 
 export type RecordSection = 'audit' | 'verify' | 'usage' | 'health' | 'logs' | 'turns' | 'computer'
 
@@ -17,15 +18,33 @@ export const records = reactive({
   /** Sections whose last read answered. Until one has, nothing it shows is a fact: not even "nothing". */
   loaded: {} as Partial<Record<RecordSection, boolean>>,
   /** Why a section's last read failed. What it showed before stays, marked as from an earlier read. */
-  errors: {} as Partial<Record<RecordSection, string>>
+  errors: {} as Partial<Record<RecordSection, string>>,
+  unavailable: {} as Partial<Record<RecordSection, boolean>>
 })
 
+const features: Record<RecordSection, string> = { audit: 'Audit', verify: 'Audit verification', usage: 'Usage', health: 'Health', logs: 'Log search', turns: 'Preserved work', computer: 'Computer use' }
+
 /** Notes a read's answer for its section, and says whether it can be shown. */
-function answered<T>(section: RecordSection, result: { ok: true; result: T } | { ok: false; error: { message: string } }): result is { ok: true; result: T } {
+function answered<T>(section: RecordSection, result: Result<T>): result is { ok: true; result: T } {
   if (!result.ok) {
-    records.errors[section] = result.error.message
+    if (isUnavailable(result.error)) {
+      records.unavailable[section] = true
+      delete records.errors[section]
+      delete records.loaded[section]
+      // No last-read rows or safety verdicts belong to a core that refused this capability. Shared action locks
+      // (including a reconciliation awaiting its late receipt) remain owned by management.
+      if (section === 'audit') records.audit = []
+      else if (section === 'logs') records.logs = []
+      else records[section] = null
+      if (section === 'computer') {
+        for (const key of Object.keys(management.notes)) {
+          if (key.startsWith('computer:') && !management.busy[key]) delete management.notes[key]
+        }
+      }
+    } else records.errors[section] = result.error.message
     return false
   }
+  records.unavailable[section] = false
   records.errors[section] = undefined
   records.loaded[section] = true
   return true
@@ -49,12 +68,18 @@ export async function loadAudit(filter: AuditFilter = {}): Promise<void> {
 
 /** A failed check is no verdict: the record is neither intact nor broken until a check answers. */
 export async function verifyAudit(): Promise<void> {
+  const mine = ++latestVerify
   const result = await window.odin.auditVerify({})
+  if (mine !== latestVerify) return
   if (answered('verify', result)) records.verify = result.result
   else records.verify = null
 }
 
 let latestUsage = 0
+let latestVerify = 0
+let latestHealth = 0
+let latestTurns = 0
+let latestComputer = 0
 
 export async function loadUsage(period: '24h' | '7d' | '30d' | 'all'): Promise<void> {
   const mine = ++latestUsage
@@ -64,7 +89,9 @@ export async function loadUsage(period: '24h' | '7d' | '30d' | 'all'): Promise<v
 }
 
 export async function loadHealth(): Promise<void> {
+  const mine = ++latestHealth
   const result = await window.odin.healthGet({})
+  if (mine !== latestHealth) return
   if (answered('health', result)) records.health = result.result
 }
 
@@ -78,12 +105,16 @@ export async function searchLogs(filter: { q?: string; level?: 'error' | 'info' 
 }
 
 export async function loadTurns(): Promise<void> {
+  const mine = ++latestTurns
   const result = await window.odin.turnStateList({ limit: 50 })
+  if (mine !== latestTurns) return
   if (answered('turns', result)) records.turns = result.result
 }
 
 export async function loadComputer(): Promise<void> {
+  const mine = ++latestComputer
   const result = await window.odin.computerStatus({})
+  if (mine !== latestComputer) return
   if (answered('computer', result)) records.computer = result.result
 }
 
@@ -114,15 +145,22 @@ export function reconcileOutcome(status: ComputerStatus): string {
 
 /** Odin's headless release-all, bound to the session's own generation: you say you've checked the computer. */
 export async function reconcileComputer(status: ComputerStatus): Promise<boolean> {
+  if (records.unavailable.computer) return false
   const generation = status.session_generation ?? status.generation ?? 0
   return act(
     `computer:${status.session_id}`,
-    () =>
-      window.odin.computerReconcile({
+    async () => {
+      const result = await window.odin.computerReconcile({
         session_id: status.session_id,
         generation,
         acknowledgment: `ACKNOWLEDGE UNVERIFIED CLEANUP ${status.session_id}`
-      }),
+      })
+      if (!result.ok && isUnavailable(result.error)) {
+        answered('computer', result)
+        return { ...result, error: { ...result.error, message: resultMessage(result, features.computer) } }
+      }
+      return result
+    },
     (answer) => {
       records.computer = answer
       return reconcileOutcome(answer)

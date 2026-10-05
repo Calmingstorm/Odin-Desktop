@@ -50,9 +50,12 @@ there; it never uses the active desktop or the user's profile. Missing Python, d
 support or required tools fail with an explanation. There are no silent skips or unisolated fallbacks.
 
 `smoke:real-core` checks real `status.get` version/phase/instance/capabilities and actual rendered status, exercises
-chat/search/work and every settings section, asserts explicit unavailable states and absence of fixture rows,
+chat/search/work and every settings section's own service loads (including tools/timeouts, skills, MCP, hosts,
+schedules, personality, memory/lists, knowledge and each records panel), checks on-demand context reload, asserts explicit unavailable states and
+absence of fixture rows, raw capability errors, successful-empty claims or duplicate composer usage notices,
 then exits through normal `runtime.shutdown` and parent-EOF cleanup. Its evidence is printed as JSON. Set
-`ODIN_SMOKE_OUT` to retain a checkpoint screenshot; the default screenshot and profiles are discarded.
+`ODIN_SMOKE_OUT` to retain screenshots of chat and every settings section plus a JSON evidence file alongside the
+named checkpoint; the default screenshots, evidence and profiles are discarded.
 
 The fixture smoke gate explicitly clears real-core overrides, so it remains a fixture regression gate rather
 than accidentally running whichever core a developer shell last selected.

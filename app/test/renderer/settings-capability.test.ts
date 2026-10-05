@@ -22,7 +22,25 @@ beforeEach(async () => {
       },
       codexAccounts: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text', disposition: 'not_dispatched' } }),
       setAutostart: localAutostart,
-      setNotifications: localNotify
+      setNotifications: localNotify,
+      toolsList: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      toolsTimeoutsGet: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      skillsList: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      mcpStatus: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      hostsList: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      hostsPublicKey: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      schedulesList: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      personalityGet: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      memoryList: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      listsList: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      knowledgeList: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      auditQuery: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      auditVerify: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      usage: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      healthGet: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      logsSearch: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      turnStateList: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } }),
+      computerStatus: async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'internal protocol text' } })
     }
   }
   const Settings = (await import('../../src/renderer/src/views/Settings.vue')).default

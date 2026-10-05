@@ -116,7 +116,12 @@ describe('step-1 capability refusals in mounted renderer screens', () => {
     await flush()
     composer.root.find('form')!.fire('submit', { preventDefault() {} })
     await flush()
-    expect(composer.root.textContent()).toContain('Usage is unavailable in this core.')
+    const statusStore = await import('../../src/renderer/src/stores/status')
+    await statusStore.refreshStatus()
+    const statusBar = await screen('StatusBar')
+    expect(statusBar.root.textContent()).toContain('Usage is unavailable in this core.')
+    expect(composer.root.textContent()).not.toContain('Usage is unavailable in this core.')
+    expect(store.state.notice).toBe('Usage is unavailable in this core.')
   })
 
   it('handles snapshot unavailability separately from list refusal and keeps the local draft', async () => {

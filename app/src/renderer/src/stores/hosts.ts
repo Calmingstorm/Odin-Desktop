@@ -2,8 +2,9 @@
 // details, Odin's public key, the host's key checked against what you expect, a connection test, then activation.
 // Nothing is targetable before it passes the test.
 import { reactive } from 'vue'
-import type { HostCandidate, HostList, HostPrepare, HostReference, HostRow, HostTest, PublicKeyInfo } from '../../../shared/api'
+import type { HostCandidate, HostList, HostPrepare, HostReference, HostRow, HostTest, PublicKeyInfo, Result } from '../../../shared/api'
 import { act, failure, management } from './management'
+import { isUnavailable, resultMessage, unavailableText } from '../capability'
 
 export interface HostForm {
   alias: string
@@ -33,6 +34,8 @@ export interface Enrollment {
 }
 
 export const hosts = reactive({
+  unavailable: false,
+  error: '',
   list: null as HostList | null,
   key: null as PublicKeyInfo | null,
   /** What still names a host, from the last attempt to delete it. */
@@ -54,11 +57,43 @@ export function isLocal(address: string): boolean {
 /** Each read of the hosts, in order: an older answer never replaces a newer one. */
 let hostsRead = 0
 
+function refuseHosts(): void {
+  hosts.unavailable = true
+  hosts.error = ''
+  management.error = ''
+  hosts.list = null
+  hosts.key = null
+  hosts.references = {}
+  // Keep local details, not a returned enrollment token or successful test from the refused core.
+  if (hosts.enrollment) Object.assign(hosts.enrollment, { token: '', tested: false, test: null, observed: [], note: '', step: 1 })
+  for (const key of Object.keys(management.notes)) {
+    if ((key === 'hosts' || key.startsWith('host:')) && !management.busy[key]) delete management.notes[key]
+  }
+}
+
+async function hostAct<T>(key: string, run: () => Promise<Result<T>>, done: (answer: T) => string): Promise<boolean> {
+  if (hosts.unavailable) return false
+  return act(key, async () => {
+    const result = await run()
+    if (!result.ok && isUnavailable(result.error)) {
+      refuseHosts()
+      return { ...result, error: { ...result.error, message: unavailableText('Host management') } }
+    }
+    return result
+  }, done, async () => { if (!hosts.unavailable) await loadHosts() })
+}
+
 export async function loadHosts(): Promise<void> {
   const mine = ++hostsRead
   const [list, key] = await Promise.all([window.odin.hostsList({}), window.odin.hostsPublicKey({})])
   if (mine !== hostsRead) return
-  management.error = !list.ok ? list.error.message : !key.ok ? key.error.message : ''
+  if ((!list.ok && isUnavailable(list.error)) || (!key.ok && isUnavailable(key.error))) {
+    refuseHosts()
+    return
+  }
+  hosts.error = !list.ok ? resultMessage(list, 'Host management') : resultMessage(key, 'Host management')
+  management.error = hosts.error
+  if (list.ok && key.ok) hosts.unavailable = false
   if (list.ok) hosts.list = list.result
   if (key.ok) hosts.key = key.result
 }
@@ -82,11 +117,13 @@ function start(editing: boolean, form: HostForm): void {
 }
 
 export function beginAdd(): void {
+  if (hosts.unavailable) return
   start(false, blankForm())
 }
 
 /** A change goes through the same steps; the alias stays. */
 export function beginEdit(row: HostRow): void {
+  if (hosts.unavailable) return
   const mode = row.trust_mode === 'ca' || row.trust_mode === 'tofu' ? row.trust_mode : 'pinned'
   start(true, {
     ...blankForm(),
@@ -139,6 +176,7 @@ function body(e: Enrollment): HostPrepare {
 
 /** Scans the host's key and compares it. Trust on first use takes two scans: one to see the key, one to accept it. */
 export async function scan(): Promise<void> {
+  if (hosts.unavailable) return
   const e = hosts.enrollment
   if (!e || e.busy) return
   const odd = e.form.trust_mode === 'tofu' ? undefined : e.expected.split(/\s+/).filter(Boolean).find((f) => !FINGERPRINT.test(f))
@@ -150,6 +188,10 @@ export async function scan(): Promise<void> {
   const firstLook = e.form.trust_mode === 'tofu' && e.observed.length === 0
   const result = await window.odin.hostsPrepare(body(e))
   e.busy = false
+  if (!result.ok && isUnavailable(result.error)) {
+    refuseHosts()
+    return
+  }
   if (!result.ok) {
     e.note = result.error.message
     return
@@ -168,11 +210,16 @@ export async function scan(): Promise<void> {
 }
 
 export async function testConnection(): Promise<void> {
+  if (hosts.unavailable) return
   const e = hosts.enrollment
   if (!e || e.busy || !e.token) return
   e.busy = true
   const result = await window.odin.hostsTest({ token: e.token })
   e.busy = false
+  if (!result.ok && isUnavailable(result.error)) {
+    refuseHosts()
+    return
+  }
   if (!result.ok) {
     e.note = result.error.message
     return
@@ -191,47 +238,52 @@ export const hostKey = (e: Enrollment): string => `host:${e.form.alias.trim()}`
  * never sent again under a new one; its answer, now or by a late receipt, closes the wizard that asked for it.
  */
 export async function activate(): Promise<boolean> {
+  if (hosts.unavailable) return false
   const e = hosts.enrollment
   if (!e || e.busy || !e.tested) return false
   const key = hostKey(e)
   if (management.busy[key]) return false
   management.notes[key] = undefined
   e.busy = true
-  const ok = await act(key, () => window.odin.hostsCommit({ token: e.token }), () => {
+  const ok = await hostAct(key, () => window.odin.hostsCommit({ token: e.token }), () => {
     if (hosts.enrollment === e) hosts.enrollment = null // another wizard opened since stays
     return e.editing ? 'Saved and live.' : 'Added and live.'
-  }, loadHosts)
+  })
   e.busy = false
   return ok
 }
 
 export async function setHostEnabled(alias: string, enabled: boolean): Promise<void> {
-  await act(`host:${alias}`, () => window.odin.hostsSetEnabled({ alias, enabled }), () => (enabled ? 'On.' : 'Off: Odin no longer runs anything there.'), loadHosts)
+  await hostAct(`host:${alias}`, () => window.odin.hostsSetEnabled({ alias, enabled }), () => (enabled ? 'On.' : 'Off: Odin no longer runs anything there.'))
 }
 
 export async function saveHostSettings(change: { default_host?: string; allow_host_tofu?: boolean }): Promise<boolean> {
-  return act('hosts', () => window.odin.hostsSettings(change), () => 'Saved and live.', loadHosts)
+  return hostAct('hosts', () => window.odin.hostsSettings(change), () => 'Saved and live.')
 }
 
 /** Deleting a host that something still names is refused; this shows what names it, and deletes nothing. */
 export async function deleteHost(alias: string): Promise<'deleted' | 'blocked' | 'failed'> {
+  if (hosts.unavailable) return 'failed'
   const refs = await window.odin.hostsReferences({ alias })
+  if (!refs.ok && isUnavailable(refs.error)) {
+    refuseHosts()
+    return 'failed'
+  }
   if (!refs.ok) {
     management.notes[`host:${alias}`] = failure(refs)
     return 'failed'
   }
   hosts.references[alias] = refs.result.references
   if (refs.result.references.length) return 'blocked'
-  const ok = await act(`host:${alias}`, () => window.odin.hostsDelete({ alias }), () => 'Deleted.', loadHosts)
+  const ok = await hostAct(`host:${alias}`, () => window.odin.hostsDelete({ alias }), () => 'Deleted.')
   return ok ? 'deleted' : 'failed'
 }
 
 export async function forceRevoke(alias: string): Promise<void> {
-  await act(
+  await hostAct(
     `host:${alias}`,
     () => window.odin.hostsForceRevoke({ alias }),
     (r) =>
-      `Revoked. ${r.leases_interrupted} running uses interrupted; processes: ${r.processes.killed} stopped, ${r.processes.unknown} unknown.`,
-    loadHosts
+      `Revoked. ${r.leases_interrupted} running uses interrupted; processes: ${r.processes.killed} stopped, ${r.processes.unknown} unknown.`
   )
 }

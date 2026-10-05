@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { dispatch, matchCommands, parseCommand } from '../commands'
 import { canAct, chatUnavailable, loadFailure, retry, send, state, stop, stopPending, type ComposerMode } from '../store'
 import { unavailableText } from '../capability'
+import { status } from '../stores/status'
 import {
   addFiles,
   addPasted,
@@ -38,6 +39,8 @@ const loading = computed(() => state.app.link === 'ready' && Boolean(state.activ
 const attachments = computed(() => attachmentsFor(state.activeId))
 const uploading = computed(() => attachments.value.some((a) => a.status === 'uploading'))
 const failedAttachment = computed(() => attachments.value.some((a) => a.status === 'failed'))
+// The status bar already owns a refused usage report; don't repeat that same message below the box.
+const notice = computed(() => state.app.link === 'ready' && status.usageUnavailable && state.notice === status.usageError ? '' : state.notice)
 const paletteOpen = computed(() => text.value.startsWith('/') && !text.value.includes('\n'))
 const matches = computed(() => (paletteOpen.value ? matchCommands(text.value) : []))
 const canSend = computed(
@@ -201,6 +204,6 @@ function attach(): void {
     <p v-else-if="loading" class="notice" role="status">Loading this conversation…</p>
     <p v-else-if="uploading" class="notice" role="status">Waiting for attachments to finish uploading…</p>
     <p v-else-if="failedAttachment" class="notice error" role="status">Remove the attachment that failed before sending.</p>
-    <p v-if="state.notice" class="notice" role="status">{{ state.notice }}</p>
+    <p v-if="notice" class="notice" role="status">{{ notice }}</p>
   </form>
 </template>

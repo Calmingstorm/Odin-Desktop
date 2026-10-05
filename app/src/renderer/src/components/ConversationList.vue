@@ -34,7 +34,7 @@ function unreadLabel(count: number): string {
         <button class="ghost" title="New conversation" @click="newConversation">+ New</button>
       </div>
     </div>
-    <p v-if="state.conversationsUnavailable" class="notice" role="status">{{ unavailableText('Conversations') }}</p>
+    <p v-if="state.conversationsUnavailable" class="notice sidebar-notice" role="status">{{ unavailableText('Conversations') }}</p>
     <ul class="conversations">
       <li v-for="c in visible" :key="c.id" class="conv-row">
         <button :class="['conv', { active: c.id === state.activeId, archived: c.archived }]" @click="select(c.id)">

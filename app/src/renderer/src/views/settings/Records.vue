@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ask } from '../../dialog'
+import { unavailableText } from '../../capability'
 import { basis, count, percent } from '../../format'
 import { state } from '../../store'
 import { management } from '../../stores/management'
@@ -36,7 +37,10 @@ async function reconcile(): Promise<void> {
 </script>
 
 <template>
-  <section class="panel" aria-label="Health">
+  <section v-if="records.unavailable.health" class="panel" aria-label="Health">
+    <h3>Health</h3><p class="manage-desc" role="status">{{ unavailableText('Health') }}</p>
+  </section>
+  <section v-else class="panel" aria-label="Health">
     <header class="panel-head">
       <h3>Health</h3>
       <span v-if="records.health" class="panel-hint">
@@ -57,7 +61,10 @@ async function reconcile(): Promise<void> {
     </ul>
   </section>
 
-  <section class="panel" aria-label="Usage">
+  <section v-if="records.unavailable.usage" class="panel" aria-label="Usage">
+    <h3>Usage</h3><p class="manage-desc" role="status">{{ unavailableText('Usage') }}</p>
+  </section>
+  <section v-else class="panel" aria-label="Usage">
     <header class="panel-head">
       <h3>Usage</h3>
       <select v-model="period" aria-label="Period" @change="loadUsage(period)">
@@ -80,13 +87,17 @@ async function reconcile(): Promise<void> {
     </template>
   </section>
 
-  <section class="panel" aria-label="Audit">
+  <section v-if="records.unavailable.audit" class="panel" aria-label="Audit">
+    <h3>Audit</h3><p class="manage-desc" role="status">{{ unavailableText('Audit') }}</p>
+  </section>
+  <section v-else class="panel" aria-label="Audit">
     <header class="panel-head">
       <h3>Audit</h3>
       <span class="panel-hint">Every tool call, with its input (secrets scrubbed) and result.</span>
-      <button class="ghost" @click="verifyAudit">Verify the record</button>
+      <button v-if="!records.unavailable.verify" class="ghost" @click="verifyAudit">Verify the record</button>
     </header>
-    <p v-if="records.errors.verify" class="warn">Couldn't check the record: {{ records.errors.verify }}. It is neither verified nor known to be broken.</p>
+    <p v-if="records.unavailable.verify" class="manage-desc" role="status">{{ unavailableText('Audit verification') }}</p>
+    <p v-else-if="records.errors.verify" class="warn">Couldn't check the record: {{ records.errors.verify }}. It is neither verified nor known to be broken.</p>
     <p v-else-if="records.verify" :class="records.verify.valid ? 'field-saved' : 'warn'">
       {{ records.verify.valid ? `Intact: ${records.verify.verified ?? records.verify.total} entries verified.` : `Not intact: ${records.verify.reason ?? 'the chain is broken'}.` }}
     </p>
@@ -117,7 +128,10 @@ async function reconcile(): Promise<void> {
     </table>
   </section>
 
-  <section class="panel" aria-label="Logs">
+  <section v-if="records.unavailable.logs" class="panel" aria-label="Logs">
+    <h3>Logs</h3><p class="manage-desc" role="status">{{ unavailableText('Log search') }}</p>
+  </section>
+  <section v-else class="panel" aria-label="Logs">
     <header class="panel-head">
       <h3>Logs</h3>
       <select v-model="logs.level" aria-label="Level" @change="searchLogs(logs)">
@@ -140,7 +154,10 @@ async function reconcile(): Promise<void> {
     </table>
   </section>
 
-  <section class="panel" aria-label="Turn state">
+  <section v-if="records.unavailable.turns" class="panel" aria-label="Turn state">
+    <h3>Preserved work</h3><p class="manage-desc" role="status">{{ unavailableText('Preserved work') }}</p>
+  </section>
+  <section v-else class="panel" aria-label="Turn state">
     <header class="panel-head">
       <h3>Preserved work</h3>
       <span class="panel-hint">Requests Odin kept so they can resume, and any that need your attention.</span>
@@ -163,7 +180,10 @@ async function reconcile(): Promise<void> {
     </ul>
   </section>
 
-  <section class="panel" aria-label="Computer use">
+  <section v-if="records.unavailable.computer" class="panel" aria-label="Computer use">
+    <h3>Computer use</h3><p class="manage-desc" role="status">{{ unavailableText('Computer use') }}</p>
+  </section>
+  <section v-else class="panel" aria-label="Computer use">
     <header class="panel-head">
       <h3>Computer use</h3>
       <span v-if="records.computer" class="panel-hint">{{ records.computer.enabled ? 'On' : 'Off' }}: {{ records.computer.state }}.</span>

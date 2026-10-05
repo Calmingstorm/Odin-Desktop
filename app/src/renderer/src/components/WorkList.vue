@@ -24,7 +24,7 @@ function open(conversationId: string): void {
 </script>
 
 <template>
-  <p v-if="work.error" class="warn">{{ work.error }}</p>
+  <p v-if="work.error" :class="work.unavailable ? 'capability-unavailable' : 'warn'" :role="work.unavailable ? 'status' : 'alert'">{{ work.error }}</p>
   <p v-else-if="work.loaded && !groups.length" class="work-empty">{{ emptyText ?? 'Nothing is running.' }}</p>
   <div v-for="group in groups" :key="group.kind" class="work-group">
     <h3>{{ group.label }} <span class="work-count">{{ group.items.length }}</span></h3>

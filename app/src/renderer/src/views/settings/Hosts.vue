@@ -21,6 +21,7 @@ import {
   testConnection
 } from '../../stores/hosts'
 import { management } from '../../stores/management'
+import { unavailableText } from '../../capability'
 
 onMounted(loadHosts)
 
@@ -83,8 +84,10 @@ function lastTest(host: HostRow): string {
     <header class="panel-head">
       <h3>Hosts</h3>
       <span class="panel-hint">Machines Odin runs commands on, over SSH with its own key. Each host's key is trusted only as you set.</span>
-      <button class="ghost" @click="beginAdd">Add host</button>
+      <button v-if="!hosts.unavailable" class="ghost" @click="beginAdd">Add host</button>
     </header>
+    <p v-if="hosts.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Host management') }}</p>
+    <template v-else>
     <div class="limits">
       <label class="limit">
         Default host
@@ -100,7 +103,7 @@ function lastTest(host: HostRow): string {
       <button class="ghost" :disabled="management.busy.hosts" @click="saveSettings">Save</button>
     </div>
     <p v-if="management.notes.hosts" class="manage-note" role="status">{{ management.notes.hosts }}</p>
-    <p v-if="management.error" class="warn">{{ management.error }}</p>
+    <p v-if="hosts.error" class="warn">{{ hosts.error }}</p>
     <ul class="manage-list">
       <li v-for="host in hosts.list?.hosts ?? []" :key="host.host_id" class="manage-row">
         <div class="manage-line">
@@ -131,9 +134,10 @@ function lastTest(host: HostRow): string {
         <p v-if="management.notes[`host:${host.alias}`]" class="manage-note" role="status">{{ management.notes[`host:${host.alias}`] }}</p>
       </li>
     </ul>
+    </template>
   </section>
 
-  <section v-if="hosts.key" class="panel" aria-label="Odin's key">
+  <section v-if="hosts.key && !hosts.unavailable" class="panel" aria-label="Odin's key">
     <header class="panel-head">
       <h3>Odin's key</h3>
       <span class="panel-hint">Add it to a host's authorized keys, and Odin can log in there. It never uses passwords.</span>
@@ -148,7 +152,7 @@ function lastTest(host: HostRow): string {
     <p v-if="copied" class="manage-note" role="status">{{ copied }}</p>
   </section>
 
-  <section v-if="hosts.enrollment" class="panel" aria-label="Host enrollment">
+  <section v-if="hosts.enrollment && !hosts.unavailable" class="panel" aria-label="Host enrollment">
     <template v-for="e in [hosts.enrollment]" :key="'enrollment'">
       <header class="panel-head">
         <h3>{{ e.editing ? `Change ${e.form.alias}` : 'Add a host' }}</h3>
