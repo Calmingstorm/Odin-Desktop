@@ -17,7 +17,9 @@ describe('bridge request validation', () => {
     const attachment = { ref: 'a_1', add_to_knowledge: false }
     expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: '', attachments: [attachment] }).ok).toBe(true)
     expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: '  ' }).ok).toBe(false)
-    expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'hi', attachments: Array(11).fill(attachment) }).ok).toBe(false)
+    // The core's attachments_per_turn decides how many go with a message; the bridge only bounds the frame.
+    expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'hi', attachments: Array(11).fill(attachment) }).ok).toBe(true)
+    expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'hi', attachments: Array(1001).fill(attachment) }).ok).toBe(false)
     expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'x'.repeat(32_001) }).ok).toBe(false)
   })
 

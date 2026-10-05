@@ -18,6 +18,30 @@ export interface ComposerAttachment {
   addToKnowledge: boolean
 }
 
+/** How many attachments one message may carry, as the core announces it; null until known. */
+let perTurn: number | null = null
+
+async function perTurnLimit(): Promise<number | null> {
+  if (perTurn !== null) return perTurn
+  const status = await window.odin.status()
+  const announced = status.ok ? status.result.limits?.attachments_per_turn : undefined
+  if (typeof announced === 'number' && announced > 0) perTurn = announced
+  return perTurn
+}
+
+/** Keeps a batch within the core's per-turn limit, saying honestly what didn't fit. */
+async function fitting<T>(conversationId: string, items: readonly T[]): Promise<readonly T[]> {
+  const limit = await perTurnLimit()
+  if (limit === null) return items
+  const room = Math.max(0, limit - attachmentsFor(conversationId).length)
+  if (items.length <= room) return items
+  composer.errors = [
+    ...composer.errors,
+    `Odin takes up to ${limit} attachment${limit === 1 ? '' : 's'} per message; ${items.length - room} weren't added.`
+  ]
+  return items.slice(0, room)
+}
+
 export const composer = reactive({
   attachments: {} as Record<string, ComposerAttachment[] | undefined>,
   drafts: {} as Record<string, string | undefined>,
@@ -84,7 +108,7 @@ export async function addPasted(conversationId: string, files: readonly File[]):
   const images = files.filter((f) => f.type.startsWith('image/'))
   const others = files.filter((f) => !f.type.startsWith('image/'))
   if (others.length) await addFiles(conversationId, others)
-  for (const image of images) {
+  for (const image of await fitting(conversationId, images)) {
     const staged = await window.odin.attachBytes({
       name: image.name || `pasted-image.${image.type.split('/')[1] ?? 'png'}`,
       mime: image.type,
@@ -101,7 +125,9 @@ async function addBatch(conversationId: string, batch: Result<StagedBatch>, file
     return
   }
   composer.errors = batch.result.errors
-  for (const staged of batch.result.staged) {
+  const kept = await fitting(conversationId, batch.result.staged)
+  for (const staged of batch.result.staged) if (!kept.includes(staged)) void window.odin.cancelAttachment(staged.id)
+  for (const staged of kept) {
     const source = files.find((f) => f.name === staged.name && f.size === staged.size)
     const preview = source && source.type.startsWith('image/') ? URL.createObjectURL(source) : undefined
     start(conversationId, staged, preview)
@@ -135,10 +161,9 @@ export function setKnowledge(conversationId: string, id: string, value: boolean)
   if (item) item.addToKnowledge = value
 }
 
-/** Removes an attachment from the composer, stopping its upload if it is still running. */
+/** Removes an attachment from the composer: stops its upload, and releases what the main process holds for it. */
 export function removeAttachment(conversationId: string, id: string): void {
-  const item = composer.attachments[conversationId]?.find((a) => a.id === id)
-  if (item?.status === 'uploading') void window.odin.cancelAttachment(id)
+  void window.odin.cancelAttachment(id)
   remove(conversationId, id)
 }
 
@@ -156,7 +181,54 @@ export function readyAttachments(conversationId: string): Array<{ ref: string; a
   return list.map((a) => ({ ref: a.ref as string, add_to_knowledge: a.addToKnowledge }))
 }
 
-export function clearAttachments(conversationId: string): void {
-  for (const item of attachmentsFor(conversationId)) if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
-  composer.attachments[conversationId] = []
+/** What the composer box shows, and the conversation it belongs to: none while switching, so nothing is misdirected. */
+export const box = reactive({ owner: null as string | null, text: '' })
+
+/** Shows a conversation's draft once it has loaded, unless the user has moved on by then. */
+export async function showDraft(conversationId: string | null, stillCurrent: () => boolean): Promise<void> {
+  box.owner = null
+  box.text = '' // the previous draft is already saved under its own conversation
+  if (!conversationId) return
+  const draft = await loadDraft(conversationId)
+  if (!stillCurrent()) return
+  box.text = draft
+  box.owner = conversationId
+}
+
+/** The user typed: the text is the owner's draft. */
+export function edit(text: string): void {
+  box.text = text
+  if (box.owner) saveDraft(box.owner, text)
+}
+
+/**
+ * Sends the box's text and attachments to the conversation it belongs to, which must be the open one. Afterwards
+ * only what was sent goes: the draft if it is still the text that was sent, and the attachments sent with it.
+ */
+export async function sendBox(
+  openConversation: string | null,
+  deliver: (text: string, attachments: Array<{ ref: string; add_to_knowledge: boolean }>) => Promise<boolean>
+): Promise<boolean> {
+  const conversationId = box.owner
+  if (!conversationId || conversationId !== openConversation) return false
+  const refs = readyAttachments(conversationId)
+  if (refs === null) return false
+  const submitted = box.text
+  const sentIds = attachmentsFor(conversationId).map((a) => a.id)
+  const accepted = await deliver(submitted.trim(), refs)
+  if (!accepted) return false
+  clearSentDraft(conversationId, submitted)
+  if (box.owner === conversationId && box.text === submitted) box.text = ''
+  removeSent(conversationId, sentIds)
+  return true
+}
+
+/** After a send, clears the draft only if it is still the text that was sent. */
+export function clearSentDraft(conversationId: string, sent: string): void {
+  if ((composer.drafts[conversationId] ?? '') === sent) saveDraft(conversationId, '')
+}
+
+/** After a send, removes exactly the attachments that went with it; any added since stay. */
+export function removeSent(conversationId: string, ids: readonly string[]): void {
+  for (const id of ids) remove(conversationId, id)
 }

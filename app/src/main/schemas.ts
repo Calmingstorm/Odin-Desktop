@@ -67,14 +67,15 @@ export const submitSchema = z
     text: z.string().max(32_000),
     attachments: z
       .array(z.object({ ref: coreId, add_to_knowledge: z.boolean() }).strict())
-      .max(10)
+      // The core's attachments_per_turn applies; this bound only keeps one submission inside a frame.
+      .max(1000)
       .optional()
   })
   .strict()
   // As on Discord, a message may be only attachments.
   .refine((v) => v.text.trim().length > 0 || (v.attachments?.length ?? 0) > 0, { message: 'a message needs text or attachments' })
 
-export const usageSchema = z.object({ period: z.enum(['session', 'day', 'week']) }).strict()
+export const usageSchema = z.object({ period: z.enum(['24h', '7d', '30d', 'all']) }).strict()
 
 export const reloadSchema = z.object({ scope: z.enum(['skills', 'config', 'context']) }).strict()
 
