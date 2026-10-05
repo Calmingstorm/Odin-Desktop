@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -33,7 +35,14 @@ RESULT_CACHE = 2000
 RECENT_OUTCOMES = 20
 # Read methods are answered fresh every time; only commands that admit or change something keep a receipt.
 READ_METHODS = {"status.get", "events.subscribe", "conversations.list", "messages.list", "conversation.snapshot",
-                "search.query", "messages.around"}
+                "search.query", "messages.around", "usage.get"}
+# Idempotent by offset, so it keeps no durable receipt (protocol.md, Conventions).
+NO_RECEIPT_METHODS = READ_METHODS | {"attachments.chunk"}
+CHUNK_BYTES = 512 * 1024
+ATTACHMENT_BYTES = 25 * 1024 * 1024
+ATTACHMENTS_PER_TURN = 10
+# The development core refuses executables, so the app's "unsupported type" path can be exercised.
+UNSUPPORTED_TYPES = {"application/x-msdownload", "application/x-executable"}
 SEARCH_LIMIT = 50
 AROUND_LIMIT = 50
 
@@ -108,6 +117,8 @@ class Core:
         self.tools: dict[str, list[dict]] = {}  # request_id -> tool entries
         self.controls: dict[str, dict] = {}  # control_command_id -> latest disposition
         self.submissions: dict[str, dict] = {}
+        self.uploads: dict[str, dict] = {}
+        self.attachments: dict[str, dict] = {}
         self.results: dict[str, tuple[str, dict]] = {}  # command ID -> (binding, response)
         self.tombstones: dict[str, str] = {}  # pruned command ID -> binding
         self.stopping = asyncio.Event()
@@ -198,7 +209,7 @@ class Core:
         req_id = str(frame.get("id", ""))
         method = frame.get("method")
         params = frame.get("params") or {}
-        if method not in READ_METHODS:
+        if method not in NO_RECEIPT_METHODS:
             bound = binding(method, params)
             if req_id in self.results:  # the same command ID always gets its original answer
                 original_binding, original = self.results[req_id]
@@ -221,7 +232,7 @@ class Core:
             response = {"t": "res", "id": req_id, "ok": True, "result": result}
         except CoreError as error:
             response = self.error(req_id, error)
-        if method not in READ_METHODS:
+        if method not in NO_RECEIPT_METHODS:
             self.results[req_id] = (binding(method, params), response)
             if len(self.results) > RESULT_CACHE:
                 oldest = next(iter(self.results))
@@ -242,7 +253,70 @@ class Core:
 
     # -------------------------------------------------------------- methods
     def m_status(self, _params: dict, _writer) -> dict:
-        return {"phase": "ready", "core_instance_id": self.instance_id, "version": "fixture-0", "capabilities": ["chat"]}
+        return {
+            "phase": "ready", "core_instance_id": self.instance_id, "version": "fixture-0", "capabilities": ["chat"],
+            "model": {"main": "fixture-echo", "effort": "none", "provider": "fixture"},
+            "providers": [{"name": "fixture", "health": "ok"}],
+            "limits": {"chunk_bytes": CHUNK_BYTES, "attachment_bytes": ATTACHMENT_BYTES,
+                       "attachments_per_turn": ATTACHMENTS_PER_TURN},
+            "summary": f"Development core {self.instance_id[:8]}: echo replies, no model, no tools.",
+        }
+
+    def m_usage(self, params: dict, _writer) -> dict:
+        unknown = {"value": None, "kind": "unknown"}
+        return {"period": params.get("period") or "session", "tokens": unknown, "quota": [], "context": unknown,
+                "summary": "The development core doesn't measure usage."}
+
+    def m_reload(self, params: dict, _writer) -> dict:
+        return {"disposition": "reloaded", "summary": f"Reloaded {params.get('scope') or 'context'}: nothing to load in the development core."}
+
+    def m_attach_begin(self, params: dict, _writer) -> dict:
+        self.require_conversation(params.get("conversation_id"))
+        size = int(params.get("size") or 0)
+        if size <= 0:
+            raise CoreError("bad_request", "an attachment needs a size")
+        if size > ATTACHMENT_BYTES:
+            raise CoreError("too_large", f"attachments are limited to {ATTACHMENT_BYTES // (1024 * 1024)} MiB")
+        mime = str(params.get("mime") or "application/octet-stream")
+        if mime in UNSUPPORTED_TYPES:
+            raise CoreError("unsupported_type", f"{mime} files aren't accepted")
+        upload_id = new_id("u")
+        self.uploads[upload_id] = {"name": str(params.get("name") or "file")[:255], "size": size, "mime": mime,
+                                   "data": bytearray()}
+        return {"upload_id": upload_id, "chunk_bytes": CHUNK_BYTES, "expires_at": None}
+
+    def m_attach_chunk(self, params: dict, _writer) -> dict:
+        upload = self.uploads.get(str(params.get("upload_id")))
+        if upload is None:
+            raise CoreError("expired", "that upload is gone")
+        try:
+            chunk = base64.b64decode(str(params.get("data_b64") or ""), validate=True)
+        except (ValueError, binascii.Error):
+            raise CoreError("bad_request", "chunk is not base64") from None
+        offset = int(params.get("offset") or 0)
+        data = upload["data"]
+        if offset == len(data):
+            if len(data) + len(chunk) > upload["size"] or len(chunk) > CHUNK_BYTES:
+                raise CoreError("too_large", "more bytes than the upload declared")
+            data.extend(chunk)
+        elif offset + len(chunk) > len(data) or bytes(data[offset:offset + len(chunk)]) != chunk:
+            raise CoreError("bad_request", "chunks must arrive in order")
+        return {"received": len(data)}
+
+    def m_attach_commit(self, params: dict, _writer) -> dict:
+        upload = self.uploads.pop(str(params.get("upload_id")), None)
+        if upload is None:
+            raise CoreError("expired", "that upload is gone")
+        data = bytes(upload["data"])
+        if len(data) != upload["size"] or hashlib.sha256(data).hexdigest() != params.get("sha256"):
+            raise CoreError("bad_request", "the upload doesn't match its size and digest; nothing was kept")
+        ref = new_id("a")
+        self.attachments[ref] = {"name": upload["name"], "mime": upload["mime"], "size": len(data), "data": data}
+        return {"attachment": {"ref": ref, "name": upload["name"], "mime": upload["mime"], "size": len(data)}}
+
+    def m_attach_cancel(self, params: dict, _writer) -> dict:
+        self.uploads.pop(str(params.get("upload_id")), None)
+        return {"disposition": "cancelled"}
 
     def m_subscribe(self, params: dict, _writer) -> dict:
         after = params.get("after")
@@ -441,13 +515,25 @@ class Core:
         if cid not in self.conversations:
             raise CoreError("not_found", "conversation not found")
         text = str(params.get("text", ""))
-        if not text or len(text) > 32000:
-            raise CoreError("bad_request", "text must be 1 to 32,000 characters")
+        chosen = list(params.get("attachments") or [])
+        if len(text) > 32000 or (not text.strip() and not chosen):
+            raise CoreError("bad_request", "a message needs text or attachments, and at most 32,000 characters")
+        if len(chosen) > ATTACHMENTS_PER_TURN:
+            raise CoreError("too_large", f"at most {ATTACHMENTS_PER_TURN} attachments per message")
+        attached = []
+        for item in chosen:
+            stored = self.attachments.get(str((item or {}).get("ref")))
+            if stored is None:
+                raise CoreError("not_found", "an attachment is missing; attach it again")
+            attached.append({"ref": item["ref"], "name": stored["name"], "mime": stored["mime"], "size": stored["size"],
+                             "add_to_knowledge": bool(item.get("add_to_knowledge"))})
         rid = new_id("r")
         message = {"id": new_id("m"), "role": "user", "text": text, "created_at": now(),
-                   "client_submission_id": sub_id, "request_id": rid}
+                   "client_submission_id": sub_id, "request_id": rid,
+                   "attachments": [{k: a[k] for k in ("ref", "name", "mime", "size")} for a in attached]}
         self.commit_message(cid, message)
         self.requests[rid] = {"id": rid, "conversation_id": cid, "generation": 1, "text": text, "state": "queued",
+                              "attachments": attached,
                               "steers": [], "stop_commands": [], "task": None, "message_id": message["id"],
                               "started_at": None}
         if cid in self.active:
@@ -566,6 +652,10 @@ class Core:
             self.finish(req, terminal)
         else:
             reply = f"Echo: {req['text']}"
+            if req.get("attachments"):
+                lines = [f"- {a['name']} ({a['size']} bytes)" + (", added to knowledge" if a["add_to_knowledge"] else "")
+                         for a in req["attachments"]]
+                reply += "\n\nReceived:\n" + "\n".join(lines)
             if consumed:
                 reply += "\n\nSteered with: " + "; ".join(consumed)
             message = {"id": new_id("m"), "role": "assistant", "text": reply, "created_at": now(), "request_id": rid}
@@ -593,6 +683,12 @@ METHODS = {
     "conversations.mark_read": Core.m_conv_mark_read,
     "search.query": Core.m_search,
     "messages.around": Core.m_around,
+    "usage.get": Core.m_usage,
+    "runtime.reload": Core.m_reload,
+    "attachments.begin": Core.m_attach_begin,
+    "attachments.chunk": Core.m_attach_chunk,
+    "attachments.commit": Core.m_attach_commit,
+    "attachments.cancel": Core.m_attach_cancel,
     "messages.list": Core.m_messages,
     "conversation.snapshot": Core.m_snapshot,
     "submission.send": Core.m_submit,

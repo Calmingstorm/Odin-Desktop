@@ -5,11 +5,13 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { BrowserWindow, Menu, Notification, app } from 'electron'
+import { BrowserWindow, Menu, Notification, app, dialog } from 'electron'
 import { IPC, type AppState, type LinkState, type Settings } from '../shared/api'
+import { AttachmentManager, type AttachmentLimits } from './attachments'
 import { isAutostartEnabled, setAutostart } from './autostart'
 import { Broker } from './broker'
 import { CoreSupervisor } from './core-supervisor'
+import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
 import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type LifecycleState } from './lifecycle'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
@@ -57,6 +59,20 @@ function run(): void {
     readToken: () => readFileSync(paths.tokenPath, 'utf8').trim(),
     profileId: paths.profileId,
     clientVersion: app.getVersion()
+  })
+
+  const drafts = new DraftStore(join(paths.dataDir, 'drafts.json'))
+  // Until the core announces its own limits. A chunk stays well inside one frame after base64.
+  let limits: AttachmentLimits = { attachment_bytes: 25 * 1024 * 1024, chunk_bytes: 512 * 1024 }
+  const attachments = new AttachmentManager(broker, () => limits)
+  attachments.on('progress', (progress) => win?.webContents.send(IPC.attachmentProgress, progress))
+  broker.on('welcome', () => {
+    void broker.request('status.get').then((status) => {
+      const announced = status.ok ? (status.result as { limits?: Partial<AttachmentLimits> }).limits : undefined
+      if (announced?.attachment_bytes && announced.chunk_bytes) {
+        limits = { attachment_bytes: announced.attachment_bytes, chunk_bytes: Math.min(announced.chunk_bytes, 2 * 1024 * 1024) }
+      }
+    })
   })
 
   const appState = (): AppState => ({
@@ -109,6 +125,11 @@ function run(): void {
     lifecycle.quitting = true
     tray?.setStatus('Stopping Odin…')
     exiting = (async () => {
+      try {
+        drafts.flush()
+      } catch {
+        /* a draft that couldn't be saved is the only loss */
+      }
       if (broker.linkState === 'ready') {
         await Promise.race([
           broker.request('runtime.shutdown', { reason: 'exit' }),
@@ -144,6 +165,14 @@ function run(): void {
     registerIpc({
       broker,
       windowId: () => win?.webContents.id ?? null,
+      drafts,
+      attachments,
+      pickFiles: async () => {
+        const chosen = win
+          ? await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'], title: 'Attach files' })
+          : { canceled: true, filePaths: [] }
+        return chosen.canceled ? [] : chosen.filePaths
+      },
       mainFrame: () => win?.webContents.mainFrame ?? null,
       getSettings: settings,
       setAutostart: (enabled) => {
@@ -338,4 +367,11 @@ async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
   await pause(300)
   await shoot('dialog')
   await run(`document.querySelector('.dialog .ghost').click()`)
+  await run(`(() => {
+    const box = document.querySelector('.composer-form textarea')
+    box.value = '/'
+    box.dispatchEvent(new Event('input'))
+  })()`)
+  await pause(300)
+  await shoot('palette')
 }

@@ -147,8 +147,10 @@ second policy layer.
 | `attachments.commit` | `{upload_id, sha256}` | `{attachment: {ref, name, mime, size, preview_ref?}}`. A digest mismatch is `bad_request`, and nothing is kept. |
 | `attachments.cancel` | `{upload_id}` | `{disposition: "cancelled"}` |
 
-`submission.send` gains `attachments: [{ref, add_to_knowledge}]`. Ingesting into knowledge happens only when the user
-chose it for that attachment; it is never automatic.
+`submission.send` gains `attachments: [{ref, add_to_knowledge}]`, and its `text` may be empty when attachments are
+present (as on Discord). Ingesting into knowledge happens only when the user chose it for that attachment; it is never
+automatic. The committed user message lists them as
+`attachments: [{ref, name, mime, size}]`.
 
 ### Results: artifacts and reports
 
@@ -180,9 +182,9 @@ The app never executes artifact content (no HTML or SVG rendering); it shows ima
 
 | Method | Params | Result |
 |---|---|---|
-| `status.get` | `{}` | Minor 1's fields plus `model: {main, effort, provider}`, `providers: [{name, health}]` and `limits: {chunk_bytes, attachment_bytes, attachments_per_turn}` |
-| `usage.get` | `{period}` (`session`, `day` or `week`) | Usage, quota and context, each value tagged `measured`, `estimated` or `unknown`. Never an invented number. |
-| `runtime.reload` | `{scope}` (`skills`, `config` or `context`) | `{disposition}`: Discord's `/reload` |
+| `status.get` | `{}` | Minor 1's fields plus `model: {main, effort, provider}`, `providers: [{name, health}]`, `limits: {chunk_bytes, attachment_bytes, attachments_per_turn}` and `summary`, the text Odin's `/status` shows |
+| `usage.get` | `{period}` (`session`, `day` or `week`) | Usage, quota and context, each value tagged `measured`, `estimated` or `unknown`, never an invented number, plus `summary`, the text Odin's `/usage` shows |
+| `runtime.reload` | `{scope}` (`skills`, `config` or `context`) | `{disposition, summary}`. With `context`, it is Odin's `/reload`: reload the context files and show what is in context. |
 
 ### Notifications
 

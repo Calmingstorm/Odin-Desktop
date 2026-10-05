@@ -13,6 +13,11 @@ describe('bridge request validation', () => {
     expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'hi', extra: 1 }).ok).toBe(false)
     expect(parseRequest(submitSchema, { client_submission_id: 'not-a-uuid', conversation_id: 'c_1', text: 'hi' }).ok).toBe(false)
     expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: '../etc', text: 'hi' }).ok).toBe(false)
+    // As on Discord, a message may be only attachments, but never nothing at all.
+    const attachment = { ref: 'a_1', add_to_knowledge: false }
+    expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: '', attachments: [attachment] }).ok).toBe(true)
+    expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: '  ' }).ok).toBe(false)
+    expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'hi', attachments: Array(11).fill(attachment) }).ok).toBe(false)
     expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'x'.repeat(32_001) }).ok).toBe(false)
   })
 

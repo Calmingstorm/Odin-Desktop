@@ -8,6 +8,53 @@ export interface CoreStatus {
   core_instance_id: string
   version: string
   capabilities: string[]
+  model?: { main: string; effort: string; provider: string }
+  providers?: Array<{ name: string; health: string }>
+  limits?: { chunk_bytes: number; attachment_bytes: number; attachments_per_turn: number }
+  /** The text Odin's /status shows. */
+  summary?: string
+}
+
+/** A value the core measured, estimated, or doesn't know. Never an invented number. */
+export interface Measured {
+  value: number | null
+  kind: 'measured' | 'estimated' | 'unknown'
+}
+
+export interface UsageResult {
+  period: string
+  tokens: Measured
+  context: Measured
+  quota: Array<{ account: string; window: string; used_percent: Measured; resets_at: string | null }>
+  /** The text Odin's /usage shows. */
+  summary: string
+}
+
+/** An attachment the core holds, by reference. */
+export interface AttachmentRef {
+  ref: string
+  name: string
+  mime: string
+  size: number
+}
+
+/** A file the user chose, held by the main process until it is uploaded. */
+export interface StagedAttachment {
+  id: string
+  name: string
+  mime: string
+  size: number
+}
+
+export interface AttachmentProgress {
+  id: string
+  sent: number
+  size: number
+}
+
+export interface StagedBatch {
+  staged: StagedAttachment[]
+  errors: string[]
 }
 
 export interface Conversation {
@@ -62,6 +109,8 @@ export interface Message {
   request_id?: string
   /** Present on user messages: the submission they were admitted under. */
   client_submission_id?: string
+  /** Present on user messages that carried attachments. */
+  attachments?: AttachmentRef[]
 }
 
 export interface RequestRef {
@@ -156,6 +205,7 @@ export interface SubmitParams {
   client_submission_id: string
   conversation_id: string
   text: string
+  attachments?: Array<{ ref: string; add_to_knowledge: boolean }>
 }
 
 export interface ControlTarget {
@@ -181,6 +231,19 @@ export interface OdinApi {
   submit(params: SubmitParams): Promise<Result<{ disposition: string; request_id?: string; message_id?: string }>>
   stop(params: ControlTarget): Promise<Result<{ disposition: string }>>
   steer(params: ControlTarget & { text: string }): Promise<Result<{ disposition: string; sequence?: number }>>
+  usage(period: 'session' | 'day' | 'week'): Promise<Result<UsageResult>>
+  reload(scope: 'skills' | 'config' | 'context'): Promise<Result<{ disposition: string; summary: string }>>
+  getDraft(conversationId: string): Promise<Result<{ text: string }>>
+  setDraft(conversationId: string, text: string): Promise<Result<{ saved: boolean }>>
+  /** Opens the system file picker. */
+  pickFiles(): Promise<Result<StagedBatch>>
+  /** Files dropped on or pasted into the window. Their paths come from the operating system, never from the page. */
+  attachFiles(files: readonly File[]): Promise<Result<StagedBatch>>
+  /** Bytes with no file behind them, such as a pasted screenshot. */
+  attachBytes(params: { name: string; mime: string; data: Uint8Array }): Promise<Result<StagedAttachment>>
+  uploadAttachment(params: { id: string; conversation_id: string }): Promise<Result<AttachmentRef>>
+  cancelAttachment(id: string): Promise<Result<{ cancelled: boolean }>>
+  onAttachmentProgress(listener: (progress: AttachmentProgress) => void): () => void
   getSettings(): Promise<Result<Settings>>
   setAutostart(enabled: boolean): Promise<Result<Settings>>
   getAppState(): Promise<AppState>
@@ -216,6 +279,16 @@ export const IPC = {
   submit: 'odin:submit',
   stop: 'odin:stop',
   steer: 'odin:steer',
+  usage: 'odin:usage',
+  reload: 'odin:reload',
+  getDraft: 'odin:drafts:get',
+  setDraft: 'odin:drafts:set',
+  pickFiles: 'odin:attachments:pick',
+  attachPaths: 'odin:attachments:add-paths',
+  attachBytes: 'odin:attachments:add-bytes',
+  uploadAttachment: 'odin:attachments:upload',
+  cancelAttachment: 'odin:attachments:cancel',
+  attachmentProgress: 'odin:attachments:progress',
   getSettings: 'odin:settings:get',
   setAutostart: 'odin:settings:set-autostart',
   getAppState: 'odin:app-state:get',

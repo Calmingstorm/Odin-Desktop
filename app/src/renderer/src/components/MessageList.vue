@@ -85,6 +85,12 @@ function older(): void {
   if (state.activeId) void loadOlder(state.activeId)
 }
 
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function threadFrom(messageId: string): void {
   if (state.activeId) void startThread(state.activeId, messageId)
 }
@@ -136,7 +142,10 @@ function threadFrom(messageId: string): void {
             Thread from here
           </button>
         </div>
-        <div class="body md" v-html="renderMarkdown(m.text)" />
+        <div v-if="m.text" class="body md" v-html="renderMarkdown(m.text)" />
+        <ul v-if="m.attachments?.length" class="msg-attachments" aria-label="Attachments">
+          <li v-for="a in m.attachments" :key="a.ref">{{ a.name }} · {{ fileSize(a.size) }}</li>
+        </ul>
       </article>
       <article v-for="p in pending" :key="p.client_submission_id" class="msg user pending">
         <div class="meta">
