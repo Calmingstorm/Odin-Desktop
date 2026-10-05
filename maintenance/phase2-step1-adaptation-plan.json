@@ -184,7 +184,7 @@
       "contract": "Explicit socket roots remain supported; descriptor guards preserve foreign-owner and symlink refusal.",
       "invariant": "No SSH protocol, foreground-master ownership, lease, cleanup or containment change.",
       "owner": "Odin",
-      "tests": ["tests/test_desktop_core_paths.py", "tests/test_desktop_final_distribution.py"]
+      "tests": ["tests/test_desktop_core_paths.py", "tests/test_desktop_final_distribution.py", "tests/test_desktop_capabilities_owner.py"]
     },
     {
       "path": "tests/test_desktop_core_paths.py",
@@ -201,6 +201,14 @@
       "invariant": "No unknown-effect replay, expired-ID readmission or live state.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_receipt_retention.py"]
+    },
+    {
+      "path": "tests/test_desktop_capabilities_owner.py",
+      "reason": "Fence exactly the two required SSH namespace-provisioning line changes while keeping all remaining SSH safety bytes identical to upstream.",
+      "contract": "Only the private_directory import and constructor call are adapted; master, lease, settlement and process containment bytes remain unchanged.",
+      "invariant": "No blanket byte-equivalence exemption or changed upstream test corpus.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_capabilities_owner.py", "tests/test_desktop_core_paths.py"]
     }
   ]
 }

@@ -108,3 +108,19 @@ Review baseline: `81d00a151cdfb9dde25ddcbf04d1530e9e13658a`.
   Log: `/home/odin/reviews/desktop-step1-round1-final-touched.log`.
 - All execution uses isolated PID/mount namespaces and non-live HOME/XDG. These incremental runs are not the full
   gate; the final fresh-checkout gate result is recorded below after it completes.
+
+### Fresh-checkout full gate, run once
+
+- Code checkout: `13cb95a016b4130092d3e140db227fbd758d748c`, with a new copied-interpreter venv and locked dev extras.
+  Drift, lint, ownership checker and its **30 tests** passed. All 29 qualification groups ran once:
+  **13,389 passed, 2 skipped, 1 failed, 0 errors**. The new transport group passed **228/228**.
+- The sole failure was `test_common_safety_primitives_byte_identical`, whose older whole-file SSH-pool assertion
+  had not been adapted for review finding 3's required private-directory provisioning change. Corrected it to
+  permit **exactly** the import and constructor-call substitution, retaining byte identity for every other SSH
+  safety byte. This is a named source adaptation, not a blanket exemption. Subsequent touched owner/path tests:
+  **52 passed**. Evidence digest refreshes on unchanged source rows do not recapture or approve source changes.
+- The full gate is **not rerun**, per the once-only instruction. The failed group is checked separately from the
+  corrected clean checkout and recorded below; that does not turn the original full run into a green run.
+- Full log: `/home/odin/reviews/desktop-step1-round1-fresh-gates.log`; JUnit under
+  `/home/odin/reviews/desktop-step1-round1-fresh/.test-state/qualification-{0..28}.xml`.
+  Inherited unawaited-AsyncMock warnings remain visible; this is not a warning-clean claim.
