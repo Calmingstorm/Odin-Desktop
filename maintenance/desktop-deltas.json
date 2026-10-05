@@ -2508,7 +2508,7 @@
         }
       ],
       "path": "src/desktop/model_settings.py",
-      "reason": "P31 slice2 retain persistence MethodError classification after provider owner settles persistence and rolls back unpublished graph.",
+      "reason": "P31 slice2 retain persistence MethodError classification after provider owner settles persistence and rolls back unpublished graph. Evidence digest refreshed after only a blank-line import-order correction in rebased main test; source bytes unchanged.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -2517,7 +2517,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_management_core.py": "18f52571912be6811245ad3a75ed7a4ce553ba689b23f28da196227f13432915",
-        "tests/test_desktop_model_settings.py": "213f0af9d76ed40f7a21e4d5e9d9b7310c95ad18761b6361561cfab6237cb1c0",
+        "tests/test_desktop_model_settings.py": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d",
         "tests/test_desktop_providers.py": "c87384c98b1cb1d85bd5da314b256f6c16bd73ab72aba90124f41d9983fdc93b"
       },
       "tests": [
@@ -2672,7 +2672,7 @@
         }
       ],
       "path": "src/desktop/providers.py",
-      "reason": "Evidence digest refresh only for P31 slice2 model-settings regressions; provider source remains byte-identical and tests prove unpublished-client rollback plus unchanged serving identity on stale persistence.",
+      "reason": "Evidence digest refresh only for P31 slice2 model-settings regressions; provider source remains byte-identical and tests prove unpublished-client rollback plus unchanged serving identity on stale persistence. Evidence digest refreshed after only a blank-line import-order correction in rebased main test; source bytes unchanged.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -2682,7 +2682,7 @@
       "test_sha256": {
         "tests/test_desktop_codex_accounts.py": "32134fbb9ac95f2d21044c4f87ea4dad47e353ec279fb6134173e902e3d48058",
         "tests/test_desktop_management_core.py": "18f52571912be6811245ad3a75ed7a4ce553ba689b23f28da196227f13432915",
-        "tests/test_desktop_model_settings.py": "213f0af9d76ed40f7a21e4d5e9d9b7310c95ad18761b6361561cfab6237cb1c0",
+        "tests/test_desktop_model_settings.py": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d",
         "tests/test_desktop_providers.py": "c87384c98b1cb1d85bd5da314b256f6c16bd73ab72aba90124f41d9983fdc93b"
       },
       "tests": [
@@ -2879,7 +2879,7 @@
         }
       ],
       "path": "src/desktop/settings.py",
-      "reason": "Evidence digest refresh only for P31 slice2 model-settings regressions; settings source remains byte-identical and real stale revision rejection preserves config bytes and revision.",
+      "reason": "Evidence digest refresh only for P31 slice2 model-settings regressions; settings source remains byte-identical and real stale revision rejection preserves config bytes and revision. Evidence digest refreshed after only a blank-line import-order correction in rebased main test; source bytes unchanged.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -2888,7 +2888,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_management_core.py": "18f52571912be6811245ad3a75ed7a4ce553ba689b23f28da196227f13432915",
-        "tests/test_desktop_model_settings.py": "213f0af9d76ed40f7a21e4d5e9d9b7310c95ad18761b6361561cfab6237cb1c0",
+        "tests/test_desktop_model_settings.py": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d",
         "tests/test_desktop_providers.py": "c87384c98b1cb1d85bd5da314b256f6c16bd73ab72aba90124f41d9983fdc93b",
         "tests/test_desktop_settings.py": "54e209380576a440baccd16e38d1bf1581e90f99feb65f65e12afee627790a63"
       },
