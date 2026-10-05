@@ -104,6 +104,7 @@ const api: OdinApi = {
   codexRemove: (params) => ipcRenderer.invoke(IPC.codexRemove, params),
   codexLoginBegin: () => ipcRenderer.invoke(IPC.codexLoginBegin),
   codexLoginPoll: (params) => ipcRenderer.invoke(IPC.codexLoginPoll, params),
+  codexOpenVerification: () => ipcRenderer.invoke(IPC.codexOpenVerification),
   setConversationMuted: (params) => ipcRenderer.invoke(IPC.setConversationMuted, params),
   onOpenConversation: (listener) => {
     const handler = (_event: IpcRendererEvent, conversationId: string): void => listener(conversationId)

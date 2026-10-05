@@ -27,6 +27,7 @@ import {
   workListSchema,
   copyTextSchema,
   fetchArtifactSchema,
+  firstRunStatusSchema,
   reportPageSchema,
   attachBytesSchema,
   attachPathsSchema,
@@ -62,6 +63,7 @@ import {
   submitSchema
 } from './schemas'
 import { withCommandId } from './command-id'
+import { DeviceLoginBoundary } from './device-login'
 import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-policy'
 
 export interface IpcDeps {
@@ -77,6 +79,8 @@ export interface IpcDeps {
   /** Asks where to save a file; null when the user cancels. */
   chooseSavePath: (name: string) => Promise<string | null>
   copyText: (text: string) => void
+  openVerification: (url: string) => Promise<void>
+  deviceLogin: DeviceLoginBoundary
   getSettings: () => Settings
   setAutostart: (enabled: boolean) => Settings
   setNotifications: (change: NotificationChange) => Settings
@@ -94,6 +98,7 @@ function fromSettled<T>(settled: Settled): Result<T> {
 }
 
 export function registerIpc(deps: IpcDeps): void {
+  const deviceLogin = deps.deviceLogin
   const trusted = (event: IpcMainInvokeEvent): boolean =>
     isTrustedSender(event.senderFrame?.url, event.sender.id, deps.windowId()) &&
     isSameFrame(event.senderFrame, deps.mainFrame())
@@ -119,7 +124,16 @@ export function registerIpc(deps: IpcDeps): void {
     })
   }
 
-  handle(IPC.status, null, async () => fromSettled(await deps.broker.request('status.get')))
+  handle(IPC.status, null, async () => {
+    const answer = await deps.broker.request('status.get')
+    if (!answer.ok) return answer
+    const raw = answer.result as Record<string, unknown> | null
+    if (!raw || typeof raw !== 'object') return { ok: false, error: { code: 'internal', message: 'Invalid core status.' } }
+    if (raw.first_run === undefined) return fromSettled(answer)
+    const projection = firstRunStatusSchema.safeParse(raw.first_run)
+    if (!projection.success) return { ok: false, error: { code: 'internal', message: 'Invalid core readiness status.' } }
+    return { ok: true, result: { ...raw, first_run: projection.data } }
+  })
   handle(IPC.listConversations, null, async () => fromSettled(await deps.broker.request('conversations.list')))
   // Conversation commands carry the window's command ID, so their late receipts can be matched (store.ts).
   const command = async (method: string, { command_id: id, ...params }: { command_id: string }) =>
@@ -238,9 +252,28 @@ export function registerIpc(deps: IpcDeps): void {
   })
   handle(IPC.codexLoginBegin, null, async () => {
     const id = randomUUID()
-    return fromSettled(await deps.broker.request('codex.login.begin', {}, id))
+    deviceLogin.clear()
+    deviceLogin.track(id, 'begin')
+    const result = await deps.broker.request('codex.login.begin', {}, id)
+    deviceLogin.settle(id, result)
+    return result.ok ? deviceLogin.begin(result.result, deps.broker.coreInstanceId) : result
   })
-  handle(IPC.codexLoginPoll, codexPollSchema, async (v) => fromSettled(await deps.broker.request('codex.login.poll', v)))
+  handle(IPC.codexLoginPoll, codexPollSchema, async (v) => {
+    const params = deviceLogin.poll(v.login_id, deps.broker.coreInstanceId)
+    if (!params.ok) return params
+    const id = randomUUID()
+    deviceLogin.track(id, 'poll')
+    const result = await deps.broker.request('codex.login.poll', params.result, id)
+    deviceLogin.settle(id, result)
+    if (!result.ok) return result
+    return deviceLogin.pollResult(result.result)
+  })
+  handle(IPC.codexOpenVerification, null, async () => {
+    const target = deviceLogin.verification(deps.broker.coreInstanceId)
+    if (!target.ok) return target
+    await deps.openVerification(target.result.url)
+    return { ok: true, result: { opened: true } }
+  })
   // The management domains: each named method has its own channel and schema and maps to exactly one core method.
   for (const name of Object.keys(MANAGEMENT) as ManagementMethod[]) {
     const { channel, core, command: changes } = MANAGEMENT[name]

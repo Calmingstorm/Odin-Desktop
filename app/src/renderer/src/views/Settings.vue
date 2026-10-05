@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, type Component } from 'vue'
+import { computed, onMounted, toRef, type Component } from 'vue'
+import FirstRunBanner from '../components/FirstRunBanner.vue'
 import CodexAccounts from '../components/CodexAccounts.vue'
 import SchemaForm from '../components/SchemaForm.vue'
 import { NAV, groupsFor, sectionTitle } from '../settings-form'
@@ -30,7 +31,7 @@ const PANELS: Record<string, Component> = {
   records: Records
 }
 
-const active = ref('general')
+const active = toRef(state, 'settingsSection')
 const fields = computed(() => settings.meta?.fields ?? [])
 // A section shows once it has something in it.
 const sections = computed(() => settings.unavailable ? NAV : NAV.filter((n) => PANELS[n.id] || groupsFor(n.id, fields.value).length))
@@ -47,6 +48,7 @@ onMounted(loadSettings)
       <button
         v-for="section in sections"
         :key="section.id"
+        :data-testid="`settings-section-${section.id}`"
         :class="['settings-nav-item', { active: section.id === active }]"
         :aria-current="section.id === active ? 'page' : undefined"
         @click="active = section.id"
@@ -55,6 +57,7 @@ onMounted(loadSettings)
       </button>
     </nav>
     <section class="settings-body">
+      <FirstRunBanner />
       <h2>{{ title }}</h2>
       <p v-if="settings.error" class="warn">
         {{ settings.error }} <button class="ghost" @click="loadSettings">Try again</button>

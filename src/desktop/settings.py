@@ -182,7 +182,7 @@ class SettingsService:
 
     def schema(self):
         with self._lock:
-            if not self._keyring_checked:
+            if not self._keyring_checked or self._keyring_error:
                 self.hydrate_secrets()
             metadata = self._image_metadata()
             payload = build_meta_payload(
@@ -549,9 +549,12 @@ class SettingsService:
                     ) from None
                 if isinstance(exc, asyncio.CancelledError):
                     raise
+                if isinstance(exc, SecretStoreError):
+                    self._keyring_checked = True
+                    self._keyring_error = "Profile keyring is unavailable or locked"
                 raise _error(
                     "Credential not applied; previous saved credential restored",
-                    "capability_unavailable"
+                    "keyring_unavailable"
                     if isinstance(exc, SecretStoreError)
                     else "internal_error",
                 ) from None

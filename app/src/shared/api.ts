@@ -3,11 +3,19 @@
 
 export type CorePhase = 'starting' | 'ready' | 'degraded' | 'quiescing'
 
+/** Core-authoritative provisioning. Saving a field or signing in is not readiness. */
+export interface FirstRunStatus {
+  state: 'fresh' | 'incomplete' | 'saved' | 'effective-ready' | 'degraded'
+  reason: 'provider_not_configured' | 'provider_configuration_incomplete' | 'provider_runtime_unavailable' | 'provider_identity_not_adopted' | 'provider_effective' | 'provider_health_degraded' | 'provider_health_unknown' | 'keyring_unavailable' | 'credential_state_unavailable'
+  keyring_unavailable: boolean
+}
+
 export interface CoreStatus {
   phase: CorePhase
   core_instance_id: string
   version: string
   capabilities: string[]
+  first_run?: FirstRunStatus
   model?: { main: string; effort: string; provider: string }
   providers?: Array<{ name: string; health: string }>
   limits?: { chunk_bytes: number; attachment_bytes: number; attachments_per_turn: number }
@@ -991,10 +999,12 @@ export interface CodexStatus {
 }
 
 export interface DeviceCode {
-  device_auth_id: string
+  /** Local opaque main-process handle, never the provider's device authorization secret. */
+  login_id: string
   user_code: string
   interval: number
   verify_url: string
+  expires_in: number
 }
 
 export type LoginPoll = { status: 'pending' } | { status: 'authenticated'; email: string; account_id: string }
@@ -1118,7 +1128,8 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   codexLabel(params: { index: number; label: string }): Promise<Result<{ status: string; label: string }>>
   codexRemove(params: { index: number }): Promise<Result<{ status: string; email: string }>>
   codexLoginBegin(): Promise<Result<DeviceCode>>
-  codexLoginPoll(params: { device_auth_id: string; user_code: string }): Promise<Result<LoginPoll>>
+  codexLoginPoll(params: { login_id: string }): Promise<Result<LoginPoll>>
+  codexOpenVerification(): Promise<Result<{ opened: boolean }>>
   setConversationMuted(params: { conversation_id: string; muted: boolean }): Promise<Result<Settings>>
   /** A notification was clicked: the window should show that conversation. */
   onOpenConversation(listener: (conversationId: string) => void): () => void
@@ -1192,6 +1203,7 @@ export const IPC = {
   codexRemove: 'odin:codex:remove',
   codexLoginBegin: 'odin:codex:login-begin',
   codexLoginPoll: 'odin:codex:login-poll',
+  codexOpenVerification: 'odin:codex:open-verification',
   setConversationMuted: 'odin:settings:set-muted',
   openConversation: 'odin:open-conversation',
   getAppState: 'odin:app-state:get',
