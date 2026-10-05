@@ -169,10 +169,21 @@ export interface ControlTarget {
 export interface OdinApi {
   status(): Promise<Result<CoreStatus>>
   listConversations(): Promise<Result<{ items: ConversationListItem[]; watermark: string }>>
-  createConversation(params: { title?: string; parent_id?: string; from_message_id?: string }): Promise<Result<{ conversation: Conversation }>>
-  updateConversation(params: { id: string; expected_rev: number; title?: string; archived?: boolean }): Promise<Result<{ conversation: Conversation }>>
-  deleteConversation(params: { id: string; expected_rev: number }): Promise<Result<{ disposition: string }>>
-  resetContext(params: { id: string; expected_rev: number }): Promise<Result<{ conversation: Conversation }>>
+  createConversation(params: {
+    command_id: string
+    title?: string
+    parent_id?: string
+    from_message_id?: string
+  }): Promise<Result<{ conversation: Conversation }>>
+  updateConversation(params: {
+    command_id: string
+    id: string
+    expected_rev: number
+    title?: string
+    archived?: boolean
+  }): Promise<Result<{ conversation: Conversation }>>
+  deleteConversation(params: { command_id: string; id: string; expected_rev: number }): Promise<Result<{ disposition: string }>>
+  resetContext(params: { command_id: string; id: string; expected_rev: number }): Promise<Result<{ conversation: Conversation }>>
   markRead(params: { id: string; through_message_id: string }): Promise<Result<{ conversation: Conversation }>>
   search(params: { query: string; conversation_id?: string; limit?: number; cursor?: string }): Promise<Result<SearchResult>>
   messagesAround(params: { conversation_id: string; message_id: string; before?: number; after?: number }): Promise<Result<AroundResult>>
