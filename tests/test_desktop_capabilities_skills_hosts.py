@@ -33,7 +33,6 @@ from src.tools.skill_context import (
 from src.tools.skill_manager import (
     LoadedSkill,
     SkillManager,
-    _install_packages,
     resolve_dependencies,
 )
 
@@ -152,18 +151,26 @@ async def test_restricted_files_and_generic_command_calls_stay_denied():
     executor.execute.assert_not_called()
 
 
-def test_missing_skill_dependencies_do_not_install_in_app_interpreter(monkeypatch):
+def test_missing_skill_dependencies_use_retained_installer(monkeypatch):
     monkeypatch.setattr("src.tools.skill_manager._is_package_installed", lambda _spec: False)
+    calls = []
+
+    def install(packages):
+        calls.append(packages)
+        return True, "fixture dependency installed"
+
+    monkeypatch.setattr("src.tools.skill_manager._install_packages", install)
     installed, added, diagnostics = resolve_dependencies(["example-package>=1"])
-    assert installed == added == []
-    assert diagnostics[0].level == "error"
-    assert "isolated" in diagnostics[0].message
-    assert _install_packages(["example-package"])[0] is False
+    assert installed == [] and added == ["example-package>=1"]
+    assert diagnostics[0].level == "warn"
+    assert calls == [["example-package>=1"]]
 
 
 def test_missing_dependencies_prevent_module_execution(tmp_path, monkeypatch):
     manager = SkillManager(str(tmp_path), SimpleNamespace(), allowed_urls=("http://127.0.0.1:8188",))
     monkeypatch.setattr("src.tools.skill_manager._is_package_installed", lambda _spec: False)
+    monkeypatch.setattr("src.tools.skill_manager._install_packages",
+                        lambda packages: (False, "fixture dependency installation failed"))
     code = (
         'SKILL_DEFINITION = {"name": "missing", "description": "test", '
         '"input_schema": {"type": "object", "properties": {}}, '
@@ -309,7 +316,9 @@ async def test_skill_manager_preserves_selected_scope_denial_and_uncertainty(tmp
     executor = SimpleNamespace(check_permission=lambda _name, _owner: "Owner intake unavailable")
     manager = SkillManager(str(tmp_path), executor)
     execute = AsyncMock(return_value="must not execute")
-    manager._skills["test"] = LoadedSkill("test", {}, execute, tmp_path / "test.py", "now")
+    definition = {"name": "test", "description": "fixture",
+                  "input_schema": {"type": "object", "properties": {}}}
+    manager._skills["test"] = LoadedSkill("test", definition, execute, tmp_path / "test.py", "now")
     refused = await manager.execute("test", {}, requester_id="untrusted")
     assert isinstance(refused, ToolFailure)
     assert "Owner intake" in refused

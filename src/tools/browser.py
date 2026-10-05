@@ -115,6 +115,8 @@ class BrowserManager:
         allow_private_targets: list[str] | None = None,
         max_wait_timeout_seconds: int = _HARD_MAX_WAIT_TIMEOUT_SECONDS,
         bundled_executable: str | None = None,
+        launch_env: dict[str, str] | None = None,
+        startup_timeout_seconds: float | None = None,
     ) -> None:
         self._cdp_url = cdp_url
         self._default_timeout_ms = default_timeout_ms
@@ -127,6 +129,8 @@ class BrowserManager:
         self._lock = asyncio.Lock()
         self._native = not bool(cdp_url)
         self._bundled_executable = bundled_executable
+        self._launch_env = launch_env
+        self._startup_timeout_seconds = startup_timeout_seconds
         self.allowed_urls = allow_private_targets or []
 
     def wait_timeout_ms(self, value: object = None) -> int:
@@ -194,10 +198,22 @@ class BrowserManager:
                     "Browser unavailable: required bundled Playwright dependency is missing."
                 )
             if not self._playwright:
-                self._playwright = await async_playwright().start()
+                start = async_playwright().start()
+                self._playwright = (
+                    await _await_bounded(start, self._startup_timeout_seconds,
+                                         "starting Playwright")
+                    if self._startup_timeout_seconds is not None else await start
+                )
             try:
                 if self._native:
-                    self._browser = await self._playwright.chromium.launch(
+                    options = {}
+                    if self._launch_env is not None:
+                        options["env"] = self._launch_env
+                    if self._startup_timeout_seconds is not None:
+                        # Playwright also owns a launch deadline and cleanup,
+                        # rather than relying only on the caller's deadline.
+                        options["timeout"] = self._startup_timeout_seconds * 1000
+                    launch = self._playwright.chromium.launch(
                         executable_path=self._bundled_executable,
                         headless=True,
                         args=[
@@ -206,6 +222,12 @@ class BrowserManager:
                             "--disable-dev-shm-usage",
                             "--disable-gpu",
                         ],
+                        **options,
+                    )
+                    self._browser = (
+                        await _await_bounded(launch, self._startup_timeout_seconds,
+                                             "launching bundled Chromium")
+                        if self._startup_timeout_seconds is not None else await launch
                     )
                     log.info("Launched native headless Chromium")
                 else:

@@ -144,20 +144,37 @@ class CoreService:
         )
         self.commands = CommandJournal(self.store)
         self.events = EventJournal(self.store)
+        # Qualification can await supervised workers. Parent loss must remain
+        # observable while startup is in progress, not only after it succeeds.
+        self.lifetime.watch_parent(stdin_fd)
+        self.lifetime.watch_signals()
         self.management = ManagementService.compose(self, secret_backend=self._secret_backend)
+        await self._start_management()
         self.capabilities = tuple(dict.fromkeys((*CAPABILITIES, *sorted(self.management.methods))))
         self.server = IpcServer(
             self.socket_path, self.token_file, self.paths.profile_id,
             self.authority, self.welcome, self.dispatch,
         )
-        self.lifetime.watch_parent(stdin_fd)
-        self.lifetime.watch_signals()
         await self.server.start()
         self.phase = "ready"
         async with self._serial:
             self.commands.prune(time.time() - RECEIPT_RETENTION)
             await self._status_event()
         self._receipt_pruner = asyncio.create_task(self._prune_receipts())
+
+    async def _start_management(self) -> None:
+        startup = asyncio.create_task(self.management.start())
+        parent_loss = asyncio.create_task(self.lifetime.wait())
+        try:
+            await asyncio.wait((startup, parent_loss), return_when=asyncio.FIRST_COMPLETED)
+            if not self.lifetime.admitting:
+                raise RuntimeError("Core supervisor stopped during qualification")
+            await startup
+        finally:
+            for task in (startup, parent_loss):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(startup, parent_loss, return_exceptions=True)
 
     async def _prune_receipts(self) -> None:
         """Serialize periodic retention with admission, and fail closed on storage loss."""

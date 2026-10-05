@@ -114,7 +114,7 @@
         "tests/test_fts_channel_and_errors.py",
         "tests/test_fts_inventory_boundaries.py",
         "tests/test_fts_search.py",
-        "tests/test_gi_support_loading.py",
+        "tests/test_desktop_gi_loading_adaptation.py",
         "tests/test_guard_capacity.py",
         "tests/test_history_replay.py",
         "tests/test_hybrid_search.py",
@@ -1708,6 +1708,20 @@
         "tests/test_desktop_state.py"
       ],
       "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification."
+    },
+    {
+      "name": "phase2-step6a-qualified-local-services",
+      "files": [
+        "tests/test_desktop_skills.py",
+        "tests/test_desktop_mcp.py",
+        "tests/test_desktop_browser_runtime.py",
+        "tests/test_desktop_computer_binding.py",
+        "tests/test_desktop_dependency_resolver.py",
+        "tests/test_desktop_service_catalog.py",
+        "tests/test_desktop_services_core.py",
+        "tests/test_desktop_workspace_diagnostics.py"
+      ],
+      "reason": "Step 6A real skill lifecycle/schema/dependency installation, supervised configured MCP, bundled Chromium startup, bounded local workspace diagnostics and authentic computer management/recovery. Pip, keyring, network, browser and native backends stubbed; benign disposable git only. No foreground/delivery/work/schedule implementation or native qualification claim. Immutable GI original cases run in the direct group through the worker-only resolver adapter without assertion edits. All engine suites remain isolated PID namespace with throwaway HOME."
     }
   ],
   "acceptance": {

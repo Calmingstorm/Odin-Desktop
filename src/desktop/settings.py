@@ -600,7 +600,9 @@ class SettingsService:
             }
 
     async def handle(self, method, params):
-        if method not in self.METHODS:
+        # Activation is advertised by the computer owner, not twice by the
+        # settings service. Its existing transaction format still owns writes.
+        if method not in self.METHODS and method != "computer.activation.set":
             raise _error("Unknown settings method", "method_not_found")
         if not isinstance(params, dict):
             raise _error("params must be an object")
