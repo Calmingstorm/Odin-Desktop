@@ -110,6 +110,27 @@ def test_existing_profile_repairs_absent_default_key_without_rewriting_config(pr
     assert profile.paths.config_file.read_bytes() == saved
 
 
+def test_existing_config_load_does_not_hold_identity_lock(profile, monkeypatch):
+    import fcntl
+
+    ensure_profile(profile.paths, authority=profile.authority)
+    load = load_config
+    observed = []
+
+    def checked_load(path):
+        with (profile.paths.config_dir / ".identity.lock").open("rb") as stream:
+            # A second descriptor must be able to acquire the identity lock,
+            # exactly as selected-profile migration's OwnerAuthority does.
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            observed.append(path)
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+        return load(path)
+
+    monkeypatch.setattr("src.desktop.provisioning.load_config", checked_load)
+    ensure_profile(profile.paths, authority=profile.authority)
+    assert observed == [profile.paths.config_file]
+
+
 def test_existing_key_is_never_overwritten_during_first_provisioning(profile):
     key = profile.paths.secrets_dir / "id_ed25519"
     key.write_bytes(b"pre-existing-key-sentinel")

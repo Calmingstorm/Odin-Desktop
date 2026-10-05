@@ -2,12 +2,12 @@
   "version": 1,
   "step": 5,
   "review": "PR #21 round 1, reviewed head 982477643adaa7652a74199198110981fe2fdfa0",
-  "evidence_boundary": "Pending exact deltas and named regression-test hashes, not independent approval. Original corpus, selection boundaries and qualification budgets remain unchanged. Final qualification runs once from a fresh group-writable checkout with isolated PID/mount namespaces.",
+  "evidence_boundary": "Pending exact deltas and named regression-test hashes, not independent approval. Original corpus, selection boundaries and qualification budgets remain unchanged. The first full fresh-checkout run exposed a selected-profile migration identity-lock deadlock; preserve its failed evidence, correct production locking, then repeat all groups from another fresh group-writable checkout with isolated PID/mount namespaces.",
   "entries": [
     {
       "path": "src/desktop/provisioning.py",
       "reason": "Fix P2 fresh-profile SSH parity by generating the absent profile-owned Ed25519 key before publishing fresh config, and repairing that default key on older profiles without rewriting their config.",
-      "contract": "No-passphrase key at the configured profile secrets path, mode 0600; shared authority lock and no-replace publication preserve existing keys, including concurrent creation and symlinks. Failed generation leaves fresh config absent and supports retry.",
+      "contract": "No-passphrase key at the configured profile secrets path, mode 0600; shared authority lock and no-replace publication preserve existing keys, including concurrent creation and symlinks. Failed generation leaves fresh config absent and supports retry. Existing config loads outside the identity lock because selected-profile migrations construct their own authority; key publication alone reacquires the lock.",
       "invariant": "No prior-install adoption, custom external-key creation, existing-key/config replacement, parent-mode refusal or remote enrollment. Directory durability uncertainty is exposed on the same authority.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_provisioning.py", "tests/test_desktop_management_core.py", "tests/test_desktop_foundation_config.py", "tests/test_desktop_core_entry.py"]
@@ -22,7 +22,7 @@
     },
     {
       "path": "tests/test_desktop_provisioning.py",
-      "reason": "Add P2 behavior regressions for both provisioning entrypoints, real SSH public-key derivation, fingerprint and mode, identity preservation, missing-default repair, custom paths, symlinks, concurrent creation and failed-generation retry.",
+      "reason": "Add P2 behavior regressions for both provisioning entrypoints, real SSH public-key derivation, fingerprint and mode, identity preservation, missing-default repair, custom paths, symlinks, concurrent creation and failed-generation retry. Assert a separate descriptor can acquire the identity lock during existing-config load to prevent migration self-deadlock.",
       "contract": "Actual no-passphrase Ed25519 keys are generated only in throwaway profile secrets folders; second provisioning preserves key bytes, inode and mtime; existing config and unrelated key paths remain unchanged.",
       "invariant": "No upstream assertion rewrite, live key/host/desktop operation, destructive probe or secret output. Existing workspace/parent-mode/alongside-sentinel tests remain intact.",
       "owner": "Odin",

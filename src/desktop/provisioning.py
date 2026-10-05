@@ -109,19 +109,22 @@ def ensure_profile(paths: ProfilePaths, *, authority: OwnerAuthority | None = No
     authority = authority or OwnerAuthority(paths)
     paths.create_private()
     with authority._locked():
-        if paths.config_file.exists() or paths.config_file.is_symlink():
-            config = load_config(paths.config_file)
+        if not (paths.config_file.exists() or paths.config_file.is_symlink()):
+            config = fresh_config(paths)
             _ensure_ssh_key(paths, authority, config)
+            # Workspace is independent of protected profile state. Existing modes
+            # are accepted, as in Odin; command execution validates its own fence.
+            Path(config.tools.local_working_dir).mkdir(parents=True, exist_ok=True, mode=0o700)
+            durable = write_private_atomic(
+                paths.config_file, yaml.safe_dump(fresh_config_document(paths), sort_keys=False)
+            )
+            authority.durability_degraded = authority.durability_degraded or not durable
             return config
-        config = fresh_config(paths)
+    # Selected-profile migrations construct an authority of their own. Never
+    # load config while holding its non-reentrant cross-process identity lock.
+    config = load_config(paths.config_file)
+    with authority._locked():
         _ensure_ssh_key(paths, authority, config)
-        # Workspace is independent of protected profile state. Existing modes
-        # are accepted, as in Odin; command execution validates its own fence.
-        Path(config.tools.local_working_dir).mkdir(parents=True, exist_ok=True, mode=0o700)
-        durable = write_private_atomic(
-            paths.config_file, yaml.safe_dump(fresh_config_document(paths), sort_keys=False)
-        )
-        authority.durability_degraded = authority.durability_degraded or not durable
     return config
 
 
