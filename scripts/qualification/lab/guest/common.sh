@@ -32,6 +32,63 @@ EOF
     done
 }
 
+# Pure emitter, also exercised against a fixture. In production it is called
+# only by the VM-guarded provisioning function below, never on the workstation.
+odq_common_accessibility_config() {
+    local root=${1:?Explicit guest or fixture root required}
+    install -d -m 0755 "$root/usr/local/lib/odq" "$root/etc/xdg/autostart"
+    # There must be one startup owner, not competing Orca --replace processes.
+    # Hidden is the standard XDG autostart override, scoped to the lab guest.
+    cat >"$root/etc/xdg/autostart/orca-autostart.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Orca
+Hidden=true
+EOF
+    rm -f -- "$root/etc/xdg/autostart/odq-accessibility.desktop"
+    cat >"$root/usr/local/lib/odq/orca-session" <<'EOF'
+#!/bin/sh
+set -eu
+# Serialize both settings with the single Orca launch. The old independent
+# accessibility autostart could change screen-reader state during Orca startup.
+gsettings set org.gnome.desktop.interface toolkit-accessibility true
+gsettings set org.gnome.desktop.a11y.applications screen-reader-enabled true
+case ":${XDG_CURRENT_DESKTOP:-}:" in
+    *:KDE:*)
+        # Plasma autostarts may run before its shell owns the session bus name.
+        # This is a bounded prerequisite wait, not an Orca restart loop. Name
+        # ownership is only a readiness proxy; fresh-boot smoke remains required.
+        ready=false
+        attempt=0
+        while [ "$attempt" -lt 30 ]; do
+            if dbus-send --session --print-reply --reply-timeout=1000 \
+                --dest=org.freedesktop.DBus /org/freedesktop/DBus \
+                org.freedesktop.DBus.NameHasOwner string:org.kde.plasmashell \
+                2>/dev/null | grep -q 'boolean true'; then
+                ready=true
+                break
+            fi
+            attempt=$((attempt + 1))
+            if [ "$attempt" -lt 30 ]; then sleep 1; fi
+        done
+        if [ "$ready" != true ]; then
+            echo 'Orca startup refused: Plasma session bus name not ready' >&2
+            exit 78
+        fi
+        ;;
+esac
+exec orca --replace
+EOF
+    chmod 0755 "$root/usr/local/lib/odq/orca-session"
+    cat >"$root/etc/xdg/autostart/odq-orca.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Qualification Orca
+Exec=/usr/local/lib/odq/orca-session
+NoDisplay=true
+EOF
+}
+
 odq_common() {
     [[ $(systemd-detect-virt) == kvm || $(systemd-detect-virt) == qemu ]] || {
         echo 'Refusing provisioning outside an actual VM' >&2; return 1;
@@ -54,20 +111,7 @@ odq_common() {
         systemctl disable --now "$unit" 2>/dev/null || true
         systemctl mask "$unit"
     done
-    cat >/etc/xdg/autostart/odq-accessibility.desktop <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=Qualification accessibility
-Exec=sh -c 'gsettings set org.gnome.desktop.interface toolkit-accessibility true; gsettings set org.gnome.desktop.a11y.applications screen-reader-enabled true'
-NoDisplay=true
-EOF
-    cat >/etc/xdg/autostart/odq-orca.desktop <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=Qualification Orca
-Exec=orca --replace
-NoDisplay=true
-EOF
+    odq_common_accessibility_config /
     systemctl set-default graphical.target
 }
 
@@ -92,6 +136,10 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
         --write-power-config)
             [[ $# == 2 && $2 == /* && $2 != / ]] || exit 64
             odq_common_power_config "$2"
+            ;;
+        --write-accessibility-config)
+            [[ $# == 2 && $2 == /* && $2 != / ]] || exit 64
+            odq_common_accessibility_config "$2"
             ;;
         *) exit 64 ;;
     esac
