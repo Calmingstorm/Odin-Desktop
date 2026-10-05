@@ -1,0 +1,107 @@
+{
+  "passed": true,
+  "session": {
+    "Desktop": "cinnamon",
+    "Type": "x11",
+    "Active": "yes",
+    "State": "active"
+  },
+  "orca_pids": [
+    "887"
+  ],
+  "desktop_identity": "cinnamon",
+  "screenshot_size": [
+    1280,
+    800
+  ],
+  "timestamp": 1791238514,
+  "capture_output": "Cinnamon guest screenshot captured: /var/tmp/odq-smoke.png\n",
+  "listeners": "udp UNCONN 0      0                              127.0.0.54:53  0.0.0.0:* users:((\"systemd-resolve\",pid=379,fd=16))\nudp UNCONN 0      0                           127.0.0.53%lo:53  0.0.0.0:* users:((\"systemd-resolve\",pid=379,fd=14))\nudp UNCONN 0      0                    10.150.152.68%enp5s0:68  0.0.0.0:* users:((\"systemd-network\",pid=316,fd=21))\nudp UNCONN 0      0      [fe80::1266:6aff:fe4e:fd02]%enp5s0:546    [::]:* users:((\"systemd-network\",pid=316,fd=23))\ntcp LISTEN 0      4096                           127.0.0.54:53  0.0.0.0:* users:((\"systemd-resolve\",pid=379,fd=17))\ntcp LISTEN 0      4096                        127.0.0.53%lo:53  0.0.0.0:* users:((\"systemd-resolve\",pid=379,fd=15))",
+  "limits": "Orca process start only, not verified speech or app accessibility",
+  "instance": "odq-cinnamon",
+  "image": {
+    "name": "odq-cinnamon",
+    "remote": "images",
+    "alias": "ubuntu/24.04",
+    "fingerprint": "7420d4416f4d8bfb3ad6098d2395f86ca5aaf298c2696283ee61200d0b5c9714",
+    "serial": "20261005_07:42",
+    "architecture": "amd64",
+    "os": "Ubuntu",
+    "release": "24.04",
+    "variant": "default",
+    "type": "virtual-machine",
+    "source": "https://images.linuxcontainers.org",
+    "metadata_url": "https://images.linuxcontainers.org/streams/v1/images.json",
+    "product": "ubuntu:noble:amd64:default",
+    "metadata": {
+      "path": "images/ubuntu/noble/amd64/default/20261005_07:42/incus.tar.xz",
+      "sha256": "445dd26112d73bf5df65d6bb1769aec57be204b4034689445a59249965b0d0e1",
+      "size": 668
+    },
+    "rootfs": {
+      "path": "images/ubuntu/noble/amd64/default/20261005_07:42/disk.qcow2",
+      "sha256": "3f5e2568f600c491aca4bb7512e27614ce3def2eeeb4118b61f0f21aee7a656d",
+      "size": 305733632
+    },
+    "guest_script": "guest/cinnamon.sh",
+    "session": "x11",
+    "desktop": "cinnamon",
+    "packages": [
+      "cinnamon-core",
+      "lightdm",
+      "lightdm-gtk-greeter",
+      "xserver-xorg-video-all",
+      "libgl1-mesa-dri",
+      "scrot",
+      "x11-utils",
+      "dconf-cli",
+      "dbus-user-session"
+    ],
+    "capture_helper": "/usr/local/lib/odq/capture",
+    "smoke_runner": "guest/smoke.py",
+    "limitations": [
+      "Public Mint 22-series amd64 simplestreams products had no VM disk items on 2026-10-05; Ubuntu 24.04 Cinnamon fallback used.",
+      "Base image fingerprint is pinned; Ubuntu apt packages remain repository-resolved, with installed versions recorded in packages.tsv.",
+      "Daily upstream images expire. Preserve verified image artifacts in the Incus cache; never silently substitute a moving alias.",
+      "Mesa llvmpipe and virtual X11 display prove guest paths only, not physical GPU, host input, host audio or actual monitor layout.",
+      "Smoke evidence is tracked in maintenance/phase3-lab.md; process presence and screenshot do not prove spoken output or application accessibility."
+    ]
+  },
+  "screenshot_sha256": "8d1b011dfee5e0f29afacc9ce9236aee33d1565911c2cd1a6435b47ebcbe0ece",
+  "visual_inspection": "required",
+  "source_sha": "dcb2d349f5fadd012f25b30eca3d6d054057fc7d",
+  "source_dirty": false,
+  "host_files_sha256": {
+    "scripts/qualification/lab/lab.py": "d8c69bc6eecd35141834f7cac8386a3bf5d332b1a0764be1f02cbe8bab00f82c",
+    "scripts/qualification/lab/guest/common.sh": "d5f29f77f918814a35e76b388c2c98660b99c7ecbeed7417e40ade153f7fbe8d",
+    "scripts/qualification/lab/guest/smoke.py": "26b1eb215747c0cb93a1e6b8ca24eb43544d919a883644306c36fad2a88f3153",
+    "scripts/qualification/lab/guest/cinnamon.sh": "84ac6435064c2720a5149c0df35d3d356e57d11861527d69c62643be8ca907a3",
+    "scripts/qualification/lab/images/cinnamon.json": "8f251fd461335ae0726236fd2ea3f4b2dee03d8b8c2d435f5350a6d4f1bce623"
+  },
+  "guest_files_sha256": {
+    "/root/odq/common.sh": "d5f29f77f918814a35e76b388c2c98660b99c7ecbeed7417e40ade153f7fbe8d",
+    "/root/odq/smoke.py": "26b1eb215747c0cb93a1e6b8ca24eb43544d919a883644306c36fad2a88f3153",
+    "/root/odq/cinnamon.sh": "84ac6435064c2720a5149c0df35d3d356e57d11861527d69c62643be8ca907a3",
+    "/usr/local/lib/odq/capture": "21228e65d346cb732ebf6dc254501a19b9d4a7bfc0618edfc53ff9460c2939f5"
+  },
+  "source_comparison": {
+    "/root/odq/common.sh": {
+      "host_path": "scripts/qualification/lab/guest/common.sh",
+      "matches": true
+    },
+    "/root/odq/smoke.py": {
+      "host_path": "scripts/qualification/lab/guest/smoke.py",
+      "matches": true
+    },
+    "/root/odq/cinnamon.sh": {
+      "host_path": "scripts/qualification/lab/guest/cinnamon.sh",
+      "matches": true
+    },
+    "/usr/local/lib/odq/capture": {
+      "host_path": null,
+      "matches": null,
+      "reason": "Generated guest artifact; no host byte-equivalent comparison"
+    }
+  },
+  "source_matches": true
+}
