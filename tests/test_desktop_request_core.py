@@ -114,6 +114,10 @@ async def test_ipc_dedup_queue_disconnect_guarded_delivery_artifact_and_restart(
         assert [m["text"] for m in messages if m["role"] == "assistant"] == [
             "Guarded answer 1.", "Guarded answer 2."]
         assert provider.calls == 2
+        notification = core.delivery.notifications.pending()[0]
+        acknowledgement = await request(reader, writer, "notifications.ack", {
+            "dedupe_key": notification["dedupe_key"], "outcome": "shown"})
+        assert acknowledgement["result"] == {"disposition": "recorded"}
         artifact = next(m["artifacts"][0] for m in messages if m.get("artifacts"))
         ref = artifact["ref"]
         got = await request(reader, writer, "artifacts.read", {

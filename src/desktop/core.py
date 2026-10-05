@@ -372,7 +372,7 @@ class CoreService:
             elif method in ATTACHMENT_METHODS:
                 return self.attachments.handle(method, params)
             elif method == "notifications.ack":
-                result = self.delivery.notifications.ack(**params)
+                return self.delivery.notifications.handle(method, params)
             elif method in RESULT_METHODS:
                 owner = self.authority.owner_id
                 if method == "artifacts.read":
