@@ -91,6 +91,35 @@ Final clean full qualification is parent-owned and recorded separately in
 `phase2-step8-part2-result.json` after execution. No merge, deploy, live-service
 change or active-desktop operation was performed by this task.
 
+## Completed gate and subsequent merged-main qualification
+
+One clean invocation from fresh detached `11543cc0` returned **30 groups,
+14,322 passed, 2 skipped, zero failures/errors**. Fresh locked dependencies
+already included pip; no manual repair or retry was needed. Its per-group JUnit
+digests are retained in `phase2-step8-part2-result.json`.
+
+While that gate ran, PR27 merged externally as `main@caa871cd`. Parent rebased
+without conflicts, preserving its app and runtime additions. The resulting diff
+contains no app changes. One import-order finding in PR27's new model-setting
+test was corrected by adding a blank separator only; product assertions and
+bytes of its runtime additions remain unchanged. Specific evidence bindings
+were refreshed, and the new runtime/host/state plus adapter selection returned
+**295 passed** under the same isolated runner. Drift and no-new-lint gates pass.
+
+Because merged main changed three runtime modules and their tests, the first
+clean invocation is not misrepresented as qualification of the rebased result.
+A second fresh detached checkout at `4a65cf42` completed the full gate against
+that merged result: **30 groups, 14,328 passed, 2 skipped, zero failures/errors**.
+Its receipt is `phase2-step8-part2-rebased-result.json`. Each checkout uses a
+2775 group-writable parent and umask002 before `git worktree add`; sanitized
+nonroot mount/PID namespace and throwaway HOME/XDG remain mandatory.
+
+Parent verified that every ledgered executable, lock, suite map and qualification
+selector remained identical to the second fresh tested checkout. Only validation
+text and its generated result receipt changed afterward. Internal final
+accounting/generator review approved the applied maps and narrow selector
+transition, with112 accounting and18 runtimeA tests passing independently.
+
 ## Qualification boundaries
 
 - Native knowledge and provider shutdown direct originals qualify retained
