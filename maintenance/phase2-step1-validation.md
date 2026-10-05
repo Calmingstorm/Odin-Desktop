@@ -120,7 +120,10 @@ Review baseline: `81d00a151cdfb9dde25ddcbf04d1530e9e13658a`.
   safety byte. This is a named source adaptation, not a blanket exemption. Subsequent touched owner/path tests:
   **52 passed**. Evidence digest refreshes on unchanged source rows do not recapture or approve source changes.
 - The full gate is **not rerun**, per the once-only instruction. The failed group is checked separately from the
-  corrected clean checkout and recorded below; that does not turn the original full run into a green run.
+  corrected clean checkout `6325cc9c205676543cbdc5773f5fae8060ac3898`: **446 passed**, drift and lint clean.
+  That does not turn the original full run into a green run. Corrected group log:
+  `/home/odin/reviews/desktop-step1-round1-corrected-boundary.log`; JUnit:
+  `/home/odin/reviews/desktop-step1-round1-corrected/.test-state/review-corrected-boundary.xml`.
 - Full log: `/home/odin/reviews/desktop-step1-round1-fresh-gates.log`; JUnit under
   `/home/odin/reviews/desktop-step1-round1-fresh/.test-state/qualification-{0..28}.xml`.
   Inherited unawaited-AsyncMock warnings remain visible; this is not a warning-clean claim.
