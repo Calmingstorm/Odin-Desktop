@@ -92,6 +92,11 @@ class TranscriptStore:
             self.events.append("message.committed", {"kind": "message", "id": message["id"]},
                                {"conversation_id": conversation_id,
                                 "message": self.public(message)})
+            if message.get("context_reset"):
+                self.events.append("conversation.context_reset",
+                                   {"kind": "conversation", "id": conversation_id},
+                                   {"conversation_id": conversation_id,
+                                    "message_id": message["id"]})
             if role == "assistant":
                 conversation["unread"] += 1
             self.conversations._changed(conversation)

@@ -79,6 +79,10 @@ def test_reset_context_visible_notice_and_child_reset(graph):
     assert reset["rev"] == revision + 1
     assert transcript.model_context(child) == []
     assert transcript.list(child)["items"][0]["role"] == "notice"
+    notice_id = transcript.list(child)["items"][0]["id"]
+    reset_event = [event for event in events.between("0")
+                   if event["type"] == "conversation.context_reset"][-1]
+    assert reset_event["payload"] == {"conversation_id": child, "message_id": notice_id}
     transcript.commit(child, "user", "After")
     assert [item["text"] for item in transcript.model_context(child)] == ["After"]
     assert events.between("0")[-1]["type"] == "conversation.updated"
