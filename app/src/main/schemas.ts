@@ -61,8 +61,42 @@ export const snapshotConversationSchema = z
 
 // 32,000 characters matches Odin's existing chat API limit.
 export const submitSchema = z
-  .object({ client_submission_id: z.uuid(), conversation_id: coreId, text: z.string().min(1).max(32_000) })
+  .object({
+    client_submission_id: z.uuid(),
+    conversation_id: coreId,
+    text: z.string().max(32_000),
+    attachments: z
+      .array(z.object({ ref: coreId, add_to_knowledge: z.boolean() }).strict())
+      // The core's attachments_per_turn applies; this bound only keeps one submission inside a frame.
+      .max(1000)
+      .optional()
+  })
   .strict()
+  // As on Discord, a message may be only attachments.
+  .refine((v) => v.text.trim().length > 0 || (v.attachments?.length ?? 0) > 0, { message: 'a message needs text or attachments' })
+
+export const usageSchema = z.object({ period: z.enum(['24h', '7d', '30d', 'all']) }).strict()
+
+export const reloadSchema = z.object({ scope: z.enum(['skills', 'config', 'context']) }).strict()
+
+export const draftGetSchema = z.object({ conversation_id: coreId }).strict()
+
+export const draftSetSchema = z.object({ conversation_id: coreId, text: z.string().max(32_000) }).strict()
+
+// No count of its own: the renderer applies the core's announced per-turn limit to every way of attaching.
+export const attachPathsSchema = z.object({ paths: z.array(z.string().min(1).max(4_096)).min(1) }).strict()
+
+export const attachBytesSchema = z
+  .object({
+    name: z.string().min(1).max(255),
+    mime: z.string().min(1).max(127),
+    data: z.custom<Uint8Array>((value) => value instanceof Uint8Array, 'expected bytes')
+  })
+  .strict()
+
+export const uploadAttachmentSchema = z.object({ id: z.uuid(), conversation_id: coreId }).strict()
+
+export const cancelAttachmentSchema = z.object({ id: z.uuid() }).strict()
 
 export const controlSchema = z
   .object({

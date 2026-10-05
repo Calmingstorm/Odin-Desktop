@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { controlSchema, createConversationSchema, parseRequest, searchSchema, steerSchema, submitSchema } from '../src/main/schemas'
+import { attachPathsSchema, controlSchema, createConversationSchema, parseRequest, searchSchema, steerSchema, submitSchema } from '../src/main/schemas'
 
 const uuid = '0b6f1c1e-9a3e-4a8e-9d43-2f1f0c7d5a10'
 
@@ -13,6 +13,13 @@ describe('bridge request validation', () => {
     expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'hi', extra: 1 }).ok).toBe(false)
     expect(parseRequest(submitSchema, { client_submission_id: 'not-a-uuid', conversation_id: 'c_1', text: 'hi' }).ok).toBe(false)
     expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: '../etc', text: 'hi' }).ok).toBe(false)
+    // As on Discord, a message may be only attachments, but never nothing at all.
+    const attachment = { ref: 'a_1', add_to_knowledge: false }
+    expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: '', attachments: [attachment] }).ok).toBe(true)
+    expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: '  ' }).ok).toBe(false)
+    // The core's attachments_per_turn decides how many go with a message; the bridge only bounds the frame.
+    expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'hi', attachments: Array(11).fill(attachment) }).ok).toBe(true)
+    expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'hi', attachments: Array(1001).fill(attachment) }).ok).toBe(false)
     expect(parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'x'.repeat(32_001) }).ok).toBe(false)
   })
 
@@ -39,6 +46,12 @@ describe('bridge request validation', () => {
 describe('review round 1: no limits Odin does not have', () => {
   it('accepts a search query longer than 500 characters (D17)', () => {
     expect(parseRequest(searchSchema, { query: 'x'.repeat(501) }).ok).toBe(true)
+  })
+
+  it('puts no count of its own on dropped or pasted files: the core announces the limit (D17)', () => {
+    const paths = Array.from({ length: 21 }, (_, i) => `/home/user/file-${i}.txt`)
+    expect(parseRequest(attachPathsSchema, { paths }).ok).toBe(true)
+    expect(parseRequest(attachPathsSchema, { paths: Array.from({ length: 1001 }, (_, i) => `/f${i}`) }).ok).toBe(true)
   })
 
   it('puts no character cap on a search query: only the frame limit bounds it (D17)', () => {

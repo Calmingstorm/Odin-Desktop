@@ -121,7 +121,9 @@ function fakeBridge() {
     }>
   }
   const api = {
-    status: async () => ({ ok: true, result: { phase: 'ready', core_instance_id: 'core-1', version: 'test', capabilities: [] } }),
+    status: async () => ({ ok: true, result: { phase: 'ready', core_instance_id: 'core-1', version: 'test', capabilities: [], summary: 'Core core-1: ready.' } }),
+    usage: async () => ({ ok: true, result: { period: 'session', tokens: { value: null, kind: 'unknown' }, context: { value: null, kind: 'unknown' }, quota: [], summary: 'Usage unknown.' } }),
+    reload: async () => ({ ok: true, result: { disposition: 'reloaded', summary: 'Context: none.' } }),
     getAppState: async (): Promise<AppState> => ({ link: 'ready', coreInstanceId: 'core-1', noTray: false, unreceipted: 0 }),
     getSettings: async () => ({ ok: true, result: { autostart: false } }),
     setAutostart: async (enabled: boolean) => ({ ok: true, result: { autostart: enabled } }),
@@ -722,6 +724,36 @@ describe('search and jump', () => {
   })
 })
 
+describe('commands and attachments', () => {
+  it('matches commands by prefix and splits the argument', async () => {
+    const commands = await import('../../src/renderer/src/commands')
+    expect(commands.matchCommands('/st').map((c) => c.name)).toEqual(['stop', 'steer', 'status'])
+    expect(commands.parseCommand('/steer use the other host')).toEqual({ name: 'steer', arg: 'use the other host' })
+    expect(commands.parseCommand('/status')).toEqual({ name: 'status', arg: '' })
+  })
+
+  it('keeps /steer text in the box when nothing is running, and shows /status in the window only', async () => {
+    await start()
+    const commands = await import('../../src/renderer/src/commands')
+    const steer = commands.COMMANDS.find((c) => c.name === 'steer')!
+    expect(await steer.run('do it differently')).toBe(false)
+    expect(store.state.notice).toMatch(/Nothing is running/)
+    await commands.COMMANDS.find((c) => c.name === 'status')!.run('')
+    expect(store.state.panel).toEqual({ title: 'Status', text: 'Core core-1: ready.' })
+    expect(bridge.calls.submit).toHaveLength(0) // nothing went to Odin as a message
+  })
+
+  it('sends attachments with a message, and refuses them on a steer', async () => {
+    await start()
+    const refs = [{ ref: 'a_1', add_to_knowledge: true }]
+    expect(await store.send('', 'queue', refs)).toBe(true)
+    expect(bridge.calls.submit[0]).toMatchObject({ conversation_id: 'c1', text: '', attachments: refs })
+    emit(event(2, 'request.started', { request_id: 'r-run', generation: 1 }))
+    expect(await store.send('look at this', 'steer', refs)).toBe(false)
+    expect(store.state.notice).toMatch(/Choose Queue/)
+    expect(bridge.calls.steer).toHaveLength(0)
+  })
+})
 describe('review round 1: conversation commands are confirmed once', () => {
   it('never retries a lost thread as a second thread; its late receipt adds it without moving the view', async () => {
     await start()

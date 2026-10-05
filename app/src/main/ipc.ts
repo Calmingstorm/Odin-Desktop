@@ -1,11 +1,21 @@
 // The named bridge methods. Each one validates its sender and its payload, then maps to exactly one core method.
 import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { z } from 'zod'
-import { IPC, type AppState, type Result, type Settings } from '../shared/api'
+import { IPC, type AppState, type Result, type Settings, type StagedAttachment, type StagedBatch } from '../shared/api'
+import type { AttachmentManager } from './attachments'
 import type { Broker, Settled } from './broker'
+import type { DraftStore } from './drafts'
 import {
+  attachBytesSchema,
+  attachPathsSchema,
+  cancelAttachmentSchema,
   controlSchema,
   conversationRevisionSchema,
+  draftGetSchema,
+  draftSetSchema,
+  reloadSchema,
+  uploadAttachmentSchema,
+  usageSchema,
   createConversationSchema,
   listMessagesSchema,
   markReadSchema,
@@ -25,6 +35,10 @@ export interface IpcDeps {
   windowId: () => number | null
   /** The window's top frame; requests from any other frame are refused. */
   mainFrame: () => FrameIdentity | null
+  drafts: DraftStore
+  attachments: AttachmentManager
+  /** Opens the system file picker and returns the chosen paths. */
+  pickFiles: () => Promise<string[]>
   getSettings: () => Settings
   setAutostart: (enabled: boolean) => Settings
   appState: () => AppState
@@ -95,6 +109,32 @@ export function registerIpc(deps: IpcDeps): void {
   handle(IPC.steer, steerSchema, async (v) =>
     fromSettled(await deps.broker.request('control.steer', v, v.control_command_id))
   )
+  handle(IPC.usage, usageSchema, async (v) => fromSettled(await deps.broker.request('usage.get', v)))
+  handle(IPC.reload, reloadSchema, async (v) => fromSettled(await deps.broker.request('runtime.reload', v)))
+  handle(IPC.getDraft, draftGetSchema, (v) => ({ ok: true, result: { text: deps.drafts.get(v.conversation_id) } }))
+  handle(IPC.setDraft, draftSetSchema, (v) => {
+    deps.drafts.set(v.conversation_id, v.text)
+    return { ok: true, result: { saved: true } }
+  })
+  const stageAll = async (paths: string[]): Promise<Result<StagedBatch>> => {
+    const staged: StagedAttachment[] = []
+    const errors: string[] = []
+    for (const path of paths) {
+      const result = await deps.attachments.stagePath(path)
+      if (result.ok) staged.push(result.result)
+      else errors.push(result.error.message)
+    }
+    return { ok: true, result: { staged, errors } }
+  }
+  handle(IPC.pickFiles, null, async () => stageAll(await deps.pickFiles()))
+  // Only the bridge calls this, with paths Electron derived from real dropped or pasted files.
+  handle(IPC.attachPaths, attachPathsSchema, (v) => stageAll(v.paths))
+  handle(IPC.attachBytes, attachBytesSchema, (v) => deps.attachments.stageBytes(v.name, v.mime, Buffer.from(v.data)))
+  handle(IPC.uploadAttachment, uploadAttachmentSchema, (v) => deps.attachments.upload(v.id, v.conversation_id))
+  handle(IPC.cancelAttachment, cancelAttachmentSchema, (v) => {
+    deps.attachments.cancel(v.id)
+    return { ok: true, result: { cancelled: true } }
+  })
   handle(IPC.getSettings, null, () => ({ ok: true, result: deps.getSettings() }))
   handle(IPC.setAutostart, setAutostartSchema, (v) => ({ ok: true, result: deps.setAutostart(v.enabled) }))
 

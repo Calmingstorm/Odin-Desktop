@@ -1,7 +1,17 @@
 // The narrow bridge: the window gets exactly these named methods as `window.odin`, nothing else.
 // The window never receives ipcRenderer itself, Node APIs, or the core socket.
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { IPC, type AppState, type CoreEvent, type LateReceipt, type OdinApi, type ResetNotice } from '../shared/api'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
+import {
+  IPC,
+  type AppState,
+  type AttachmentProgress,
+  type CoreEvent,
+  type LateReceipt,
+  type OdinApi,
+  type ResetNotice,
+  type Result,
+  type StagedBatch
+} from '../shared/api'
 
 const api: OdinApi = {
   status: () => ipcRenderer.invoke(IPC.status),
@@ -18,6 +28,35 @@ const api: OdinApi = {
   submit: (params) => ipcRenderer.invoke(IPC.submit, params),
   stop: (params) => ipcRenderer.invoke(IPC.stop, params),
   steer: (params) => ipcRenderer.invoke(IPC.steer, params),
+  usage: (period) => ipcRenderer.invoke(IPC.usage, { period }),
+  reload: (scope) => ipcRenderer.invoke(IPC.reload, { scope }),
+  getDraft: (conversationId) => ipcRenderer.invoke(IPC.getDraft, { conversation_id: conversationId }),
+  setDraft: (conversationId, text) => ipcRenderer.invoke(IPC.setDraft, { conversation_id: conversationId, text }),
+  pickFiles: () => ipcRenderer.invoke(IPC.pickFiles),
+  // The path of each file comes from the operating system through Electron, never from the page: a File the page made
+  // up has no path, so it can't name a file on disk.
+  attachFiles: async (files) => {
+    const paths: string[] = []
+    const errors: string[] = []
+    for (const file of files) {
+      const path = webUtils.getPathForFile(file)
+      if (path) paths.push(path)
+      else errors.push(`${file.name || 'That item'} isn't a file on disk.`)
+    }
+    if (paths.length === 0) return { ok: true, result: { staged: [], errors } }
+    const staged = (await ipcRenderer.invoke(IPC.attachPaths, { paths })) as Result<StagedBatch>
+    return staged.ok ? { ok: true, result: { staged: staged.result.staged, errors: [...errors, ...staged.result.errors] } } : staged
+  },
+  attachBytes: (params) => ipcRenderer.invoke(IPC.attachBytes, params),
+  uploadAttachment: (params) => ipcRenderer.invoke(IPC.uploadAttachment, params),
+  cancelAttachment: (id) => ipcRenderer.invoke(IPC.cancelAttachment, { id }),
+  onAttachmentProgress: (listener) => {
+    const handler = (_event: IpcRendererEvent, progress: AttachmentProgress): void => listener(progress)
+    ipcRenderer.on(IPC.attachmentProgress, handler)
+    return () => {
+      ipcRenderer.removeListener(IPC.attachmentProgress, handler)
+    }
+  },
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
   setAutostart: (enabled) => ipcRenderer.invoke(IPC.setAutostart, { enabled }),
   getAppState: () => ipcRenderer.invoke(IPC.getAppState),

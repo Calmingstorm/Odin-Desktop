@@ -134,8 +134,14 @@ export const state = reactive({
   /** A window of messages around a search hit that is outside the loaded history. The live view is untouched. */
   jump: null as { conversationId: string; messageId: string; items: Message[]; hasBefore: boolean; hasAfter: boolean } | null,
   /** The message a jump points at, highlighted and scrolled into view. */
-  highlightId: null as string | null
+  highlightId: null as string | null,
+  /** Output of a command such as /status, shown in the window and never sent to Odin. */
+  panel: null as { title: string; text: string } | null
 })
+
+export function showPanel(title: string, text: string): void {
+  state.panel = { title, text }
+}
 
 const TERMINAL = new Set([
   'request.completed',
@@ -779,8 +785,15 @@ export async function loadOlder(conversationId: string): Promise<void> {
   view.hasMore = result.result.has_more
 }
 
-/** Sends a new message. While a task runs, the composer instead steers it or queues a follow-up (explicit modes). */
-export async function send(text: string, mode: ComposerMode): Promise<boolean> {
+/**
+ * Sends a new message. While a task runs, the composer instead steers it or queues a follow-up (explicit modes).
+ * Attachments go only with a message: a steer carries text alone.
+ */
+export async function send(
+  text: string,
+  mode: ComposerMode,
+  attachments: Array<{ ref: string; add_to_knowledge: boolean }> = []
+): Promise<boolean> {
   const conversationId = state.activeId
   if (!conversationId) return false
   const view = state.views[conversationId]
@@ -790,7 +803,13 @@ export async function send(text: string, mode: ComposerMode): Promise<boolean> {
     return false
   }
   const running = view.running
-  if (running && mode === 'steer') return steer(conversationId, running, text)
+  if (running && mode === 'steer') {
+    if (attachments.length) {
+      note('Attachments go with a message, not a steer. Choose Queue to send them as a follow-up.')
+      return false
+    }
+    return steer(conversationId, running, text)
+  }
 
   state.pending.push({
     client_submission_id: crypto.randomUUID(),
@@ -802,7 +821,8 @@ export async function send(text: string, mode: ComposerMode): Promise<boolean> {
   const result = await window.odin.submit({
     client_submission_id: pending.client_submission_id,
     conversation_id: conversationId,
-    text
+    text,
+    ...(attachments.length ? { attachments } : {})
   })
   if (result.ok) {
     removePending(pending.client_submission_id)
