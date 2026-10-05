@@ -10,6 +10,9 @@ deliver results, replay calls, or grant foreground computer consent.
 Credentials use the existing profile secret paths. Containers are JSON in the
 keyring at mcp.servers.<name>.headers/env, not plaintext config. Endpoint secrets
 use mcp.servers.<name>.url; the saved URL is credential-free recognition data.
+Profile-local mcp-credentials/<name>.json records only credential field presence.
+Empty markers bypass the keyring; unmarked legacy servers migrate once unlocked
+and fail closed individually until then, rather than discarding old credentials.
 Only the section controls write these containers. Generic secrets.set is not a
 container-JSON API. prepare_settings is the reload composition seam: adoption is
 await-free, retirement/reconciliation must subsequently be drained by finish().
@@ -29,7 +32,9 @@ from ..config.schema import MCPConfig, MCPServerConfig
 from ..tools.mcp.errors import MCPConfigError
 from ..tools.mcp.manager import MCPManager, validate_server_config
 from ..tools.mcp.outcomes import OUTCOME_FAILED, MCPToolOutcome
+from ..permissions.persistence import write_private_atomic
 from .management import MethodError
+from .secrets import SecretStoreError
 
 METHODS = frozenset({
     "mcp.list", "mcp.status", "mcp.tools", "mcp.save", "mcp.set_enabled",
@@ -39,6 +44,7 @@ METHODS = frozenset({
 READ_METHODS = frozenset({"mcp.list", "mcp.status", "mcp.tools"})
 _PUBLIC_FIELDS = frozenset(MCPServerConfig.model_fields) - {"headers", "env"}
 _LIMIT_FIELDS = {"max_published_tools_per_server", "max_published_tools_global"}
+_CREDENTIAL_FIELDS = ("headers", "env", "url")
 
 
 def _secret_path(name, field):
@@ -90,31 +96,76 @@ class MCPService:
         self._started = False
         self._closed = False
         self._startup_error = ""
+        self._unavailable = {}
+
+    def _marker_path(self, name):
+        self._name({"name": name})
+        return self.settings.paths.data_dir / "mcp-credentials" / f"{name}.json"
+
+    def _credential_fields(self, name):
+        """None is a pre-marker profile, not proof that it has no credentials."""
+        try:
+            raw = self._marker_path(name).read_text()
+        except FileNotFoundError:
+            return None
+        marker = json.loads(raw)
+        fields = marker.get("fields") if isinstance(marker, dict) else None
+        if (marker != {"version": 1, "fields": fields} or not isinstance(fields, list)
+                or any(field not in _CREDENTIAL_FIELDS for field in fields)
+                or len(set(fields)) != len(fields)):
+            raise ValueError("invalid MCP credential marker")
+        return set(fields)
+
+    def _write_marker(self, name, fields):
+        # Empty markers prove credential-free state. Absence means legacy state.
+        if not write_private_atomic(self._marker_path(name), json.dumps({
+            "version": 1, "fields": sorted(fields),
+        })):
+            self.settings.secrets.durability_degraded = True
+            raise OSError("MCP credential marker durability is unproven")
+
+    def _hydrate_server(self, name, row):
+        value = row.model_dump()
+        if value["headers"] or value["env"]:
+            raise ValueError("plaintext MCP credentials require explicit migration")
+        if value["url"] and _public_url(value["url"]) != value["url"]:
+            raise ValueError("plaintext MCP endpoint credentials")
+        fields = self._credential_fields(name)
+        legacy = fields is None
+        if legacy:
+            # No presence evidence: probe once when unlocked, fail closed per
+            # server when locked. Never drop old credentials by assuming absence.
+            fields = set(_CREDENTIAL_FIELDS)
+        present = set()
+        for field in _CREDENTIAL_FIELDS:
+            if field not in fields:
+                continue
+            stored = self.settings.secrets.get(_secret_path(name, field))
+            if stored is None:
+                if not legacy:
+                    raise ValueError("marked MCP credential is missing")
+                continue
+            present.add(field)
+            if field == "url":
+                if _public_url(stored) != value["url"]:
+                    raise ValueError("MCP endpoint keyring binding changed")
+                value[field] = stored
+            else:
+                value[field] = _mapping(json.loads(stored))
+        if legacy:
+            self._write_marker(name, present)
+        return value
 
     def _hydrate(self, config):
-        servers = {}
-        try:
-            for name, row in config.mcp.servers.items():
-                value = row.model_dump()
-                for field in ("headers", "env"):
-                    # Imported plaintext is not silently promoted to a credential.
-                    if value[field]:
-                        raise ValueError("plaintext MCP credentials require explicit migration")
-                    stored = self.settings.secrets.get(_secret_path(name, field))
-                    value[field] = _mapping(json.loads(stored)) if stored is not None else {}
-                stored_url = self.settings.secrets.get(_secret_path(name, "url"))
-                if value["url"] and _public_url(value["url"]) != value["url"]:
-                    raise ValueError("plaintext MCP endpoint credentials")
-                if stored_url is not None:
-                    if _public_url(stored_url) != value["url"]:
-                        raise ValueError("MCP endpoint keyring binding changed")
-                    value["url"] = stored_url
-                servers[name] = value
-        except Exception:
-            raise MethodError(
-                "capability_unavailable", "MCP configuration or keyring is unavailable",
-            ) from None
-        return servers
+        servers, unavailable = {}, {}
+        for name, row in config.mcp.servers.items():
+            try:
+                servers[name] = self._hydrate_server(name, row)
+            except SecretStoreError:
+                unavailable[name] = "MCP credentials are unavailable: profile keyring is unavailable or locked"
+            except Exception:
+                unavailable[name] = "MCP configuration or credential marker is unavailable; explicit migration may be required"
+        return servers, unavailable
 
     async def start(self, *, wait_for_first_attempt=False):
         """Configured startup; probes stay bounded and supervisor-owned."""
@@ -123,12 +174,7 @@ class MCPService:
                 raise MethodError("capability_unavailable", "MCP service is closed")
             if self._started:
                 return
-            try:
-                servers = self._hydrate(self.settings.config)
-            except MethodError as exc:
-                # Keep management usable while publishing/starting nothing.
-                self._startup_error = exc.message
-                return
+            servers, self._unavailable = self._hydrate(self.settings.config)
             await self.manager.load_desired_state(
                 enabled=self.settings.config.mcp.enabled, servers=servers,
             )
@@ -177,6 +223,18 @@ class MCPService:
 
     def _status(self):
         status = self.manager.get_status()
+        for name, reason in self._unavailable.items():
+            row = self.settings.config.mcp.servers.get(name)
+            if row is not None:
+                status["servers"].append({
+                    "name": name, "transport": row.transport, "enabled": row.enabled,
+                    "state": "unavailable", "last_error": reason, "blocked_reason": reason,
+                    "discovered_count": 0, "published_count": 0, "excluded_count": 0,
+                    "published_tools": [], "original_tools": [], "header_keys": [],
+                    "env_keys": [], "url_display": None,
+                })
+        status["server_count"] = len(status["servers"])
+        status["enabled_server_count"] = sum(row["enabled"] for row in status["servers"])
         status.update(started=self._started and not self._closed, closed=self._closed,
                       startup_error=self._startup_error, revision=self.settings.revision)
         status["configured_server_count"] = len(self.settings.config.mcp.servers)
@@ -220,6 +278,20 @@ class MCPService:
                 if set(params) - {"name", "expected_revision"}:
                     raise MethodError("bad_request", "Unexpected MCP operation field")
                 name = self._name(params)
+                if name in self._unavailable and method == "mcp.reconnect":
+                    try:
+                        row = self._hydrate_server(name, self.settings.config.mcp.servers[name])
+                    except SecretStoreError:
+                        raise MethodError("capability_unavailable", self._unavailable[name]) from None
+                    except Exception:
+                        raise MethodError("capability_unavailable", "MCP configuration or credential marker is unavailable") from None
+                    transition = self.manager.stage_desired_state(
+                        enabled=self.settings.config.mcp.enabled,
+                        servers=self.manager.desired_servers() | {name: row},
+                    )
+                    self._unavailable.pop(name)
+                    await self.manager.finish_desired_state(transition)
+                    return self._status()
                 self._require_server(name)
                 if not self._started:
                     raise MethodError(
@@ -235,11 +307,16 @@ class MCPService:
         if name not in self.settings.config.mcp.servers:
             raise MethodError("not_found", "MCP server not found")
         if name not in self.manager.server_names:
-            raise MethodError("capability_unavailable", "MCP server is not adopted")
+            raise MethodError("capability_unavailable", self._unavailable.get(
+                name, "MCP server is not adopted",
+            ))
 
     async def _mutate(self, method, params):
         desired = self.settings.config.model_copy(deep=True)
         vault = {}
+        marker_fields = None
+        marker_name = None
+        unavailable = self._unavailable.copy()
         path = ("mcp",)
         # A keyring relock cannot prevent revocation of already-adopted servers.
         revoke_unstarted = (not self._started and method == "mcp.set_global_enabled"
@@ -249,8 +326,10 @@ class MCPService:
             # needs no credential read. Do not mark this partial state started.
             runtime = {}
         else:
-            runtime = (self.manager.desired_servers() if self._started
-                       else self._hydrate(self.settings.config))
+            if self._started:
+                runtime = self.manager.desired_servers()
+            else:
+                runtime, unavailable = self._hydrate(self.settings.config)
         if method == "mcp.set_global_enabled":
             if (set(params) - {"enabled", "expected_revision"}
                     or type(params.get("enabled")) is not bool):
@@ -277,17 +356,32 @@ class MCPService:
                     raise MethodError("bad_request", "Unexpected MCP deletion field")
                 del desired.mcp.servers[name]
                 runtime.pop(name, None)
+                unavailable.pop(name, None)
                 for field in ("headers", "env", "url"):
                     vault[_secret_path(name, field)] = None
+                marker_name, marker_fields = name, set()
             else:
-                value = copy.deepcopy(runtime[name]) if existing else MCPServerConfig().model_dump()
+                if existing and name not in runtime:
+                    if method == "mcp.set_enabled":
+                        value = desired.mcp.servers[name].model_dump()
+                    else:
+                        try:
+                            value = self._hydrate_server(name, desired.mcp.servers[name])
+                        except SecretStoreError:
+                            raise MethodError("capability_unavailable", unavailable[name]) from None
+                        except Exception:
+                            raise MethodError("capability_unavailable", "MCP configuration or credential marker is unavailable") from None
+                        unavailable.pop(name, None)
+                else:
+                    value = copy.deepcopy(runtime[name]) if existing else MCPServerConfig().model_dump()
                 self._patch_server(method, params, value)
                 try:
                     row = MCPServerConfig.model_validate(value)
                     validate_server_config(name, row.model_dump())
                 except (ValidationError, MCPConfigError, ValueError):
                     raise MethodError("bad_request", "Invalid MCP server configuration") from None
-                runtime[name] = row.model_dump()
+                if name not in unavailable:
+                    runtime[name] = row.model_dump()
                 public = row.model_dump()
                 for field in ("headers", "env"):
                     if method != "mcp.set_enabled":
@@ -306,6 +400,11 @@ class MCPService:
                     vault[_secret_path(name, "url")] = (
                         raw_url if raw_url != public["url"] else None
                     )
+                    marker_name = name
+                    marker_fields = {
+                        field for field in _CREDENTIAL_FIELDS
+                        if vault[_secret_path(name, field)] is not None
+                    }
                 desired.mcp.servers[name] = MCPServerConfig.model_validate(public)
             path = ("mcp", "servers", name)
 
@@ -322,6 +421,8 @@ class MCPService:
             changes = [(("mcp", key), getattr(desired.mcp, key)) for key in values]
         previous = {}
         touched = []
+        marker_before = None
+        marker_touched = False
         with self.settings._lock, _config_file_lock(self.settings.paths.config_file):
             self._check_revision(params)
             if self.settings._transaction_active:
@@ -331,6 +432,24 @@ class MCPService:
             snapshot = self.settings._snapshot()
             write_started = False
             try:
+                if marker_name is not None:
+                    marker_path = self._marker_path(marker_name)
+                    try:
+                        marker_before = marker_path.read_text()
+                    except FileNotFoundError:
+                        pass
+                    old_fields = self._credential_fields(marker_name)
+                    if old_fields is None and not existing:
+                        old_fields = set()
+                    # Known-empty fields never require a keyring read/write.
+                    vault = {key: item for key, item in vault.items()
+                             if item is not None or old_fields is None
+                             or key.rsplit(".", 1)[-1] in old_fields}
+                    # Presence before secret writes fails closed after interruption.
+                    marker_touched = True
+                    self._write_marker(marker_name, (
+                        set(_CREDENTIAL_FIELDS) if old_fields is None else old_fields
+                    ) | marker_fields)
                 for key, item in vault.items():
                     previous[key] = self.settings.secrets.get(key)
                     if previous[key] == item:
@@ -344,6 +463,8 @@ class MCPService:
                     raise MethodError("capability_unavailable", "MCP service is closed")
                 write_started = True
                 _patch_config_paths(changes, path=self.settings.paths.config_file)
+                if marker_name is not None:
+                    self._write_marker(marker_name, marker_fields)
             except Exception as exc:
                 failed = False
                 if write_started:
@@ -360,6 +481,19 @@ class MCPService:
                             raise RuntimeError("rollback refused")
                     except Exception:
                         failed = True
+                if marker_touched:
+                    try:
+                        if failed:
+                            # Never restore a credential-free marker over an
+                            # uncertain keyring rollback. Keep presence fenced.
+                            self._write_marker(marker_name, set(_CREDENTIAL_FIELDS))
+                        elif marker_before is None:
+                            self._marker_path(marker_name).unlink(missing_ok=True)
+                        elif not write_private_atomic(self._marker_path(marker_name), marker_before):
+                            self.settings.secrets.durability_degraded = True
+                            failed = True
+                    except Exception:
+                        failed = True
                 if failed:
                     raise MethodError(
                         "internal_error", "MCP settings rollback is unproven", "outcome_unknown",
@@ -368,6 +502,7 @@ class MCPService:
                     raise
                 raise MethodError("internal_error", "MCP settings were not saved") from None
             self.settings._publish(desired, changes, True)
+            self._unavailable = unavailable
             self._effective_limits = desired.mcp.model_copy(deep=True)
             # Durable desired state and synchronous unpublication are committed
             # without an await. Reachability is not a save precondition.
@@ -437,10 +572,11 @@ class MCPService:
             raise MethodError(
                 "bad_request", "MCP credential containers use mcp.save patch operations",
             )
-        servers = self._hydrate(desired)
+        servers, unavailable = self._hydrate(desired)
         before_enabled = self.manager.global_enabled
         before_servers = self.manager.desired_servers()
         before_limits = self._effective_limits
+        before_unavailable = self._unavailable.copy()
         service = self
 
         class PreparedMCP:
@@ -451,6 +587,7 @@ class MCPService:
                 if self.applied:
                     raise RuntimeError("MCP prepared change already applied")
                 service._effective_limits = desired.mcp.model_copy(deep=True)
+                service._unavailable = unavailable
                 self.transition = service.manager.stage_desired_state(
                     enabled=desired.mcp.enabled, servers=servers,
                 )
@@ -465,6 +602,7 @@ class MCPService:
             async def rollback(self):
                 if self.applied:
                     service._effective_limits = before_limits
+                    service._unavailable = before_unavailable
                     pending, self.transition = self.transition, None
                     previous = service.manager.stage_desired_state(
                         enabled=before_enabled, servers=before_servers,

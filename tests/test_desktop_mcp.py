@@ -319,7 +319,7 @@ async def test_reload_prepared_seam_fences_without_replay(harness):
     assert not service.has_tool("mcp_stub_echo")
 
 
-async def test_locked_plaintext_boot_never_publishes(harness):
+async def test_locked_plaintext_server_is_unavailable_without_blocking_service(harness):
     service, backend, _, _ = harness
     await save(service, env_set={"TEMP": "private-test-value"})
     await service.close()
@@ -328,16 +328,20 @@ async def test_locked_plaintext_boot_never_publishes(harness):
     count = len(StubConnection.instances)
     await second.start()
     assert len(StubConnection.instances) == count and not second.get_tool_definitions()
-    assert (await second.handle("mcp.status", {}))["startup_error"]
+    status = await second.handle("mcp.status", {})
+    assert not status["startup_error"] and status["started"]
+    assert status["servers"][0]["state"] == "unavailable"
+    assert "keyring" in status["servers"][0]["last_error"]
     await second.handle("mcp.set_global_enabled", {"enabled": False})
     assert service.settings.config.mcp.enabled is False
-    assert not second._started and not second.get_tool_definitions()
+    assert second._started and not second.get_tool_definitions()
     await second.close()
     backend.locked = False
     service.settings.config.mcp.servers["stub"].env = {"TEMP": "unimported-value"}
     third = MCPService(service.settings, manager=MCPManager(connection_factory=StubConnection))
     await third.start()
     assert not third.get_tool_definitions() and len(StubConnection.instances) == count
+    assert "migration" in (await third.handle("mcp.status", {}))["servers"][0]["last_error"]
     await third.close()
 
 
@@ -422,3 +426,284 @@ async def test_failed_after_effect_config_write_restores_source(harness, monkeyp
         await save(service, env_set={"TEMP": "private-test-value"})
     assert service.settings.paths.config_file.read_text() == before
     assert not backend.values and not service.manager.server_names
+
+
+async def test_locked_keyring_only_blocks_credentialed_server_and_reconnect_recovers(harness, monkeypatch):
+    service, backend, _, _ = harness
+    await save(service, env_set={"TEMP": "private-test-value"})
+    await service.handle("mcp.save", {"name": "free", "command": "stub-program"})
+    assert service._credential_fields("stub") == {"env"}
+    assert service._credential_fields("free") == set()
+    assert "private-test-value" not in service._marker_path("stub").read_text()
+    await service.close()
+    backend.locked = True
+    reads = []
+    original = backend.get_password
+
+    def counted(namespace, name):
+        reads.append(name)
+        return original(namespace, name)
+
+    monkeypatch.setattr(backend, "get_password", counted)
+    second = MCPService(service.settings, manager=MCPManager(connection_factory=StubConnection))
+    try:
+        await second.start(wait_for_first_attempt=True)
+        assert reads == ["mcp.servers.stub.env"]
+        assert second.has_tool("mcp_free_echo") and not second.has_tool("mcp_stub_echo")
+        status = await second.handle("mcp.status", {})
+        rows = {row["name"]: row for row in status["servers"]}
+        assert status["started"] and status["server_count"] == 2
+        assert rows["free"]["state"] == "connected"
+        assert rows["stub"]["state"] == "unavailable" and "keyring" in rows["stub"]["last_error"]
+        assert "private-test-value" not in json.dumps(status)
+        with pytest.raises(MethodError) as failed:
+            await second.handle("mcp.reconnect", {"name": "stub"})
+        assert failed.value.code == "capability_unavailable"
+        await second.handle("mcp.set_enabled", {"name": "stub", "enabled": False})
+        assert second.has_tool("mcp_free_echo")
+        await second.handle("mcp.set_enabled", {"name": "stub", "enabled": True})
+        backend.locked = False
+        await second.handle("mcp.reconnect", {"name": "stub"})
+        assert second.has_tool("mcp_stub_echo") and second.has_tool("mcp_free_echo")
+        assert not any(conn.calls for conn in StubConnection.instances)
+    finally:
+        await second.close()
+
+
+async def test_credential_free_save_clear_delete_and_restart_skip_locked_keyring(harness, monkeypatch):
+    service, backend, _, _ = harness
+    backend.locked = True
+    await save(service)
+    assert service.has_tool("mcp_stub_echo")
+    await service.handle("mcp.delete", {"name": "stub"})
+    backend.locked = False
+    endpoint = "https://stub.invalid/mcp?credential=private-endpoint"
+    await save(service, transport="http", url=endpoint,
+               env_set={"TEMP": "private-env"}, headers_set={"Authorization": "private-header"})
+    assert service._credential_fields("stub") == {"headers", "env", "url"}
+    await save(service, url="https://stub.invalid/mcp", env_remove=["TEMP"],
+               headers_remove=["Authorization"])
+    assert not backend.values and service._credential_fields("stub") == set()
+    await service.close()
+    backend.locked = True
+
+    def forbidden(*args):
+        pytest.fail("credential-free server must not touch keyring")
+
+    monkeypatch.setattr(backend, "get_password", forbidden)
+    second = MCPService(service.settings, manager=MCPManager(connection_factory=StubConnection))
+    try:
+        await second.start(wait_for_first_attempt=True)
+        assert second.has_tool("mcp_stub_echo")
+    finally:
+        await second.close()
+
+
+async def test_legacy_markers_migrate_without_discarding_credentials(harness):
+    service, backend, _, _ = harness
+    await save(service, headers_set={"Authorization": "private-header"})
+    await service.handle("mcp.save", {"name": "free", "command": "stub-program"})
+    service._marker_path("stub").unlink()
+    service._marker_path("free").unlink()
+    await service.close()
+    backend.locked = True
+    second = MCPService(service.settings, manager=MCPManager(connection_factory=StubConnection))
+    try:
+        await second.start(wait_for_first_attempt=True)
+        assert not second.get_tool_definitions()
+        assert all(row["state"] == "unavailable" for row in second._status()["servers"])
+        assert not second._marker_path("stub").exists()
+        backend.locked = False
+        await second.handle("mcp.reconnect", {"name": "stub"})
+        await second.handle("mcp.reconnect", {"name": "free"})
+        assert second.has_tool("mcp_stub_echo") and second.has_tool("mcp_free_echo")
+        assert second._credential_fields("stub") == {"headers"}
+        assert second._credential_fields("free") == set()
+        assert next(conn for conn in reversed(StubConnection.instances) if conn.name == "stub").kwargs["headers"] == {"Authorization": "private-header"}
+    finally:
+        await second.close()
+
+
+async def test_locked_reload_and_rollback_restore_availability_without_replay(harness):
+    service, backend, _, _ = harness
+    await save(service, env_set={"TEMP": "private-env"})
+    await service.handle("mcp.save", {"name": "free", "command": "stub-program"})
+    backend.locked = True
+    desired = service.settings.config.model_copy(deep=True)
+    desired.mcp.servers["free"].args = ["next-generation"]
+    prepared = service.prepare_settings(desired, [])
+    prepared.apply()
+    assert not service.has_tool("mcp_stub_echo")
+    await prepared.finish()
+    assert service.has_tool("mcp_free_echo")
+    assert "stub" in service._unavailable
+    await prepared.rollback()
+    assert service.has_tool("mcp_stub_echo") and service.has_tool("mcp_free_echo")
+    assert not service._unavailable
+    assert not any(conn.calls for conn in StubConnection.instances)
+
+
+@pytest.mark.parametrize("failure", ["malformed", "missing", "plaintext"])
+async def test_bad_credentials_fail_closed_per_server(harness, failure):
+    service, backend, _, _ = harness
+    await save(service, env_set={"TEMP": "private-env"})
+    await service.handle("mcp.save", {"name": "free", "command": "stub-program"})
+    await service.close()
+    if failure == "malformed":
+        service._marker_path("stub").write_text('{"version": 1, "fields": ["unknown"]}')
+    elif failure == "missing":
+        service.settings.secrets.clear("mcp.servers.stub.env")
+    else:
+        service.settings.config.mcp.servers["stub"].env = {"TEMP": "unmigrated-private"}
+    second = MCPService(service.settings, manager=MCPManager(connection_factory=StubConnection))
+    try:
+        await second.start(wait_for_first_attempt=True)
+        assert second.has_tool("mcp_free_echo") and not second.has_tool("mcp_stub_echo")
+        assert second._status()["server_count"] == 2 and "stub" in second._unavailable
+        assert "private" not in second._unavailable["stub"]
+    finally:
+        await second.close()
+
+
+async def test_marker_failure_rolls_back_vault_and_existing_marker(harness, monkeypatch):
+    service, backend, _, _ = harness
+    await save(service, env_set={"TEMP": "original-private"})
+    before = service._marker_path("stub").read_text()
+    config_before = service.settings.paths.config_file.read_text()
+    original = service._write_marker
+    calls = 0
+
+    def failed_after_effect(name, fields):
+        nonlocal calls
+        original(name, fields)
+        calls += 1
+        if calls == 2:
+            raise OSError("marker acknowledgement lost")
+
+    monkeypatch.setattr(service, "_write_marker", failed_after_effect)
+    with pytest.raises(MethodError) as failed:
+        await save(service, env_remove=["TEMP"])
+    assert failed.value.code == "internal_error" and failed.value.disposition != "outcome_unknown"
+    assert service._marker_path("stub").read_text() == before
+    assert service.settings.paths.config_file.read_text() == config_before
+    assert service.settings.secrets.get("mcp.servers.stub.env") == json.dumps({"TEMP": "original-private"})
+    assert service.has_tool("mcp_stub_echo")
+
+
+@pytest.mark.parametrize("field", ["headers", "env", "url"])
+async def test_generic_mcp_credential_route_is_refused_before_marker_or_vault_write(harness, field):
+    service, backend, _, _ = harness
+    await save(service)
+    service.settings.owners["mcp.save"] = service.reject_generic_credentials
+    before = service._marker_path("stub").read_text()
+    with pytest.raises(MethodError):
+        await service.settings.handle("secrets.set", {"path": f"mcp.servers.stub.{field}",
+                                                     "value": "private-generic"})
+    assert not backend.values and service._marker_path("stub").read_text() == before
+
+
+async def test_uncertain_keyring_rollback_keeps_presence_marker_fail_closed(harness, monkeypatch):
+    service, backend, _, _ = harness
+    await save(service)
+    original = backend.set_password
+
+    def write_then_fail(namespace, name, value):
+        original(namespace, name, value)
+        raise RuntimeError("private failure acknowledgement")
+
+    def refuse_clear(*args):
+        raise RuntimeError("private rollback failure")
+
+    monkeypatch.setattr(backend, "set_password", write_then_fail)
+    monkeypatch.setattr(backend, "delete_password", refuse_clear)
+    with pytest.raises(MethodError) as failed:
+        await save(service, env_set={"TEMP": "uncertain-private"})
+    assert failed.value.code == "internal_error" and failed.value.disposition == "outcome_unknown"
+    assert "private" not in failed.value.message
+    assert service._credential_fields("stub") == {"headers", "env", "url"}
+    await service.close()
+    second = MCPService(service.settings, manager=MCPManager(connection_factory=StubConnection))
+    try:
+        await second.start(wait_for_first_attempt=True)
+        assert not second.get_tool_definitions() and "stub" in second._unavailable
+    finally:
+        await second.close()
+
+
+async def test_marker_prewrite_failure_leaves_new_server_unmodified(harness, monkeypatch):
+    service, backend, _, _ = harness
+
+    def fail(*args):
+        raise OSError("marker unavailable")
+
+    monkeypatch.setattr(service, "_write_marker", fail)
+    with pytest.raises(MethodError) as failed:
+        await save(service, env_set={"TEMP": "private-env"})
+    assert failed.value.disposition == "rejected"
+    assert not backend.values and not service.manager.server_names
+    assert not service._marker_path("stub").exists()
+
+
+async def test_reload_public_endpoint_and_unavailable_snapshot_rollback(harness):
+    service, backend, _, _ = harness
+    await save(service, env_set={"TEMP": "private-env"})
+    await service.handle("mcp.save", {"name": "free", "transport": "http",
+                                      "url": "https://free.invalid/old"})
+    await service.close()
+    backend.locked = True
+    second = MCPService(service.settings, manager=MCPManager(connection_factory=StubConnection))
+    try:
+        await second.start(wait_for_first_attempt=True)
+        assert "stub" in second._unavailable and second.has_tool("mcp_free_echo")
+        desired = service.settings.config.model_copy(deep=True)
+        desired.mcp.servers["free"].url = "https://free.invalid/new"
+        prepared = second.prepare_settings(desired, [
+            (("mcp", "servers", "free", "url"), "https://free.invalid/new"),
+        ])
+        prepared.apply()
+        await prepared.finish()
+        assert second.has_tool("mcp_free_echo") and "stub" in second._unavailable
+        assert second.manager.desired_servers()["free"]["url"].endswith("/new")
+        await prepared.rollback()
+        assert second.has_tool("mcp_free_echo") and "stub" in second._unavailable
+        assert second.manager.desired_servers()["free"]["url"].endswith("/old")
+        assert not any(conn.calls for conn in StubConnection.instances)
+    finally:
+        await second.close()
+
+
+async def test_direct_unmarked_public_config_locked_keyring_is_ambiguous_not_empty(harness):
+    """A legacy vault and a fresh hand-authored config have identical public bytes."""
+    from src.config.schema import MCPServerConfig
+
+    service, backend, _, _ = harness
+    await service.close()
+    service.settings.config.mcp.servers["direct"] = MCPServerConfig(command="stub-program")
+    backend.locked = True
+    second = MCPService(service.settings, manager=MCPManager(connection_factory=StubConnection))
+    try:
+        await second.start(wait_for_first_attempt=True)
+        assert second._status()["started"] and "direct" in second._unavailable
+        assert not second._marker_path("direct").exists()
+        backend.locked = False
+        await second.handle("mcp.reconnect", {"name": "direct"})
+        assert second.has_tool("mcp_direct_echo") and second._credential_fields("direct") == set()
+    finally:
+        await second.close()
+
+
+async def test_marker_durability_failure_rolls_back_before_secret_write(harness, monkeypatch):
+    service, backend, _, _ = harness
+    from src.permissions.persistence import write_private_atomic
+
+    def degraded(path, content):
+        write_private_atomic(path, content)
+        return False
+
+    monkeypatch.setattr("src.desktop.mcp.write_private_atomic", degraded)
+    with pytest.raises(MethodError) as failed:
+        await save(service, env_set={"TEMP": "private-env"})
+    assert failed.value.disposition == "rejected"
+    assert service.settings.secrets.durability_degraded
+    assert not backend.values and not service.manager.server_names
+    assert not service._marker_path("stub").exists()
