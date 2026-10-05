@@ -263,7 +263,7 @@ async def test_trigger_never_adopts_new_attachments_into_preserved_request(tmp_p
         answer = await request(reader, writer, "submission.send", {
             "client_submission_id": "with-attachment", "conversation_id": cid,
             "text": "continue", "attachments": [{"ref": "not-adopted"}]})
-        assert answer["result"]["disposition"] == "admitted"
+        assert answer["result"]["disposition"] == "accepted"
         await settled(core)
         assert core.requests.get_request(rid)["attachments"] == original
         assert core.requests.get_request(rid)["generation"] == 2
@@ -280,7 +280,7 @@ async def test_explicit_trigger_can_resume_after_newer_request(tmp_path):
         answer = await request(reader, writer, "submission.send", {
             "client_submission_id": "after-newer", "conversation_id": cid, "text": "continue"})
         assert answer["result"]["request_id"] == rid
-        assert answer["result"]["disposition"] == "admitted"
+        assert answer["result"]["disposition"] == "accepted"
         await settled(core)
         assert core.requests.get_request(rid)["generation"] == 2
         assert core.requests.get_request(newer["result"]["request_id"])["generation"] == 1
