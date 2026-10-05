@@ -7,7 +7,13 @@ import pytest
 from scripts.maintenance.fixture_corpus import corpus, dump
 from src.health.subsystem_guard import SubsystemGuard, SubsystemState
 from tests.desktop_adapters.step8_runtime_guard import (
-    SYMBOL, _target, adapt, load, inherited_setup, temporary_guard_graph, verify,
+    SYMBOL,
+    _target,
+    adapt,
+    inherited_setup,
+    load,
+    temporary_guard_graph,
+    verify,
 )
 
 
@@ -59,7 +65,8 @@ def test_reverse_verifier_rejects_unapproved_nonassert_change():
 
 def test_corpus_rejects_assertion_drift():
     changed = copy.deepcopy(_adapted)
-    next(node for node in ast.walk(changed) if isinstance(node, ast.Assert)).test = ast.Constant(True)
+    assertion = next(node for node in ast.walk(changed) if isinstance(node, ast.Assert))
+    assertion.test = ast.Constant(True)
     with pytest.raises(ValueError, match="corpus changed"):
         verify(_original, changed)
 

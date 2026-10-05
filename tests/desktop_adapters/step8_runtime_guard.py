@@ -26,10 +26,15 @@ from tests.test_desktop_core_lifecycle import connect, profile, request
 PATH = "tests/test_subsystem_guard.py"
 SOURCE_PATH = PATH
 SOURCE_SHA256 = "5c4f14908ca2b46527800bc7304633e2833509048ee474d9192c8c68de24c1d7"
-SUITES = {"test_subsystem_guard": "5c4f14908ca2b46527800bc7304633e2833509048ee474d9192c8c68de24c1d7"}
+SUITES = {
+    "test_subsystem_guard": "5c4f14908ca2b46527800bc7304633e2833509048ee474d9192c8c68de24c1d7"
+}
 CORPUS_SELECTIONS = {"test_subsystem_guard": None}
 CORPUS_EXCLUSIONS = {}
-SYMBOL = "TestGracefulDegradationConfig.test_real_bot_guard_is_always_constructed_with_supported_thresholds"
+SYMBOL = (
+    "TestGracefulDegradationConfig."
+    "test_real_bot_guard_is_always_constructed_with_supported_thresholds"
+)
 SETUP_SHA256 = "9086afe8b438724161cd25d175c34ec72b2968497b1fbf5d5ce1ce223bd03d90"
 REPLACEMENT_SOURCE = "cfg, bot = desktop_guard_graph(legacy_enabled)"
 _active_setup = ContextVar("step8_runtime_guard_setup", default=None)
@@ -116,7 +121,8 @@ def desktop_guard_graph(legacy_enabled):
 def _target(tree):
     owner, name = SYMBOL.split(".")
     matches = [method for node in tree.body if isinstance(node, ast.ClassDef) and node.name == owner
-               for method in node.body if isinstance(method, ast.FunctionDef) and method.name == name]
+               for method in node.body
+               if isinstance(method, ast.FunctionDef) and method.name == name]
     if len(matches) != 1:
         raise ValueError("guard setup symbol must match exactly once")
     return matches[0]

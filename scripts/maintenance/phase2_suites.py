@@ -224,14 +224,16 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
             and compile_frozen and invokes_loader)
 
 
-def _check(root: Path) -> tuple[list[str], dict]:
+def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
     errors: list[str] = []
     report = {"original_population": 0, "mapped": 0, "restored": 0,
               "deferred": 0, "retired": 0, "by_step": {}, "classifications": {}}
     try:
-        mapping = _json((root / MAP_PATH).read_bytes())
-        plan = _json((root / PLAN_PATH).read_bytes())
-        qualification = _json((root / QUALIFICATION_PATH).read_bytes())
+        documents = documents or {}
+        mapping, plan, qualification = (
+            documents[path] if path in documents else _json((root / path).read_bytes())
+            for path in (MAP_PATH, PLAN_PATH, QUALIFICATION_PATH)
+        )
         historical_bytes = _git_blob(root, SOURCE_MAIN, PLAN_PATH)
         qualification_bytes = _git_blob(root, SOURCE_MAIN, QUALIFICATION_PATH)
         merged_bytes = _git_blob(root, MERGED_MAIN, QUALIFICATION_PATH)
@@ -365,7 +367,28 @@ def _check(root: Path) -> tuple[list[str], dict]:
     if not old_names <= merged_names or set(named) != merged_names:
         errors.append("qualification: preserve all historical and merged main named groups")
     for group in merged_groups:
-        if not set(group["files"]) <= set(named.get(group["name"], {}).get("files", [])):
+        current_files = set(named.get(group["name"], {}).get("files", []))
+        missing = set(group["files"]) - current_files
+        # One explicit transition replaces the old guard subset with the entire
+        # frozen corpus. No other inherited selector can disappear on rebase.
+        if (group["name"] == "neutral-subsystem-guard"
+                and missing == {"tests/test_subsystem_guard.py"}
+                and "tests/test_desktop_phase2_runtime_guard.py" in current_files):
+            guard = next((row for row in mapping.get("entries", [])
+                          if row.get("path") == "tests/test_subsystem_guard.py"), {})
+            neutral = named[group["name"]]
+            if (guard.get("status") == "restored" and guard.get("step") == 5
+                    and guard.get("restoration", {}).get("mode") == "frozen-adapter"
+                    and guard.get("restoration", {}).get("selectors")
+                    == ["tests/test_desktop_phase2_runtime_guard.py"]
+                    and not any(neutral.get(key) for key in (
+                        "exclude_expression", "include_expression", "args",
+                        "pytest_args", "exclusions"))
+                    and _full_adapter(root, "tests/test_desktop_phase2_runtime_guard.py",
+                                      "tests/test_subsystem_guard.py",
+                                      original_entries["tests/test_subsystem_guard.py"]["sha256"])):
+                missing.clear()
+        if missing:
             errors.append(f"qualification: lost merged main selectors in {group['name']}")
     if "phase2-core-transport" not in named:
         errors.append("qualification: phase2-core-transport group missing")
@@ -507,17 +530,17 @@ def _check(root: Path) -> tuple[list[str], dict]:
     return errors, report
 
 
-def _evaluate(root: Path) -> tuple[list[str], dict]:
+def _evaluate(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
     try:
-        return _check(root)
-    except (OSError, ValueError, TypeError, KeyError, AttributeError,
+        return _check(root, documents)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, SyntaxError,
             subprocess.SubprocessError) as exc:
         return [f"malformed accounting input: {exc}"], {}
 
 
-def validate(root: Path | str = ROOT) -> list[str]:
-    """Return all detected mapping/accounting errors; an empty list is valid."""
-    return _evaluate(Path(root))[0]
+def validate(root: Path | str = ROOT, *, documents: dict | None = None) -> list[str]:
+    """Check on-disk inputs or prospective documents against the same pinned files."""
+    return _evaluate(Path(root), documents)[0]
 
 
 def record_review_retirements(root: Path) -> None:

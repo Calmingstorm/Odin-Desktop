@@ -11,7 +11,6 @@ import asyncio
 import contextvars
 import copy
 import hashlib
-import os
 import secrets
 import tempfile
 import uuid
@@ -24,13 +23,13 @@ from src.config.schema import ToolsConfig
 from src.desktop.commands import CommandJournal, JournalStore
 from src.desktop.core import CoreService
 from src.desktop.events import EventJournal
-from src.desktop.knowledge import KnowledgeService
 from src.desktop.ipc import IpcServer
+from src.desktop.knowledge import KnowledgeService
 from src.desktop.local_client import LocalClient
 from src.desktop.management import ManagementService
+from src.permissions.persistence import write_private_atomic
 from src.tools.builtin_policy import BuiltinToolPolicy
 from src.tools.executor import ToolExecutor
-from src.permissions.persistence import write_private_atomic
 from src.tools.workspace import resolve_workspace
 from tests.desktop_adapters.process_cases import temporary_owner
 
@@ -40,8 +39,12 @@ CORPUS_SELECTIONS = {
 }
 CORPUS_EXCLUSIONS = {}
 SUITES = {
-    "test_knowledge_snapshot_campaign": "9558df8f435566d712ddb9793533031aa6352e7714f804fb67e5bf8933cc2949",
-    "test_process_tail_correctness": "1fa6fdfcfb7281790748fe5b6ace0cedae94f7c5e36eb9da97ba95413b37f880",
+    "test_knowledge_snapshot_campaign": (
+        "9558df8f435566d712ddb9793533031aa6352e7714f804fb67e5bf8933cc2949"
+    ),
+    "test_process_tail_correctness": (
+        "1fa6fdfcfb7281790748fe5b6ace0cedae94f7c5e36eb9da97ba95413b37f880"
+    ),
 }
 _owner = contextvars.ContextVar("step8_runtime_d_owner", default=None)
 
@@ -190,12 +193,14 @@ SETUP_HUNKS = {
         (4, "ImportFrom", "3d8c3610792369d562462f782609dfc65e70367a4cfe745f783096882dc296a2", None),
         (5, "ImportFrom", "a4c9ffaa0ad4b0d5f73d26288eb4909a6de85c114195ec40be4767111b566dfd", None),
         (8, "ImportFrom", "156ed0697e1c25d1b7e05f884bf45b33b77b9cc639cd3385e0c675367610802c", None),
-        (18, "Assign", "44862e19cc905146ed2094aca53206aa13f53afd1ca14bbd88ea805deb6d0978", "client = KnowledgeCommandClient(store)"),
+        (18, "Assign", "44862e19cc905146ed2094aca53206aa13f53afd1ca14bbd88ea805deb6d0978",
+         "client = KnowledgeCommandClient(store)"),
         (19, "Expr", "3c7f7fbe881aaba445f6c10d1b29689616e7a8bc9429b06f2f1d1f0f782da771", None),
         (20, "Assign", "69f35dfba906ad798d1d10e0110f4dd7628c776efb25849c4d8b37ecac48549e", None),
         (21, "Expr", "66e865709bfa2f9eb627517073676aa184b891a4d03e5152242438a0c54d3454", None),
         (22, "Call", "4f2becb0c34fc0b2d6f3d130e1261605777a86a0e60dbec50028ab4a8ded5502", "client"),
-        (48, "Assign", "44862e19cc905146ed2094aca53206aa13f53afd1ca14bbd88ea805deb6d0978", "client = KnowledgeCommandClient(store)"),
+        (48, "Assign", "44862e19cc905146ed2094aca53206aa13f53afd1ca14bbd88ea805deb6d0978",
+         "client = KnowledgeCommandClient(store)"),
         (49, "Expr", "3c7f7fbe881aaba445f6c10d1b29689616e7a8bc9429b06f2f1d1f0f782da771", None),
         (50, "Assign", "69f35dfba906ad798d1d10e0110f4dd7628c776efb25849c4d8b37ecac48549e", None),
         (51, "Expr", "66e865709bfa2f9eb627517073676aa184b891a4d03e5152242438a0c54d3454", None),
@@ -204,7 +209,8 @@ SETUP_HUNKS = {
     "test_process_tail_correctness": [
         (17, "ImportFrom", "8dce3e2a05cc244e733c19f4bc147ac405041272953870af6f871eadf49345ce",
          "from tests.desktop_adapters.step8_runtime_d import executor"),
-        *[(line, "Constant", "b2de7a0b892c7480fc8487adc4adac61e17adca8ef942042af20476268fc4836", "owner_id()")
+        *[(line, "Constant", "b2de7a0b892c7480fc8487adc4adac61e17adca8ef942042af20476268fc4836",
+           "owner_id()")
           for line in (29, 36, 51, 68, 106, 109)],
     ],
 }

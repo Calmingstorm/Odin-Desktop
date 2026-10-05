@@ -6,6 +6,7 @@ import pytest
 
 from scripts.maintenance.fixture_corpus import corpus, frozen_source
 from src.desktop.management import MethodError
+from tests.desktop_adapters.process_cases import temporary_owner as owner_fixture
 from tests.desktop_adapters.step8_runtime_a import (
     CORPUS_SELECTIONS,
     fixture_executor,
@@ -17,7 +18,6 @@ from tests.desktop_adapters.step8_runtime_a import (
     transformed_source,
     verify_source,
 )
-from tests.desktop_adapters.tools_cases import owner_fixture
 
 
 @pytest.fixture(autouse=True)
