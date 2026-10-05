@@ -67,14 +67,14 @@ async function reconcile(): Promise<void> {
   <section v-else class="panel" aria-label="Usage">
     <header class="panel-head">
       <h3>Usage</h3>
-      <select v-model="period" aria-label="Period" @change="loadUsage(period)">
+      <label class="limit">Period <select v-model="period" :aria-describedby="records.errors.usage ? 'records-usage-error' : undefined" @change="loadUsage(period)">
         <option value="24h">Last 24 hours</option>
         <option value="7d">Last 7 days</option>
         <option value="30d">Last 30 days</option>
         <option value="all">All time</option>
-      </select>
+      </select></label>
     </header>
-    <p v-if="records.errors.usage" class="warn">Couldn't read usage: {{ records.errors.usage }}{{ records.usage ? ' Showing the last read.' : '' }}</p>
+    <p v-if="records.errors.usage" id="records-usage-error" class="warn" role="status">Couldn't read usage: {{ records.errors.usage }}{{ records.usage ? ' Showing the last read.' : '' }}</p>
     <template v-if="records.usage">
       <p class="manage-desc" :title="basis(records.usage.tokens)">
         {{ count(records.usage.tokens) }} tokens in {{ usagePeriod }} ({{ basis(records.usage.tokens) }}).
@@ -102,12 +102,12 @@ async function reconcile(): Promise<void> {
       {{ records.verify.valid ? `Intact: ${records.verify.verified ?? records.verify.total} entries verified.` : `Not intact: ${records.verify.reason ?? 'the chain is broken'}.` }}
     </p>
     <div class="limits">
-      <input v-model="audit.q" type="search" class="panel-filter" placeholder="Search" aria-label="Search the audit" @keydown.enter="loadAudit(audit)" />
-      <input v-model="audit.tool" class="panel-filter" placeholder="Tool" aria-label="Tool" @keydown.enter="loadAudit(audit)" />
+      <label class="limit">Search the audit <input v-model="audit.q" type="search" class="panel-filter" placeholder="Search" :aria-describedby="records.errors.audit ? 'records-audit-error' : undefined" @keydown.enter="loadAudit(audit)" /></label>
+      <label class="limit">Tool <input v-model="audit.tool" class="panel-filter" placeholder="Tool" :aria-describedby="records.errors.audit ? 'records-audit-error' : undefined" @keydown.enter="loadAudit(audit)" /></label>
       <label class="toggle-inline"><input v-model="audit.error_only" type="checkbox" /> Errors only</label>
       <button class="ghost" @click="loadAudit(audit)">Show</button>
     </div>
-    <p v-if="records.errors.audit" class="warn">Couldn't read the audit: {{ records.errors.audit }}{{ records.loaded.audit ? ' Showing the last read.' : '' }}</p>
+    <p v-if="records.errors.audit" id="records-audit-error" class="warn" role="status">Couldn't read the audit: {{ records.errors.audit }}{{ records.loaded.audit ? ' Showing the last read.' : '' }}</p>
     <table class="runs audit">
       <tbody>
         <tr v-for="(e, i) in records.audit" :key="i">
@@ -115,7 +115,7 @@ async function reconcile(): Promise<void> {
           <td>
             <code>{{ e.tool_name }}</code>
             <details v-if="e.tool_input && Object.keys(e.tool_input).length" class="audit-input">
-              <summary>Input</summary>
+              <summary :aria-label="`Input for ${e.tool_name} at ${at(e.timestamp)}`">Input</summary>
               <pre class="manage-json">{{ JSON.stringify(e.tool_input, null, 2) }}</pre>
             </details>
           </td>
@@ -134,14 +134,14 @@ async function reconcile(): Promise<void> {
   <section v-else class="panel" aria-label="Logs">
     <header class="panel-head">
       <h3>Logs</h3>
-      <select v-model="logs.level" aria-label="Level" @change="searchLogs(logs)">
+      <label class="limit">Level <select v-model="logs.level" :aria-describedby="records.errors.logs ? 'records-logs-error' : undefined" @change="searchLogs(logs)">
         <option value="all">Everything</option>
         <option value="info">Information</option>
         <option value="error">Errors</option>
-      </select>
-      <input v-model="logs.q" type="search" class="panel-filter" placeholder="Search" aria-label="Search the logs" @keydown.enter="searchLogs(logs)" />
+      </select></label>
+      <label class="limit">Search the logs <input v-model="logs.q" type="search" class="panel-filter" placeholder="Search" :aria-describedby="records.errors.logs ? 'records-logs-error' : undefined" @keydown.enter="searchLogs(logs)" /></label>
     </header>
-    <p v-if="records.errors.logs" class="warn">Couldn't search the logs: {{ records.errors.logs }}{{ records.loaded.logs ? ' Showing the last search.' : '' }}</p>
+    <p v-if="records.errors.logs" id="records-logs-error" class="warn" role="status">Couldn't search the logs: {{ records.errors.logs }}{{ records.loaded.logs ? ' Showing the last search.' : '' }}</p>
     <table class="runs">
       <tbody>
         <tr v-for="(e, i) in records.logs" :key="i">
@@ -161,7 +161,7 @@ async function reconcile(): Promise<void> {
     <header class="panel-head">
       <h3>Preserved work</h3>
       <span class="panel-hint">Requests Odin kept so they can resume, and any that need your attention.</span>
-      <button class="ghost" @click="loadTurns">Refresh</button>
+      <button class="ghost" aria-label="Refresh preserved work" @click="loadTurns">Refresh</button>
     </header>
     <p v-if="records.errors.turns" class="warn">Couldn't read preserved work: {{ records.errors.turns }}{{ records.turns ? ' Showing the last read.' : '' }}</p>
     <p v-if="records.turns && records.turns.availability !== 'available'" class="manage-desc">
@@ -187,7 +187,7 @@ async function reconcile(): Promise<void> {
     <header class="panel-head">
       <h3>Computer use</h3>
       <span v-if="records.computer" class="panel-hint">{{ records.computer.enabled ? 'On' : 'Off' }}: {{ records.computer.state }}.</span>
-      <button class="ghost" @click="loadComputer">Refresh</button>
+      <button class="ghost" aria-label="Refresh computer use" @click="loadComputer">Refresh</button>
     </header>
     <p v-if="records.errors.computer" class="warn">Couldn't read computer use: {{ records.errors.computer }}{{ records.computer ? ' Showing the last read.' : '' }}</p>
     <template v-if="records.computer?.session_id">
@@ -196,7 +196,7 @@ async function reconcile(): Promise<void> {
         <span class="manage-count">generation {{ records.computer.session_generation ?? records.computer.generation }}</span>
         <span :class="['state-chip', records.computer.state === 'quarantined' ? 'failed' : 'connected']">{{ records.computer.state }}</span>
         <span v-if="records.computer.state === 'quarantined'" class="manage-actions">
-          <button class="ghost danger-item" :disabled="management.busy[computerKey]" @click="reconcile">Release…</button>
+          <button class="ghost danger-item" :aria-label="`Release session ${records.computer.session_id}…`" :disabled="management.busy[computerKey]" @click="reconcile">Release…</button>
         </span>
       </div>
       <p v-if="records.computer.recovery" :class="records.computer.recovery.complete ? 'manage-desc' : 'warn'">

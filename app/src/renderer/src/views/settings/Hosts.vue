@@ -114,12 +114,12 @@ function lastTest(host: HostRow): string {
           <span :class="['state-chip', host.targetable ? 'connected' : 'disabled']">{{ host.targetable ? 'Ready' : 'Off' }}</span>
           <span v-if="host.draining" class="state-chip failed">Draining</span>
           <span class="manage-actions">
-            <button class="ghost" @click="beginEdit(host)">Edit</button>
-            <button class="ghost" :disabled="management.busy[`host:${host.alias}`]" @click="setHostEnabled(host.alias, !host.enabled)">
+            <button class="ghost" :aria-label="`Edit host ${host.alias}`" @click="beginEdit(host)">Edit</button>
+            <button class="ghost" :aria-label="`${host.enabled ? 'Turn off' : 'Turn on'} host ${host.alias}`" :disabled="management.busy[`host:${host.alias}`]" @click="setHostEnabled(host.alias, !host.enabled)">
               {{ host.enabled ? 'Turn off' : 'Turn on' }}
             </button>
-            <button v-if="host.draining" class="ghost danger-item" @click="revoke(host)">Force revoke…</button>
-            <button class="ghost danger-item" @click="remove(host)">Delete…</button>
+            <button v-if="host.draining" class="ghost danger-item" :aria-label="`Force revoke host ${host.alias}…`" @click="revoke(host)">Force revoke…</button>
+            <button class="ghost danger-item" :aria-label="`Delete host ${host.alias}…`" @click="remove(host)">Delete…</button>
           </span>
         </div>
         <p v-if="host.description" class="manage-desc">{{ host.description }}</p>
@@ -160,7 +160,7 @@ function lastTest(host: HostRow): string {
         <button class="ghost" @click="closeEnrollment">Close</button>
       </header>
       <ol class="steps">
-        <li v-for="(name, index) in STEPS" :key="name" :class="{ current: e.step === index + 1, done: e.step > index + 1 }">{{ name }}</li>
+        <li v-for="(name, index) in STEPS" :key="name" :aria-current="e.step === index + 1 ? 'step' : undefined" :class="{ current: e.step === index + 1, done: e.step > index + 1 }">{{ name }}</li>
       </ol>
 
       <template v-if="e.step === 1">
@@ -212,15 +212,17 @@ function lastTest(host: HostRow): string {
           Paste the SHA256 fingerprint of the CA that signs the host's certificate, checked out of band. Not the host's own key.
         </p>
         <p v-else class="manage-desc">Odin scans the host's key and shows it. Check it, tick to trust it, then scan again.</p>
+        <label v-if="e.form.trust_mode !== 'tofu'" class="field-input">Expected fingerprints
         <textarea
-          v-if="e.form.trust_mode !== 'tofu'"
           v-model="e.expected"
           class="field-input"
           rows="3"
           spellcheck="false"
           placeholder="SHA256:…"
-          aria-label="Expected fingerprints"
+          :aria-describedby="e.note ? 'host-enrollment-note' : undefined"
+          :aria-invalid="e.note.includes('is not a fingerprint') ? 'true' : undefined"
         />
+        </label>
         <p v-if="e.observed.length" class="manage-desc">Scanned: <code v-for="f in e.observed" :key="f" class="fingerprint">{{ f }}</code></p>
         <label v-if="e.form.trust_mode === 'tofu' && e.observed.length" class="toggle-inline">
           <input v-model="e.form.confirm_tofu" type="checkbox" /> Trust exactly this key
@@ -250,7 +252,7 @@ function lastTest(host: HostRow): string {
         </div>
         <p v-if="management.notes[hostKey(e)]" class="manage-note" role="status">{{ management.notes[hostKey(e)] }}</p>
       </template>
-      <p v-if="e.note" :class="e.step === 3 && e.observed.length && !e.token ? 'manage-note' : 'warn'" role="status">{{ e.note }}</p>
+      <p v-if="e.note" id="host-enrollment-note" :class="e.step === 3 && e.observed.length && !e.token ? 'manage-note' : 'warn'" role="status">{{ e.note }}</p>
     </template>
   </section>
 </template>
