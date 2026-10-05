@@ -83,7 +83,8 @@ export const draftGetSchema = z.object({ conversation_id: coreId }).strict()
 
 export const draftSetSchema = z.object({ conversation_id: coreId, text: z.string().max(32_000) }).strict()
 
-export const attachPathsSchema = z.object({ paths: z.array(z.string().min(1).max(4_096)).min(1).max(20) }).strict()
+// No count of its own: the renderer applies the core's announced per-turn limit to every way of attaching.
+export const attachPathsSchema = z.object({ paths: z.array(z.string().min(1).max(4_096)).min(1) }).strict()
 
 export const attachBytesSchema = z
   .object({
