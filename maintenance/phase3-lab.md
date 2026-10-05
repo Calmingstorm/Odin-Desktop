@@ -198,13 +198,17 @@ nested D-Bus without `--systemd`. Its screenshot shows the native Foot terminal;
 no XWayland process was present. Privileged file pulls now precreate private
 operator-owned files, preserving access to grim's mode-0600 PNG.
 
-A repeated KDE boot exposed an Orca startup race: the separate accessibility
-autostart changed screen-reader settings while Orca was starting, and the
-process exited cleanly. The shared desktop wrapper now owns settings followed
+A repeated KDE boot exposed an Orca startup conflict: native KAccess loaded
+its default disabled screen-reader setting and reset GSettings to false;
+Orca then exited cleanly. The KDE recipe now writes user-owned `kaccessrc`
+`[ScreenReader] Enabled=true`, verified against Plasma 5.27.12. The shared
+desktop wrapper also serializes settings followed
 by a single Orca launch, disables the builtin duplicate autostart using standard
 XDG `Hidden=true`, and waits at most 30 checks for Plasma's bus name. A fresh
-KDE boot retained Orca without manual restart. This is a bounded readiness
-check, not a restart loop; actual spoken output remains untested.
+KDE boot retained Orca without manual restart once the native setting agreed.
+KAccess itself may invoke `orca --replace`; this is native desktop behavior,
+not an additional custom restart loop. The readiness check is bounded and
+actual spoken output remains untested.
 
 After the first four smokes all guests were stopped. Actual pool allocation was
 **15.04 GiB**, with **198.56 GiB** free on `/mnt/storage`. The 100 GiB workflow

@@ -1,4 +1,5 @@
 """Execute KDE capture behaviour without a VM, desktop or host mutation."""
+import configparser
 import json
 import os
 import shlex
@@ -204,3 +205,22 @@ def test_emitted_environment_selects_llvmpipe_without_forced_egl(user_config, in
     assert emitted["GALLIUM_DRIVER"] == "llvmpipe"
     assert emitted["QT_ACCESSIBILITY"] == "1"
     assert emitted["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"] == "1"
+
+
+def test_emitted_kaccess_config_enables_native_screen_reader(user_config):
+    # Parse the actual provisioned fixture, not shell source: kaccess reads
+    # kaccessrc ScreenReader/Enabled and mirrors false to GNOME when unset.
+    home, uid, gid = user_config
+    path = home / ".config/kaccessrc"
+    config = configparser.ConfigParser()
+    config.optionxform = str
+    assert config.read(path) == [str(path)]
+    assert config.sections() == ["ScreenReader"]
+    assert dict(config["ScreenReader"]) == {"Enabled": "true"}
+    assert config.getboolean("ScreenReader", "Enabled") is True
+    assert (path.stat().st_uid, path.stat().st_gid) == (uid, gid)
+    assert path.stat().st_mode & 0o777 == 0o644
+    # The KDE emitter must not create its own Orca wrapper/autostart launch.
+    assert sorted(p.relative_to(home).as_posix() for p in home.rglob("*") if p.is_file()) == [
+        ".config/kaccessrc", ".config/plasma-workspace/env/odq-software.sh",
+    ]

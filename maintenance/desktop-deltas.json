@@ -263,12 +263,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -281,7 +281,7 @@
         }
       ],
       "path": "scripts/qualification/lab/guest/cinnamon.sh",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -295,7 +295,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -312,12 +312,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -330,7 +330,7 @@
         }
       ],
       "path": "scripts/qualification/lab/guest/common.sh",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -344,7 +344,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -361,12 +361,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -379,7 +379,7 @@
         }
       ],
       "path": "scripts/qualification/lab/guest/gnome.sh",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -393,7 +393,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -410,12 +410,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -428,7 +428,7 @@
         }
       ],
       "path": "scripts/qualification/lab/guest/hyprland.sh",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -442,7 +442,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -455,29 +455,29 @@
       ]
     },
     {
-      "after_sha256": "6e779dbfde693bec9c71b8b3e08e229da0213d0c7bd4af25d4d5dcfae04e7b95",
+      "after_sha256": "c80344f96c6d31aaa70e1d51694f6ebcbf6b43e83b5f1a106959bd47510343e8",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
       "patch": [
         {
           "end": 0,
-          "new_base64": "IyEvYmluL2Jhc2gKIyBQcm92aXNpb24gb25seSBpbnNpZGUgdGhlIGRpc3Bvc2FibGUgVWJ1bnR1IFZNLiBObyBob3N0IEluY3VzIG9wZXJhdGlvbnMuCnNldCAtZXVvIHBpcGVmYWlsCgplbWl0X2NhcHR1cmUoKSB7CmNhdCA8PCdDQVBUVVJFJwojIS9iaW4vYmFzaApzZXQgLWV1byBwaXBlZmFpbApmYWlsKCkgeyBwcmludGYgJ0tERSBjYXB0dXJlIHJlZnVzZWQ6ICVzXG4nICIkKiIgPiYyOyBleGl0IDE7IH0KW1sgJCMgPT0gMSBdXSB8fCBmYWlsICd1c2FnZTogY2FwdHVyZSBPVVRQVVQucG5nJwpbWyAkKGlkIC11bikgPT0gb2RxIF1dIHx8IGZhaWwgJ3J1biBhcyBvZHEsIG5vdCByb290JwpbWyAke1hER19TRVNTSU9OX1RZUEU6LX0gPT0gd2F5bGFuZCBdXSB8fCBmYWlsICdyZXF1aXJlcyBhIHJlYWwgV2F5bGFuZCBzZXNzaW9uJwpbWyAke1hER19DVVJSRU5UX0RFU0tUT1A6LX0gPT0gKktERSogXV0gfHwgZmFpbCAncmVxdWlyZXMgdGhlIFBsYXNtYSBzZXNzaW9uJwpbWyAtbiAke1dBWUxBTkRfRElTUExBWTotfSAmJiAtbiAke0RCVVNfU0VTU0lPTl9CVVNfQUREUkVTUzotfSBdXSB8fCBmYWlsICdzZXNzaW9uIGVudmlyb25tZW50IG1pc3Npbmc7IGRvIG5vdCBzeW50aGVzaXplIGEgbmV3IEQtQnVzIHNlc3Npb24nCnBncmVwIC11ICIkKGlkIC11KSIgLXgga3dpbl93YXlsYW5kID4vZGV2L251bGwgfHwgZmFpbCAnS1dpbiBXYXlsYW5kIG5vdCBydW5uaW5nIGZvciBvZHEnCm91dHB1dD0kMQpbWyAhIC1lICRvdXRwdXQgJiYgISAtTCAkb3V0cHV0IF1dIHx8IGZhaWwgJ291dHB1dCBhbHJlYWR5IGV4aXN0czsgdXNlIGEgZnJlc2ggZXZpZGVuY2UgcGF0aCcKbWtkaXIgLXAgLS0gIiQoZGlybmFtZSAtLSAiJG91dHB1dCIpIgp0bXBkaXI9JChta3RlbXAgLWQgLS0gIiQoZGlybmFtZSAtLSAiJG91dHB1dCIpLy5vZHEta2RlLWNhcHR1cmUuWFhYWFhYIikKdHJhcCAncm0gLXJmIC0tICIkdG1wZGlyIicgRVhJVAojIFNwZWN0YWNsZSBpcyBLV2luJ3MgYXV0aG9yaXplZCBkZXNrdG9wIHNjcmVlbnNob3QgY2xpZW50LCBub3QgYSBnZW5lcmljCiMgV2F5bGFuZCBjYXB0dXJlIEFQSS4gQSBwZXJtaXNzaW9uIHByb21wdC9kZW5pYWwgb3IgdW5zdXBwb3J0ZWQgY29tcG9zaXRvcgojIGlzIGEgZmFpbGVkIHNtb2tlIHByb29mOyBuZXZlciBmYWxsIGJhY2sgdG8gWDExIG9yIGZyYW1lYnVmZmVyIGNhcHR1cmUuCmlmICEgUVRfUVBBX1BMQVRGT1JNPXdheWxhbmQgdGltZW91dCAzMHMgc3BlY3RhY2xlIC0tYmFja2dyb3VuZCAtLW5vbm90aWZ5IC0tZnVsbHNjcmVlbiAtLW91dHB1dCAiJHRtcGRpci9jYXB0dXJlLnBuZyI7IHRoZW4KICAgIGZhaWwgJ1NwZWN0YWNsZS9LV2luIGNhcHR1cmUgZmFpbGVkIG9yIHRpbWVkIG91dDsgaW5zcGVjdCB0aGUgZ3Vlc3QgY29uc29sZSBmb3IgYSBwZXJtaXNzaW9uIHByb21wdCcKZmkKcHl0aG9uMyAtICIkdG1wZGlyL2NhcHR1cmUucG5nIiA8PCdQWScKaW1wb3J0IHN0cnVjdCwgc3lzCmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKZnJvbSBQSUwgaW1wb3J0IEltYWdlLCBVbmlkZW50aWZpZWRJbWFnZUVycm9yCgpwID0gUGF0aChzeXMuYXJndlsxXSkKZGF0YSA9IHAucmVhZF9ieXRlcygpIGlmIHAuaXNfZmlsZSgpIGVsc2UgYicnCmlmIGxlbihkYXRhKSA8IDMzIG9yIGRhdGFbOjhdICE9IGInXHg4OVBOR1xyXG5ceDFhXG4nIG9yIGRhdGFbMTI6MTZdICE9IGInSUhEUic6CiAgICBzeXMuZXhpdCgnU3BlY3RhY2xlIGRpZCBub3QgcHJvZHVjZSBhIFBORzsgV2F5bGFuZCBjYXB0dXJlIGlzIG5vdCBwcm92ZW4nKQp3LCBoID0gc3RydWN0LnVucGFjaygnPklJJywgZGF0YVsxNjoyNF0pCmlmIG5vdCAoMCA8IHcgPD0gMzI3NjggYW5kIDAgPCBoIDw9IDMyNzY4KToKICAgIHN5cy5leGl0KCdTcGVjdGFjbGUgcHJvZHVjZWQgaW52YWxpZCBkaW1lbnNpb25zJykKdHJ5OgogICAgd2l0aCBJbWFnZS5vcGVuKHApIGFzIGltYWdlOgogICAgICAgIGltYWdlLnZlcmlmeSgpCmV4Y2VwdCAoT1NFcnJvciwgVW5pZGVudGlmaWVkSW1hZ2VFcnJvciwgU3ludGF4RXJyb3IpOgogICAgc3lzLmV4aXQoJ1NwZWN0YWNsZSBwcm9kdWNlZCBhbiBpbnZhbGlkIFBORyBpbWFnZScpClBZCm12IC0tbm8tY2xvYmJlciAtVCAtLSAiJHRtcGRpci9jYXB0dXJlLnBuZyIgIiRvdXRwdXQiCltbICEgLWUgJHRtcGRpci9jYXB0dXJlLnBuZyBdXSB8fCBmYWlsICdvdXRwdXQgYXBwZWFyZWQgZHVyaW5nIGNhcHR1cmU7IG9yaWdpbmFsIGV2aWRlbmNlIHByZXNlcnZlZCcKQ0FQVFVSRQp9CgojIFdyaXRlIG9ubHkgdGhlIHVzZXIncyBQbGFzbWEgZW52aXJvbm1lbnQuIEV4cGxpY2l0IGhvbWUvb3duZXJzaGlwIGFyZ3VtZW50cwojIGxldCBvZmZsaW5lIGZpeHR1cmVzIGV4ZWN1dGUgdGhlIGV4YWN0IGd1ZXN0IGNvbmZpZ3VyYXRpb24gcGF0aC4Ka2RlX3dyaXRlX3VzZXJfY29uZmlnKCkgewogICAgbG9jYWwgaG9tZT0kezE6P0V4cGxpY2l0IGd1ZXN0IG9yIGZpeHR1cmUgaG9tZSByZXF1aXJlZH0KICAgIGxvY2FsIG93bmVyPSR7Mjo/RXhwbGljaXQgb3duZXIgcmVxdWlyZWR9IGdyb3VwPSR7Mzo/RXhwbGljaXQgZ3JvdXAgcmVxdWlyZWR9CiAgICAjIGluc3RhbGwgLWQgb25seSBhcHBsaWVzIG93bmVyc2hpcCB0byBuYW1lZCBkaXJlY3Rvcmllcywgbm90IGludGVybWVkaWF0ZXMuCiAgICAjIE5hbWUgZXZlcnkgbGV2ZWwsIGluY2x1ZGluZyBwcmUtZXhpc3Rpbmcgcm9vdC1vd25lZCBkaXJlY3RvcmllcyBvbiByZXRyaWVzLgogICAgaW5zdGFsbCAtZCAtbSAwNzU1IC1vICIkb3duZXIiIC1nICIkZ3JvdXAiIFwKICAgICAgICAiJGhvbWUvLmNvbmZpZyIgIiRob21lLy5jb25maWcvcGxhc21hLXdvcmtzcGFjZSIgXAogICAgICAgICIkaG9tZS8uY29uZmlnL3BsYXNtYS13b3Jrc3BhY2UvZW52IgogICAgY2F0ID4iJGhvbWUvLmNvbmZpZy9wbGFzbWEtd29ya3NwYWNlL2Vudi9vZHEtc29mdHdhcmUuc2giIDw8J0VOVicKIyEvYmluL3NoCiMgU2VsZWN0IGxsdm1waXBlIHdpdGhvdXQgZm9yY2luZyBFR0wncyBzb2Z0d2FyZSBkZXZpY2UgcGF0aCwgd2hpY2ggY3Jhc2hlcwojIFh3YXlsYW5kIG9uIHRoZSBndWVzdCdzIHZpcnR1YWwgRFJNIGRldmljZS4gQ2xlYXIgaW5oZXJpdGVkIGZvcmNpbmcgYXMgd2VsbC4KdW5zZXQgTElCR0xfQUxXQVlTX1NPRlRXQVJFCmV4cG9ydCBHQUxMSVVNX0RSSVZFUj1sbHZtcGlwZQpleHBvcnQgUVRfQUNDRVNTSUJJTElUWT0xCmV4cG9ydCBRVF9MSU5VWF9BQ0NFU1NJQklMSVRZX0FMV0FZU19PTj0xCkVOVgogICAgY2htb2QgMDc1NSAiJGhvbWUvLmNvbmZpZy9wbGFzbWEtd29ya3NwYWNlL2Vudi9vZHEtc29mdHdhcmUuc2giCiAgICBjaG93biAiJG93bmVyOiRncm91cCIgIiRob21lLy5jb25maWcvcGxhc21hLXdvcmtzcGFjZS9lbnYvb2RxLXNvZnR3YXJlLnNoIgp9CgojIFNvdXJjaW5nIGV4cG9zZXMgb25seSBwdXJlIGhlbHBlciBmdW5jdGlvbnMsIG5ldmVyIGd1ZXN0IHByb3Zpc2lvbmluZy4KaWYgW1sgJHtCQVNIX1NPVVJDRVswXX0gIT0gIiQwIiBdXTsgdGhlbiByZXR1cm4gMDsgZmkKCiMgUHVyZSBoZWxwZXIgZXhwb3J0IGZvciBleGVjdXRhYmxlLCBmYWtlLWNvbW1hbmQgdGVzdHMuIE5vIGd1ZXN0IG11dGF0aW9ucy4KaWYgW1sgJHsxOi19ID09IC0tcHJpbnQtY2FwdHVyZSAmJiAkIyA9PSAxIF1dOyB0aGVuCiAgICBlbWl0X2NhcHR1cmUKICAgIGV4aXQgMApmaQpbWyAkIyA9PSAwIF1dIHx8IHsgZWNobyAndXNhZ2U6IGtkZS5zaCBbLS1wcmludC1jYXB0dXJlXScgPiYyOyBleGl0IDI7IH0KW1sgJEVVSUQgPT0gMCBdXSB8fCB7IGVjaG8gJ3Byb3Zpc2lvbmluZyByZXF1aXJlcyBndWVzdCByb290JyA+JjI7IGV4aXQgMTsgfQpzeXN0ZW1kLWRldGVjdC12aXJ0IC0tdm0gPi9kZXYvbnVsbCB8fCB7IGVjaG8gJ3JlZnVzaW5nIG5vbi1WTSBwcm92aXNpb25pbmcnID4mMjsgZXhpdCAxOyB9CltbICQoaG9zdG5hbWUpID09IG9kcS1rZGUgXV0gfHwgeyBlY2hvICdyZWZ1c2luZyBhIFZNIG90aGVyIHRoYW4gb2RxLWtkZScgPiYyOyBleGl0IDE7IH0KIyBzaGVsbGNoZWNrIGRpc2FibGU9U0MxMDkxCi4gL2V0Yy9vcy1yZWxlYXNlCltbICRJRCA9PSB1YnVudHUgJiYgJFZFUlNJT05fSUQgPT0gMjQuMDQgJiYgJChkcGtnIC0tcHJpbnQtYXJjaGl0ZWN0dXJlKSA9PSBhbWQ2NCBdXSB8fCB7CiAgICBlY2hvICdyZXF1aXJlcyBVYnVudHUgMjQuMDQgYW1kNjQgZ3Vlc3QnID4mMjsgZXhpdCAxOwp9CltbIC1mIC9yb290L29kcS9jb21tb24uc2ggXV0gfHwgeyBlY2hvICdndWVzdCBjb21tb24uc2ggbWlzc2luZycgPiYyOyBleGl0IDE7IH0KIyBTdXBwcmVzcyBEZWJpYW4gbWFpbnRhaW5lci1zY3JpcHQgc2VydmljZSBzdGFydHMgdW50aWwgY29uZmlndXJhdGlvbiBpcyBkb25lLgojIFByZXNlcnZlIGFueSBpbWFnZS1wcm92aWRlZCBwb2xpY3kgcmF0aGVyIHRoYW4gZGVzdHJveWluZyBpdCBvbiByZXRyaWVzLgpwb2xpY3lfYmFja3VwPSQobWt0ZW1wIC1kKQpwb2xpY3lfZXhpc3RlZD1mYWxzZQppZiBbWyAtZSAvdXNyL3NiaW4vcG9saWN5LXJjLmQgfHwgLUwgL3Vzci9zYmluL3BvbGljeS1yYy5kIF1dOyB0aGVuCiAgICBjcCAtYSAvdXNyL3NiaW4vcG9saWN5LXJjLmQgIiRwb2xpY3lfYmFja3VwL29yaWdpbmFsIgogICAgcG9saWN5X2V4aXN0ZWQ9dHJ1ZQpmaQpyZXN0b3JlX3BvbGljeSgpIHsKICAgIHJtIC1mIC91c3Ivc2Jpbi9wb2xpY3ktcmMuZAogICAgaWYgJHBvbGljeV9leGlzdGVkOyB0aGVuIGNwIC1hICIkcG9saWN5X2JhY2t1cC9vcmlnaW5hbCIgL3Vzci9zYmluL3BvbGljeS1yYy5kOyBmaQogICAgcm0gLXJmICIkcG9saWN5X2JhY2t1cCIKfQp0cmFwIHJlc3RvcmVfcG9saWN5IEVYSVQKcm0gLWYgL3Vzci9zYmluL3BvbGljeS1yYy5kCnByaW50ZiAnIyEvYmluL3NoXG5leGl0IDEwMVxuJyA+L3Vzci9zYmluL3BvbGljeS1yYy5kCmNobW9kIDA3NTUgL3Vzci9zYmluL3BvbGljeS1yYy5kCiMgc2hlbGxjaGVjayBkaXNhYmxlPVNDMTA5MQouIC9yb290L29kcS9jb21tb24uc2gKb2RxX2NvbW1vbgoKZXhwb3J0IERFQklBTl9GUk9OVEVORD1ub25pbnRlcmFjdGl2ZQpwcmludGYgJ3NoYXJlZCBzaGFyZWQvZGVmYXVsdC14LWRpc3BsYXktbWFuYWdlciBzZWxlY3Qgc2RkbVxuJyB8IGRlYmNvbmYtc2V0LXNlbGVjdGlvbnMKYXB0LWdldCB1cGRhdGUKYXB0LWdldCBpbnN0YWxsIC15IGtkZS1wbGFzbWEtZGVza3RvcCBwbGFzbWEtd29ya3NwYWNlLXdheWxhbmQga3dpbi13YXlsYW5kIHNkZG0gXAogICAga2RlLXNwZWN0YWNsZSB4ZGctZGVza3RvcC1wb3J0YWwta2RlIGxpYmdsMS1tZXNhLWRyaSBtZXNhLXV0aWxzIFwKICAgIHF0d2F5bGFuZDUgZm9udHMtZGVqYXZ1LWNvcmUgbGlicGFtLXN5c3RlbWQgXAogICAgc3BlZWNoLWRpc3BhdGNoZXIgc3BlZWNoLWRpc3BhdGNoZXItZXNwZWFrLW5nIGVzcGVhay1uZyBhdC1zcGkyLWNvcmUKdGVzdCAtZiAvdXNyL3NoYXJlL3dheWxhbmQtc2Vzc2lvbnMvcGxhc21hd2F5bGFuZC5kZXNrdG9wCmluc3RhbGwgLWQgL2V0Yy9zZGRtLmNvbmYuZCAvdXNyL2xvY2FsL2xpYi9vZHEKIyBTRERNJ3MgZ3JlZXRlciBtYXkgYmUgWDExOyB0aGUgc2VsZWN0ZWQgdXNlciBzZXNzaW9uIGlzIGV4cGxpY2l0bHkgV2F5bGFuZC4KY2F0ID4vZXRjL3NkZG0uY29uZi5kLzkwLW9kcS5jb25mIDw8J1NERE0nCltBdXRvbG9naW5dClVzZXI9b2RxClNlc3Npb249cGxhc21hd2F5bGFuZC5kZXNrdG9wClJlbG9naW49ZmFsc2UKU0RETQpwcmludGYgJy91c3IvYmluL3NkZG1cbicgPi9ldGMvWDExL2RlZmF1bHQtZGlzcGxheS1tYW5hZ2VyCiMgU0RETSdzIFBBTSBzdGFjayByZWplY3RzIHBhc3N3b3JkLWxvY2tlZCBhY2NvdW50cyBldmVuIGZvciBwYXNzd29yZGxlc3MKIyBhdXRvbG9naW4uIEdpdmUgb25seSB0aGUgZGlzcG9zYWJsZSBsYWIgdXNlciBhIHJhbmRvbSwgdW51c2FibGUgcGFzc3dvcmQKIyBoYXNoIHNvIFBBTSBhY2NlcHRzIHRoZSBhY2NvdW50IHdoaWxlIG5vYm9keSBjYW4gbG9nIGluIHdpdGggYSBrbm93biBzZWNyZXQuCm9kcV9wYXNzd29yZD0kKG9wZW5zc2wgcmFuZCAtYmFzZTY0IDQ4KQpwcmludGYgJ29kcTolc1xuJyAiJG9kcV9wYXNzd29yZCIgfCBjaHBhc3N3ZAp1bnNldCBvZHFfcGFzc3dvcmQKCmtkZV93cml0ZV91c2VyX2NvbmZpZyAvaG9tZS9vZHEgb2RxIG9kcQplbWl0X2NhcHR1cmUgPi91c3IvbG9jYWwvbGliL29kcS9jYXB0dXJlCmNobW9kIDA3NTUgL3Vzci9sb2NhbC9saWIvb2RxL2NhcHR1cmUKIyBPbmx5IHRoZSBwYXJlbnQgY29tbW9uIHJlY2lwZSBvd25zIE9yY2EvYXV0b3N0YXJ0L3Ntb2tlIG9yY2hlc3RyYXRpb24uCiMgRW5hYmxlIGZvciB0aGUgbmV4dCBsYWItY29udHJvbGxlZCByZWJvb3Q7IGRvIG5vdCByZXN0YXJ0IGFueSBkaXNwbGF5IGhlcmUuCnN5c3RlbWN0bCBlbmFibGUgc2RkbS5zZXJ2aWNlIC0tZm9yY2UKc3lzdGVtY3RsIHNldC1kZWZhdWx0IGdyYXBoaWNhbC50YXJnZXQKb2RxX2ZpbmFsaXplCg==",
+          "new_base64": "IyEvYmluL2Jhc2gKIyBQcm92aXNpb24gb25seSBpbnNpZGUgdGhlIGRpc3Bvc2FibGUgVWJ1bnR1IFZNLiBObyBob3N0IEluY3VzIG9wZXJhdGlvbnMuCnNldCAtZXVvIHBpcGVmYWlsCgplbWl0X2NhcHR1cmUoKSB7CmNhdCA8PCdDQVBUVVJFJwojIS9iaW4vYmFzaApzZXQgLWV1byBwaXBlZmFpbApmYWlsKCkgeyBwcmludGYgJ0tERSBjYXB0dXJlIHJlZnVzZWQ6ICVzXG4nICIkKiIgPiYyOyBleGl0IDE7IH0KW1sgJCMgPT0gMSBdXSB8fCBmYWlsICd1c2FnZTogY2FwdHVyZSBPVVRQVVQucG5nJwpbWyAkKGlkIC11bikgPT0gb2RxIF1dIHx8IGZhaWwgJ3J1biBhcyBvZHEsIG5vdCByb290JwpbWyAke1hER19TRVNTSU9OX1RZUEU6LX0gPT0gd2F5bGFuZCBdXSB8fCBmYWlsICdyZXF1aXJlcyBhIHJlYWwgV2F5bGFuZCBzZXNzaW9uJwpbWyAke1hER19DVVJSRU5UX0RFU0tUT1A6LX0gPT0gKktERSogXV0gfHwgZmFpbCAncmVxdWlyZXMgdGhlIFBsYXNtYSBzZXNzaW9uJwpbWyAtbiAke1dBWUxBTkRfRElTUExBWTotfSAmJiAtbiAke0RCVVNfU0VTU0lPTl9CVVNfQUREUkVTUzotfSBdXSB8fCBmYWlsICdzZXNzaW9uIGVudmlyb25tZW50IG1pc3Npbmc7IGRvIG5vdCBzeW50aGVzaXplIGEgbmV3IEQtQnVzIHNlc3Npb24nCnBncmVwIC11ICIkKGlkIC11KSIgLXgga3dpbl93YXlsYW5kID4vZGV2L251bGwgfHwgZmFpbCAnS1dpbiBXYXlsYW5kIG5vdCBydW5uaW5nIGZvciBvZHEnCm91dHB1dD0kMQpbWyAhIC1lICRvdXRwdXQgJiYgISAtTCAkb3V0cHV0IF1dIHx8IGZhaWwgJ291dHB1dCBhbHJlYWR5IGV4aXN0czsgdXNlIGEgZnJlc2ggZXZpZGVuY2UgcGF0aCcKbWtkaXIgLXAgLS0gIiQoZGlybmFtZSAtLSAiJG91dHB1dCIpIgp0bXBkaXI9JChta3RlbXAgLWQgLS0gIiQoZGlybmFtZSAtLSAiJG91dHB1dCIpLy5vZHEta2RlLWNhcHR1cmUuWFhYWFhYIikKdHJhcCAncm0gLXJmIC0tICIkdG1wZGlyIicgRVhJVAojIFNwZWN0YWNsZSBpcyBLV2luJ3MgYXV0aG9yaXplZCBkZXNrdG9wIHNjcmVlbnNob3QgY2xpZW50LCBub3QgYSBnZW5lcmljCiMgV2F5bGFuZCBjYXB0dXJlIEFQSS4gQSBwZXJtaXNzaW9uIHByb21wdC9kZW5pYWwgb3IgdW5zdXBwb3J0ZWQgY29tcG9zaXRvcgojIGlzIGEgZmFpbGVkIHNtb2tlIHByb29mOyBuZXZlciBmYWxsIGJhY2sgdG8gWDExIG9yIGZyYW1lYnVmZmVyIGNhcHR1cmUuCmlmICEgUVRfUVBBX1BMQVRGT1JNPXdheWxhbmQgdGltZW91dCAzMHMgc3BlY3RhY2xlIC0tYmFja2dyb3VuZCAtLW5vbm90aWZ5IC0tZnVsbHNjcmVlbiAtLW91dHB1dCAiJHRtcGRpci9jYXB0dXJlLnBuZyI7IHRoZW4KICAgIGZhaWwgJ1NwZWN0YWNsZS9LV2luIGNhcHR1cmUgZmFpbGVkIG9yIHRpbWVkIG91dDsgaW5zcGVjdCB0aGUgZ3Vlc3QgY29uc29sZSBmb3IgYSBwZXJtaXNzaW9uIHByb21wdCcKZmkKcHl0aG9uMyAtICIkdG1wZGlyL2NhcHR1cmUucG5nIiA8PCdQWScKaW1wb3J0IHN0cnVjdCwgc3lzCmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKZnJvbSBQSUwgaW1wb3J0IEltYWdlLCBVbmlkZW50aWZpZWRJbWFnZUVycm9yCgpwID0gUGF0aChzeXMuYXJndlsxXSkKZGF0YSA9IHAucmVhZF9ieXRlcygpIGlmIHAuaXNfZmlsZSgpIGVsc2UgYicnCmlmIGxlbihkYXRhKSA8IDMzIG9yIGRhdGFbOjhdICE9IGInXHg4OVBOR1xyXG5ceDFhXG4nIG9yIGRhdGFbMTI6MTZdICE9IGInSUhEUic6CiAgICBzeXMuZXhpdCgnU3BlY3RhY2xlIGRpZCBub3QgcHJvZHVjZSBhIFBORzsgV2F5bGFuZCBjYXB0dXJlIGlzIG5vdCBwcm92ZW4nKQp3LCBoID0gc3RydWN0LnVucGFjaygnPklJJywgZGF0YVsxNjoyNF0pCmlmIG5vdCAoMCA8IHcgPD0gMzI3NjggYW5kIDAgPCBoIDw9IDMyNzY4KToKICAgIHN5cy5leGl0KCdTcGVjdGFjbGUgcHJvZHVjZWQgaW52YWxpZCBkaW1lbnNpb25zJykKdHJ5OgogICAgd2l0aCBJbWFnZS5vcGVuKHApIGFzIGltYWdlOgogICAgICAgIGltYWdlLnZlcmlmeSgpCmV4Y2VwdCAoT1NFcnJvciwgVW5pZGVudGlmaWVkSW1hZ2VFcnJvciwgU3ludGF4RXJyb3IpOgogICAgc3lzLmV4aXQoJ1NwZWN0YWNsZSBwcm9kdWNlZCBhbiBpbnZhbGlkIFBORyBpbWFnZScpClBZCm12IC0tbm8tY2xvYmJlciAtVCAtLSAiJHRtcGRpci9jYXB0dXJlLnBuZyIgIiRvdXRwdXQiCltbICEgLWUgJHRtcGRpci9jYXB0dXJlLnBuZyBdXSB8fCBmYWlsICdvdXRwdXQgYXBwZWFyZWQgZHVyaW5nIGNhcHR1cmU7IG9yaWdpbmFsIGV2aWRlbmNlIHByZXNlcnZlZCcKQ0FQVFVSRQp9CgojIFdyaXRlIG9ubHkgdGhlIHVzZXIncyBQbGFzbWEgZW52aXJvbm1lbnQuIEV4cGxpY2l0IGhvbWUvb3duZXJzaGlwIGFyZ3VtZW50cwojIGxldCBvZmZsaW5lIGZpeHR1cmVzIGV4ZWN1dGUgdGhlIGV4YWN0IGd1ZXN0IGNvbmZpZ3VyYXRpb24gcGF0aC4Ka2RlX3dyaXRlX3VzZXJfY29uZmlnKCkgewogICAgbG9jYWwgaG9tZT0kezE6P0V4cGxpY2l0IGd1ZXN0IG9yIGZpeHR1cmUgaG9tZSByZXF1aXJlZH0KICAgIGxvY2FsIG93bmVyPSR7Mjo/RXhwbGljaXQgb3duZXIgcmVxdWlyZWR9IGdyb3VwPSR7Mzo/RXhwbGljaXQgZ3JvdXAgcmVxdWlyZWR9CiAgICAjIGluc3RhbGwgLWQgb25seSBhcHBsaWVzIG93bmVyc2hpcCB0byBuYW1lZCBkaXJlY3Rvcmllcywgbm90IGludGVybWVkaWF0ZXMuCiAgICAjIE5hbWUgZXZlcnkgbGV2ZWwsIGluY2x1ZGluZyBwcmUtZXhpc3Rpbmcgcm9vdC1vd25lZCBkaXJlY3RvcmllcyBvbiByZXRyaWVzLgogICAgaW5zdGFsbCAtZCAtbSAwNzU1IC1vICIkb3duZXIiIC1nICIkZ3JvdXAiIFwKICAgICAgICAiJGhvbWUvLmNvbmZpZyIgIiRob21lLy5jb25maWcvcGxhc21hLXdvcmtzcGFjZSIgXAogICAgICAgICIkaG9tZS8uY29uZmlnL3BsYXNtYS13b3Jrc3BhY2UvZW52IgogICAgY2F0ID4iJGhvbWUvLmNvbmZpZy9wbGFzbWEtd29ya3NwYWNlL2Vudi9vZHEtc29mdHdhcmUuc2giIDw8J0VOVicKIyEvYmluL3NoCiMgU2VsZWN0IGxsdm1waXBlIHdpdGhvdXQgZm9yY2luZyBFR0wncyBzb2Z0d2FyZSBkZXZpY2UgcGF0aCwgd2hpY2ggY3Jhc2hlcwojIFh3YXlsYW5kIG9uIHRoZSBndWVzdCdzIHZpcnR1YWwgRFJNIGRldmljZS4gQ2xlYXIgaW5oZXJpdGVkIGZvcmNpbmcgYXMgd2VsbC4KdW5zZXQgTElCR0xfQUxXQVlTX1NPRlRXQVJFCmV4cG9ydCBHQUxMSVVNX0RSSVZFUj1sbHZtcGlwZQpleHBvcnQgUVRfQUNDRVNTSUJJTElUWT0xCmV4cG9ydCBRVF9MSU5VWF9BQ0NFU1NJQklMSVRZX0FMV0FZU19PTj0xCkVOVgogICAgY2htb2QgMDc1NSAiJGhvbWUvLmNvbmZpZy9wbGFzbWEtd29ya3NwYWNlL2Vudi9vZHEtc29mdHdhcmUuc2giCiAgICBjaG93biAiJG93bmVyOiRncm91cCIgIiRob21lLy5jb25maWcvcGxhc21hLXdvcmtzcGFjZS9lbnYvb2RxLXNvZnR3YXJlLnNoIgogICAgIyBQbGFzbWEgNS4yNy4xMiBrYWNjZXNzIHJlYWRzIFNjcmVlblJlYWRlci9FbmFibGVkIGZyb20ga2FjY2Vzc3JjIGFuZAogICAgIyBtaXJyb3JzIGl0IHRvIEdOT01FJ3Mgc2NyZWVuLXJlYWRlci1lbmFibGVkIHNldHRpbmcgYXQgc2Vzc2lvbiBzdGFydHVwLgogICAgIyBJdHMgZGVmYXVsdCBmYWxzZSBzaHV0cyBkb3duIHRoZSBjb21tb24gcmVjaXBlJ3MgT3JjYSBzZXNzaW9uLgogICAgIyBLZWVwIHRoZSBuYXRpdmUgc2V0dGluZyBhbGlnbmVkOyBjb21tb24uc2ggc3RpbGwgb3ducyBvdXIgbGF1bmNoIHdyYXBwZXIuCiAgICBjYXQgPiIkaG9tZS8uY29uZmlnL2thY2Nlc3NyYyIgPDwnS0FDQ0VTUycKW1NjcmVlblJlYWRlcl0KRW5hYmxlZD10cnVlCktBQ0NFU1MKICAgIGNobW9kIDA2NDQgIiRob21lLy5jb25maWcva2FjY2Vzc3JjIgogICAgY2hvd24gIiRvd25lcjokZ3JvdXAiICIkaG9tZS8uY29uZmlnL2thY2Nlc3NyYyIKfQoKIyBTb3VyY2luZyBleHBvc2VzIG9ubHkgcHVyZSBoZWxwZXIgZnVuY3Rpb25zLCBuZXZlciBndWVzdCBwcm92aXNpb25pbmcuCmlmIFtbICR7QkFTSF9TT1VSQ0VbMF19ICE9ICIkMCIgXV07IHRoZW4gcmV0dXJuIDA7IGZpCgojIFB1cmUgaGVscGVyIGV4cG9ydCBmb3IgZXhlY3V0YWJsZSwgZmFrZS1jb21tYW5kIHRlc3RzLiBObyBndWVzdCBtdXRhdGlvbnMuCmlmIFtbICR7MTotfSA9PSAtLXByaW50LWNhcHR1cmUgJiYgJCMgPT0gMSBdXTsgdGhlbgogICAgZW1pdF9jYXB0dXJlCiAgICBleGl0IDAKZmkKW1sgJCMgPT0gMCBdXSB8fCB7IGVjaG8gJ3VzYWdlOiBrZGUuc2ggWy0tcHJpbnQtY2FwdHVyZV0nID4mMjsgZXhpdCAyOyB9CltbICRFVUlEID09IDAgXV0gfHwgeyBlY2hvICdwcm92aXNpb25pbmcgcmVxdWlyZXMgZ3Vlc3Qgcm9vdCcgPiYyOyBleGl0IDE7IH0Kc3lzdGVtZC1kZXRlY3QtdmlydCAtLXZtID4vZGV2L251bGwgfHwgeyBlY2hvICdyZWZ1c2luZyBub24tVk0gcHJvdmlzaW9uaW5nJyA+JjI7IGV4aXQgMTsgfQpbWyAkKGhvc3RuYW1lKSA9PSBvZHEta2RlIF1dIHx8IHsgZWNobyAncmVmdXNpbmcgYSBWTSBvdGhlciB0aGFuIG9kcS1rZGUnID4mMjsgZXhpdCAxOyB9CiMgc2hlbGxjaGVjayBkaXNhYmxlPVNDMTA5MQouIC9ldGMvb3MtcmVsZWFzZQpbWyAkSUQgPT0gdWJ1bnR1ICYmICRWRVJTSU9OX0lEID09IDI0LjA0ICYmICQoZHBrZyAtLXByaW50LWFyY2hpdGVjdHVyZSkgPT0gYW1kNjQgXV0gfHwgewogICAgZWNobyAncmVxdWlyZXMgVWJ1bnR1IDI0LjA0IGFtZDY0IGd1ZXN0JyA+JjI7IGV4aXQgMTsKfQpbWyAtZiAvcm9vdC9vZHEvY29tbW9uLnNoIF1dIHx8IHsgZWNobyAnZ3Vlc3QgY29tbW9uLnNoIG1pc3NpbmcnID4mMjsgZXhpdCAxOyB9CiMgU3VwcHJlc3MgRGViaWFuIG1haW50YWluZXItc2NyaXB0IHNlcnZpY2Ugc3RhcnRzIHVudGlsIGNvbmZpZ3VyYXRpb24gaXMgZG9uZS4KIyBQcmVzZXJ2ZSBhbnkgaW1hZ2UtcHJvdmlkZWQgcG9saWN5IHJhdGhlciB0aGFuIGRlc3Ryb3lpbmcgaXQgb24gcmV0cmllcy4KcG9saWN5X2JhY2t1cD0kKG1rdGVtcCAtZCkKcG9saWN5X2V4aXN0ZWQ9ZmFsc2UKaWYgW1sgLWUgL3Vzci9zYmluL3BvbGljeS1yYy5kIHx8IC1MIC91c3Ivc2Jpbi9wb2xpY3ktcmMuZCBdXTsgdGhlbgogICAgY3AgLWEgL3Vzci9zYmluL3BvbGljeS1yYy5kICIkcG9saWN5X2JhY2t1cC9vcmlnaW5hbCIKICAgIHBvbGljeV9leGlzdGVkPXRydWUKZmkKcmVzdG9yZV9wb2xpY3koKSB7CiAgICBybSAtZiAvdXNyL3NiaW4vcG9saWN5LXJjLmQKICAgIGlmICRwb2xpY3lfZXhpc3RlZDsgdGhlbiBjcCAtYSAiJHBvbGljeV9iYWNrdXAvb3JpZ2luYWwiIC91c3Ivc2Jpbi9wb2xpY3ktcmMuZDsgZmkKICAgIHJtIC1yZiAiJHBvbGljeV9iYWNrdXAiCn0KdHJhcCByZXN0b3JlX3BvbGljeSBFWElUCnJtIC1mIC91c3Ivc2Jpbi9wb2xpY3ktcmMuZApwcmludGYgJyMhL2Jpbi9zaFxuZXhpdCAxMDFcbicgPi91c3Ivc2Jpbi9wb2xpY3ktcmMuZApjaG1vZCAwNzU1IC91c3Ivc2Jpbi9wb2xpY3ktcmMuZAojIHNoZWxsY2hlY2sgZGlzYWJsZT1TQzEwOTEKLiAvcm9vdC9vZHEvY29tbW9uLnNoCm9kcV9jb21tb24KCmV4cG9ydCBERUJJQU5fRlJPTlRFTkQ9bm9uaW50ZXJhY3RpdmUKcHJpbnRmICdzaGFyZWQgc2hhcmVkL2RlZmF1bHQteC1kaXNwbGF5LW1hbmFnZXIgc2VsZWN0IHNkZG1cbicgfCBkZWJjb25mLXNldC1zZWxlY3Rpb25zCmFwdC1nZXQgdXBkYXRlCmFwdC1nZXQgaW5zdGFsbCAteSBrZGUtcGxhc21hLWRlc2t0b3AgcGxhc21hLXdvcmtzcGFjZS13YXlsYW5kIGt3aW4td2F5bGFuZCBzZGRtIFwKICAgIGtkZS1zcGVjdGFjbGUgeGRnLWRlc2t0b3AtcG9ydGFsLWtkZSBsaWJnbDEtbWVzYS1kcmkgbWVzYS11dGlscyBcCiAgICBxdHdheWxhbmQ1IGZvbnRzLWRlamF2dS1jb3JlIGxpYnBhbS1zeXN0ZW1kIFwKICAgIHNwZWVjaC1kaXNwYXRjaGVyIHNwZWVjaC1kaXNwYXRjaGVyLWVzcGVhay1uZyBlc3BlYWstbmcgYXQtc3BpMi1jb3JlCnRlc3QgLWYgL3Vzci9zaGFyZS93YXlsYW5kLXNlc3Npb25zL3BsYXNtYXdheWxhbmQuZGVza3RvcAppbnN0YWxsIC1kIC9ldGMvc2RkbS5jb25mLmQgL3Vzci9sb2NhbC9saWIvb2RxCiMgU0RETSdzIGdyZWV0ZXIgbWF5IGJlIFgxMTsgdGhlIHNlbGVjdGVkIHVzZXIgc2Vzc2lvbiBpcyBleHBsaWNpdGx5IFdheWxhbmQuCmNhdCA+L2V0Yy9zZGRtLmNvbmYuZC85MC1vZHEuY29uZiA8PCdTRERNJwpbQXV0b2xvZ2luXQpVc2VyPW9kcQpTZXNzaW9uPXBsYXNtYXdheWxhbmQuZGVza3RvcApSZWxvZ2luPWZhbHNlClNERE0KcHJpbnRmICcvdXNyL2Jpbi9zZGRtXG4nID4vZXRjL1gxMS9kZWZhdWx0LWRpc3BsYXktbWFuYWdlcgojIFNERE0ncyBQQU0gc3RhY2sgcmVqZWN0cyBwYXNzd29yZC1sb2NrZWQgYWNjb3VudHMgZXZlbiBmb3IgcGFzc3dvcmRsZXNzCiMgYXV0b2xvZ2luLiBHaXZlIG9ubHkgdGhlIGRpc3Bvc2FibGUgbGFiIHVzZXIgYSByYW5kb20sIHVudXNhYmxlIHBhc3N3b3JkCiMgaGFzaCBzbyBQQU0gYWNjZXB0cyB0aGUgYWNjb3VudCB3aGlsZSBub2JvZHkgY2FuIGxvZyBpbiB3aXRoIGEga25vd24gc2VjcmV0LgpvZHFfcGFzc3dvcmQ9JChvcGVuc3NsIHJhbmQgLWJhc2U2NCA0OCkKcHJpbnRmICdvZHE6JXNcbicgIiRvZHFfcGFzc3dvcmQiIHwgY2hwYXNzd2QKdW5zZXQgb2RxX3Bhc3N3b3JkCgprZGVfd3JpdGVfdXNlcl9jb25maWcgL2hvbWUvb2RxIG9kcSBvZHEKZW1pdF9jYXB0dXJlID4vdXNyL2xvY2FsL2xpYi9vZHEvY2FwdHVyZQpjaG1vZCAwNzU1IC91c3IvbG9jYWwvbGliL29kcS9jYXB0dXJlCiMgT25seSB0aGUgcGFyZW50IGNvbW1vbiByZWNpcGUgb3ducyBPcmNhL2F1dG9zdGFydC9zbW9rZSBvcmNoZXN0cmF0aW9uLgojIEVuYWJsZSBmb3IgdGhlIG5leHQgbGFiLWNvbnRyb2xsZWQgcmVib290OyBkbyBub3QgcmVzdGFydCBhbnkgZGlzcGxheSBoZXJlLgpzeXN0ZW1jdGwgZW5hYmxlIHNkZG0uc2VydmljZSAtLWZvcmNlCnN5c3RlbWN0bCBzZXQtZGVmYXVsdCBncmFwaGljYWwudGFyZ2V0Cm9kcV9maW5hbGl6ZQo=",
           "old_base64": "",
           "start": 0
         }
       ],
       "path": "scripts/qualification/lab/guest/kde.sh",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -491,7 +491,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -508,12 +508,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -526,7 +526,7 @@
         }
       ],
       "path": "scripts/qualification/lab/guest/smoke.py",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -540,7 +540,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -557,12 +557,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -575,7 +575,7 @@
         }
       ],
       "path": "scripts/qualification/lab/images/cinnamon.json",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -589,7 +589,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -606,12 +606,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -624,7 +624,7 @@
         }
       ],
       "path": "scripts/qualification/lab/images/gnome.json",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -638,7 +638,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -655,12 +655,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -673,7 +673,7 @@
         }
       ],
       "path": "scripts/qualification/lab/images/hyprland.json",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -687,7 +687,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -704,12 +704,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -722,7 +722,7 @@
         }
       ],
       "path": "scripts/qualification/lab/images/kde.json",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -736,7 +736,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -753,12 +753,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -771,7 +771,7 @@
         }
       ],
       "path": "scripts/qualification/lab/lab.py",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -785,7 +785,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -12790,12 +12790,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -12808,7 +12808,7 @@
         }
       ],
       "path": "tests/test_desktop_qualification_lab.py",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -12822,7 +12822,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -13550,12 +13550,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -13568,7 +13568,7 @@
         }
       ],
       "path": "tests/test_lab_cinnamon.py",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -13582,7 +13582,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -13599,12 +13599,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -13617,7 +13617,7 @@
         }
       ],
       "path": "tests/test_lab_common.py",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -13631,7 +13631,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -13648,12 +13648,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -13666,7 +13666,7 @@
         }
       ],
       "path": "tests/test_lab_gnome.py",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -13680,7 +13680,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -13697,12 +13697,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -13715,7 +13715,7 @@
         }
       ],
       "path": "tests/test_lab_guest_smoke.py",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -13729,7 +13729,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -13746,12 +13746,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -13764,7 +13764,7 @@
         }
       ],
       "path": "tests/test_lab_hyprland.py",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -13778,7 +13778,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -13791,29 +13791,29 @@
       ]
     },
     {
-      "after_sha256": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920",
+      "after_sha256": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Owned isolated four-VM lifecycle,100GiB allocation admission budget,50GiB floor, bounded agent poweroff and exact native proof provenance",
+      "contract": "Owned four-VM lifecycle100GiB budget50GiB floor,bounded agent shutdown,native session Orca and exact provenance smoke",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session, no automatic force/replay,no fabricated evidence or modified upstream corpus",
+      "invariant": "Old pool/bots unchanged,one heavy guest,no passthrough or active session,no automatic force/replay,no fabricated evidence,upstream corpus unchanged",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
       "patch": [
         {
           "end": 0,
-          "new_base64": "IiIiRXhlY3V0ZSBLREUgY2FwdHVyZSBiZWhhdmlvdXIgd2l0aG91dCBhIFZNLCBkZXNrdG9wIG9yIGhvc3QgbXV0YXRpb24uIiIiCmltcG9ydCBqc29uCmltcG9ydCBvcwppbXBvcnQgc2hsZXgKaW1wb3J0IHN1YnByb2Nlc3MKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgppbXBvcnQgcHl0ZXN0CmZyb20gUElMIGltcG9ydCBJbWFnZQoKUk9PVCA9IFBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRzWzFdClJFQ0lQRSA9IFJPT1QgLyAic2NyaXB0cy9xdWFsaWZpY2F0aW9uL2xhYi9ndWVzdC9rZGUuc2giCgoKQHB5dGVzdC5maXh0dXJlCmRlZiBjYXB0dXJlKHRtcF9wYXRoKToKICAgIGV4cG9ydGVkID0gc3VicHJvY2Vzcy5ydW4oCiAgICAgICAgWyJiYXNoIiwgc3RyKFJFQ0lQRSksICItLXByaW50LWNhcHR1cmUiXSwgY2hlY2s9VHJ1ZSwgY2FwdHVyZV9vdXRwdXQ9VHJ1ZQogICAgKS5zdGRvdXQKICAgIGhlbHBlciA9IHRtcF9wYXRoIC8gImNhcHR1cmUiCiAgICBoZWxwZXIud3JpdGVfYnl0ZXMoZXhwb3J0ZWQpCiAgICBoZWxwZXIuY2htb2QoMG83NTUpCiAgICBiaW5kaXIgPSB0bXBfcGF0aCAvICJiaW4iCiAgICBiaW5kaXIubWtkaXIoKQogICAgZm9yIG5hbWUsIGJvZHkgaW4gewogICAgICAgICJpZCI6ICcjIS9iaW4vc2hcbmlmIFsgIiQxIiA9IC11biBdOyB0aGVuIGVjaG8gIiR7VEVTVF9VU0VSOi1vZHF9IjsgZWxzZSBlY2hvIDEwMDA7IGZpXG4nLAogICAgICAgICJwZ3JlcCI6ICcjIS9iaW4vc2hcbmV4aXQgIiR7VEVTVF9LV0lOX1NUQVRVUzotMH0iXG4nLAogICAgICAgICJzcGVjdGFjbGUiOiAoCiAgICAgICAgICAgICcjIS9iaW4vc2hcbnByaW50ZiAiJXNcXG4iICIkUVRfUVBBX1BMQVRGT1JNIiAiJEAiID4iJENBTExfTE9HIlxuJwogICAgICAgICAgICAnd2hpbGUgWyAiJCMiIC1ndCAwIF07IGRvXG4nCiAgICAgICAgICAgICcgaWYgWyAiJDEiID0gLS1vdXRwdXQgXTsgdGhlbiBzaGlmdDsgY3AgIiRQTkdfU09VUkNFIiAiJDEiOyBmaVxuJwogICAgICAgICAgICAnIHNoaWZ0XG5kb25lXG5leGl0ICIke1RFU1RfQ0FQVFVSRV9TVEFUVVM6LTB9IlxuJwogICAgICAgICksCiAgICB9Lml0ZW1zKCk6CiAgICAgICAgcCA9IGJpbmRpciAvIG5hbWUKICAgICAgICBwLndyaXRlX3RleHQoYm9keSkKICAgICAgICBwLmNobW9kKDBvNzU1KQogICAgc291cmNlID0gdG1wX3BhdGggLyAic291cmNlLnBuZyIKICAgIEltYWdlLm5ldygiUkdCIiwgKDgwMCwgNjAwKSwgImJsYWNrIikuc2F2ZShzb3VyY2UpCiAgICBlbnYgPSBkaWN0KG9zLmVudmlyb24sIFBBVEg9ZiJ7YmluZGlyfTp7b3MuZW52aXJvblsnUEFUSCddfSIsCiAgICAgICAgICAgICAgIFhER19TRVNTSU9OX1RZUEU9IndheWxhbmQiLCBYREdfQ1VSUkVOVF9ERVNLVE9QPSJLREUiLAogICAgICAgICAgICAgICBXQVlMQU5EX0RJU1BMQVk9IndheWxhbmQtMCIsIERCVVNfU0VTU0lPTl9CVVNfQUREUkVTUz0idW5peDpwYXRoPS9mYWtlIiwKICAgICAgICAgICAgICAgUE5HX1NPVVJDRT1zdHIoc291cmNlKSwgQ0FMTF9MT0c9c3RyKHRtcF9wYXRoIC8gImNhbGxzIikpCiAgICByZXR1cm4gaGVscGVyLCBlbnYsIHRtcF9wYXRoCgoKZGVmIHJ1bl9jYXB0dXJlKGNhcHR1cmUsICoqb3ZlcnJpZGVzKToKICAgIGhlbHBlciwgZW52LCB0bXBfcGF0aCA9IGNhcHR1cmUKICAgIHJldHVybiBzdWJwcm9jZXNzLnJ1bihbc3RyKGhlbHBlciksIHN0cih0bXBfcGF0aCAvICJvdXQucG5nIildLAogICAgICAgICAgICAgICAgICAgICAgICAgIGVudj1kaWN0KGVudiwgKipvdmVycmlkZXMpLCBjYXB0dXJlX291dHB1dD1UcnVlLCB0ZXh0PVRydWUpCgoKZGVmIHRlc3RfY2FwdHVyZV9zdWNjZXNzX2V4ZWN1dGVzX3NwZWN0YWNsZV9hbmRfcHVibGlzaGVzX25ld19pbWFnZShjYXB0dXJlKToKICAgIGFzc2VydCBydW5fY2FwdHVyZShjYXB0dXJlKS5yZXR1cm5jb2RlID09IDAKICAgIF8sIF8sIHBhdGggPSBjYXB0dXJlCiAgICBhc3NlcnQgKHBhdGggLyAib3V0LnBuZyIpLnJlYWRfYnl0ZXMoKSA9PSAocGF0aCAvICJzb3VyY2UucG5nIikucmVhZF9ieXRlcygpCiAgICBhcmdzID0gKHBhdGggLyAiY2FsbHMiKS5yZWFkX3RleHQoKS5zcGxpdGxpbmVzKCkKICAgIGFzc2VydCBhcmdzWzo1XSA9PSBbIndheWxhbmQiLCAiLS1iYWNrZ3JvdW5kIiwgIi0tbm9ub3RpZnkiLCAiLS1mdWxsc2NyZWVuIiwgIi0tb3V0cHV0Il0KICAgIGFzc2VydCBub3QgbGlzdChwYXRoLmdsb2IoIi5vZHEta2RlLWNhcHR1cmUuKiIpKQoKCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgib3ZlcnJpZGVzIiwgWwogICAgeyJURVNUX1VTRVIiOiAicm9vdCJ9LCB7IlhER19TRVNTSU9OX1RZUEUiOiAieDExIn0sCiAgICB7IlhER19DVVJSRU5UX0RFU0tUT1AiOiAiR05PTUUifSwgeyJXQVlMQU5EX0RJU1BMQVkiOiAiIn0sCiAgICB7IkRCVVNfU0VTU0lPTl9CVVNfQUREUkVTUyI6ICIifSwgeyJURVNUX0tXSU5fU1RBVFVTIjogIjEifSwKXSkKZGVmIHRlc3RfaW52YWxpZF9zZXNzaW9uX25ldmVyX2ludm9rZXNfc2NyZWVuc2hvdChjYXB0dXJlLCBvdmVycmlkZXMpOgogICAgcmVzdWx0ID0gcnVuX2NhcHR1cmUoY2FwdHVyZSwgKipvdmVycmlkZXMpCiAgICBhc3NlcnQgcmVzdWx0LnJldHVybmNvZGUgIT0gMAogICAgYXNzZXJ0ICJyZWZ1c2VkIiBpbiByZXN1bHQuc3RkZXJyCiAgICBhc3NlcnQgbm90IChjYXB0dXJlWzJdIC8gImNhbGxzIikuZXhpc3RzKCkKCgpkZWYgdGVzdF9jYXB0dXJlX2RlbmlhbF9pc19ub3RfcHVibGlzaGVkKGNhcHR1cmUpOgogICAgcmVzdWx0ID0gcnVuX2NhcHR1cmUoY2FwdHVyZSwgVEVTVF9DQVBUVVJFX1NUQVRVUz0iMSIpCiAgICBhc3NlcnQgcmVzdWx0LnJldHVybmNvZGUgIT0gMAogICAgYXNzZXJ0ICJTcGVjdGFjbGUvS1dpbiBjYXB0dXJlIGZhaWxlZCIgaW4gcmVzdWx0LnN0ZGVycgogICAgcGF0aCA9IGNhcHR1cmVbMl0KICAgIGFzc2VydCBub3QgKHBhdGggLyAib3V0LnBuZyIpLmV4aXN0cygpCiAgICBhc3NlcnQgbm90IGxpc3QocGF0aC5nbG9iKCIub2RxLWtkZS1jYXB0dXJlLioiKSkKCgpkZWYgdGVzdF9leGlzdGluZ19ldmlkZW5jZV9pc19uZXZlcl9vdmVyd3JpdHRlbihjYXB0dXJlKToKICAgIHBhdGggPSBjYXB0dXJlWzJdCiAgICAocGF0aCAvICJvdXQucG5nIikud3JpdGVfYnl0ZXMoYiJvbGQgZXZpZGVuY2UiKQogICAgcmVzdWx0ID0gcnVuX2NhcHR1cmUoY2FwdHVyZSkKICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSAhPSAwCiAgICBhc3NlcnQgIm91dHB1dCBhbHJlYWR5IGV4aXN0cyIgaW4gcmVzdWx0LnN0ZGVycgogICAgYXNzZXJ0IChwYXRoIC8gIm91dC5wbmciKS5yZWFkX2J5dGVzKCkgPT0gYiJvbGQgZXZpZGVuY2UiCiAgICBhc3NlcnQgbm90IChwYXRoIC8gImNhbGxzIikuZXhpc3RzKCkKICAgIGFzc2VydCBub3QgbGlzdChwYXRoLmdsb2IoIi5vZHEta2RlLWNhcHR1cmUuKiIpKQoKCmRlZiB0ZXN0X2ludmFsaWRfY2FwdHVyZV9vdXRwdXRfaXNfbm90X3B1Ymxpc2hlZChjYXB0dXJlKToKICAgIChjYXB0dXJlWzJdIC8gInNvdXJjZS5wbmciKS53cml0ZV9ieXRlcyhiIm5vdCBhbiBpbWFnZSIpCiAgICByZXN1bHQgPSBydW5fY2FwdHVyZShjYXB0dXJlKQogICAgYXNzZXJ0IHJlc3VsdC5yZXR1cm5jb2RlICE9IDAKICAgIGFzc2VydCAiZGlkIG5vdCBwcm9kdWNlIGEgUE5HIiBpbiByZXN1bHQuc3RkZXJyCiAgICBhc3NlcnQgbm90IChjYXB0dXJlWzJdIC8gIm91dC5wbmciKS5leGlzdHMoKQoKCmRlZiB0ZXN0X3RydW5jYXRlZF9wbmdfaXNfbm90X3B1Ymxpc2hlZChjYXB0dXJlKToKICAgICMgQSBwbGF1c2libGUgc2lnbmF0dXJlL0lIRFIgaXMgbm90IGEgc2NyZWVuc2hvdC4gUmVxdWlyZSB0aGUgY29tcGxldGUKICAgICMgaW1hZ2Ugc3RyZWFtIHRvIGRlY29kZSBiZWZvcmUgcHVibGlzaGluZyBldmlkZW5jZS4KICAgIChjYXB0dXJlWzJdIC8gInNvdXJjZS5wbmciKS53cml0ZV9ieXRlcygKICAgICAgICBiIlx4ODlQTkdcclxuXHgxYVxuIgogICAgICAgICsgYnl0ZXMuZnJvbWhleCgiMDAwMDAwMGQ0OTQ4NDQ1MjAwMDAwMzIwMDAwMDAyNTgwODAyMDAwMDAwIikgKyBieXRlcyg1KQogICAgKQogICAgcmVzdWx0ID0gcnVuX2NhcHR1cmUoY2FwdHVyZSkKICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSAhPSAwCiAgICBhc3NlcnQgImludmFsaWQgUE5HIiBpbiByZXN1bHQuc3RkZXJyCiAgICBhc3NlcnQgbm90IChjYXB0dXJlWzJdIC8gIm91dC5wbmciKS5leGlzdHMoKQogICAgYXNzZXJ0IG5vdCBsaXN0KGNhcHR1cmVbMl0uZ2xvYigiLm9kcS1rZGUtY2FwdHVyZS4qIikpCgoKZGVmIHRlc3RfcmVjaXBlX3JlamVjdHNfdW5rbm93bl9tb2RlX3dpdGhvdXRfZ3Vlc3RfbXV0YXRpb24oKToKICAgIHJlc3VsdCA9IHN1YnByb2Nlc3MucnVuKFsiYmFzaCIsIHN0cihSRUNJUEUpLCAiLS11bmtub3duIl0sIGNhcHR1cmVfb3V0cHV0PVRydWUpCiAgICBhc3NlcnQgcmVzdWx0LnJldHVybmNvZGUgPT0gMgoKCmRlZiB0ZXN0X3Byb3Zpc2lvbl9yZWZ1c2VzX25vbl92bV9iZWZvcmVfYW55X3BhY2thZ2VfYWN0aW9uKHRtcF9wYXRoKToKICAgICMgSWYgcnVuIGFzIHJvb3QgaW4gQ0ksIHRoZSBWTSBndWFyZCByZWplY3RzLiBOb24tcm9vdCByZWplY3RzIHNvb25lci4KICAgIGd1YXJkID0gdG1wX3BhdGggLyAic3lzdGVtZC1kZXRlY3QtdmlydCIKICAgIGd1YXJkLndyaXRlX3RleHQoIiMhL2Jpbi9zaFxuZXhpdCAxXG4iKQogICAgZ3VhcmQuY2htb2QoMG83NTUpCiAgICByZXN1bHQgPSBzdWJwcm9jZXNzLnJ1bihbImJhc2giLCBzdHIoUkVDSVBFKV0sIGNhcHR1cmVfb3V0cHV0PVRydWUsIHRleHQ9VHJ1ZSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIGVudj1kaWN0KG9zLmVudmlyb24sIFBBVEg9ZiJ7dG1wX3BhdGh9Ontvcy5lbnZpcm9uWydQQVRIJ119IikpCiAgICBhc3NlcnQgcmVzdWx0LnJldHVybmNvZGUgIT0gMAogICAgYXNzZXJ0ICgicHJvdmlzaW9uaW5nIHJlcXVpcmVzIGd1ZXN0IHJvb3QiIGluIHJlc3VsdC5zdGRlcnIKICAgICAgICAgICAgb3IgInJlZnVzaW5nIG5vbi1WTSBwcm92aXNpb25pbmciIGluIHJlc3VsdC5zdGRlcnIpCgoKZGVmIHRlc3RfaW1hZ2VfcGxhbl9yZWNvcmRzX3ZtX25vdF9jb250YWluZXJfYXJ0aWZhY3QoKToKICAgICMgTWFjaGluZS1yZWFkYWJsZSBpbnB1dCB0byBwYXJlbnQgdG9vbGluZywgbm90IGRvY3VtZW50IHdvcmRpbmcuCiAgICBpbWFnZSA9IGpzb24ubG9hZHMoKFJPT1QgLyAic2NyaXB0cy9xdWFsaWZpY2F0aW9uL2xhYi9pbWFnZXMva2RlLmpzb24iKS5yZWFkX3RleHQoKSkKICAgIGFzc2VydCBpbWFnZVsidHlwZSJdID09ICJ2aXJ0dWFsLW1hY2hpbmUiCiAgICBhc3NlcnQgaW1hZ2VbInJvb3RmcyJdWyJwYXRoIl0uZW5kc3dpdGgoIi9kaXNrLnFjb3cyIikKICAgIGFzc2VydCBsZW4oYnl0ZXMuZnJvbWhleChpbWFnZVsiZmluZ2VycHJpbnQiXSkpID09IDMyCiAgICBhc3NlcnQgbGVuKGJ5dGVzLmZyb21oZXgoaW1hZ2VbInJvb3RmcyJdWyJzaGEyNTYiXSkpID09IDMyCgoKZGVmIHRlc3RfcmVjaXBlX2RlY2xhcmVzX3J1bnRpbWVfcGFja2FnZXNfYW5kX3VubG9ja3Nfc2RkbV9wYW1fYWNjb3VudCgpOgogICAgcmVjaXBlID0gUkVDSVBFLnJlYWRfdGV4dCgpCiAgICBmb3IgcGFja2FnZSBpbiAoInBsYXNtYS13b3Jrc3BhY2Utd2F5bGFuZCIsICJrZGUtc3BlY3RhY2xlIiwgImxpYnBhbS1zeXN0ZW1kIiwKICAgICAgICAgICAgICAgICAgICAic3BlZWNoLWRpc3BhdGNoZXItZXNwZWFrLW5nIiwgImVzcGVhay1uZyIpOgogICAgICAgIGFzc2VydCBwYWNrYWdlIGluIHJlY2lwZQogICAgYXNzZXJ0ICJjaHBhc3N3ZCIgaW4gcmVjaXBlCiAgICBhc3NlcnQgIm9wZW5zc2wgcmFuZCAtYmFzZTY0IDQ4IiBpbiByZWNpcGUKCgpAcHl0ZXN0LmZpeHR1cmUocGFyYW1zPVsiZnJlc2giLCAicm9vdC1vd25lZC1yZXRyeSJdKQpkZWYgdXNlcl9jb25maWcodG1wX3BhdGgsIHJlcXVlc3QpOgogICAgIyBSZWFsIHJvb3Qtb3duZWQgZml4dHVyZSBkaXJlY3RvcmllcyByZXByb2R1Y2UgaW5zdGFsbCAtZCdzIGludGVybWVkaWF0ZQogICAgIyBvd25lcnNoaXAgYnVnLiBUaGlzIHJ1bnMgb25seSBpbnNpZGUgdGhlIHRlc3QgbGF1bmNoZXIncyBQSUQgbmFtZXNwYWNlOwogICAgIyBubyBndWVzdCwgaG9zdCBhY2NvdW50LCBzZXJ2aWNlLCBvciBkZXNrdG9wIGNvbmZpZ3VyYXRpb24gaXMgdG91Y2hlZC4KICAgIGhvbWUgPSB0bXBfcGF0aCAvICJob21lIgogICAgaG9tZS5ta2RpcigpCiAgICB1aWQsIGdpZCA9IG9zLmdldHVpZCgpLCBvcy5nZXRnaWQoKQogICAgYXNzZXJ0IHVpZCAhPSAwLCAiUnVuIHRocm91Z2ggdGhlIHJlcG9zaXRvcnkgUElEIGxhdW5jaGVyIGFzIHRoZSByZXBvIHVzZXIiCiAgICBjb21tYW5kID0gWwogICAgICAgICJzdWRvIiwgIi1uIiwgImVudiIsICItaSIsICJQQVRIPS91c3IvYmluOi9iaW4iLCAiYmFzaCIsICItYyIsCiAgICAgICAgZiJzb3VyY2Uge3NobGV4LnF1b3RlKHN0cihSRUNJUEUpKX07ICIKICAgICAgICAna2RlX3dyaXRlX3VzZXJfY29uZmlnICIkMSIgIiQyIiAiJDMiJywKICAgICAgICAiXyIsIHN0cihob21lKSwgc3RyKHVpZCksIHN0cihnaWQpLAogICAgXQogICAgaWYgcmVxdWVzdC5wYXJhbSA9PSAicm9vdC1vd25lZC1yZXRyeSI6CiAgICAgICAgIyBHZW5lcmF0ZSBhbiBlYXJsaWVyIHJvb3Qtb3duZWQgY29uZmlndXJhdGlvbiwgdGhlbiByZXBhaXIgaXQgdXNpbmcKICAgICAgICAjIGV4YWN0bHkgdGhlIHNhbWUgZW1pdHRlciB0aGF0IHByb3Zpc2lvbmluZyBjYWxscyBmb3Igb2RxLgogICAgICAgIHJlc3VsdCA9IHN1YnByb2Nlc3MucnVuKGNvbW1hbmRbOi0yXSArIFsiMCIsICIwIl0sIGNhcHR1cmVfb3V0cHV0PVRydWUsIHRleHQ9VHJ1ZSkKICAgICAgICBhc3NlcnQgcmVzdWx0LnJldHVybmNvZGUgPT0gMCwgcmVzdWx0LnN0ZGVycgogICAgICAgIGFzc2VydCAoaG9tZSAvICIuY29uZmlnIikuc3RhdCgpLnN0X3VpZCA9PSAwCiAgICByZXN1bHQgPSBzdWJwcm9jZXNzLnJ1bihjb21tYW5kLCBjYXB0dXJlX291dHB1dD1UcnVlLCB0ZXh0PVRydWUpCiAgICBhc3NlcnQgcmVzdWx0LnJldHVybmNvZGUgPT0gMCwgcmVzdWx0LnN0ZGVycgogICAgcmV0dXJuIGhvbWUsIHVpZCwgZ2lkCgoKZGVmIHRlc3RfZW1pdHRlZF91c2VyX2NvbmZpZ19vd25zX2V2ZXJ5X2ludGVybWVkaWF0ZV9hbmRfYWxsb3dzX2tkZV93cml0ZXModXNlcl9jb25maWcpOgogICAgaG9tZSwgdWlkLCBnaWQgPSB1c2VyX2NvbmZpZwogICAgZm9yIHJlbGF0aXZlIGluICgiLmNvbmZpZyIsICIuY29uZmlnL3BsYXNtYS13b3Jrc3BhY2UiLCAiLmNvbmZpZy9wbGFzbWEtd29ya3NwYWNlL2VudiIsCiAgICAgICAgICAgICAgICAgICAgICIuY29uZmlnL3BsYXNtYS13b3Jrc3BhY2UvZW52L29kcS1zb2Z0d2FyZS5zaCIpOgogICAgICAgIHBhdGggPSBob21lIC8gcmVsYXRpdmUKICAgICAgICBhc3NlcnQgKHBhdGguc3RhdCgpLnN0X3VpZCwgcGF0aC5zdGF0KCkuc3RfZ2lkKSA9PSAodWlkLCBnaWQpCiAgICAgICAgYXNzZXJ0IHBhdGguc3RhdCgpLnN0X21vZGUgJiAwbzc3NyA9PSAwbzc1NQogICAgIyBUaGlzIGlzIGFuIGFjdHVhbCB1bnByaXZpbGVnZWQgd3JpdGUsIG5vdCBhbiBvd25lcnNoaXAgY29tbWFuZC1zdHJpbmcgdGVzdC4KICAgIGZvciBuYW1lIGluICgia3dpbnJjIiwgImtkZWdsb2JhbHMiKToKICAgICAgICAoaG9tZSAvICIuY29uZmlnIiAvIG5hbWUpLndyaXRlX3RleHQoIltHZW5lcmFsXVxuIikKICAgIGFzc2VydCBzb3J0ZWQocGF0aC5uYW1lIGZvciBwYXRoIGluIGhvbWUuaXRlcmRpcigpKSA9PSBbIi5jb25maWciXQoKCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgiaW5oZXJpdGVkIiwgW05vbmUsICIxIl0pCmRlZiB0ZXN0X2VtaXR0ZWRfZW52aXJvbm1lbnRfc2VsZWN0c19sbHZtcGlwZV93aXRob3V0X2ZvcmNlZF9lZ2wodXNlcl9jb25maWcsIGluaGVyaXRlZCk6CiAgICBob21lLCBfLCBfID0gdXNlcl9jb25maWcKICAgIGVudiA9IHsiUEFUSCI6ICIvdXNyL2JpbjovYmluIn0KICAgIGlmIGluaGVyaXRlZCBpcyBub3QgTm9uZToKICAgICAgICBlbnZbIkxJQkdMX0FMV0FZU19TT0ZUV0FSRSJdID0gaW5oZXJpdGVkCiAgICByZXN1bHQgPSBzdWJwcm9jZXNzLnJ1bigKICAgICAgICBbInNoIiwgIi1jIiwgJy4gIiQxIjsgZXhlYyBlbnYnLCAiXyIsCiAgICAgICAgIHN0cihob21lIC8gIi5jb25maWcvcGxhc21hLXdvcmtzcGFjZS9lbnYvb2RxLXNvZnR3YXJlLnNoIildLAogICAgICAgIGVudj1lbnYsIGNhcHR1cmVfb3V0cHV0PVRydWUsIHRleHQ9VHJ1ZSwKICAgICkKICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSA9PSAwLCByZXN1bHQuc3RkZXJyCiAgICBlbWl0dGVkID0gZGljdChsaW5lLnNwbGl0KCI9IiwgMSkgZm9yIGxpbmUgaW4gcmVzdWx0LnN0ZG91dC5zcGxpdGxpbmVzKCkpCiAgICBhc3NlcnQgIkxJQkdMX0FMV0FZU19TT0ZUV0FSRSIgbm90IGluIGVtaXR0ZWQKICAgIGFzc2VydCBlbWl0dGVkWyJHQUxMSVVNX0RSSVZFUiJdID09ICJsbHZtcGlwZSIKICAgIGFzc2VydCBlbWl0dGVkWyJRVF9BQ0NFU1NJQklMSVRZIl0gPT0gIjEiCiAgICBhc3NlcnQgZW1pdHRlZFsiUVRfTElOVVhfQUNDRVNTSUJJTElUWV9BTFdBWVNfT04iXSA9PSAiMSIK",
+          "new_base64": "IiIiRXhlY3V0ZSBLREUgY2FwdHVyZSBiZWhhdmlvdXIgd2l0aG91dCBhIFZNLCBkZXNrdG9wIG9yIGhvc3QgbXV0YXRpb24uIiIiCmltcG9ydCBjb25maWdwYXJzZXIKaW1wb3J0IGpzb24KaW1wb3J0IG9zCmltcG9ydCBzaGxleAppbXBvcnQgc3VicHJvY2Vzcwpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCmltcG9ydCBweXRlc3QKZnJvbSBQSUwgaW1wb3J0IEltYWdlCgpST09UID0gUGF0aChfX2ZpbGVfXykucmVzb2x2ZSgpLnBhcmVudHNbMV0KUkVDSVBFID0gUk9PVCAvICJzY3JpcHRzL3F1YWxpZmljYXRpb24vbGFiL2d1ZXN0L2tkZS5zaCIKCgpAcHl0ZXN0LmZpeHR1cmUKZGVmIGNhcHR1cmUodG1wX3BhdGgpOgogICAgZXhwb3J0ZWQgPSBzdWJwcm9jZXNzLnJ1bigKICAgICAgICBbImJhc2giLCBzdHIoUkVDSVBFKSwgIi0tcHJpbnQtY2FwdHVyZSJdLCBjaGVjaz1UcnVlLCBjYXB0dXJlX291dHB1dD1UcnVlCiAgICApLnN0ZG91dAogICAgaGVscGVyID0gdG1wX3BhdGggLyAiY2FwdHVyZSIKICAgIGhlbHBlci53cml0ZV9ieXRlcyhleHBvcnRlZCkKICAgIGhlbHBlci5jaG1vZCgwbzc1NSkKICAgIGJpbmRpciA9IHRtcF9wYXRoIC8gImJpbiIKICAgIGJpbmRpci5ta2RpcigpCiAgICBmb3IgbmFtZSwgYm9keSBpbiB7CiAgICAgICAgImlkIjogJyMhL2Jpbi9zaFxuaWYgWyAiJDEiID0gLXVuIF07IHRoZW4gZWNobyAiJHtURVNUX1VTRVI6LW9kcX0iOyBlbHNlIGVjaG8gMTAwMDsgZmlcbicsCiAgICAgICAgInBncmVwIjogJyMhL2Jpbi9zaFxuZXhpdCAiJHtURVNUX0tXSU5fU1RBVFVTOi0wfSJcbicsCiAgICAgICAgInNwZWN0YWNsZSI6ICgKICAgICAgICAgICAgJyMhL2Jpbi9zaFxucHJpbnRmICIlc1xcbiIgIiRRVF9RUEFfUExBVEZPUk0iICIkQCIgPiIkQ0FMTF9MT0ciXG4nCiAgICAgICAgICAgICd3aGlsZSBbICIkIyIgLWd0IDAgXTsgZG9cbicKICAgICAgICAgICAgJyBpZiBbICIkMSIgPSAtLW91dHB1dCBdOyB0aGVuIHNoaWZ0OyBjcCAiJFBOR19TT1VSQ0UiICIkMSI7IGZpXG4nCiAgICAgICAgICAgICcgc2hpZnRcbmRvbmVcbmV4aXQgIiR7VEVTVF9DQVBUVVJFX1NUQVRVUzotMH0iXG4nCiAgICAgICAgKSwKICAgIH0uaXRlbXMoKToKICAgICAgICBwID0gYmluZGlyIC8gbmFtZQogICAgICAgIHAud3JpdGVfdGV4dChib2R5KQogICAgICAgIHAuY2htb2QoMG83NTUpCiAgICBzb3VyY2UgPSB0bXBfcGF0aCAvICJzb3VyY2UucG5nIgogICAgSW1hZ2UubmV3KCJSR0IiLCAoODAwLCA2MDApLCAiYmxhY2siKS5zYXZlKHNvdXJjZSkKICAgIGVudiA9IGRpY3Qob3MuZW52aXJvbiwgUEFUSD1mIntiaW5kaXJ9Ontvcy5lbnZpcm9uWydQQVRIJ119IiwKICAgICAgICAgICAgICAgWERHX1NFU1NJT05fVFlQRT0id2F5bGFuZCIsIFhER19DVVJSRU5UX0RFU0tUT1A9IktERSIsCiAgICAgICAgICAgICAgIFdBWUxBTkRfRElTUExBWT0id2F5bGFuZC0wIiwgREJVU19TRVNTSU9OX0JVU19BRERSRVNTPSJ1bml4OnBhdGg9L2Zha2UiLAogICAgICAgICAgICAgICBQTkdfU09VUkNFPXN0cihzb3VyY2UpLCBDQUxMX0xPRz1zdHIodG1wX3BhdGggLyAiY2FsbHMiKSkKICAgIHJldHVybiBoZWxwZXIsIGVudiwgdG1wX3BhdGgKCgpkZWYgcnVuX2NhcHR1cmUoY2FwdHVyZSwgKipvdmVycmlkZXMpOgogICAgaGVscGVyLCBlbnYsIHRtcF9wYXRoID0gY2FwdHVyZQogICAgcmV0dXJuIHN1YnByb2Nlc3MucnVuKFtzdHIoaGVscGVyKSwgc3RyKHRtcF9wYXRoIC8gIm91dC5wbmciKV0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgZW52PWRpY3QoZW52LCAqKm92ZXJyaWRlcyksIGNhcHR1cmVfb3V0cHV0PVRydWUsIHRleHQ9VHJ1ZSkKCgpkZWYgdGVzdF9jYXB0dXJlX3N1Y2Nlc3NfZXhlY3V0ZXNfc3BlY3RhY2xlX2FuZF9wdWJsaXNoZXNfbmV3X2ltYWdlKGNhcHR1cmUpOgogICAgYXNzZXJ0IHJ1bl9jYXB0dXJlKGNhcHR1cmUpLnJldHVybmNvZGUgPT0gMAogICAgXywgXywgcGF0aCA9IGNhcHR1cmUKICAgIGFzc2VydCAocGF0aCAvICJvdXQucG5nIikucmVhZF9ieXRlcygpID09IChwYXRoIC8gInNvdXJjZS5wbmciKS5yZWFkX2J5dGVzKCkKICAgIGFyZ3MgPSAocGF0aCAvICJjYWxscyIpLnJlYWRfdGV4dCgpLnNwbGl0bGluZXMoKQogICAgYXNzZXJ0IGFyZ3NbOjVdID09IFsid2F5bGFuZCIsICItLWJhY2tncm91bmQiLCAiLS1ub25vdGlmeSIsICItLWZ1bGxzY3JlZW4iLCAiLS1vdXRwdXQiXQogICAgYXNzZXJ0IG5vdCBsaXN0KHBhdGguZ2xvYigiLm9kcS1rZGUtY2FwdHVyZS4qIikpCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJvdmVycmlkZXMiLCBbCiAgICB7IlRFU1RfVVNFUiI6ICJyb290In0sIHsiWERHX1NFU1NJT05fVFlQRSI6ICJ4MTEifSwKICAgIHsiWERHX0NVUlJFTlRfREVTS1RPUCI6ICJHTk9NRSJ9LCB7IldBWUxBTkRfRElTUExBWSI6ICIifSwKICAgIHsiREJVU19TRVNTSU9OX0JVU19BRERSRVNTIjogIiJ9LCB7IlRFU1RfS1dJTl9TVEFUVVMiOiAiMSJ9LApdKQpkZWYgdGVzdF9pbnZhbGlkX3Nlc3Npb25fbmV2ZXJfaW52b2tlc19zY3JlZW5zaG90KGNhcHR1cmUsIG92ZXJyaWRlcyk6CiAgICByZXN1bHQgPSBydW5fY2FwdHVyZShjYXB0dXJlLCAqKm92ZXJyaWRlcykKICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSAhPSAwCiAgICBhc3NlcnQgInJlZnVzZWQiIGluIHJlc3VsdC5zdGRlcnIKICAgIGFzc2VydCBub3QgKGNhcHR1cmVbMl0gLyAiY2FsbHMiKS5leGlzdHMoKQoKCmRlZiB0ZXN0X2NhcHR1cmVfZGVuaWFsX2lzX25vdF9wdWJsaXNoZWQoY2FwdHVyZSk6CiAgICByZXN1bHQgPSBydW5fY2FwdHVyZShjYXB0dXJlLCBURVNUX0NBUFRVUkVfU1RBVFVTPSIxIikKICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSAhPSAwCiAgICBhc3NlcnQgIlNwZWN0YWNsZS9LV2luIGNhcHR1cmUgZmFpbGVkIiBpbiByZXN1bHQuc3RkZXJyCiAgICBwYXRoID0gY2FwdHVyZVsyXQogICAgYXNzZXJ0IG5vdCAocGF0aCAvICJvdXQucG5nIikuZXhpc3RzKCkKICAgIGFzc2VydCBub3QgbGlzdChwYXRoLmdsb2IoIi5vZHEta2RlLWNhcHR1cmUuKiIpKQoKCmRlZiB0ZXN0X2V4aXN0aW5nX2V2aWRlbmNlX2lzX25ldmVyX292ZXJ3cml0dGVuKGNhcHR1cmUpOgogICAgcGF0aCA9IGNhcHR1cmVbMl0KICAgIChwYXRoIC8gIm91dC5wbmciKS53cml0ZV9ieXRlcyhiIm9sZCBldmlkZW5jZSIpCiAgICByZXN1bHQgPSBydW5fY2FwdHVyZShjYXB0dXJlKQogICAgYXNzZXJ0IHJlc3VsdC5yZXR1cm5jb2RlICE9IDAKICAgIGFzc2VydCAib3V0cHV0IGFscmVhZHkgZXhpc3RzIiBpbiByZXN1bHQuc3RkZXJyCiAgICBhc3NlcnQgKHBhdGggLyAib3V0LnBuZyIpLnJlYWRfYnl0ZXMoKSA9PSBiIm9sZCBldmlkZW5jZSIKICAgIGFzc2VydCBub3QgKHBhdGggLyAiY2FsbHMiKS5leGlzdHMoKQogICAgYXNzZXJ0IG5vdCBsaXN0KHBhdGguZ2xvYigiLm9kcS1rZGUtY2FwdHVyZS4qIikpCgoKZGVmIHRlc3RfaW52YWxpZF9jYXB0dXJlX291dHB1dF9pc19ub3RfcHVibGlzaGVkKGNhcHR1cmUpOgogICAgKGNhcHR1cmVbMl0gLyAic291cmNlLnBuZyIpLndyaXRlX2J5dGVzKGIibm90IGFuIGltYWdlIikKICAgIHJlc3VsdCA9IHJ1bl9jYXB0dXJlKGNhcHR1cmUpCiAgICBhc3NlcnQgcmVzdWx0LnJldHVybmNvZGUgIT0gMAogICAgYXNzZXJ0ICJkaWQgbm90IHByb2R1Y2UgYSBQTkciIGluIHJlc3VsdC5zdGRlcnIKICAgIGFzc2VydCBub3QgKGNhcHR1cmVbMl0gLyAib3V0LnBuZyIpLmV4aXN0cygpCgoKZGVmIHRlc3RfdHJ1bmNhdGVkX3BuZ19pc19ub3RfcHVibGlzaGVkKGNhcHR1cmUpOgogICAgIyBBIHBsYXVzaWJsZSBzaWduYXR1cmUvSUhEUiBpcyBub3QgYSBzY3JlZW5zaG90LiBSZXF1aXJlIHRoZSBjb21wbGV0ZQogICAgIyBpbWFnZSBzdHJlYW0gdG8gZGVjb2RlIGJlZm9yZSBwdWJsaXNoaW5nIGV2aWRlbmNlLgogICAgKGNhcHR1cmVbMl0gLyAic291cmNlLnBuZyIpLndyaXRlX2J5dGVzKAogICAgICAgIGIiXHg4OVBOR1xyXG5ceDFhXG4iCiAgICAgICAgKyBieXRlcy5mcm9taGV4KCIwMDAwMDAwZDQ5NDg0NDUyMDAwMDAzMjAwMDAwMDI1ODA4MDIwMDAwMDAiKSArIGJ5dGVzKDUpCiAgICApCiAgICByZXN1bHQgPSBydW5fY2FwdHVyZShjYXB0dXJlKQogICAgYXNzZXJ0IHJlc3VsdC5yZXR1cm5jb2RlICE9IDAKICAgIGFzc2VydCAiaW52YWxpZCBQTkciIGluIHJlc3VsdC5zdGRlcnIKICAgIGFzc2VydCBub3QgKGNhcHR1cmVbMl0gLyAib3V0LnBuZyIpLmV4aXN0cygpCiAgICBhc3NlcnQgbm90IGxpc3QoY2FwdHVyZVsyXS5nbG9iKCIub2RxLWtkZS1jYXB0dXJlLioiKSkKCgpkZWYgdGVzdF9yZWNpcGVfcmVqZWN0c191bmtub3duX21vZGVfd2l0aG91dF9ndWVzdF9tdXRhdGlvbigpOgogICAgcmVzdWx0ID0gc3VicHJvY2Vzcy5ydW4oWyJiYXNoIiwgc3RyKFJFQ0lQRSksICItLXVua25vd24iXSwgY2FwdHVyZV9vdXRwdXQ9VHJ1ZSkKICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSA9PSAyCgoKZGVmIHRlc3RfcHJvdmlzaW9uX3JlZnVzZXNfbm9uX3ZtX2JlZm9yZV9hbnlfcGFja2FnZV9hY3Rpb24odG1wX3BhdGgpOgogICAgIyBJZiBydW4gYXMgcm9vdCBpbiBDSSwgdGhlIFZNIGd1YXJkIHJlamVjdHMuIE5vbi1yb290IHJlamVjdHMgc29vbmVyLgogICAgZ3VhcmQgPSB0bXBfcGF0aCAvICJzeXN0ZW1kLWRldGVjdC12aXJ0IgogICAgZ3VhcmQud3JpdGVfdGV4dCgiIyEvYmluL3NoXG5leGl0IDFcbiIpCiAgICBndWFyZC5jaG1vZCgwbzc1NSkKICAgIHJlc3VsdCA9IHN1YnByb2Nlc3MucnVuKFsiYmFzaCIsIHN0cihSRUNJUEUpXSwgY2FwdHVyZV9vdXRwdXQ9VHJ1ZSwgdGV4dD1UcnVlLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgZW52PWRpY3Qob3MuZW52aXJvbiwgUEFUSD1mInt0bXBfcGF0aH06e29zLmVudmlyb25bJ1BBVEgnXX0iKSkKICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSAhPSAwCiAgICBhc3NlcnQgKCJwcm92aXNpb25pbmcgcmVxdWlyZXMgZ3Vlc3Qgcm9vdCIgaW4gcmVzdWx0LnN0ZGVycgogICAgICAgICAgICBvciAicmVmdXNpbmcgbm9uLVZNIHByb3Zpc2lvbmluZyIgaW4gcmVzdWx0LnN0ZGVycikKCgpkZWYgdGVzdF9pbWFnZV9wbGFuX3JlY29yZHNfdm1fbm90X2NvbnRhaW5lcl9hcnRpZmFjdCgpOgogICAgIyBNYWNoaW5lLXJlYWRhYmxlIGlucHV0IHRvIHBhcmVudCB0b29saW5nLCBub3QgZG9jdW1lbnQgd29yZGluZy4KICAgIGltYWdlID0ganNvbi5sb2FkcygoUk9PVCAvICJzY3JpcHRzL3F1YWxpZmljYXRpb24vbGFiL2ltYWdlcy9rZGUuanNvbiIpLnJlYWRfdGV4dCgpKQogICAgYXNzZXJ0IGltYWdlWyJ0eXBlIl0gPT0gInZpcnR1YWwtbWFjaGluZSIKICAgIGFzc2VydCBpbWFnZVsicm9vdGZzIl1bInBhdGgiXS5lbmRzd2l0aCgiL2Rpc2sucWNvdzIiKQogICAgYXNzZXJ0IGxlbihieXRlcy5mcm9taGV4KGltYWdlWyJmaW5nZXJwcmludCJdKSkgPT0gMzIKICAgIGFzc2VydCBsZW4oYnl0ZXMuZnJvbWhleChpbWFnZVsicm9vdGZzIl1bInNoYTI1NiJdKSkgPT0gMzIKCgpkZWYgdGVzdF9yZWNpcGVfZGVjbGFyZXNfcnVudGltZV9wYWNrYWdlc19hbmRfdW5sb2Nrc19zZGRtX3BhbV9hY2NvdW50KCk6CiAgICByZWNpcGUgPSBSRUNJUEUucmVhZF90ZXh0KCkKICAgIGZvciBwYWNrYWdlIGluICgicGxhc21hLXdvcmtzcGFjZS13YXlsYW5kIiwgImtkZS1zcGVjdGFjbGUiLCAibGlicGFtLXN5c3RlbWQiLAogICAgICAgICAgICAgICAgICAgICJzcGVlY2gtZGlzcGF0Y2hlci1lc3BlYWstbmciLCAiZXNwZWFrLW5nIik6CiAgICAgICAgYXNzZXJ0IHBhY2thZ2UgaW4gcmVjaXBlCiAgICBhc3NlcnQgImNocGFzc3dkIiBpbiByZWNpcGUKICAgIGFzc2VydCAib3BlbnNzbCByYW5kIC1iYXNlNjQgNDgiIGluIHJlY2lwZQoKCkBweXRlc3QuZml4dHVyZShwYXJhbXM9WyJmcmVzaCIsICJyb290LW93bmVkLXJldHJ5Il0pCmRlZiB1c2VyX2NvbmZpZyh0bXBfcGF0aCwgcmVxdWVzdCk6CiAgICAjIFJlYWwgcm9vdC1vd25lZCBmaXh0dXJlIGRpcmVjdG9yaWVzIHJlcHJvZHVjZSBpbnN0YWxsIC1kJ3MgaW50ZXJtZWRpYXRlCiAgICAjIG93bmVyc2hpcCBidWcuIFRoaXMgcnVucyBvbmx5IGluc2lkZSB0aGUgdGVzdCBsYXVuY2hlcidzIFBJRCBuYW1lc3BhY2U7CiAgICAjIG5vIGd1ZXN0LCBob3N0IGFjY291bnQsIHNlcnZpY2UsIG9yIGRlc2t0b3AgY29uZmlndXJhdGlvbiBpcyB0b3VjaGVkLgogICAgaG9tZSA9IHRtcF9wYXRoIC8gImhvbWUiCiAgICBob21lLm1rZGlyKCkKICAgIHVpZCwgZ2lkID0gb3MuZ2V0dWlkKCksIG9zLmdldGdpZCgpCiAgICBhc3NlcnQgdWlkICE9IDAsICJSdW4gdGhyb3VnaCB0aGUgcmVwb3NpdG9yeSBQSUQgbGF1bmNoZXIgYXMgdGhlIHJlcG8gdXNlciIKICAgIGNvbW1hbmQgPSBbCiAgICAgICAgInN1ZG8iLCAiLW4iLCAiZW52IiwgIi1pIiwgIlBBVEg9L3Vzci9iaW46L2JpbiIsICJiYXNoIiwgIi1jIiwKICAgICAgICBmInNvdXJjZSB7c2hsZXgucXVvdGUoc3RyKFJFQ0lQRSkpfTsgIgogICAgICAgICdrZGVfd3JpdGVfdXNlcl9jb25maWcgIiQxIiAiJDIiICIkMyInLAogICAgICAgICJfIiwgc3RyKGhvbWUpLCBzdHIodWlkKSwgc3RyKGdpZCksCiAgICBdCiAgICBpZiByZXF1ZXN0LnBhcmFtID09ICJyb290LW93bmVkLXJldHJ5IjoKICAgICAgICAjIEdlbmVyYXRlIGFuIGVhcmxpZXIgcm9vdC1vd25lZCBjb25maWd1cmF0aW9uLCB0aGVuIHJlcGFpciBpdCB1c2luZwogICAgICAgICMgZXhhY3RseSB0aGUgc2FtZSBlbWl0dGVyIHRoYXQgcHJvdmlzaW9uaW5nIGNhbGxzIGZvciBvZHEuCiAgICAgICAgcmVzdWx0ID0gc3VicHJvY2Vzcy5ydW4oY29tbWFuZFs6LTJdICsgWyIwIiwgIjAiXSwgY2FwdHVyZV9vdXRwdXQ9VHJ1ZSwgdGV4dD1UcnVlKQogICAgICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSA9PSAwLCByZXN1bHQuc3RkZXJyCiAgICAgICAgYXNzZXJ0IChob21lIC8gIi5jb25maWciKS5zdGF0KCkuc3RfdWlkID09IDAKICAgIHJlc3VsdCA9IHN1YnByb2Nlc3MucnVuKGNvbW1hbmQsIGNhcHR1cmVfb3V0cHV0PVRydWUsIHRleHQ9VHJ1ZSkKICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSA9PSAwLCByZXN1bHQuc3RkZXJyCiAgICByZXR1cm4gaG9tZSwgdWlkLCBnaWQKCgpkZWYgdGVzdF9lbWl0dGVkX3VzZXJfY29uZmlnX293bnNfZXZlcnlfaW50ZXJtZWRpYXRlX2FuZF9hbGxvd3Nfa2RlX3dyaXRlcyh1c2VyX2NvbmZpZyk6CiAgICBob21lLCB1aWQsIGdpZCA9IHVzZXJfY29uZmlnCiAgICBmb3IgcmVsYXRpdmUgaW4gKCIuY29uZmlnIiwgIi5jb25maWcvcGxhc21hLXdvcmtzcGFjZSIsICIuY29uZmlnL3BsYXNtYS13b3Jrc3BhY2UvZW52IiwKICAgICAgICAgICAgICAgICAgICAgIi5jb25maWcvcGxhc21hLXdvcmtzcGFjZS9lbnYvb2RxLXNvZnR3YXJlLnNoIik6CiAgICAgICAgcGF0aCA9IGhvbWUgLyByZWxhdGl2ZQogICAgICAgIGFzc2VydCAocGF0aC5zdGF0KCkuc3RfdWlkLCBwYXRoLnN0YXQoKS5zdF9naWQpID09ICh1aWQsIGdpZCkKICAgICAgICBhc3NlcnQgcGF0aC5zdGF0KCkuc3RfbW9kZSAmIDBvNzc3ID09IDBvNzU1CiAgICAjIFRoaXMgaXMgYW4gYWN0dWFsIHVucHJpdmlsZWdlZCB3cml0ZSwgbm90IGFuIG93bmVyc2hpcCBjb21tYW5kLXN0cmluZyB0ZXN0LgogICAgZm9yIG5hbWUgaW4gKCJrd2lucmMiLCAia2RlZ2xvYmFscyIpOgogICAgICAgIChob21lIC8gIi5jb25maWciIC8gbmFtZSkud3JpdGVfdGV4dCgiW0dlbmVyYWxdXG4iKQogICAgYXNzZXJ0IHNvcnRlZChwYXRoLm5hbWUgZm9yIHBhdGggaW4gaG9tZS5pdGVyZGlyKCkpID09IFsiLmNvbmZpZyJdCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJpbmhlcml0ZWQiLCBbTm9uZSwgIjEiXSkKZGVmIHRlc3RfZW1pdHRlZF9lbnZpcm9ubWVudF9zZWxlY3RzX2xsdm1waXBlX3dpdGhvdXRfZm9yY2VkX2VnbCh1c2VyX2NvbmZpZywgaW5oZXJpdGVkKToKICAgIGhvbWUsIF8sIF8gPSB1c2VyX2NvbmZpZwogICAgZW52ID0geyJQQVRIIjogIi91c3IvYmluOi9iaW4ifQogICAgaWYgaW5oZXJpdGVkIGlzIG5vdCBOb25lOgogICAgICAgIGVudlsiTElCR0xfQUxXQVlTX1NPRlRXQVJFIl0gPSBpbmhlcml0ZWQKICAgIHJlc3VsdCA9IHN1YnByb2Nlc3MucnVuKAogICAgICAgIFsic2giLCAiLWMiLCAnLiAiJDEiOyBleGVjIGVudicsICJfIiwKICAgICAgICAgc3RyKGhvbWUgLyAiLmNvbmZpZy9wbGFzbWEtd29ya3NwYWNlL2Vudi9vZHEtc29mdHdhcmUuc2giKV0sCiAgICAgICAgZW52PWVudiwgY2FwdHVyZV9vdXRwdXQ9VHJ1ZSwgdGV4dD1UcnVlLAogICAgKQogICAgYXNzZXJ0IHJlc3VsdC5yZXR1cm5jb2RlID09IDAsIHJlc3VsdC5zdGRlcnIKICAgIGVtaXR0ZWQgPSBkaWN0KGxpbmUuc3BsaXQoIj0iLCAxKSBmb3IgbGluZSBpbiByZXN1bHQuc3Rkb3V0LnNwbGl0bGluZXMoKSkKICAgIGFzc2VydCAiTElCR0xfQUxXQVlTX1NPRlRXQVJFIiBub3QgaW4gZW1pdHRlZAogICAgYXNzZXJ0IGVtaXR0ZWRbIkdBTExJVU1fRFJJVkVSIl0gPT0gImxsdm1waXBlIgogICAgYXNzZXJ0IGVtaXR0ZWRbIlFUX0FDQ0VTU0lCSUxJVFkiXSA9PSAiMSIKICAgIGFzc2VydCBlbWl0dGVkWyJRVF9MSU5VWF9BQ0NFU1NJQklMSVRZX0FMV0FZU19PTiJdID09ICIxIgoKCmRlZiB0ZXN0X2VtaXR0ZWRfa2FjY2Vzc19jb25maWdfZW5hYmxlc19uYXRpdmVfc2NyZWVuX3JlYWRlcih1c2VyX2NvbmZpZyk6CiAgICAjIFBhcnNlIHRoZSBhY3R1YWwgcHJvdmlzaW9uZWQgZml4dHVyZSwgbm90IHNoZWxsIHNvdXJjZToga2FjY2VzcyByZWFkcwogICAgIyBrYWNjZXNzcmMgU2NyZWVuUmVhZGVyL0VuYWJsZWQgYW5kIG1pcnJvcnMgZmFsc2UgdG8gR05PTUUgd2hlbiB1bnNldC4KICAgIGhvbWUsIHVpZCwgZ2lkID0gdXNlcl9jb25maWcKICAgIHBhdGggPSBob21lIC8gIi5jb25maWcva2FjY2Vzc3JjIgogICAgY29uZmlnID0gY29uZmlncGFyc2VyLkNvbmZpZ1BhcnNlcigpCiAgICBjb25maWcub3B0aW9ueGZvcm0gPSBzdHIKICAgIGFzc2VydCBjb25maWcucmVhZChwYXRoKSA9PSBbc3RyKHBhdGgpXQogICAgYXNzZXJ0IGNvbmZpZy5zZWN0aW9ucygpID09IFsiU2NyZWVuUmVhZGVyIl0KICAgIGFzc2VydCBkaWN0KGNvbmZpZ1siU2NyZWVuUmVhZGVyIl0pID09IHsiRW5hYmxlZCI6ICJ0cnVlIn0KICAgIGFzc2VydCBjb25maWcuZ2V0Ym9vbGVhbigiU2NyZWVuUmVhZGVyIiwgIkVuYWJsZWQiKSBpcyBUcnVlCiAgICBhc3NlcnQgKHBhdGguc3RhdCgpLnN0X3VpZCwgcGF0aC5zdGF0KCkuc3RfZ2lkKSA9PSAodWlkLCBnaWQpCiAgICBhc3NlcnQgcGF0aC5zdGF0KCkuc3RfbW9kZSAmIDBvNzc3ID09IDBvNjQ0CiAgICAjIFRoZSBLREUgZW1pdHRlciBtdXN0IG5vdCBjcmVhdGUgaXRzIG93biBPcmNhIHdyYXBwZXIvYXV0b3N0YXJ0IGxhdW5jaC4KICAgIGFzc2VydCBzb3J0ZWQocC5yZWxhdGl2ZV90byhob21lKS5hc19wb3NpeCgpIGZvciBwIGluIGhvbWUucmdsb2IoIioiKSBpZiBwLmlzX2ZpbGUoKSkgPT0gWwogICAgICAgICIuY29uZmlnL2thY2Nlc3NyYyIsICIuY29uZmlnL3BsYXNtYS13b3Jrc3BhY2UvZW52L29kcS1zb2Z0d2FyZS5zaCIsCiAgICBdCg==",
           "old_base64": "",
           "start": 0
         }
       ],
       "path": "tests/test_lab_kde.py",
-      "reason": "PR20 authorized thin storage and real guest compatibility, with deterministic single-owner Orca startup",
+      "reason": "PR20 authorized thin storage and verified native guest runtime including KDE KAccess screen-reader setting",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -13827,7 +13827,7 @@
         "tests/test_lab_gnome.py": "35e87f8b7e95210035bb12435fbc1e87f62bcd36d855b235f090139af013b18f",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "11f0a20861f305ed3d13dbf2bf7b046761391c7542d95b17362713a395ead920"
+        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",

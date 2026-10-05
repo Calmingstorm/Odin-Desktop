@@ -69,6 +69,16 @@ export QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1
 ENV
     chmod 0755 "$home/.config/plasma-workspace/env/odq-software.sh"
     chown "$owner:$group" "$home/.config/plasma-workspace/env/odq-software.sh"
+    # Plasma 5.27.12 kaccess reads ScreenReader/Enabled from kaccessrc and
+    # mirrors it to GNOME's screen-reader-enabled setting at session startup.
+    # Its default false shuts down the common recipe's Orca session.
+    # Keep the native setting aligned; common.sh still owns our launch wrapper.
+    cat >"$home/.config/kaccessrc" <<'KACCESS'
+[ScreenReader]
+Enabled=true
+KACCESS
+    chmod 0644 "$home/.config/kaccessrc"
+    chown "$owner:$group" "$home/.config/kaccessrc"
 }
 
 # Sourcing exposes only pure helper functions, never guest provisioning.
