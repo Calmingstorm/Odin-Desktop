@@ -12,7 +12,8 @@ const capabilities = ['status.get', 'events.subscribe', 'runtime.shutdown', 'sub
   'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
   'conversations.reset_context', 'conversations.mark_read', 'messages.list',
   'conversation.snapshot', 'search.query', 'messages.around', 'attachments.begin',
-  'attachments.chunk', 'attachments.commit', 'attachments.cancel', 'artifacts.read', 'tool.detail', 'tool.output'
+  'attachments.chunk', 'attachments.commit', 'attachments.cancel', 'artifacts.read', 'tool.detail', 'tool.output',
+  'control.stop', 'control.steer', 'control.resume'
 ].sort()]
 function successful<T>(answer: Settled): T {
   expect(answer.ok).toBe(true)
