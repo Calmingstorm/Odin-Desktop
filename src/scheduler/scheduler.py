@@ -165,7 +165,9 @@ def _reject_naive_run_at(run_at: str | None) -> None:
 class Scheduler:
     """Manages scheduled tasks — recurring (cron), one-time, and webhook-triggered."""
 
-    def __init__(self, data_path: str, history_path: str | None = None) -> None:
+    def __init__(self, data_path: str, history_path: str | None = None, *,
+                 desktop_recovery: bool = False) -> None:
+        self.desktop_recovery = desktop_recovery
         self.data_path = Path(data_path)
         self.data_path.parent.mkdir(parents=True, exist_ok=True)
         self._schedules: list[dict] = []
@@ -197,27 +199,50 @@ class Scheduler:
         self._degrade_removed_trigger_sources()
         for schedule in self._schedules:
             self._resolve_interrupted_run(schedule)
+            if self.desktop_recovery and not schedule.get("inert_reason"):
+                from ..desktop.schedule_recovery import recover_due
+
+                try:
+                    recover_due(schedule, datetime.now(UTC), grace_seconds=0)
+                except (ValueError, TypeError, KeyError):
+                    self._quarantine_schedule(schedule, "Missed-run timing is unreadable; set new timing")
 
     REPLAY_SAFE_ONE_TIME_ACTIONS = frozenset({"reminder", "digest"})
 
-    @classmethod
-    def _tracks_run_start(cls, schedule: dict) -> bool:
+    def _tracks_run_start(self, schedule: dict) -> bool:
         return (
-            bool(schedule.get("one_time"))
-            and schedule.get("action") not in cls.REPLAY_SAFE_ONE_TIME_ACTIONS
+            self.desktop_recovery or (bool(schedule.get("one_time"))
+            and schedule.get("action") not in self.REPLAY_SAFE_ONE_TIME_ACTIONS)
         )
 
     def _resolve_interrupted_run(self, schedule: dict) -> bool:
         started = schedule.pop("run_started_at", None)
         if not started or not self._tracks_run_start(schedule):
             return False
+        if self.desktop_recovery:
+            schedule["settlement"] = "unknown"
+            schedule["last_run_binding"] = schedule.pop("run_binding", None)
+            schedule.pop("retry_at", None)
         self._quarantine_schedule(
             schedule,
-            f"One-time schedule started at {started!r} but its completion was never recorded "
+            f"Schedule started at {started!r} but its completion was never recorded "
             "(Odin stopped or could not save the result); it may have partly run, so it was not "
             "run again. Check what it did, then set a new run_at to re-arm it",
         )
         return True
+
+    def _bind_desktop_run(self, current: dict, schedule: dict) -> None:
+        if not self.desktop_recovery:
+            return
+        binding = {"run_id": uuid.uuid4().hex, "schedule_id": schedule["id"],
+                   "generation": schedule.get("_generation", schedule.get("created_at")),
+                   "owner_id": schedule.get("requester_id"),
+                   "conversation_id": schedule.get("channel_id")}
+        current["run_binding"] = copy.deepcopy(binding)
+        schedule["run_binding"] = binding
+        current["settlement"] = schedule["settlement"] = "running"
+        current.pop("recovery_required", None)
+        schedule.pop("recovery_required", None)
 
     async def _mark_run_started(self, schedule: dict) -> None:
         started = datetime.now(UTC).isoformat()
@@ -227,6 +252,7 @@ class Scheduler:
             for current in candidate:
                 if current.get("id") == sid:
                     current["run_started_at"] = started
+                    self._bind_desktop_run(current, schedule)
                     await self._publish(candidate)
                     schedule["run_started_at"] = started
                     return
@@ -249,6 +275,7 @@ class Scheduler:
                 if self._tracks_run_start(schedule):
                     started = datetime.now(UTC).isoformat()
                     current["run_started_at"] = started
+                    self._bind_desktop_run(current, schedule)
                     await self._publish(candidate)
                     schedule["run_started_at"] = started
                 return True
@@ -307,6 +334,8 @@ class Scheduler:
         next_run to the next future occurrence so the schedule resumes on
         its normal cadence.
         """
+        if self.desktop_recovery:
+            return  # D12 reconciliation retains/coalesces overdue slots.
         now = datetime.now(UTC).replace(tzinfo=None)
         advanced = 0
         for schedule in self._schedules:
@@ -506,6 +535,19 @@ class Scheduler:
             return bool(croniter.is_valid(expr))
         except (TypeError, ValueError):
             return False
+
+    def assert_run_binding(self, schedule: dict) -> dict:
+        """Only the active scheduler callback can admit this durable run."""
+        if not self.desktop_recovery or not self._admission_is_active(_execution_admission.get(), schedule):
+            raise PermissionError("No active admitted schedule run")
+        current = next((s for s in self._schedules if s.get("id") == schedule.get("id")), None)
+        if (current is None or not schedule.get("run_binding")
+                or current.get("run_binding") != schedule["run_binding"]
+                or self._execution_identity(current) != self._execution_identity(schedule)
+                or current.get("requester_id") != schedule.get("requester_id")
+                or current.get("channel_id") != schedule.get("channel_id")):
+            raise PermissionError("Foreign or superseded schedule run")
+        return copy.deepcopy(schedule["run_binding"])
 
     def _admission_is_active(
         self, admitted: tuple[object, str, str] | None, schedule: dict
@@ -926,7 +968,7 @@ class Scheduler:
         return executed
 
     def list_all(self) -> list[dict]:
-        return list(self._schedules)
+        return copy.deepcopy(self._schedules)
 
     async def reset_failures(self, schedule_id: str) -> dict | None:
         """Reset failure counters and cancel pending retries for a schedule."""
@@ -945,6 +987,27 @@ class Scheduler:
                     log.info("Reset failure state for schedule %s", schedule_id)
                     return dict(s)
         return None
+
+    @staticmethod
+    def _check_desktop_binding(schedule: dict, expected_binding: dict | None) -> None:
+        if expected_binding is None:
+            return
+        actual = {"generation": schedule.get("_generation", schedule.get("created_at")),
+                  "revision": schedule.get("_revision", 0),
+                  "owner_id": schedule.get("requester_id"),
+                  "conversation_id": schedule.get("channel_id")}
+        if expected_binding != actual:
+            raise ValueError("Schedule binding changed; refresh before control")
+
+    async def desktop_control(self, schedule_id: str, action: str, *, expected_binding: dict):
+        """CAS runs under the same lock as reservation/CRUD, not a UI precheck."""
+        if action in {"pause", "resume"}:
+            return await self.update(schedule_id, paused=action == "pause", expected_binding=expected_binding)
+        if action == "run_now":
+            return await self.run_now(schedule_id, expected_binding=expected_binding)
+        if action == "cancel":
+            return await self.delete(schedule_id, expected_binding=expected_binding)
+        raise ValueError("Unknown schedule control")
 
     async def update(
         self,
@@ -966,6 +1029,7 @@ class Scheduler:
         cron_timezone: str | None = None,
         report_format: str | None = None,
         nested_payload_validated: bool = False,
+        expected_binding: dict | None = None,
     ) -> dict | None:
         """Update mutable fields on an existing schedule.
 
@@ -993,6 +1057,7 @@ class Scheduler:
             # rejected fields in memory, where a subsequent valid update would
             # persist them. Commit only after every supplied field is valid.
             original = self._schedules[target_index]
+            self._check_desktop_binding(original, expected_binding)
             target = copy.deepcopy(original)
             # Certify only replaced nested data, not unrelated legacy steps.
             if nested_payload_validated and (
@@ -1085,6 +1150,7 @@ class Scheduler:
                 target.pop("retry_at", None)
                 target.pop("inert_reason", None)
                 target.pop("run_started_at", None)
+                target.pop("recovery_required", None)
 
                 if trigger is not None:
                     self._validate_trigger(trigger)
@@ -1173,7 +1239,7 @@ class Scheduler:
             skipped_result["warning"] = "schedule is paused — this was a manual override"
         return skipped_result
 
-    async def run_now(self, schedule_id: str) -> dict:
+    async def run_now(self, schedule_id: str, *, expected_binding: dict | None = None) -> dict:
         """Manually trigger a schedule immediately.
 
         Returns a result dict with status, schedule info, and optional warning.
@@ -1184,6 +1250,7 @@ class Scheduler:
             resolved = False
             for s in self._schedules:
                 if s["id"] == schedule_id:
+                    self._check_desktop_binding(s, expected_binding)
                     if schedule_id not in self._in_flight:
                         resolved = self._resolve_interrupted_run(s)
                     schedule = copy.deepcopy(s)
@@ -1234,8 +1301,13 @@ class Scheduler:
 
         return result
 
-    async def delete(self, schedule_id: str) -> bool:
+    async def delete(self, schedule_id: str, *, expected_binding: dict | None = None) -> bool:
         async with self._lock:
+            if expected_binding is not None:
+                current = next((s for s in self._schedules if s["id"] == schedule_id), None)
+                if current is None:
+                    raise ValueError("Schedule no longer exists")
+                self._check_desktop_binding(current, expected_binding)
             before = len(self._schedules)
             candidate = [s for s in self._schedules if s["id"] != schedule_id]
             if len(candidate) < before:
@@ -1408,15 +1480,24 @@ class Scheduler:
                         continue
                     if current.get("run_started_at") == schedule.get("run_started_at"):
                         current.pop("run_started_at", None)
+                        if self.desktop_recovery:
+                            current.pop("run_binding", None)
+                            current["last_run_binding"] = copy.deepcopy(schedule.get("run_binding"))
+                            current["settlement"] = schedule.get("settlement", "unknown")
                     if self._execution_identity(current) != identity:
                         await self._publish(candidate)
                         break
                     for key in ("last_run", "consecutive_failures", "retry_count",
-                                "last_error", "last_error_at", "retry_at"):
+                                "last_error", "last_error_at", "retry_at",
+                                "last_run_binding", "settlement", "inert_reason"):
                         if key in schedule:
                             current[key] = schedule[key]
                         else:
                             current.pop(key, None)
+                    if self.desktop_recovery:
+                        current.pop("run_binding", None)
+                        if schedule.get("inert_reason"):
+                            current["paused"] = True
                     if schedule.get("one_time"):
                         if not schedule.get("last_error"):
                             candidate.remove(current)
@@ -1425,6 +1506,20 @@ class Scheduler:
                     await self._publish(candidate)
                     break
             return True
+        except BaseException:
+            if self.desktop_recovery and schedule.get("run_started_at"):
+                # Cancellation or failed settlement after effects start is not
+                # a retryable callback failure. Publish uncertainty now, not
+                # only on next boot (even if the operator paused meanwhile).
+                async with self._lock:
+                    candidate = copy.deepcopy(self._schedules)
+                    for current in candidate:
+                        if (current.get("id") == sid
+                                and current.get("run_binding") == schedule.get("run_binding")):
+                            self._resolve_interrupted_run(current)
+                            await self._publish(candidate)
+                            break
+            raise
         finally:
             if reservation is not None:
                 self._gate_reservations.pop(reservation, None)
@@ -1491,6 +1586,7 @@ class Scheduler:
                 action=schedule.get("action", ""),
                 status="success",
                 duration_ms=duration_ms,
+                **({"run_binding": schedule["run_binding"]} if self.desktop_recovery else {}),
             )
         except Exception as e:
             duration_ms = int((time.monotonic() - start) * 1000)
@@ -1504,8 +1600,9 @@ class Scheduler:
                 schedule_id=schedule["id"],
                 description=schedule.get("description", ""),
                 action=schedule.get("action", ""),
-                status="failure",
+                status="unknown" if self.desktop_recovery and isinstance(e, NonRetryableScheduleError) else "failure",
                 duration_ms=duration_ms,
+                **({"run_binding": schedule["run_binding"]} if self.desktop_recovery else {}),
                 error=str(e),
                 retry_attempt=(
                     retry_attempt if retry_attempt and schedule.get("max_retries", 0) > 0 else 0
@@ -1531,6 +1628,7 @@ class Scheduler:
                 action="webhook",
                 status="success",
                 duration_ms=duration_ms,
+                **({"run_binding": schedule["run_binding"]} if self.desktop_recovery else {}),
             )
             log.info(
                 "Webhook schedule %s executed: %s %s -> %d",
@@ -1539,14 +1637,17 @@ class Scheduler:
             )
         except Exception as e:
             duration_ms = int((time.monotonic() - start) * 1000)
+            if self.desktop_recovery and isinstance(e, (aiohttp.ClientError, TimeoutError)):
+                e = NonRetryableScheduleError("Webhook completion unknown; do not replay the request")
             retry_attempt = schedule.get("retry_count", 0) + 1
             await self._handle_failure(schedule, e)
             await self.history.record(
                 schedule_id=schedule["id"],
                 description=schedule.get("description", ""),
                 action="webhook",
-                status="failure",
+                status="unknown" if self.desktop_recovery and isinstance(e, NonRetryableScheduleError) else "failure",
                 duration_ms=duration_ms,
+                **({"run_binding": schedule["run_binding"]} if self.desktop_recovery else {}),
                 error=str(e),
                 retry_attempt=retry_attempt if schedule.get("max_retries", 0) > 0 else 0,
             )
@@ -1558,6 +1659,9 @@ class Scheduler:
         schedule["last_error"] = None
         schedule["last_error_at"] = None
         schedule.pop("retry_at", None)
+        if self.desktop_recovery:
+            schedule["settlement"] = "success"
+            schedule["last_run_binding"] = copy.deepcopy(schedule.get("run_binding"))
 
     async def _handle_failure(self, schedule: dict, error: Exception) -> None:
         """Track failure and schedule retry if within limits."""
@@ -1565,12 +1669,17 @@ class Scheduler:
         schedule["consecutive_failures"] = schedule.get("consecutive_failures", 0) + 1
         schedule["last_error"] = str(error)[:500]
         schedule["last_error_at"] = now.isoformat()
+        if self.desktop_recovery:
+            schedule["settlement"] = "unknown" if isinstance(error, NonRetryableScheduleError) else "failure"
+            schedule["last_run_binding"] = copy.deepcopy(schedule.get("run_binding"))
 
         max_retries = schedule.get("max_retries", DEFAULT_MAX_RETRIES)
         retry_count = schedule.get("retry_count", 0)
 
         if isinstance(error, NonRetryableScheduleError):
             schedule.pop("retry_at", None)
+            if self.desktop_recovery:
+                self._quarantine_schedule(schedule, str(error))
             if schedule.get("one_time"):
                 schedule.pop("next_run", None)
             log.error(
@@ -1695,6 +1804,13 @@ class Scheduler:
                         continue
                     if now_naive < next_run:
                         continue
+
+                    if self.desktop_recovery:
+                        from ..desktop.schedule_recovery import recover_due
+
+                        if recover_due(schedule, now):
+                            quarantined = True
+                            continue
 
                     # Advancing a cron schedule needs a usable expression.
                     # Checking it here (rather than letting _cron_next_run
