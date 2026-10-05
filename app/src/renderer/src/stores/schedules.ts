@@ -3,10 +3,12 @@
 import { reactive } from 'vue'
 import type { ScheduleRow, ScheduleRun, ScheduleSave } from '../../../shared/api'
 import { act, failure, management } from './management'
+import { isUnavailable } from '../capability'
 
 export const schedules = reactive({
   list: [] as ScheduleRow[],
   loaded: false,
+  unavailable: false,
   history: {} as Record<string, ScheduleRun[] | undefined>,
   /** The last cron check: the expression, and its next runs or why it's not valid. */
   cron: null as { expression: string; next_runs: string[]; error: string } | null
@@ -20,6 +22,16 @@ export async function loadSchedules(): Promise<void> {
   const result = await window.odin.schedulesList({})
   if (mine !== listRead) return
   management.error = failure(result)
+  schedules.unavailable = !result.ok && isUnavailable(result.error)
+  if (schedules.unavailable) {
+    latestCron += 1
+    schedules.list = []
+    schedules.history = {}
+    schedules.cron = null
+    schedules.loaded = true
+    management.error = ''
+    return
+  }
   if (result.ok) {
     schedules.list = result.result
     schedules.loaded = true
@@ -27,7 +39,9 @@ export async function loadSchedules(): Promise<void> {
 }
 
 export async function loadHistory(id: string): Promise<void> {
+  const generation = listRead
   const result = await window.odin.schedulesHistory({ id, limit: 20 })
+  if (generation !== listRead || schedules.unavailable) return
   if (result.ok) schedules.history[id] = result.result
   else management.notes[`schedule:${id}`] = result.error.message
 }

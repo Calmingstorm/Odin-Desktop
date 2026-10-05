@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import type { McpServer } from '../../../../shared/api'
 import { blank, mcpBody, type Form } from '../../mcp-form'
 import { ask } from '../../dialog'
+import { unavailableText } from '../../capability'
 import {
   deleteMcp,
   loadMcp,
@@ -65,7 +66,7 @@ async function saveLimits(): Promise<void> {
 </script>
 
 <template>
-  <section v-if="management.mcp" class="panel" aria-label="MCP">
+  <section v-if="management.mcp && !management.unavailable.mcp" class="panel" aria-label="MCP">
     <header class="panel-head">
       <h3>MCP</h3>
       <span class="panel-hint">
@@ -91,10 +92,11 @@ async function saveLimits(): Promise<void> {
   <section class="panel" aria-label="MCP servers">
     <header class="panel-head">
       <h3>Servers</h3>
-      <button class="ghost" @click="form = blank()">Add server</button>
+      <button v-if="!management.unavailable.mcp" class="ghost" @click="form = blank()">Add server</button>
     </header>
-    <p v-if="management.error" class="warn">{{ management.error }}</p>
-    <ul class="manage-list">
+    <p v-if="management.unavailable.mcp" class="capability-unavailable" role="status">{{ unavailableText('MCP management') }}</p>
+    <p v-else-if="management.errors.mcp" class="warn">{{ management.errors.mcp }}</p>
+    <ul v-if="!management.unavailable.mcp" class="manage-list">
       <li v-for="server in management.mcp?.servers ?? []" :key="server.name" :class="['manage-row', server.state]">
         <div class="manage-line">
           <code class="manage-name">{{ server.name }}</code>
@@ -129,7 +131,7 @@ async function saveLimits(): Promise<void> {
     </ul>
   </section>
 
-  <section v-if="form" class="panel" aria-label="MCP server form">
+  <section v-if="form && !management.unavailable.mcp" class="panel" aria-label="MCP server form">
     <header class="panel-head">
       <h3>{{ form.create ? 'Add a server' : `Edit ${form.name}` }}</h3>
       <span v-if="!form.create" class="panel-hint">Leave a field blank to keep what is stored.</span>

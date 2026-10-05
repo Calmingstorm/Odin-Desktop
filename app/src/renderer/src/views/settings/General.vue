@@ -21,7 +21,7 @@ function quiet(key: 'start' | 'end', event: Event): void {
   <section class="panel app-settings" aria-label="This app">
     <header class="panel-head">
       <h3>This app</h3>
-      <span class="panel-hint">Kept on this computer, not in Odin's settings.</span>
+      <span class="panel-hint">Local app settings, kept on this computer and available independently of core settings.</span>
     </header>
     <label class="field-input toggle">
       <input type="checkbox" :checked="state.autostart" @change="setAutostart(($event.target as HTMLInputElement).checked)" />

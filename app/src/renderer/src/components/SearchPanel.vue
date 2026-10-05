@@ -38,7 +38,7 @@ function submit(): void {
       <button type="button" class="ghost" title="Close search" @click="state.search.open = false">✕</button>
     </form>
     <p v-if="state.search.loading" class="search-note">Searching…</p>
-    <p v-else-if="state.search.error" class="search-note warn">{{ state.search.error }}</p>
+    <p v-else-if="state.search.error" :class="['search-note', { warn: !state.search.unavailable }]" :role="state.search.unavailable ? 'status' : 'alert'">{{ state.search.error }}</p>
     <p v-else-if="state.search.query && !state.search.hits.length" class="search-note">No matches.</p>
     <ul class="search-hits">
       <li v-for="hit in state.search.hits" :key="hit.message_id">

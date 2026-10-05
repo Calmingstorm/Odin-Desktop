@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ask } from '../../dialog'
+import { unavailableText } from '../../capability'
 import { management } from '../../stores/management'
 import {
   closeScope,
@@ -109,7 +110,9 @@ async function removeSource(name: string): Promise<void> {
       <h3>Memory</h3>
       <span class="panel-hint">What Odin remembers. All of it goes into every request, as in Odin.</span>
     </header>
-    <p v-if="management.error" class="warn">{{ management.error }}</p>
+    <p v-if="stateStore.unavailable.memory" class="manage-desc" role="status">{{ unavailableText('Memory') }}</p>
+    <template v-else>
+    <p v-if="stateStore.errors.memory" class="warn">{{ stateStore.errors.memory }}</p>
     <ul class="manage-list">
       <li v-for="(info, scope) in stateStore.memory ?? {}" :key="scope" class="manage-row">
         <div class="manage-line">
@@ -144,6 +147,7 @@ async function removeSource(name: string): Promise<void> {
         <p v-if="management.notes[`memory:${scope}`]" class="manage-note" role="status">{{ management.notes[`memory:${scope}`] }}</p>
       </li>
     </ul>
+    </template>
   </section>
 
   <section class="panel" aria-label="Named lists">
@@ -151,6 +155,9 @@ async function removeSource(name: string): Promise<void> {
       <h3>Named lists</h3>
       <span class="panel-hint">Lists Odin keeps for you, like a shopping list.</span>
     </header>
+    <p v-if="stateStore.unavailable.lists" class="manage-desc" role="status">{{ unavailableText('Named list management') }}</p>
+    <template v-else>
+    <p v-if="stateStore.errors.lists" class="warn">{{ stateStore.errors.lists }}</p>
     <ul class="manage-list">
       <li v-for="list in stateStore.lists" :key="list.name" class="manage-row">
         <div class="manage-line">
@@ -169,6 +176,7 @@ async function removeSource(name: string): Promise<void> {
       </li>
     </ul>
     <p v-if="!stateStore.lists.length" class="manage-desc">No lists.</p>
+    </template>
   </section>
 
   <section class="panel" aria-label="Knowledge">
@@ -176,6 +184,9 @@ async function removeSource(name: string): Promise<void> {
       <h3>Knowledge</h3>
       <span class="panel-hint">Documents Odin can search. Each source keeps its versions.</span>
     </header>
+    <p v-if="stateStore.unavailable.knowledge" class="manage-desc" role="status">{{ unavailableText('Knowledge') }}</p>
+    <template v-else>
+    <p v-if="stateStore.errors.knowledge" class="warn">{{ stateStore.errors.knowledge }}</p>
     <label class="field-input">Search <input v-model="query" type="search" placeholder="Words to find" @input="searchKnowledge(query)" /></label>
     <ul v-if="stateStore.hits" class="manage-list">
       <li v-for="hit in stateStore.hits" :key="hit.chunk_id" class="manage-row">
@@ -220,13 +231,14 @@ async function removeSource(name: string): Promise<void> {
       <button class="ghost" :disabled="!source.trim() || !content.trim() || management.busy.knowledge" @click="add">Add</button>
     </div>
     <p v-if="management.notes.knowledge" class="manage-note" role="status">{{ management.notes.knowledge }}</p>
+    </template>
   </section>
 
   <section class="panel" aria-label="Context">
     <header class="panel-head">
       <h3>Context</h3>
       <span class="panel-hint">Reload the context files, and see what is in context now.</span>
-      <button class="ghost" @click="reloadContext">Reload context</button>
+      <button v-if="!stateStore.unavailable.context" class="ghost" @click="reloadContext">Reload context</button>
     </header>
     <pre v-if="stateStore.reload" class="manage-json">{{ stateStore.reload }}</pre>
   </section>

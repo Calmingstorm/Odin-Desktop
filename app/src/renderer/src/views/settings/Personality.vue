@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ask } from '../../dialog'
+import { unavailableText } from '../../capability'
 import { management } from '../../stores/management'
 import { deletePreset, loadPersonality, savePersonality, savePreset, stateStore } from '../../stores/state'
 
@@ -29,6 +30,9 @@ watch(
 const shown = computed(() => (choice.preset === 'custom' ? null : stateStore.personality?.presets[choice.preset]))
 const draft = reactive({ name: '', display_name: '', identity: '', voice: '' })
 const presetError = ref('')
+watch(() => stateStore.unavailable.personality, (unavailable) => {
+  if (unavailable) presetError.value = ''
+})
 
 async function save(): Promise<void> {
   const change = choice.preset === 'custom' ? { ...choice } : { preset: choice.preset }
@@ -63,6 +67,11 @@ async function remove(name: string): Promise<void> {
 </script>
 
 <template>
+  <section v-if="stateStore.unavailable.personality" class="panel" aria-label="Personality">
+    <h3>Who Odin is</h3>
+    <p class="manage-desc" role="status">{{ unavailableText('Personality') }}</p>
+  </section>
+  <p v-else-if="!stateStore.personality && stateStore.errors.personality" class="warn">{{ stateStore.errors.personality }}</p>
   <section v-if="stateStore.personality" class="panel" aria-label="Personality">
     <header class="panel-head">
       <h3>Who Odin is</h3>
@@ -89,7 +98,7 @@ async function remove(name: string): Promise<void> {
       <button class="ghost" :disabled="management.busy.personality" @click="save">Save</button>
     </div>
     <p v-if="management.notes.personality" class="manage-note" role="status">{{ management.notes.personality }}</p>
-    <p v-if="management.error" class="warn">{{ management.error }}</p>
+    <p v-if="stateStore.errors.personality" class="warn">{{ stateStore.errors.personality }}</p>
   </section>
 
   <section v-if="stateStore.personality" class="panel" aria-label="Your presets">

@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import type { BuiltinTool } from '../../../../shared/api'
 import { loadTools, management, saveTimeouts, setToolEnabled } from '../../stores/management'
+import { unavailableText } from '../../capability'
 
 const filter = ref('')
 const expanded = reactive<Record<string, boolean | undefined>>({})
@@ -57,14 +58,15 @@ onMounted(async () => {
   <section class="panel" aria-label="Built-in tools">
     <header class="panel-head">
       <h3>Built-in tools</h3>
-      <span class="panel-hint">
+      <span v-if="!management.unavailable.tools" class="panel-hint">
         {{ management.tools?.tools.length ?? 0 }} tools, {{ management.tools?.disabled_count ?? 0 }} switched off. A tool that is off
         is not offered to Odin at all.
       </span>
-      <input v-model="filter" class="panel-filter" type="search" placeholder="Filter" aria-label="Filter tools" />
+      <input v-if="!management.unavailable.tools" v-model="filter" class="panel-filter" type="search" placeholder="Filter" aria-label="Filter tools" />
     </header>
-    <p v-if="management.error" class="warn">{{ management.error }}</p>
-    <ul class="manage-list">
+    <p v-if="management.unavailable.tools" class="capability-unavailable" role="status">{{ unavailableText('Tool management') }}</p>
+    <p v-else-if="management.errors.tools" class="warn">{{ management.errors.tools }}</p>
+    <ul v-if="!management.unavailable.tools" class="manage-list">
       <li v-for="tool in tools" :key="tool.name" :class="['manage-row', tool.state]">
         <div class="manage-line">
           <label class="toggle-inline">
@@ -95,6 +97,9 @@ onMounted(async () => {
       <h3>Timeouts</h3>
       <span class="panel-hint">How long a call may run. A change applies to new calls; calls already running keep theirs.</span>
     </header>
+    <p v-if="management.unavailable.timeouts" class="capability-unavailable" role="status">{{ unavailableText('Tool timeout management') }}</p>
+    <p v-else-if="management.errors.timeouts" class="warn">{{ management.errors.timeouts }}</p>
+    <template v-if="!management.unavailable.timeouts">
     <label class="field-input">Default, in seconds <input v-model="defaultTimeout" type="number" min="1" /></label>
     <div v-for="(row, index) in overrides" :key="index" class="field-input">
       <input v-model="row.name" list="tool-names" placeholder="Tool" aria-label="Tool" />
@@ -110,5 +115,6 @@ onMounted(async () => {
     </div>
     <p v-if="timeoutError" class="warn">{{ timeoutError }}</p>
     <p v-else-if="management.notes.timeouts" class="manage-note" role="status">{{ management.notes.timeouts }}</p>
+    </template>
   </section>
 </template>

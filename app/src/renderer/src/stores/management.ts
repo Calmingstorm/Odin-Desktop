@@ -15,6 +15,10 @@ import type {
 import { adoptSkill, type Loaded, type SkillEditor } from '../skill-editor'
 import { isUnknownOutcome, onLateReceipt } from '../store'
 import { busy } from './locks'
+import { isUnavailable, resultMessage } from '../capability'
+
+type Resource = 'tools' | 'timeouts' | 'skills' | 'mcp'
+const FEATURES: Record<Resource, string> = { tools: 'Tool management', timeouts: 'Tool timeout management', skills: 'Skill management', mcp: 'MCP management' }
 
 export const management = reactive({
   tools: null as ToolInventory | null,
@@ -33,11 +37,61 @@ export const management = reactive({
   notes: {} as Record<string, string | undefined>,
   /** Shared with the work list, which acts on schedules too. */
   busy,
+  unavailable: { tools: false, timeouts: false, skills: false, mcp: false },
+  errors: { tools: '', timeouts: '', skills: '', mcp: '' },
   error: ''
 })
 
 export function failure(result: Result<unknown>): string {
   return result.ok ? '' : result.error.message
+}
+
+function resourceFor(key: string): Resource | undefined {
+  if (key.startsWith('tool:')) return 'tools'
+  if (key === 'timeouts') return 'timeouts'
+  if (key.startsWith('skill:') || key.startsWith('skill-config:')) return 'skills'
+  if (key === 'mcp' || key === 'mcp-limits' || key.startsWith('mcp:')) return 'mcp'
+  return undefined
+}
+
+/** A refused read invalidates returned core data, not shared locks or unanswered commands. */
+function refuse(resource: Resource): void {
+  management.unavailable[resource] = true
+  management.errors[resource] = ''
+  management.error = ''
+  for (const key of Object.keys(management.notes)) {
+    if (resourceFor(key) === resource && !management.busy[key]) delete management.notes[key]
+  }
+  if (resource === 'tools') management.tools = null
+  if (resource === 'timeouts') management.timeouts = null
+  if (resource === 'skills') {
+    management.skills = []
+    // Keep the local code draft, but never offer it as a loaded, editable core skill while refused.
+    editorEpoch += 1
+    skillAsked += 1
+    // Keep the code baseline so a later detail read still recognizes unsaved code. Cleared config adopts fresh data.
+    if (loaded) loaded = { ...loaded, config: '{}' }
+    management.skill = null
+    management.skillConfig = {}
+    management.validation = null
+    management.testResult = null
+  }
+  if (resource === 'mcp') {
+    mcpToolsEpoch += 1
+    management.mcp = null
+    management.mcpTools = {}
+  }
+}
+
+function readResult(resource: Resource, result: Result<unknown>): boolean {
+  if (!result.ok && isUnavailable(result.error)) {
+    refuse(resource)
+    return false
+  }
+  management.errors[resource] = resultMessage(result, FEATURES[resource])
+  management.error = management.errors[resource]
+  if (result.ok) management.unavailable[resource] = false
+  return result.ok
 }
 
 /** Commands that never answered, by ID: each keeps its thing busy until its late receipt settles it. */
@@ -48,6 +102,8 @@ const uncertain = new Map<string, { key: string; done: (answer: unknown) => stri
  * answer keeps its key busy, and is never sent again under a new ID; its late receipt settles it as an answer would.
  */
 export async function act<T>(key: string, run: () => Promise<Result<T>>, done: (answer: T) => string, refresh?: () => Promise<void>): Promise<boolean> {
+  const resource = resourceFor(key)
+  if (resource && management.unavailable[resource]) return false
   if (management.busy[key]) return false
   management.busy[key] = true
   const result = await run()
@@ -57,6 +113,10 @@ export async function act<T>(key: string, run: () => Promise<Result<T>>, done: (
     return false
   }
   management.busy[key] = false
+  if (!result.ok && isUnavailable(result.error) && resource) {
+    refuse(resource)
+    return false
+  }
   management.notes[key] = result.ok ? done(result.result) : failure(result)
   if (refresh) await refresh()
   return result.ok
@@ -67,6 +127,11 @@ onLateReceipt((receipt) => {
   if (!pending || (!receipt.settled.ok && isUnknownOutcome(receipt.settled.error))) return
   uncertain.delete(receipt.id)
   management.busy[pending.key] = false
+  const resource = resourceFor(pending.key)
+  if (!receipt.settled.ok && isUnavailable(receipt.settled.error) && resource) {
+    refuse(resource)
+    return
+  }
   management.notes[pending.key] = receipt.settled.ok ? pending.done(receipt.settled.result) : receipt.settled.error.message
   void pending.refresh?.()
 })
@@ -84,14 +149,16 @@ function showInventory(sent: number, inventory: ToolInventory): void {
   if (sent < inventoryShown) return
   inventoryShown = sent
   management.tools = inventory
+  management.unavailable.tools = false
 }
 
 export async function loadTools(): Promise<void> {
   const sent = ++inventorySent
   const [tools, timeouts] = await Promise.all([window.odin.toolsList({}), window.odin.toolsTimeoutsGet({})])
-  management.error = !tools.ok ? tools.error.message : !timeouts.ok ? timeouts.error.message : ''
-  if (tools.ok) showInventory(sent, tools.result)
-  if (timeouts.ok) management.timeouts = timeouts.result
+  if (sent < inventoryShown) return
+  inventoryShown = sent
+  if (readResult('tools', tools) && tools.ok) showInventory(sent, tools.result)
+  if (readResult('timeouts', timeouts) && timeouts.ok) management.timeouts = timeouts.result
 }
 
 export async function setToolEnabled(name: string, enabled: boolean): Promise<void> {
@@ -111,10 +178,13 @@ export async function saveTimeouts(change: { default_timeout?: number; overrides
 
 // ---- Skills ----------------------------------------------------------------------------------------------------------
 
+let skillsRead = 0
+
 export async function loadSkills(): Promise<void> {
+  const mine = ++skillsRead
   const result = await window.odin.skillsList({})
-  management.error = failure(result)
-  if (result.ok) management.skills = result.result
+  if (mine !== skillsRead) return
+  if (readResult('skills', result) && result.ok) management.skills = result.result
 }
 
 /** Each time the editor is given to another skill, a new one or nothing. Work begun for an earlier one stays there. */
@@ -127,6 +197,7 @@ let skillAsked = 0
 let loaded: Loaded | null = null
 
 export async function openSkill(name: string): Promise<void> {
+  if (management.unavailable.skills) return
   editorEpoch += 1
   editorTarget = name
   await readSkill(name)
@@ -139,11 +210,17 @@ async function readSkill(name: string): Promise<void> {
   management.testResult = null
   const result = await window.odin.skillsGet({ name })
   if (mine !== skillAsked) return
+  if (!result.ok && isUnavailable(result.error)) {
+    refuse('skills')
+    return
+  }
   if (!result.ok) {
     management.notes[`skill:${name}`] = result.error.message
     return
   }
   editorTarget = name
+  management.unavailable.skills = false
+  management.errors.skills = ''
   const adopted = adoptSkill(management.editor, loaded, JSON.stringify(management.skillConfig), result.result)
   management.skill = result.result
   management.editor = adopted.editor
@@ -152,6 +229,7 @@ async function readSkill(name: string): Promise<void> {
 }
 
 export function newSkill(code: string): void {
+  if (management.unavailable.skills) return
   closeSkill()
   management.editor = { name: '', code, create: true }
 }
@@ -168,7 +246,12 @@ export function closeSkill(): void {
 }
 
 export async function validateSkill(code: string): Promise<SkillValidation | null> {
+  if (management.unavailable.skills) return null
   const result = await window.odin.skillsValidate({ code })
+  if (!result.ok && isUnavailable(result.error)) {
+    refuse('skills')
+    return null
+  }
   management.validation = result.ok ? result.result : { valid: false, errors: [failure(result)], warnings: [], metadata: null, definition_keys: [] }
   return result.ok ? result.result : null
 }
@@ -234,18 +317,21 @@ export async function saveSkillConfig(name: string, config: Record<string, unkno
  */
 let mcpSent = 0
 let mcpShown = 0
+let mcpToolsEpoch = 0
 
 function showMcp(sent: number, status: McpStatus): void {
   if (sent < mcpShown) return
   mcpShown = sent
   management.mcp = status
+  management.unavailable.mcp = false
 }
 
 export async function loadMcp(): Promise<void> {
   const sent = ++mcpSent
   const result = await window.odin.mcpStatus({})
-  management.error = failure(result)
-  if (result.ok) showMcp(sent, result.result)
+  if (sent < mcpShown) return
+  mcpShown = sent
+  if (readResult('mcp', result) && result.ok) showMcp(sent, result.result)
 }
 
 function mcpOutcome(answer: { state: string; last_error: string }): string {
@@ -273,7 +359,14 @@ export async function saveMcp(change: McpSave): Promise<boolean> {
 }
 
 export async function loadMcpTools(name: string): Promise<void> {
+  if (management.unavailable.mcp) return
+  const epoch = mcpToolsEpoch
   const result = await window.odin.mcpTools({ name })
+  if (epoch !== mcpToolsEpoch) return
+  if (!result.ok && isUnavailable(result.error)) {
+    refuse('mcp')
+    return
+  }
   if (result.ok) management.mcpTools[name] = result.result.tools
   else management.notes[`mcp:${name}`] = result.error.message
 }

@@ -7,6 +7,7 @@ import { ACTIONS, blankForm, buildSave, formFor, REPORT_FORMATS, WEBHOOK_METHODS
 import { analyzeLocalDateTime } from '../../schedule-time'
 import { state } from '../../store'
 import { management } from '../../stores/management'
+import { unavailableText } from '../../capability'
 import { checkCron, deleteSchedule, loadHistory, loadSchedules, resetFailures, runNow, saveSchedule, schedules, setPaused } from '../../stores/schedules'
 
 onMounted(loadSchedules)
@@ -114,10 +115,11 @@ async function remove(row: ScheduleRow): Promise<void> {
   <section class="panel" aria-label="Schedules">
     <header class="panel-head">
       <h3>Schedules</h3>
-      <span class="panel-hint">{{ counts.total }} schedule{{ counts.total === 1 ? '' : 's' }}, {{ counts.paused }} paused, {{ counts.failing }} failing.</span>
-      <button class="ghost" @click="startNew">New schedule</button>
+      <span v-if="!schedules.unavailable" class="panel-hint">{{ counts.total }} schedule{{ counts.total === 1 ? '' : 's' }}, {{ counts.paused }} paused, {{ counts.failing }} failing.</span>
+      <button v-if="!schedules.unavailable" class="ghost" @click="startNew">New schedule</button>
     </header>
-    <p v-if="management.error" class="warn">{{ management.error }}</p>
+    <p v-if="schedules.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Scheduling') }}</p>
+    <p v-else-if="management.error" class="warn">{{ management.error }}</p>
     <p v-else-if="schedules.loaded && !schedules.list.length" class="manage-desc">No schedules yet.</p>
     <ul class="manage-list">
       <li v-for="row in schedules.list" :key="row.id" class="manage-row">
@@ -165,7 +167,7 @@ async function remove(row: ScheduleRow): Promise<void> {
     </ul>
   </section>
 
-  <section v-if="editing" class="panel" aria-label="Schedule form">
+  <section v-if="editing && !schedules.unavailable" class="panel" aria-label="Schedule form">
     <template v-for="f in [editing.form]" :key="'form'">
       <header class="panel-head">
         <h3>{{ editing.original ? `Edit "${editing.original.description}"` : 'New schedule' }}</h3>

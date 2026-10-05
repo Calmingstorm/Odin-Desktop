@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { backToLatest, loadFailure, loadOlder, resumeTarget, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
+import { backToLatest, chatUnavailable, loadFailure, loadOlder, resumeTarget, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
+import { unavailableText } from '../capability'
 import Message from './Message.vue'
 import ResumeBanner from './ResumeBanner.vue'
 import ToolActivity from './ToolActivity.vue'
@@ -123,7 +124,8 @@ function older(): void {
 
 <template>
   <section ref="scroller" class="message-scroll">
-    <div v-if="!view?.hasData && loadError" class="empty" role="alert">
+    <p v-if="chatUnavailable()" class="empty" role="status">{{ unavailableText('Chat') }}</p>
+    <div v-else-if="!view?.hasData && loadError" class="empty" role="alert">
       <p>Couldn't load from Odin: {{ loadError }}</p>
       <button class="ghost" @click="retry">Retry</button>
     </div>
