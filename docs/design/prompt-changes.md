@@ -112,3 +112,14 @@ stay byte-identical.
 
 **One deliberate exception.** The secret scrubber keeps recognizing Discord-token-shaped secrets. A pasted Discord token
 is still a secret, so removing that check would weaken protection.
+
+## D. Request preamble (approved 2026-10-05)
+
+Found in the Phase 1 review: the per-request preamble's context line, built in `src/discord/tool_loop.py` and passed to
+`build_request_preamble(channel_description=...)`, reaches the model on every request. It was missing from parts A to
+C. Aaron approved it on 2026-10-05 ("Yes"):
+
+| Today | Desktop |
+|---|---|
+| `Channel: #<name>` | `Conversation: <name>` |
+| `Channel: #<parent> → thread: <name>` | `Conversation: <name>` |
