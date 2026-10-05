@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { renderMarkdown } from '../markdown'
-import { loadFailure, loadOlder, retry, state, steersFor, stopPending, type SteerLine } from '../store'
+import { backToLatest, loadFailure, loadOlder, retry, select, startThread, state, steersFor, stopPending, type SteerLine } from '../store'
 import ToolActivity from './ToolActivity.vue'
 
 const scroller = ref<HTMLElement | null>(null)
@@ -11,6 +11,9 @@ const running = computed(() => view.value?.running ?? null)
 const queuedCount = computed(() => view.value?.queued.length ?? 0)
 const pending = computed(() => state.pending.filter((p) => p.conversation_id === state.activeId))
 const loadError = computed(() => loadFailure())
+const conversation = computed(() => state.conversations.find((c) => c.id === state.activeId) ?? null)
+/** A window around a search hit outside the loaded history; the live view underneath stays as it was. */
+const jump = computed(() => (state.jump && state.jump.conversationId === state.activeId ? state.jump : null))
 const steers = computed(() =>
   running.value && state.activeId ? steersFor(state.activeId, running.value.request_id, running.value.generation) : []
 )
@@ -58,7 +61,15 @@ watch(
   () => [messages.value.length, pending.value.length, running.value?.request_id, steers.value.length, state.activeId],
   async () => {
     await nextTick()
-    scroller.value?.scrollTo({ top: scroller.value.scrollHeight })
+    if (!state.highlightId) scroller.value?.scrollTo({ top: scroller.value.scrollHeight })
+  }
+)
+
+watch(
+  () => [state.highlightId, jump.value?.messageId],
+  async () => {
+    await nextTick()
+    if (state.highlightId) document.getElementById(`m-${state.highlightId}`)?.scrollIntoView({ block: 'center' })
   }
 )
 
@@ -73,6 +84,10 @@ function who(role: string): string {
 function older(): void {
   if (state.activeId) void loadOlder(state.activeId)
 }
+
+function threadFrom(messageId: string): void {
+  if (state.activeId) void startThread(state.activeId, messageId)
+}
 </script>
 
 <template>
@@ -82,14 +97,34 @@ function older(): void {
       <button class="ghost" @click="retry">Retry</button>
     </div>
     <p v-else-if="!state.loaded || !view?.hasData" class="empty">{{ state.app.link === 'ready' ? 'Loading…' : 'Connecting to Odin…' }}</p>
+    <template v-else-if="jump">
+      <div class="jump-banner" role="status">
+        <span>Showing messages around a search result.</span>
+        <button class="ghost" @click="backToLatest">Back to latest</button>
+      </div>
+      <p v-if="jump.hasBefore" class="jump-edge">Earlier messages aren't shown here.</p>
+      <article v-for="m in jump.items" :id="`m-${m.id}`" :key="m.id" :class="['msg', m.role, { highlight: m.id === state.highlightId }]">
+        <div class="meta">
+          <span class="who">{{ who(m.role) }}</span>
+          <time :datetime="m.created_at">{{ time(m.created_at) }}</time>
+        </div>
+        <div class="body md" v-html="renderMarkdown(m.text)" />
+      </article>
+      <p v-if="jump.hasAfter" class="jump-edge">Later messages aren't shown here.</p>
+    </template>
     <template v-else>
+      <p v-if="conversation?.inherited_from" class="inherited">
+        A thread continued from “{{ conversation.inherited_from.title }}”. Odin carries that conversation's context into
+        this one.
+        <button class="ghost" @click="select(conversation.inherited_from.conversation_id)">Open the original</button>
+      </p>
       <div v-if="view.hasMore" class="older">
         <button class="ghost" :disabled="view.loadingOlder" @click="older">
           {{ view.loadingOlder ? 'Loading…' : 'Load older messages' }}
         </button>
       </div>
       <p v-if="!messages.length && !pending.length && !running" class="empty">Ask Odin anything.</p>
-      <article v-for="m in messages" :key="m.id" :class="['msg', m.role]">
+      <article v-for="m in messages" :id="`m-${m.id}`" :key="m.id" :class="['msg', m.role, { highlight: m.id === state.highlightId }]">
         <ToolActivity
           v-if="m.role === 'assistant' && m.request_id && view.tools[m.request_id]?.length"
           :entries="view.tools[m.request_id] ?? []"
@@ -97,6 +132,9 @@ function older(): void {
         <div class="meta">
           <span class="who">{{ who(m.role) }}</span>
           <time :datetime="m.created_at">{{ time(m.created_at) }}</time>
+          <button class="msg-action" title="Start a new thread that carries this conversation's context up to here" @click="threadFrom(m.id)">
+            Thread from here
+          </button>
         </div>
         <div class="body md" v-html="renderMarkdown(m.text)" />
       </article>

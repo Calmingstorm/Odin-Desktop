@@ -5,8 +5,13 @@ import { IPC, type AppState, type Result, type Settings } from '../shared/api'
 import type { Broker, Settled } from './broker'
 import {
   controlSchema,
+  conversationRevisionSchema,
   createConversationSchema,
   listMessagesSchema,
+  markReadSchema,
+  messagesAroundSchema,
+  searchSchema,
+  updateConversationSchema,
   parseRequest,
   setAutostartSchema,
   snapshotConversationSchema,
@@ -64,6 +69,20 @@ export function registerIpc(deps: IpcDeps): void {
   handle(IPC.listConversations, null, async () => fromSettled(await deps.broker.request('conversations.list')))
   handle(IPC.createConversation, createConversationSchema, async (v) =>
     fromSettled(await deps.broker.request('conversations.create', v))
+  )
+  handle(IPC.updateConversation, updateConversationSchema, async (v) =>
+    fromSettled(await deps.broker.request('conversations.update', v))
+  )
+  handle(IPC.deleteConversation, conversationRevisionSchema, async (v) =>
+    fromSettled(await deps.broker.request('conversations.delete', v))
+  )
+  handle(IPC.resetContext, conversationRevisionSchema, async (v) =>
+    fromSettled(await deps.broker.request('conversations.reset_context', v))
+  )
+  handle(IPC.markRead, markReadSchema, async (v) => fromSettled(await deps.broker.request('conversations.mark_read', v)))
+  handle(IPC.search, searchSchema, async (v) => fromSettled(await deps.broker.request('search.query', v)))
+  handle(IPC.messagesAround, messagesAroundSchema, async (v) =>
+    fromSettled(await deps.broker.request('messages.around', v))
   )
   handle(IPC.listMessages, listMessagesSchema, async (v) =>
     fromSettled(await deps.broker.request('messages.list', { limit: 100, ...v }))

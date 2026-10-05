@@ -27,6 +27,7 @@ import type {
   Message,
   QueuedRequest,
   Result,
+  SearchHit,
   RunningRequest,
   TerminalKind,
   TerminalOutcome,
@@ -127,7 +128,13 @@ export const state = reactive({
   pending: [] as PendingSubmission[],
   controls: [] as ControlItem[],
   notice: '',
-  autostart: false
+  autostart: false,
+  showArchived: false,
+  search: { open: false, query: '', loading: false, hits: [] as SearchHit[], nextCursor: null as string | null, error: '' },
+  /** A window of messages around a search hit that is outside the loaded history. The live view is untouched. */
+  jump: null as { conversationId: string; messageId: string; items: Message[]; hasBefore: boolean; hasAfter: boolean } | null,
+  /** The message a jump points at, highlighted and scrolled into view. */
+  highlightId: null as string | null
 })
 
 const TERMINAL = new Set([
@@ -192,6 +199,14 @@ export async function init(): Promise<void> {
   window.odin.onEvent(applyEvent)
   window.odin.onReceipt(applyReceipt)
   window.odin.onReset(() => void resetViews())
+  if (typeof document !== 'undefined') {
+    // Coming back to the window counts as reading what is on screen.
+    const attend = (): void => {
+      if (state.activeId) void markReadIfAttentive(state.activeId)
+    }
+    document.addEventListener('visibilitychange', attend)
+    window.addEventListener('focus', attend)
+  }
   const app = await window.odin.getAppState()
   if (app) state.app = app
   const settings = await window.odin.getSettings()
@@ -342,6 +357,7 @@ function applySnapshot(conversationId: string, view: ConversationView, snapshot:
     if (message.role === 'user' && message.client_submission_id) removePending(message.client_submission_id)
   }
   releaseHeld(view)
+  void markReadIfAttentive(conversationId)
 }
 
 function projection(record: ControlRecord): ControlProjection {
@@ -372,6 +388,7 @@ async function resetViews(): Promise<void> {
 }
 
 export async function select(conversationId: string): Promise<void> {
+  if (state.jump && state.jump.conversationId !== conversationId) backToLatest()
   state.activeId = conversationId
   const view = state.views[conversationId]
   // A view from an earlier recovery is shown but must be refreshed before anything is routed to it, and so must one
@@ -390,6 +407,183 @@ export async function retry(): Promise<void> {
   if (state.app.link !== 'ready') return
   if (state.recoveryError) await loadAll()
   else if (state.activeId) await loadConversation(state.activeId)
+}
+
+/** The window is visible and focused, so what the open conversation shows has been seen. */
+function attentive(): boolean {
+  return typeof document !== 'undefined' && document.visibilityState === 'visible' && document.hasFocus()
+}
+
+const markingRead = new Set<string>()
+
+/** Marks the open conversation read through its last message, but only while someone can see it. */
+async function markReadIfAttentive(conversationId: string): Promise<void> {
+  const conversation = state.conversations.find((c) => c.id === conversationId)
+  const view = state.views[conversationId]
+  const last = view?.messages[view.messages.length - 1]
+  if (!conversation || conversation.unread <= 0 || state.activeId !== conversationId || !last) return
+  if (!isAuthoritative(view) || !attentive() || markingRead.has(conversationId)) return
+  markingRead.add(conversationId)
+  try {
+    const result = await window.odin.markRead({ id: conversationId, through_message_id: last.id })
+    if (result.ok) upsertConversation(result.result.conversation)
+  } finally {
+    markingRead.delete(conversationId)
+  }
+}
+
+function conversationById(id: string): Conversation | undefined {
+  return state.conversations.find((c) => c.id === id)
+}
+
+/** A changed conversation from a command's answer; a revision conflict refreshes the list so the user can retry. */
+function settleConversation(result: Result<{ conversation: Conversation }>): boolean {
+  if (result.ok) {
+    upsertConversation(result.result.conversation)
+    return true
+  }
+  if (result.error.code === 'stale_binding') {
+    note('That conversation changed elsewhere, so it was refreshed. Try again.')
+    void refreshConversations()
+  } else note(result.error.message)
+  return false
+}
+
+async function refreshConversations(): Promise<void> {
+  const listed = await window.odin.listConversations()
+  if (!listed.ok) return
+  for (const item of listed.result.items) {
+    const { activity: _activity, ...conversation } = item
+    upsertConversation(conversation)
+  }
+}
+
+export async function renameConversation(id: string, title: string): Promise<boolean> {
+  const conversation = conversationById(id)
+  if (!conversation) return false
+  return settleConversation(await window.odin.updateConversation({ id, expected_rev: conversation.rev, title }))
+}
+
+export async function setArchived(id: string, archived: boolean): Promise<boolean> {
+  const conversation = conversationById(id)
+  if (!conversation) return false
+  return settleConversation(await window.odin.updateConversation({ id, expected_rev: conversation.rev, archived }))
+}
+
+export async function resetContext(id: string): Promise<boolean> {
+  const conversation = conversationById(id)
+  if (!conversation) return false
+  return settleConversation(await window.odin.resetContext({ id, expected_rev: conversation.rev }))
+}
+
+export async function deleteConversation(id: string): Promise<boolean> {
+  const conversation = conversationById(id)
+  if (!conversation) return false
+  const result = await window.odin.deleteConversation({ id, expected_rev: conversation.rev })
+  if (!result.ok) {
+    if (result.error.code === 'stale_binding') {
+      note('That conversation changed elsewhere, so it was refreshed. Try again.')
+      void refreshConversations()
+    } else note(result.error.message)
+    return false
+  }
+  removeConversation(id)
+  return true
+}
+
+/** A child conversation seeded from the parent's context through a message (default: its latest). */
+export async function startThread(parentId: string, fromMessageId?: string): Promise<void> {
+  const parent = conversationById(parentId)
+  const created = await window.odin.createConversation({
+    title: `Thread: ${parent?.title ?? 'Chat'}`.slice(0, 200),
+    parent_id: parentId,
+    ...(fromMessageId ? { from_message_id: fromMessageId } : {})
+  })
+  if (!created.ok) return note(errorText(created))
+  upsertConversation(created.result.conversation)
+  await select(created.result.conversation.id)
+}
+
+/** Drops everything the window holds for a deleted conversation, and moves to another one if it was open. */
+function removeConversation(id: string): void {
+  state.conversations = state.conversations.filter((c) => c.id !== id)
+  const view = state.views[id]
+  if (view) view.loadToken += 1
+  delete state.views[id]
+  delete state.busy[id]
+  state.pending = state.pending.filter((p) => p.conversation_id !== id)
+  if (state.jump?.conversationId === id) backToLatest()
+  if (state.activeId !== id) return
+  const next = state.conversations.find((c) => !c.archived) ?? state.conversations[0]
+  if (next) void select(next.id)
+  else {
+    state.activeId = null
+    void newConversation()
+  }
+}
+
+export async function runSearch(query: string): Promise<void> {
+  state.search.query = query
+  state.search.loading = true
+  state.search.error = ''
+  const result = await window.odin.search({ query, limit: 20 })
+  if (state.search.query !== query) return // a newer search replaced this one
+  state.search.loading = false
+  if (!result.ok) {
+    state.search.hits = []
+    state.search.nextCursor = null
+    state.search.error = result.error.message
+    return
+  }
+  state.search.hits = result.result.hits
+  state.search.nextCursor = result.result.next_cursor ?? null
+}
+
+export async function moreResults(): Promise<void> {
+  const { query, nextCursor } = state.search
+  if (!nextCursor || state.search.loading) return
+  state.search.loading = true
+  const result = await window.odin.search({ query, limit: 20, cursor: nextCursor })
+  if (state.search.query !== query) return
+  state.search.loading = false
+  if (!result.ok) {
+    state.search.error = result.error.message
+    return
+  }
+  const known = new Set(state.search.hits.map((h) => h.message_id))
+  state.search.hits = [...state.search.hits, ...result.result.hits.filter((h) => !known.has(h.message_id))]
+  state.search.nextCursor = result.result.next_cursor ?? null
+}
+
+/** Opens a hit's conversation at the message: in place when it is loaded, otherwise in a window around it. */
+export async function jumpTo(hit: SearchHit): Promise<void> {
+  await select(hit.conversation_id)
+  const view = state.views[hit.conversation_id]
+  if (view?.messages.some((m) => m.id === hit.message_id)) {
+    state.jump = null
+    state.highlightId = hit.message_id
+    return
+  }
+  const result = await window.odin.messagesAround({
+    conversation_id: hit.conversation_id,
+    message_id: hit.message_id,
+    before: 20,
+    after: 20
+  })
+  if (!result.ok) return note(result.error.message)
+  state.jump = {
+    conversationId: hit.conversation_id,
+    messageId: hit.message_id,
+    items: result.result.items,
+    hasBefore: result.result.has_before,
+    hasAfter: result.result.has_after
+  }
+  state.highlightId = hit.message_id
+}
+
+export function backToLatest(): void {
+  state.jump = null
+  state.highlightId = null
 }
 
 export async function newConversation(): Promise<void> {
@@ -651,7 +845,13 @@ function trackBusy(event: CoreEvent): void {
 export function applyEvent(event: CoreEvent): void {
   const p = event.payload
   if (event.type === 'conversation.created' || event.type === 'conversation.updated') {
-    upsertConversation(p.conversation as Conversation)
+    const conversation = p.conversation as Conversation
+    upsertConversation(conversation)
+    if (conversation.id === state.activeId && conversation.unread > 0) void markReadIfAttentive(conversation.id)
+    return
+  }
+  if (event.type === 'conversation.deleted') {
+    removeConversation(String(p.conversation_id))
     return
   }
   if (event.type === 'message.committed') {

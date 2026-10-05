@@ -276,6 +276,7 @@ function runSmokeTest(win: BrowserWindow, broker: Broker, exitOdin: () => Promis
     void exchange().then(() => setTimeout(async () => {
       const image = await win.webContents.capturePage()
       if (out) writeFileSync(out, image.toPNG())
+      if (out && process.env.ODIN_SMOKE_SHOTS) await interfaceShots(win, out)
       process.stdout.write(`smoke: ok link=${broker.linkState} core=${broker.coreInstanceId}\n`)
       clearTimeout(deadline)
       await exitOdin()
@@ -306,4 +307,35 @@ function runSmokeTest(win: BrowserWindow, broker: Broker, exitOdin: () => Promis
   }
   if (broker.linkState === 'ready') capture()
   else broker.once('welcome', capture)
+}
+
+/**
+ * With ODIN_SMOKE_SHOTS set, the smoke run also opens the search panel, a conversation menu and the rename dialog,
+ * saving a screenshot of each next to the main one, so layout can be checked by eye. Test tooling only.
+ */
+async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
+  const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
+  const run = (script: string): Promise<unknown> => win.webContents.executeJavaScript(script, true)
+  const shoot = async (name: string): Promise<void> => {
+    const image = await win.webContents.capturePage()
+    writeFileSync(out.replace(/\.png$/, `-${name}.png`), image.toPNG())
+  }
+  await run(`document.querySelector('.head-actions button').click()`)
+  await pause(300)
+  await run(`(() => {
+    const input = document.querySelector('.search-form input')
+    input.value = ${JSON.stringify(process.env.ODIN_SMOKE_SHOTS)}
+    input.dispatchEvent(new Event('input'))
+    input.form.requestSubmit()
+  })()`)
+  await pause(700)
+  await shoot('search')
+  await run(`document.querySelector('.search-form .ghost').click()`)
+  await run(`document.querySelector('.conv-more').click()`)
+  await pause(300)
+  await shoot('menu')
+  await run(`document.querySelector('.menu button').click()`)
+  await pause(300)
+  await shoot('dialog')
+  await run(`document.querySelector('.dialog .ghost').click()`)
 }

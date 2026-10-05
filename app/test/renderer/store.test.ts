@@ -1,6 +1,7 @@
 // The window's state store, driven through a fake bridge: snapshots, held events, control targets and receipts.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
+  AroundResult,
   AppState,
   Conversation,
   ConversationListItem,
@@ -8,7 +9,8 @@ import type {
   CoreEvent,
   LateReceipt,
   Message,
-  Result
+  Result,
+  SearchResult
 } from '../../src/shared/api'
 
 type Store = typeof import('../../src/renderer/src/store')
@@ -76,6 +78,13 @@ function fakeBridge() {
     reset: [] as Array<(r: { event_high: string }) => void>
   }
   const calls = {
+    update: [] as Array<Record<string, unknown>>,
+    remove: [] as Array<Record<string, unknown>>,
+    reset: [] as Array<Record<string, unknown>>,
+    markRead: [] as Array<Record<string, unknown>>,
+    search: [] as Array<Record<string, unknown>>,
+    around: [] as Array<Record<string, unknown>>,
+    create: [] as Array<Record<string, unknown>>,
     submit: [] as Array<Record<string, unknown>>,
     snapshot: [] as unknown[],
     listMessages: [] as Array<Record<string, unknown>>,
@@ -91,6 +100,10 @@ function fakeBridge() {
     snapshots: [] as Array<Deferred<Result<ConversationSnapshot>>>,
     steerResult: { ok: true, result: { disposition: 'queued' } } as Result<{ disposition: string }>,
     stopResult: { ok: true, result: { disposition: 'requested' } } as Result<{ disposition: string }>,
+    updateResult: null as Result<{ conversation: Conversation }> | null,
+    deleteResult: { ok: true, result: { disposition: 'deleted' } } as Result<{ disposition: string }>,
+    searchResults: [] as Array<Deferred<Result<SearchResult>>>,
+    aroundResult: { ok: true, result: { items: [] as Message[], has_before: false, has_after: false } } as Result<AroundResult>,
     olderResult: { ok: true, result: { items: [] as Message[], has_more: false, watermark: '0' } } as Result<{
       items: Message[]
       has_more: boolean
@@ -112,7 +125,37 @@ function fakeBridge() {
       control.lists.push(next)
       return next.promise
     },
-    createConversation: async () => ({ ok: true, result: { conversation: CONVERSATION } }),
+    createConversation: async (params: Record<string, unknown>) => {
+      calls.create.push(params)
+      const id = params.parent_id ? 'c-thread' : 'c-new'
+      return { ok: true, result: { conversation: { ...CONVERSATION, id, title: String(params.title ?? 'Chat'), parent_id: (params.parent_id as string) ?? null } } }
+    },
+    updateConversation: async (params: Record<string, unknown>) => {
+      calls.update.push(params)
+      return control.updateResult ?? { ok: true, result: { conversation: { ...CONVERSATION, ...params, rev: Number(params.expected_rev) + 1 } } }
+    },
+    deleteConversation: async (params: Record<string, unknown>) => {
+      calls.remove.push(params)
+      return control.deleteResult
+    },
+    resetContext: async (params: Record<string, unknown>) => {
+      calls.reset.push(params)
+      return { ok: true, result: { conversation: { ...CONVERSATION, rev: Number(params.expected_rev) + 1 } } }
+    },
+    markRead: async (params: Record<string, unknown>) => {
+      calls.markRead.push(params)
+      return { ok: true, result: { conversation: { ...CONVERSATION, unread: 0 } } }
+    },
+    search: (params: Record<string, unknown>) => {
+      calls.search.push(params)
+      const next = deferred<Result<SearchResult>>()
+      control.searchResults.push(next)
+      return next.promise
+    },
+    messagesAround: async (params: Record<string, unknown>) => {
+      calls.around.push(params)
+      return control.aroundResult
+    },
     snapshotConversation: (params: unknown) => {
       calls.snapshot.push(params)
       const next = deferred<Result<ConversationSnapshot>>()
@@ -155,6 +198,16 @@ async function until(check: () => boolean): Promise<void> {
 }
 
 const emit = (e: CoreEvent): void => bridge.listeners.event.forEach((l) => l(e))
+
+/** Whether the window is visible and focused, as the store sees it through `document`. */
+function setAttention(attentive: boolean): void {
+  ;(globalThis as unknown as { document: unknown }).document = {
+    visibilityState: attentive ? 'visible' : 'hidden',
+    hasFocus: () => attentive,
+    addEventListener: () => undefined,
+    getElementById: () => null
+  }
+}
 const receipt = (r: LateReceipt): void => bridge.listeners.receipt.forEach((l) => l(r))
 
 /** Starts the store and answers its first snapshot with `first`. */
@@ -168,8 +221,11 @@ async function start(first: Result<ConversationSnapshot> = snapshot({ watermark:
 beforeEach(async () => {
   vi.resetModules()
   bridge = fakeBridge()
-  ;(globalThis as unknown as { window: unknown }).window = { odin: bridge.api }
+  ;(globalThis as unknown as { window: unknown }).window = { odin: bridge.api, addEventListener: () => undefined }
+  // Vue looks for a real document when it loads, so the fake one goes in only afterwards.
+  delete (globalThis as unknown as { document?: unknown }).document
   store = await import('../../src/renderer/src/store')
+  setAttention(false)
 })
 
 describe('snapshots and held events', () => {
@@ -553,5 +609,90 @@ describe('reconnect recovery', () => {
     bridge.control.snapshots[0]!.resolve(snapshot({ watermark: '1' }))
     await until(() => store.canAct('c1'))
     expect(store.loadFailure()).toBeUndefined()
+  })
+})
+
+describe('conversation management', () => {
+  const other = { ...CONVERSATION, id: 'c2', title: 'Other' }
+
+  it('renames with the current revision, and refreshes after a revision conflict', async () => {
+    await start()
+    expect(await store.renameConversation('c1', 'Plans')).toBe(true)
+    expect(bridge.calls.update[0]).toMatchObject({ id: 'c1', expected_rev: 1, title: 'Plans' })
+    expect(store.state.conversations[0]!.title).toBe('Plans')
+    bridge.control.updateResult = { ok: false, error: { code: 'stale_binding', message: 'changed', disposition: 'stale_binding' } }
+    expect(await store.renameConversation('c1', 'Again')).toBe(false)
+    expect(store.state.notice).toMatch(/changed elsewhere/)
+  })
+
+  it('moves to another conversation when the open one is deleted elsewhere', async () => {
+    bridge.control.list = [
+      { ...CONVERSATION, activity: { running: null, queued: [] } },
+      { ...other, activity: { running: null, queued: [] } }
+    ]
+    await start()
+    emit({ ...event(5, 'conversation.deleted', {}), payload: { conversation_id: 'c1' } })
+    expect(store.state.conversations.map((c) => c.id)).toEqual(['c2'])
+    expect(store.state.views.c1).toBeUndefined()
+    expect(store.state.activeId).toBe('c2')
+  })
+
+  it('keeps a conversation that refuses deletion because Odin is working in it', async () => {
+    await start()
+    bridge.control.deleteResult = { ok: false, error: { code: 'busy', message: 'Odin is working in this conversation. Stop it first.' } }
+    expect(await store.deleteConversation('c1')).toBe(false)
+    expect(store.state.conversations).toHaveLength(1)
+    expect(store.state.notice).toMatch(/Stop it first/)
+  })
+
+  it('starts a thread from a message and opens it', async () => {
+    await start(snapshot({ watermark: '3', messages: { items: [message('m1'), message('m2')], has_more: false } }))
+    void store.startThread('c1', 'm1')
+    await until(() => bridge.calls.create.length === 1)
+    expect(bridge.calls.create[0]).toMatchObject({ parent_id: 'c1', from_message_id: 'm1' })
+    await until(() => store.state.activeId === 'c-thread')
+  })
+
+  it('marks the open conversation read only while the window is in view', async () => {
+    await start(snapshot({ watermark: '3', messages: { items: [message('m1')], has_more: false } }))
+    emit(event(4, 'conversation.updated', { conversation: { ...CONVERSATION, unread: 2 } }))
+    await new Promise((r) => setTimeout(r, 10))
+    expect(bridge.calls.markRead).toHaveLength(0) // hidden window: nothing was seen
+    setAttention(true)
+    emit(event(5, 'conversation.updated', { conversation: { ...CONVERSATION, unread: 2 } }))
+    await until(() => bridge.calls.markRead.length === 1)
+    expect(bridge.calls.markRead[0]).toEqual({ id: 'c1', through_message_id: 'm1' })
+  })
+})
+
+describe('search and jump', () => {
+  it('applies only the latest search when an earlier one answers late', async () => {
+    await start()
+    void store.runSearch('first')
+    void store.runSearch('second')
+    await until(() => bridge.control.searchResults.length === 2)
+    bridge.control.searchResults[1]!.resolve({ ok: true, result: { hits: [{ conversation_id: 'c1', message_id: 'm2', role: 'assistant', snippet: 'second', created_at: '2026-10-05T00:00:00Z' }], watermark: '9' } })
+    await until(() => !store.state.search.loading)
+    bridge.control.searchResults[0]!.resolve({ ok: true, result: { hits: [], watermark: '8' } })
+    await new Promise((r) => setTimeout(r, 10))
+    expect(store.state.search.hits.map((h) => h.snippet)).toEqual(['second'])
+  })
+
+  it('highlights a hit in loaded history, and opens a window around one outside it', async () => {
+    await start(snapshot({ watermark: '3', messages: { items: [message('m5'), message('m6')], has_more: true } }))
+    const hit = (id: string) => ({ conversation_id: 'c1', message_id: id, role: 'assistant' as const, snippet: id, created_at: '2026-10-05T00:00:00Z' })
+    await store.jumpTo(hit('m6'))
+    expect(store.state.highlightId).toBe('m6')
+    expect(store.state.jump).toBeNull()
+    expect(bridge.calls.around).toHaveLength(0)
+
+    bridge.control.aroundResult = { ok: true, result: { items: [message('m1'), message('m2')], has_before: false, has_after: true } }
+    await store.jumpTo(hit('m1'))
+    expect(bridge.calls.around[0]).toMatchObject({ conversation_id: 'c1', message_id: 'm1' })
+    expect(store.state.jump).toMatchObject({ conversationId: 'c1', messageId: 'm1', hasAfter: true })
+    expect(store.state.views.c1!.messages.map((m) => m.id)).toEqual(['m5', 'm6']) // the live view is untouched
+    store.backToLatest()
+    expect(store.state.jump).toBeNull()
+    expect(store.state.highlightId).toBeNull()
   })
 })

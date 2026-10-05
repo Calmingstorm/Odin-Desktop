@@ -15,7 +15,7 @@ import { createConnection, type Socket } from 'node:net'
 import type { CoreError, CoreEvent, LinkState } from '../shared/api'
 import { DEFAULT_MAX_FRAME, FrameDecoder, ProtocolError, encodeFrame } from './framing'
 
-export const PROTOCOL = { major: 0, minor: 2 } as const
+export const PROTOCOL = { major: 0, minor: 3 } as const
 
 export interface BrokerOptions {
   socketPath: string
