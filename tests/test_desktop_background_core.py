@@ -5,6 +5,7 @@ import asyncio
 import json
 import os
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -204,5 +205,69 @@ async def test_scheduler_background_task_inherits_owner_without_a_window(tmp_pat
                 await asyncio.sleep(.01)
         assert history[-1]["status"] == "success"
         assert history[-1]["run_binding"]["owner_id"] == core.authority.owner_id
+    finally:
+        await cleanup(core, writer, rfd, wfd)
+
+
+@pytest.mark.asyncio
+async def test_schedule_failure_alert_has_separate_settled_delivery_identity(tmp_path, monkeypatch):
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, Provider())
+    effects = []
+
+    async def fail(message, *_args):
+        core.requests.assert_request(message)
+        effects.append(message.request_id)
+        raise RuntimeError("Harmless stub failure")
+
+    monkeypatch.setattr(core._scheduled_handlers, "_dispatch_tool", fail)
+    try:
+        saved = await request(reader, writer, "schedules.save", {
+            "description": "Failure notice", "action": "check", "channel_id": cid,
+            "cron": "0 0 * * *", "tool_name": "run_command",
+            "tool_input": {"command": "true", "host": "localhost"}, "max_retries": 0})
+        assert saved["ok"], saved
+        for _index in range(3):
+            run = await request(reader, writer, "schedules.run", {"id": saved["result"]["id"]})
+            assert run["result"]["status"] == "failure", run
+        assert len(effects) == 3
+        assert any("Scheduled task failing" in m["text"]
+                   for m in core.transcript.list(cid)["items"])
+        notices = list(core.store.connection.execute(
+            "SELECT r.state FROM desktop_requests r JOIN desktop_background_requests b "
+            "ON r.request_id=b.request_id WHERE b.run_id LIKE '%:failure:3'"))
+        assert len(notices) == 1 and notices[0][0] == "completed"
+        assert core.store.connection.execute(
+            "SELECT COUNT(*) FROM desktop_requests WHERE state='admitted'").fetchone()[0] == 0
+    finally:
+        await cleanup(core, writer, rfd, wfd)
+
+
+@pytest.mark.asyncio
+async def test_native_process_is_registered_with_immutable_public_work_id(tmp_path):
+    from src.config.schema import ToolHost
+
+    provider = ToolProvider("manage_process", {"action": "start", "host": "localhost",
+                                             "command": "true"})
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, provider)
+    core.config.tools.hosts["localhost"] = ToolHost(address="localhost")
+    core.engine.deps.host_registry.publish(core.config.tools.hosts)
+    Path(core.config.tools.local_working_dir).mkdir(parents=True, mode=0o700)
+    try:
+        accepted = await request(reader, writer, "submission.send", {
+            "client_submission_id": "process", "conversation_id": cid,
+            "text": "Run a harmless disposable process"})
+        assert accepted["ok"]
+        await settled(core)
+        items = (await request(reader, writer, "work.list", {"kind": "process"}))["result"]["items"]
+        assert items, json.dumps(provider.history)
+        assert len(items) == 1
+        assert items[0]["id"] != items[0]["manager_id"]
+        assert items[0]["conversation_id"] == cid
+        assert items[0]["request_id"] == accepted["result"]["request_id"]
+        async with asyncio.timeout(5):
+            while (items := (await request(reader, writer, "work.list", {
+                    "kind": "process"}))["result"]["items"])[0]["settlement"]["state"] != "settled":
+                await asyncio.sleep(.01)
+        assert items[0]["settlement"]["resource_release"] == "confirmed"
     finally:
         await cleanup(core, writer, rfd, wfd)

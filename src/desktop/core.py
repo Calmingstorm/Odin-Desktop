@@ -363,6 +363,7 @@ class CoreService:
             loops=deps.loop_manager, processes=deps.tool_executor._ensure_process_registry(),
             scheduler=deps.scheduler, display_config=self.config, controls=self.controls)
         self.controls.work = self.work
+        self.work.authorize_process = self._authorize_process
         self.reports = ReportService(self.store, events=self.events,
             authorize=self._authorize_stored_report, assert_binding=self._assert_report_binding)
         self.report_delivery = ReportDelivery(self.reports, self.delivery)
@@ -427,9 +428,10 @@ class CoreService:
         cid, owner = binding["conversation_id"], binding["owner_id"]
         self.conversations.get(cid)
         run_id = binding["run_id"] if notice_id is None else binding["run_id"] + ":" + notice_id
+        if notice_id is None:
+            self.work.register_schedule(schedule)
         message = self.requests._register_background("schedule", run_id,
             schedule.get("description", "Scheduled work"), cid, owner)
-        self.work.register_schedule(schedule)
         async with self.requests.background_execution(message):
             yield message
 
@@ -446,6 +448,27 @@ class CoreService:
     def _register_process(self, info):
         message = self.requests.current_bound_request()
         return self.work.register("process", info.pid, message)
+
+    def _authorize_process(self, info):
+        from ..tools.output_authorization import (
+            host_binding,
+            request_host_authorizer,
+            request_scope_id,
+            tool_scope_allows,
+        )
+
+        executor = self.engine.deps.tool_executor
+        alias = info.host_alias or info.host
+        target = executor.host_registry.get(alias, targetable_only=True)
+        live_hosts = request_host_authorizer.get()
+        return bool(info.owner_id == self.authority.owner_id and
+            self.permissions.is_owner(info.owner_id) and tool_scope_allows("manage_process") and
+            not executor.check_permission("manage_process", info.owner_id) and
+            info.scope_id == request_scope_id.get() and
+            (live_hosts is None or live_hosts(alias)) and target is not None and
+            host_binding(target) == info.host_binding and
+            (executor._host_access is None or executor._host_access.is_host_allowed(
+                info.owner_id, alias)))
 
     async def _control_process(self, pid):
         message = self.requests.current_bound_request()

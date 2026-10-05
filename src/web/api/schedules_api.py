@@ -15,5 +15,9 @@ def schedule_methods(service: ScheduleService):
     return {method: bind(method) for method in service.methods}
 
 
-def register_schedules(service: ScheduleService):
+def register_schedules(service: ScheduleService | None = None):
+    if service is None:
+        from . import Phase2Unavailable
+
+        raise Phase2Unavailable("Phase 2 schedule service is not bound")
     return schedule_methods(service)

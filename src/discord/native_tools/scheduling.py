@@ -24,7 +24,7 @@ class SchedulingTools:
 
     def _admitted_service(self, message=None):
         if self.service_provider is None or self.request_provider is None:
-            raise PermissionError("Scheduled destination admission unavailable")
+            raise RuntimeError("Phase 2 scheduled destination admission unavailable")
         request = self.request_provider(message)
         return self.service_provider(), request
 

@@ -5,7 +5,9 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+
 import pytest
+
 from src.desktop.authority import OwnerAuthority
 from src.desktop.commands import JournalStore
 from src.desktop.conversations import ConversationStore
@@ -129,10 +131,12 @@ async def test_protocol_authority_timing_destination_and_history(graph):
     assert result["_generation"] == generation
     scheduler._callback = AsyncMock()
     await methods["schedules.run"]({"id": item["id"]}, owner=owner)
-    assert (await methods["schedules.history"]({"id": item["id"]}, owner=owner))[0]["status"] == "success"
+    history = await methods["schedules.history"]({"id": item["id"]}, owner=owner)
+    assert history[0]["status"] == "success"
     scheduler._callback.assert_awaited_once()
     await methods["schedules.delete"]({"id": item["id"]}, owner=owner)
-    assert (await methods["schedules.history"]({"id": item["id"]}, owner=owner))[0]["status"] == "success"
+    history = await methods["schedules.history"]({"id": item["id"]}, owner=owner)
+    assert history[0]["status"] == "success"
     cron = await methods["schedules.validate_cron"]({"expression": "0 9 * * *"}, owner=owner)
     assert cron["valid"] and len(cron["next_runs"]) == 5
 
@@ -158,12 +162,17 @@ async def test_retained_router_no_replay_on_delivery_failure(graph):
     from src.discord.scheduled_events import ScheduledEventHandlers, ScheduledEventsDeps
     from src.tools import ToolResult
     scheduler, _, owner, cid = graph
-    item = await add(graph, "check", tool_name="run_command", tool_input={"command": "example"}, max_retries=2)
+    item = await add(
+        graph, "check", tool_name="run_command", tool_input={"command": "example"},
+        max_retries=2,
+    )
     @asynccontextmanager
     async def admission(schedule):
         scheduler.assert_run_binding(schedule)
         yield SimpleNamespace(owner_id=owner.owner_id, conversation_id=cid)
-    dispatch = AsyncMock(return_value=ToolResult(output="recorded", ok=True, tool_name="run_command"))
+    dispatch = AsyncMock(
+        return_value=ToolResult(output="recorded", ok=True, tool_name="run_command")
+    )
     publish = AsyncMock(side_effect=RuntimeError("delivery unavailable"))
     deps = ScheduledEventsDeps(get_config=lambda: None,
         tool_executor=SimpleNamespace(check_permission=lambda *args: None),
@@ -229,14 +238,20 @@ async def test_webhook_timeout_does_not_retry(graph):
 @pytest.mark.asyncio
 async def test_paused_one_time_spent_and_rearm(graph):
     scheduler, service, owner, cid = graph
-    item = await service.invoke("schedules.save", {"description": "One time", "channel_id": cid,
-        "run_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat()}, owner=owner)
+    item = await service.invoke(
+        "schedules.save", {"description": "One time", "channel_id": cid,
+         "run_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat()}, owner=owner
+    )
     await scheduler.update(item["id"], paused=True)
     async with scheduler._lock:
         items = scheduler.list_all()
-        items[0]["run_at"] = items[0]["next_run"] = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+        items[0]["run_at"] = items[0]["next_run"] = (
+            datetime.now(UTC) - timedelta(hours=1)
+        ).isoformat()
         await scheduler._publish(items)
-    result = await service.invoke("schedules.save", {"id": item["id"], "paused": False}, owner=owner)
+    result = await service.invoke(
+        "schedules.save", {"id": item["id"], "paused": False}, owner=owner
+    )
     assert result["inert_reason"] and result["paused"]
     result = await service.invoke("schedules.save", {"id": item["id"],
         "run_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat()}, owner=owner)
@@ -260,14 +275,21 @@ async def test_native_schedule_uses_sealed_request_service(graph):
                              request_provider=request_provider)
     with pytest.raises(PermissionError):
         await tools._handle_schedule_task(SimpleNamespace(owner_id=owner.owner_id), {})
-    result = await tools._handle_schedule_task(request, {"description": "Example", "message": "Notice",
-        "action": "reminder", "cron": "0 9 * * *"})
+    result = await tools._handle_schedule_task(
+        request,
+        {"description": "Example", "message": "Notice",
+         "action": "reminder", "cron": "0 9 * * *"},
+    )
     assert "Scheduled recurring" in result
     item = scheduler.list_all()[0]
     assert item["requester_id"] == owner.owner_id and item["channel_id"] == cid
     assert "Example" in tools._handle_list_schedules()
-    assert "Updated" in await tools._handle_update_schedule({"schedule_id": item["id"], "paused": True})
-    assert "Deleted" in await tools._handle_delete_schedule({"schedule_id": item["id"]})
+    assert "Updated" in await tools._handle_update_schedule(
+        {"schedule_id": item["id"], "paused": True}
+    )
+    assert "Deleted" in await tools._handle_delete_schedule(
+        {"schedule_id": item["id"]}
+    )
 
 
 @pytest.mark.asyncio
@@ -310,7 +332,9 @@ async def test_reminder_catchup_notice_and_report_hook(graph):
         yield SimpleNamespace(owner_id=owner.owner_id, conversation_id=cid)
     publish = AsyncMock()
     report = AsyncMock()
-    dispatch = AsyncMock(return_value=ToolResult(output="stored report", ok=True, tool_name="run_command"))
+    dispatch = AsyncMock(
+        return_value=ToolResult(output="stored report", ok=True, tool_name="run_command")
+    )
     handler = ScheduledEventHandlers(ScheduledEventsDeps(get_config=lambda: None,
         tool_executor=SimpleNamespace(check_permission=lambda *args: None),
         audit=SimpleNamespace(log_event=AsyncMock()), llm_gateway=None, tool_loop=None,

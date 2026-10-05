@@ -52,7 +52,8 @@ class ComputerForegroundBinding(ComputerIntegration):
         self.requests.assert_request(message)
         if self._background(message):
             raise PermissionError("Background work cannot acquire foreground computer authority")
-        if self._requests.get() is not None:
+        inherited = self._requests.get()
+        if inherited is not None and inherited.active and not inherited.task.done():
             raise PermissionError("Computer request already bound")
         row = self.requests.binding(message.conversation_id, message.request_id,
                                     message.generation)

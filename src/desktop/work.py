@@ -43,6 +43,7 @@ class WorkService:
         self.agents, self.tasks, self.loops = agents, tasks, loops
         self.processes, self.scheduler = processes, scheduler
         self.display_config, self.controls = display_config, controls
+        self.authorize_process = None
         self._locks: dict[tuple[str, str], asyncio.Lock] = {}
         self._watched: set[asyncio.Task] = set()
         with store.transaction() as connection:
@@ -368,9 +369,12 @@ class WorkService:
                 await self.loops.stop_loop(manager_id)
                 receipt = {"disposition": "requested"}
             elif kind == "process":
+                if self.authorize_process is None or not self.authorize_process(item):
+                    return response_error("unauthorized", "Current process scope is not authorized")
                 await self.processes.kill(int(manager_id), authorized=lambda info:
                     self._same(record, info) and self.authority.accepts(owner_context) and
-                    self.permissions.is_owner(record["owner_id"]))
+                    self.permissions.is_owner(record["owner_id"]) and
+                    self.authorize_process(info))
                 receipt = {"disposition": "requested"}
             else:
                 if params.get("revision") != current["detail"]["revision"]:

@@ -762,13 +762,14 @@ class AgentTaskTools:
         self._publish_background = deps.publish_background
 
     def _require_background(self) -> None:
-        if self._background_admission is None or self._work_service is None:
+        if (getattr(self, "_background_admission", None) is None
+                or getattr(self, "_work_service", None) is None):
             raise RuntimeError(
-                "Durable background admission is not configured. No work was started."
+                "Phase 2 durable background admission is not configured. No work was started."
             )
-        if self._publish_background is None:
+        if getattr(self, "_publish_background", None) is None:
             raise RuntimeError(
-                "Durable background publication is not configured. No work was started."
+                "Phase 2 durable background publication is not configured. No work was started."
             )
 
     async def _control_work(self, message, kind, manager_id, action, *, text=None) -> str:

@@ -205,7 +205,9 @@ class Scheduler:
                 try:
                     recover_due(schedule, datetime.now(UTC), grace_seconds=0)
                 except (ValueError, TypeError, KeyError):
-                    self._quarantine_schedule(schedule, "Missed-run timing is unreadable; set new timing")
+                    self._quarantine_schedule(
+                        schedule, "Missed-run timing is unreadable; set new timing"
+                    )
 
     REPLAY_SAFE_ONE_TIME_ACTIONS = frozenset({"reminder", "digest"})
 
@@ -538,7 +540,9 @@ class Scheduler:
 
     def assert_run_binding(self, schedule: dict) -> dict:
         """Only the active scheduler callback can admit this durable run."""
-        if not self.desktop_recovery or not self._admission_is_active(_execution_admission.get(), schedule):
+        if not self.desktop_recovery or not self._admission_is_active(
+            _execution_admission.get(), schedule
+        ):
             raise PermissionError("No active admitted schedule run")
         current = next((s for s in self._schedules if s.get("id") == schedule.get("id")), None)
         if (current is None or not schedule.get("run_binding")
@@ -1002,7 +1006,9 @@ class Scheduler:
     async def desktop_control(self, schedule_id: str, action: str, *, expected_binding: dict):
         """CAS runs under the same lock as reservation/CRUD, not a UI precheck."""
         if action in {"pause", "resume"}:
-            return await self.update(schedule_id, paused=action == "pause", expected_binding=expected_binding)
+            return await self.update(
+                schedule_id, paused=action == "pause", expected_binding=expected_binding
+            )
         if action == "run_now":
             return await self.run_now(schedule_id, expected_binding=expected_binding)
         if action == "cancel":
@@ -1600,7 +1606,11 @@ class Scheduler:
                 schedule_id=schedule["id"],
                 description=schedule.get("description", ""),
                 action=schedule.get("action", ""),
-                status="unknown" if self.desktop_recovery and isinstance(e, NonRetryableScheduleError) else "failure",
+                status=(
+                    "unknown"
+                    if self.desktop_recovery and isinstance(e, NonRetryableScheduleError)
+                    else "failure"
+                ),
                 duration_ms=duration_ms,
                 **({"run_binding": schedule["run_binding"]} if self.desktop_recovery else {}),
                 error=str(e),
@@ -1638,14 +1648,20 @@ class Scheduler:
         except Exception as e:
             duration_ms = int((time.monotonic() - start) * 1000)
             if self.desktop_recovery and isinstance(e, (aiohttp.ClientError, TimeoutError)):
-                e = NonRetryableScheduleError("Webhook completion unknown; do not replay the request")
+                e = NonRetryableScheduleError(
+                    "Webhook completion unknown; do not replay the request"
+                )
             retry_attempt = schedule.get("retry_count", 0) + 1
             await self._handle_failure(schedule, e)
             await self.history.record(
                 schedule_id=schedule["id"],
                 description=schedule.get("description", ""),
                 action="webhook",
-                status="unknown" if self.desktop_recovery and isinstance(e, NonRetryableScheduleError) else "failure",
+                status=(
+                    "unknown"
+                    if self.desktop_recovery and isinstance(e, NonRetryableScheduleError)
+                    else "failure"
+                ),
                 duration_ms=duration_ms,
                 **({"run_binding": schedule["run_binding"]} if self.desktop_recovery else {}),
                 error=str(e),

@@ -699,7 +699,9 @@ class RequestService:
                     with self.store.transaction() as db:
                         active = db.execute(
                             "SELECT 1 FROM desktop_requests WHERE conversation_id=? "
-                            "AND state IN ('running','stop_requested')", (cid,)).fetchone()
+                            "AND state IN ('running','stop_requested') AND request_id NOT IN "
+                            "(SELECT request_id FROM desktop_background_requests)",
+                            (cid,)).fetchone()
                         if active:
                             return
                         db.execute("UPDATE desktop_requests SET state='running',started_at=? "
