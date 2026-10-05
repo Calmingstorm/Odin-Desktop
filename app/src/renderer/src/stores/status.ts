@@ -19,8 +19,13 @@ const REFRESH_ON = new Set([
   'request.suspended'
 ])
 
+let latest = 0
+
+/** Fetches status and usage. A refresh started after this one, including one for a recovery, answers instead. */
 export async function refreshStatus(): Promise<void> {
+  const mine = ++latest
   const [core, usage] = await Promise.all([window.odin.status(), window.odin.usage('24h')])
+  if (mine !== latest) return
   if (core.ok) status.core = core.result
   if (usage.ok) status.usage = usage.result
 }

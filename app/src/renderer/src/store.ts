@@ -143,13 +143,21 @@ export const state = reactive({
 })
 
 export interface ResumeState {
-  status: 'sending' | 'admitted' | 'rejected' | 'failed'
+  /** `unknown`: no answer yet. It stays under its first command, never sent again, until its receipt settles it. */
+  status: 'sending' | 'admitted' | 'rejected' | 'failed' | 'unknown'
   reason?: string
+  commandId?: string
 }
 
 type EventListener = (event: CoreEvent) => void
 const eventListeners: EventListener[] = []
 const readyListeners: Array<() => void> = []
+const receiptListeners: Array<(receipt: LateReceipt) => void> = []
+
+/** Lets other stores settle their own commands from late receipts. */
+export function onLateReceipt(listener: (receipt: LateReceipt) => void): void {
+  receiptListeners.push(listener)
+}
 
 /** Lets the work and status stores see every core event, without this store importing them. */
 export function onCoreEvent(listener: EventListener): void {
@@ -204,7 +212,7 @@ function errorText(result: Result<unknown>): string {
 }
 
 /** No receipt, or a receipt that says the outcome is unknown: the command may have been admitted. */
-function isUnknownOutcome(error: CoreError): boolean {
+export function isUnknownOutcome(error: CoreError): boolean {
   return error.code === 'no_receipt' || error.disposition === 'outcome_unknown'
 }
 
@@ -976,7 +984,14 @@ export async function setAutostart(enabled: boolean): Promise<void> {
   if (result.ok) state.autostart = result.result.autostart
 }
 
-function applyReceipt(receipt: LateReceipt): void {
+export function applyReceipt(receipt: LateReceipt): void {
+  for (const listener of receiptListeners) listener(receipt)
+  for (const [key, attempt] of Object.entries(state.resumes)) {
+    if (attempt?.status !== 'unknown' || attempt.commandId !== receipt.id) continue
+    if (!receipt.settled.ok && isUnknownOutcome(receipt.settled.error)) return
+    state.resumes[key] = resumeAnswer(receipt.settled as Result<{ disposition: string; reason?: string }>)
+    return
+  }
   const command = unconfirmed.get(receipt.id)
   if (command) {
     if (!receipt.settled.ok && isUnknownOutcome(receipt.settled.error)) return
@@ -1236,19 +1251,28 @@ export function resumeKey(outcome: TerminalOutcome): string {
   return `${outcome.request_id}:${outcome.generation}`
 }
 
-/** Asks the core to carry on with exactly this preserved request. One attempt; the core decides. */
+function resumeAnswer(result: Result<{ disposition: string; reason?: string }>): ResumeState {
+  if (!result.ok) return { status: 'failed', reason: errorText(result) }
+  if (result.result.disposition === 'rejected') return { status: 'rejected', reason: result.result.reason ?? 'Odin declined to resume it.' }
+  return { status: 'admitted' }
+}
+
+/**
+ * Asks the core to carry on with exactly this preserved request. One attempt; the core decides. An attempt with no
+ * answer stays under its own command until its receipt arrives, so it is never sent again under a new one.
+ */
 export async function resume(conversationId: string, outcome: TerminalOutcome): Promise<void> {
   const key = resumeKey(outcome)
-  if (!canAct(conversationId) || state.resumes[key]?.status === 'sending' || state.resumes[key]?.status === 'admitted') return
+  const status = state.resumes[key]?.status
+  if (!canAct(conversationId) || status === 'sending' || status === 'admitted' || status === 'unknown') return
   state.resumes[key] = { status: 'sending' }
+  const commandId = crypto.randomUUID()
   const result = await window.odin.resumeRequest({
-    control_command_id: crypto.randomUUID(),
+    control_command_id: commandId,
     conversation_id: conversationId,
     request_id: outcome.request_id,
     generation: outcome.generation
   })
-  if (!result.ok) state.resumes[key] = { status: 'failed', reason: errorText(result) }
-  else if (result.result.disposition === 'rejected') {
-    state.resumes[key] = { status: 'rejected', reason: result.result.reason ?? 'Odin declined to resume it.' }
-  } else state.resumes[key] = { status: 'admitted' }
+  if (!result.ok && isUnknownOutcome(result.error)) state.resumes[key] = { status: 'unknown', commandId }
+  else state.resumes[key] = resumeAnswer(result)
 }

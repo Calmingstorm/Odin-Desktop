@@ -2,6 +2,8 @@
 import { reactive, ref } from 'vue'
 import type { ToolDetail } from '../../../shared/api'
 import type { ToolEntry } from '../store'
+import { appendPage, type OutputView } from '../tool-output'
+import FileCard from './FileCard.vue'
 
 const props = defineProps<{ entries: ToolEntry[]; requestId?: string; live?: boolean }>()
 const open = ref(Boolean(props.live))
@@ -13,8 +15,9 @@ interface Expanded {
   loading: boolean
   error: string
   detail: ToolDetail | null
-  output: { text: string; next: string | null; loading: boolean; error: string; eof: boolean }
+  output: OutputView & { loading: boolean; error: string }
 }
+
 
 /** Details of the tool calls the user opened, by invocation id. Fetched on demand; nothing is ever run again. */
 const expanded = reactive<Record<string, Expanded | undefined>>({})
@@ -33,7 +36,7 @@ async function toggle(entry: ToolEntry): Promise<void> {
     return
   }
   if (!props.requestId) return
-  expanded[id] = { loading: true, error: '', detail: null, output: { text: '', next: null, loading: false, error: '', eof: false } }
+  expanded[id] = { loading: true, error: '', detail: null, output: { text: '', files: [], next: null, loading: false, error: '', eof: false } }
   const result = await window.odin.toolDetail({ request_id: props.requestId, invocation_id: id })
   const current = expanded[id]
   if (!current) return
@@ -42,7 +45,7 @@ async function toggle(entry: ToolEntry): Promise<void> {
   else current.error = result.error.message
 }
 
-async function more(id: string): Promise<void> {
+async function more(id: string, tool: string): Promise<void> {
   const current = expanded[id]
   const cursor = current?.output.next ?? current?.detail?.output.cursor
   if (!current || !cursor || current.output.loading) return
@@ -54,9 +57,7 @@ async function more(id: string): Promise<void> {
     return
   }
   current.output.error = ''
-  current.output.text += result.result.text
-  current.output.next = result.result.next_cursor ?? null
-  current.output.eof = result.result.eof
+  appendPage(current.output, tool, result.result)
 }
 
 function json(value: unknown): string {
@@ -104,11 +105,12 @@ function until(iso: string): string {
                 <pre>{{ preview.text }}</pre>
               </template>
               <div v-if="x.detail.output.cursor" class="tool-output">
-                <h4 v-if="x.output.text">Full output</h4>
+                <h4 v-if="x.output.text || x.output.files.length">Full output</h4>
                 <pre v-if="x.output.text">{{ x.output.text }}</pre>
+                <FileCard v-for="f in x.output.files" :key="f.ref" :artifact="f" />
                 <div class="tool-output-line">
-                  <button v-if="!x.output.eof" class="ghost" :disabled="x.output.loading" @click="more(e.invocation_id)">
-                    {{ x.output.text ? 'Load more' : 'Show full output' }}
+                  <button v-if="!x.output.eof" class="ghost" :disabled="x.output.loading" @click="more(e.invocation_id, e.tool)">
+                    {{ x.output.text || x.output.files.length ? 'Load more' : 'Show full output' }}
                   </button>
                   <span v-if="x.detail.output.expires_at" class="tool-note">Kept until {{ until(x.detail.output.expires_at) }}</span>
                 </div>

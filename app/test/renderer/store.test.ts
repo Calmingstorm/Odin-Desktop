@@ -1102,3 +1102,22 @@ describe('review round 2: a file that is gone leaves the window', () => {
   })
 })
 
+describe('review round 2: an unconfirmed resume is never sent again', () => {
+  const interrupted = { request_id: 'r1', generation: 1, outcome: 'interrupted' as const, unknown_effects: 0, at: '2026-10-04T00:00:00Z' }
+
+  it('holds an unanswered resume under its first command until its receipt settles it', async () => {
+    await start(snapshot({ watermark: '1', recent: [interrupted] }))
+    bridge.control.resumeResult = UNKNOWN
+    await store.resume('c1', interrupted)
+    await store.resume('c1', interrupted)
+    expect(bridge.calls.resume).toHaveLength(1)
+    const commandId = String(bridge.calls.resume[0]!.control_command_id)
+    expect(store.state.resumes['r1:1']).toEqual({ status: 'unknown', commandId })
+    receipt({ id: commandId, settled: UNKNOWN })
+    expect(store.state.resumes['r1:1']?.status).toBe('unknown')
+    receipt({ id: commandId, settled: { ok: true, result: { disposition: 'admitted' } } })
+    expect(store.state.resumes['r1:1']).toEqual({ status: 'admitted' })
+    expect(bridge.calls.resume).toHaveLength(1)
+  })
+})
+
