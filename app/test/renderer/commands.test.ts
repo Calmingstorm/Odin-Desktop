@@ -9,12 +9,12 @@ type ComposerStore = typeof import('../../src/renderer/src/stores/composer')
 let commands: Commands
 let store: Store
 let composer: ComposerStore
-let calls: { usage: string[]; reload: string[]; steer: number }
+let calls: { usage: string[]; reload: string[]; steer: number; edit: Array<Record<string, unknown>>; set: Array<Record<string, unknown>> }
 let releaseReload: (() => void) | null
 
 beforeEach(async () => {
   vi.resetModules()
-  calls = { usage: [], reload: [], steer: 0 }
+  calls = { usage: [], reload: [], steer: 0, edit: [], set: [] }
   releaseReload = null
   ;(globalThis as unknown as { window: unknown }).window = {
     odin: {
@@ -31,6 +31,26 @@ beforeEach(async () => {
       steer: async () => {
         calls.steer += 1
         return { ok: true, result: { disposition: 'queued', sequence: 1 } }
+      },
+      settingsSchema: async () => ({
+        ok: true,
+        result: {
+          schema_version: 1,
+          revision: 'rev-1',
+          status: { counts: {}, desired_revision: 'rev-1', effective_revision: null },
+          fields: [
+            setting('llm_provider.model', 'gpt-6.1-sol', ['gpt-6.1-sol', 'gpt-6-luna'], 'models.main.set'),
+            setting('openai_codex.reasoning_effort', 'medium', ['low', 'medium', 'high'], 'settings.set')
+          ]
+        }
+      }),
+      editLeaf: async (params: Record<string, unknown>) => {
+        calls.edit.push(params)
+        return { ok: true, result: { status: 'switched' } }
+      },
+      settingsSet: async (params: Record<string, unknown>) => {
+        calls.set.push(params)
+        return { ok: true, result: { revision: 'rev-2', fields: [] } }
       }
     }
   }
@@ -41,6 +61,15 @@ beforeEach(async () => {
 })
 
 const command = (name: string) => commands.COMMANDS.find((c) => c.name === name)!
+
+function setting(path: string, desired: string, choices: string[], handler: string) {
+  return {
+    path, label: path, description: '', type: 'string', enum: choices, constraints: {}, default: desired, nullable: false,
+    sensitivity: 'public', apply_mode: 'live_apply', apply_handler: handler, restart_reason: null, activation_policy: null,
+    consumers: [], save_effect: '', runtime_effect: null, desired, effective: desired, configured: false,
+    pending_restart: false, apply_state: 'applied'
+  }
+}
 
 describe('review round 1: slash commands', () => {
   it("/usage shows Odin's default 7d range, takes a range, and refuses others", async () => {
@@ -74,3 +103,21 @@ describe('review round 1: slash commands', () => {
     expect(store.state.notice).toMatch(/Attachments go with a message, not a steer/)
   })
 })
+
+describe('model and effort shortcuts (deferred from step 2)', () => {
+  it('/model shows the current model and choices, refuses an unknown one, and switches through models.main.set', async () => {
+    await commands.dispatch(command('model'), '')
+    expect(store.state.panel?.text).toBe('Main model: gpt-6.1-sol. Choices: gpt-6.1-sol, gpt-6-luna.')
+    expect(await commands.dispatch(command('model'), 'gpt-9')).toBe(false)
+    expect(calls.edit).toEqual([])
+    await commands.dispatch(command('model'), 'gpt-6-luna')
+    expect(calls.edit).toEqual([{ method: 'models.main.set', params: { model: 'gpt-6-luna' } }])
+    expect(store.state.notice).toBe('Main model is now gpt-6-luna.')
+  })
+
+  it('/effort saves through settings.set at the revision it read', async () => {
+    await commands.dispatch(command('effort'), 'high')
+    expect(calls.set).toEqual([{ expected_revision: 'rev-1', changes: [{ path: 'openai_codex.reasoning_effort', value: 'high' }] }])
+  })
+})
+

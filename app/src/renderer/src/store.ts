@@ -139,6 +139,8 @@ export const state = reactive({
   highlightId: null as string | null,
   /** Output of a command such as /status, shown in the window and never sent to Odin. */
   panel: null as { title: string; text: string } | null,
+  /** Chat or the settings menu. */
+  view: 'chat' as 'chat' | 'settings',
   /** The app's notification settings, from the main process. */
   notifications: null as NotificationSettings | null,
   /** Resume requests by `request_id:generation`, until the resumed request starts or the core says no. */

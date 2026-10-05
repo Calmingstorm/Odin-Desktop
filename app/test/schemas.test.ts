@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { attachPathsSchema, controlSchema, createConversationSchema, parseRequest, searchSchema, steerSchema, submitSchema } from '../src/main/schemas'
+import {
+  attachPathsSchema,
+  controlSchema,
+  createConversationSchema,
+  imageIntentSchema,
+  parseRequest,
+  searchSchema,
+  steerSchema,
+  submitSchema
+} from '../src/main/schemas'
 
 const uuid = '0b6f1c1e-9a3e-4a8e-9d43-2f1f0c7d5a10'
 
@@ -61,6 +70,16 @@ describe('review round 1: no limits Odin does not have', () => {
   it('requires the window to name each conversation command', () => {
     expect(parseRequest(createConversationSchema, { title: 'Chat' }).ok).toBe(false)
     expect(parseRequest(createConversationSchema, { command_id: crypto.randomUUID(), title: 'Chat' }).ok).toBe(true)
+  })
+})
+
+describe('review round 2: image-model intent', () => {
+  it('takes follow or pin for the two image leaves, bound to a revision, and nothing else', () => {
+    expect(parseRequest(imageIntentSchema, { expected_revision: 'r', operations: { image_model: 'pin' } }).ok).toBe(true)
+    expect(parseRequest(imageIntentSchema, { expected_revision: 'r', operations: {} }).ok).toBe(false)
+    expect(parseRequest(imageIntentSchema, { expected_revision: 'r', operations: { image_model: 'lock' } }).ok).toBe(false)
+    expect(parseRequest(imageIntentSchema, { expected_revision: 'r', operations: { quality: 'pin' } }).ok).toBe(false)
+    expect(parseRequest(imageIntentSchema, { operations: { outer_model: 'follow' } }).ok).toBe(false)
   })
 })
 

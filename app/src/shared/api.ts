@@ -251,6 +251,126 @@ export interface AppState {
   unreceipted: number
 }
 
+export type ApplyMode = 'live_read' | 'live_apply' | 'live_for_new_work' | 'restart' | 'activation_required' | 'dormant'
+export type ApplyState = 'applied' | 'pending_restart' | 'dormant' | 'invalid' | 'drift' | 'unknown'
+
+/** One setting, as Odin's apply registry describes it (GET /api/config/meta; protocol.md, Settings and secrets). */
+export interface ConfigField {
+  path: string
+  label: string
+  description: string
+  /** `string`, `integer`, `number`, `boolean`, `array` or `object`; an enum is a `string` with `enum`. */
+  type: string
+  enum: string[] | null
+  /** `minimum`, `maximum`, `exclusive_minimum`, `exclusive_maximum`, `min_length`, `max_length`. */
+  constraints: Record<string, number>
+  default: unknown
+  nullable: boolean
+  sensitivity: 'public' | 'sensitive' | 'secret_container'
+  apply_mode: ApplyMode
+  /** Where Odin applies the field: a dedicated desktop method (for example `models.main.set`), or null. */
+  apply_handler: string | null
+  restart_reason: string | null
+  activation_policy: string | null
+  consumers: Array<{ name: string; apply_mode: ApplyMode; detail: string }>
+  /** Odin's two plain sentences: what saving does, and what the running core does now. */
+  save_effect: string
+  runtime_effect: string | null
+  /** Saved and effective values; redacted for a sensitive field. */
+  desired: unknown
+  effective: unknown
+  configured: boolean
+  pending_restart: boolean
+  apply_state: ApplyState
+}
+
+export type ImageLeaf = 'image_model' | 'outer_model'
+
+/** Odin's image-model intent: `follow` moves with the shipped default, `pin` keeps the saved value. */
+export interface ImageModelIntent {
+  effective: string
+  default: string
+  status: 'follow' | 'pin'
+}
+
+export interface ConfigMeta {
+  schema_version: number
+  revision: string
+  fields: ConfigField[]
+  status: { counts: Record<string, number>; desired_revision: string; effective_revision: string | null }
+  image_models?: Record<ImageLeaf, ImageModelIntent>
+  image_models_revision?: string
+}
+
+export type SettingsChange = { path: string; value: unknown } | { path: string; delete: true }
+
+export interface SettingsSetResult {
+  revision: string
+  fields: ConfigField[]
+}
+
+export interface SettingsSetParams {
+  expected_revision: string
+  changes: SettingsChange[]
+}
+
+/**
+ * The settings-shaped methods (protocol.md, Dedicated settings methods): each takes settings.set's params and answers
+ * its result, for the fields whose apply_handler names it, and runs its owner's transaction. Each has its own channel.
+ */
+export const SETTINGS_SHAPED = {
+  'providers.codex.set': { call: 'providersCodexSet', channel: 'odin:core-settings:providers.codex.set' },
+  'providers.auxiliary.set': { call: 'providersAuxiliarySet', channel: 'odin:core-settings:providers.auxiliary.set' },
+  'providers.ollama.set': { call: 'providersOllamaSet', channel: 'odin:core-settings:providers.ollama.set' },
+  'providers.compat.set': { call: 'providersCompatSet', channel: 'odin:core-settings:providers.compat.set' },
+  'computer.activation.set': { call: 'computerActivationSet', channel: 'odin:core-settings:computer.activation.set' }
+} as const
+
+export type SettingsShapedMethod = keyof typeof SETTINGS_SHAPED
+export type SettingsShapedApi = {
+  [M in SettingsShapedMethod as (typeof SETTINGS_SHAPED)[M]['call']]: (params: SettingsSetParams) => Promise<Result<SettingsSetResult>>
+}
+
+export interface QuotaWindow {
+  used_percent: number
+  window_minutes: number
+  resets_at: number | null
+}
+
+/** One Codex account, in the shape of Odin's GET /api/codex/status. */
+export interface CodexAccount {
+  index: number
+  label?: string
+  email?: string
+  account_id?: string
+  plan_type?: string
+  expires_at?: number
+  expired?: boolean
+  rate_limited?: boolean
+  is_current?: boolean
+  quota?: { primary: QuotaWindow | null; secondary: QuotaWindow | null; observed_at: number; limit_reached_type: string | null } | null
+  limit_reached?: boolean
+  quota_check_failed?: unknown
+  /** Present instead of the rest when the account's credentials couldn't be read. */
+  error?: string
+}
+
+export interface CodexStatus {
+  configured: boolean
+  account_count?: number
+  current_index?: number
+  accounts: CodexAccount[]
+}
+
+export interface DeviceCode {
+  device_auth_id: string
+  user_code: string
+  interval: number
+  verify_url: string
+}
+
+export type LoginPoll = { status: 'pending' } | { status: 'authenticated'; email: string; account_id: string }
+
 export interface QuietHours {
   enabled: boolean
   /** Local time, "HH:MM". The window may cross midnight. */
@@ -293,7 +413,7 @@ export interface ControlTarget {
 }
 
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
-export interface OdinApi {
+export interface OdinApi extends SettingsShapedApi {
   status(): Promise<Result<CoreStatus>>
   listConversations(): Promise<Result<{ items: ConversationListItem[]; watermark: string }>>
   createConversation(params: {
@@ -354,6 +474,23 @@ export interface OdinApi {
   getSettings(): Promise<Result<Settings>>
   setAutostart(enabled: boolean): Promise<Result<Settings>>
   setNotifications(change: NotificationChange): Promise<Result<Settings>>
+  settingsSchema(): Promise<Result<ConfigMeta>>
+  settingsSet(params: SettingsSetParams): Promise<Result<SettingsSetResult>>
+  /** Odin's POST /api/config/image-models: follow the shipped default, or pin the value in effect. */
+  imageModelIntent(params: {
+    expected_revision: string
+    operations: Partial<Record<ImageLeaf, 'follow' | 'pin'>>
+  }): Promise<Result<{ image_models: Record<ImageLeaf, ImageModelIntent>; image_models_revision: string; revision: string }>>
+  secretsSet(params: { path: string; value: string }): Promise<Result<{ set: boolean }>>
+  secretsClear(params: { path: string }): Promise<Result<{ set: boolean }>>
+  /** A field whose `apply_handler` is a dedicated method: models.main.set or models.agents.set. */
+  editLeaf(params: { method: string; params: Record<string, unknown> }): Promise<Result<Record<string, unknown>>>
+  codexAccounts(): Promise<Result<CodexStatus>>
+  codexActivate(params: { index: number }): Promise<Result<{ status: string; active_index: number }>>
+  codexLabel(params: { index: number; label: string }): Promise<Result<{ status: string; label: string }>>
+  codexRemove(params: { index: number }): Promise<Result<{ status: string; email: string }>>
+  codexLoginBegin(): Promise<Result<DeviceCode>>
+  codexLoginPoll(params: { device_auth_id: string; user_code: string }): Promise<Result<LoginPoll>>
   setConversationMuted(params: { conversation_id: string; muted: boolean }): Promise<Result<Settings>>
   /** A notification was clicked: the window should show that conversation. */
   onOpenConversation(listener: (conversationId: string) => void): () => void
@@ -415,6 +552,18 @@ export const IPC = {
   getSettings: 'odin:settings:get',
   setAutostart: 'odin:settings:set-autostart',
   setNotifications: 'odin:settings:set-notifications',
+  settingsSchema: 'odin:core-settings:schema',
+  settingsSet: 'odin:core-settings:set',
+  imageModelIntent: 'odin:core-settings:image-intent',
+  secretsSet: 'odin:secrets:set',
+  secretsClear: 'odin:secrets:clear',
+  editLeaf: 'odin:core-settings:edit-leaf',
+  codexAccounts: 'odin:codex:accounts',
+  codexActivate: 'odin:codex:activate',
+  codexLabel: 'odin:codex:label',
+  codexRemove: 'odin:codex:remove',
+  codexLoginBegin: 'odin:codex:login-begin',
+  codexLoginPoll: 'odin:codex:login-poll',
   setConversationMuted: 'odin:settings:set-muted',
   openConversation: 'odin:open-conversation',
   getAppState: 'odin:app-state:get',
