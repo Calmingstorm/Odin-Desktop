@@ -2,18 +2,22 @@
 
 ## Scope and baseline
 
-Branch `app/p33-lifecycle-part1` starts from pulled `origin/main`
-`2acdbc70212b93d1603c532a150d0eb812bf009e` on 2026-10-05. No unmerged Phase 2, qualification-lab or packaging PR
-is adopted. This is a source-build lifecycle slice, **not completed P3.3 or full Phase 2 execution qualification**.
-`src/` is unchanged. D9/D12/D13/D17 policy is not replaced or tightened by an owner execution approval layer.
+Branch `app/p33-lifecycle-part1` started from pulled `origin/main`
+`2acdbc70212b93d1603c532a150d0eb812bf009e` on 2026-10-05, then rebased onto reviewed
+`f536fb34e15a9c1a3dcae79da96214e9991c71cc` before fresh final gates. Main advanced during this task with merged
+runtime management #21 and keyboard/accessibility #29; their reviewed behavior is retained. No unmerged Phase 2,
+qualification-lab or packaging PR is adopted. This is a source-build lifecycle slice, **not completed P3.3 or full
+Phase 2 execution qualification**. This PR makes no `src/` changes relative to its reviewed base.
+D9/D12/D13/D17 policy is not replaced or tightened by an owner execution approval layer.
 
-The actual core advertises only `status.get`, `events.subscribe` and `runtime.shutdown`. It admits no tools,
+The initial step-one core advertised only `status.get`, `events.subscribe` and `runtime.shutdown`. The final base
+also composes reviewed runtime/settings/management methods from #21. It still admits no tool execution,
 turns, agents, schedules, workflows, conversations, real notification delivery or computer sessions. Tests must
 not convert that missing graph into successful work/descendant/native-release claims.
 
 ## Isolation and reproducibility
 
-- Node 22, project Python 3.12 from `uv sync --frozen --all-extras`, pinned Electron 44.5.1 and Playwright 1.58.2.
+- Node 22, project Python 3.12 from `uv sync --frozen --all-extras`, pinned Electron 44.5.1 and shared Playwright 1.63.0.
   `npm ci --ignore-scripts`; explicit `node node_modules/electron/install.js`. No system package installation.
 - `app/scripts/lifecycle-e2e.mjs` enters a separate PID namespace using the existing privileged namespace
   launcher, drops to uid/gid 1003, clears supplementary groups, and sanitizes the environment before imports.
@@ -74,7 +78,8 @@ in 1.7 minutes. Final fresh-checkout results are recorded below after completion
 ## Open handoffs, not passing rows
 
 1. **Actual work during hide/Exit, harmless admitted descendants, settle/cancel and durable work reconciliation:**
-   blocked on the reviewed Phase 2 graph. No ProcessManager/tool call can be submitted to this step-one core.
+   blocked on the remaining reviewed Phase 2 execution graph. No ProcessManager/tool call can be submitted to
+   the current core. Management capability availability is not execution admission.
    Retained original command-journal/entry/lifetime tests protect unknown outcomes and receipt identity, but are
    not proof of a launched app shutting down real turns, escaped descendants or active computer input.
 2. **Unknown effect/native-input cleanup:** the app preserves and displays its own unknown lifetime receipt;

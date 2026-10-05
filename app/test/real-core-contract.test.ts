@@ -4,11 +4,12 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import type { CoreEvent } from '../src/shared/api'
 import { PROTOCOL, type Settled, type Welcome } from '../src/main/broker'
 import { assertIsolated, onceEvent, RealCoreHarness, waitFor } from './real-core-harness'
+import { assertFreshManagementStatus, realCoreCapabilities, type RealCoreStatus } from '../src/main/real-core-smoke'
 
 // Intentional module-level hard failure if someone invokes this file with the normal/unisolated Vitest gate.
 assertIsolated()
 
-const capabilities = ['status.get', 'events.subscribe', 'runtime.shutdown']
+const capabilities = realCoreCapabilities
 function successful<T>(answer: Settled): T {
   expect(answer.ok).toBe(true)
   if (!answer.ok) throw new Error(`Expected a real-core receipt, got ${answer.error.code}`)
@@ -17,7 +18,7 @@ function successful<T>(answer: Settled): T {
 function refused(answer: Settled, code: string, disposition = 'rejected'): void {
   expect(answer).toMatchObject({ ok: false, error: { code, disposition } })
 }
-type Status = { phase: string; core_instance_id: string; version: string; capabilities: string[] }
+type Status = RealCoreStatus
 type Subscription = { event_high: string; reset_required: boolean }
 
 describe('actual app Broker ↔ repository real core (step 1)', () => {
@@ -39,7 +40,8 @@ describe('actual app Broker ↔ repository real core (step 1)', () => {
     expect(statSync(core.paths.socketPath).mode & 0o777).toBe(0o600)
     expect(statSync(core.paths.tokenPath).mode & 0o777).toBe(0o600)
     const status = successful<Status>(await broker.request('status.get'))
-    expect(status).toEqual({ phase: 'ready', core_instance_id: welcome.core.instance_id,
+    assertFreshManagementStatus(status)
+    expect(status).toMatchObject({ phase: 'ready', core_instance_id: welcome.core.instance_id,
       version: welcome.core.version, capabilities })
 
     const events: CoreEvent[] = []
@@ -48,7 +50,7 @@ describe('actual app Broker ↔ repository real core (step 1)', () => {
     expect(subscribed).toEqual({ event_high: welcome.event_high, reset_required: false })
     await waitFor(() => events.length === 1, 'startup event replay')
     expect(events[0]).toMatchObject({ t: 'evt', seq: 1, cursor: '1', type: 'runtime.status',
-      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: status })
+      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: { ...status, summary: expect.any(String) } })
     expect(events[0]!.at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/)
     expect(Date.parse(events[0]!.at)).not.toBeNaN()
     expect(broker.cursor).toBe('1')
@@ -117,6 +119,10 @@ describe('actual app Broker ↔ repository real core (step 1)', () => {
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '999999' }, id)).reset_required).toBe(true)
     refused(await broker.request('conversations.list', {}, id), 'capability_unavailable')
     refused(await broker.request('conversations.create', { title: 'not admitted in step one' }, id), 'capability_unavailable')
+    refused(await broker.request('submission.send', {}, id), 'capability_unavailable')
+    expect(successful<{ fields: unknown[] }>(await broker.request('settings.schema', {}, id)).fields.length).toBeGreaterThan(0)
+    refused(await broker.request('codex.accounts.list', {}, id), 'keyring_unavailable')
+    expect(successful<{ tokens: unknown }>(await broker.request('usage.get', {}, id)).tokens).toEqual({ value: null, kind: 'unknown' })
     expect(await broker.request('runtime.shutdown', { reason: 'read ID is still available' }, id)).toEqual({
       ok: true, result: { disposition: 'accepted' }
     })

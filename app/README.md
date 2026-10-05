@@ -2,9 +2,9 @@
 
 The desktop app: tray lifecycle (D3), the chat window, and the main-process broker that talks to Odin's core over
 the protocol in [`../docs/design/protocol.md`](../docs/design/protocol.md). P3.1 slice 1 connects the app to the real
-Phase 2 step-1 core: launch, authentication, status, durable event replay and orderly shutdown. Conversations,
-execution and management services are not served by step 1. Their screens show explicit unavailable states,
-not fixture records, empty successful datasets, or endless loading indicators.
+Phase 2 core: launch, authentication, status, durable event replay and orderly shutdown. Reviewed runtime/settings
+and named management from #21 are also served. Conversations and execution remain unavailable; their screens
+show explicit unavailable states, not fixture records, empty successful datasets or endless loading indicators.
 
 ## Build and test
 
@@ -53,9 +53,11 @@ support or required tools fail with an explanation. There are no silent skips or
 
 `smoke:real-core` checks real `status.get` version/phase/instance/capabilities and actual rendered status, exercises
 chat/search/work and every settings section's own service loads (including tools/timeouts, skills, MCP, hosts,
-schedules, personality, memory/lists, knowledge and each records panel), checks on-demand context reload, asserts explicit unavailable states and
-absence of fixture rows, raw capability errors, successful-empty claims or duplicate composer usage notices,
-then exits through normal `runtime.shutdown` and parent-EOF cleanup. Its evidence is printed as JSON. Set
+schedules, personality, memory/lists, knowledge and each records panel), checks on-demand context reload, validates
+the reviewed management/readiness projections, asserts explicit unavailable states for unserved capabilities and
+missing keyring/provider states without invented success, and rejects fixture rows, raw capability errors,
+successful-empty claims or duplicate composer usage notices. It then exits through normal `runtime.shutdown` and
+parent-EOF cleanup. Its evidence is printed as JSON. Set
 `ODIN_SMOKE_OUT` to retain screenshots of chat and every settings section plus a JSON evidence file alongside the
 named checkpoint; the default screenshots, evidence and profiles are discarded.
 
@@ -105,7 +107,7 @@ cleared by a later ordinary Exit.
 
 Notification tests exercise actual Electron D-Bus requests, acceptance/refusal and native `ActionInvoked`, then
 inspect the exact older conversation/message in the renderer, including renderer loss. Their conversation and
-acknowledgement service is explicitly a fixture: step one does not serve real delivery, requests, background work,
+acknowledgement service is explicitly a fixture: the current core does not serve real delivery, requests, background work,
 notifications or computer input. D11 trays/login, installed package paths, admitted work/descendant cleanup and
 native input release remain open, not silently qualified by these tests. See
 [`../maintenance/phase3-lifecycle.md`](../maintenance/phase3-lifecycle.md).
