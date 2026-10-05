@@ -106,6 +106,9 @@ function fakeBridge() {
     deleteResult: { ok: true, result: { disposition: 'deleted' } } as Result<{ disposition: string }>,
     searchResults: [] as Array<Deferred<Result<SearchResult>>>,
     createResult: null as Result<{ conversation: Conversation }> | null,
+    /** When set, create answers wait here until the test releases them. */
+    holdCreate: false,
+    creates: [] as Array<Deferred<Result<{ conversation: Conversation }>>>,
     resetResult: null as Result<{ conversation: Conversation }> | null,
     /** When set, mark-read and around answers wait here until the test releases them. */
     holdMarkRead: false,
@@ -136,11 +139,17 @@ function fakeBridge() {
       control.lists.push(next)
       return next.promise
     },
-    createConversation: async (params: Record<string, unknown>) => {
+    createConversation: (params: Record<string, unknown>) => {
       calls.create.push(params)
-      if (control.createResult) return control.createResult
       const id = params.parent_id ? 'c-thread' : 'c-new'
-      return { ok: true, result: { conversation: { ...CONVERSATION, id, title: String(params.title ?? 'Chat'), parent_id: (params.parent_id as string) ?? null } } }
+      const answer: Result<{ conversation: Conversation }> = control.createResult ?? {
+        ok: true,
+        result: { conversation: { ...CONVERSATION, id, title: String(params.title ?? 'Chat'), parent_id: (params.parent_id as string) ?? null } }
+      }
+      if (!control.holdCreate) return Promise.resolve(answer)
+      const next = deferred<Result<{ conversation: Conversation }>>()
+      control.creates.push(next)
+      return next.promise
     },
     updateConversation: async (params: Record<string, unknown>) => {
       calls.update.push(params)
@@ -202,6 +211,8 @@ function fakeBridge() {
       calls.resume.push(params)
       return control.resumeResult
     },
+    fetchArtifact: async () => ({ ok: true, result: { data: new Uint8Array(4) } }),
+    checkArtifact: async () => ({ ok: true, result: { available: true } }),
     onEvent: (l: (e: CoreEvent) => void) => (listeners.event.push(l), () => undefined),
     onAppState: (l: (s: AppState) => void) => (listeners.appState.push(l), () => undefined),
     onReceipt: (l: (r: LateReceipt) => void) => (listeners.receipt.push(l), () => undefined),
@@ -976,6 +987,118 @@ describe('review round 1: search navigation is fenced', () => {
     expect(store.state.highlightId).toBe('m1')
     void store.select('c2')
     expect(store.state.highlightId).toBeNull()
+  })
+})
+
+describe('review round 2: lists, commands, search and jumps', () => {
+  const listItem = (id: string, title = id) => ({ ...CONVERSATION, id, title, activity: { running: null, queued: [] } })
+  const conflict = { ok: false, error: { code: 'stale_binding', message: 'changed', disposition: 'not_dispatched' } } as const
+  const oldHit = (conversation_id: string) => ({ conversation_id, message_id: 'm-old', role: 'assistant' as const, snippet: '', created_at: '2026-10-05T00:00:00Z' })
+
+  it('an older complete list answering after a newer one removes nothing, and later updates still apply', async () => {
+    bridge.control.list = [listItem('c1')]
+    await start()
+    bridge.control.updateResult = conflict
+    bridge.control.holdLists = true
+    await store.renameConversation('c1', 'A') // each conflict refreshes the list
+    await store.renameConversation('c1', 'B')
+    await until(() => bridge.control.lists.length === 2)
+    bridge.control.lists[1]!.resolve({ ok: true, result: { items: [listItem('c1'), listItem('c2')], watermark: '20' } })
+    await until(() => store.state.conversations.some((c) => c.id === 'c2'))
+    bridge.control.lists[0]!.resolve({ ok: true, result: { items: [listItem('c1')], watermark: '10' } })
+    await new Promise((r) => setTimeout(r, 10))
+    expect(store.state.conversations.map((c) => c.id)).toEqual(['c1', 'c2'])
+    emit(event(21, 'conversation.updated', { conversation: { ...CONVERSATION, id: 'c2', title: 'Renamed', rev: 2 } }))
+    expect(store.state.conversations.find((c) => c.id === 'c2')?.title).toBe('Renamed')
+  })
+
+  it('a conversation missing from a complete list comes back when a newer event shows it', async () => {
+    bridge.control.list = [listItem('c1'), listItem('c2')]
+    await start()
+    bridge.control.list = [listItem('c1')]
+    bridge.control.listWatermark = '20'
+    bridge.control.updateResult = conflict
+    await store.renameConversation('c1', 'A')
+    await until(() => !store.state.conversations.some((c) => c.id === 'c2'))
+    emit(event(21, 'conversation.updated', { conversation: { ...CONVERSATION, id: 'c2', title: 'Still here', rev: 2 } }))
+    expect(store.state.conversations.map((c) => c.id)).toContain('c2')
+  })
+
+  it('two quick Thread clicks while the first is on its way make one thread', async () => {
+    await start()
+    bridge.control.holdCreate = true
+    const first = store.startThread('c1')
+    await store.startThread('c1')
+    expect(bridge.calls.create).toHaveLength(1)
+    expect(store.state.notice).toMatch(/hasn't confirmed/)
+    bridge.control.creates[0]!.resolve({ ok: true, result: { conversation: { ...CONVERSATION, id: 'c-thread', title: 'Thread: Chat', parent_id: 'c1' } } })
+    await first
+    expect(store.state.conversations.filter((c) => c.parent_id === 'c1').map((c) => c.id)).toEqual(['c-thread'])
+  })
+
+  it('a search answered after a deletion never shows the deleted conversation, on any page', async () => {
+    await start()
+    const hitIn = (conversation_id: string, message_id = `m-${conversation_id}`) => ({ ...oldHit(conversation_id), message_id, snippet: 'logs' })
+    void store.runSearch('logs')
+    await until(() => bridge.control.searchResults.length === 1)
+    emit(event(10, 'conversation.deleted', { conversation_id: 'c2' }))
+    bridge.control.searchResults[0]!.resolve({ ok: true, result: { hits: [hitIn('c2'), hitIn('c1')], watermark: '9', next_cursor: 'p2' } })
+    await until(() => !store.state.search.loading)
+    expect(store.state.search.hits.map((h) => h.conversation_id)).toEqual(['c1'])
+    void store.moreResults()
+    await until(() => bridge.control.searchResults.length === 2)
+    bridge.control.searchResults[1]!.resolve({ ok: true, result: { hits: [hitIn('c2', 'm-c2-b'), hitIn('c1', 'm-c1-b')], watermark: '9' } })
+    await until(() => !store.state.search.loading)
+    expect(store.state.search.hits.map((h) => h.message_id)).toEqual(['m-c1', 'm-c1-b'])
+  })
+
+  it('a jump ended while its conversation is still loading never lands', async () => {
+    bridge.control.list = [listItem('c1'), listItem('c2')]
+    await start()
+    const jumping = store.jumpTo(oldHit('c2'))
+    await until(() => bridge.control.snapshots.length === 2)
+    store.backToLatest()
+    bridge.control.snapshots[1]!.resolve(
+      snapshot({ watermark: '2', conversation: { ...CONVERSATION, id: 'c2' }, messages: { items: [message('m-new')], has_more: true } })
+    )
+    await jumping
+    expect(bridge.calls.around).toHaveLength(0)
+    expect(store.state.jump).toBeNull()
+    expect(store.state.highlightId).toBeNull()
+  })
+
+  it('opening an old search hit leaves newer unread replies unread, loading or cached', async () => {
+    setAttention(true)
+    bridge.control.list = [listItem('c1'), { ...listItem('c2'), unread: 5 }]
+    await start()
+    bridge.control.aroundResult = { ok: true, result: { items: [message('m-old')], has_before: false, has_after: true } }
+    const jumping = store.jumpTo(oldHit('c2'))
+    await until(() => bridge.control.snapshots.length === 2)
+    bridge.control.snapshots[1]!.resolve(
+      snapshot({ watermark: '2', conversation: { ...CONVERSATION, id: 'c2', unread: 5 }, messages: { items: [message('m-new')], has_more: true } })
+    )
+    await jumping
+    expect(store.state.jump?.messageId).toBe('m-old')
+    expect(bridge.calls.markRead).toHaveLength(0)
+    // Now cached: going elsewhere and jumping back into the same old window still reads nothing.
+    await store.select('c1')
+    await store.jumpTo(oldHit('c2'))
+    expect(store.state.jump?.conversationId).toBe('c2')
+    expect(bridge.calls.markRead).toHaveLength(0)
+    expect(store.state.conversations.find((c) => c.id === 'c2')?.unread).toBe(5)
+  })
+})
+
+describe('review round 2: a file that is gone leaves the window', () => {
+  it("drops the window's copy of an image when the core says it is gone, loaded conversation or not", async () => {
+    await start()
+    const { images } = await import('../../src/renderer/src/artifacts')
+    const shown = images.acquire({ ref: 'r-img', name: 'a.png', mime: 'image/png', size: 4, kind: 'image', available: true })
+    await shown.url
+    shown.release()
+    expect(images.cached().map(([ref]) => ref)).toEqual(['r-img'])
+    emit(event(9, 'artifact.unavailable', { conversation_id: 'c-elsewhere', message_id: 'm9', ref: 'r-img' }))
+    expect(images.cached()).toEqual([])
   })
 })
 

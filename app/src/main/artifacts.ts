@@ -24,6 +24,9 @@ function failure(code: string, message: string): Failure {
   return { ok: false, error: { code, message, disposition: 'not_dispatched' } }
 }
 
+/** The core said the file is gone while it was being fetched or checked. */
+const GONE = failure('not_found', 'That file is no longer available.')
+
 /** A file name safe to create in a directory: no separators, control characters or leading dots. */
 export function safeFileName(name: string): string {
   const cleaned = name
@@ -37,6 +40,8 @@ export function safeFileName(name: string): string {
 export class ArtifactStore {
   /** Cache fills in progress, so a second request for the same file waits for the first. */
   private readonly filling = new Map<string, Promise<Result<string>>>()
+  /** How many times each reference was forgotten. A fill that started before the latest one never reports success. */
+  private readonly generations = new Map<string, number>()
 
   constructor(
     private readonly core: Requester,
@@ -64,9 +69,23 @@ export class ArtifactStore {
     return join(this.cacheDir, 'artifacts', createHash('sha256').update(ref).digest('hex'))
   }
 
-  /** Drops the cached copy of a file the core no longer has. */
+  private generationOf(ref: string): number {
+    return this.generations.get(ref) ?? 0
+  }
+
+  /** Drops the cached copy of a file the core no longer has. Fills still on their way for it report it gone. */
   async forget(ref: string): Promise<void> {
+    this.generations.set(ref, this.generationOf(ref) + 1)
     await rm(this.dirFor(ref), { recursive: true, force: true })
+  }
+
+  /** Whether the core still has a file: one byte read. A file it no longer has is forgotten here too. */
+  async check(ref: string): Promise<Result<{ available: boolean }>> {
+    const answer = await this.core.request('artifacts.read', { ref, offset: 0, length: 1 })
+    if (answer.ok) return { ok: true, result: { available: true } }
+    if (answer.error.code !== 'not_found' && answer.error.code !== 'expired') return answer
+    await this.forget(ref)
+    return { ok: true, result: { available: false } }
   }
 
   /** The private cached copy, fetched once and checked with the core each time it is used. */
@@ -102,6 +121,8 @@ export class ArtifactStore {
   }
 
   private async fill(ref: string, path: string): Promise<Result<string>> {
+    const generation = this.generationOf(ref)
+    const current = (): boolean => this.generationOf(ref) === generation
     let present = false
     try {
       present = (await stat(path)).isFile()
@@ -111,19 +132,20 @@ export class ArtifactStore {
     if (present) {
       // A copy is only as good as the core's reference: one deleted or expired since is gone here too.
       const check = await this.core.request('artifacts.read', { ref, offset: 0, length: 1 })
+      if (!current()) return GONE
       if (check.ok) return { ok: true, result: path }
       if (check.error.code === 'not_found' || check.error.code === 'expired') await this.forget(ref)
       return check
     }
     await mkdir(dirname(path), { recursive: true, mode: 0o700 })
-    return this.download(ref, path, 0o600)
+    return this.download(ref, path, 0o600, current)
   }
 
   /**
    * Writes to a new temporary file beside `path`, then renames it into place, so a failed read or write never leaves
    * a partial file at `path` and never touches any other existing file.
    */
-  private async download(ref: string, path: string, mode: number): Promise<Result<string>> {
+  private async download(ref: string, path: string, mode: number, current: () => boolean = () => true): Promise<Result<string>> {
     const temp = `${path}.${randomBytes(4).toString('hex')}.part`
     const out = createWriteStream(temp, { mode, flags: 'wx' })
     let writeFailed = false
@@ -144,15 +166,18 @@ export class ArtifactStore {
       () => !writeFailed,
       () => false
     )
-    if (done.ok && wrote) {
+    if (done.ok && wrote && current()) {
       try {
         await rename(temp, path)
-        return { ok: true, result: path }
+        if (current()) return { ok: true, result: path }
+        await rm(path, { force: true }) // forgotten while it was moved into place
+        return GONE
       } catch {
         /* reported below */
       }
     }
     await rm(temp, { force: true })
+    if (done.ok && wrote && !current()) return GONE
     return done.ok ? failure('internal', "Couldn't write the file.") : done
   }
 

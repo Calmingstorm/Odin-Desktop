@@ -29,17 +29,32 @@ async function perTurnLimit(): Promise<number | null> {
   return perTurn
 }
 
-/** Keeps a batch within the core's per-turn limit, saying honestly what didn't fit. */
+/** Places granted to attachments still on their way into the composer, by conversation. */
+const reserved = new Map<string, number>()
+
+function release(conversationId: string): void {
+  const left = (reserved.get(conversationId) ?? 0) - 1
+  if (left > 0) reserved.set(conversationId, left)
+  else reserved.delete(conversationId)
+}
+
+/**
+ * Keeps a batch within the core's per-turn limit, saying honestly what didn't fit. The places it grants are reserved
+ * at once, so batches added at the same time can't share one; each is released as its attachment arrives or fails.
+ */
 async function fitting<T>(conversationId: string, items: readonly T[]): Promise<readonly T[]> {
   const limit = await perTurnLimit()
-  if (limit === null) return items
-  const room = Math.max(0, limit - attachmentsFor(conversationId).length)
-  if (items.length <= room) return items
-  composer.errors = [
-    ...composer.errors,
-    `Odin takes up to ${limit} attachment${limit === 1 ? '' : 's'} per message; ${items.length - room} weren't added.`
-  ]
-  return items.slice(0, room)
+  const used = attachmentsFor(conversationId).length + (reserved.get(conversationId) ?? 0)
+  const room = limit === null ? items.length : Math.max(0, limit - used)
+  const kept = items.slice(0, room)
+  reserved.set(conversationId, (reserved.get(conversationId) ?? 0) + kept.length)
+  if (limit !== null && items.length > room) {
+    composer.errors = [
+      ...composer.errors,
+      `Odin takes up to ${limit} attachment${limit === 1 ? '' : 's'} per message; ${items.length - room} weren't added.`
+    ]
+  }
+  return kept
 }
 
 export const composer = reactive({
@@ -76,9 +91,16 @@ export async function loadDraft(conversationId: string): Promise<string> {
 }
 
 const saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
+/** Each draft's revision. Every change moves it on, so what finishes late clears a draft only if nothing touched it since. */
+const revisions = new Map<string, number>()
+
+export function draftRevision(conversationId: string): number {
+  return revisions.get(conversationId) ?? 0
+}
 
 /** Keeps the draft in memory now and in the profile shortly after typing stops. */
 export function saveDraft(conversationId: string, text: string): void {
+  revisions.set(conversationId, draftRevision(conversationId) + 1)
   composer.drafts[conversationId] = text
   const pending = saveTimers.get(conversationId)
   if (pending) clearTimeout(pending)
@@ -109,13 +131,17 @@ export async function addPasted(conversationId: string, files: readonly File[]):
   const others = files.filter((f) => !f.type.startsWith('image/'))
   if (others.length) await addFiles(conversationId, others)
   for (const image of await fitting(conversationId, images)) {
-    const staged = await window.odin.attachBytes({
-      name: image.name || `pasted-image.${image.type.split('/')[1] ?? 'png'}`,
-      mime: image.type,
-      data: new Uint8Array(await image.arrayBuffer())
-    })
-    if (staged.ok) start(conversationId, staged.result, URL.createObjectURL(image))
-    else composer.errors = [staged.error.message]
+    try {
+      const staged = await window.odin.attachBytes({
+        name: image.name || `pasted-image.${image.type.split('/')[1] ?? 'png'}`,
+        mime: image.type,
+        data: new Uint8Array(await image.arrayBuffer())
+      })
+      if (staged.ok) start(conversationId, staged.result, URL.createObjectURL(image))
+      else composer.errors = [staged.error.message]
+    } finally {
+      release(conversationId)
+    }
   }
 }
 
@@ -131,6 +157,7 @@ async function addBatch(conversationId: string, batch: Result<StagedBatch>, file
     const source = files.find((f) => f.name === staged.name && f.size === staged.size)
     const preview = source && source.type.startsWith('image/') ? URL.createObjectURL(source) : undefined
     start(conversationId, staged, preview)
+    release(conversationId)
   }
 }
 
@@ -181,24 +208,50 @@ export function readyAttachments(conversationId: string): Array<{ ref: string; a
   return list.map((a) => ({ ref: a.ref as string, add_to_knowledge: a.addToKnowledge }))
 }
 
-/** What the composer box shows, and the conversation it belongs to: none while switching, so nothing is misdirected. */
-export const box = reactive({ owner: null as string | null, text: '' })
+/**
+ * What the composer box shows, and the conversation it belongs to: none while switching, so nothing is sent to the
+ * wrong one. `pending` is the conversation whose draft is loading; what is typed meanwhile is that draft.
+ */
+export const box = reactive({ owner: null as string | null, pending: null as string | null, text: '' })
 
 /** Shows a conversation's draft once it has loaded, unless the user has moved on by then. */
 export async function showDraft(conversationId: string | null, stillCurrent: () => boolean): Promise<void> {
   box.owner = null
+  box.pending = conversationId
   box.text = '' // the previous draft is already saved under its own conversation
   if (!conversationId) return
+  // Typing during the load is saved as this draft, so the loaded text is whatever was typed, if anything was.
   const draft = await loadDraft(conversationId)
   if (!stillCurrent()) return
+  box.pending = null
   box.text = draft
   box.owner = conversationId
 }
 
-/** The user typed: the text is the owner's draft. */
+/** The user typed: the text is the draft of the conversation the box belongs to, or is loading. */
 export function edit(text: string): void {
   box.text = text
-  if (box.owner) saveDraft(box.owner, text)
+  const target = box.owner ?? box.pending
+  if (target) saveDraft(target, text)
+}
+
+/** After a send or a command, clears the draft it came from, only if nothing touched it since; the box follows. */
+export function clearSubmitted(conversationId: string, revision: number): void {
+  if (draftRevision(conversationId) !== revision) return
+  saveDraft(conversationId, '')
+  if (box.owner === conversationId) box.text = ''
+}
+
+/** Runs a slash command typed in the box. Once it has run, only the draft it came from is cleared, if untouched. */
+export async function runBoxCommand<T>(run: () => Promise<T>): Promise<T> {
+  const owner = box.owner ?? box.pending
+  const revision = owner ? draftRevision(owner) : -1
+  const submitted = box.text
+  const outcome = await run()
+  if (outcome === false) return outcome
+  if (owner) clearSubmitted(owner, revision)
+  else if (!box.owner && !box.pending && box.text === submitted) box.text = '' // no conversation, so nothing saved
+  return outcome
 }
 
 /**
@@ -213,19 +266,13 @@ export async function sendBox(
   if (!conversationId || conversationId !== openConversation) return false
   const refs = readyAttachments(conversationId)
   if (refs === null) return false
-  const submitted = box.text
+  const revision = draftRevision(conversationId)
   const sentIds = attachmentsFor(conversationId).map((a) => a.id)
-  const accepted = await deliver(submitted.trim(), refs)
+  const accepted = await deliver(box.text.trim(), refs)
   if (!accepted) return false
-  clearSentDraft(conversationId, submitted)
-  if (box.owner === conversationId && box.text === submitted) box.text = ''
+  clearSubmitted(conversationId, revision)
   removeSent(conversationId, sentIds)
   return true
-}
-
-/** After a send, clears the draft only if it is still the text that was sent. */
-export function clearSentDraft(conversationId: string, sent: string): void {
-  if ((composer.drafts[conversationId] ?? '') === sent) saveDraft(conversationId, '')
 }
 
 /** After a send, removes exactly the attachments that went with it; any added since stay. */
