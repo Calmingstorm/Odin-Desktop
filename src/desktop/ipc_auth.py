@@ -1,6 +1,7 @@
 """OS-backed peer identity and no-follow app-created credentials."""
 from __future__ import annotations
 
+import errno
 import hmac
 import os
 import re
@@ -9,7 +10,7 @@ import stat
 import struct
 from pathlib import Path
 
-from .paths import private_directory
+from .paths import _namespace_directories, _repair_namespace_directory, private_directory
 
 
 def private_parent(path: Path | str, *, create: bool = False) -> tuple[Path, int]:
@@ -19,21 +20,30 @@ def private_parent(path: Path | str, *, create: bool = False) -> tuple[Path, int
         raise ValueError("IPC path must be absolute")
     if create:
         private_directory(path.parent)
+    namespace = _namespace_directories(path.parent)
+    current = Path("/")
     fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
     try:
         for name in path.parent.parts[1:]:
-            child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            current /= name
+            try:
+                child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            except OSError as exc:
+                raise OSError(exc.errno, exc.strerror, str(current)) from None
             os.close(fd)
             fd = child
+            _repair_namespace_directory(fd, current, namespace, kind="IPC")
             info = os.fstat(fd)
             mode = stat.S_IMODE(info.st_mode)
             if info.st_uid not in {0, os.geteuid()}:
-                raise PermissionError("foreign IPC ancestor")
+                raise PermissionError(errno.EACCES, "foreign IPC ancestor", str(current))
             if mode & 0o022 and not info.st_mode & stat.S_ISVTX:
-                raise PermissionError("IPC ancestor writable by others")
+                raise PermissionError(errno.EACCES, "IPC ancestor writable by others", str(current))
         info = os.fstat(fd)
         if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) != 0o700:
-            raise PermissionError("IPC parent must be owner-private (0700)")
+            raise PermissionError(
+                errno.EACCES, "IPC parent must be owner-private (0700)", str(current),
+            )
         return path, fd
     except BaseException:
         os.close(fd)
@@ -43,19 +53,22 @@ def private_parent(path: Path | str, *, create: bool = False) -> tuple[Path, int
 def load_token(token_file: Path | str) -> str:
     path, parent = private_parent(token_file)
     try:
-        fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+        try:
+            fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+        except OSError as exc:
+            raise OSError(exc.errno, exc.strerror, str(path)) from None
         try:
             info = os.fstat(fd)
             if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
                     or stat.S_IMODE(info.st_mode) != 0o600 or info.st_size != 64):
-                raise PermissionError("unsafe IPC credential file")
+                raise PermissionError(errno.EACCES, "unsafe IPC credential file", str(path))
             data = os.read(fd, 65)
         finally:
             os.close(fd)
     finally:
         os.close(parent)
     if not re.fullmatch(rb"[0-9a-fA-F]{64}", data):
-        raise PermissionError("invalid IPC credential")
+        raise PermissionError(errno.EACCES, "invalid IPC credential", str(path))
     return data.decode("ascii")
 
 

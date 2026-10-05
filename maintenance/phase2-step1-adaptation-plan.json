@@ -12,8 +12,8 @@
     },
     {
       "path": "src/__main__.py",
-      "reason": "Compose the app-supervised core with explicit profile roots and the retained subreaper, adopted-zombie and finalization barriers.",
-      "contract": "The app supplies socket, token file, profile and data directory; no daemon or self-reexec.",
+      "reason": "Compose the app-supervised core with explicit roots and retained finalization barriers; report inert failure kind, fixed refusal reason and involved path through the existing watchdog-protected stop log.",
+      "contract": "The app supplies socket, token file, profile and data directory; failures are diagnosable without exception text, credentials or synchronous logging before the watchdog.",
       "invariant": "Containment and emergency-finalization helper bodies stay byte-identical; profile ownership outlives finalization.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_core_entry.py", "tests/test_desktop_core_lifecycle.py", "tests/test_desktop_strip_root.py"]
@@ -36,15 +36,15 @@
     },
     {
       "path": "src/desktop/paths.py",
-      "reason": "Align XDG roots with the approved app/protocol paths and select explicit app token/data roots.",
-      "contract": "Absolute nonoverlapping config/data/cache namespaces; owner-private directory provisioning remains descriptor guarded.",
+      "reason": "Align app/XDG roots and privately provision or tighten user-owned Desktop namespace directories created under umask 002, without chmod of unrelated ancestors.",
+      "contract": "Absolute nonoverlapping roots; descriptor-guarded namespace repair to 0700 preserves D17 startup parity while foreign ancestors remain refused with their path.",
       "invariant": "No legacy state adoption, symlink repair or path traversal.",
       "owner": "Odin",
-      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_core_entry.py"]
+      "tests": ["tests/test_desktop_foundation.py", "tests/test_desktop_core_entry.py", "tests/test_desktop_core_paths.py"]
     },
     {
       "path": "src/desktop/authority.py",
-      "reason": "Recognize the app's pre-core token/log/draft scaffolding and anchor the runtime lock to the profile identity directory.",
+      "reason": "Recognize app pre-core scaffolding, including interrupted drafts.json.tmp and app-state.json.tmp saves, and anchor the runtime lock to the identity directory.",
       "contract": "Fresh identity may coexist only with app scaffolding; one owner holds the identity regardless of socket or data override.",
       "invariant": "No engine configuration or secrets are imported; contexts remain OS-owner and incarnation bound without new tool approval policy.",
       "owner": "Odin",
@@ -52,11 +52,11 @@
     },
     {
       "path": "src/desktop/commands.py",
-      "reason": "Add private FULL-synchronous durable command bindings, final receipts and permanent tombstones.",
-      "contract": "Reserve before callback; receipt and event transaction commits before response; refusals are final and pending admissions never replay.",
+      "reason": "Add private durable command bindings, final receipts and permanent tombstones; inspect existing identities without opening a write transaction.",
+      "contract": "Served commands reserve before callback and commit receipt/events before response; read and unavailable requests do not reserve IDs or fsync receipts.",
       "invariant": "No exactly-once external-effect claim or expired-ID readmission; unknown outcomes are not pruned.",
       "owner": "Odin",
-      "tests": ["tests/test_desktop_command_journal.py", "tests/test_desktop_core_lifecycle.py"]
+      "tests": ["tests/test_desktop_command_journal.py", "tests/test_desktop_core_lifecycle.py", "tests/test_desktop_receipt_retention.py"]
     },
     {
       "path": "src/desktop/events.py",
@@ -76,11 +76,11 @@
     },
     {
       "path": "src/desktop/ipc_auth.py",
-      "reason": "Load the app-created private token and authenticate the OS peer under no-follow path guards.",
-      "contract": "Owner UID, private directory/token modes and constant-time token comparison are mandatory local-transport checks.",
+      "reason": "Load the app token and authenticate OS peers under no-follow guards; repair user-owned Desktop namespace parents and attach safe paths to refusals.",
+      "contract": "Owner UID, private namespace/token modes and constant-time comparison remain mandatory; foreign ancestors are refused while user-owned namespace parents can be tightened.",
       "invariant": "Core never creates, repairs or logs the credential; payload identity cannot mint owner authority.",
       "owner": "Odin",
-      "tests": ["tests/test_desktop_ipc.py", "tests/test_desktop_core_lifecycle.py"]
+      "tests": ["tests/test_desktop_ipc.py", "tests/test_desktop_core_lifecycle.py", "tests/test_desktop_core_entry.py"]
     },
     {
       "path": "src/desktop/ipc.py",
@@ -100,19 +100,19 @@
     },
     {
       "path": "src/desktop/lifecycle.py",
-      "reason": "Own parent-pipe EOF, signal shutdown and admission quiescence without an executor blocked on stdin.",
-      "contract": "One irreversible shutdown edge; stdin is the app-held pipe and the core never detaches.",
+      "reason": "Own parent-pipe or Node-style stream-socket EOF, signal shutdown and admission quiescence without an executor blocked on stdin.",
+      "contract": "One irreversible shutdown edge; stdin is an app-held FIFO or stream socket, never a regular file or datagram socket; the core never detaches.",
       "invariant": "No broad process signaling, daemon resurrection or bypass of retained finalization.",
       "owner": "Odin",
-      "tests": ["tests/test_desktop_core_lifecycle.py"]
+      "tests": ["tests/test_desktop_core_lifecycle.py", "tests/test_desktop_core_entry.py"]
     },
     {
       "path": "src/desktop/core.py",
-      "reason": "Compose one profile owner, shared journals, listener, runtime/status owner and supervised lifecycle.",
-      "contract": "Only step-1 services are available; status uses minor-1 fields and shutdown receipts/events are durable before response.",
+      "reason": "Compose the supervised graph; refuse unavailable methods without receipts and expire known final receipt bodies at startup and periodically.",
+      "contract": "Only step-1 services are available; status is a read, shutdown receipts/events are durable, unresolved outcomes and permanent identity tombstones survive retention.",
       "invariant": "Reuse sealed owner authority and PermissionManager; no execution-service graph, new approvals or fake readiness.",
       "owner": "Odin",
-      "tests": ["tests/test_desktop_core_lifecycle.py", "tests/test_desktop_core_entry.py"]
+      "tests": ["tests/test_desktop_core_lifecycle.py", "tests/test_desktop_core_entry.py", "tests/test_desktop_receipt_retention.py"]
     },
     {
       "path": "tests/test_desktop_core_entry.py",
@@ -172,11 +172,35 @@
     },
     {
       "path": "tests/test_desktop_final_distribution.py",
-      "reason": "Adapt retired entry expectations to the implemented app core and local diagnostic client.",
-      "contract": "Behaviorally prove client delegation and invalid launch rejection; retain wheel, removed REST and packaging checks.",
+      "reason": "Adapt retired entries to the core/client and isolate HOME/XDG in the module even when pytest is invoked without the launcher.",
+      "contract": "Prove delegation and invalid launch refusal; retain wheel/removed REST checks without creating profile directories in the real HOME.",
       "invariant": "No server entry points, upstream case erasure or active-desktop execution.",
       "owner": "Odin",
       "tests": ["tests/test_desktop_final_distribution.py"]
+    },
+    {
+      "path": "src/tools/ssh_pool.py",
+      "reason": "Provision SSH socket directories and Desktop namespace parents privately rather than leaving umask-002 intermediate directories group-writable.",
+      "contract": "Explicit socket roots remain supported; descriptor guards preserve foreign-owner and symlink refusal.",
+      "invariant": "No SSH protocol, foreground-master ownership, lease, cleanup or containment change.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_paths.py", "tests/test_desktop_final_distribution.py"]
+    },
+    {
+      "path": "tests/test_desktop_core_paths.py",
+      "reason": "Exercise user-owned namespace repair, umask-002 SSH parent provisioning and unchanged foreign-ancestor refusal.",
+      "contract": "Behavior tests use temporary roots and inspect real permissions and ownership decisions.",
+      "invariant": "No chmod of foreign or unrelated ancestors and no live state.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_core_paths.py"]
+    },
+    {
+      "path": "tests/test_desktop_receipt_retention.py",
+      "reason": "Prove unavailable/read methods cause no durable receipt transactions and automatic retention preserves command identity and unknown outcomes.",
+      "contract": "Actual isolated core and SQLite behavior, with deterministic scheduled-prune checkpoints.",
+      "invariant": "No unknown-effect replay, expired-ID readmission or live state.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_receipt_retention.py"]
     }
   ]
 }

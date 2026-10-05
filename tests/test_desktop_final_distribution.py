@@ -31,6 +31,50 @@ ROOT = Path(__file__).resolve().parents[1]
 TRIAGE = ROOT / "maintenance/final-distribution-triage.json"
 
 
+@pytest.fixture(autouse=True)
+def _isolated_distribution_home(tmp_path, monkeypatch):
+    """Plain targeted pytest runs must never provision the caller's profile."""
+    home = tmp_path / "home"
+    home.mkdir(mode=0o700)
+    monkeypatch.setenv("HOME", str(home))
+    for key, name in (("XDG_CONFIG_HOME", "config"), ("XDG_DATA_HOME", "data"),
+                      ("XDG_CACHE_HOME", "cache"), ("XDG_RUNTIME_DIR", "runtime")):
+        directory = tmp_path / name
+        directory.mkdir(mode=0o700)
+        monkeypatch.setenv(key, str(directory))
+    for key in tuple(os.environ):
+        if key.startswith("ODIN_DESKTOP_") or key in {
+            "DBUS_SESSION_BUS_ADDRESS", "DISPLAY", "WAYLAND_DISPLAY",
+        }:
+            monkeypatch.delenv(key, raising=False)
+
+
+def test_plain_distribution_test_leaves_inherited_home_and_xdg_untouched(tmp_path):
+    sentinel = tmp_path / "inherited"
+    sentinel.mkdir(mode=0o700)
+    env = {key: value for key, value in os.environ.items()
+           if not key.startswith("ODIN_DESKTOP_")}
+    env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    home = sentinel / "home"
+    home.mkdir(mode=0o700)
+    env["HOME"] = str(home)
+    for key, name in (("XDG_CONFIG_HOME", "config"), ("XDG_DATA_HOME", "data"),
+                      ("XDG_CACHE_HOME", "cache")):
+        directory = sentinel / name
+        directory.mkdir(mode=0o700)
+        env[key] = str(directory)
+    before = sorted(str(path.relative_to(sentinel)) for path in sentinel.rglob("*"))
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+         "-p", "pytest_asyncio.plugin",
+         "tests/test_desktop_final_distribution.py::"
+         "test_real_background_disabled_gate_precedes_store_skill_effect[ingest_document]"],
+        cwd=ROOT, env=env, capture_output=True, text=True, timeout=60, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert sorted(str(path.relative_to(sentinel)) for path in sentinel.rglob("*")) == before
+
+
 @pytest.fixture(scope="module")
 def private_wheel(tmp_path_factory):
     staging = tmp_path_factory.mktemp("private-wheel")

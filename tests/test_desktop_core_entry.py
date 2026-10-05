@@ -74,6 +74,40 @@ def test_app_bootstrap_retains_app_files_without_importing_authority(tmp_path):
     assert not authority.accepts(context)
 
 
+@pytest.mark.parametrize("area,name", [("data", "drafts.json.tmp"),
+                                      ("config", "app-state.json.tmp")])
+def test_app_bootstrap_retains_interrupted_app_save_without_reading_it(tmp_path, area, name):
+    paths = ProfilePaths.from_xdg(environ={}, home=tmp_path)
+    scaffold(paths)
+    root = paths.data_dir if area == "data" else paths.config_dir
+    leftover = root / name
+    leftover.write_bytes(b"incomplete opaque app save")
+    authority = OwnerAuthority(paths, app_bootstrap=True)
+    try:
+        context = authority.authenticate_local(peer_uid=os.geteuid())
+        assert authority.accepts(context)
+        assert leftover.read_bytes() == b"incomplete opaque app save"
+    finally:
+        authority.release_runtime()
+
+
+@pytest.mark.parametrize("name", ["engine.sqlite.tmp", "config.yml.tmp", "unknown.tmp"])
+def test_app_bootstrap_does_not_ignore_arbitrary_temporary_engine_state(tmp_path, name):
+    paths = ProfilePaths.from_xdg(environ={}, home=tmp_path)
+    scaffold(paths)
+    (paths.data_dir / name).write_text("not app scaffolding")
+    with pytest.raises(ValueError, match="existing state"):
+        OwnerAuthority(paths, app_bootstrap=True)
+
+
+def test_app_bootstrap_refuses_linked_drafts_temporary_file(tmp_path):
+    paths = ProfilePaths.from_xdg(environ={}, home=tmp_path)
+    scaffold(paths)
+    (paths.data_dir / "drafts.json.tmp").symlink_to(paths.data_dir / "drafts.json")
+    with pytest.raises(PermissionError, match="unsafe app bootstrap"):
+        OwnerAuthority(paths, app_bootstrap=True)
+
+
 def test_non_app_authority_still_refuses_existing_state(tmp_path):
     paths = ProfilePaths.from_xdg(environ={}, home=tmp_path)
     scaffold(paths)
@@ -281,3 +315,189 @@ def test_entry_failure_enters_finalization_before_any_error_logging(tmp_path, mo
         entry.main()
     assert failed.value.code == 1
     assert stages == ["finalize", "release"]
+
+
+@pytest.mark.parametrize("failure_kind", ["permission", "secret", "hostile"])
+def test_entry_reports_scrubbed_failure_only_under_armed_watchdog(
+    tmp_path, monkeypatch, capsys, failure_kind,
+):
+    import logging
+
+    from src import __main__ as entry
+    from src.desktop import core
+
+    logger = logging.getLogger("odin.desktop")
+    monkeypatch.setattr(logger, "handlers", list(logger.handlers))
+
+    stages = []
+    secret = "credential-fixture-never-print"
+    path = tmp_path / "cache/odin-desktop"
+
+    class HostileMeta(type):
+        def __hash__(cls):
+            raise AssertionError("must not hash an exception's type")
+
+    class HostileError(Exception, metaclass=HostileMeta):
+        def __str__(self):
+            raise AssertionError("must not stringify arbitrary exceptions")
+
+        def __repr__(self):
+            raise AssertionError("must not repr arbitrary exceptions")
+
+    failures = {
+        "permission": PermissionError(13, "foreign profile ancestor", str(path)),
+        "secret": RuntimeError(secret),
+        "hostile": HostileError(secret),
+    }
+    monkeypatch.setattr(entry.sys, "argv", ["desktop", "--socket", str(tmp_path / "run.sock"),
+                         "--token-file", str(tmp_path / "config/ipc.token"), "--profile", "work",
+                         "--data-dir", str(tmp_path / "data")])
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    for key in ("ODIN_DESKTOP_PROFILE", "ODIN_DESKTOP_TOKEN_FILE", "ODIN_DESKTOP_DATA_DIR"):
+        monkeypatch.setenv(key, "unselected-fixture")
+    monkeypatch.setattr(entry, "_enable_process_containment", lambda log: True)
+
+    class Reaper:
+        def start(self):
+            pass
+
+        async def stop(self):
+            pass
+
+        def drain_at_teardown(self):
+            assert stages == ["armed"]
+            return 0, True
+
+    class Service:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def run(self):
+            raise failures[failure_kind]
+
+        def release_runtime(self):
+            stages.append("released")
+
+    def arm(code):
+        assert code == 1
+        assert "Odin stopped" not in capsys.readouterr().err
+        stages.append("armed")
+        return object()
+
+    def disarm(watchdog, code):
+        assert code == 1
+        output = capsys.readouterr().err
+        assert secret not in output
+        assert len(output.splitlines()) == 1
+        if failure_kind == "permission":
+            assert "PermissionError" in output
+            assert "foreign profile ancestor" in output
+            assert str(path) in output
+        elif failure_kind == "secret":
+            assert "RuntimeError" in output
+            assert str(tmp_path / "data") in output
+        else:
+            assert "startup_failure" in output
+        stages.append("disarmed")
+
+    monkeypatch.setattr(entry, "AdoptedZombieReaper", Reaper)
+    monkeypatch.setattr(core, "CoreService", Service)
+    monkeypatch.setattr(entry, "_arm_finalize_watchdog", arm)
+    monkeypatch.setattr(entry, "_disarm_finalize_watchdog", disarm)
+    with pytest.raises(SystemExit) as failed:
+        entry.main()
+    assert failed.value.code == 1
+    assert stages == ["armed", "disarmed", "released"]
+
+
+@pytest.mark.asyncio
+async def test_real_core_accepts_node_style_socketpair_stdin_and_exits_on_parent_eof():
+    import asyncio
+    import socket
+    import sys
+    import tempfile
+
+    from tests.test_desktop_core_lifecycle import profile, request, wait_connected
+
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        paths, socket_path, token_file = profile(root)
+        parent, child = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+        process = None
+        writer = None
+        try:
+            environment = {
+                "PATH": os.environ["PATH"], "HOME": str(root), "LANG": "C.UTF-8",
+                "XDG_CONFIG_HOME": str(root / "config"),
+                "XDG_DATA_HOME": str(root / "data"), "XDG_CACHE_HOME": str(root / "cache"),
+                "PYTHONDONTWRITEBYTECODE": "1",
+            }
+            process = await asyncio.create_subprocess_exec(
+                sys.executable, "-m", "src", "--socket", str(socket_path),
+                "--token-file", str(token_file), "--profile", paths.profile_id,
+                "--data-dir", str(paths.data_dir), stdin=child,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                env=environment, cwd=Path(__file__).resolve().parents[1],
+            )
+            child.close()
+            reader, writer, welcome = await wait_connected(process, socket_path)
+            assert welcome["t"] == "welcome"
+            parent.sendall(b"supervisor alive\n")
+            status = await request(reader, writer, "status.get")
+            assert status["result"]["phase"] == "ready"
+            parent.close()
+            _, stderr = await asyncio.wait_for(process.communicate(), 10)
+            assert process.returncode == 0, stderr
+            assert not socket_path.exists()
+        finally:
+            parent.close()
+            child.close()
+            if writer is not None:
+                writer.close()
+                await writer.wait_closed()
+            if process is not None and process.returncode is None:
+                await asyncio.wait_for(process.communicate(), 15)
+
+
+@pytest.mark.asyncio
+async def test_parent_link_refuses_regular_files_and_datagram_sockets(tmp_path):
+    import socket
+
+    from src.desktop.lifecycle import CoreLifetime
+
+    lifetime = CoreLifetime()
+    with (tmp_path / "not-a-parent").open("w+") as regular:
+        with pytest.raises(ValueError, match="supervised"):
+            lifetime.watch_parent(regular.fileno())
+    with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as datagram:
+        with pytest.raises(ValueError, match="supervised"):
+            lifetime.watch_parent(datagram.fileno())
+    assert lifetime.admitting
+    lifetime.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unsafe", [False, True])
+async def test_real_core_start_failure_names_credential_path_without_credential(unsafe):
+    import asyncio
+    import tempfile
+
+    from tests.test_desktop_core_lifecycle import launch, profile
+
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        paths, socket_path, token_file = profile(root)
+        token = token_file.read_bytes()
+        if unsafe:
+            token_file.chmod(0o644)
+        else:
+            token_file.unlink()
+        process = await launch(paths, socket_path, token_file, root)
+        _, stderr = await asyncio.wait_for(process.communicate(), 10)
+        assert process.returncode == 1
+        assert len(stderr.splitlines()) == 1
+        assert b"Odin stopped:" in stderr
+        assert (b"PermissionError" if unsafe else b"FileNotFoundError") in stderr
+        assert str(token_file).encode() in stderr
+        assert token not in stderr

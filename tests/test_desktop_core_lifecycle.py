@@ -182,15 +182,15 @@ async def test_command_refusals_and_shutdown_receipts_survive_restart_without_re
                 else:
                     assert result["result"]["core_instance_id"] != first_instance
                 refused = await request(
-                    reader, writer, "conversations.create", {"title": "test"}, refused_id,
+                    reader, writer, "runtime.shutdown", {}, refused_id,
                 )
-                assert refused["error"]["code"] == "capability_unavailable"
+                assert refused["error"]["code"] == "bad_request"
                 if not restart:
                     original_refusal = refused
                 else:
                     assert refused == original_refusal
                 conflict = await request(
-                    reader, writer, "conversations.create", {"title": "changed"}, refused_id,
+                    reader, writer, "runtime.shutdown", {"reason": "now valid"}, refused_id,
                 )
                 assert conflict["error"]["code"] == "id_conflict"
                 conflict_read = await request(reader, writer, "status.get", command_id=refused_id)

@@ -227,16 +227,20 @@ class CommandJournal:
         self.store = store
 
     def check(self, command_id: str, method: str, params: Any) -> dict | None:
-        """Replay/check an existing identity without reserving an uncached read."""
+        """Read an existing identity without reserving or opening a write transaction.
+
+        This thread-confined SELECT cannot span an await. Admission still performs
+        its own transactional identity check before reserving any new command.
+        """
         try:
             try:
                 binding = "json:" + canonical_json([self.store.profile_id, method, params])
             except (ValueError, TypeError, UnicodeError, RecursionError):
                 binding = "invalid:" + _invalid_binding([self.store.profile_id, method, params])
-            with self.store.transaction() as connection:
-                row = connection.execute("SELECT * FROM command_receipts WHERE command_id=?",
-                                         (command_id,)).fetchone()
-                return self._replay(row, binding) if row is not None else None
+            row = self.store.connection.execute(
+                "SELECT * FROM command_receipts WHERE command_id=?", (command_id,),
+            ).fetchone()
+            return self._replay(row, binding) if row is not None else None
         except (JournalStorageError, sqlite3.Error, OSError):
             return response_error("storage_unavailable", "Durable command storage is unavailable",
                                   "outcome_unknown")

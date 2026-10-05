@@ -95,15 +95,16 @@ class OwnerAuthority:
                 raise PermissionError("unsafe app bootstrap file")
 
         config, data = set(), set()
-        for name in ("ipc.token", "app-state.json"):
+        for name in ("ipc.token", "app-state.json", "app-state.json.tmp"):
             path = self.paths.config_dir / name
             if path.exists() or path.is_symlink():
                 owned_file(path, token=name == "ipc.token")
                 config.add(path)
-        drafts = self.paths.data_dir / "drafts.json"
-        if drafts.exists() or drafts.is_symlink():
-            owned_file(drafts)
-            data.add(drafts)
+        for name in ("drafts.json", "drafts.json.tmp"):
+            drafts = self.paths.data_dir / name
+            if drafts.exists() or drafts.is_symlink():
+                owned_file(drafts)
+                data.add(drafts)
         logs = self.paths.data_dir / "logs"
         if logs.exists() or logs.is_symlink():
             from .paths import private_directory

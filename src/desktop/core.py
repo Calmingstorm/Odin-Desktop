@@ -5,11 +5,12 @@ No engine, conversation store or execution service is admitted by this graph yet
 from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 
 from ..permissions.manager import PermissionManager
 from .authority import OwnerAuthority
-from .commands import CommandJournal, JournalStore
+from .commands import CommandJournal, JournalStorageError, JournalStore
 from .events import EventJournal
 from .ipc import IpcServer
 from .ipc_auth import load_token
@@ -18,7 +19,22 @@ from .paths import ProfilePaths
 
 VERSION = "0.1.0.dev1"
 CAPABILITIES = ("status.get", "events.subscribe", "runtime.shutdown")
-READ_METHODS = {"status.get", "conversations.list", "messages.list", "conversation.snapshot"}
+READ_METHODS = frozenset({
+    "status.get", "events.subscribe", "conversations.list", "messages.list",
+    "conversation.snapshot", "usage.get", "work.list", "settings.schema", "search.query",
+    # Pending minor-3 protocol names, not invented aliases or promised capabilities.
+    "messages.around", "artifacts.read", "reports.page", "tool.detail", "tool.output",
+    "codex.accounts.list", "models.agents.get", "models.discover", "personality.get",
+    "tools.list", "tools.timeouts.get", "skills.list", "skills.get", "skills.config.get",
+    "mcp.list", "mcp.status", "mcp.tools", "webhooks.outbound.list",
+    "hosts.list", "hosts.references", "schedules.list", "schedules.history",
+    "schedules.validate_cron", "memory.list", "memory.get", "lists.list", "lists.get",
+    "knowledge.list", "knowledge.search", "knowledge.versions", "audit.query",
+    "audit.verify", "health.get", "logs.search", "turn_state.list", "computer.status",
+})
+# Receipt bodies are bounded by age; identities and unresolved outcomes are not.
+RECEIPT_RETENTION = 7 * 24 * 60 * 60
+RECEIPT_PRUNE_INTERVAL = 60 * 60
 
 
 def failure(code: str, message: str) -> dict:
@@ -91,6 +107,7 @@ class CoreService:
         self._closed = False
         self._quiescing_persisted = False
         self._release_runtime_on_close = release_runtime_on_close
+        self._receipt_pruner: asyncio.Task | None = None
 
     def status(self) -> dict:
         return {
@@ -129,7 +146,21 @@ class CoreService:
         await self.server.start()
         self.phase = "ready"
         async with self._serial:
+            self.commands.prune(time.time() - RECEIPT_RETENTION)
             await self._status_event()
+        self._receipt_pruner = asyncio.create_task(self._prune_receipts())
+
+    async def _prune_receipts(self) -> None:
+        """Serialize periodic retention with admission, and fail closed on storage loss."""
+        try:
+            while self.lifetime.admitting:
+                await asyncio.sleep(RECEIPT_PRUNE_INTERVAL)
+                async with self._serial:
+                    if not self.lifetime.admitting:
+                        return
+                    self.commands.prune(time.time() - RECEIPT_RETENTION)
+        except JournalStorageError:
+            self.lifetime.request_stop("storage_unavailable")
 
     async def _status_event(self) -> None:
         event = self.events.append(
@@ -152,10 +183,15 @@ class CoreService:
             command_id, method, params = request["id"], request["method"], request["params"]
             if not self.permissions.is_owner(self.authority.owner_id):
                 raise PermissionError("profile owner authority is no longer current")
-            if method in READ_METHODS or method == "events.subscribe":
-                bound = self.commands.check(command_id, method, params)
-                if bound is not None:
-                    return {"t": "res", "id": command_id, **bound}
+            # Existing identities win even if their method is no longer served.
+            # Unknown capabilities must not reserve IDs or persist refusal bodies.
+            bound = self.commands.check(command_id, method, params)
+            if bound is not None:
+                return {"t": "res", "id": command_id, **bound}
+            if method not in CAPABILITIES:
+                return {"t": "res", "id": command_id, **failure(
+                    "capability_unavailable", "Service is not available yet",
+                )}
             if method == "events.subscribe":
                 invalid = validate_params(method, params)
                 if invalid:
@@ -222,6 +258,12 @@ class CoreService:
         self.lifetime.request_stop("startup_failed")
         self.lifetime.close()
         try:
+            if self._receipt_pruner is not None:
+                self._receipt_pruner.cancel()
+                try:
+                    await self._receipt_pruner
+                except asyncio.CancelledError:
+                    pass
             if self.server is not None:
                 await self.server.close_listener()
                 try:

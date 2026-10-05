@@ -1681,6 +1681,7 @@
       "name": "phase2-core-transport",
       "files": [
         "tests/test_desktop_core_entry.py",
+        "tests/test_desktop_receipt_retention.py",
         "tests/test_desktop_core_lifecycle.py",
         "tests/test_desktop_ipc.py",
         "tests/test_desktop_command_journal.py",

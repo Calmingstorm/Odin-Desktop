@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import os
 import signal
+import socket
 import stat
 
 
@@ -34,11 +35,19 @@ class CoreLifetime:
             self.stopping.set()
 
     def watch_parent(self, stdin_fd: int) -> None:
-        """Use readiness notification, never an executor blocked in pipe.read()."""
+        """Watch a pipe or Node-style stream socket, never a blocking worker."""
         if self._stdin_fd is not None:
             raise RuntimeError("parent link is already watched")
-        if not stat.S_ISFIFO(os.fstat(stdin_fd).st_mode):
-            raise ValueError("core parent link must be a supervised stdin pipe")
+        mode = os.fstat(stdin_fd).st_mode
+        if stat.S_ISSOCK(mode):
+            # Node's child_process.spawn(stdio=['pipe', ...]) uses socketpairs
+            # on Linux. Inspect a duplicate without taking ownership of stdin.
+            with socket.socket(fileno=os.dup(stdin_fd)) as parent:
+                stream = parent.getsockopt(socket.SOL_SOCKET, socket.SO_TYPE) == socket.SOCK_STREAM
+            if not stream:
+                raise ValueError("core parent link must be a supervised stream")
+        elif not stat.S_ISFIFO(mode):
+            raise ValueError("core parent link must be a supervised stdin pipe or stream socket")
         loop = asyncio.get_running_loop()
         loop.add_reader(stdin_fd, self._parent_readable)
         self._loop = loop

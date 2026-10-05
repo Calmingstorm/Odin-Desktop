@@ -1,6 +1,7 @@
 """Explicit Linux XDG namespaces. Never adopt another installation's state."""
 from __future__ import annotations
 
+import errno
 import os
 import re
 import stat
@@ -10,29 +11,64 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+def _namespace_directories(path: Path) -> frozenset[Path]:
+    """Only the paired odin-desktop/<valid-profile> components are ours."""
+    parts = path.parts
+    return frozenset(
+        Path(*parts[:end])
+        for index, name in enumerate(parts[:-1])
+        if name == "odin-desktop" and re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", parts[index + 1]
+        )
+        for end in (index + 1, index + 2)
+    )
+
+
+def _repair_namespace_directory(fd: int, path: Path, namespace: frozenset[Path],
+                                *, kind: str) -> None:
+    if path not in namespace:
+        return
+    info = os.fstat(fd)
+    if info.st_uid != os.geteuid():
+        raise PermissionError(errno.EACCES, f"foreign {kind} ancestor", str(path))
+    if stat.S_IMODE(info.st_mode) != 0o700:
+        os.fchmod(fd, 0o700)
+
+
 def private_directory(path: Path) -> None:
-    """Provision through no-follow descriptors; never repair/adopt foreign state."""
+    """Provision no-follow; repair only owned namespace components, never ancestors."""
     if not path.is_absolute() or ".." in path.parts:
         raise ValueError("private paths must be absolute")
+    namespace = _namespace_directories(path)
+    current = Path("/")
     fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
     try:
         for index, name in enumerate(path.parts[1:]):
+            current /= name
             try:
                 os.mkdir(name, mode=0o700, dir_fd=fd)
             except FileExistsError:
                 pass
-            child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            try:
+                child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            except OSError as exc:
+                raise OSError(exc.errno, exc.strerror, str(current)) from None
             os.close(fd)
             fd = child
+            _repair_namespace_directory(fd, current, namespace, kind="profile")
             info = os.fstat(fd)
             terminal = index == len(path.parts) - 2
             mode = stat.S_IMODE(info.st_mode)
             if info.st_uid not in {0, os.geteuid()}:
-                raise PermissionError("foreign profile ancestor")
+                raise PermissionError(errno.EACCES, "foreign profile ancestor", str(current))
             if mode & 0o022 and not (info.st_mode & stat.S_ISVTX and not terminal):
-                raise PermissionError("profile ancestor writable by others")
+                raise PermissionError(
+                    errno.EACCES, "profile ancestor writable by others", str(current),
+                )
             if terminal and (info.st_uid != os.geteuid() or mode != 0o700):
-                raise PermissionError("profile directory must be owner-private (0700)")
+                raise PermissionError(
+                    errno.EACCES, "profile directory must be owner-private (0700)", str(current),
+                )
     finally:
         os.close(fd)
 

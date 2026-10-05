@@ -2,7 +2,10 @@
 
 Core serializes subscribe response + replay + setting subscribed and publish with
 its journal lock. A dispatcher returning None has already sent its own response.
-Reads are sequential per connection, never serialized across all connections.
+The transport reads requests sequentially per connection. Step-one CoreService
+also serializes dispatch across all connections, including awaited replay sends.
+Future long-running methods need safe per-request concurrency without weakening
+command admission or snapshot/replay/publication ordering.
 """
 from __future__ import annotations
 

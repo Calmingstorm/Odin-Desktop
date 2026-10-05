@@ -441,6 +441,51 @@ def _emergency_exit(
     exit_now(exit_code or 1)
 
 
+def _startup_diagnostic(exc: BaseException, fallback_path: str, token_path: str) -> str:
+    """Bounded, inert failure metadata, never exception repr/str or credentials.
+
+    Only exact built-in exception types and fixed refusal reasons are emitted.
+    The finalizer's existing stop log writes it with its watchdog already armed.
+    """
+    from src.desktop.commands import JournalStorageError
+
+    kinds = (
+        (PermissionError, "PermissionError"), (FileNotFoundError, "FileNotFoundError"),
+        (FileExistsError, "FileExistsError"), (BlockingIOError, "BlockingIOError"),
+        (OSError, "OSError"), (ValueError, "ValueError"), (RuntimeError, "RuntimeError"),
+        (JournalStorageError, "JournalStorageError"),
+    )
+    # Identity comparisons avoid even a hostile subclass metaclass's __hash__.
+    kind = next((name for cls, name in kinds if type(exc) is cls), "startup_failure")
+    path = fallback_path
+    reason = "core startup failed"
+    if kind != "startup_failure":
+        args = exc.args
+        allowed = {
+            "foreign profile ancestor", "profile ancestor writable by others",
+            "profile directory must be owner-private (0700)",
+            "foreign IPC ancestor", "IPC ancestor writable by others",
+            "IPC parent must be owner-private (0700)", "unsafe IPC credential file",
+            "invalid IPC credential", "unsafe profile identity record",
+            "unsafe profile identity lock", "unsafe app bootstrap file",
+            "existing state has no identity; explicit recovery required",
+            "core parent link must be a supervised stdin pipe or stream socket",
+            "core parent link must be a supervised stream",
+        }
+        message = args[1] if len(args) > 1 and type(args[0]) is int else args[0] if args else None
+        if type(message) is str and message in allowed:
+            reason = message
+        if reason in {"unsafe IPC credential file", "invalid IPC credential"}:
+            path = token_path
+        if any(type(exc) is cls for cls in (PermissionError, FileNotFoundError, FileExistsError,
+                                           BlockingIOError, OSError)) and type(exc.filename) is str:
+            path = exc.filename
+    # A pathname can carry control characters or be arbitrarily long. The line
+    # is inert, bounded and log-injection-safe even for malformed local paths.
+    path = "".join(c if c.isprintable() else "?" for c in path[:1024])
+    return f"Odin stopped: {kind}: {reason}: {path}"
+
+
 def main() -> None:
     """Run one profile core, then prove the retained finalization barrier."""
     if "--version" in sys.argv or "-V" in sys.argv:
@@ -460,6 +505,15 @@ def main() -> None:
     log = logging.getLogger("odin.desktop")
     # App captures stderr; no second file handler or live logging configuration.
     handler = logging.StreamHandler(sys.stderr)
+    stop_diagnostic = None
+
+    def final_stop_record(record) -> bool:
+        if stop_diagnostic is not None and record.msg == "Odin stopped":
+            record.msg = stop_diagnostic
+            record.args = ()
+        return True
+
+    handler.addFilter(final_stop_record)
     log.addHandler(handler)
     log.setLevel(logging.INFO)
     if not _enable_process_containment(log):
@@ -483,9 +537,13 @@ def main() -> None:
         exit_code = loop.run_until_complete(supervised())
     except KeyboardInterrupt:
         exit_code = 130
-    except Exception:
+    except Exception as exc:
         # No synchronous I/O before the finalization watchdog is armed.
         # Even scrubbed logging can block on a supervisor's full stderr pipe.
+        _PARKED_FOR_EXIT.append(exc)
+        stop_diagnostic = _startup_diagnostic(
+            exc, str(options.paths.data_dir), str(options.token_file),
+        )
         exit_code = 1
     finally:
         _finalize_and_exit(loop, reaper, log, exit_code)

@@ -6,7 +6,8 @@ Implementation is one review PR, not a deployment or a claim of complete Phase 2
 ## Implemented boundary
 
 - App launch: `python -m src --socket <path> --token-file <path> --profile <id> --data-dir <path>`.
-  The app creates the token; the core never creates or repairs it. stdin must be the app-held pipe.
+  The app creates the token; the core never creates or repairs it. stdin must be an app-held FIFO or stream socket.
+  Linux Node `spawn(..., {stdio: ['pipe', 'pipe', 'pipe']})` supplies a Unix stream socketpair, not a FIFO.
 - Profile roots match the app and protocol (`odin-desktop/<profile>`), without Phase 1's extra `profiles` component.
   Explicit token/data roots are shared by runtime path resolution. App logs, drafts and window preferences are
   scaffolding, not imported engine state or authority.
@@ -16,6 +17,9 @@ Implementation is one review PR, not a deployment or a claim of complete Phase 2
   cleanup. Only `status.get`, `events.subscribe` and `runtime.shutdown` are advertised as ready.
 - FULL-synchronous durable command admission, final receipts and permanent binding tombstones. Callback results and
   events commit together. A pending/unknown command never automatically replays; unknown receipts are not pruned.
+  Reads and unavailable methods do not reserve command IDs or write durable receipts. Existing identities remain
+  authoritative even for methods no longer served. Known final bodies expire after seven days at startup and hourly;
+  bindings remain permanent and pending/unknown outcomes never expire.
   This is not an exactly-once external-effect guarantee.
 - Durable profile sequence, retained cursor interval, replay/reset and response-before-replay/live serialization.
   Owner revocation is checked for historical replay as well as live events.
@@ -59,3 +63,48 @@ Claude's protocol/design documents and app files are unchanged.
 No `/opt/odin`, live config/data, live service, active-desktop input, destructive command inputs, deployment,
 merge, self-restart or attribution trailers. `process_manager` and `local_supervisor` remain unchanged.
 Native desktop/app bundling and all later Phase 2 steps require their own review and qualification.
+
+## PR #14 first review fixes
+
+Review baseline: `81d00a151cdfb9dde25ddcbf04d1530e9e13658a`.
+
+1. **Node parent link:** accept FIFO or stream socket stdin; reject regular files and datagram sockets. A real
+   `python -m src` subprocess with socketpair stdin proves handshake, ready status and orderly parent-EOF exit.
+2. **Startup diagnostics:** the existing final stop log emits one bounded line with failure kind, a fixed refusal
+   reason when recognized, and involved path, only while the existing finalization watchdog is armed. Arbitrary
+   exception text/repr, hostile class hashing and credential contents are never emitted. Containment/finalization
+   helper bodies remain source-identical. Actual missing/unsafe-token subprocess tests verify the output.
+3. **Namespace parity:** tighten only user-owned `odin-desktop/<valid-profile>` namespace components to `0700`,
+   through held no-follow descriptors. Foreign owners and links remain refused with involved path; unrelated
+   ancestors are not chmodded. SSH socket parents are privately provisioned instead of inheriting umask `002`.
+4. **Receipt cost/retention:** unavailable methods refuse without a receipt, reads use read-only identity lookup,
+   and startup/hourly pruning expires only known final bodies. Old identities, conflicts and unresolved outcomes
+   stay authoritative. Storage failure during maintenance stops admission; the task closes before the journal.
+5. **Serialization:** corrected the transport docstring. This step still serializes dispatch across connections.
+   Before adding long-running services, partition safe per-request work from admission/snapshot/replay/publication
+   serialization and prove status/keepalive responsiveness under a stalled or long-running request.
+6. **Test HOME isolation:** the distribution module's autouse fixture isolates HOME/XDG even for plain pytest.
+   A nested plain targeted invocation proves the inherited temporary HOME/XDG trees remain untouched.
+7. **Interrupted app save:** recognize only `drafts.json.tmp` and `app-state.json.tmp` as opaque owned scaffolding.
+   Do not read, delete or import them; links, arbitrary `.tmp` files and engine state still refuse bootstrap.
+
+### Regression evidence
+
+- Final entry regressions copied into a disposable unchanged-baseline archive: **6 failed**, specifically Node
+  socketpair launch, all three scrubbed diagnostic cases and both interrupted-save cases. The socketpair process
+  exited 1 and the original diagnostic was only `Odin stopped`.
+  Log: `/home/odin/reviews/desktop-step1-round1-entry-final-baseline.log`.
+- Namespace/HOME regressions before the fix: **10 failed, 11 passed, 84 deselected**; final touched files:
+  **115 passed**. Logs: `/tmp/desktop-path-regressions-before.iQZkEe/before-corrected.log` and
+  `/tmp/desktop-path-regressions-final.anSPSI/final.log`.
+- Final receipt regression file against an unchanged-baseline archive: **55 failed, 2 passed**. Final touched
+  receipt/lifecycle/journal/IPC run: **170 passed**. Logs: `/tmp/desktop-receipt-final-baseline.log` and
+  `/tmp/desktop-receipt-final-after.log`.
+- Entry/lifecycle/root-byte tests after fixes: **63 passed**, lifecycle coverage **94%**, authority **90%**.
+  Log: `/home/odin/reviews/desktop-step1-round1-entry-combined.log`.
+- Final combined touched suites: **324 passed**, combined `src.desktop` coverage **93%**. An earlier combined run
+  caught test-only environment leakage from the new entry mock and missing explicit asyncio plugin loading in the
+  nested pytest probe. Both fixtures were corrected, not production assertions or ancestor permissions.
+  Log: `/home/odin/reviews/desktop-step1-round1-final-touched.log`.
+- All execution uses isolated PID/mount namespaces and non-live HOME/XDG. These incremental runs are not the full
+  gate; the final fresh-checkout gate result is recorded below after it completes.

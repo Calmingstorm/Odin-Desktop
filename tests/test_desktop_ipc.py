@@ -490,6 +490,91 @@ def test_token_surrogate_and_relative_path_scrubbed():
         ipc_auth.private_parent("relative/core.sock")
 
 
+@pytest.mark.parametrize("mode", [0o775, 0o755, 0o777])
+def test_token_validation_repairs_namespace_before_core_provisioning(tmp_path, mode):
+    paths = ProfilePaths.from_xdg(environ={}, home=tmp_path)
+    paths.config_dir.mkdir(parents=True)
+    paths.config_dir.parent.parent.chmod(0o755)
+    unrelated_mode = paths.config_dir.parent.parent.stat().st_mode
+    paths.config_dir.parent.chmod(mode)
+    paths.config_dir.chmod(mode)
+    token = paths.config_dir / "ipc.token"
+    token.write_text("a" * 64)
+    token.chmod(0o600)
+    assert not paths.data_dir.exists()
+    assert ipc_auth.load_token(token) == "a" * 64
+    for path in (paths.config_dir, paths.config_dir.parent):
+        assert stat.S_IMODE(path.stat().st_mode) == 0o700
+    assert paths.config_dir.parent.parent.stat().st_mode == unrelated_mode
+    assert not paths.data_dir.exists()
+
+
+@pytest.mark.parametrize("create", [False, True])
+def test_private_parent_refuses_unrelated_writable_ancestor(tmp_path, create):
+    shared = tmp_path / "shared"
+    directory = shared / "odin-desktop" / "default"
+    directory.mkdir(parents=True)
+    shared.chmod(0o775)
+    with pytest.raises(PermissionError, match="writable"):
+        ipc_auth.private_parent(directory / "ipc.token", create=create)
+    assert stat.S_IMODE(shared.stat().st_mode) == 0o775
+
+
+@pytest.mark.parametrize("component", ["odin-desktop", "default"])
+@pytest.mark.parametrize("owner", ["foreign", "root"])
+def test_private_parent_refuses_foreign_namespace(tmp_path, monkeypatch, component, owner):
+    directory = tmp_path / "odin-desktop" / "default"
+    directory.mkdir(parents=True)
+    directory.parent.chmod(0o700)
+    foreign = directory.parent if component == "odin-desktop" else directory
+    foreign.chmod(0o775)
+    inode = foreign.stat().st_ino
+    original = os.fstat
+
+    def foreign_owner(fd):
+        info = original(fd)
+        if info.st_ino == inode:
+            values = list(info)
+            values[4] = 0 if owner == "root" else os.geteuid() + 1
+            return os.stat_result(values)
+        return info
+
+    monkeypatch.setattr(os, "fstat", foreign_owner)
+    with pytest.raises(PermissionError, match="foreign"):
+        ipc_auth.private_parent(directory / "ipc.token")
+    assert stat.S_IMODE(foreign.stat().st_mode) == 0o775
+
+
+@pytest.mark.parametrize("component", ["odin-desktop", "default"])
+def test_private_parent_refuses_namespace_link(tmp_path, component):
+    outside = tmp_path / "outside"
+    outside.mkdir(mode=0o700)
+    directory = tmp_path / "odin-desktop" / "default"
+    link = directory.parent if component == "odin-desktop" else directory
+    link.parent.mkdir(exist_ok=True)
+    link.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(OSError) as refusal:
+        ipc_auth.private_parent(directory / "ipc.token")
+    assert refusal.value.filename == str(link)
+    assert list(outside.iterdir()) == []
+
+
+@pytest.mark.parametrize("kind", ["missing", "unsafe", "invalid"])
+def test_token_refusals_report_path_never_credential(tmp_path, kind):
+    token = tmp_path / "ipc.token"
+    if kind != "missing":
+        token.write_text("not-a-credential".ljust(64, "z"))
+        token.chmod(0o644 if kind == "unsafe" else 0o600)
+    with pytest.raises(OSError) as refusal:
+        ipc_auth.load_token(token)
+    assert refusal.value.filename == str(token)
+    assert "not-a-credential" not in str(refusal.value)
+    if kind == "missing":
+        assert isinstance(refusal.value, FileNotFoundError)
+    else:
+        assert isinstance(refusal.value, PermissionError)
+
+
 @pytest.mark.asyncio
 async def test_close_listener_preserves_subscribers_until_shutdown():
     async with fixture_server() as (server, token_file, _, _):
