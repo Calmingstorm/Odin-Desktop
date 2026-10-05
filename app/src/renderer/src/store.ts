@@ -881,9 +881,11 @@ export async function loadOlder(conversationId: string): Promise<void> {
   const oldest = view?.messages[0]
   if (!view || !view.hasData || !view.hasMore || view.loadingOlder || !oldest) return
   view.loadingOlder = true
+  const loadToken = view.loadToken
+  const epoch = state.recoveryEpoch
   const result = await window.odin.listMessages({ conversation_id: conversationId, before: oldest.id, limit: 100 })
   view.loadingOlder = false
-  if (state.views[conversationId] !== view) return
+  if (state.views[conversationId] !== view || view.loadToken !== loadToken || epoch !== state.recoveryEpoch) return
   if (!result.ok) return note(errorText(result))
   const known = new Set(view.messages.map((m) => m.id))
   view.messages = [...result.result.items.filter((m) => !known.has(m.id)), ...view.messages]
@@ -1212,11 +1214,18 @@ function applyToView(view: ConversationView, event: CoreEvent): void {
       const index = view.messages.findIndex((m) => m.id === message.id)
       if (index >= 0) view.messages[index] = message
       else view.messages.push(message)
+      // The real core's queued event carries a request binding, not a message ID.
+      // A replay may also deliver that event before this committed message.
+      if (message.role === 'user' && message.request_id) {
+        const queued = view.queued.find((q) => q.request_id === message.request_id)
+        if (queued) queued.message_id = message.id
+      }
       return
     }
     case 'request.queued':
       if (view.running?.request_id !== requestId && !view.queued.some((q) => q.request_id === requestId)) {
-        view.queued.push({ request_id: requestId, generation, message_id: String(p.message_id ?? '') })
+        const messageId = view.messages.find((m) => m.role === 'user' && m.request_id === requestId)?.id
+        view.queued.push({ request_id: requestId, generation, message_id: String(p.message_id ?? messageId ?? '') })
       }
       return
     case 'request.started':

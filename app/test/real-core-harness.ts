@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { Broker, type Welcome } from '../src/main/broker'
 import { ensureProfileDirs, ensureToken, profilePaths, type ProfilePaths } from '../src/main/paths'
+import { startCannedProvider } from './real-core-provider-fixture.mjs'
 
 const repository = resolve(__dirname, '../..')
 
@@ -69,6 +70,7 @@ export class RealCoreHarness {
   private output = ''
   private exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }> | null = null
   private readonly brokers = new Set<Broker>()
+  provider: Awaited<ReturnType<typeof startCannedProvider>> | null = null
 
   constructor() {
     this.python = enginePython()
@@ -97,7 +99,8 @@ export class RealCoreHarness {
     assertIsolated()
     if (this.running) throw new Error('Real core is already running.')
     this.output = ''
-    const child = spawn(this.python, ['-m', 'src', '--socket', this.paths.socketPath,
+    const launch = this.provider ? [join(repository, 'app/test/real-core-provider-entry.py')] : ['-m', 'src']
+    const child = spawn(this.python, [...launch, '--socket', this.paths.socketPath,
       '--token-file', this.paths.tokenPath, '--profile', this.paths.profileId, '--data-dir', this.paths.dataDir],
     { cwd: repository, env: this.env, stdio: ['pipe', 'pipe', 'pipe'] })
     this.process = child
@@ -114,6 +117,14 @@ export class RealCoreHarness {
       }
       return existsSync(this.paths.socketPath)
     }, 'real core socket creation')
+  }
+
+  async configureProvider(): Promise<void> {
+    if (this.running) throw new Error('Configure the canned provider before core startup.')
+    this.provider = await startCannedProvider({ root: join(this.root, 'provider') })
+    this.env.ODIN_REAL_CORE_ROOT = process.env.ODIN_REAL_CORE_ROOT
+    this.env.ODIN_REAL_CORE_OUTER_PID_NS = process.env.ODIN_REAL_CORE_OUTER_PID_NS
+    this.env.ODIN_REAL_CORE_PROVIDER_CONFIG = this.provider.configPath
   }
 
   broker(wrongToken = false): Broker {
@@ -173,6 +184,7 @@ export class RealCoreHarness {
         }
       }
     } finally {
+      await this.provider?.close()
       if (!this.running) rmSync(this.root, { recursive: true, force: true })
     }
   }

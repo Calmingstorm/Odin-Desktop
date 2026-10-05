@@ -37,9 +37,10 @@ async function toggle(entry: ToolEntry): Promise<void> {
   }
   if (!props.requestId) return
   expanded[id] = { loading: true, error: '', detail: null, output: { text: '', files: [], next: null, loading: false, error: '', eof: false } }
+  const pending = expanded[id]
   const result = await window.odin.toolDetail({ request_id: props.requestId, invocation_id: id })
   const current = expanded[id]
-  if (!current) return
+  if (!current || current !== pending) return
   current.loading = false
   if (result.ok) current.detail = result.result
   else current.error = result.error.message
@@ -48,9 +49,10 @@ async function toggle(entry: ToolEntry): Promise<void> {
 async function more(id: string, tool: string): Promise<void> {
   const current = expanded[id]
   const cursor = current?.output.next ?? current?.detail?.output.cursor
-  if (!current || !cursor || current.output.loading) return
+  if (!current || !cursor || current.output.loading || current.output.eof) return
   current.output.loading = true
   const result = await window.odin.toolOutput({ cursor, limit: OUTPUT_PAGE })
+  if (expanded[id] !== current) return
   current.output.loading = false
   if (!result.ok) {
     current.output.error = result.error.code === 'expired' ? 'Odin no longer keeps this output.' : result.error.message

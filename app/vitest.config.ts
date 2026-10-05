@@ -21,7 +21,7 @@ export default defineConfig({
   plugins: [clientVue()],
   test: {
     include: ['test/**/*.test.ts'],
-    exclude: ['test/real-core-contract.test.ts'],
+    exclude: ['test/real-core-contract.test.ts', 'test/renderer/real-core-renderer-contract.test.ts'],
     environment: 'node',
     testTimeout: 20000,
     hookTimeout: 20000

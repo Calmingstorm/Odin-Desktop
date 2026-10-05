@@ -1,10 +1,11 @@
 # Odin Desktop app (Electron)
 
 The desktop app: tray lifecycle (D3), the chat window, and the main-process broker that talks to Odin's core over
-the protocol in [`../docs/design/protocol.md`](../docs/design/protocol.md). P3.1 slice 1 connects the app to the real
-Phase 2 step-1 core: launch, authentication, status, durable event replay and orderly shutdown. Conversations,
-execution and management services are not served by step 1. Their screens show explicit unavailable states,
-not fixture records, empty successful datasets, or endless loading indicators.
+the protocol in [`../docs/design/protocol.md`](../docs/design/protocol.md). P3.1 slice 3 connects the existing chat
+to the real Phase 2 steps 2–4: conversations/transcript/search, guarded replies, tool activity and retained output,
+attachments/artifacts, and generation-bound Stop/Steer/Resume. Settings, management and background-work services
+not served by this stack still show explicit unavailable states, not fixture records, successful empty datasets,
+or endless loading indicators. This is a stacked integration slice, not full P3.1 or release qualification.
 
 ## Build and test
 
@@ -49,13 +50,32 @@ back to the caller's uid/gid, and only then import or launch engine code. The wh
 there; it never uses the active desktop or the user's profile. Missing Python, dependencies, engine, namespace
 support or required tools fail with an explanation. There are no silent skips or unisolated fallbacks.
 
-`smoke:real-core` checks real `status.get` version/phase/instance/capabilities and actual rendered status, exercises
-chat/search/work and every settings section's own service loads (including tools/timeouts, skills, MCP, hosts,
-schedules, personality, memory/lists, knowledge and each records panel), checks on-demand context reload, asserts explicit unavailable states and
-absence of fixture rows, raw capability errors, successful-empty claims or duplicate composer usage notices,
-then exits through normal `runtime.shutdown` and parent-EOF cleanup. Its evidence is printed as JSON. Set
-`ODIN_SMOKE_OUT` to retain screenshots of chat and every settings section plus a JSON evidence file alongside the
-named checkpoint; the default screenshots, evidence and profiles are discarded.
+The real gates use a canned HTTP/SSE OpenAI-compatible endpoint on loopback. The real core's
+`OpenAICompatibleClient`, guarded runner, original tools, durable delivery and controls execute; neither provider
+client nor tool results are mocked. No real account, ambient credential or live profile is used. Steps 2–4 do not
+load provider settings from the CLI yet, so the test-only `test/real-core-provider-entry.py` injects a disposable
+configuration through the core's existing `config_provider` seam while retaining its real CLI/lifecycle. It is
+not a production settings loader. Provider-backed tests stay out of `npm run check` and fail before engine imports
+unless the real-core isolation runner owns their PID namespace and throwaway HOME.
+
+`test:real-core` exercises immutable receipts, replay/watermarks, conversation CRUD/child/reset/search/jump,
+guarded publication, queueing, Stop/Steer receipts, successful same-request generation-2 Resume after an isolated
+core interruption, real tool-detail/output paging, file/image bytes, chunked attachment adoption/cancel and provider
+failure/recovery. The real Python domain-service contracts also exercise the renderer's catch-up and output reducers.
+
+`smoke:real-core` uses the rendered Electron app and named preload bridge to send a committed reply, inspect a real
+tool card and retained-output pages, upload a multi-chunk attachment, download a posted file and decode a posted
+image, observe provider failure, stop an exact request, steer one and queue a follow-up, search/jump, reset context,
+and exercise conversation lifecycle. It also checks honest unavailable Work and Settings screens, then exits
+through the existing normal shutdown path. Native file/save chooser selections are injected in main only under
+the isolated gate; their native UI, default-app launch and folder reveal are not qualified. Successful checkpoint
+Resume is covered by the contract gate, not claimed by the no-checkpoint smoke refusal. Set `ODIN_SMOKE_OUT` to
+retain a screenshot and adjacent `-evidence.json`; default evidence and profiles are discarded.
+
+At the slice's base, typed `continue` is still an ordinary submission rather than a resume control, and the later
+#22 failure-notice fixes have not reached #23. The app retains real failure outcomes and explains the Resume gap;
+the evidence identifies missing core failure notices rather than fabricating them. These backend handoffs must be
+merged from `phase-2/controls-resume` when they arrive, then the gates rerun.
 
 The fixture smoke gate explicitly clears real-core overrides, so it remains a fixture regression gate rather
 than accidentally running whichever core a developer shell last selected.

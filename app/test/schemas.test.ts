@@ -37,6 +37,7 @@ describe('bridge request validation', () => {
   it('binds controls to an exact request and generation', () => {
     const base = { control_command_id: uuid, conversation_id: 'c_1', request_id: 'r_1', generation: 1 }
     expect(parseRequest(controlSchema, base).ok).toBe(true)
+    expect(parseRequest(controlSchema, { ...base, generation: 0 }).ok).toBe(false)
     expect(parseRequest(controlSchema, { ...base, generation: -1 }).ok).toBe(false)
     expect(parseRequest(controlSchema, { control_command_id: uuid, conversation_id: 'c_1' }).ok).toBe(false)
   })
