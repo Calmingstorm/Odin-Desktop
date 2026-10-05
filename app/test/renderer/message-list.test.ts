@@ -1,6 +1,6 @@
 // The message list's scrolling, mounted with its real code and the real store over a fake bridge.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Conversation, ConversationSnapshot, Message, Result } from '../../src/shared/api'
+import type { Conversation, ConversationSnapshot, CoreEvent, Message, Result } from '../../src/shared/api'
 import { flush, heldFrames, mount, type Host, type Mounted } from './component-host'
 
 vi.mock('../../src/renderer/src/components/Message.vue', async () => {
@@ -43,6 +43,7 @@ let scroller: Host
 let frames: ReturnType<typeof heldFrames>
 /** Snapshots held back by conversation, until the test releases them. */
 let held: Map<string, (answer: Result<ConversationSnapshot>) => void>
+let deliverEvent: (event: CoreEvent) => void
 
 const HIT_TOP = 150
 
@@ -62,7 +63,7 @@ beforeEach(async () => {
         : Promise.resolve(snapshot(params.conversation_id)),
     messagesAround: async () => ({ ok: true, result: { items: [message('old')], has_before: true, has_after: true } }),
     markRead: async (params: { id: string }) => ({ ok: true, result: { conversation: conversation(params.id) } }),
-    onEvent: () => () => undefined,
+    onEvent: (listener: (event: CoreEvent) => void) => { deliverEvent = listener; return () => undefined },
     onAppState: () => () => undefined,
     onReceipt: () => () => undefined,
     onReset: () => () => undefined,
@@ -168,5 +169,55 @@ describe('review round 4: a newer navigation owns the view', () => {
     await settle()
     expect(scroller.scrolls.length).toBe(before)
     mounted = mount({ render: () => null }) // afterEach unmounts whatever is mounted
+  })
+})
+
+describe('accessibility: stable, quiet history', () => {
+  it('does not render unpublished assistant drafts; only message.committed enters the history', async () => {
+    const rejected = 'REJECTED-ASSISTANT-DRAFT-SECRET'
+    const base = { entity: { kind: 'conversation', id: 'c1' }, at: '2026-10-05T00:00:00Z' }
+    deliverEvent({ ...base, seq: 2, cursor: '2', type: 'reply.draft', payload: { conversation_id: 'c1', text: rejected } })
+    await flush()
+    expect(mounted.root.textContent()).not.toContain(rejected)
+    const committed = { ...message('accepted'), text: 'Accepted finished reply.' }
+    deliverEvent({ ...base, seq: 3, cursor: '3', type: 'message.committed', payload: { conversation_id: 'c1', message: committed } })
+    await flush()
+    expect(mounted.root.textContent()).toContain(committed.text)
+    expect(mounted.root.textContent()).not.toContain(rejected)
+  })
+  it('does not pull a reader away from older messages when committed history grows', async () => {
+    await settle()
+    scroller.scrollTop = 1000
+    const before = scroller.scrolls.length
+    store.state.views.c1!.messages.push(message('new-committed'))
+    await flush()
+    await settle()
+    expect(scroller.scrollTop).toBe(1000)
+    expect(scroller.scrolls.length).toBe(before)
+  })
+
+  it('keeps the history region and committed messages mounted during recovery', async () => {
+    await settle()
+    const articles = mounted.root.findAll((h) => h.tag === 'article')
+    store.state.loaded = false
+    store.state.views.c1!.status = 'loading'
+    await flush()
+    expect(mounted.root.find('section')).toBe(scroller)
+    expect(scroller.props.id).toBe('conversation-history')
+    expect(scroller.props.tabindex).toBe('0')
+    expect(scroller.props['aria-label']).toBe('Conversation history')
+    expect(mounted.root.findAll((h) => h.tag === 'article')).toEqual(articles)
+    expect(mounted.root.textContent()).toContain('displayed history remains available')
+  })
+
+  it('has no live transcript region and announces only structural state', async () => {
+    expect(scroller.props['aria-live']).toBeUndefined()
+    const status = mounted.root.findAll((h) => h.props.class === 'chat-announcement')[0]!
+    store.state.views.c1!.running = { request_id: 'r', generation: 1, started_at: '2026-10-05T00:00:00Z' }
+    await flush()
+    expect(status.textContent()).toBe('Odin is working.')
+    store.state.views.c1!.messages.push({ ...message('committed'), text: 'COMMITTED-REPLY' })
+    await flush()
+    expect(status.textContent()).not.toContain('COMMITTED-REPLY')
   })
 })

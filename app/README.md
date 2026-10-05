@@ -19,6 +19,7 @@ npm run build          # out/main, out/preload, out/renderer
 npm run smoke          # launches the built app on an isolated xvfb display with a throwaway profile
 npm run test:real-core  # separate real engine contract gate; never included in npm run check
 npm run smoke:real-core # built Electron app + real engine, isolated PID namespace and xvfb
+npm run test:a11y     # real Electron keyboard/axe/Chromium AX gate, fixture + real step-one core
 ```
 
 `npm run smoke` never touches the real desktop session, the user's Odin Desktop profile or their autostart entries. Set
@@ -59,6 +60,25 @@ named checkpoint; the default screenshots, evidence and profiles are discarded.
 
 The fixture smoke gate explicitly clears real-core overrides, so it remains a fixture regression gate rather
 than accidentally running whichever core a developer shell last selected.
+
+## Accessibility regression gate (P3.4 part 1)
+
+`npm run test:a11y` builds the app, then runs pinned Playwright Electron support and axe-core on a separate
+PID namespace, Xvfb display and private session bus. It uses disposable HOME/XDG profiles, forces Chromium
+accessibility on, and retains the renderer sandbox/CSP/context isolation. Direct Playwright invocation outside
+the owned isolation runner is rejected. It requires the real-core Python environment described above, plus
+`dbus-run-session`, `xdotool` and ImageMagick `import` for native-dialog keyboard input and whole-Xvfb zoom captures.
+No workstation display/bus/profile is inherited. Missing prerequisites fail the gate, not silently skip it.
+
+The fixture lane covers chat, native attachment selection/cancel, copying and saving a generated file, report
+paging/copy, conversation menus/children, Stop/Steer/Queue/Resume, work controls, all settings sections, validation,
+password/code privacy, delayed history/search, command suggestions, retained output and 200/400 percent reflow.
+The real-core lane covers status and explicit service-unavailable views: step one does not yet serve chat or
+management. Neither a fixture pass nor a Chromium AX dump proves Orca/AT-SPI speech or Wayland qualification.
+
+Reports, full Chromium AX dumps, axe violations **and incomplete checks**, sandbox/cleanup receipts and screenshots
+are written under ignored `test-results/`. Set `ODIN_APP_A11Y_REPORT` to an absolute JSON path to retain a report
+outside the checkout. Review `../maintenance/phase3-accessibility.md` for findings, dispositions and open native rows.
 
 ## Layout
 
