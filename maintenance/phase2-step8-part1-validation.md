@@ -25,8 +25,23 @@ The dev extra now declares `pip>=26.2`; `uv lock` generated pip 26.2.1 and
 PID-isolated accounting, historical membership, plan and offline wheel tests:
 **144 passed**, including maintenance, isolated-runner and distribution checks.
 Ruff, exact-byte drift report and suite-map checker returned zero errors.
-Parent owns the final clean full invocation; the historical
-failed/retried qualification evidence is not overwritten.
+Parent completed the clean full invocation from fresh checkout
+`b74056c4c9a16071426cb832db361cf86c84989a`: **30 groups, 14,025 passed,
+2 skipped, zero failures or errors**. The checkout and its parent were 2775
+group-writable, with umask 002 before `git worktree add`. Fresh
+`uv sync --locked --extra dev` carried pip without manual repair; `pip check`,
+drift, suite-map, ownership and lint gates passed before the single invocation.
+The clean receipt is `phase2-step8-review1-result.json`, including every JUnit
+digest. The historical failed/retried evidence below is not overwritten.
+
+Inherited coroutine/process-finalizer warnings remain unsuppressed; no native
+desktop qualification or warning-clean claim. Group totals are executions, not
+unique inherited cases. Fresh checkout and log:
+`/home/odin/desktop-phase2-step8-review1/final` and
+`/home/odin/desktop-phase2-step8-review1/qualification.log`.
+After the clean run, only this explanation and its generated receipt changed.
+Executable source/tests, lock, qualification selectors and ledger hashes remain
+the exact tested commit's bytes.
 
 ## Historical implementation and execution record
 
