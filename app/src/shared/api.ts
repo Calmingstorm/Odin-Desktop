@@ -1,5 +1,5 @@
 // Types shared by the main process, the preload bridge and the renderer.
-// They mirror docs/design/protocol.md (v0, minor 2).
+// They mirror docs/design/protocol.md (v0, minor 3).
 
 export type CorePhase = 'starting' | 'ready' | 'degraded' | 'quiescing'
 
@@ -15,9 +15,31 @@ export interface Conversation {
   title: string
   rev: number
   parent_id: string | null
+  /** Set on a child conversation: where its inherited context came from. */
+  inherited_from?: { conversation_id: string; message_id: string | null; title: string } | null
   updated_at: string
   unread: number
   archived: boolean
+}
+
+export interface SearchHit {
+  conversation_id: string
+  message_id: string
+  role: MessageRole
+  snippet: string
+  created_at: string
+}
+
+export interface SearchResult {
+  hits: SearchHit[]
+  next_cursor?: string | null
+  watermark: string
+}
+
+export interface AroundResult {
+  items: Message[]
+  has_before: boolean
+  has_after: boolean
 }
 
 export interface ConversationActivity {
@@ -147,7 +169,24 @@ export interface ControlTarget {
 export interface OdinApi {
   status(): Promise<Result<CoreStatus>>
   listConversations(): Promise<Result<{ items: ConversationListItem[]; watermark: string }>>
-  createConversation(params: { title?: string; parent_id?: string }): Promise<Result<{ conversation: Conversation }>>
+  createConversation(params: {
+    command_id: string
+    title?: string
+    parent_id?: string
+    from_message_id?: string
+  }): Promise<Result<{ conversation: Conversation }>>
+  updateConversation(params: {
+    command_id: string
+    id: string
+    expected_rev: number
+    title?: string
+    archived?: boolean
+  }): Promise<Result<{ conversation: Conversation }>>
+  deleteConversation(params: { command_id: string; id: string; expected_rev: number }): Promise<Result<{ disposition: string }>>
+  resetContext(params: { command_id: string; id: string; expected_rev: number }): Promise<Result<{ conversation: Conversation }>>
+  markRead(params: { id: string; through_message_id: string }): Promise<Result<{ conversation: Conversation }>>
+  search(params: { query: string; conversation_id?: string; limit?: number; cursor?: string }): Promise<Result<SearchResult>>
+  messagesAround(params: { conversation_id: string; message_id: string; before?: number; after?: number }): Promise<Result<AroundResult>>
   listMessages(params: { conversation_id: string; before?: string; limit?: number }): Promise<Result<{ items: Message[]; has_more: boolean; watermark: string }>>
   snapshotConversation(params: { conversation_id: string; limit?: number }): Promise<Result<ConversationSnapshot>>
   submit(params: SubmitParams): Promise<Result<{ disposition: string; request_id?: string; message_id?: string }>>
@@ -177,6 +216,12 @@ export const IPC = {
   status: 'odin:status',
   listConversations: 'odin:conversations:list',
   createConversation: 'odin:conversations:create',
+  updateConversation: 'odin:conversations:update',
+  deleteConversation: 'odin:conversations:delete',
+  resetContext: 'odin:conversations:reset-context',
+  markRead: 'odin:conversations:mark-read',
+  search: 'odin:search',
+  messagesAround: 'odin:messages:around',
   listMessages: 'odin:messages:list',
   snapshotConversation: 'odin:conversation:snapshot',
   submit: 'odin:submit',

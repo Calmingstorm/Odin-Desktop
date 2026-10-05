@@ -4,8 +4,51 @@ import type { CoreError } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
+/** The window names each conversation command, so a lost answer is reconciled by its late receipt, never re-sent. */
+const commandId = z.uuid()
+
 export const createConversationSchema = z
-  .object({ title: z.string().trim().min(1).max(200).optional(), parent_id: coreId.optional() })
+  .object({
+    command_id: commandId,
+    title: z.string().trim().min(1).max(200).optional(),
+    parent_id: coreId.optional(),
+    from_message_id: coreId.optional()
+  })
+  .strict()
+
+const revision = z.number().int().nonnegative()
+
+export const updateConversationSchema = z
+  .object({
+    command_id: commandId,
+    id: coreId,
+    expected_rev: revision,
+    title: z.string().trim().min(1).max(200).optional(),
+    archived: z.boolean().optional()
+  })
+  .strict()
+
+export const conversationRevisionSchema = z.object({ command_id: commandId, id: coreId, expected_rev: revision }).strict()
+
+export const markReadSchema = z.object({ id: coreId, through_message_id: coreId }).strict()
+
+export const searchSchema = z
+  .object({
+    // Odin sets no query limit. The frame limit is the only bound, and the broker refuses a larger request by name.
+    query: z.string().trim().min(1),
+    conversation_id: coreId.optional(),
+    limit: z.number().int().min(1).max(50).optional(),
+    cursor: z.string().max(64).optional()
+  })
+  .strict()
+
+export const messagesAroundSchema = z
+  .object({
+    conversation_id: coreId,
+    message_id: coreId,
+    before: z.number().int().min(0).max(50).optional(),
+    after: z.number().int().min(0).max(50).optional()
+  })
   .strict()
 
 export const listMessagesSchema = z

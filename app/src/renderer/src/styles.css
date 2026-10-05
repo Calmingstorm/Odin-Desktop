@@ -173,3 +173,81 @@ textarea:focus { border-color: var(--accent-dim); outline: none; }
 .link.core-failed { color: var(--bad); }
 .warn { color: var(--warn); }
 .autostart { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+
+/* Conversation list: actions, unread, archive */
+.head-actions { display: flex; gap: 6px; }
+.conv-row { position: relative; display: flex; align-items: center; }
+.conv-row .conv { flex: 1; min-width: 0; }
+.conv.archived .conv-title { color: var(--muted); font-style: italic; }
+.conv-more {
+  background: transparent; border: 0; color: var(--muted); padding: 4px 8px; border-radius: var(--radius);
+  opacity: 0; flex: none;
+}
+.conv-row:hover .conv-more, .conv-more:focus-visible, .conv-more[aria-expanded="true"] { opacity: 1; }
+.conv-more:hover { background: var(--panel-2); color: var(--text); }
+.thread-mark { color: var(--muted); }
+.unread {
+  flex: none; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent); color: #1a1205;
+  font-size: 11px; font-weight: 700; text-align: center; line-height: 18px;
+}
+.show-archived { margin: 4px 8px 8px; font-size: 12px; color: var(--muted); }
+
+/* Menus and dialogs */
+.menu-backdrop { position: fixed; inset: 0; z-index: 10; }
+.menu {
+  position: fixed; z-index: 11; width: 200px; display: flex; flex-direction: column;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.menu button { background: transparent; border: 0; text-align: left; padding: 7px 10px; border-radius: 6px; }
+.menu button:hover, .menu button:focus-visible { background: var(--border); }
+.menu .danger-item { color: var(--bad); }
+.dialog-backdrop {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(0, 0, 0, 0.55);
+}
+.dialog {
+  width: min(460px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px;
+}
+.dialog h2 { margin: 0 0 8px; font-size: 16px; }
+.dialog p { margin: 0 0 14px; color: var(--muted); }
+.dialog-input { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.dialog-input span { font-size: 12px; color: var(--muted); }
+.dialog-input input {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px;
+}
+.dialog-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Search */
+.search-panel {
+  border-bottom: 1px solid var(--border); background: var(--panel); padding: 10px 20px; max-height: 45vh;
+  overflow-y: auto;
+}
+.search-form { display: flex; gap: 8px; max-width: 900px; margin: 0 auto; }
+.search-form input {
+  flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px;
+}
+.search-note { max-width: 900px; margin: 8px auto 0; color: var(--muted); font-size: 13px; }
+.search-hits { list-style: none; padding: 0; margin: 8px auto 0; max-width: 900px; }
+.hit {
+  width: 100%; text-align: left; background: transparent; border: 0; border-radius: var(--radius);
+  padding: 8px 10px; display: flex; flex-direction: column; gap: 2px;
+}
+.hit:hover, .hit:focus-visible { background: var(--panel-2); }
+.hit-meta { font-size: 12px; color: var(--muted); }
+.hit-snippet { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-panel .more { display: block; margin: 6px auto 0; }
+
+/* Threads, jumps and per-message actions */
+.inherited, .jump-banner {
+  max-width: 900px; margin: 0 auto 16px; padding: 8px 12px; border: 1px solid var(--accent-dim);
+  border-radius: var(--radius); color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+}
+.jump-edge { max-width: 900px; margin: 0 auto 12px; color: var(--muted); font-size: 12px; text-align: center; }
+.msg.highlight .body { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-dim); }
+.msg-action {
+  margin-left: auto; background: transparent; border: 0; color: var(--muted); font-size: 12px; padding: 0 4px;
+  opacity: 0;
+}
+.msg:hover .msg-action, .msg-action:focus-visible { opacity: 1; }
+.msg-action:hover { color: var(--accent); }

@@ -26,13 +26,16 @@ import sys
 import uuid
 from datetime import datetime, timezone
 
-PROTOCOL = {"major": 0, "minor": 2}
+PROTOCOL = {"major": 0, "minor": 3}
 MAX_FRAME = 4 * 1024 * 1024
 EVENT_RETENTION = 5000
 RESULT_CACHE = 2000
 RECENT_OUTCOMES = 20
 # Read methods are answered fresh every time; only commands that admit or change something keep a receipt.
-READ_METHODS = {"status.get", "events.subscribe", "conversations.list", "messages.list", "conversation.snapshot"}
+READ_METHODS = {"status.get", "events.subscribe", "conversations.list", "messages.list", "conversation.snapshot",
+                "search.query", "messages.around"}
+SEARCH_LIMIT = 50
+AROUND_LIMIT = 50
 
 
 def now() -> str:
@@ -41,6 +44,14 @@ def now() -> str:
 
 def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:16]}"
+
+
+def snippet(text: str, start: int, length: int, radius: int = 60) -> str:
+    """The match with some context on each side, on one line."""
+    left = max(0, start - radius)
+    right = min(len(text), start + length + radius)
+    body = " ".join(text[left:right].split())
+    return ("…" if left > 0 else "") + body + ("…" if right < len(text) else "")
 
 
 def binding(method: object, params: dict) -> str:
@@ -253,6 +264,27 @@ class Core:
         queued = [{"request_id": rid, "generation": self.requests[rid]["generation"]} for rid in self.queued.get(cid, [])]
         return {"running": running, "queued": queued}
 
+    def commit_message(self, cid: str, message: dict, *, unread: bool = True) -> None:
+        self.messages[cid].append(message)
+        self.emit("message.committed", "message", message["id"], {"conversation_id": cid, "message": message})
+        conv = self.conversations[cid]
+        conv["updated_at"] = message["created_at"]
+        if unread and message["role"] != "user":
+            # Unread is not a user-editable field, so it doesn't bump the revision.
+            conv["unread"] = conv.get("unread", 0) + 1
+            self.emit("conversation.updated", "conversation", cid, {"conversation": conv})
+
+    def require_conversation(self, conversation_id: object) -> dict:
+        conv = self.conversations.get(str(conversation_id))
+        if conv is None:
+            raise CoreError("not_found", "conversation not found")
+        return conv
+
+    @staticmethod
+    def check_rev(conv: dict, params: dict) -> None:
+        if params.get("expected_rev") != conv["rev"]:
+            raise CoreError("stale_binding", "conversation changed since it was read", "stale_binding")
+
     def m_conv_list(self, _params: dict, _writer) -> dict:
         items = [{**conv, "activity": self.activity(conv["id"])}
                  for conv in sorted(self.conversations.values(), key=lambda c: c["updated_at"])]
@@ -261,9 +293,15 @@ class Core:
     def m_conv_create(self, params: dict, _writer) -> dict:
         title = str(params.get("title") or "Chat")[:200]
         parent = params.get("parent_id")
-        if parent is not None and parent not in self.conversations:
-            raise CoreError("not_found", "parent conversation not found")
-        conv = {"id": new_id("c"), "title": title, "rev": 1, "parent_id": parent,
+        inherited = None
+        if parent is not None:
+            source = self.require_conversation(parent)
+            items = self.messages[source["id"]]
+            from_id = params.get("from_message_id") or (items[-1]["id"] if items else None)
+            if from_id is not None and not any(m["id"] == from_id for m in items):
+                raise CoreError("not_found", "that message is not in the parent conversation")
+            inherited = {"conversation_id": source["id"], "message_id": from_id, "title": source["title"]}
+        conv = {"id": new_id("c"), "title": title, "rev": 1, "parent_id": parent, "inherited_from": inherited,
                 "updated_at": now(), "unread": 0, "archived": False}
         self.conversations[conv["id"]] = conv
         self.messages[conv["id"]] = []
@@ -271,11 +309,8 @@ class Core:
         return {"conversation": conv}
 
     def m_conv_update(self, params: dict, _writer) -> dict:
-        conv = self.conversations.get(str(params.get("id")))
-        if not conv:
-            raise CoreError("not_found", "conversation not found")
-        if params.get("expected_rev") != conv["rev"]:
-            raise CoreError("stale_binding", "conversation changed since it was read", "stale_binding")
+        conv = self.require_conversation(params.get("id"))
+        self.check_rev(conv, params)
         if "title" in params:
             conv["title"] = str(params["title"])[:200]
         if "archived" in params:
@@ -284,6 +319,76 @@ class Core:
         conv["updated_at"] = now()
         self.emit("conversation.updated", "conversation", conv["id"], {"conversation": conv})
         return {"conversation": conv}
+
+    def m_conv_delete(self, params: dict, _writer) -> dict:
+        conv = self.require_conversation(params.get("id"))
+        self.check_rev(conv, params)
+        cid = conv["id"]
+        if cid in self.active or self.queued.get(cid):
+            raise CoreError("busy", "Odin is working in this conversation. Stop it first.", "not_dispatched")
+        for store in (self.conversations, self.messages, self.recent, self.unresolved, self.queued):
+            store.pop(cid, None)
+        self.emit("conversation.deleted", "conversation", cid, {"conversation_id": cid})
+        return {"disposition": "deleted"}
+
+    def m_conv_reset_context(self, params: dict, _writer) -> dict:
+        conv = self.require_conversation(params.get("id"))
+        self.check_rev(conv, params)
+        cid = conv["id"]
+        notice = {"id": new_id("m"), "role": "notice", "created_at": now(),
+                  "text": "Context reset. Odin starts fresh from here; everything above stays visible."}
+        self.commit_message(cid, notice, unread=False)
+        conv["rev"] += 1
+        self.emit("conversation.context_reset", "conversation", cid, {"conversation_id": cid, "message_id": notice["id"]})
+        self.emit("conversation.updated", "conversation", cid, {"conversation": conv})
+        return {"conversation": conv}
+
+    def m_conv_mark_read(self, params: dict, _writer) -> dict:
+        conv = self.require_conversation(params.get("id"))
+        items = self.messages[conv["id"]]
+        index = next((i for i, m in enumerate(items) if m["id"] == params.get("through_message_id")), None)
+        if index is None:
+            raise CoreError("not_found", "message not found")
+        conv["unread"] = sum(1 for m in items[index + 1:] if m["role"] != "user")
+        self.emit("conversation.updated", "conversation", conv["id"], {"conversation": conv})
+        return {"conversation": conv}
+
+    def m_search(self, params: dict, _writer) -> dict:
+        query = str(params.get("query") or "").strip()
+        if not query:
+            raise CoreError("bad_request", "search needs a query")
+        limit = max(1, min(int(params.get("limit") or 20), SEARCH_LIMIT))
+        try:
+            offset = int(params.get("cursor") or 0)
+        except ValueError:
+            raise CoreError("bad_request", "invalid search cursor") from None
+        only = params.get("conversation_id")
+        needle = query.lower()
+        hits = []
+        for cid, items in self.messages.items():
+            if only and cid != only:
+                continue
+            for m in items:
+                at = m["text"].lower().find(needle)
+                if at >= 0:
+                    hits.append({"conversation_id": cid, "message_id": m["id"], "role": m["role"],
+                                 "snippet": snippet(m["text"], at, len(needle)), "created_at": m["created_at"]})
+        hits.sort(key=lambda h: h["created_at"], reverse=True)
+        page = hits[offset:offset + limit]
+        more = offset + limit < len(hits)
+        return {"hits": page, "next_cursor": str(offset + limit) if more else None, "watermark": str(self.seq)}
+
+    def m_around(self, params: dict, _writer) -> dict:
+        conv = self.require_conversation(params.get("conversation_id"))
+        items = self.messages[conv["id"]]
+        index = next((i for i, m in enumerate(items) if m["id"] == params.get("message_id")), None)
+        if index is None:
+            raise CoreError("not_found", "message not found")
+        # 0 is a valid count, so only a missing value takes the default.
+        before = max(0, min(int(20 if params.get("before") is None else params["before"]), AROUND_LIMIT))
+        after = max(0, min(int(20 if params.get("after") is None else params["after"]), AROUND_LIMIT))
+        start, end = max(0, index - before), min(len(items), index + after + 1)
+        return {"items": items[start:end], "has_before": start > 0, "has_after": end < len(items)}
 
     def m_messages(self, params: dict, _writer) -> dict:
         cid = str(params.get("conversation_id"))
@@ -341,8 +446,7 @@ class Core:
         rid = new_id("r")
         message = {"id": new_id("m"), "role": "user", "text": text, "created_at": now(),
                    "client_submission_id": sub_id, "request_id": rid}
-        self.messages[cid].append(message)
-        self.emit("message.committed", "message", message["id"], {"conversation_id": cid, "message": message})
+        self.commit_message(cid, message)
         self.requests[rid] = {"id": rid, "conversation_id": cid, "generation": 1, "text": text, "state": "queued",
                               "steers": [], "stop_commands": [], "task": None, "message_id": message["id"],
                               "started_at": None}
@@ -465,8 +569,7 @@ class Core:
             if consumed:
                 reply += "\n\nSteered with: " + "; ".join(consumed)
             message = {"id": new_id("m"), "role": "assistant", "text": reply, "created_at": now(), "request_id": rid}
-            self.messages[cid].append(message)
-            self.emit("message.committed", "message", message["id"], {"conversation_id": cid, "message": message})
+            self.commit_message(cid, message)
             req["state"] = "completed"
             self.finish(req, "request.completed")
         self.active.pop(cid, None)
@@ -485,6 +588,11 @@ METHODS = {
     "conversations.list": Core.m_conv_list,
     "conversations.create": Core.m_conv_create,
     "conversations.update": Core.m_conv_update,
+    "conversations.delete": Core.m_conv_delete,
+    "conversations.reset_context": Core.m_conv_reset_context,
+    "conversations.mark_read": Core.m_conv_mark_read,
+    "search.query": Core.m_search,
+    "messages.around": Core.m_around,
     "messages.list": Core.m_messages,
     "conversation.snapshot": Core.m_snapshot,
     "submission.send": Core.m_submit,

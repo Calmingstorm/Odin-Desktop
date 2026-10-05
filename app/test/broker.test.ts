@@ -441,3 +441,81 @@ describe('subscription answers are stream control', () => {
     expect(observed).not.toContain('receipt')
   })
 })
+
+describe('fixture core conversation management (minor 3)', () => {
+  type Conv = { id: string; rev: number; unread: number; inherited_from?: { conversation_id: string; message_id: string } | null }
+  const result = <T>(settled: Awaited<ReturnType<Broker['request']>>): T => {
+    if (!settled.ok) throw new Error(`${settled.error.code}: ${settled.error.message}`)
+    return settled.result as T
+  }
+
+  async function chatWithReply(broker: Broker, events: CoreEvent[], text: string) {
+    const conv = result<{ conversation: Conv }>(await broker.request('conversations.create', {})).conversation
+    const sub = uuid()
+    await broker.request('submission.send', { client_submission_id: sub, conversation_id: conv.id, text }, sub)
+    await waitFor(() => events.some((e) => e.type === 'request.completed'))
+    return conv
+  }
+
+  it('refuses to delete a conversation while Odin works in it, then deletes it and says so', async () => {
+    const core = await withFixture()
+    const { broker, events } = await connectedBroker(core)
+    const conv = result<{ conversation: Conv }>(await broker.request('conversations.create', {})).conversation
+    const sub = uuid()
+    const sent = result<{ request_id: string }>(await broker.request('submission.send', { client_submission_id: sub, conversation_id: conv.id, text: 'slow' }, sub))
+    await waitFor(() => events.some((e) => e.type === 'request.started'))
+    expect(await broker.request('conversations.delete', { id: conv.id, expected_rev: conv.rev })).toMatchObject({ ok: false, error: { code: 'busy' } })
+    const stop = uuid()
+    await broker.request('control.stop', { control_command_id: stop, conversation_id: conv.id, request_id: sent.request_id, generation: 1 }, stop)
+    await waitFor(() => events.some((e) => e.type === 'request.cancelled'))
+    expect(await broker.request('conversations.delete', { id: conv.id, expected_rev: conv.rev })).toMatchObject({ ok: true, result: { disposition: 'deleted' } })
+    await waitFor(() => events.some((e) => e.type === 'conversation.deleted'))
+    expect(result<{ items: unknown[] }>(await broker.request('conversations.list')).items).toHaveLength(0)
+  })
+
+  it('resets context with a visible notice, and counts and clears unread replies', async () => {
+    const core = await withFixture()
+    const { broker, events } = await connectedBroker(core)
+    const conv = await chatWithReply(broker, events, 'hello')
+    let listed = result<{ items: Conv[] }>(await broker.request('conversations.list')).items[0]!
+    expect(listed.unread).toBe(1)
+    const messages = result<{ items: Array<{ id: string; role: string }> }>(await broker.request('messages.list', { conversation_id: conv.id }))
+    const last = messages.items[messages.items.length - 1]!
+    expect(result<{ conversation: Conv }>(await broker.request('conversations.mark_read', { id: conv.id, through_message_id: last.id })).conversation.unread).toBe(0)
+
+    const reset = result<{ conversation: Conv }>(await broker.request('conversations.reset_context', { id: conv.id, expected_rev: listed.rev }))
+    expect(reset.conversation.rev).toBe(listed.rev + 1)
+    expect(events.some((e) => e.type === 'conversation.context_reset')).toBe(true)
+    const after = result<{ items: Array<{ role: string; text: string }> }>(await broker.request('messages.list', { conversation_id: conv.id }))
+    expect(after.items[after.items.length - 1]).toMatchObject({ role: 'notice' })
+    listed = result<{ items: Conv[] }>(await broker.request('conversations.list')).items[0]!
+    expect(listed.unread).toBe(0) // the user's own reset is not something to read
+  })
+
+  it('starts a thread from a message, finds text, and opens a window around a hit', async () => {
+    const core = await withFixture()
+    const { broker, events } = await connectedBroker(core)
+    const conv = await chatWithReply(broker, events, 'remember the harbour')
+    const page = result<{ items: Array<{ id: string }> }>(await broker.request('messages.list', { conversation_id: conv.id }))
+    const first = page.items[0]!
+    const thread = result<{ conversation: Conv }>(await broker.request('conversations.create', { parent_id: conv.id, from_message_id: first.id })).conversation
+    expect(thread.inherited_from).toMatchObject({ conversation_id: conv.id, message_id: first.id })
+    expect(await broker.request('conversations.create', { parent_id: conv.id, from_message_id: 'm_missing' })).toMatchObject({ ok: false, error: { code: 'not_found' } })
+
+    const found = result<{ hits: Array<{ message_id: string; snippet: string }> }>(await broker.request('search.query', { query: 'HARBOUR' }))
+    expect(found.hits.length).toBe(2) // the user's message and the echoed reply
+    expect(found.hits[0]!.snippet.toLowerCase()).toContain('harbour')
+    expect(await broker.request('search.query', { query: '   ' })).toMatchObject({ ok: false, error: { code: 'bad_request' } })
+    // No character cap: a long query is searched, and only a request too big for one frame is refused, by name.
+    expect(await broker.request('search.query', { query: 'harbour '.repeat(25_001) })).toMatchObject({ ok: true })
+    expect(await broker.request('search.query', { query: 'x'.repeat(5 * 1024 * 1024) })).toMatchObject({
+      ok: false,
+      error: { code: 'bad_request', message: expect.stringMatching(/exceeds the 4194304-byte limit/) }
+    })
+    const around = result<{ items: Array<{ id: string }>; has_before: boolean; has_after: boolean }>(
+      await broker.request('messages.around', { conversation_id: conv.id, message_id: first.id, before: 0, after: 0 })
+    )
+    expect(around.items.map((m) => m.id)).toEqual([first.id])
+    expect(around).toMatchObject({ has_before: false, has_after: true })
+  })
+})
