@@ -282,13 +282,17 @@ class CoreService:
             attachments=self.attachments)
         self.engine.bind_requests(self.requests)
         deps = self.engine.deps
-        self.resume_manager = TurnResumeManager(
-            store=deps.turn_store, tool_loop=self.engine.runner, llm_gateway=deps.llm_gateway,
-            channel_state=deps.channel_state, sessions=deps.sessions, delivery=self.delivery,
-            permissions=self.permissions, tool_catalog=deps.tool_catalog,
-            get_config=deps.get_config, fetch_message=self.requests.fetch_message,
-            assert_preserved_request=self.requests.assert_preserved_request,
-            auto_resume_enabled=False)
+        if deps.turn_store is not None:
+            self.resume_manager = TurnResumeManager(
+                store=deps.turn_store, tool_loop=self.engine.runner, llm_gateway=deps.llm_gateway,
+                channel_state=deps.channel_state, sessions=deps.sessions, delivery=self.delivery,
+                permissions=self.permissions, tool_catalog=deps.tool_catalog,
+                get_config=deps.get_config, fetch_message=self.requests.fetch_message,
+                assert_preserved_request=self.requests.assert_preserved_request,
+                auto_resume_enabled=self.config.turn_state.auto_resume,
+                resume_ttl_hours=self.config.turn_state.resume_ttl_hours,
+                launch_auto_resume=self.requests.launch_auto_resume)
+            self.engine.runner._on_turn_suspended = self.resume_manager.on_turn_suspended
         self.controls = ControlService(
             self.store, self.events, self.requests, deps.channel_state,
             authority=self.authority, permissions=self.permissions,
@@ -566,6 +570,8 @@ class CoreService:
             # Failed cleanup must not release ownership beneath a surviving
             # execution task. The caller's containment exit remains the barrier.
             try:
+                if self.resume_manager is not None:
+                    await self.resume_manager.close()
                 if self.requests is not None:
                     await self.requests.close()
                 if self.engine is not None:

@@ -639,6 +639,41 @@ class RequestService:
                                 "request_id": message.request_id, "generation": message.generation,
                                 "unknown_effects": len(unknown)})
 
+    async def launch_auto_resume(self, st, original, preserved):
+        """Promote a rebuilt checkpoint under the manager's channel lock.
+
+        The caller retains the lease unless this returns True. Admission is
+        synchronous through scheduling, so a queued newer input cannot slip
+        between the busy check and generation transition.
+        """
+        self.assert_preserved_request(original)
+        cid, rid = original.conversation_id, original.request_id
+        with self.store.transaction() as db:
+            row = self.binding(cid, rid, original.generation)
+            busy = db.execute("""SELECT 1 FROM desktop_requests WHERE conversation_id=?
+                AND state IN ('queued','running','stop_requested') LIMIT 1""", (cid,)).fetchone()
+            if (self._closed or not row or row["state"] != "suspended" or busy
+                    or not self.context_is_current(original)
+                    or row["ledger_generation"] != preserved["generation"]
+                    or json.loads(row["unknown_effects"])):
+                return False
+            generation = row["generation"] + 1
+            db.execute("""UPDATE desktop_requests SET generation=?,state='running',
+                started_at=?,ended_at=NULL,ledger_generation=?
+                WHERE request_id=? AND generation=?""",
+                       (generation, now(), st.durability.lease.generation, rid, row["generation"]))
+            self.events.append("request.started", {"kind": "request", "id": rid},
+                               {"conversation_id": cid, "request_id": rid,
+                                "generation": generation})
+        try:
+            await self.launch_resume(self.get_request(rid), st)
+        except BaseException:
+            # The manager releases the acquired lease. Preserve the admitted
+            # generation for explicit recovery, never a running phantom.
+            self._finish(self.fetch_request(cid, rid), "interrupted")
+            raise
+        return True
+
     async def launch_resume(self, row, st):
         message = self.fetch_request(row["conversation_id"], row["request_id"])
         st.message = message
