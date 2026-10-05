@@ -582,7 +582,10 @@ async function interfaceShots(win: BrowserWindow, out: string, broker: Broker): 
     ['Skills', 'settings-skills'],
     ['MCP servers', 'settings-mcp'],
     ['Hosts and trust', 'settings-hosts'],
-    ['Scheduled and running work', 'settings-work']
+    ['Scheduled and running work', 'settings-work'],
+    ['Personality', 'settings-personality'],
+    ['State', 'settings-state'],
+    ['Records', 'settings-records']
   ]
   for (const [section, name] of sections) {
     await run(`[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.trim() === ${JSON.stringify(section)}).click()`)
@@ -590,6 +593,8 @@ async function interfaceShots(win: BrowserWindow, out: string, broker: Broker): 
     await shoot(name)
   }
   // The schedule form, then the host wizard's first step.
+  await run(`[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.trim() === 'Scheduled and running work').click()`)
+  await pause(600)
   await run(`[...document.querySelectorAll('.panel-head button')].find((b) => b.textContent.trim() === 'New schedule').click()`)
   await pause(500)
   await run(`document.querySelector('[aria-label="Schedule form"]').scrollIntoView({ block: 'start' })`)

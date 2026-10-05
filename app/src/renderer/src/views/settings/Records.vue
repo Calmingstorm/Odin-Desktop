@@ -59,9 +59,10 @@ async function reconcile(session: ComputerSession): Promise<void> {
       </select>
     </header>
     <template v-if="records.usage">
-      <p class="manage-desc">{{ count(records.usage.tokens) }} tokens{{ basis(records.usage.tokens) }}.</p>
+      <p class="manage-desc" :title="basis(records.usage.tokens)">{{ count(records.usage.tokens) }} tokens ({{ basis(records.usage.tokens) }}).</p>
       <p v-for="q in records.usage.quota" :key="`${q.account}:${q.window}`" class="manage-desc">
-        {{ q.account }}: {{ percent(q.used_percent) }} of the {{ q.window }} limit used{{ q.resets_at ? `, resets ${at(q.resets_at)}` : '' }}.
+        {{ q.account }}, {{ q.window }} limit:
+        {{ q.used_percent.kind === 'unknown' ? 'use not reported' : `${percent(q.used_percent)} used` }}{{ q.resets_at ? `, resets ${at(q.resets_at)}` : '' }}.
       </p>
       <pre v-if="records.usage.summary" class="manage-json">{{ records.usage.summary }}</pre>
     </template>
