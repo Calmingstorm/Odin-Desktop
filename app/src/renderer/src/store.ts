@@ -142,7 +142,9 @@ export const state = reactive({
   /** The app's notification settings, from the main process. */
   notifications: null as NotificationSettings | null,
   /** Resume requests by `request_id:generation`, until the resumed request starts or the core says no. */
-  resumes: {} as Record<string, ResumeState | undefined>
+  resumes: {} as Record<string, ResumeState | undefined>,
+  /** Counts each move to the latest messages, so the message list scrolls there once the view is on screen. */
+  latestScroll: 0
 })
 
 export interface ResumeState {
@@ -807,12 +809,14 @@ function clearNavigation(): void {
 export async function openLatest(conversationId: string): Promise<void> {
   clearNavigation()
   await open(conversationId)
+  state.latestScroll += 1
 }
 
 /** The user went back to the latest messages, so they are on screen again. */
 export function backToLatest(): void {
   const wasJump = state.jump?.conversationId
   clearNavigation()
+  state.latestScroll += 1
   if (wasJump && wasJump === state.activeId) void markReadIfAttentive(wasJump)
 }
 
