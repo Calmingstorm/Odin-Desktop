@@ -5,6 +5,38 @@
   "acceptance": "pending independent PR review; full Phase2 closure remains blocked",
   "entries": [
     {
+      "path": "tests/test_desktop_model_settings.py",
+      "reason": "Correct one import-order lint finding inherited from main's newly merged PR27, preserving all model-setting regression behavior and original test assertions.",
+      "contract": "Only add the import-group separator required by Ruff; real provider cleanup, stale revision and unavailable-storage assertions are unchanged.",
+      "invariant": "No product behavior or assertion changes; no lint exemption. Preserve merged main's full model-setting corpus.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_model_settings.py"]
+    },
+    {
+      "path": "src/desktop/model_settings.py",
+      "reason": "Refresh exact evidence-test digest after an import-only separator fix in main's new model-setting tests; model-settings product bytes remain merged main's bytes.",
+      "contract": "Existing discovery validation, desired/adopted selection, stale/storage MethodError classification and provider cleanup are unchanged. Evidence-only rebinding preserves all named tests.",
+      "invariant": "No protocol/persistence/runtime adoption changes; test formatting is not approval of product code.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_management_core.py", "tests/test_desktop_model_settings.py", "tests/test_desktop_providers.py"]
+    },
+    {
+      "path": "src/desktop/providers.py",
+      "reason": "Refresh exact evidence digest for main's model-setting tests after their import-only lint correction; provider source remains byte-identical.",
+      "contract": "Retained provider graph qualifies/persists before publication; failed persistence rolls back unpublished clients and preserves adopted identity. This lane changes only evidence digest binding.",
+      "invariant": "No provider guarded code, generation/lease, credential, qualification, publication or rollback changes.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_codex_accounts.py", "tests/test_desktop_management_core.py", "tests/test_desktop_model_settings.py", "tests/test_desktop_providers.py"]
+    },
+    {
+      "path": "src/desktop/settings.py",
+      "reason": "Refresh exact evidence digest for main's model-setting tests after import-only lint correction; settings source remains byte-identical.",
+      "contract": "Retain profile schema/revisions/dedicated owners, private YAML transactions, vault mutations and image-intent/apply metadata. Evidence rebinding does not change save/adoption behavior.",
+      "invariant": "No bypass of revisions, save-before-adoption, profile isolation or secret redaction; no product-source change.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_management_core.py", "tests/test_desktop_model_settings.py", "tests/test_desktop_providers.py", "tests/test_desktop_settings.py"]
+    },
+    {
       "path": "src/desktop/management.py",
       "reason": "Restore the missing real subsystem-guard composition exposed by the entire inherited constructor corpus. Construct one retained guard from configured thresholds before ProviderOwner, not a test-injected substitute.",
       "contract": "All existing management admission, stable keyed receipt comparisons, read/mutation separation and durable settlement remain. Manager, executor and provider gateway share one actual guard; original provider/SSH/knowledge/browser registrations use Desktop's compatible-provider spelling.",
