@@ -321,6 +321,23 @@ def test_check_cli_returns_json_errors_and_nonzero_on_missing_input(tmp_path, ca
     assert result["errors"] and result["valid"] is False
 
 
+def test_merged_step5_can_restore_an_entire_qualified_suite(repo):
+    _restore(repo)
+    mapping = _read(repo, checker.MAP_PATH)
+    mapping["entries"][0]["step"] = 5
+    _write(repo, checker.MAP_PATH, mapping)
+    assert checker.validate(repo) == []
+
+
+@pytest.mark.parametrize("step", [2, 3, 4, 6, 7, "Phase 3"])
+def test_unmerged_surface_cannot_be_marked_restored(repo, step):
+    _restore(repo)
+    mapping = _read(repo, checker.MAP_PATH)
+    mapping["entries"][0]["step"] = step
+    _write(repo, checker.MAP_PATH, mapping)
+    assert any("merged step 1 or 5" in error for error in checker.validate(repo))
+
+
 def test_pinned_history_is_required_not_a_rewritten_current_plan(repo, monkeypatch):
     def unavailable(*args):
         raise ValueError("missing pinned history")
