@@ -123,3 +123,35 @@ C. Aaron approved it on 2026-10-05 ("Yes"):
 |---|---|
 | `Channel: #<name>` | `Conversation: <name>` |
 | `Channel: #<parent> → thread: <name>` | `Conversation: <name>` |
+
+## E. Tool results and diagnostics (approved 2026-10-05)
+
+Odin's Phase 1 table (`maintenance/pr2-model-facing-string-approvals.md` on the Phase 1 branch) found these
+model-visible strings outside parts A to D. Aaron approved them on 2026-10-05 ("yes you can approve"):
+
+| Kind | Today | Desktop |
+|---|---|---|
+| Inherited context | `[INHERITED FROM #{parent_name}]` / `Parent channel context:` | `[INHERITED FROM {parent_name}]` / `Parent conversation context:` |
+| File result | `File {filename} ({size} bytes) attached to channel.` | `… attached to conversation.` |
+| Task result | `Progress will be posted to this channel.` | `Progress will be posted to this conversation.` |
+| Status label | `Reading the channel` | `Reading the conversation` |
+| Schedule diagnostics | `Digest {id} has no channel_id` / `Scheduled task {id} has no channel_id` | `… has no conversation_id` |
+| History tool | (it took a channel ID) | `Only 'limit' is accepted; the conversation is the one this request came from.` |
+| Steer denial | `Access denied. Only the turn's requester or an admin may steer it.` | `Access denied. Only the turn's requester may steer it.` |
+| Tool permission | `Permission denied: tool '{tool_name}' is not available for tier '{tier}'. Contact an admin to upgrade your permissions.` | `Permission denied: tool '{tool_name}' is not available for this authenticated owner request.` |
+| File and image caller | (Discord author identity) | `Permission denied: authenticated owner identity is required.` |
+| Browser | `playwright is not installed. Run: pip install playwright && playwright install chromium` / `Failed to launch Chromium. Run 'playwright install chromium' to install browser binaries. ({e})` | `Browser unavailable: required bundled Playwright dependency is missing.` / `Failed to launch required bundled Chromium. Repair the desktop installation. ({e})` / `Browser unavailable: required bundled Chromium is not configured.` |
+| PDF | `… Install the 'pdf' extra (pip install '.[pdf]') and restart Odin.` | `… The required bundled dependency is unavailable; repair the desktop installation.` |
+| Search models | (ambient model cache) | `no bundled embedding model roots configured` / `bundled embedding model unavailable: {details}` |
+| Knowledge import | `file/directory not in allowed import roots: {SAFE_IMPORT_ROOTS}` | `{kind} not in allowed import roots: {admitted roots}` |
+| Skill API text | "channel" in the SkillContext docstrings and the `search_history` result field `channel_id` | "conversation" and `conversation_id`; `list_hosts`: "List host aliases admitted by the authenticated owner context." |
+| Settings text | `See config.yml comments for examples.` / `Let admins proceed past a governor refusal.` | `See the desktop configuration documentation for examples.` / `Let the authorized owner proceed past a governor refusal.` |
+
+**Standing rule (D19).** Claude approves mechanical wording swaps of this kind without asking: "channel" becoming
+"conversation", admin or tier wording becoming owner wording, and install hints becoming bundled-app wording. Anything
+that changes what Odin is told to do still goes to Aaron.
+
+**Not approved here, and not reachable in Phase 1** (no model request path is wired yet): the temporary "unavailable
+until Phase 2" and "not implemented" gates, the readiness backstops, and the results that lost an attachment or URL
+because there is no delivery yet. Phase 2 must remove each one and restore Odin's behaviour, or bring it for approval
+under the rule above.
