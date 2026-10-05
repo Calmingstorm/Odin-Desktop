@@ -1066,3 +1066,11 @@ Real process suites without direct spawn AST still exercise production Registry/
 Static closure is not runtime safety proof: conditional/dynamic imports, aliases, shell expansion and indirect subprocess behavior require clean namespace execution/failure triage. Baseline source closures include optional lazy imports removed by adaptation; no blanket gate of neutral src.discord/tools/guards.
 
 All retained inherited bytes must remain original. Narrow feature-only exclusions may be deleted after records exist; pinned archive preserves original excluded corpus. Mixed suites are retained, not silently weakened. Whole-file initial selection may omit neutral cases in mixed files; supplementary case selections and parent triage can expand without changing assertions.
+
+## Step8 part2 current disposition
+
+The machine plan now retains **326 = 19 restored + 5 reviewer-retired +
+302 deferred** historical Phase2 suites. This lane audits all85 step5 suites:
+10 complete restorations and75 concrete blockers. No original suite or hash was
+dropped; no blocked subset counts as a restored file. Details and qualification
+limits are in `phase2-step8-part2-validation.md` and the batch decision records.

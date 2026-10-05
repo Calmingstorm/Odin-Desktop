@@ -35,3 +35,13 @@ The plan now includes foundation and ordinary-profile migration adapters, every
 new Desktop boundary test, and exact historical passed nodes in all49 mixed
 files. Actual-browser endpoint cases are explicitly not selected. Unmapped
 neutral cases block Phase1. No acceptance or blanket surface waiver is claimed.
+
+## Step8 part2 current qualification
+
+All30 merged groups remain. Step5 gains the ten complete inherited runtime
+corpora and their behavioral provenance/boundary tests. The old neutral guard
+subset is replaced by the complete frozen module, including actual Desktop
+construction. This explicit full-corpus replacement has no constructor exclusion.
+Current results and validation scope are recorded in
+`phase2-step8-part2-result.json` and `phase2-step8-part2-validation.md`.
+Group executions may overlap; totals are not unique inherited-case counts.
