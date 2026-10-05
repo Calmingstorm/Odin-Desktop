@@ -4,6 +4,8 @@ import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { z } from 'zod'
 import {
   IPC,
+  MANAGEMENT,
+  type ManagementMethod,
   SETTINGS_SHAPED,
   type SettingsShapedMethod,
   type AppState,
@@ -45,6 +47,7 @@ import {
   parseRequest,
   setAutostartSchema,
   setMutedSchema,
+  MANAGEMENT_SCHEMAS,
   codexIndexSchema,
   codexLabelSchema,
   codexPollSchema,
@@ -58,6 +61,7 @@ import {
   steerSchema,
   submitSchema
 } from './schemas'
+import { withCommandId } from './command-id'
 import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-policy'
 
 export interface IpcDeps {
@@ -237,6 +241,14 @@ export function registerIpc(deps: IpcDeps): void {
     return fromSettled(await deps.broker.request('codex.login.begin', {}, id))
   })
   handle(IPC.codexLoginPoll, codexPollSchema, async (v) => fromSettled(await deps.broker.request('codex.login.poll', v)))
+  // The management domains: each named method has its own channel and schema and maps to exactly one core method.
+  for (const name of Object.keys(MANAGEMENT) as ManagementMethod[]) {
+    const { channel, core, command: changes } = MANAGEMENT[name]
+    handle(channel, MANAGEMENT_SCHEMAS[name], async (v) => {
+      const commandId = changes ? randomUUID() : undefined
+      return withCommandId(fromSettled(await deps.broker.request(core, v as Record<string, unknown>, commandId)), commandId)
+    })
+  }
   handle(IPC.setConversationMuted, setMutedSchema, (v) => ({
     ok: true,
     result: deps.setConversationMuted(v.conversation_id, v.muted)

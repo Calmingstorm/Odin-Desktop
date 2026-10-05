@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import type { ConfigField } from '../../../shared/api'
-import { dedicatedMethod, differenceNote, effectText, FieldDrafts, imageLeafOf, isSecret, SecretDrafts, STATE_LABELS } from '../settings-form'
+import {
+  dedicatedMethod,
+  differenceNote,
+  editableHere,
+  effectText,
+  FieldDrafts,
+  imageLeafOf,
+  isSecret,
+  SecretDrafts,
+  STATE_LABELS
+} from '../settings-form'
 import { clearSecret, resetField, saveField, setImageIntent, setSecret, settings } from '../stores/settings'
 
 defineProps<{ fields: ConfigField[] }>()
@@ -42,7 +52,11 @@ const inputId = (field: ConfigField): string => `field-${field.path.replace(/\W/
       </div>
       <p v-if="field.description" class="field-desc">{{ field.description }}</p>
 
-      <div v-if="isSecret(field)" class="field-input secret">
+      <div v-if="!editableHere(field)" class="field-input readonly">
+        <code class="field-value">{{ JSON.stringify(field.desired) }}</code>
+        <span class="field-desc">Changed with the controls above.</span>
+      </div>
+      <div v-else-if="isSecret(field)" class="field-input secret">
         <span class="secret-state">{{ field.desired ? 'Set' : 'Not set' }}</span>
         <input
           :id="inputId(field)"
@@ -118,7 +132,7 @@ const inputId = (field: ConfigField): string => `field-${field.path.replace(/\W/
       <p v-else-if="settings.fields[field.path]?.status === 'error'" class="warn">{{ settings.fields[field.path]?.message }}</p>
       <p v-else-if="settings.fields[field.path]?.status === 'saved'" class="field-saved">Saved.</p>
       <button
-        v-if="!isSecret(field) && !dedicatedMethod(field) && field.configured"
+        v-if="editableHere(field) && !isSecret(field) && !dedicatedMethod(field) && field.configured"
         class="ghost field-reset"
         :disabled="saving(field)"
         @click="reset(field)"
