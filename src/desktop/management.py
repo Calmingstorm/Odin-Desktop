@@ -83,6 +83,7 @@ class ManagementService:
         from ..config.apply_registry import spec_for
         from ..context.loader import ContextLoader
         from ..health.checker import check_all
+        from ..health.subsystem_guard import SubsystemGuard
         from ..llm.system_prompt import register_user_presets
         from ..permissions.host_access import HostAccessManager
         from ..tools.builtin_policy import BuiltinToolPolicy
@@ -111,6 +112,17 @@ class ManagementService:
             email_config=settings.config.email, profile_paths=core.paths,
         )
         executor._command_shell_config = lambda: settings.config.tools.command_shell
+        # The retained gateway consumes this exact guard. Like upstream wiring,
+        # construction is unconditional, including for disabled providers.
+        degradation = settings.config.graceful_degradation
+        subsystem_guard = SubsystemGuard(
+            degraded_threshold=degradation.degraded_threshold,
+            unavailable_threshold=degradation.unavailable_threshold,
+        )
+        for name in ("llm_codex", "llm_ollama", "llm_compat", "codex", "ssh",
+                     "knowledge", "browser"):
+            subsystem_guard.register(name)
+        executor.subsystem_guard = subsystem_guard
         executor._host_access = HostAccessManager(
             path=core.paths.config_dir / "host-preferences.json",
             available_hosts_provider=executor.host_registry.active_aliases,
@@ -220,6 +232,7 @@ class ManagementService:
                       identity_key=_binding_key(core.paths))
         manager.settings, manager.executor, manager.providers = settings, executor, providers
         manager.runtime, manager.hosts, manager.codex = runtime, hosts, codex
+        manager.subsystem_guard = subsystem_guard
         return manager
 
     def identity_params(self, params: Any) -> dict:
