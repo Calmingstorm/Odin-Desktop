@@ -575,6 +575,8 @@ async function interfaceShots(win: BrowserWindow, out: string): Promise<void> {
   await run(`[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.includes('Models')).click()`)
   await pause(800)
   await shoot('settings-models')
+  await run(`document.querySelector('.field-intent').scrollIntoView({ block: 'center' })`)
+  await shoot('settings-image')
   const sections: Array<[string, string]> = [
     ['Tools', 'settings-tools'],
     ['Skills', 'settings-skills'],
