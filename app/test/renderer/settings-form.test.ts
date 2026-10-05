@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ConfigField } from '../../src/shared/api'
 import {
   FieldDrafts,
+  SecretDrafts,
   dedicatedMethod,
   editableHere,
   differenceNote,
@@ -150,25 +151,176 @@ describe('review round 3: a field saves once at a time, and keeps newer typing',
   const tz = () => field({ type: 'string', path: 'timezone', desired: 'UTC' })
 
   it('sends one save for Enter followed by leaving the field, and keeps what was typed during it', async () => {
-    const form = new FieldDrafts()
-    const sent: unknown[] = []
-    let land!: (ok: boolean) => void
-    const saver = (_f: ConfigField, value: unknown) => (sent.push(value), new Promise<boolean>((resolve) => (land = resolve)))
-    form.edit(tz(), 'Europe/Paris')
-    const first = form.save(tz(), saver)
-    await form.save(tz(), saver) // the blur right after Enter
-    expect(sent).toEqual(['Europe/Paris'])
-    form.edit(tz(), 'Asia/Tokyo')
-    land(true)
-    await first
-    expect(form.current(tz())).toBe('Asia/Tokyo')
+    const w = heldWrites(tz())
+    w.form.edit(tz(), 'Europe/Paris')
+    void w.form.save(tz())
+    void w.form.save(tz()) // the blur right after Enter
+    expect(w.sent).toEqual(['Europe/Paris'])
+    w.form.edit(tz(), 'Asia/Tokyo')
+    await w.land()
+    expect(w.sent).toEqual(['Europe/Paris'])
+    expect(w.form.current(w.record())).toBe('Asia/Tokyo')
   })
 
   it('clears the draft once what was sent is saved', async () => {
-    const form = new FieldDrafts()
-    form.edit(tz(), 'Europe/Paris')
-    await form.save(tz(), async () => true)
-    expect(form.drafts.timezone).toBeUndefined()
+    const w = heldWrites(tz())
+    w.form.edit(tz(), 'Europe/Paris')
+    void w.form.save(tz())
+    await w.land()
+    expect(w.form.drafts.timezone).toBeUndefined()
   })
 })
 
+/** Writes held until the test lands them, one at a time, with the field's record after each saved write. */
+function heldWrites(initial: ConfigField) {
+  let record = initial
+  const sent: unknown[] = []
+  const landing: Array<(ok: boolean) => void> = []
+  const write = (value: unknown) =>
+    new Promise<boolean>((resolve) => {
+      sent.push(value)
+      landing.push((ok) => {
+        if (ok) record = { ...record, desired: value === 'default' ? record.default : value, configured: value !== 'default' }
+        resolve(ok)
+      })
+    })
+  const form = new FieldDrafts({
+    save: (_f, value) => write(value),
+    reset: () => write('default'),
+    latest: () => record
+  })
+  const land = async (ok = true): Promise<void> => {
+    landing.shift()!(ok)
+    for (let i = 0; i < 10; i++) await Promise.resolve()
+  }
+  return { form, sent, land, record: () => record }
+}
+
+describe('review round 4: a choice or value asked for during a write is never dropped', () => {
+  const learning = () => field({ type: 'boolean', path: 'learning.enabled', desired: false })
+
+  it('saves a second choice once the first lands (12.R4.1)', async () => {
+    const w = heldWrites(learning())
+    w.form.edit(learning(), true)
+    void w.form.save(learning())
+    w.form.edit(learning(), false)
+    void w.form.save(learning())
+    expect(w.sent).toEqual([true])
+    await w.land()
+    expect(w.sent).toEqual([true, false])
+    await w.land()
+    expect(w.record().desired).toBe(false)
+    expect(w.form.current(w.record())).toBe(false)
+    expect(w.form.drafts['learning.enabled']).toBeUndefined()
+  })
+
+  it('sends nothing more when the last choice is the one already on its way', async () => {
+    const w = heldWrites(learning())
+    w.form.edit(learning(), true)
+    void w.form.save(learning())
+    w.form.edit(learning(), false)
+    void w.form.save(learning())
+    w.form.edit(learning(), true)
+    void w.form.save(learning())
+    await w.land()
+    expect(w.sent).toEqual([true])
+    expect(w.record().desired).toBe(true)
+  })
+
+  it('still shows and keeps the second choice when the first write fails', async () => {
+    const w = heldWrites(learning())
+    w.form.edit(learning(), true)
+    void w.form.save(learning())
+    w.form.edit(learning(), false)
+    void w.form.save(learning())
+    await w.land(false)
+    expect(w.sent).toEqual([true]) // nothing was saved, and the core still has what is shown
+    expect(w.form.current(w.record())).toBe(false)
+    expect(w.record().desired).toBe(false)
+  })
+
+  it('keeps a value typed while a reset is on its way, and saves it if asked to (12.2)', async () => {
+    const tz = field({ type: 'string', path: 'timezone', desired: 'Europe/Paris', default: 'UTC', configured: true })
+    const w = heldWrites(tz)
+    void w.form.reset(tz)
+    w.form.edit(tz, 'Asia/Tokyo')
+    await w.land()
+    expect(w.form.current(w.record())).toBe('Asia/Tokyo')
+    expect(w.sent).toEqual(['default'])
+    void w.form.save(w.record())
+    await w.land()
+    expect(w.record().desired).toBe('Asia/Tokyo')
+  })
+
+  it('sends the value asked for during a write, even if typing went on after', async () => {
+    const tz = field({ type: 'string', path: 'timezone', desired: 'UTC' })
+    const w = heldWrites(tz)
+    w.form.edit(tz, 'Europe/Paris')
+    void w.form.save(tz)
+    w.form.edit(tz, 'Asia/Tokyo')
+    void w.form.save(tz) // leaving the field with Tokyo in it
+    w.form.edit(tz, 'Asia/Tokyo-2') // back in the field, still typing
+    await w.land()
+    expect(w.sent).toEqual(['Europe/Paris', 'Asia/Tokyo'])
+    await w.land()
+    expect(w.record().desired).toBe('Asia/Tokyo')
+    expect(w.form.current(w.record())).toBe('Asia/Tokyo-2')
+  })
+
+  it('does nothing for a reset asked for while a save is on its way', async () => {
+    const tz = field({ type: 'string', path: 'timezone', desired: 'UTC', configured: true })
+    const w = heldWrites(tz)
+    w.form.edit(tz, 'Europe/Paris')
+    void w.form.save(tz)
+    await w.form.reset(tz)
+    expect(w.sent).toEqual(['Europe/Paris'])
+  })
+
+  it('drops an unsaved value when the reset it came before lands', async () => {
+    const tz = field({ type: 'string', path: 'timezone', desired: 'Europe/Paris', default: 'UTC', configured: true })
+    const w = heldWrites(tz)
+    w.form.edit(tz, 'Asia/Tokyo')
+    void w.form.reset(tz)
+    await w.land()
+    expect(w.form.current(w.record())).toBe('UTC')
+  })
+})
+
+describe('review round 4: a secret is written once per value, and newer typing stays (12.2)', () => {
+  function secretWrites() {
+    const sent: string[] = []
+    const landing: Array<(ok: boolean) => void> = []
+    const secrets = new SecretDrafts((_path, value) => new Promise<boolean>((resolve) => (sent.push(value), landing.push(resolve))))
+    const land = async (ok = true): Promise<void> => {
+      landing.shift()!(ok)
+      for (let i = 0; i < 10; i++) await Promise.resolve()
+    }
+    return { secrets, sent, land }
+  }
+
+  it('writes once for Enter followed by the Save button', async () => {
+    const w = secretWrites()
+    w.secrets.values.token = 'value-a'
+    void w.secrets.save('token')
+    void w.secrets.save('token')
+    await w.land()
+    expect(w.sent).toEqual(['value-a'])
+    expect(w.secrets.values.token).toBeUndefined()
+  })
+
+  it('keeps a value typed during a write, and writes it after if asked', async () => {
+    const w = secretWrites()
+    w.secrets.values.token = 'value-a'
+    void w.secrets.save('token')
+    w.secrets.values.token = 'value-b'
+    await w.land()
+    expect(w.secrets.values.token).toBe('value-b')
+    void w.secrets.save('token')
+    w.secrets.values.token = 'value-c'
+    void w.secrets.save('token') // asked for during the write of value-b
+    await w.land()
+    expect(w.sent).toEqual(['value-a', 'value-b', 'value-c'])
+    await w.land()
+    expect(w.secrets.values.token).toBeUndefined()
+  })
+})

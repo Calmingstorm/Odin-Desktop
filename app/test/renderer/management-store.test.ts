@@ -56,11 +56,14 @@ beforeEach(async () => {
 describe('the management sections', () => {
   it('validates a skill before saving it, and saves nothing that fails validation', async () => {
     validation = { valid: false, errors: ['execute() is missing.'], warnings: [], metadata: null, definition_keys: [] }
-    expect(await management.saveSkill('hello', 'x = 1', true)).toBe(false)
+    management.newSkill('x = 1')
+    management.management.editor!.name = 'hello'
+    expect(await management.saveSkill()).toBe(false)
     expect(calls.save).toBeUndefined()
     expect(management.management.validation?.errors).toEqual(['execute() is missing.'])
     validation = { valid: true, errors: [], warnings: [], metadata: null, definition_keys: [] }
-    expect(await management.saveSkill('hello', 'async def execute(inp, context): ...', true)).toBe(true)
+    management.management.editor!.code = 'async def execute(inp, context): ...'
+    expect(await management.saveSkill()).toBe(true)
     expect(calls.save).toEqual([{ name: 'hello', code: 'async def execute(inp, context): ...', create: true }])
     expect(management.management.notes['skill:hello']).toBe('saved')
   })
@@ -129,3 +132,173 @@ describe('review round 3: management answers, in order and never twice', () => {
   })
 })
 
+
+describe('review round 4: a skill action that lands, now or late, finds the editor it belongs to', () => {
+  const unknown = (id: string) => ({ ok: false, error: { code: 'no_receipt', message: 'No receipt yet.', disposition: 'outcome_unknown', command_id: id } }) as const
+  /** The core's skills, by name: what a save stores and a read returns. */
+  let skills: Record<string, string>
+  let held: Array<{ method: string; land: (answer?: Result<unknown>) => void }>
+  let odin: Record<string, unknown>
+  const settle = () => new Promise((r) => setTimeout(r, 0))
+
+  beforeEach(() => {
+    skills = { alpha: 'alpha v1', beta: 'beta v1' }
+    held = []
+    odin = (window as unknown as { odin: Record<string, unknown> }).odin
+    odin.skillsGet = async (params: { name: string }) => {
+      ;(calls.get ??= []).push(params)
+      return ok({ name: params.name, code: skills[params.name], config: {}, metadata: { config_schema: {} } })
+    }
+  })
+
+  /** Holds a method's answers: the core acts at once, and the test lands each answer, or loses it, when it chooses. */
+  function hold(method: string, act: (params: Record<string, unknown>) => unknown): void {
+    odin[method] = (params: Record<string, unknown>) => {
+      const result = act(params)
+      return new Promise((resolve) => held.push({ method, land: (answer) => resolve(answer ?? ok(result)) }))
+    }
+  }
+  const saveInCore = (params: Record<string, unknown>) => ((skills[params.name as string] = params.code as string), { result: 'saved' })
+  const store = () => import('../../src/renderer/src/store')
+
+  it('reads a skill saved by a late receipt back into the editor (13.R4.1)', async () => {
+    await management.openSkill('alpha')
+    management.management.editor!.code = 'alpha v2'
+    hold('skillsSave', saveInCore)
+    const saving = management.saveSkill()
+    await settle()
+    held.shift()!.land(unknown('cmd-save'))
+    expect(await saving).toBe(false)
+    ;(await store()).applyReceipt({ id: 'cmd-save', settled: ok({ result: 'saved' }) })
+    await settle()
+    expect(management.management.skill?.code).toBe('alpha v2')
+    expect(management.management.busy['skill:alpha']).toBe(false)
+  })
+
+  it('leaves create mode when a late receipt says the new skill was created (13.R4.1)', async () => {
+    management.newSkill('fresh v1')
+    management.management.editor!.name = 'fresh'
+    hold('skillsSave', saveInCore)
+    const saving = management.saveSkill()
+    await settle()
+    held.shift()!.land(unknown('cmd-create'))
+    await saving
+    ;(await store()).applyReceipt({ id: 'cmd-create', settled: ok({ result: 'created' }) })
+    await settle()
+    expect(management.management.editor).toMatchObject({ name: 'fresh', code: 'fresh v1', create: false })
+    expect(management.management.skill?.name).toBe('fresh')
+  })
+
+  it("closes a skill's editor when a late receipt says it was deleted (13.R4.1)", async () => {
+    await management.openSkill('alpha')
+    hold('skillsDelete', () => ({ result: 'deleted' }))
+    const deleting = management.deleteSkill('alpha')
+    await settle()
+    held.shift()!.land(unknown('cmd-delete'))
+    await deleting
+    expect(management.management.editor?.name).toBe('alpha')
+    ;(await store()).applyReceipt({ id: 'cmd-delete', settled: ok({ result: 'deleted' }) })
+    expect(management.management.editor).toBeNull()
+    expect(management.management.skill).toBeNull()
+  })
+
+  it('keeps code typed while a new skill is being created (13.R4.2)', async () => {
+    management.newSkill('as sent')
+    management.management.editor!.name = 'fresh'
+    hold('skillsSave', saveInCore)
+    const saving = management.saveSkill()
+    await settle()
+    management.management.editor!.code = 'typed during create'
+    held.shift()!.land()
+    await saving
+    await settle()
+    expect(management.management.editor).toMatchObject({ name: 'fresh', code: 'typed during create', create: false })
+  })
+
+  it('leaves another skill opened meanwhile alone when a save lands (13.R4.3)', async () => {
+    await management.openSkill('alpha')
+    management.management.editor!.code = 'alpha v2'
+    hold('skillsSave', saveInCore)
+    const saving = management.saveSkill()
+    await settle()
+    await management.openSkill('beta')
+    management.management.editor!.code = 'unsaved beta'
+    const reads = calls.get!.length
+    held.shift()!.land()
+    await saving
+    await settle()
+    expect(management.management.editor).toMatchObject({ name: 'beta', code: 'unsaved beta' })
+    expect(calls.get!.length).toBe(reads)
+  })
+
+  it("doesn't reopen a closed skill, or replace a new one, when its settings save lands (13.R4.3)", async () => {
+    hold('skillsConfigSet', () => ({ result: 'saved' }))
+    await management.openSkill('alpha')
+    void management.saveSkillConfig('alpha', { units: 'metric' })
+    await settle()
+    management.closeSkill()
+    held.shift()!.land()
+    await settle()
+    expect(management.management.editor).toBeNull()
+    await management.openSkill('alpha')
+    void management.saveSkillConfig('alpha', { units: 'imperial' })
+    await settle()
+    management.newSkill('a new draft')
+    held.shift()!.land()
+    await settle()
+    expect(management.management.editor).toMatchObject({ code: 'a new draft', create: true })
+  })
+
+  it('leaves a new draft alone when an earlier save of a skill with its name lands', async () => {
+    await management.openSkill('alpha')
+    hold('skillsSave', saveInCore)
+    const saving = management.saveSkill()
+    await settle()
+    management.newSkill('a new draft')
+    management.management.editor!.name = 'alpha'
+    held.shift()!.land()
+    await saving
+    await settle()
+    expect(management.management.editor).toMatchObject({ name: 'alpha', code: 'a new draft', create: true })
+  })
+
+  it('keeps a new skill renamed while it was being created as a new draft', async () => {
+    management.newSkill('fresh v1')
+    management.management.editor!.name = 'fresh'
+    hold('skillsSave', saveInCore)
+    const saving = management.saveSkill()
+    await settle()
+    management.management.editor!.name = 'fresh_two'
+    management.management.editor!.code = 'fresh two'
+    held.shift()!.land()
+    await saving
+    await settle()
+    expect(management.management.editor).toMatchObject({ name: 'fresh_two', code: 'fresh two', create: true })
+  })
+
+  it("leaves another skill opened meanwhile alone when a skill's settings save lands", async () => {
+    hold('skillsConfigSet', () => ({ result: 'saved' }))
+    await management.openSkill('alpha')
+    void management.saveSkillConfig('alpha', { units: 'metric' })
+    await settle()
+    await management.openSkill('beta')
+    management.management.editor!.code = 'unsaved beta'
+    held.shift()!.land()
+    await settle()
+    expect(management.management.editor).toMatchObject({ name: 'beta', code: 'unsaved beta' })
+  })
+
+  it('never lets an older MCP status replace a newer one (13.R4.4)', async () => {
+    const answers: Array<(status: Result<unknown>) => void> = []
+    odin.mcpSetEnabled = () => new Promise((resolve) => answers.push(resolve))
+    const status = (a: string, b: string) =>
+      ok({ enabled: true, connected_count: 0, servers: [{ name: 'A', state: a, last_error: '' }, { name: 'B', state: b, last_error: '' }] })
+    const first = management.setMcpEnabled('A', false)
+    const second = management.setMcpEnabled('B', false)
+    answers[1]!(status('disabled', 'disabled'))
+    await second
+    answers[0]!(status('disabled', 'connected'))
+    await first
+    expect(management.management.mcp?.servers.map((s) => s.state)).toEqual(['disabled', 'disabled'])
+  })
+})

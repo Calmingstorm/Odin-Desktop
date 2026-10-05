@@ -218,3 +218,52 @@ describe('review round 3: settings stay the newest the window has seen', () => {
   })
 })
 
+
+describe('review round 4: an older account list never comes back', () => {
+  it("can't restore indexes a removal shifted, so the wrong account is never removed (12.1)", async () => {
+    await store.loadCodex()
+    const shown = store.settings.codex.status!.accounts[0]!
+    holdAccounts = true
+    const olderRead = store.loadCodex() // read before the removal, answered after it
+    const releaseOlder = releaseAccounts!
+    holdAccounts = false
+    const removing = store.removeAccount(shown)
+    accountsAnswer = { ok: true, result: { configured: true, accounts: [account(0, 'acct_2')] } }
+    releaseRemove!()
+    await removing
+    expect(store.settings.codex.status!.accounts.map((a) => a.account_id)).toEqual(['acct_2'])
+    accountsAnswer = { ok: true, result: { configured: true, accounts: [account(0, 'acct_1'), account(1, 'acct_2')] } }
+    releaseOlder()
+    await olderRead
+    expect(store.settings.codex.status!.accounts.map((a) => a.account_id)).toEqual(['acct_2'])
+    await store.removeAccount(shown) // the dialog still showed the first account at index 0
+    expect(calls.removed).toEqual([0])
+  })
+
+  it('keeps the controls locked when only a read from before the action answers', async () => {
+    await store.loadCodex()
+    holdAccounts = true
+    const olderRead = store.loadCodex()
+    const releaseOlder = releaseAccounts!
+    const removing = store.removeAccount(store.settings.codex.status!.accounts[1]!)
+    releaseOlder() // answers while the removal is still on its way
+    await olderRead
+    expect(store.settings.codex.stale).toBe(true)
+    holdAccounts = false
+    releaseRemove!()
+    await removing
+    expect(store.settings.codex.stale).toBe(false)
+  })
+
+  it("tells accounts apart by email when the core's ID is empty", async () => {
+    const anonymous = (index: number, email: string) => ({ index, account_id: '', email, plan_type: 'pro' })
+    accountsAnswer = { ok: true, result: { configured: true, accounts: [anonymous(0, 'a@example.com')] } }
+    await store.loadCodex()
+    const shown = store.settings.codex.status!.accounts[0]!
+    accountsAnswer = { ok: true, result: { configured: true, accounts: [anonymous(0, 'b@example.com')] } }
+    await store.loadCodex()
+    await store.removeAccount(shown)
+    expect(calls.removed).toEqual([])
+    expect(store.accountIdentity(shown)).toBe('a@example.com')
+  })
+})
