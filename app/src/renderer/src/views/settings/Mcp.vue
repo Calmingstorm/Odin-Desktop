@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import type { McpServer } from '../../../../shared/api'
 import { blank, mcpBody, type Form } from '../../mcp-form'
 import { ask } from '../../dialog'
@@ -25,6 +25,7 @@ const limits = reactive({ perServer: '', global: '' })
 
 const form = ref<Form | null>(null)
 const formError = ref('')
+watch(form, () => { formError.value = '' }, { deep: true })
 
 
 function toggleTools(name: string): void {
@@ -80,8 +81,8 @@ async function saveLimits(): Promise<void> {
     </header>
     <div class="limits">
       <span class="panel-hint">Most tools offered to Odin:</span>
-      <label class="limit">per server <input v-model="limits.perServer" type="number" min="0" :placeholder="String(management.mcp.max_published_tools_per_server)" /></label>
-      <label class="limit">in all <input v-model="limits.global" type="number" min="0" :placeholder="String(management.mcp.max_published_tools_global)" /></label>
+      <label class="limit">Maximum tools per server <input v-model="limits.perServer" type="number" min="0" :placeholder="String(management.mcp.max_published_tools_per_server)" /></label>
+      <label class="limit">Maximum tools in all <input v-model="limits.global" type="number" min="0" :placeholder="String(management.mcp.max_published_tools_global)" /></label>
       <button class="ghost" @click="saveLimits">Save limits</button>
     </div>
     <p v-if="management.notes.mcp || management.notes['mcp-limits']" class="manage-note" role="status">
@@ -104,14 +105,14 @@ async function saveLimits(): Promise<void> {
           <span :class="['state-chip', server.state]">{{ server.state }}</span>
           <span class="manage-count">{{ server.published_count }} of {{ server.discovered_count }} tools offered</span>
           <span class="manage-actions">
-            <button class="ghost" :disabled="management.busy[`mcp:${server.name}`]" @click="setMcpEnabled(server.name, !server.enabled)">
+            <button class="ghost" :aria-label="`${server.enabled ? 'Turn off' : 'Turn on'} ${server.name}`" :disabled="management.busy[`mcp:${server.name}`]" @click="setMcpEnabled(server.name, !server.enabled)">
               {{ server.enabled ? 'Turn off' : 'Turn on' }}
             </button>
-            <button class="ghost" :disabled="!server.enabled || management.busy[`mcp:${server.name}`]" @click="reconnectMcp(server.name)">Reconnect</button>
-            <button class="ghost" :disabled="!server.enabled || management.busy[`mcp:${server.name}`]" @click="refreshMcpTools(server.name)">Refresh tools</button>
-            <button class="ghost" @click="toggleTools(server.name)">{{ shownTools[server.name] ? 'Hide tools' : 'Tools' }}</button>
-            <button class="ghost" @click="form = blank(server)">Edit</button>
-            <button class="ghost danger-item" @click="remove(server)">Remove…</button>
+            <button class="ghost" :aria-label="`Reconnect ${server.name}`" :disabled="!server.enabled || management.busy[`mcp:${server.name}`]" @click="reconnectMcp(server.name)">Reconnect</button>
+            <button class="ghost" :aria-label="`Refresh tools for ${server.name}`" :disabled="!server.enabled || management.busy[`mcp:${server.name}`]" @click="refreshMcpTools(server.name)">Refresh tools</button>
+            <button class="ghost" :aria-label="`${shownTools[server.name] ? 'Hide tools' : 'Tools'} for ${server.name}`" :aria-expanded="!!shownTools[server.name]" :aria-controls="`mcp-tools-${encodeURIComponent(server.name)}`" @click="toggleTools(server.name)">{{ shownTools[server.name] ? 'Hide tools' : 'Tools' }}</button>
+            <button class="ghost" :aria-label="`Edit ${server.name}`" @click="form = blank(server)">Edit</button>
+            <button class="ghost danger-item" :aria-label="`Remove ${server.name}…`" @click="remove(server)">Remove…</button>
           </span>
         </div>
         <p v-if="server.url_display" class="manage-desc">{{ server.url_display }}</p>
@@ -120,12 +121,12 @@ async function saveLimits(): Promise<void> {
         </p>
         <p v-if="server.last_error" class="warn">{{ server.last_error }}</p>
         <p v-if="server.blocked_reason" class="warn">{{ server.blocked_reason }}</p>
-        <ul v-if="shownTools[server.name]" class="mcp-tools">
+        <div :id="`mcp-tools-${encodeURIComponent(server.name)}`"><ul v-if="shownTools[server.name]" class="mcp-tools">
           <li v-for="tool in management.mcpTools[server.name] ?? []" :key="tool.original_name">
             <code>{{ tool.published_name }}</code>
             <span class="manage-desc">{{ tool.excluded ? `excluded: ${tool.exclusion_reason}` : tool.description }}</span>
           </li>
-        </ul>
+        </ul></div>
         <p v-if="management.notes[`mcp:${server.name}`]" class="manage-note" role="status">{{ management.notes[`mcp:${server.name}`] }}</p>
       </li>
     </ul>
@@ -135,7 +136,7 @@ async function saveLimits(): Promise<void> {
     <header class="panel-head">
       <h3>{{ form.create ? 'Add a server' : `Edit ${form.name}` }}</h3>
       <span v-if="!form.create" class="panel-hint">Leave a field blank to keep what is stored.</span>
-      <button class="ghost" @click="form = null">Close</button>
+      <button class="ghost" aria-label="Close MCP server form" @click="form = null">Close</button>
     </header>
     <label v-if="form.create" class="field-input">Name <input v-model="form.name" placeholder="Letters, digits, underscores" /></label>
     <label class="field-input">
@@ -152,7 +153,7 @@ async function saveLimits(): Promise<void> {
       <label class="field-input">Working directory <input v-model="form.cwd" /></label>
     </template>
     <label v-else class="field-input">URL <input v-model="form.url" placeholder="https://…" /></label>
-    <label class="field-input">Timeout, in seconds <input v-model="form.timeout" type="number" min="1" /></label>
+    <label class="field-input">Timeout, in seconds <input :value="form.timeout" @input="form.timeout = ($event.target as HTMLInputElement).value" type="number" min="1" :aria-invalid="!!formError || undefined" :aria-describedby="formError ? 'mcp-timeout-error' : undefined" /></label>
     <label class="field-input">
       Only these tools, one per line ({{ form.create ? 'blank: all' : 'blank keeps the current list' }})
       <textarea v-model="form.allowlist" rows="3" :disabled="form.allTools" />
@@ -168,12 +169,12 @@ async function saveLimits(): Promise<void> {
         <input v-model="form.removeEnv" type="checkbox" :value="key" /> Remove variable {{ key }}
       </label>
       <div v-for="(row, i) in form.headers" :key="`nh${i}`" class="field-input">
-        <input v-model="row.key" placeholder="Header" aria-label="Header name" />
-        <input v-model="row.value" type="password" placeholder="Value" aria-label="Header value" autocomplete="off" />
+        <label>Header name {{ i + 1 }} <input v-model="row.key" placeholder="Header" /></label>
+        <label>Header value {{ i + 1 }} <input v-model="row.value" type="password" placeholder="Value" autocomplete="off" /></label>
       </div>
       <div v-for="(row, i) in form.env" :key="`ne${i}`" class="field-input">
-        <input v-model="row.key" placeholder="Variable" aria-label="Variable name" />
-        <input v-model="row.value" type="password" placeholder="Value" aria-label="Variable value" autocomplete="off" />
+        <label>Variable name {{ i + 1 }} <input v-model="row.key" placeholder="Variable" /></label>
+        <label>Variable value {{ i + 1 }} <input v-model="row.value" type="password" placeholder="Value" autocomplete="off" /></label>
       </div>
       <div class="panel-actions">
         <button class="ghost" @click="form.headers.push({ key: '', value: '' })">Add a header</button>
@@ -181,9 +182,9 @@ async function saveLimits(): Promise<void> {
       </div>
     </fieldset>
     <div class="panel-actions">
-      <button class="ghost" @click="save">{{ form.create ? 'Add' : 'Save' }}</button>
+      <button class="ghost" :aria-label="form.create ? 'Add MCP server' : `Save MCP server ${form.name}`" @click="save">{{ form.create ? 'Add' : 'Save' }}</button>
     </div>
-    <p v-if="formError" class="warn">{{ formError }}</p>
+    <p v-if="formError" id="mcp-timeout-error" class="warn" role="alert">{{ formError }}</p>
     <p v-else-if="management.notes[`mcp:${form.name}`]" class="manage-note" role="status">{{ management.notes[`mcp:${form.name}`] }}</p>
   </section>
 </template>

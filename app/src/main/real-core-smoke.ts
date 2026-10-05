@@ -70,8 +70,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert(sidebarInset >= 12, 'conversation unavailable notice must retain the sidebar inset')
   assert.equal(await run('document.querySelectorAll(".conv-row").length'), 0, 'real session must never seed fixture conversations')
   assert(await run('document.querySelector(".composer button[type=submit]")?.disabled === true'), 'unavailable chat must not offer a sendable composer')
-  assert(await run(`document.querySelector(${JSON.stringify('button[title="Attach files"]')})?.disabled === true`), 'unavailable chat must not offer attachments')
-  await click('button[title="New conversation"]')
+  assert(await run(`document.querySelector(${JSON.stringify('button[aria-label="Attach files"]')})?.disabled === true`), 'unavailable chat must not offer attachments')
+  await click('button[aria-label="New conversation"]')
   await until(async () => unavailable.test(await text('.composer .notice:last-child')), 'new conversation refusal')
   assert.equal(await run('document.querySelectorAll(".conv-row").length'), 0, 'refused creation must not invent a conversation')
 

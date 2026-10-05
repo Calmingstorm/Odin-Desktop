@@ -46,8 +46,8 @@ function onAutostart(event: Event): void {
 </script>
 
 <template>
-  <footer class="status">
-    <span :class="['link', state.app.link]">● {{ label }}</span>
+  <footer class="status" tabindex="0" aria-label="Odin status">
+    <span :class="['link', state.app.link]" role="status" aria-atomic="true">● {{ label }}</span>
     <button v-if="core" class="status-item core-status" title="Status from the connected core. Click for the full /status report." @click="report('status')">Core {{ core.version }} · {{ core.phase }}</button>
     <span v-else-if="state.app.link === 'ready' && status.coreError" role="status">{{ status.coreError }}</span>
     <span v-if="core && core.phase !== 'ready'" class="warn">Odin is {{ core.phase }}</span>
