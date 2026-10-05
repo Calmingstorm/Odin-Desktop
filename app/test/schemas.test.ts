@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { MANAGEMENT } from '../src/shared/api'
-import { MANAGEMENT_SCHEMAS, controlSchema, createConversationSchema, parseRequest, searchSchema, steerSchema, submitSchema } from '../src/main/schemas'
+import {
+  MANAGEMENT_SCHEMAS,
+  attachPathsSchema,
+  controlSchema,
+  createConversationSchema,
+  imageIntentSchema,
+  parseRequest,
+  searchSchema,
+  steerSchema,
+  submitSchema
+} from '../src/main/schemas'
 
 const uuid = '0b6f1c1e-9a3e-4a8e-9d43-2f1f0c7d5a10'
 
@@ -49,6 +59,16 @@ describe('review round 1: no limits Odin does not have', () => {
     expect(parseRequest(searchSchema, { query: 'x'.repeat(501) }).ok).toBe(true)
   })
 
+  it('puts no count of its own on dropped or pasted files: the core announces the limit (D17)', () => {
+    const paths = Array.from({ length: 21 }, (_, i) => `/home/user/file-${i}.txt`)
+    expect(parseRequest(attachPathsSchema, { paths }).ok).toBe(true)
+    expect(parseRequest(attachPathsSchema, { paths: Array.from({ length: 1001 }, (_, i) => `/f${i}`) }).ok).toBe(true)
+  })
+
+  it('puts no character cap on a search query: only the frame limit bounds it (D17)', () => {
+    expect(parseRequest(searchSchema, { query: 'x'.repeat(200_001) }).ok).toBe(true)
+  })
+
   it('requires the window to name each conversation command', () => {
     expect(parseRequest(createConversationSchema, { title: 'Chat' }).ok).toBe(false)
     expect(parseRequest(createConversationSchema, { command_id: crypto.randomUUID(), title: 'Chat' }).ok).toBe(true)
@@ -72,6 +92,16 @@ describe('management methods', () => {
     expect(parseRequest(MANAGEMENT_SCHEMAS.skillsSave, { name: 's', code: 'x'.repeat(50_000), create: true }).ok).toBe(true)
     expect(parseRequest(MANAGEMENT_SCHEMAS.mcpDelete, { name: '_Lmms2' }).ok).toBe(true)
     expect(parseRequest(MANAGEMENT_SCHEMAS.mcpDelete, { name: '2lmms' }).ok).toBe(false)
+  })
+})
+
+describe('review round 2: image-model intent', () => {
+  it('takes follow or pin for the two image leaves, bound to a revision, and nothing else', () => {
+    expect(parseRequest(imageIntentSchema, { expected_revision: 'r', operations: { image_model: 'pin' } }).ok).toBe(true)
+    expect(parseRequest(imageIntentSchema, { expected_revision: 'r', operations: {} }).ok).toBe(false)
+    expect(parseRequest(imageIntentSchema, { expected_revision: 'r', operations: { image_model: 'lock' } }).ok).toBe(false)
+    expect(parseRequest(imageIntentSchema, { expected_revision: 'r', operations: { quality: 'pin' } }).ok).toBe(false)
+    expect(parseRequest(imageIntentSchema, { operations: { outer_model: 'follow' } }).ok).toBe(false)
   })
 })
 

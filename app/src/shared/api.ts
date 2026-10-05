@@ -284,11 +284,22 @@ export interface ConfigField {
   apply_state: ApplyState
 }
 
+export type ImageLeaf = 'image_model' | 'outer_model'
+
+/** Odin's image-model intent: `follow` moves with the shipped default, `pin` keeps the saved value. */
+export interface ImageModelIntent {
+  effective: string
+  default: string
+  status: 'follow' | 'pin'
+}
+
 export interface ConfigMeta {
   schema_version: number
   revision: string
   fields: ConfigField[]
   status: { counts: Record<string, number>; desired_revision: string; effective_revision: string | null }
+  image_models?: Record<ImageLeaf, ImageModelIntent>
+  image_models_revision?: string
 }
 
 export type SettingsChange = { path: string; value: unknown } | { path: string; delete: true }
@@ -480,6 +491,28 @@ export const MANAGEMENT: { [K in ManagementMethod]: { channel: string; core: str
   mcpSetLimits: { channel: 'odin:manage:mcp.set_limits', core: 'mcp.set_limits', command: true }
 }
 
+export interface SettingsSetParams {
+  expected_revision: string
+  changes: SettingsChange[]
+}
+
+/**
+ * The settings-shaped methods (protocol.md, Dedicated settings methods): each takes settings.set's params and answers
+ * its result, for the fields whose apply_handler names it, and runs its owner's transaction. Each has its own channel.
+ */
+export const SETTINGS_SHAPED = {
+  'providers.codex.set': { call: 'providersCodexSet', channel: 'odin:core-settings:providers.codex.set' },
+  'providers.auxiliary.set': { call: 'providersAuxiliarySet', channel: 'odin:core-settings:providers.auxiliary.set' },
+  'providers.ollama.set': { call: 'providersOllamaSet', channel: 'odin:core-settings:providers.ollama.set' },
+  'providers.compat.set': { call: 'providersCompatSet', channel: 'odin:core-settings:providers.compat.set' },
+  'computer.activation.set': { call: 'computerActivationSet', channel: 'odin:core-settings:computer.activation.set' }
+} as const
+
+export type SettingsShapedMethod = keyof typeof SETTINGS_SHAPED
+export type SettingsShapedApi = {
+  [M in SettingsShapedMethod as (typeof SETTINGS_SHAPED)[M]['call']]: (params: SettingsSetParams) => Promise<Result<SettingsSetResult>>
+}
+
 export interface QuotaWindow {
   used_percent: number
   window_minutes: number
@@ -562,7 +595,7 @@ export interface ControlTarget {
 }
 
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
-export interface OdinApi extends ManagementApi {
+export interface OdinApi extends ManagementApi, SettingsShapedApi {
   status(): Promise<Result<CoreStatus>>
   listConversations(): Promise<Result<{ items: ConversationListItem[]; watermark: string }>>
   createConversation(params: {
@@ -613,6 +646,8 @@ export interface OdinApi extends ManagementApi {
   toolOutput(params: { cursor: string; limit: number }): Promise<Result<ToolOutputPage>>
   /** An image's bytes, for showing it inline. */
   fetchArtifact(ref: string): Promise<Result<{ data: Uint8Array }>>
+  /** Whether the core still has a file: one byte read. A file it no longer has is dropped from the private cache. */
+  checkArtifact(ref: string): Promise<Result<{ available: boolean }>>
   openArtifact(params: { ref: string; name: string }): Promise<Result<{ opened: boolean }>>
   saveArtifact(params: { ref: string; name: string }): Promise<Result<{ saved: boolean }>>
   revealArtifact(params: { ref: string; name: string }): Promise<Result<{ revealed: boolean }>>
@@ -622,7 +657,12 @@ export interface OdinApi extends ManagementApi {
   setAutostart(enabled: boolean): Promise<Result<Settings>>
   setNotifications(change: NotificationChange): Promise<Result<Settings>>
   settingsSchema(): Promise<Result<ConfigMeta>>
-  settingsSet(params: { expected_revision: string; changes: SettingsChange[] }): Promise<Result<SettingsSetResult>>
+  settingsSet(params: SettingsSetParams): Promise<Result<SettingsSetResult>>
+  /** Odin's POST /api/config/image-models: follow the shipped default, or pin the value in effect. */
+  imageModelIntent(params: {
+    expected_revision: string
+    operations: Partial<Record<ImageLeaf, 'follow' | 'pin'>>
+  }): Promise<Result<{ image_models: Record<ImageLeaf, ImageModelIntent>; image_models_revision: string; revision: string }>>
   secretsSet(params: { path: string; value: string }): Promise<Result<{ set: boolean }>>
   secretsClear(params: { path: string }): Promise<Result<{ set: boolean }>>
   /** A field whose `apply_handler` is a dedicated method: models.main.set or models.agents.set. */
@@ -685,6 +725,7 @@ export const IPC = {
   toolDetail: 'odin:tool:detail',
   toolOutput: 'odin:tool:output',
   fetchArtifact: 'odin:artifacts:fetch',
+  checkArtifact: 'odin:artifacts:check',
   openArtifact: 'odin:artifacts:open',
   saveArtifact: 'odin:artifacts:save',
   revealArtifact: 'odin:artifacts:reveal',
@@ -695,6 +736,7 @@ export const IPC = {
   setNotifications: 'odin:settings:set-notifications',
   settingsSchema: 'odin:core-settings:schema',
   settingsSet: 'odin:core-settings:set',
+  imageModelIntent: 'odin:core-settings:image-intent',
   secretsSet: 'odin:secrets:set',
   secretsClear: 'odin:secrets:clear',
   editLeaf: 'odin:core-settings:edit-leaf',

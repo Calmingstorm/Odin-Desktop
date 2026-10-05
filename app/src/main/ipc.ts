@@ -6,6 +6,8 @@ import {
   IPC,
   MANAGEMENT,
   type ManagementMethod,
+  SETTINGS_SHAPED,
+  type SettingsShapedMethod,
   type AppState,
   type NotificationChange,
   type Result,
@@ -50,6 +52,7 @@ import {
   codexLabelSchema,
   codexPollSchema,
   editLeafSchema,
+  imageIntentSchema,
   secretClearSchema,
   secretSetSchema,
   settingsSetSchema,
@@ -184,6 +187,7 @@ export function registerIpc(deps: IpcDeps): void {
     const bytes = await deps.artifacts.fetchBytes(v.ref)
     return bytes.ok ? { ok: true, result: { data: new Uint8Array(bytes.result) } } : bytes
   })
+  handle(IPC.checkArtifact, fetchArtifactSchema, (v) => deps.artifacts.check(v.ref))
   handle(IPC.openArtifact, artifactActionSchema, (v) => deps.artifacts.open(v.ref, v.name))
   handle(IPC.saveArtifact, artifactActionSchema, async (v) => deps.artifacts.saveAs(v.ref, await deps.chooseSavePath(v.name)))
   handle(IPC.revealArtifact, artifactActionSchema, (v) => deps.artifacts.reveal(v.ref, v.name))
@@ -201,6 +205,11 @@ export function registerIpc(deps: IpcDeps): void {
     const id = randomUUID()
     return fromSettled(await deps.broker.request('settings.set', v, id))
   })
+  // Each settings-shaped method has its own channel, with settings.set's schema, and reaches exactly that method.
+  for (const method of Object.keys(SETTINGS_SHAPED) as SettingsShapedMethod[]) {
+    handle(SETTINGS_SHAPED[method].channel, settingsSetSchema, async (v) => fromSettled(await deps.broker.request(method, v, randomUUID())))
+  }
+  handle(IPC.imageModelIntent, imageIntentSchema, async (v) => fromSettled(await deps.broker.request('models.image.intent', v, randomUUID())))
   handle(IPC.secretsSet, secretSetSchema, async (v) => {
     const id = randomUUID()
     return fromSettled(await deps.broker.request('secrets.set', v, id))

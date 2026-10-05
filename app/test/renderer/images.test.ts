@@ -82,3 +82,58 @@ describe('inline images', () => {
     expect(calls).toEqual(['a', 'a'])
   })
 })
+
+describe('review round 2: held images follow the core', () => {
+  it('checks a released image with the core before showing it again, and drops one the core no longer has', async () => {
+    const revoked = vi.spyOn(URL, 'revokeObjectURL')
+    const { fetch, calls } = bridge(10)
+    let present: boolean | null = true
+    const checks: string[] = []
+    const cache = new ImageCache(fetch, 100, async (ref) => (checks.push(ref), present))
+    const first = cache.acquire(image('a'))
+    const url = await first.url
+    first.release()
+    present = false // expired at the core, and the event saying so was missed
+    const again = cache.acquire(image('a'))
+    expect(await again.url).toBeNull()
+    expect(checks).toEqual(['a'])
+    expect(calls).toEqual(['a'])
+    expect(cache.cached()).toEqual([])
+    again.release()
+    await Promise.resolve()
+    expect(revoked.mock.calls.map(([u]) => u)).toEqual([url])
+  })
+
+  it('shows held bytes again after a passing check, or when the core can\'t say', async () => {
+    const { fetch, calls } = bridge(10)
+    let present: boolean | null = true
+    const cache = new ImageCache(fetch, 100, async () => present)
+    const first = cache.acquire(image('a'))
+    const url = await first.url
+    first.release()
+    const checked = cache.acquire(image('a'))
+    expect(await checked.url).toBe(url)
+    checked.release()
+    present = null
+    expect(await cache.acquire(image('a')).url).toBe(url)
+    expect(calls).toEqual(['a'])
+  })
+
+  it('drops a held image when the core says it is gone, and fetches afresh next time', async () => {
+    const revoked = vi.spyOn(URL, 'revokeObjectURL')
+    const { fetch, calls } = bridge(10)
+    const cache = new ImageCache(fetch, 100, async () => true)
+    const shown = cache.acquire(image('a'))
+    const url = await shown.url
+    cache.invalidate('a') // still on screen: its bytes stay until the message lets go
+    expect(cache.cached()).toEqual([])
+    await Promise.resolve()
+    expect(revoked).not.toHaveBeenCalled()
+    shown.release()
+    await Promise.resolve()
+    expect(revoked.mock.calls.map(([u]) => u)).toEqual([url])
+    await cache.acquire(image('a')).url
+    expect(calls).toEqual(['a', 'a'])
+  })
+})
+

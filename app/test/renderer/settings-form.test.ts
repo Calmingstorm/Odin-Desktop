@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigField } from '../../src/shared/api'
-import { dedicatedMethod, differenceNote, effectText, fromInput, groupsFor, navOf, sectionTitle, toInput } from '../../src/renderer/src/settings-form'
+import {
+  dedicatedMethod,
+  editableHere,
+  differenceNote,
+  effectText,
+  fromInput,
+  groupsFor,
+  imageLeafOf,
+  navOf,
+  sectionTitle,
+  settingsShapedMethod,
+  toInput
+} from '../../src/renderer/src/settings-form'
 
 function field(fields: Partial<ConfigField> & Pick<ConfigField, 'path' | 'type'>): ConfigField {
   return {
@@ -98,6 +110,38 @@ describe('how a setting reads', () => {
   it("joins Odin's two sentences with a space", () => {
     expect(effectText(field({ path: 'x', type: 'string', save_effect: 'Saved.', runtime_effect: 'Read on next use.' }))).toBe('Saved. Read on next use.')
     expect(effectText(field({ path: 'x', type: 'string', save_effect: 'Saved.' }))).toBe('Saved.')
+  })
+})
+
+describe('review round 2: which method saves a field', () => {
+  it("names a provider or computer field's settings-shaped method, and nothing for the rest", () => {
+    expect(settingsShapedMethod(field({ type: 'string', path: 'ollama.base_url', apply_handler: 'providers.ollama.set' }))).toBe('providers.ollama.set')
+    expect(settingsShapedMethod(field({ type: 'string', path: 'computer.enabled', apply_handler: 'computer.activation.set' }))).toBe('computer.activation.set')
+    expect(settingsShapedMethod(field({ type: 'string', path: 'timezone', apply_handler: 'settings.set' }))).toBeNull()
+    expect(settingsShapedMethod(field({ type: 'string', path: 'llm_provider.model', apply_handler: 'models.main.set' }))).toBeNull()
+    expect(settingsShapedMethod(field({ type: 'string', path: 'x', apply_handler: 'toString' }))).toBeNull() // only the protocol's own names
+  })
+
+  it('knows the two image-model leaves, which follow or pin', () => {
+    expect(imageLeafOf(field({ type: 'string', path: 'image.openai.image_model' }))).toBe('image_model')
+    expect(imageLeafOf(field({ type: 'string', path: 'image.openai.outer_model' }))).toBe('outer_model')
+    expect(imageLeafOf(field({ type: 'string', path: 'image.openai.quality' }))).toBeNull()
+  })
+})
+
+describe('what the form edits in place', () => {
+  const owned = (apply_handler: string | null, extra: Partial<ConfigField> = {}) =>
+    field({ type: 'string', path: 'x.y', apply_handler, ...extra })
+
+  it('edits generic, secret, leaf-editor and settings-shaped fields, and shows section-owned ones read-only', () => {
+    expect(editableHere(owned(null))).toBe(true)
+    expect(editableHere(owned('settings.set'))).toBe(true)
+    expect(editableHere(owned('providers.compat.set', { sensitivity: 'sensitive' }))).toBe(true) // a secret: set, never shown
+    expect(editableHere(owned('models.main.set'))).toBe(true)
+    expect(editableHere(owned('providers.ollama.set'))).toBe(true)
+    expect(editableHere(owned('computer.activation.set'))).toBe(true)
+    expect(editableHere(owned('tools.timeouts.set'))).toBe(false) // the Tools section's own controls change it
+    expect(editableHere(owned('mcp.set_limits'))).toBe(false)
   })
 })
 
