@@ -245,17 +245,18 @@ class NamespaceBehaviour(unittest.TestCase):
     @unittest.skipUnless(shutil.which('bwrap') and shutil.which('sudo') and shutil.which('ssh-keygen'),
                          'namespace/OpenSSH tools unavailable')
     def test_private_namespace_identity_allows_real_first_start_ssh_keygen(self):
-        account = pwd.getpwnam('hyprlab')
+        account = pwd.getpwnam('hyprlab') if os.getuid() == 0 else pwd.getpwuid(os.getuid())
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
             base.chmod(0o755)
             root, work = base / 'candidate', base / 'profile'
             root.mkdir()
             work.mkdir()
-            os.chown(work, account.pw_uid, account.pw_gid)
+            if os.getuid() == 0:
+                os.chown(work, account.pw_uid, account.pw_gid)
             command = ['/bin/sh', '-ec',
-                       'test "$(id -un)" = hyprlab; '
-                       'test "$(getent passwd hyprlab | cut -d: -f6)" = /work/home; '
+                       f'test "$(id -un)" = {account.pw_name}; '
+                       f'test "$(getent passwd {account.pw_name} | cut -d: -f6)" = /work/home; '
                        'test "$(getent passwd | wc -l)" = 2; '
                        '! (echo changed >> /etc/passwd); '
                        '! (echo changed >> /work/.namespace-etc/passwd); '
@@ -265,7 +266,7 @@ class NamespaceBehaviour(unittest.TestCase):
                        'grep -q "^ssh-ed25519 " /work/derived-public; echo identity-keygen-ok']
             previous_umask = os.umask(0o077)
             try:
-                result = qualify.run(qualify.sandbox(root, work, 'hyprlab', command))
+                result = qualify.run(qualify.sandbox(root, work, account.pw_name, command))
             finally:
                 os.umask(previous_umask)
             self.assertIn('identity-keygen-ok', result)
