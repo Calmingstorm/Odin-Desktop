@@ -433,6 +433,11 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await expect(usage).toContainText("not measured: Odin doesn't know this value")
       await expect(usage).not.toContainText('Usage is unavailable in this core')
     }
+    if (label === 'Scheduled and running work') {
+      await expect(page.getByRole('region', { name: 'Schedules', exact: true })).toContainText('No schedules yet.')
+      await expect(page.getByRole('region', { name: 'Running work', exact: true })).toContainText('Nothing is running.')
+      await expect(page.locator('.settings-body')).not.toContainText('Work (agents, tasks, loops, processes, workflows and schedules) is unavailable')
+    }
     await audit(`real-${label}`)
     await ax(`real-${label}`)
   }
@@ -586,6 +591,31 @@ test('work panel keyboard controls, focus return and target names', async () => 
   await activate(openConversation)
   await expect(page.getByRole('region', { name: 'Conversation history', exact: true })).toBeFocused()
   await expect(page.locator('.work-panel')).toHaveCount(0)
+})
+
+test('keyboard and accessibility tree preserve unknown work settlement and steer boundaries', async () => {
+  await launch(false, 'work-settlement')
+  await activate(page.locator('.work-toggle'))
+  const row = page.locator('.work-item').filter({ hasText: 'Unknown release audit' })
+  await expect(row).toContainText('Settlement')
+  await expect(row).toContainText('unknown')
+  await expect(row).toContainText('unproven')
+  await expect(row).toContainText('Resource release is not confirmed')
+  await audit('work-unknown-settlement')
+  const tree = await ax('work-unknown-settlement')
+  expect(tree).toContain('Work settlement')
+  expect(tree).toContain('Resource release')
+  const steer = row.getByRole('button', { name: 'Steer agent: Unknown release audit', exact: true })
+  await activate(steer)
+  const input = row.getByRole('textbox', { name: 'Steer agent: Unknown release audit', exact: true })
+  await expect(input).toBeFocused()
+  await page.keyboard.insertText('Do not infer that resources were released.')
+  await expect(input).toHaveValue('Do not infer that resources were released.')
+  await expect(row.getByRole('button', { name: 'Send steer to agent: Unknown release audit', exact: true })).toHaveAttribute('aria-disabled', 'false')
+  await audit('work-steer-form')
+  const steerTree = await ax('work-steer-form')
+  expect(steerTree).toContain('Queued is not consumed')
+  expect(steerTree).toContain('Unknown outcomes are not retried')
 })
 
 test('rejected assistant drafts never enter DOM or real AX tree, structural announcements remain quiet', async () => {
