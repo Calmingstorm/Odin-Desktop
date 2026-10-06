@@ -2,6 +2,8 @@
 """VM guest-only AT-SPI collector, outside app PID namespace. No fake services."""
 
 import argparse
+import ctypes
+import ctypes.util
 import json
 import os
 import pwd
@@ -101,8 +103,141 @@ def identity(pid):
     status = base.joinpath("status").read_text()
     uid = int(next(line for line in status.splitlines() if line.startswith("Uid:")).split()[1])
     return {"pid": pid, "uid": uid,
+            "namespace_pids": [int(value) for value in next(
+                line for line in status.splitlines() if line.startswith("NSpid:")).split()[1:]],
             "start_ticks": base.joinpath("stat").read_text().rsplit(") ", 1)[1].split()[19],
             "exe": os.readlink(base / "exe"), "pid_namespace": os.readlink(base / "ns/pid")}
+
+
+def matches_inner(process, expected, uid):
+    """Compare kernel namespace mapping, never dereference an inner PID as outer."""
+    return (process["uid"] == uid == expected.get("uid")
+            and process["namespace_pids"][-1] == expected.get("pid")
+            and process["start_ticks"] == str(expected.get("startTicks"))
+            and process["pid_namespace"] == expected.get("namespace")
+            and process["exe"] == expected.get("executable"))
+
+
+def resolve_inner(expected, uid):
+    matches = []
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            process = identity(int(entry.name))
+            if matches_inner(process, expected, uid):
+                matches.append(process)
+        except (OSError, ValueError, StopIteration):
+            continue
+    if len(matches) != 1:
+        raise RuntimeError("App namespace identity has no unique live outer mapping")
+    return matches[0]
+
+
+def walk_tree(root, seconds=2):
+    queue = [(root, [])]
+    deadline = time.monotonic() + seconds
+    count = 0
+    while queue and count < 4000 and time.monotonic() < deadline:
+        obj, parents = queue.pop(0)
+        count += 1
+        yield obj, parents
+        try:
+            if len(parents) < 16:
+                queue.extend((obj[i], [obj, *parents]) for i in range(min(obj.childCount, 300)))
+        except Exception:
+            continue
+
+
+def opened_item(obj, parents, label, showing):
+    return (obj.name == label and obj.getRoleName() in ("menu item", "check menu item")
+            and obj.getState().contains(showing)
+            and any(parent.getRoleName() in ("menu", "popup menu")
+                    and parent.getState().contains(showing) for parent in parents[:3]))
+
+
+def accessible_peer_identity(obj, api, uid):
+    # libatspi's application PID can be inner; query the actual native bus peer.
+    name = str(obj.getApplication().app.bus_name)
+    if not re.fullmatch(r":\d+\.\d+", name):
+        raise RuntimeError("Accessible lacks native unique bus peer")
+    process = identity(int(api.GetConnectionUnixProcessID(name)))
+    if process["uid"] != uid:
+        raise RuntimeError("Native accessible peer has foreign UID")
+    return process
+
+
+def x11_owned_windows(process):
+    """Native XEmbed/property evidence only. No hard-coded icon dimensions/position."""
+    tree = subprocess.check_output(["xwininfo", "-root", "-tree"], text=True, timeout=3)
+    result = []
+    for wid in dict.fromkeys(re.findall(r"^\s+(0x[0-9a-f]+)\s", tree, re.M)):
+        props = subprocess.check_output(["xprop", "-id", wid, "_NET_WM_PID",
+                                        "WM_CLIENT_LEADER", "_XEMBED_INFO", "_NET_WM_WINDOW_TYPE"],
+                                       text=True, timeout=2)
+        pid = re.search(r"_NET_WM_PID\(CARDINAL\) = (\d+)", props)
+        if not pid:
+            leader = re.search(r"WM_CLIENT_LEADER\(WINDOW\).*?(0x[0-9a-f]+)", props)
+            if leader:
+                value = subprocess.check_output(["xprop", "-id", leader[1], "_NET_WM_PID"],
+                                                text=True, timeout=2)
+                pid = re.search(r"_NET_WM_PID\(CARDINAL\) = (\d+)", value)
+        # _NET_WM_PID may be absent or inner. Only XRes decides native ownership.
+        if x11_peer_pid(int(wid, 16)) != process["pid"]:
+            continue
+        detail = subprocess.check_output(["xwininfo", "-id", wid], text=True, timeout=2)
+        if "Map State: IsViewable" not in detail:
+            continue
+        fields = [re.search(rf"{field}:\s+(-?\d+)", detail) for field in
+                  ("Absolute upper-left X", "Absolute upper-left Y", "Width", "Height")]
+        if not all(fields):
+            continue
+        rectangle = [int(field[1]) for field in fields]
+        if min(rectangle) < 0 or min(rectangle[2:]) < 1:
+            continue
+        result.append({"window": wid, "rectangle": rectangle, "properties": props,
+                       "details": detail, "embedded": bool(re.search(r"_XEMBED_INFO\(.*?\) =", props)),
+                       "popup": "Override Redirect State: yes" in detail
+                       and "_NET_WM_WINDOW_TYPE_POPUP_MENU" in props})
+    if identity(process["pid"]) != process:
+        raise RuntimeError("App identity changed while observing X11 windows")
+    return result
+
+
+def x11_peer_pid(window):
+    """XRes local-client PID, not a client-supplied _NET_WM_PID property."""
+    class Spec(ctypes.Structure):
+        _fields_ = [("client", ctypes.c_ulong), ("mask", ctypes.c_ulong)]
+
+    class Value(ctypes.Structure):
+        _fields_ = [("spec", Spec), ("length", ctypes.c_long), ("value", ctypes.c_void_p)]
+
+    x11 = ctypes.CDLL(ctypes.util.find_library("X11") or "libX11.so.6")
+    xres = ctypes.CDLL(ctypes.util.find_library("XRes") or "libXRes.so.1")
+    x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    x11.XOpenDisplay.restype = ctypes.c_void_p
+    x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    xres.XResQueryClientIds.argtypes = [ctypes.c_void_p, ctypes.c_long, ctypes.POINTER(Spec),
+                                      ctypes.POINTER(ctypes.c_long), ctypes.POINTER(ctypes.POINTER(Value))]
+    xres.XResClientIdsDestroy.argtypes = [ctypes.c_long, ctypes.POINTER(Value)]
+    display = x11.XOpenDisplay(None)
+    if not display:
+        raise RuntimeError("Cannot inspect native X11 client peer")
+    count, values = ctypes.c_long(), ctypes.POINTER(Value)()
+    try:
+        spec = Spec(window, 2)  # XRES_CLIENT_ID_PID_MASK
+        status = xres.XResQueryClientIds(display, 1, ctypes.byref(spec), ctypes.byref(count), ctypes.byref(values))
+        if status != 0 or not values or count.value < 1 or count.value > 16:
+            raise RuntimeError("XRes native client PID unavailable")
+        pids = {ctypes.cast(values[i].value, ctypes.POINTER(ctypes.c_uint32))[0]
+                for i in range(count.value) if values[i].spec.mask & 2 and values[i].length >= 4}
+        if len(pids) != 1:
+            raise RuntimeError("XRes native client PID ambiguous or absent")
+        return pids.pop()
+    finally:
+        if values:
+            xres.XResClientIdsDestroy(count, values)
+        x11.XCloseDisplay(display)
 
 
 def main():
@@ -125,15 +260,27 @@ def main():
     bus = dbus.SessionBus()
     api = dbus.Interface(
         bus.get_object("org.freedesktop.DBus", "/org/freedesktop/DBus"), "org.freedesktop.DBus")
-    owner = str(api.GetNameOwner("org.freedesktop.Notifications"))
-    owner_identity = identity(int(api.GetConnectionUnixProcessID(owner)))
-    if owner_identity["uid"] != account.pw_uid:
-        raise RuntimeError("Notification daemon has foreign UID")
+    owner = None
+    owner_identity = None
+    if api.NameHasOwner("org.freedesktop.Notifications"):
+        owner = str(api.GetNameOwner("org.freedesktop.Notifications"))
+        owner_identity = identity(int(api.GetConnectionUnixProcessID(owner)))
+        if owner_identity["uid"] != account.pw_uid:
+            raise RuntimeError("Notification daemon has foreign UID")
+    address = str(dbus.Interface(bus.get_object("org.a11y.Bus", "/org/a11y/bus"),
+                                "org.a11y.Bus").GetAddress())
+    a11y_bus = dbus.bus.BusConnection(address)
+    a11y_api = dbus.Interface(a11y_bus.get_object("org.freedesktop.DBus", "/org/freedesktop/DBus"),
+                              "org.freedesktop.DBus")
+
+    def accessible_identity(obj):
+        return accessible_peer_identity(obj, a11y_api, account.pw_uid)
     signals = []
     observed_menu = {}
-    bus.add_signal_receiver(
-        lambda nid, action: signals.append({"id": int(nid), "action": str(action)}),
-        signal_name="ActionInvoked", dbus_interface="org.freedesktop.Notifications", bus_name=owner)
+    if owner:
+        bus.add_signal_receiver(
+            lambda nid, action: signals.append({"id": int(nid), "action": str(action)}),
+            signal_name="ActionInvoked", dbus_interface="org.freedesktop.Notifications", bus_name=owner)
     context = GLib.MainContext.default()
 
     def pump():
@@ -153,18 +300,7 @@ def main():
                 "pid": int(obj.getApplication().get_process_id()), "actions": actions}
 
     def nodes():
-        queue = [(pyatspi.Registry.getDesktop(0), [])]
-        deadline = time.monotonic() + 3
-        count = 0
-        while queue and count < 4000 and time.monotonic() < deadline:
-            obj, parents = queue.pop(0)
-            count += 1
-            try:
-                yield obj, parents
-                if len(parents) < 16:
-                    queue.extend((obj[i], [obj, *parents]) for i in range(min(obj.childCount, 300)))
-            except Exception:
-                continue
+        yield from walk_tree(pyatspi.Registry.getDesktop(0))
 
     def find(predicate, seconds=8):
         deadline = time.monotonic() + seconds
@@ -179,14 +315,39 @@ def main():
             time.sleep(0.1)
         raise RuntimeError("Native accessible target absent after bounded search")
 
-    def activate(obj, index):
+    def activate(obj, index, expected=None):
         record = describe(obj)
-        record["process"] = identity(record["pid"])
+        record["process"] = accessible_identity(obj)
         if record["process"]["uid"] != account.pw_uid:
             raise RuntimeError("Native target has foreign UID")
+        if expected is not None and record["process"] != expected:
+            raise RuntimeError("Native menu peer differs from app identity")
         if not obj.queryAction().doAction(index):
             raise RuntimeError("Native AT-SPI action rejected")
         return {"target": record, "action_index": index, "transport": "AT-SPI"}
+
+    def app_nodes(process):
+        desktop = pyatspi.Registry.getDesktop(0)
+        for i in range(min(desktop.childCount, 100)):
+            try:
+                root = desktop[i]
+                if accessible_identity(root) == process:
+                    yield from walk_tree(root)
+            except Exception:
+                continue
+
+    def find_item(process, label, seconds=6):
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            pump()
+            for obj, parents in app_nodes(process):
+                try:
+                    if opened_item(obj, parents, label, pyatspi.STATE_SHOWING):
+                        return obj
+                except Exception:
+                    continue
+            time.sleep(0.1)
+        raise RuntimeError("Opened app-owned GTK menu item absent after bounded search")
 
     def dispatch(request):
         pump()
@@ -212,52 +373,96 @@ def main():
                     "collector": identity(os.getpid()),
                     "session_type": os.environ["XDG_SESSION_TYPE"]}
         if operation == "tray-menu":
-            obj, _ = find(
-                lambda obj: "odin" in (obj.name + " " + obj.description).lower()
-                and obj.getRoleName() not in ("application", "frame", "menu item", "label")
-                and "odin" not in obj.getApplication().name.lower())
-            info = describe(obj)
-            for i, name in enumerate(info["actions"]):
-                if "menu" in name.lower():
-                    result = activate(obj, i)
-                    break
+            observed_menu.clear()
+            process = resolve_inner(request["app_identity"], account.pw_uid)
+            before_popups = {window["window"] for window in x11_owned_windows(process)
+                             if window["popup"]} if os.environ["XDG_SESSION_TYPE"] == "x11" else set()
+            try:
+                obj, _ = find(
+                    lambda obj: "odin" in (obj.name + " " + obj.description).lower()
+                    and obj.getRoleName() not in ("application", "frame", "menu item", "label")
+                    and any("menu" in name.lower() for name in describe(obj)["actions"])
+                    and accessible_identity(obj)["uid"] == account.pw_uid,
+                    seconds=1)
+            except RuntimeError:
+                obj = None
+            if obj is not None:
+                info = describe(obj)
+                index = next(i for i, name in enumerate(info["actions"]) if "menu" in name.lower())
+                result = activate(obj, index)
             else:
                 if os.environ["XDG_SESSION_TYPE"] != "x11":
-                    raise RuntimeError(f"Wayland tray lacks native AT-SPI menu action: {info}")
-                process = identity(info["pid"])
-                if process["uid"] != account.pw_uid:
-                    raise RuntimeError("Foreign tray UID")
-                box = obj.queryComponent().getExtents(pyatspi.DESKTOP_COORDS)
-                if box.width < 1 or box.height < 1 or box.x < 0 or box.y < 0:
-                    raise RuntimeError("Tray has no observed screen rectangle")
-                pyatspi.Registry.generateMouseEvent(
-                    box.x + box.width // 2, box.y + box.height // 2, "b3c")
-                result = {"target": info, "process": process, "transport": "AT-SPI X11 right-click",
-                          "rectangle": [box.x, box.y, box.width, box.height]}
-            opened, _ = find(
-                lambda obj: obj.name == "Open Odin" and obj.getRoleName() == "menu item")
-            result["appeared"] = describe(opened)
-            observed_menu.update(identity(result["appeared"]["pid"]))
+                    raise RuntimeError("Wayland tray lacks native AT-SPI menu action; no coordinate fallback")
+                icons = [window for window in x11_owned_windows(process) if window["embedded"]]
+                if len(icons) != 1:
+                    raise RuntimeError("No unique app-owned viewable native XEmbed icon")
+                icon = icons[0]
+                if identity(process["pid"]) != process or x11_peer_pid(int(icon["window"], 16)) != process["pid"]:
+                    raise RuntimeError("XEmbed owner changed before input")
+                x, y, width, height = icon["rectangle"]
+                pyatspi.Registry.generateMouseEvent(x + width // 2, y + height // 2, "b3c")
+                result = {"process": process, "transport": "native XEmbed X11 right-click", "icon": icon}
+            try:
+                opened = find_item(process, "Open Odin", seconds=3)
+            except RuntimeError:
+                if os.environ["XDG_SESSION_TYPE"] != "x11":
+                    raise
+                popups = [window for window in x11_owned_windows(process)
+                          if window["popup"] and window["window"] not in before_popups]
+                if len(popups) != 1:
+                    raise RuntimeError("No unique newly opened app-owned native GTK popup")
+                result["appeared"] = popups[0]
+                result["keyboardPopup"] = popups[0]["window"]
+            else:
+                result["appeared"] = describe(opened)
+                if accessible_identity(opened) != process:
+                    raise RuntimeError("Opened menu accessibility bus peer is not the app")
+            observed_menu.update({"process": process, "keyboard_popup": result.get("keyboardPopup")})
             return result
         if operation == "tray-action":
             label = request["label"]
             if label not in ("Open Odin", "Exit Odin"):
                 raise RuntimeError("Unknown tray action")
-            obj, parents = find(lambda obj: obj.name == label and obj.getRoleName() == "menu item")
-            current = identity(describe(obj)["pid"])
-            if current != observed_menu:
-                raise RuntimeError("Menu process differs from freshly observed tray menu")
-            if not any(parent.getRoleName() in ("menu", "popup menu") for parent in parents[:3]):
-                raise RuntimeError("Action is not in an observed native menu")
-            return activate(obj, 0)
+            if not observed_menu or identity(observed_menu["process"]["pid"]) != observed_menu["process"]:
+                raise RuntimeError("No fresh live app-owned opened tray menu")
+            process = observed_menu["process"]
+            popup = observed_menu["keyboard_popup"]
+            if popup:
+                if os.environ["XDG_SESSION_TYPE"] != "x11":
+                    raise RuntimeError("No Wayland keyboard/coordinate fallback")
+                windows = [window for window in x11_owned_windows(process)
+                           if window["window"] == popup and window["popup"]]
+                if len(windows) != 1:
+                    raise RuntimeError("Observed GTK popup disappeared before keyboard input")
+                subprocess.run(["xdotool", "windowfocus", "--sync", popup], check=True, timeout=2)
+                focused = int(subprocess.check_output(["xdotool", "getwindowfocus"], text=True, timeout=2))
+                if focused != int(popup, 16) or x11_peer_pid(focused) != process["pid"]:
+                    raise RuntimeError("Native keyboard focus is not the observed app GTK popup")
+                # Production menu: first enabled item Open, last enabled item Exit.
+                keys = ["Home" if label == "Open Odin" else "End", "Return"]
+                subprocess.run(["xdotool", "key", "--clearmodifiers", *keys], check=True, timeout=2)
+                observed_menu.clear()
+                return {"transport": "native X11 keyboard in observed focused GTK popup",
+                        "popup": windows[0], "process": process, "keys": keys,
+                        "finalStateRequired": True}
+            obj = find_item(process, label)
+            actions = describe(obj)["actions"]
+            index = next((i for i, name in enumerate(actions)
+                          if name.lower() in ("click", "activate", "press", "default")), None)
+            if index is None:
+                raise RuntimeError("Opened menu item lacks native activation action")
+            result = activate(obj, index, process)
+            observed_menu.clear()
+            return result
         if operation == "notification-click":
+            if owner_identity is None:
+                raise RuntimeError("Real desktop notification owner absent; notification row unavailable")
             text = request["text"]
             if not text.startswith("P33 native ") or len(text) > 100:
                 raise RuntimeError("Requires qualification notification marker")
             obj, parents = find(lambda obj: text in obj.name or text in obj.description)
             appeared = describe(obj)
-            if (appeared["pid"] != owner_identity["pid"]
-                    or identity(appeared["pid"])["start_ticks"] != owner_identity["start_ticks"]):
+            if accessible_identity(obj) != owner_identity:
                 raise RuntimeError("Notification accessible not owned by real daemon")
             for candidate in [obj, *parents[:4]]:
                 info = describe(candidate)

@@ -81,12 +81,32 @@ requires an accessible marker owned by the real daemon; click requires native
 AT-SPI action, real daemon `ActionInvoked`, and exact older message DOM
 highlight/viewport/jump-banner witnesses. No simulated notification signals.
 
-Tray Open/Exit first locates a real native tray menu and acts on its accessible
-items, not Electron callbacks. X11-only observed rectangle right-click is
-allowed when no menu action exists; no coordinate fallback on Wayland. Missing
-AT-SPI targets/actions report failure, never a synthetic pass. Native process
-witnesses use UID, PID, start ticks, executable and namespace. Clean Exit also
+Tray Open/Exit opens the actual native popup, then searches only the app-owned
+accessible tree, bounded in time/depth/count, for showing menu items in a showing
+menu. Activation uses native AT-SPI actions, never Electron callbacks. Without
+a native menu action, X11 may right-click one viewable app-owned XEmbed icon:
+`xwininfo` provides its actual rectangle, `_XEMBED_INFO` identifies embedding,
+and XRes validates the X-server client PID (guest `libxres1` required). If GTK
+does not export accessible items, a newly appeared, viewable, app-owned
+override-redirect `_NET_WM_WINDOW_TYPE_POPUP_MENU` window is required. Only after
+native focus is verified on that exact popup does genuine keyboard Home/End,
+Return select Open/Exit; guest `xdotool` is required for this route. The runner
+must still prove real visible state or clean process/socket/receipt shutdown.
+No guessed
+coordinates or Wayland coordinate fallback. The runner passes exact inner PID,
+UID, start ticks, executable and namespace; collector maps through kernel NSpid
+and validates accessibility-bus GetConnectionUnixProcessID, never treating an
+inner accessible PID as an outer /proc PID. Missing/ambiguous ownership or popup
+targets fail explicitly. An absent notification daemon does not block tray or
+no-tray lifecycle; only the notification row fails explicitly. Clean Exit also
 requires journal accepted shutdown and removal of the owned core socket.
+
+For failed-row-only runs, `--cases=tray-open,tray-exit` hides the initial window
+as setup without rerunning autostart/close rows. `--cases=notification,tray-exit`
+with `--core=notification-fixture` skips duplicate Open. Allowed cases are
+`autostart,close,tray-open,notification,tray-exit`; invalid/duplicate selections
+are rejected. Omission retains full qualification; omitted Exit is ordinary
+fallback cleanup, never a native Exit pass.
 
 GNOME no-tray checks close-keeps-running and genuine second launch reopening;
 Exit uses renderer input Ctrl+Q, explicitly not an OS keyboard proof. Autostart

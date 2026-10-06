@@ -15,6 +15,12 @@ const options = Object.fromEntries(process.argv.slice(2).map((arg) => {
 }))
 if (!['real', 'notification-fixture'].includes(options.core) || !options.socket || !options.out)
   throw new Error('Explicit --core, --socket and --out required')
+const allowedCases = ['autostart', 'close', 'tray-open', 'notification', 'tray-exit']
+const cases = options.cases !== undefined ? options.cases.split(',') : allowedCases.filter((name) =>
+  name !== 'notification' || options.core === 'notification-fixture')
+if (!cases.length || new Set(cases).size !== cases.length || cases.some((name) => !allowedCases.includes(name))
+  || (cases.includes('notification') && options.core !== 'notification-fixture'))
+  throw new Error('Invalid --cases: autostart,close,tray-open,notification,tray-exit; notification requires fixture')
 execFileSync('/usr/bin/python3', ['-c', 'import runpy,sys; runpy.run_path(sys.argv[1])["guard"]()',
   join(repository, 'scripts/qualification/lab/guest/native-p33-probe.py')], { stdio: 'inherit' })
 const root = process.env.ODIN_REAL_CORE_ROOT
@@ -32,7 +38,7 @@ if (!existsSync(join(repository, 'app/out/main/index.js'))) throw new Error('Bui
 function readlinkSafe(path) { try { readlinkSync(path); return true } catch { return false } }
 
 const report = { schema: 'native-p33-v1', core: options.core, productionDebugAuthority: false,
-  fixtureOnly: options.core === 'notification-fixture', steps: [], failures: [],
+  fixtureOnly: options.core === 'notification-fixture', selectedCases: cases, steps: [], failures: [],
   limitations: ['Source app only; parent separately qualifies AppImage and installed packages.',
     'No login session restart; autostart setting/entry is not proof of login launch.'] }
 async function native(operation, params = {}) {
@@ -86,7 +92,6 @@ let snapshot
 let identities
 try {
   report.nativeBefore = await native('inspect')
-  if (!report.nativeBefore.owners['org.freedesktop.Notifications']) throw new Error('Real desktop notification owner absent')
   app = await _electron.launch({ executablePath: executable, args, cwd: repository, env,
     chromiumSandbox: true, timeout: 30_000 })
   app.on('close', () => { exited = true })
@@ -105,7 +110,7 @@ try {
     preferences: BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences() }))
   if (report.sandbox.arguments.some((arg) => arg.includes('--no-sandbox')) || !report.sandbox.preferences.sandbox
     || !report.sandbox.preferences.contextIsolation || report.sandbox.preferences.nodeIntegration) throw new Error('Sandbox evidence rejected')
-  await step('autostart-renderer-api', async () => {
+  if (cases.includes('autostart')) await step('autostart-renderer-api', async () => {
     const enabled = await page.evaluate(() => window.odin.setAutostart(true))
     expect(enabled).toMatchObject({ ok: true, result: { autostart: true } })
     const entry = readFileSync(join(env.XDG_CONFIG_HOME, 'autostart/odin-desktop.desktop'), 'utf8')
@@ -115,21 +120,27 @@ try {
     expect(existsSync(join(env.XDG_CONFIG_HOME, 'autostart/odin-desktop.desktop'))).toBe(false)
     return { enabled, entry, disabled, scope: 'throwaway config, no login restart' }
   })
-  await step('close-keeps-core', async () => {
+  if (cases.includes('close')) await step('close-keeps-core', async () => {
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
     await expect.poll(async () => (await snapshot()).visible).toBe(false)
     expect(alive(identities.main) && alive(identities.core)).toBe(true)
     return await snapshot()
   })
-  if (!started.appState.noTray) {
+  if (!cases.includes('close') && cases.includes('tray-open')) {
+    // Hidden initial state is setup for the failed Open row, not a close rerun.
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].hide())
+    await expect.poll(async () => (await snapshot()).visible).toBe(false)
+    report.trayOpenSetup = { visible: false }
+  }
+  if (cases.includes('tray-open') && !started.appState.noTray) {
     await step('native-tray-open', async () => {
-      const menu = await native('tray-menu')
+      const menu = await native('tray-menu', { app_identity: identities.main })
       const action = await native('tray-action', { label: 'Open Odin' })
       await expect.poll(async () => (await snapshot()).visible).toBe(true)
       expect(alive(identities.main) && alive(identities.core)).toBe(true)
       return { menu, action, after: await snapshot() }
     })
-  } else {
+  } else if (cases.includes('tray-open')) {
     await step('no-tray-second-launch-reopens', async () => {
       const child = spawn(executable, args, { cwd: repository, env, stdio: 'ignore' })
       const result = await new Promise((done, reject) => {
@@ -146,8 +157,10 @@ try {
       return { secondExitCode: result, after }
     })
   }
-  if (options.core === 'notification-fixture') {
+  if (cases.includes('notification')) {
     await step('real-os-notification-exact-dom-click-fixture', async () => {
+      if (!report.nativeBefore.owners['org.freedesktop.Notifications'])
+        throw new Error('Real desktop notification owner absent; notification row unavailable')
       const evidence = { scope: 'fixture conversation/ack, real native OS daemon and AT-SPI click' }
       report.notification = evidence
       await page.locator('.conv', { hasText: 'Other conversation' }).click()
@@ -176,14 +189,14 @@ try {
         acks: await app.evaluate(() => globalThis.__odinE2E.notificationAcks) }
     })
   }
-  await step('native-exit-process-witness', async () => {
+  if (cases.includes('tray-exit')) await step('native-exit-process-witness', async () => {
     let nativeAction
     if (started.appState.noTray) {
       await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.show(); win.focus() })
       await page.keyboard.press('Control+q')
       nativeAction = 'Electron input Ctrl+Q accelerator, not callback'
     } else {
-      const menu = await native('tray-menu')
+      const menu = await native('tray-menu', { app_identity: identities.main })
       const action = await native('tray-action', { label: 'Exit Odin' })
       nativeAction = { menu, action }
     }
