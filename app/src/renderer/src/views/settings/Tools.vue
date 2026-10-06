@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import type { BuiltinTool } from '../../../../shared/api'
 import { loadTools, management, saveTimeouts, setToolEnabled } from '../../stores/management'
 import { unavailableText } from '../../capability'
+import { browser, browserRetryNote, loadBrowserStatus } from '../../stores/browser'
 
 const filter = ref('')
 const expanded = reactive<Record<string, boolean | undefined>>({})
@@ -58,12 +59,27 @@ async function save(): Promise<void> {
 }
 
 onMounted(async () => {
-  await loadTools()
+  await Promise.all([loadTools(), loadBrowserStatus()])
   editTimeouts()
 })
 </script>
 
 <template>
+  <section class="panel" aria-label="Browser runtime">
+    <header class="panel-head">
+      <h3>Browser</h3>
+      <button class="ghost" aria-label="Refresh status for browser" :disabled="browser.busy" @click="loadBrowserStatus">Refresh status</button>
+    </header>
+    <p v-if="browser.error" class="warn" role="status">Couldn't read browser status: {{ browser.error }}{{ browser.status ? ' Showing the last read.' : '' }}</p>
+    <template v-if="browser.status">
+      <p class="manage-desc">State: {{ browser.status.state }}. {{ browser.status.ready ? 'Core reports ready.' : 'Not ready.' }}</p>
+      <p v-if="browser.status.reason" class="manage-desc">Reason: {{ browser.status.reason }}</p>
+      <p class="manage-desc" role="status">{{ browserRetryNote(browser.status) }}</p>
+    </template>
+    <p v-else-if="browser.loaded" class="capability-unavailable" role="status">This core does not report browser runtime status.</p>
+    <p v-else-if="!browser.error" class="manage-desc" role="status">Browser status has not been read.</p>
+  </section>
+
   <section class="panel" aria-label="Built-in tools">
     <header class="panel-head">
       <h3>Built-in tools</h3>
