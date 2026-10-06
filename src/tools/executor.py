@@ -820,13 +820,26 @@ class ToolExecutor:
     ) -> ToolResult:
         """Dispatch with a whole-operation lease for an explicit target."""
         prepared = dict(tool_input or {})
+        # Authentication is separate from tool middleware. Foreign callers
+        # cannot obtain unknown-name classification or patch around authority.
+        manager = getattr(self, "_permission_manager", None)
+        if manager is not None and not manager.is_owner(user_id):
+            return ToolResult(output="Permission denied: authenticated owner required.",
+                              ok=False, error="permission_denied", tool_name=tool_name)
+        reserved = getattr(self, "computer_reserved", None)
+        if ((reserved is not None and reserved(tool_name))
+                or not tool_scope_allows(tool_name)):
+            return ToolResult(output="Permission denied: tool scope revoked or unavailable.",
+                              ok=False, error="permission_denied", tool_name=tool_name)
+        # In-scope unknown names precede permission/readiness/risk middleware.
+        # Known handlers still require every existing guard below.
+        if self._resolve_handler(tool_name) is None:
+            return ToolResult(output=f"Unknown tool: {tool_name}", ok=False,
+                              error="unknown_tool", tool_name=tool_name)
         denial = self.check_permission(tool_name, user_id)
         if denial:
             return ToolResult(output=denial, ok=False, error="permission_denied",
                               tool_name=tool_name)
-        if not tool_scope_allows(tool_name):
-            return ToolResult(output="Permission denied: tool scope revoked or unavailable.",
-                              ok=False, error="permission_denied", tool_name=tool_name)
         policy = getattr(self, "_builtin_policy", None)
         if policy is not None and policy.is_disabled(tool_name):
             from .builtin_policy import disabled_rejection

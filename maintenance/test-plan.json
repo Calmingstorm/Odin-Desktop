@@ -6,16 +6,19 @@
     "tracked_test_paths": 869,
     "archive": "maintenance/odin-v4.13.0.tar.gz"
   },
-  "execution_status": "Historical eligibility inventory, not whole-product parity. Step8part3 restores 14 whole suites (step2=6, step3=6, step4=2); 33 assigned suites retain exact blockers. All869 original byte hashes and historical326 members remain. Five reviewed step1 retirements remain nonpassing. Final frozen checkout qualification recorded separately.",
+  "execution_status": "PR35 review1: assigned47 = restored20 + retired21 + deferred6. Historical326 = restored29 + retired26 + deferred271. Original869 hashes remain; final full gate separately recorded, no whole-product acceptance.",
   "qualification_plan": "maintenance/qualification-plan.json",
   "phase2_suite_map": "maintenance/phase2-suite-map.json",
   "phase2_restored": [
+    "tests/test_attachments.py",
     "tests/test_bounded_process_wait.py",
     "tests/test_campaign_execution_risk.py",
     "tests/test_channel_cursor_campaign.py",
     "tests/test_channel_history_recency.py",
     "tests/test_channel_logger_edge_regressions.py",
     "tests/test_channel_state_recent_action_failure.py",
+    "tests/test_chat_steering_resume.py",
+    "tests/test_chat_steering_runtime.py",
     "tests/test_command_shell_framing.py",
     "tests/test_compatible_output_reserve.py",
     "tests/test_computer_audit_output_r21.py",
@@ -24,6 +27,7 @@
     "tests/test_computer_native_vision_r5.py",
     "tests/test_computer_privacy_r5.py",
     "tests/test_connection_lifecycle_d1.py",
+    "tests/test_delivery_review_regressions.py",
     "tests/test_delivery_turn_observation.py",
     "tests/test_local_supervisor_wrapper_r10.py",
     "tests/test_pr341_b10_channel_consistency.py",
@@ -32,6 +36,8 @@
     "tests/test_process_zero_offset.py",
     "tests/test_restored_process_shutdown.py",
     "tests/test_search_history_source_priority.py",
+    "tests/test_session_search.py",
+    "tests/test_tool_loop_helpers.py",
     "tests/test_turn_durability_heartbeat.py"
   ],
   "methodology": {
@@ -47,13 +53,13 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 298,
+    "phase2": 271,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "safe_pass_now": 380,
+    "safe_pass_now": 386,
     "safety_manual_gated": 100,
-    "retired": 5,
-    "phase2_restored": 23
+    "retired": 26,
+    "phase2_restored": 29
   },
   "entries": [
     {
@@ -192,12 +198,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/delivery.py: Desktop owner/intake/control/durable delivery adapter: delivery. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord chunked reply, file transport and retry delivery; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/client.py",
         "src/discord/delivery.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord chunked reply, file transport and retry delivery; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/characterization/test_executor_dispatch_parity.py",
@@ -283,13 +293,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord guild/channel intake, allowlists and multi-bot origin gating; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/client.py",
         "src/discord/tool_loop.py",
         "src/discord/tool_loop_helpers.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord guild/channel intake, allowlists and multi-bot origin gating; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/characterization/test_native_skill_dispatch_pins.py",
@@ -408,11 +422,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord pipeline routing, thread inheritance and reply/file handoff; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/client.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord pipeline routing, thread inheritance and reply/file handoff; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/characterization/test_scheduled_events.py",
@@ -1758,8 +1776,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/attachments.py: Desktop owner/intake/control/durable delivery adapter: attachments. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "phase2_seams": [
         "src/discord/attachments.py"
       ]
@@ -2674,15 +2692,19 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/attachments.py: Desktop owner/intake/control/durable delivery adapter: attachments; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord attachment intake; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/attachments.py",
         "src/discord/client.py",
         "src/discord/intake_pipeline.py",
         "src/discord/tool_loop.py",
         "src/discord/tool_loop_helpers.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord attachment intake; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_campaign_audit_durability.py",
@@ -3117,8 +3139,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/attachments.py: Desktop owner/intake/control/durable delivery adapter: attachments; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord attachment intake and delivery; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/attachments.py",
         "src/discord/intake_pipeline.py",
@@ -3127,7 +3149,11 @@
         "src/web/api/__init__.py",
         "src/web/api/sessions_chat.py",
         "src/web/websocket.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord attachment intake and delivery; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_campaign_discord_digest.py",
@@ -3216,15 +3242,19 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/attachments.py: Desktop owner/intake/control/durable delivery adapter: attachments; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord message intake; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/attachments.py",
         "src/discord/client.py",
         "src/discord/intake_pipeline.py",
         "src/discord/tool_loop.py",
         "src/discord/tool_loop_helpers.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord message intake; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_campaign_discord_resume.py",
@@ -3250,14 +3280,18 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/turn_resume.py: Desktop owner/intake/control/durable delivery adapter: turn_resume; src/turn_state/codec.py: install-bound context reconstruction. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord resume intake; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/client.py",
         "src/discord/tool_loop.py",
         "src/discord/turn_resume.py",
         "src/turn_state/codec.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord resume intake; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_campaign_display_binding_coverage.py",
@@ -4650,11 +4684,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord guild/DM channel logging; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/channel_logger.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord guild/DM channel logging; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_channel_logger_edge_regressions.py",
@@ -4704,12 +4742,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord channel privacy and allowlists; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/channel_logger.py",
         "src/discord/intake_pipeline.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord channel privacy and allowlists; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_channel_state_recent_action_failure.py",
@@ -4803,13 +4845,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: HTTP chat session and web/API identities; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/chat.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: HTTP chat session and web/API identities; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_chat_steering_admission.py",
@@ -4831,12 +4877,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord steering admission; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/channel_state.py",
         "src/discord/tool_loop.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord steering admission; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_chat_steering_notifications.py",
@@ -4864,14 +4914,18 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/steer_notifications.py: Desktop owner/intake/control/durable delivery adapter: steer_notifications; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/wiring.py: Desktop owner/intake/control/durable delivery adapter: wiring. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord steering notifications; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/channel_state.py",
         "src/discord/steer_notifications.py",
         "src/discord/tool_loop.py",
         "src/discord/wiring.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord steering notifications; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_chat_steering_parity.py",
@@ -4938,8 +4992,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/codec.py: install-bound context reconstruction; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "phase2_seams": [
         "src/discord/channel_state.py",
         "src/discord/client.py",
@@ -4980,8 +5034,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/steer_notifications.py: Desktop owner/intake/control/durable delivery adapter: steer_notifications; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "phase2_seams": [
         "src/discord/channel_state.py",
         "src/discord/client.py",
@@ -12817,11 +12871,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/delivery.py: Desktop owner/intake/control/durable delivery adapter: delivery. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord file delivery retries; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/delivery.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord file delivery retries; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_delivery_review_regressions.py",
@@ -12848,8 +12906,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "phase2_seams": [
         "src/permissions/token_manager.py",
         "src/web/__init__.py",
@@ -12876,11 +12934,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/delivery.py: Desktop owner/intake/control/durable delivery adapter: delivery. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord delivery and typing status; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/delivery.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord delivery and typing status; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_delivery_turn_observation.py",
@@ -13306,13 +13368,17 @@
         ],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: HTTP execute API routes and identities; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/sessions_chat.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: HTTP execute API routes and identities; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_executor_integration_smoke.py",
@@ -17479,12 +17545,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/attachments.py: Desktop owner/intake/control/durable delivery adapter: attachments; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord message intake pipeline; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/attachments.py",
         "src/discord/intake_pipeline.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord message intake pipeline; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_internals_bindings_contract.py",
@@ -19557,12 +19627,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/channel_ops.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord channel operations; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/channel_ops.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord channel operations; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_native_knowledge.py",
@@ -23569,8 +23643,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py"
@@ -23676,15 +23750,19 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord/web session identities and allowlists; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/channel_logger.py",
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/sessions_chat.py",
         "src/web/chat.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord/web session identities and allowlists; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_setup_helpers.py",
@@ -24190,11 +24268,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord slash-command stop intake; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/channel_state.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord slash-command stop intake; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_stream_invocation_identity.py",
@@ -24787,8 +24869,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "phase2_seams": [
         "src/discord/tool_loop_helpers.py"
       ]
@@ -25307,15 +25389,19 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord typing and presence; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/discord/channel_state.py",
         "src/discord/intake_pipeline.py",
         "src/discord/tool_loop.py",
         "src/discord/tool_loop_helpers.py",
         "src/turn_state/durability.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord typing and presence; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_ui_effort_mirror.py",
@@ -26281,12 +26367,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: HTTP web chat routes and sessions; removed by Desktop design (group A, review of #35).",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/chat.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: HTTP web chat routes and sessions; removed by Desktop design (group A, review of #35)."
+      }
     },
     {
       "path": "tests/test_web_persisted_sessions.py",
@@ -36364,14 +36454,11 @@
     "tests/characterization/test_api_route_parity.py",
     "tests/characterization/test_autonomous_loop.py",
     "tests/characterization/test_chat_tool_loop.py",
-    "tests/characterization/test_delivery.py",
     "tests/characterization/test_executor_dispatch_parity.py",
     "tests/characterization/test_facade_contract.py",
-    "tests/characterization/test_intake_gating.py",
     "tests/characterization/test_native_skill_dispatch_pins.py",
     "tests/characterization/test_p1_carve_semantics.py",
     "tests/characterization/test_p2_composition.py",
-    "tests/characterization/test_pipeline_persistence.py",
     "tests/characterization/test_scheduled_events.py",
     "tests/characterization/test_tool_parity.py",
     "tests/test_action_diffs.py",
@@ -36388,7 +36475,6 @@
     "tests/test_agent_transcript_contract.py",
     "tests/test_agent_wait_budget.py",
     "tests/test_agents_tasks_provider_paths.py",
-    "tests/test_attachments.py",
     "tests/test_audit_signing.py",
     "tests/test_audit_tail_v412.py",
     "tests/test_auth_config_integration_review.py",
@@ -36403,16 +36489,12 @@
     "tests/test_browser_wait_timeout.py",
     "tests/test_campaign_a_coverage_boundaries.py",
     "tests/test_campaign_agent_routes_coverage.py",
-    "tests/test_campaign_attachment_intake_coverage.py",
     "tests/test_campaign_audit_observability.py",
     "tests/test_campaign_authorization_persistence.py",
     "tests/test_campaign_cli_coverage.py",
     "tests/test_campaign_diagnostic_privacy.py",
-    "tests/test_campaign_discord_attachments.py",
     "tests/test_campaign_discord_digest.py",
     "tests/test_campaign_discord_final_coverage.py",
-    "tests/test_campaign_discord_intake.py",
-    "tests/test_campaign_discord_resume.py",
     "tests/test_campaign_display_binding_coverage.py",
     "tests/test_campaign_execution_outcomes.py",
     "tests/test_campaign_finish_boundaries.py",
@@ -36430,15 +36512,8 @@
     "tests/test_campaign_websocket_coverage.py",
     "tests/test_cancelled_persistence_settles.py",
     "tests/test_catalog_campaign.py",
-    "tests/test_channel_logger.py",
-    "tests/test_channel_privacy_campaign.py",
     "tests/test_chat_loop_recovery.py",
-    "tests/test_chat_session.py",
-    "tests/test_chat_steering_admission.py",
-    "tests/test_chat_steering_notifications.py",
     "tests/test_chat_steering_parity.py",
-    "tests/test_chat_steering_resume.py",
-    "tests/test_chat_steering_runtime.py",
     "tests/test_codex_account_mutation_regressions.py",
     "tests/test_codex_quota_check.py",
     "tests/test_codex_replay_boundaries.py",
@@ -36498,12 +36573,8 @@
     "tests/test_context_budget_activation.py",
     "tests/test_context_density_calibration.py",
     "tests/test_delivery_empty_fields.py",
-    "tests/test_delivery_file_retries.py",
-    "tests/test_delivery_review_regressions.py",
-    "tests/test_delivery_status.py",
     "tests/test_direct_chat_reasoning_records.py",
     "tests/test_docs_campaign_contracts.py",
-    "tests/test_execute_api.py",
     "tests/test_executor_output_retention.py",
     "tests/test_executor_timeout_durability.py",
     "tests/test_fd_health.py",
@@ -36530,7 +36601,6 @@
     "tests/test_image_default_update_paths.py",
     "tests/test_image_model_config_api.py",
     "tests/test_independent_credential_review.py",
-    "tests/test_intake_pipeline.py",
     "tests/test_internals_bindings_contract.py",
     "tests/test_knowledge_dedup.py",
     "tests/test_knowledge_ingest_outcomes.py",
@@ -36557,7 +36627,6 @@
     "tests/test_mcp_wiring.py",
     "tests/test_mixed_agent_reasoning_contract.py",
     "tests/test_native_agents_tasks.py",
-    "tests/test_native_channel_ops.py",
     "tests/test_native_knowledge.py",
     "tests/test_native_media.py",
     "tests/test_native_monitoring_removal.py",
@@ -36605,25 +36674,20 @@
     "tests/test_search_small_delivery_budget.py",
     "tests/test_self_audit_fixes.py",
     "tests/test_self_update_campaign_rollback.py",
-    "tests/test_session_search.py",
-    "tests/test_sessions_review_regressions.py",
     "tests/test_setup_helpers.py",
     "tests/test_smoke_run_bot.py",
     "tests/test_startup_auth_middleware_review.py",
     "tests/test_startup_diagnostics.py",
     "tests/test_startup_onboarding_context.py",
-    "tests/test_stop_command.py",
     "tests/test_subsystem_guard.py",
     "tests/test_tool_catalog_dependency_gate.py",
     "tests/test_tool_failure_visibility.py",
     "tests/test_tool_lifecycle_correlation.py",
-    "tests/test_tool_loop_helpers.py",
     "tests/test_tool_loop_provenance.py",
     "tests/test_trajectories.py",
     "tests/test_trajectory_completeness.py",
     "tests/test_turn_recorder_loop_reflection.py",
     "tests/test_turn_recorder_webhook_campaign.py",
-    "tests/test_typing_resilience.py",
     "tests/test_ui_effort_mirror.py",
     "tests/test_wait_stuck_integration.py",
     "tests/test_web_api_agents_loops.py",
@@ -36646,7 +36710,6 @@
     "tests/test_web_campaign_policy_races.py",
     "tests/test_web_campaign_streams.py",
     "tests/test_web_campaign_truth.py",
-    "tests/test_web_chat.py",
     "tests/test_web_persisted_sessions.py",
     "tests/test_web_security_reliability.py",
     "tests/test_web_skill_identity_v412.py",
@@ -36744,6 +36807,7 @@
     "tests/test_apply_patch_corrective_errors.py",
     "tests/test_apply_patch_payload.py",
     "tests/test_async_utils_settled.py",
+    "tests/test_attachments.py",
     "tests/test_audit_config_reliability.py",
     "tests/test_audit_logger_edge_regressions.py",
     "tests/test_audit_logger_search.py",
@@ -36790,6 +36854,8 @@
     "tests/test_channel_history_recency.py",
     "tests/test_channel_logger_edge_regressions.py",
     "tests/test_channel_state_recent_action_failure.py",
+    "tests/test_chat_steering_resume.py",
+    "tests/test_chat_steering_runtime.py",
     "tests/test_circuit_breaker.py",
     "tests/test_codex_55_retirement.py",
     "tests/test_codex_auth.py",
@@ -36923,6 +36989,7 @@
     "tests/test_context_compressor.py",
     "tests/test_context_reload_report.py",
     "tests/test_cost_tracker.py",
+    "tests/test_delivery_review_regressions.py",
     "tests/test_delivery_turn_observation.py",
     "tests/test_edge_error_recovery.py",
     "tests/test_email_campaign.py",
@@ -37079,6 +37146,7 @@
     "tests/test_session_campaign.py",
     "tests/test_session_persistence_reliability.py",
     "tests/test_session_restore.py",
+    "tests/test_session_search.py",
     "tests/test_session_segment_index.py",
     "tests/test_session_vec_reindex.py",
     "tests/test_sessions_manager.py",
@@ -37099,6 +37167,7 @@
     "tests/test_token_budget.py",
     "tests/test_tool_effect_classifier.py",
     "tests/test_tool_failure_reporting.py",
+    "tests/test_tool_loop_helpers.py",
     "tests/test_tool_text_regressions.py",
     "tests/test_trajectory_bounded_reads.py",
     "tests/test_trajectory_saver.py",
@@ -37234,17 +37303,59 @@
     }
   ],
   "retired": [
+    "tests/characterization/test_delivery.py",
+    "tests/characterization/test_intake_gating.py",
+    "tests/characterization/test_pipeline_persistence.py",
+    "tests/test_campaign_attachment_intake_coverage.py",
+    "tests/test_campaign_discord_attachments.py",
+    "tests/test_campaign_discord_intake.py",
+    "tests/test_campaign_discord_resume.py",
+    "tests/test_channel_logger.py",
+    "tests/test_channel_privacy_campaign.py",
+    "tests/test_chat_session.py",
+    "tests/test_chat_steering_admission.py",
+    "tests/test_chat_steering_notifications.py",
     "tests/test_client.py",
     "tests/test_command_reconciliation.py",
+    "tests/test_delivery_file_retries.py",
+    "tests/test_delivery_status.py",
+    "tests/test_execute_api.py",
     "tests/test_gateway_transition_regressions.py",
+    "tests/test_intake_pipeline.py",
+    "tests/test_native_channel_ops.py",
     "tests/test_rate_limiter.py",
+    "tests/test_sessions_review_regressions.py",
+    "tests/test_stop_command.py",
+    "tests/test_typing_resilience.py",
+    "tests/test_web_chat.py",
     "tests/test_websocket_production_stack.py"
   ],
   "phase2_retired": [
+    "tests/characterization/test_delivery.py",
+    "tests/characterization/test_intake_gating.py",
+    "tests/characterization/test_pipeline_persistence.py",
+    "tests/test_campaign_attachment_intake_coverage.py",
+    "tests/test_campaign_discord_attachments.py",
+    "tests/test_campaign_discord_intake.py",
+    "tests/test_campaign_discord_resume.py",
+    "tests/test_channel_logger.py",
+    "tests/test_channel_privacy_campaign.py",
+    "tests/test_chat_session.py",
+    "tests/test_chat_steering_admission.py",
+    "tests/test_chat_steering_notifications.py",
     "tests/test_client.py",
     "tests/test_command_reconciliation.py",
+    "tests/test_delivery_file_retries.py",
+    "tests/test_delivery_status.py",
+    "tests/test_execute_api.py",
     "tests/test_gateway_transition_regressions.py",
+    "tests/test_intake_pipeline.py",
+    "tests/test_native_channel_ops.py",
     "tests/test_rate_limiter.py",
+    "tests/test_sessions_review_regressions.py",
+    "tests/test_stop_command.py",
+    "tests/test_typing_resilience.py",
+    "tests/test_web_chat.py",
     "tests/test_websocket_production_stack.py"
   ]
 }

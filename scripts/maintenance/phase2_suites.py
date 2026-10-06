@@ -48,6 +48,76 @@ RETIREMENT_REASONS = {
         "and step 1's tests prove its handshake authenticates before any method runs."),
 }
 WORK_ORDER = "docs/work/phase-2-desktop-engine.md"
+PR35_REVIEWER = "Claude, review of #35"
+# Deliberately separate from #26: neither review grants blanket retirement.
+PR35_RETIREMENTS = {
+    "tests/characterization/test_delivery.py": (
+        3, "Discord chunked reply, file transport and retry delivery"),
+    "tests/characterization/test_intake_gating.py": (
+        3, "Discord guild/channel intake, allowlists and multi-bot origin gating"),
+    "tests/characterization/test_pipeline_persistence.py": (
+        4, "Discord pipeline routing, thread inheritance and reply/file handoff"),
+    "tests/test_campaign_attachment_intake_coverage.py": (3, "Discord attachment intake"),
+    "tests/test_campaign_discord_attachments.py": (3, "Discord attachment intake and delivery"),
+    "tests/test_campaign_discord_intake.py": (3, "Discord message intake"),
+    "tests/test_campaign_discord_resume.py": (4, "Discord resume intake"),
+    "tests/test_channel_privacy_campaign.py": (3, "Discord channel privacy and allowlists"),
+    "tests/test_channel_logger.py": (2, "Discord guild/DM channel logging"),
+    "tests/test_chat_session.py": (3, "HTTP chat session and web/API identities"),
+    "tests/test_chat_steering_admission.py": (4, "Discord steering admission"),
+    "tests/test_chat_steering_notifications.py": (4, "Discord steering notifications"),
+    "tests/test_delivery_file_retries.py": (3, "Discord file delivery retries"),
+    "tests/test_delivery_status.py": (3, "Discord delivery and typing status"),
+    "tests/test_execute_api.py": (3, "HTTP execute API routes and identities"),
+    "tests/test_intake_pipeline.py": (3, "Discord message intake pipeline"),
+    "tests/test_native_channel_ops.py": (3, "Discord channel operations"),
+    "tests/test_sessions_review_regressions.py": (
+        3, "Discord/web session identities and allowlists"),
+    "tests/test_stop_command.py": (4, "Discord slash-command stop intake"),
+    "tests/test_typing_resilience.py": (3, "Discord typing and presence"),
+    "tests/test_web_chat.py": (3, "HTTP web chat routes and sessions"),
+}
+PR35_RETIREMENT_REASONS = {
+    path: f"Retired: {surface}; removed by Desktop design (group A, review of #35)."
+    for path, (_, surface) in PR35_RETIREMENTS.items()
+}
+PR35_CASE_REASONS = {
+    "tests/test_chat_steering_runtime.py": {
+        "test_tool_batch_pairs_checkpoint_before_replan_no_stale_judgment_or_handoff":
+        "Removed Discord admin/multi-requester steering: this case admits user 999999 as admin "
+        "and asserts a distinct numeric Discord requester retains tool authority; desktop has "
+        "exactly one authenticated canonical profile owner.",
+    },
+    "tests/test_session_search.py": {
+        "TestSessionSearchAPI.test_search_with_user_filter":
+        "Removed API identity surface: REST selects Bob from Alice/Bob messages; desktop one "
+        "canonical installation owner, no multi-user participant/API identity metadata; "
+        "fabricating seed identities as authority does not preserve meaning; copied engine "
+        "user-provenance cases remain restored.",
+    },
+    "tests/characterization/test_executor_dispatch_parity.py": {
+        "TestMiddlewarePins.test_rbac_denial_shape_and_metrics":
+        "Guest-tier RBAC is removed by Desktop D17; Claude, review of #35 retires only this "
+        "guest denial/metrics case.",
+    },
+    "tests/test_tool_loop_helpers.py": {
+        case: (
+            "Multi-bot origin handling (from_another_bot=True) is removed by Desktop; "
+            "Claude, review of #35 retires only bot-origin cases.")
+        for case in ("TestBuildRequestPreamble.test_bot_message_block",
+                     "TestBuildRequestPreamble.test_no_history_bot_turn_keeps_bot_origin_note")
+    },
+}
+PR35_CASE_SOURCE_SHA256 = {
+    "tests/test_chat_steering_runtime.py":
+        "b41818cc97a50a4794cac024b953f7199369b225e863e1c9b4c34b2e32cc3f2b",
+    "tests/test_session_search.py":
+        "38aa1cce39048336ef77697cade3d9d6f964e294fa8b9daed24a50600ab0c292",
+    "tests/characterization/test_executor_dispatch_parity.py":
+        "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
+    "tests/test_tool_loop_helpers.py":
+        "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782",
+}
 KINDS = ("excluded", "phase2", "retained_adaptation_gated", "retained_support",
          "safe_pass_now", "safety_manual_gated", "retired")
 MAP_PATH = "maintenance/phase2-suite-map.json"
@@ -146,6 +216,9 @@ def _adapter_modules(root: Path, selector: str) -> list[ast.Module]:
             names = ([node.module] if isinstance(node, ast.ImportFrom)
                      and node.level == 0 and node.module else
                      [a.name for a in node.names] if isinstance(node, ast.Import) else [])
+            if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names.extend(f"{node.module}.{alias.name}" for alias in node.names
+                             if alias.name != "*")
             for name in names:
                 candidate = name.replace(".", "/") + ".py"
                 if candidate.startswith("tests/") and (root / candidate).is_file():
@@ -153,7 +226,82 @@ def _adapter_modules(root: Path, selector: str) -> list[ast.Module]:
     return trees
 
 
-def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> bool:
+def _case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
+    """Exact review dispositions, canonical source case identities, no globs/params."""
+    if not isinstance(value, list):
+        return False
+    if not value:
+        return True
+    if inherited_hash != PR35_CASE_SOURCE_SHA256.get(path):
+        return False
+    source = _regular(root, path).read_bytes()
+    if _digest(source) != inherited_hash:
+        return False
+    tree = ast.parse(source, filename=path)
+    cases = set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            cases.add(node.name)
+        elif isinstance(node, ast.ClassDef):
+            cases.update(f"{node.name}.{child.name}" for child in node.body
+                         if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)))
+    names = []
+    for row in value:
+        if (not isinstance(row, dict) or set(row) != {
+                "case", "reviewer", "reason", "source_path", "source_sha256"}):
+            return False
+        case = row["case"]
+        if (not isinstance(case, str) or case not in cases
+                or row["reviewer"] != PR35_REVIEWER
+                or row["source_path"] != path or row["source_sha256"] != inherited_hash
+                or case not in PR35_CASE_REASONS.get(path, {})
+                or row["reason"] != PR35_CASE_REASONS[path][case]):
+            return False
+        names.append(case)
+    return names == sorted(set(names))
+
+
+def _branch_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
+    if value == []:
+        return True
+    if path != "tests/test_tool_loop_helpers.py" or inherited_hash != PR35_CASE_SOURCE_SHA256[path]:
+        return False
+    expected = {
+        "case": "TestBehaviorPreservedByRefactor.test_all_combinations_match_reference",
+        "reviewer": PR35_REVIEWER,
+        "reason": PR35_CASE_REASONS[path]["TestBuildRequestPreamble.test_bot_message_block"],
+        "source_path": path, "source_sha256": inherited_hash,
+        "line": 170, "column": 36,
+        "node_sha256": "dca8f82ad2c13093e18831c63d876733f70de16f7f9f34083e01bc131bb8218e",
+        "before_source": "(True, False)", "after_source": "(False,)",
+    }
+    if (not isinstance(value, list) or value != [expected]
+            or type(value[0].get("line")) is not int
+            or type(value[0].get("column")) is not int):
+        return False
+    source = _regular(root, path).read_bytes()
+    if _digest(source) != inherited_hash:
+        return False
+    matches = [node for node in ast.walk(ast.parse(source))
+               if getattr(node, "lineno", None) == 170 and getattr(node, "col_offset", None) == 36
+               and _digest(ast.dump(node, include_attributes=False).encode())
+               == expected["node_sha256"]]
+    return len(matches) == 1
+
+
+def _reviewed_exclusion_expression(node: ast.expr) -> bool:
+    """Only the documented metadata-to-case projection, not arbitrary selection."""
+    for variable in ("stem", "name"):
+        expected = ast.parse(
+            f"[item['case'] for item in CORPUS_EXCLUSIONS.get({variable}, ())]",
+            mode="eval").body
+        if ast.dump(node) == ast.dump(expected):
+            return True
+    return False
+
+
+def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
+                  case_retirements=None, branch_retirements=None) -> bool:
     """Fail-closed static full-export association for frozen corpus loaders.
 
     A literal admission alone is insufficient: the reachable loader must read
@@ -161,6 +309,15 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
     complete module. Runtime qualification remains the named group's job.
     """
     trees = _adapter_modules(root, selector)
+    reviewed = [] if case_retirements is None else case_retirements
+    if not _case_retirements(root, path, inherited_hash, reviewed):
+        return False
+    declared = None
+    reviewed_branches = [] if branch_retirements is None else branch_retirements
+    if not _branch_retirements(root, path, inherited_hash, reviewed_branches):
+        return False
+    declared_branches = None
+    exclusion_export = False
     admitted = False
     pinned = False
     frozen = False
@@ -170,6 +327,7 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
     compile_frozen = False
     invokes_loader = False
     stem = PurePosixPath(path).stem
+    aliases = {stem, path.removeprefix("tests/").removesuffix(".py")}
     for tree in trees:
         constants = {}
         for node in tree.body:
@@ -177,25 +335,81 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                 try:
                     value = ast.literal_eval(node.value)
                 except (ValueError, TypeError):
+                    if any(isinstance(target, ast.Name) and target.id in {
+                        "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS", "CORPUS_BRANCH_RETIREMENTS"}
+                           for target in node.targets):
+                        return False
                     continue
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         constants[target.id] = value
         selections = constants.get("CORPUS_SELECTIONS", {})
-        if isinstance(selections, dict) and stem in selections:
-            if selections[stem] is not None:
+        matching_keys = aliases & set(selections) if isinstance(selections, dict) else set()
+        for key in matching_keys:
+            if selections[key] is not None:
                 return False
             admitted = True
         exclusions = constants.get("CORPUS_EXCLUSIONS", {})
-        if not isinstance(exclusions, dict) or any(exclusions.values()):
+        if not isinstance(exclusions, dict):
             return False
+        for excluded_stem, dispositions in exclusions.items():
+            if not isinstance(dispositions, list) or not dispositions:
+                return False
+            source_path = (
+                dispositions[0].get("source_path") if isinstance(dispositions[0], dict) else None)
+            sha = (
+                dispositions[0].get("source_sha256") if isinstance(dispositions[0], dict) else None)
+            if (not _path(source_path) or excluded_stem not in {
+                    PurePosixPath(source_path).stem,
+                    source_path.removeprefix("tests/").removesuffix(".py")}
+                    or not _case_retirements(root, source_path, sha, dispositions)):
+                return False
+        branches = constants.get("CORPUS_BRANCH_RETIREMENTS", {})
+        if not isinstance(branches, dict):
+            return False
+        for key, dispositions in branches.items():
+            if (not isinstance(dispositions, list) or not dispositions
+                    or not isinstance(dispositions[0], dict)):
+                return False
+            source_path = dispositions[0].get("source_path")
+            sha = dispositions[0].get("source_sha256")
+            if (not _path(source_path) or key != PurePosixPath(source_path).stem
+                    or not _branch_retirements(root, source_path, sha, dispositions)):
+                return False
+        for key in matching_keys:
+            current = exclusions.get(key, [])
+            if declared is not None and declared != current:
+                return False
+            declared = current
+            current_branches = branches.get(key, [])
+            if declared_branches is not None and declared_branches != current_branches:
+                return False
+            declared_branches = current_branches
         if (constants.get("SOURCE_PATH") == path
                 and constants.get("SOURCE_SHA256") == inherited_hash):
             pinned = True
         suites = constants.get("SUITES", {})
-        if isinstance(suites, dict) and suites.get(stem) == inherited_hash:
+        if isinstance(suites, dict) and any(suites.get(key) == inherited_hash for key in aliases):
+            pinned = True
+        sources = constants.get("SOURCES", {})
+        if isinstance(sources, dict) and any(
+                value in ([path, inherited_hash], (path, inherited_hash))
+                for value in sources.values()):
             pinned = True
         for node in ast.walk(tree):
+            # Literal metadata is authority, not mutable executable policy.
+            if isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+                target = node.target
+                if isinstance(target, ast.Name) and target.id in {
+                    "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS", "CORPUS_BRANCH_RETIREMENTS"}:
+                    return False
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name) \
+                            and target.value.id in {
+                                "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS",
+                                "CORPUS_BRANCH_RETIREMENTS"}:
+                        return False
             if isinstance(node, ast.Call):
                 name = (node.func.id if isinstance(node.func, ast.Name)
                         else node.func.attr if isinstance(node.func, ast.Attribute) else "")
@@ -206,10 +420,20 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                 invokes_loader |= name == "load" and any(
                     isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name)
                     and arg.func.id == "globals" for arg in node.args)
-                if name == "register_module" and any(
-                    kw.arg in {"selected", "excluded"} for kw in node.keywords
-                ):
-                    return False
+                if name == "register_module":
+                    for kw in node.keywords:
+                        if kw.arg in {None, "selected"}:
+                            return False
+                        if kw.arg == "excluded":
+                            if not _reviewed_exclusion_expression(kw.value):
+                                return False
+                            exclusion_export = True
+                if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+                    if node.func.value.id in {
+                            "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS",
+                            "CORPUS_BRANCH_RETIREMENTS"} \
+                            and node.func.attr not in {"get", "items"}:
+                        return False
             if isinstance(node, (ast.If, ast.Assert)):
                 condition = node.test
                 calls = [n for n in ast.walk(condition) if isinstance(n, ast.Call)
@@ -227,7 +451,9 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                               and n.func.attr in {"sha256", "hexdigest"}]
                 hash_guard |= bool(hash_calls and guards and correct_operator)
     return (admitted and pinned and frozen and export and corpus_guard and hash_guard
-            and compile_frozen and invokes_loader)
+            and compile_frozen and invokes_loader and declared == reviewed
+            and declared_branches == reviewed_branches
+            and (not reviewed or exclusion_export))
 
 
 def _check(root: Path) -> tuple[list[str], dict]:
@@ -417,10 +643,15 @@ def _check(root: Path) -> tuple[list[str], dict]:
         if status == "retired":
             mapped_retired.add(path)
             retirement = row.get("retirement", {})
-            if (path not in RETIRABLE_SUITES or type(step) is not int or step != 1
+            expected_reviewer = (RETIREMENT_REVIEWER if path in RETIRABLE_SUITES else PR35_REVIEWER)
+            expected_reason = {**RETIREMENT_REASONS, **PR35_RETIREMENT_REASONS}.get(path)
+            expected_step = (
+                1 if path in RETIRABLE_SUITES else PR35_RETIREMENTS.get(path, (None,))[0])
+            if (expected_reason is None or type(step) is not int or step != expected_step
                     or not isinstance(retirement, dict)
-                    or retirement.get("reviewer") != RETIREMENT_REVIEWER
-                    or retirement.get("reason") != RETIREMENT_REASONS.get(path)):
+                    or retirement != {"reviewer": expected_reviewer, "reason": expected_reason}
+                    or row.get("reason") != expected_reason
+                    or entries.get(path, {}).get("reason") != expected_reason):
                 errors.append(f"mapping: retired suite needs exact reviewed disposition: {path}")
             if path not in retired_paths or path not in classified["retired"]:
                 errors.append(f"mapping: retired suite must be retired in test-plan: {path}")
@@ -468,6 +699,20 @@ def _check(root: Path) -> tuple[list[str], dict]:
             errors.append(f"mapping: malformed restoration: {path}")
             continue
         mode = restoration.get("mode")
+        case_retirements = restoration.get("case_retirements", [])
+        branch_retirements = restoration.get("branch_retirements", [])
+        try:
+            valid_cases = _case_retirements(root, path, row.get("inherited_sha256", ""),
+                                           case_retirements)
+            valid_branches = _branch_retirements(root, path, row.get("inherited_sha256", ""),
+                                                branch_retirements)
+        except (OSError, ValueError, TypeError, SyntaxError):
+            valid_cases = False
+            valid_branches = False
+        if not valid_cases or (case_retirements and mode != "frozen-adapter"):
+            errors.append(f"mapping: invalid reviewed case retirements: {path}")
+        if not valid_branches or (branch_retirements and mode != "frozen-adapter"):
+            errors.append(f"mapping: invalid reviewed branch retirements: {path}")
         selectors = _strings(restoration.get("selectors"), f"restoration {path} selectors", errors)
         if not isinstance(restoration.get("reason"), str) or not restoration["reason"].strip():
             errors.append(f"mapping: restoration needs reason: {path}")
@@ -486,7 +731,8 @@ def _check(root: Path) -> tuple[list[str], dict]:
                         f"mapping: direct-original must select entire original suite: {path}"
                     )
                 if mode == "frozen-adapter" and not _full_adapter(
-                    root, selector, path, row.get("inherited_sha256", "")
+                    root, selector, path, row.get("inherited_sha256", ""), case_retirements,
+                    branch_retirements
                 ):
                     errors.append(
                         f"mapping: adapter lacks immutable full-suite corpus association: {path}"
@@ -581,14 +827,77 @@ def record_review_retirements(root: Path) -> None:
         replacement.replace(target)
 
 
+def record_pr35_review_retirements(root: Path) -> None:
+    """Record precisely group A, preserving #26 and all original test bytes."""
+    errors = validate(root)
+    if errors:
+        raise ValueError(f"retirement requires valid original accounting: {errors}")
+    mapping = _json((root / MAP_PATH).read_bytes())
+    plan = _json((root / PLAN_PATH).read_bytes())
+    rows = {row["path"]: row for row in mapping["entries"]}
+    entries = {entry["path"]: entry for entry in plan["entries"]}
+    for path, (step, _) in PR35_RETIREMENTS.items():
+        row, entry = rows[path], entries[path]
+        if (row["status"] not in {"deferred", "retired"} or row["step"] != step
+                or type(row["step"]) is not int
+                or entry["classification"] not in {"phase2", "retired"}
+                or _digest(_regular(root, path).read_bytes()) != row["inherited_sha256"]
+                or entry["sha256"] != row["inherited_sha256"]):
+            raise ValueError(f"retirement requires original held reviewed step bytes: {path}")
+    for path, reason in PR35_RETIREMENT_REASONS.items():
+        disposition = {"reviewer": PR35_REVIEWER, "reason": reason}
+        rows[path].update(status="retired", reason=reason, blocked_on=None,
+                          qualification_group="not-applicable-retired",
+                          retirement=disposition.copy())
+        rows[path].pop("pending_contract_disposition", None)
+        entries[path].update(classification="retired", reason=reason,
+                             retirement=disposition.copy())
+    retired = set(plan.get("phase2_retired", [])) | set(PR35_RETIREMENTS)
+    plan["phase2"] = sorted(set(plan["phase2"]) - set(PR35_RETIREMENTS))
+    plan["phase2_retired"] = plan["retired"] = sorted(retired)
+    plan["counts"]["phase2"] = len(plan["phase2"])
+    plan["counts"]["retired"] = len(retired)
+    if "phase2_retired" in plan["counts"]:
+        plan["counts"]["phase2_retired"] = len(retired)
+    mapping.pop("counts", None)
+    plan["execution_status"] = (
+        "Historical eligibility inventory, not whole-product parity or acceptance. "
+        "Five whole suites retired by Claude, review of #26; exactly 21 additional "
+        "group-A suites retired by Claude, review of #35, never passing. All 869 "
+        "original test paths/bytes/hashes and historical 326 membership preserved. "
+        "Case retirements in restored suites require exact review/source provenance."
+    )
+    # Keep the compact one-row-per-suite representation where present.
+    before = (root / MAP_PATH).read_text()
+    text = before
+    original = _json(before)
+    for old, new in zip(original["entries"], mapping["entries"], strict=True):
+        if old != new:
+            for separators in ((",", ":"), None):
+                encoded = json.dumps(old, separators=separators)
+                if encoded in text:
+                    text = text.replace(encoded, json.dumps(new, separators=separators), 1)
+                    break
+    if _json(text) != mapping:
+        text = json.dumps(mapping, indent=2) + "\n"
+    for path, content in ((MAP_PATH, text), (PLAN_PATH, json.dumps(plan, indent=2) + "\n")):
+        target = root / path
+        replacement = target.with_suffix(target.suffix + ".tmp")
+        replacement.write_text(content)
+        replacement.replace(target)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("check", "report", "record-review-retirements"),
+    parser.add_argument("command", choices=("check", "report", "record-review-retirements",
+                                            "record-pr35-review-retirements"),
                         nargs="?", default="check")
     parser.add_argument("--root", type=Path, default=ROOT)
     args = parser.parse_args(argv)
     if args.command == "record-review-retirements":
         record_review_retirements(args.root)
+    elif args.command == "record-pr35-review-retirements":
+        record_pr35_review_retirements(args.root)
     errors, counters = _evaluate(args.root)
     print(json.dumps({"command": args.command, "valid": not errors,
                       "errors": errors, "counts": counters}, indent=2, sort_keys=True))
