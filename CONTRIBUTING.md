@@ -90,6 +90,16 @@ Odin or the desktop session. **Always run the suite in an isolated PID namespace
 - Installing dependencies into this repo's own `.venv` (and `node_modules` for `app/`) is fine. System package installs
   need Aaron's OK first.
 
+### Qualification evidence size
+
+From PR #50 review onward, keep raw qualification artifacts over roughly
+100 KB (debug logs, screenshots, large proofs/manifests) outside Git under
+`/mnt/storage/odin-desktop-evidence/<run>/`. Commit the summaries and task
+results, plus a manifest containing every retained artifact's SHA-256 and
+path. Distinguish measurements from acceptance decisions and disclose probe
+limitations. PR #50's original 33.5 MB evidence set is explicitly grandfathered;
+this exception is not a template for future runs.
+
 ## Upstream maintenance
 
 The baseline, port ledger, cadence and drift gates are defined in

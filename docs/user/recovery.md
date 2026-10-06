@@ -70,7 +70,10 @@ in the current core.
   when the inventory needs updating. Neither verifies a previous call's outcome.
   Stored header/environment values are never shown again; blank fields are not
   evidence of missing credentials. If the error requires an unlocked keyring,
-  recover that first, then reconnect.
+  recover that first, then reconnect. For an older imported server, **Reconnect**
+  can also migrate its stored credentials into the profile keyring. Read the
+  migration error or returned state; do not copy credentials into ordinary fields.
+  A connected server still does not establish that chat can call its tools.
 - For browser failures, check the saved versus running browser settings. Changes
   require a clean app/core restart; they do not alter the current start's captured
   configuration. A CDP connection error calls for checking the configured endpoint;
@@ -79,11 +82,17 @@ in the current core.
   browser profiles or weaken network guards as a repair. A fresh browser session
   does not authorize replaying an uncertain click, submission or navigation.
 
-There is no dedicated workspace-diagnostics screen in the current UI. Do not
-assume a Health refresh shows workspace size or Git freshness. Workspace status
-collected by the core is bounded and local: partial counts are incomplete and
-local Git references do not establish remote freshness. Collection does not
-fetch, prune, repair the workspace or clear safety blocks.
+### Workspace diagnosis
+
+There is no dedicated workspace-diagnostics screen in the current UI. **Health →
+Check again** collects a local workspace snapshot, but the panel does not display
+its workspace details. Do not interpret a healthy component list as a workspace
+size check, clean repository or up-to-date remote branch.
+
+If support supplies the core's workspace snapshot, read its unavailable/partial
+state before its counts. Collection is bounded, local and read-only: partial
+counts are incomplete and local Git references do not establish remote freshness.
+It does not fetch, prune, repair the workspace or clear safety blocks.
 
 ## Window or core loss
 
@@ -108,21 +117,24 @@ repeatedly start copies. Forced termination is not a clean shutdown receipt.
 
 ### Read the retained session
 
-1. Open **Settings → Records → Computer use → Refresh**. This reads status, not
-   mouse/keyboard input. If a session is shown, preserve its exact ID, generation,
-   state and recovery reason. A failed refresh may leave **Showing the last read**;
-   that is not fresh evidence.
+1. Open **Settings → Records → Computer use → Refresh**. This requests status,
+   not mouse/keyboard input. The core retains session and recovery records, but
+   the current panel does not display that retained session record. A blank panel
+   or absent Release button therefore does not establish that there is no session
+   or that cleanup succeeded. Preserve any error and ask an operator to inspect
+   the retained record, including its exact session ID, generation and recovery
+   reason. A failed refresh may leave **Showing the last read**; that is not fresh
+   evidence.
 2. The current core has retained-session management but no foreground input
    authority. An enabled value or a status read does not establish native backend
    support, consent or permission to start/resume input. No session shown is not
    proof that a previous application released input.
-3. A quarantined row may show **Release…**. Its confirmation asks you to check the
-   computer first and says cleanup remains unverified. **Cancel** leaves the
-   session unchanged. The current screen's Release request is not supported by
-   the backing management method. Do not use it to dismiss quarantine or establish
-   cleanup; preserve the record and obtain operator help. If a recovery result is
-   already recorded, read it: a refused, unknown, incomplete or still-quarantined
-   result is not permission to continue.
+3. **Release…** is not a usable recovery path in this version. The missing session
+   row prevents that control from appearing, and its request would be rejected
+   even if invoked. Do not use it to dismiss quarantine or establish cleanup.
+   Preserve the record and obtain operator help. If a recovery result is already
+   recorded, read it: a refused, unknown, incomplete or still-quarantined result
+   is not permission to continue.
 
 This screen is not a complete native recovery wizard. It does not provide a
 fresh-target/renewed-consent input workflow or permission to replay partial work.

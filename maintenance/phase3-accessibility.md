@@ -95,7 +95,236 @@ symbol-only false indeterminacy, not a suppressed violation.
 | Real full-core chat/control/management | OPEN, awaiting reviewed Phase 2/P3.1 handoff |
 | Native portal/notifications/input qualification | Not tested here; namespace GTK file chooser is not a platform matrix |
 
-## Final fresh-checkout gate
+## P3.4 part 2: Orca lab execution
+
+Part 2 starts from pulled `main@1c72a3f14b1257126ddd8f51863e0f707bccd4c5`.
+The VM lane is separate from part 1: its host Xvfb/PID-namespace requirements
+remain unchanged. `app/test/e2e/orca.spec.ts` uses actual guest sessions and
+Orca's `SPEECH OUTPUT` records. Chromium AX, DOM names and debug event dumps
+alone cannot satisfy a speech assertion. The guest fixture uses part 1's
+adversarial core, including its unpublished/rejected draft sentinel. No real
+credential is entered or copied into a guest.
+
+### PR #50 review: independent KDE chooser comparison
+
+One direct `org.freedesktop.portal.FileChooser.OpenFile` request opened the
+same `Attach files` portal chooser without Odin/Electron. The original native
+screenshot was inspected. Unfiltered registry traversal completed without
+errors or truncation: **685 nodes before, 688 open, 686 after close**. No portal
+application/dialog was registered; the matching title belonged only to
+plasmashell's task button. Orca's startup/desktop baseline spoke, but the
+eight-second opening observation had **zero speech records**.
+
+The backend was present on the accessibility bus and emitted a selected-state
+event. This is not simply our eligible-source filter rejecting a dialog, and
+it is not proof that every individual object was uncallable while open. Exact
+backend identity was reconciled after close; post-close root/cache queries
+are explicitly not while-open evidence. Both Qt accessibility flags and the
+same graphical/accessibility bus were verified. Full provenance, limitations,
+cleanup and artifact hashes are in
+`maintenance/evidence/phase3-orca-kde-system-20261006/`.
+
+**Disposition:** reproduced independently of Odin/Electron, supporting a KDE
+guest/system-side registration/accessibility limitation, not an app-specific
+portal invocation defect. Precise cause and universal KDE behavior remain
+unproved. KDE **6/7** is unchanged; acceptance is Aaron's decision. No matrix
+rerun, waiver, alternate toolkit or task-button substitution. KDE was
+gracefully stopped and all lab VMs were confirmed stopped.
+
+### Rootless lab-test repair (review P3)
+
+The eight KDE `user_config` cases previously invoked nested `sudo -n env -i`.
+The installed isolated runner reproduced **15 passed, 8 setup errors** because
+its unprivileged `no_new_privs` account cannot acquire host root. They now run
+the canonical PR #49 fixture, merged without rebasing. The duplicate PR #50
+ownership-command model is removed. The actual emitter runs in a verified
+unprivileged user namespace; host root is never mapped, and pytest and
+post-emission file writes remain the ordinary caller. Fresh emission requires
+one mapped ID; ownership retry requires two distinct mapped owners. Only a
+failed capability probe may skip a case, with a plain reason. Emitter and
+assertion failures after a successful probe are not skips.
+
+The original PR #50 model's **104 passed / no skips** was a historical result,
+not the result of this canonical fixture. The post-merge result is recorded
+below. Neither the restricted PID helper nor its no-new-privileges policy is
+relaxed; the obsolete Docker fixture lane is removed by #49.
+
+Post-merge canonical fixture corpus: **267 passed, 4 explicit skips** for the
+two-distinct-subordinate-ID retry capability blocked by unchanged
+no-new-privileges. Orca/collector/probe/cleanup/CI tests: **294 passed**.
+App check: **758 passed**, typecheck/build clean; ordinary-user part-one
+accessibility: **15/15 passed**. Full engine qualification ran once:
+**30/30 groups, 14,476 passing executions, 3 skips, zero failures/errors**.
+Exact source timing, warnings, remaining capability skips and external
+artifact hashes are recorded in
+`maintenance/evidence/phase3-orca-review1-gates-20261006/`.
+
+### Silent speech and native task boundary
+
+The bootstrap runs only inside one of the three named, marked/capped VMs,
+with the `odq` user's active logind session and actual guest bus/display.
+App profiles are disposable and separate from the desktop profile. Orca uses
+private preferences and a private speech-dispatcher Unix socket with only
+`sd_dummy`, backed by the ALSA `null` sink. Its debug output records intended
+speech without audible playback. Typing echo is disabled to measure password
+widget privacy, not explicit key-echo behavior. This does not certify every
+possible user-selected speech preference or a physical braille display.
+
+Native file-dialog keyboard input is grounded in the owned, active AT-SPI
+dialog. The guest's synthetic `/dev/uinput` access is temporary and restored;
+no host input/display/audio device is attached. Electron retains its renderer
+sandbox, context isolation and disabled node integration, with native X11 for
+Cinnamon and native Wayland for GNOME/KDE. D9 and D17 are unchanged.
+
+### Development findings, distinct from product defects
+
+| Finding | Evidence and disposition |
+|---|---|
+| Dummy speech startup tried PulseAudio | Actual `sd_dummy` module loaded but speech-dispatcher exited on audio initialization. Explicit ALSA `null` makes the private sink non-audible without a host or guest hardware-audio dependency. |
+| Orca erases launch argv | Guest `/proc/PID/cmdline` contains only `orca` after startup. Log binding uses its actual open file descriptor, UID and live process, not erased `--debug-file` arguments. |
+| Part 1 discovered VM-only tests | New E2E support was discovered by the existing Playwright directory scan. Part 1 now explicitly selects `accessibility.spec.ts`; parser unit tests live outside the E2E directory. No isolation guard was removed. |
+| Buffered Orca debug delivery | The failed speech windows were empty while teardown's actual `SPEECH OUTPUT` records contained the expected names and roles. Orca's debug file uses block buffering. Private lab customizations change only the debug writer to line-buffered/write-through I/O; no utterance is generated, rewritten or imported from the AX tree. |
+| Silent local command report readiness | Actual `/status` created a Status AT-SPI landmark but emitted no success announcement. Local command reports are not chat task completion events. Composer now has one persistent polite/atomic status announcing only `<report title> report ready.`, never report text or a draft. A component regression failed before the change and then passed alongside command/composer tests. Native speech must independently verify it below. |
+
+Task verdicts and source-bound evidence below are filled only after actual
+guest runs. Successful process startup or a passing role/DOM audit is not
+Orca task qualification.
+
+### Wayland launch probes after Aaron's steering
+
+Aaron stopped the repeated full-suite attempts and required one-launch probes
+before any further task matrix. The existing failures were not seven separate
+application defects: KDE failed the common native launch, and GNOME stayed in
+the initial Shell overview without a visible/focused Odin window.
+
+- **KDE single-launch probe passed.** Full Electron stderr retained with
+  `ELECTRON_ENABLE_LOGGING=1`. The original user-owned archive could not supply
+  the required Chromium sandbox helper under KDE's user-namespace policy;
+  installing under `/run` then failed because that guest mount is
+  `nosuid,noexec`. The exact manifest-verified Electron runtime is now installed
+  in a root-owned, non-user-writable, executable guest-only directory under
+  `/usr/local/lib/odq/`, with its standard root-owned `4755` sandbox helper.
+  The probe mapped a native Wayland window, focused Message, produced actual
+  `Message entry` speech, and retained sandbox/contextIsolation with
+  nodeIntegration disabled. No `--no-sandbox`, host change or global kernel
+  policy relaxation was used. Runtime/helper retirement is part of cleanup.
+- **GNOME plain GTK probe passed first.** Orca emitted the actual GTK window
+  name, `Probe message text.`, and `Probe action push button.`. This isolates
+  the speech pipeline from Electron.
+- **GNOME single Electron probe then passed.** The guest accessibility bus and
+  toolkit accessibility remained enabled. Dismissing the guest's initial
+  overview with native keyboard input, then presenting the actual native
+  Wayland window made focus observable. Orca emitted `Odin frame.`, named
+  buttons and `Message entry Message Odin…`. Full guest screenshots of GTK and
+  Odin were inspected: actual windows are visible, not just a CDP document.
+
+Probe evidence is retained at
+`/home/odin/reviews/p34-focused-{kde,gnome}-v13/`. These are **focused launch and
+speech proofs**, not passes for the full seven-task matrix. Full qualification
+must use the repaired setup, source-bound artifacts and all requested tasks.
+
+### Native chooser probes
+
+The Cinnamon registered desktop tree omits Electron's separate GTK accessible
+root, despite Orca receiving its real activation events. A collector now starts
+before app launch and binds the actual AT-SPI sender/object path to the live
+owned process. The Cinnamon Attach focused probe passed at
+`/home/odin/reviews/p34-focused-native-attach-cinnamon-v16/`: real chooser speech,
+event reference, current name/role/states, and Escape cancellation.
+
+GNOME's chooser is its actual `xdg-desktop-portal-gnome` backend, not an Electron
+process. The narrowly scoped native binding accepts only that exact installed,
+canonical root-owned executable and its observed GTK accessible path in this
+owned GNOME guest session. GTK4 exposes MODAL/SHOWING/VISIBLE but omits ACTIVE
+from GetState; its real latest `active(1)` event supplies the activation witness.
+A later `active(0)` or another activation revokes that witness. Every native
+chord revalidates the process incarnation and current title/role/states.
+No portal request-token correlation is claimed, and no title-only target or
+security prompt is admitted.
+
+The GNOME focused Attach probe passed at
+`/home/odin/reviews/p34-focused-native-attach-gnome-v19/`. Its native portal
+screenshot was inspected: actual **Attach files** dialog with Cancel/Open and
+guest-only paths. Escape cancellation and cleanup were confirmed. These
+cancellation probes do **not** qualify positive file selection or Save. Those
+remain part of the final full task run.
+
+### Positive native-file probes and final harness review
+
+Source-bound development evidence is checked in at
+`maintenance/evidence/phase3-orca-native-files-20261006/`. Cinnamon v22 and
+GNOME v26 passed one-launch cancellation, positive Attach with actual returned
+path and attachment UI, and native Save with the exact 25 generated bytes.
+Their completed screenshots were inspected. These are not final full-task passes.
+
+The GNOME probe found two harness issues, not application defects: GTK4 Text
+readback needs CharacterCount and the focused EDITABLE entry, not the first
+FOCUSED container; and bare keypad Enter can activate the default Save button.
+Description now only revalidates the modal and relies on opening speech captured
+from a mark taken before activation. Matching field text is not acceptance.
+
+KDE v30 still fails the native chooser binding. Its inspected screenshot shows
+Attach files, Name, Open and Cancel, but AT-SPI exposes only plasmashell's task
+button, never the portal dialog. Both accessibility status properties are true.
+The exact installed backend, restarted after Orca and collector readiness with
+both Qt accessibility flags, has the matching graphical environment and the same
+accessibility bus. Temporary manager values are restored. None of those checks
+made the actual chooser accessible. No foreign task button is accepted, no
+toolkit fallback is substituted, and no chooser operation is counted as passing.
+
+Final code review also found and fixed three fail-closed harness defects:
+the suite now polls only observation before a single input invocation; collector
+exhaustion/processing errors invalidate old activation evidence and terminate;
+and valid foreign GTK4 activation paths revoke the modal lease without becoming
+eligible input targets. Regressions execute the actual suite retry function and
+model collector exhaustion, malformed sources, queued callbacks and sticky
+invalidation. These are safety tests, not native runtime qualification.
+
+### Final part 2 task results
+
+Evidence: `maintenance/evidence/phase3-orca-final-20261006/`, frozen implementation
+`587242b3960f14db69711dc5c16e2433394a00c8`. Both requested one-launch startup
+probes passed before the final task run. The final matrix ran **exactly once per
+desktop**, seven groups each, retry 0, no skips or flaky results. Later commits
+update only ledger/docs/evidence, not the tested runtime implementation.
+
+| Task | Cinnamon/X11 | GNOME/Wayland | KDE/Wayland |
+|---|---|---|---|
+| Named Message and native button bridge | PASS | PASS | PASS |
+| Chat, Attach/cancel, Save/copy/report results | PASS | PASS | FAIL at native Attach |
+| Conversation, children, modal and search | PASS | PASS | PASS |
+| Busy, Steer, consumed/queued, Stop/Resume, unknown/no-flood | PASS | PASS | PASS |
+| All eleven settings, names/roles/states/errors/secret | PASS | PASS | PASS |
+| Delayed history/search preserves focused message | PASS | PASS | PASS |
+| Provisioned real-core services | PASS | PASS | PASS |
+| Total | **7/7** | **7/7** | **6/7** |
+
+**P3.4 part 2 is not fully qualified.** KDE's actual portal chooser still lacks
+an eligible active AT-SPI source, despite verified accessibility status, Qt flags,
+backend restart and matching bus/session. No chooser cancellation, selection or
+Save is claimed after that failure. Other six KDE groups passed. The final native
+results screenshots were inspected; Cinnamon/GNOME show saved notes and report
+results, while KDE retains the actual Attach dialog. No input guard was relaxed.
+
+Final local gates on the frozen source: app typecheck/build and **620 unit tests**;
+**507 lab tests** through the isolated runner; **15/15 part 1 accessibility tasks**
+and fixture smoke on isolated Xvfb; Ruff and drift/lint gates clean. Engine
+qualification passed all **30 groups, 14,031 passing executions and 2 skips**.
+The first engine attempt stopped during group 2 with host ENOSPC, not a test
+failure. Twenty-eight owned intermediate artifacts were moved with SHA-256
+verification to `/mnt/storage/odin-desktop-orca-artifacts-20261006/`; no evidence
+was deleted. Group 1's 3,158 passes were retained and the remaining 29 groups
+passed after space recovery. The phase2 subreaper corpus still emitted an
+unsuppressed `Event loop is closed` unraisable warning. This working-checkout
+validation is not a new fresh-checkout claim.
+
+The exact-byte ledger is refreshed with pending independent review unchanged.
+Several active patches use small insertion chunks to avoid oversized delivery;
+their previous payloads remain as `previous_patch` audit metadata. The active
+`patch` alone reconstructs and verifies current source bytes. This is accounting,
+not permission to call the native blocker passed.
+
+## Historical part 1 fresh-checkout gate
 
 Executed from separate clone `/home/odin/desktop-p34-fresh` at source
 `4d4ce76f1b54b62e771245f1c7ace3036799a72f`. The following final commit changes this evidence record only.

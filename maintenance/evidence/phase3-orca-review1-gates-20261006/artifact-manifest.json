@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "root": "/mnt/storage/odin-desktop-evidence/pr50-r1-merge-gates-20261006",
+  "path_resolution": "Each files key is a path relative to root; values are exact-file SHA-256",
+  "files": {
+    "accessibility-pre49.json": "1cdaf4a2e9f552117ccd3510550aff7c6561728b710c4bd5fad78fbddf2cb0f3",
+    "accessibility-final.json": "7075183f4afba94f99238b36b54f4ba839c74c1ac35e57fcc0fbe1916bb7be3e",
+    "a11y-final.log": "0bfe888b0bfcf0434eb52d9fd6bbf207d1b1deed7d0bb9ea3a9e77ab52048712",
+    "app-check-final.log": "cbc3f47850359fe7b08340ba0476bf4b650433692a9ca1f417c055f2b00a7715",
+    "engine-qualified.log": "39f9febff433b30a9fecfbfcb3b7ac876e470bc6c471c930644d9cb2eeccdfa4",
+    "lab-fixtures-final.log": "b314a3f31b667b9ffff615cc1bf0c30984979efcabe1f858b4774a923a8c902c",
+    "lint-final.log": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584",
+    "orca-lab-tests-final.log": "d1bec0336bc6bb4a675fe48712d67c1ce34c9b29ee48768236b8cce59d79ec05",
+    "short-tests-final.log": "f45d94408aa51548a685b24b3f5a52bfc32d554ec6d7d8311b66c783c99efced",
+    "inventory-final.json": "210c57e11b19fa7a47523989ccddde51d11c56000b45c0da1b5dec44d6a23e6a",
+    "inventory-head-check.json": "210c57e11b19fa7a47523989ccddde51d11c56000b45c0da1b5dec44d6a23e6a",
+    "qualification-result.json": "29db1670e9a7a15757dfc8be1dcb31c3ab96ebadc5fd50a40a5d5988c033bd1e",
+    "qualification-junit.xml.tar.gz": "06bbfc9b651c149bf50ef28e0c171a5e26b82a5ccba9f4e9474e3e5143787e70",
+    "main-ledger-resolution.json": "e3a2fd2edc6c28ed27c9aa9a8fd7bc63924b05f2e0fc62a8f738253c7de9f0b8",
+    "pr49-ledger-resolution.json": "2448a26111e147a97d707c36e091250ec0c4ad87365f6e9c66c84af6bdc52071"
+  }
+}

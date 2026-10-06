@@ -1,8 +1,9 @@
-# Pending and promoted user-documentation draft archive
+# Pending user-documentation drafts
 
 **Maintainer-only historical archive. Not the current user guide, current branch
 heads, a merged feature list, or release qualification.** These task instructions
-are preserved from `docs/user/` at documentation commit `3a83d7f`. Their original
+for still-open changes are preserved from `docs/user/` at documentation commit
+`3a83d7f`. Their original
 main source watermark was `0b7d596f7e870d06699722f151c4d9837c5433f1`.
 Statements about main below describe that historical source, not today's main.
 Use [P4.4 validation](../../maintenance/p44-user-docs-validation.md) for the
@@ -17,7 +18,6 @@ test. No fixture may stand in for an unavailable real service.
 
 | Pending change | Historical reviewed source, not current head |
 | --- | --- |
-| #28: historical draft, now merged; service-management guidance promoted after main verification | `2d91071a692a646b6d8c466daa5711a37cd8c93f` |
 | #37: background owners, schedules, reports and foreground binding | `4ede9e75fb079a0a305c7b24f89700d7fb7c4416` |
 | #39: manual release notice | `1c48529b0af3ad18d9c413882166cb6ee40702d1` |
 | #40: account/provider administration, shared knowledge and extended records | `6321eec26e1c87dd5b9682e902723818a5fdda03` |
@@ -27,117 +27,25 @@ test. No fixture may stand in for an unavailable real service.
 compatibility and replacement instructions belong in the current user guides.
 The archive does not supersede their verification or the release checklist.
 
-#28 also merged during this revision at main
-`cd52a8e2b055a9c4abc051a49566b9daf3e1bd79`. Its management/browser guidance was
-rechecked and promoted into current Settings/Recovery guides. The historical
-text below is retained as provenance only. Computer foreground input and the
-joint #28/#37 native procedures remain incomplete; their historical drafts do
-not authorize input or claim native qualification.
+## Promoted step 6A guidance
 
-## Skills, MCP, browser and workspace diagnosis (#28)
+#28 is merged. Verified Skills/MCP, browser, workspace diagnosis and retained
+computer-management guidance now belongs in [Settings](../user/settings.md) and
+[Recovery](../user/recovery.md), not in a duplicate pending procedure. See
+[P4.4 validation](../../maintenance/p44-user-docs-validation.md#step-6a-integrated-documentation-promotion)
+for the checked main commit, source map and current UI/availability limitations.
 
-The historical main had Skills/MCP screens without their named real-core
-management composition. An unavailable panel is the expected boundary, not a
-working empty skill library. Runtime skill support and a management UI are
-different facts. Do not use fixture sample skills or MCP examples as evidence of
-a real loaded library, connected servers or published tools.
+## Foreground computer follow-on (#37)
 
-#28 adds real browser runtime/activation, computer bindings, Skills and MCP
-management adapters, and workspace diagnostics. It does not prove the combined
-app/backend matrix, portal consent, receiver-side input release or active-desktop
-qualification. Do not treat one pending branch as containing every other branch's
-services. A visible field or saved enabled value does not establish a live backend;
-computer use still needs supported capabilities, explicit consent and qualified
-native ownership, not merely display identifiers. No new owner command approval
-or tool/host allowlist is added by these screens.
+Foreground binding remains pending #37; it is not supplied by #28's management
+service. Do not turn the current read-only/recovery guidance into a start/resume
+input procedure. Any future procedure must recheck the integrated app's actual
+controls, renewed consent, exact native target/resource ownership and uncertain
+release handling. A configured backend or management receipt is not native
+qualification. The current safety limits are already in
+[Computer-input safety](../user/recovery.md#computer-input-safety).
 
-Use these controls only when the core reports support:
-
-- **Settings → Skills**: read diagnostics before **Open**, editing and **Validate**.
-  Validation compiles without executing; saving loads code, and **Test** executes.
-  Do not test an uncertain effect as a harmless recovery check. Use the reviewed
-  candidate's actual controls and receipts when that service is integrated;
-  adding code that executes as a tool is not required first-run setup.
-- **Settings → MCP servers**: read state/error. **Reconnect** requests reconnection;
-  **Refresh tools** refreshes inventory. Neither proves a previous tool call had
-  no effect. Header/environment values are stored but never read back; a blank
-  secret field does not prove a lost credential. Server commands/connections can
-  run code or make network requests. Follow per-server state/receipts and field
-  apply labels. A published-tool limit is not a new owner permission allowlist,
-  and saving configuration is not successful server connection evidence.
-- **Browser tools**: the branch qualifies configured CDP or bundled Chromium
-  before exposing a usable generation. Saved browser settings require restart
-  and do not change the boot snapshot. Missing bundled Chromium requires install
-  repair, not changing PATH, copying workstation profiles or disabling guards.
-  Records has no generic browser repair button. A new session does not replay an
-  old click/submission/navigation.
-- **Workspace diagnosis**: bounded status observations are read-only and local.
-  A partial count is not complete; local Git refs do not establish remote freshness.
-  Observation does not fetch, prune, run repairs or clear fences.
-
-Historical pinned sources:
-[composition](https://github.com/Calmingstorm/Odin-Desktop/blob/2d91071a692a646b6d8c466daa5711a37cd8c93f/src/desktop/management.py),
-[Skills adapter](https://github.com/Calmingstorm/Odin-Desktop/blob/2d91071a692a646b6d8c466daa5711a37cd8c93f/src/desktop/skills.py),
-[MCP adapter](https://github.com/Calmingstorm/Odin-Desktop/blob/2d91071a692a646b6d8c466daa5711a37cd8c93f/src/desktop/mcp.py),
-[browser runtime](https://github.com/Calmingstorm/Odin-Desktop/blob/2d91071a692a646b6d8c466daa5711a37cd8c93f/src/desktop/browser_runtime.py),
-[computer binding](https://github.com/Calmingstorm/Odin-Desktop/blob/2d91071a692a646b6d8c466daa5711a37cd8c93f/src/desktop/computer_binding.py),
-[workspace diagnosis](https://github.com/Calmingstorm/Odin-Desktop/blob/2d91071a692a646b6d8c466daa5711a37cd8c93f/src/desktop/workspace_diagnostics.py),
-[Skills screen](https://github.com/Calmingstorm/Odin-Desktop/blob/0b7d596f7e870d06699722f151c4d9837c5433f1/app/src/renderer/src/views/settings/Skills.vue),
-[MCP screen](https://github.com/Calmingstorm/Odin-Desktop/blob/0b7d596f7e870d06699722f151c4d9837c5433f1/app/src/renderer/src/views/settings/Mcp.vue).
-
-## Native-input limits and recovery (#28 and #37)
-
-These branches do not qualify all promised native backends. #28 exposes management
-without foreground input authority; #37 adds foreground binding, not final native
-qualification. Enabling a backend, headless tests, a receipt or a status read is
-not proof of native input support. Status/background requests never authorize
-terminals, credential/security prompts or Odin's control plane.
-
-- **Shared X11:** release depends on a surviving guardian and acknowledged owned
-  input cleanup. Abrupt sole-guardian loss can lose its ledger. There is no proven
-  universal server-side release guarantee. A missing process does not prove the
-  mouse/keyboard released. Stop after unknown release.
-- **Hyprland:** release_confirmed may mean only a drained guardian ledger and
-  closed local resources, without compositor acknowledgment. This is not compositor
-  or receiver proof. Scoped native targets/safe same-process dialogs require fresh
-  observations; XWayland or ambiguous surfaces do not become supported by recovery.
-- **Quarantine:** RELEASE-ALL, later success, another backend or app restart cannot
-  erase unknown release. Hyprland may require retirement of the **exact** recorded
-  resources, operator-verified external cleanup and explicit reconciliation before
-  a fresh session with renewed consent/observation. Release-only recovery never
-  resumes input; partial work must not be replayed.
-
-### Inspect Computer use
-
-1. Open **Settings → Records → Computer use → Refresh**. This is read-only status.
-   Note exact session ID, generation, state and recovery reason. On historical
-   main the backing computer service was unavailable; do not infer a safe empty
-   desktop from unavailability.
-2. When the core supplies a quarantined session, the screen may offer **Release…**.
-   **Release this session?** asks you to check the computer first and says cleanup
-   stays unverified. **Cancel** leaves it unchanged.
-3. Do not press Release to dismiss a warning. The renderer sends the exact
-   session/generation and `ACKNOWLEDGE UNVERIFIED CLEANUP …`. The returned recovery
-   record, not RPC success, determines the outcome. “Closed on your word” is
-   attestation, not receiver proof. This is not a universal Hyprland exact-resource
-   cleanup/fresh-target wizard. If required steps are not supported by the screen,
-   stop and obtain operator help instead of improvising a reset.
-4. If cleanup stays unverified or quarantine remains, do not start input. Even a
-   released session does not authorize old bindings: obtain newly observed targets
-   and required renewed consent, never replay the old action.
-
-Never diagnose a stuck key by injecting another press/release; it can interfere
-with a human's actual hold. Safe manual diagnosis uses the affected application's
-visible state and platform/resource evidence without new Odin input. Exact cleanup
-belongs to a qualified operator. Do not terminate a desktop session, restart a
-compositor or indiscriminately kill helpers as a test.
-
-Historical pinned sources:
-[Computer use UI](https://github.com/Calmingstorm/Odin-Desktop/blob/0b7d596f7e870d06699722f151c4d9837c5433f1/app/src/renderer/src/views/settings/Records.vue),
-[Release payload/outcomes](https://github.com/Calmingstorm/Odin-Desktop/blob/0b7d596f7e870d06699722f151c4d9837c5433f1/app/src/renderer/src/stores/records.ts),
-[#28 management boundary](https://github.com/Calmingstorm/Odin-Desktop/blob/2d91071a692a646b6d8c466daa5711a37cd8c93f/src/desktop/computer_binding.py),
-[native controller](https://github.com/Calmingstorm/Odin-Desktop/blob/0b7d596f7e870d06699722f151c4d9837c5433f1/src/computer/controller.py).
-Qualification remains governed by the
+Final native qualification remains governed by the
 [isolated native-input work order](../work/phase-3-app-v1.md#p35-isolated-native-input-containment-and-quarantine).
 
 ## Background kinds, controls and schedules (#37)
