@@ -46,6 +46,15 @@ linux:
         Exec: odin-desktop --exit
 deb:
   packageName: odin-desktop
+  afterInstall: ../.packaging-stage/deb-control/postinst
+  afterRemove: ../.packaging-stage/deb-control/postrm
+  fpm:
+    - --before-install
+    - ../.packaging-stage/deb-control/preinst
+    - --before-remove
+    - ../.packaging-stage/deb-control/prerm
+    - --deb-pre-depends
+    - python3-minimal
   appArmorProfile: packaging/apparmor-profile
   maintainer: Calmingstorm
   compression: xz
