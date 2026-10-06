@@ -166,6 +166,7 @@ class IpcServer:
 
     async def _serve(self, reader, writer):
         connection = None
+        unlock_tasks = set()
         try:
             uid = ipc_auth.peer_uid(writer.get_extra_info("socket"))
             if uid != os.geteuid():
@@ -200,6 +201,16 @@ class IpcServer:
                     await connection.send({"t": "pong", "n": message["n"]})
                 elif message.get("t") == "req":
                     validate_request(message)
+                    if message["method"] == "secrets.unlock":
+                        # Only this named human-prompt operation is concurrent.
+                        # Ordinary requests retain their ordered serving path.
+                        task = asyncio.create_task(self._unlock_request(connection, message))
+                        unlock_tasks.add(task)
+                        self._tasks.add(task)
+                        task.add_done_callback(unlock_tasks.discard)
+                        task.add_done_callback(self._tasks.discard)
+                        await asyncio.sleep(0)
+                        continue
                     response = await self.dispatch(connection, message)
                     if response is not None:
                         await connection.send(response)
@@ -215,6 +226,9 @@ class IpcServer:
             # Never log exception text: callback/payload errors may contain credentials.
             await self._bye(writer, "internal_error")
         finally:
+            for task in tuple(unlock_tasks):
+                task.cancel()
+            await asyncio.gather(*unlock_tasks, return_exceptions=True)
             if connection is not None:
                 self.connections.discard(connection)
             self._writers.discard(writer)
@@ -223,6 +237,21 @@ class IpcServer:
                 await asyncio.wait_for(writer.wait_closed(), HANDSHAKE_TIMEOUT)
             except (OSError, TimeoutError):
                 pass
+
+    async def _unlock_request(self, connection, message):
+        try:
+            response = await self.dispatch(connection, message)
+            if not self.authority.accepts(connection.owner_context):
+                raise PermissionError
+            if response is not None:
+                await connection.send(response)
+        except (ConnectionError, OSError, PermissionError):
+            connection.writer.close()
+        except Exception:
+            # Detached dispatch must not leak an unobserved secret-bearing
+            # traceback; match the ordinary serving path's scrubbed refusal.
+            await self._bye(connection.writer, "internal_error")
+            connection.writer.close()
 
     async def publish(self, event: dict) -> None:
         """Call under core's subscription/replay serialization, after journal append."""
