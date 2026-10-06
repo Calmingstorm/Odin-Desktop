@@ -303,12 +303,16 @@ class RuntimeService:
         if summary.get("available"):
             work = summary.get("work", {})
             values = [work.get(name, {}) for name in ("input_tokens", "output_tokens")]
-            if all(type(item.get("total")) is int and item["total"] >= 0
-                   and not item.get("unknown_generations") for item in values):
+            complete = summary.get("coverage", {}).get("backfill_complete", False)
+            # A newly composed writer has an empty index before backfill settles.
+            # Zero indexed facts is not evidence that actual usage was zero.
+            observed = work.get("accepted_generations", 0) > 0 or complete
+            if observed and all(type(item.get("total")) is int and item["total"] >= 0
+                                and not item.get("unknown_generations") for item in values):
                 estimated = any(item.get("estimated") or item.get("legacy_estimated")
                                 for item in values)
                 # Indexed history is not all history while backfill is incomplete.
-                estimated |= not summary.get("coverage", {}).get("backfill_complete", False)
+                estimated |= not complete
                 tokens = _number(sum(item["total"] for item in values),
                                  "estimated" if estimated else "measured")
         context = {"used": _number(), "budget": _number()}

@@ -1,6 +1,8 @@
 {
   "base_main": "0b7d596f7e870d06699722f151c4d9837c5433f1",
   "entries": [
+    {"path":"src/desktop/runtime.py","reason":"Full qualification exposed fabricated estimated-zero usage after real UsageRollup composition with an empty unbackfilled index.","contract":"Unknown actual usage stays unknown until accepted generation facts exist or historical backfill completes. Complete empty history reports measured zero; known recorded facts preserve existing estimated/measured provenance.","invariant":"No weakening of source facts, unknown generation handling, read-only usage routes or inherited assertions.","owner":"Odin","tests":["tests/test_desktop_runtime.py","tests/test_desktop_management_core.py","tests/test_desktop_step8_6a_usage_unknown.py"]},
+    {"path":"tests/test_desktop_step8_6a_usage_unknown.py","reason":"Exercise real fresh rollup index evidence without misrepresenting no indexed facts as no actual usage.","contract":"Actual empty unbackfilled UsageRollup reads unknown, then known-complete empty backfill reads measured zero with unchanged runtime shape.","invariant":"No mock summary, source-reading assertion, writer created from read route or live profile usage.","owner":"Odin","tests":["tests/test_desktop_step8_6a_usage_unknown.py"]},
     {
       "contract": "All twenty-six assigned suites hash-bound; complete case-level retirements, eleven exact record schemas, eight pending proposals and separate fixture proof.",
       "invariant": "Partial support remains deferred; proposals grant no retirement authority; no inherited source or production diagnostic changed.",
