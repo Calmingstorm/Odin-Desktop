@@ -4,8 +4,7 @@ import { launchIsolated } from './real-core-isolation.mjs'
 
 const app = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 try {
-  // Main's settings contracts and this slice's real request/renderer contracts now run together.
-  // Keep the whole gate bounded without the old two-minute cutoff truncating the merged suite.
+  // Bound the whole suite under CI load; individual test deadlines and single-run behavior stay unchanged.
   await launchIsolated(process.execPath, [resolve(app, 'node_modules/vitest/vitest.mjs'), 'run', '--config',
     resolve(app, 'vitest.real-core.config.ts'), ...process.argv.slice(2)], { cwd: app, timeoutMs: 600_000 })
 } catch (error) {
