@@ -1,0 +1,34 @@
+{
+  "schema": "p44_documentation_artifacts_v1",
+  "request": "req-c55cf225",
+  "source_main": "16e35e8f370661a2baf8e7030a27919b3e658b3b",
+  "reviewed_original_head": "3a83d7f5d0cd3c2294d6958f5e3d62242ad439e1",
+  "scope": "Eight task-first user guides and maintainer provenance/pending drafts. No application/native qualification rerun.",
+  "link_check": {
+    "files": 13,
+    "links": 206,
+    "local_targets_and_anchors": 87,
+    "pinned_git_objects": 115,
+    "external_url_syntax_only": 4,
+    "errors": 0
+  },
+  "artifacts": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p44-r1-req-c55cf225/check-links.py",
+      "sha256": "26a068671df501c2bd889ec240df16f9c1b630bca9263e4aa8ef3170f04156b9",
+      "bytes": 4254,
+      "purpose": "Bounded document-link data checker, not a Markdown-wording test."
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p44-r1-req-c55cf225/links.json",
+      "sha256": "9bce07d4c2e031d7ffb4c64586b0d7233734d20a249d42fd1487027136cedf1b",
+      "bytes": 46109,
+      "purpose": "Per-link outcomes and SHA-256 identities of checked documents."
+    }
+  ],
+  "limitations": [
+    "Pinned source links validated through local Git objects, not anonymous private-GitHub HTTP.",
+    "Other external URLs checked for syntax only.",
+    "No full-suite, application, native desktop, provider, installer or mounted-AppImage qualification in this revision."
+  ]
+}

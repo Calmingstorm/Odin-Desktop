@@ -13,6 +13,30 @@ beforeEach(async () => {
 afterEach(() => { mounted.unmount(); vi.unstubAllGlobals() })
 
 describe('composer accessibility contract', () => {
+  it('announces command report readiness structurally without speaking report contents or drafts', async () => {
+    const announcement = mounted.root.findAll((h) => h.props.class === 'report-announcement')[0]!
+    expect(announcement).toBeDefined()
+    expect(announcement.props.role).toBe('status')
+    expect(announcement.props['aria-live']).toBe('polite')
+    expect(announcement.props['aria-atomic']).toBe('true')
+    expect(announcement.textContent()).toBe('')
+    const { state, showPanel } = await import('../../src/renderer/src/store')
+    mounted.setup.text = 'private draft sentinel'
+    showPanel('Status', 'private report contents sentinel')
+    await flush()
+    expect(announcement.textContent()).toBe('Status report ready.')
+    expect(announcement.textContent()).not.toContain('private')
+    expect(mounted.root.findAll((h) => h.props.class === 'report-announcement')).toEqual([announcement])
+    state.panel!.text = 'updated private report contents sentinel'
+    await flush()
+    expect(announcement.textContent()).toBe('Status report ready.')
+    showPanel('Usage, 7d', 'unspoken usage details')
+    await flush()
+    expect(announcement.textContent()).toBe('Usage, 7d report ready.')
+    state.panel = null
+    await flush()
+    expect(announcement.textContent()).toBe('')
+  })
   it('labels and describes the message field, associating attachment errors', async () => {
     const field = mounted.root.find('textarea')!
     expect(field.props['aria-label']).toBe('Message')

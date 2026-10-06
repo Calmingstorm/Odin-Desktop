@@ -56,7 +56,9 @@ Odin or the desktop session. **Always run the suite in an isolated PID namespace
   starting tests. If neither works, no tests run. Each invocation has a throwaway HOME/XDG tree and
   a clean environment without credentials or live display/session sockets.
 - CI short gates run on `odin-desktop-ci-light` (server-2 or desktop); tests and
-  qualification run only on `odin-desktop-ci` (desktop). Server-2's util-linux 2.37.2
+  qualification run only on `odin-desktop-ci` (desktop). The desktop short gate runs
+  on `odin-desktop-short` (desktop runners only, with a dedicated runner so it does
+  not queue behind full suites). Server-2's util-linux 2.37.2
   cannot preserve the UID in an unprivileged namespace. Both jobs require a cached
   Python 3.12 before setup-python, and newer pushes cancel the old PR run.
 - A current-user-only user namespace reports
@@ -72,19 +74,31 @@ Odin or the desktop session. **Always run the suite in an isolated PID namespace
   primitives.
 - Computer-use and native-lifecycle proofs run only in hard-isolated graphical environments, never on an active desktop.
 - Offline qualification-lab tests that deliberately create root-owned fixture
-  configuration run with `scripts/run-lab-fixture-tests.py` in a separate,
-  disposable Docker container. The fixed source allowlist is copied, never
-  mounted; runtime has no network, host devices, sockets, credentials or display.
-  Pytest stays non-root; root fixture commands remain container-local. The
-  restricted helper and its no-new-privileges setting are never changed for
-  these tests. This lane is not native desktop or VM qualification.
+  configuration run with `scripts/run-lab-fixture-tests.py`, a fixed offline
+  corpus wrapper around the unchanged PID launcher and repository `.venv`.
+  Fresh fixture commands probe a single-map user namespace; ownership-retry
+  cases instead require two distinct UID/GID mappings. Namespace root is never host
+  root. Unsupported mappings under the restricted helper's no-new-privileges
+  setting produce explicit capability skips, printed with `-rs`; never weaken
+  the helper or its guards to make a fixture pass. This lane requires no Docker
+  and is not native desktop or VM qualification.
 - Offline Cinnamon/GNOME capture fixtures execute the test interpreter, including
   the emitted PNG validators, so Pillow comes from the locked environment rather
   than system Python. The real GNOME keyfile-compilation test skips with an explicit
-  reason when `dconf` is absent; it is not a host runner requirement. The disposable
-  lab image includes `dconf-cli`, so that lane still exercises real compilation.
+  reason when `dconf` is absent; it is not a host runner requirement. Real
+  compilation runs only where that capability is available.
 - Installing dependencies into this repo's own `.venv` (and `node_modules` for `app/`) is fine. System package installs
   need Aaron's OK first.
+
+### Qualification evidence size
+
+From PR #50 review onward, keep raw qualification artifacts over roughly
+100 KB (debug logs, screenshots, large proofs/manifests) outside Git under
+`/mnt/storage/odin-desktop-evidence/<run>/`. Commit the summaries and task
+results, plus a manifest containing every retained artifact's SHA-256 and
+path. Distinguish measurements from acceptance decisions and disclose probe
+limitations. PR #50's original 33.5 MB evidence set is explicitly grandfathered;
+this exception is not a template for future runs.
 
 ## Upstream maintenance
 

@@ -304,8 +304,8 @@ class ComputerController:
 
     async def reconcile_recovery(self, context, session_id, generation):
         """Operator-only absence verification, never an input or cleanup actuator."""
-        await self._auth(context, emergency=True)
-        if context.surface != "webui":
+        await self._management_auth(context, emergency=True)
+        if not self._management_surface(context):
             raise ComputerError("operator_surface_required")
         grant = self.store.get_session(session_id)
         if grant.owner_id != context.owner_id or grant.host_id != context.host_id:
@@ -331,20 +331,29 @@ class ComputerController:
                     result = await _bounded(verify_absence(descriptor), 3.0)
                 except TimeoutError:
                     result = {"status": "unknown", "reason": "inspection_timeout"}
-            await self._auth(context, emergency=True)
+            await self._management_auth(context, emergency=True)
             grant = self.store.finish_recovery(grant, result)
             return self._public_session(grant)
 
     async def reconcile_hyprland_owner(self, context, session_id, generation):
         """Current authorized owner may reconcile a dead daemon's ledger, never its consent."""
+        from .models import ManagementContext
         from .runtime.hyprland_recovery import HyprlandRecoveryResult
 
-        await self._auth(context)
-        grant = self._grant(context, {"session_id": session_id, "generation": generation},
-                             same_turn=False)
+        if type(context) is ManagementContext:
+            await self._management_auth(context)
+            grant = self.store.get_session(session_id)
+            if grant.owner_id != context.owner_id or grant.host_id != context.host_id:
+                raise ComputerError("not_found")
+            if type(generation) is not int or grant.generation != generation:
+                raise ComputerError("stale_generation")
+        else:
+            await self._auth(context)
+            grant = self._grant(context, {"session_id": session_id, "generation": generation},
+                                 same_turn=False)
         if grant.state == "closed" and session_id not in self._live:
             async with self._stop_locks.setdefault(session_id, asyncio.Lock()):
-                await self._auth(context)
+                await self._management_auth(context)
                 grant = self.store.resolve_closed_local_recovery(grant)
                 return self._public_session(grant)
         if grant.state != "quarantined" or session_id in self._live:
@@ -352,7 +361,7 @@ class ComputerController:
         async with self._actions:
             if session_id in self._recoveries:
                 raise ComputerError("hyprland_recovery_pending")
-            await self._auth(context)
+            await self._management_auth(context)
             if self.store.get_session(session_id) != grant or session_id in self._live:
                 raise ComputerError("grant_revoked")
             backend = self.backend_factory(None)
@@ -364,13 +373,13 @@ class ComputerController:
                     or not callable(getattr(backend, "reconcile_durable_owner", None))):
                 await self._close_inventory_backend(backend)
                 raise ComputerError("hyprland_durable_owner_required")
-            await self._auth(context)
+            await self._management_auth(context)
             if self.store.get_session(session_id) != grant or session_id in self._live:
                 raise ComputerError("grant_revoked")
             record, query_only = self.store.prepare_hyprland_reconnect(grant)
 
             async def checkpoint():
-                await self._auth(context)
+                await self._management_auth(context)
                 if (self.store.get_session(session_id) != grant
                         or session_id in self._live
                         or self._recoveries.get(session_id) is not asyncio.current_task()):
@@ -390,7 +399,7 @@ class ComputerController:
             self._recoveries[session_id] = task
             try:
                 result = await _bounded(task, 22)
-                await self._auth(context)
+                await self._management_auth(context)
                 if self.store.get_session(session_id) != grant or session_id in self._live:
                     raise ComputerError("grant_revoked")
                 if type(result) is not HyprlandRecoveryResult:
@@ -412,8 +421,8 @@ class ComputerController:
 
     async def acknowledge_legacy_recovery(self, context, session_id, generation, acknowledgment):
         """Explicit human attestation archives legacy uncertainty, not a clean claim."""
-        await self._auth(context, emergency=True)
-        if context.surface != "webui":
+        await self._management_auth(context, emergency=True)
+        if not self._management_surface(context):
             raise ComputerError("operator_surface_required")
         grant = self.store.get_session(session_id)
         if grant.owner_id != context.owner_id or grant.host_id != context.host_id:
@@ -429,7 +438,7 @@ class ComputerController:
                 or grant.state != "quarantined"
             ):
                 raise ComputerError("legacy_acknowledgment_unavailable")
-            await self._auth(context, emergency=True)
+            await self._management_auth(context, emergency=True)
             grant = self.store.finish_recovery(
                 grant,
                 {
@@ -462,8 +471,10 @@ class ComputerController:
         its owner has gone away. Production authorization binds an authenticated
         admin to this exact host. It cannot stop a live adapter or active session.
         """
-        await self._auth(context, emergency=True)
-        if context.surface != "webui" or context.turn_id != "web-operator":
+        await self._management_auth(context, emergency=True)
+        if not self._management_surface(context) or (
+            context.surface == "webui" and context.turn_id != "web-operator"
+        ):
             raise ComputerError("operator_surface_required")
         if acknowledgment != f"ACKNOWLEDGE UNVERIFIED CLEANUP {session_id}":
             raise ComputerError("explicit_acknowledgment_required")
@@ -491,7 +502,7 @@ class ComputerController:
                 result = await _bounded(verify_reconciliation_prerequisites(descriptor), 3.0)
             except TimeoutError:
                 result = {"status": "unknown", "reason": "inspection_timeout"}
-            await self._auth(context, emergency=True)
+            await self._management_auth(context, emergency=True)
             if result.get("status") == "attestation_eligible":
                 result = {
                     "status": "operator_acknowledged_unverified",
@@ -511,8 +522,20 @@ class ComputerController:
                 )
             return self._reconciliation_status(grant)
 
-    async def _auth(self, context, *, emergency=False):
-        foreground(context)
+    @staticmethod
+    def _management_surface(context):
+        from .models import ManagementContext
+
+        return type(context) is ManagementContext or context.surface == "webui"
+
+    async def _management_auth(self, context, *, emergency=False):
+        return await self._auth(context, emergency=emergency, management=True)
+
+    async def _auth(self, context, *, emergency=False, management=False):
+        from .models import ManagementContext
+
+        if not (management and type(context) is ManagementContext):
+            foreground(context)
         result = self.authorize(context)
         if inspect.isawaitable(result):
             result = await result
@@ -2009,7 +2032,7 @@ class ComputerController:
         return self.store.finish_action(session_id, action_id, result)
 
     def _operator_grant(self, context):
-        if context.surface != "webui":
+        if not self._management_surface(context):
             raise ComputerError("operator_surface_required")
         with self.store.lock:
             row = self.store.db.execute(
@@ -2021,11 +2044,11 @@ class ComputerController:
             raise ComputerError("not_found")
         return self.store.get_session(row[0])
 
-    async def operator_session(self, context, operation):
+    async def operator_session(self, context, operation, *, session_id=None, generation=None):
         if operation not in {"status", "pause", "stop", "cancel", "close"}:
             raise ComputerError("unsupported_operation")
-        await self._auth(context, emergency=operation != "pause")
-        if context.surface != "webui":
+        await self._management_auth(context, emergency=operation != "pause")
+        if not self._management_surface(context):
             raise ComputerError("operator_surface_required")
         if operation == "status":
             # Expose only a foreign stranded singleton's reconciliation metadata.
@@ -2039,6 +2062,12 @@ class ComputerController:
                 if grant.owner_id != context.owner_id:
                     return self._reconciliation_status(grant)
         grant = self._operator_grant(context)
+        if session_id is not None and grant.session_id != session_id:
+            raise ComputerError("not_found")
+        if generation is not None and (
+            type(generation) is not int or grant.generation != generation
+        ):
+            raise ComputerError("stale_generation")
         if operation == "status":
             return self._public_session(grant)
         if operation == "pause":
@@ -2047,7 +2076,7 @@ class ComputerController:
 
     async def operator_release_owned_input(self, context, session_id, generation):
         """Emergency Hyprland release, never an action or generic tool operation."""
-        await self._auth(context, emergency=True)
+        await self._management_auth(context, emergency=True)
         grant = self._operator_grant(context)
         if grant.session_id != session_id:
             raise ComputerError("not_found")
@@ -2094,7 +2123,7 @@ class ComputerController:
         except BaseException:
             await self._stop(session_id, "cancelled")
             raise
-        await self._auth(context, emergency=True)
+        await self._management_auth(context, emergency=True)
         if (
             receipt.get("released") is True
             and pending is not None
