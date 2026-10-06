@@ -172,7 +172,7 @@ describe('the notifier', () => {
   function notifier(answer: 'shown' | 'failed' = 'shown', current: () => NotificationSettings = () => settings()) {
     const shown: Array<{ title: string; body: string; onClick: () => void }> = []
     const acks: Array<[string, Outcome]> = []
-    const opened: string[] = []
+    const opened: Array<[string, string]> = []
     const n = new Notifier({
       settings: current,
       windowFocused: () => false,
@@ -181,7 +181,7 @@ describe('the notifier', () => {
         shown.push(notification)
         return answer
       },
-      open: (id) => opened.push(id),
+      open: (id, messageId) => opened.push([id, messageId]),
       ack: (key, outcome) => acks.push([key, outcome]),
       now: () => NOW
     })
@@ -195,7 +195,7 @@ describe('the notifier', () => {
     expect(shown).toHaveLength(1)
     expect(acks).toEqual([['reply:m1', 'shown']])
     shown[0]!.onClick()
-    expect(opened).toEqual(['c1'])
+    expect(opened).toEqual([['c1', 'm1']])
   })
 
   it('reports suppressed and failed notifications honestly', async () => {
