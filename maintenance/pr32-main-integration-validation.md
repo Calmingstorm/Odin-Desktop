@@ -14,8 +14,9 @@ onboarding work was adopted. No rebase, PR merge, deployment or live restart.
   direction, merge `240dd3915b991a7394fe0166aaa1a6b14bdd092d` incorporates
   `4ea7aa0f3b423a301854a9f0bdd2a46bc92d9d7b`, with first parent
   `6d8c1e04df396a354def3e0ea83354aba00f4a59`.
-- Final tested source commit: `382f1d54b198f3677073f2bb625a11d9cf8efbad`.
-  This document is the subsequent evidence-only commit; no executable changes.
+- Earlier controls-pin tested source commit: `382f1d54b198f3677073f2bb625a11d9cf8efbad`.
+  Its evidence-only commit was `2bcb964b510597bebe9f878664ebe81d8f3ff4dd`.
+  The subsequent authorized packaging-pin integration is recorded below.
 
 Preserved main's conversations, requests, transcripts, delivery/publication,
 attachments, artifacts, search, control/steer/resume and shared settings/runtime
@@ -113,9 +114,10 @@ This is requested touched-suite/source-build validation, not full engine or
 release qualification, native Secret Service, Orca/AT-SPI, Wayland or packaging.
 Ledger explanations remain pending independent review.
 
-During the final app run shared `origin/main` advanced to packaging PR #24
+During the earlier controls-pin app run shared `origin/main` advanced to packaging PR #24
 `5ba8d6dfcacce9eff823af2596290bc417897e0e`. That later packaging main is not
-included or qualified here; the authorized second pin remains `4ea7aa0f`.
+included in those earlier results; the subsequent explicit continuation authorized
+that exact packaging pin, now integrated as recorded below.
 
 A read-only `git merge-tree` probe with updated PR #30 head
 `c605de481e22e84c83e5d0313a75f8e9ae14195e` reports conflicts in Playwright
@@ -138,4 +140,90 @@ cfe140f3ad7b9835bca6ba7e85a2196a8937901b3d68cb7651c517ef6f34af77  app-test-a11y.
 423fe93698ad139b164c3bfb3f6fd4b53e91e46f66464b1478ec446f90794240  a11y-report.json
 3fe6fb35f726dccf38a157eb732027c7c0db6ccdfacdabb06a0f7de937c7bed3  app-test-e2e.log
 e3eb929354c9eb8a9af08c63f6c4f3fcb3cda4a4b542b4bc9811885d3a603b2b  e2e/playwright.json
+```
+
+## Authorized packaging-pin continuation
+
+The requested fixed main is `5ba8d6dfcacce9eff823af2596290bc417897e0e`.
+Merge commit `21513a9029cbff9a69472116a07f2259c61b2ae3` has first parent
+`2bcb964b510597bebe9f878664ebe81d8f3ff4dd` and that exact main as second
+parent. This is a proper merge, not a rebase. All pre-existing app scripts remain,
+including lifecycle `test:e2e`, alongside the added packaging scripts. No PR #30
+ancestry was adopted, and neither PR was merged. Read-only remote observation
+after the gates still showed main at the fixed pin; no later head was chased.
+
+Only `app/package.json` and the ledger conflicted. The original supplied strict
+ledger union refused the sole double-change record `src/desktop/providers.py`.
+The explicit plan removes only that record from the three temporary union inputs,
+unions all other records with the supplied strict script, and rerecords providers
+from final bytes using `finalize_records.py`. Both sides' reasons, concrete
+contracts, invariants and named test witnesses are retained; no approval is
+invented. Providers' executable bytes, and all core/runtime/management bytes,
+are unchanged by this packaging merge. The prior 682-pass core/request/control
+selection therefore remains historical valid evidence, not a claimed fresh rerun.
+
+New external evidence root:
+`/home/odin/pr32-main-integration-evidence/packaging-pin/`.
+Original ledger inputs, refusal, union and explicit rerecord plan live in `ledger/`.
+Both bounded runners and their exact arguments are retained in this root.
+
+| Gate | Final observed result | Evidence |
+| --- | --- | --- |
+| Offline drift | archive verified, `errors: []`, review pending | `drift.log` |
+| Lint | zero new findings, 7 inherited | `lint.log` |
+| Phase 2 plan | passed; ownership coverage only | `plan.log` |
+| `npm run check` | typecheck/build passed; 666 tests, 72 files | `app-check.log` |
+| `npm run smoke` | fixture Electron smoke passed | `app-smoke.log` |
+| `npm run test:real-core` | 21/21, 2 files | `app-test-real-core.log` |
+| `npm run smoke:real-core` | 39 checkpoints, ready real core | `app-smoke-real-core.log`, `fixture-smoke-evidence.json` |
+| `npm run test:a11y` | 15/15 passed | `app-test-a11y.log`, `a11y-report.json` |
+| `npm run test:e2e` | 29/29 passed, zero retries/skips | `app-test-e2e.log`, `e2e/playwright.json` |
+| New packaging/resource/PDF regressions | 210 passed in 61.65s, zero skips | `packaging-regressions.log`, `packaging-regressions.xml` |
+| Packaging behavior unittest | 39 passed, zero skips | `packaging-behavior.log` |
+| Whitespace | working delta and fixed-main delta passed | `git diff --check`, `git diff 5ba8d6df --check` |
+
+The 210-case selection covers standalone runtime, models, helper closure, Chromium
+runtime/staging, PDF first-use resource/catalog behavior, distribution, retained
+history/strip boundaries and core search/entry/lifecycle/providers. The 39 unittest
+cases also exercise real disposable namespace masking, first-start SSH keygen,
+and real dpkg maintainer-script execution inside a throwaway root, never host
+package installation. These are regression proofs, not a new candidate build,
+release qualification, full engine qualification or native desktop acceptance.
+
+All engine/process tests used isolated PID namespaces and unprivileged odin
+uid/gid 1003. App graphics used private Xvfb and throwaway HOME/XDG, with no live
+display, profile, credentials or session bus. `manage_process` started normally;
+both runners completed exit 0 with streamed tee evidence and bounded polling.
+No arbitrary processes were killed. No live service, desktop or account changed.
+
+Environment sync used only this repository's `.venv` and `app/node_modules`:
+`uv sync --locked --extra dev` rebuilt the editable engine, installed locked pip
+26.2.1, and removed PyMuPDF as required by the new optional-PDF production boundary.
+`npm ci --ignore-scripts` installed the locked graph, followed by pinned Electron
+installation. npm reports 11 inherited audit findings (10 high, one critical);
+no dependency upgrade or audit fix was attempted. Accessibility's isolated bus
+emitted portal/wsdd warnings but all cases passed. The initial drift invocation
+used unsupported `--offline`; corrected plain `inventory.py report` is itself
+offline and passed. No executable/test fixes were needed for the final gates.
+
+PR #30/#32 overlap still requires integration when whichever PR lands second
+encounters the first one's new main. This continuation does not merge them.
+
+### Packaging-pin evidence SHA-256
+
+```text
+4e765f6934e04e446c90c7dc38fb4dce7e386edb12e080d8d715c191267a8493  drift.log
+9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584  lint.log
+ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48  plan.log
+dc31c85f450d281bf3f46fc4461e50e044729fc7c6c4d8451027931777adf3aa  app-check.log
+d036b15443a6748a6f1b243f8d929d93b76b77dbf6ac09866b2ec0d55afde781  app-smoke.log
+fd4fcdf4d05b84101b912f9724d6c885ccc979d5ddc02a0f4efd105132d99200  app-test-real-core.log
+c2a451fcb4cb45bafba98b6b2bd50c90f826a2a7acdf77a08c4f5ee34d5e388c  app-smoke-real-core.log
+b4b20fb8c702f76abaf96be7e7e58965e02071b216b3d44bfcfeedc43c083df2  app-test-a11y.log
+193b268ec971017bbf3f8c82f2bb4873c56fe054f50a7ef1f6bbdc0277721426  a11y-report.json
+acfd6f4a706b4f69bbe5b2384839bad386c347d5b40e57ed2355f36b7d6a4fa8  app-test-e2e.log
+af08797ee89fedbebd9d58fcfa069a343208ad594deee7b98d14a4b107bef601  e2e/playwright.json
+57cffd7bc1c2997879f42e03b13198fdfa7d4f2c05a09d17eae53b666cc32f43  packaging-regressions.log
+13c078f4a9452cbc02ee51d66b8724e21a0024ec1db60425c0e73336566bebb9  packaging-regressions.xml
+40b58bf1d50f2527928ef5401a1ecb27cb68263c39ed357d4508ac393e5798a8  packaging-behavior.log
 ```
