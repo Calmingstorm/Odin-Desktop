@@ -28,8 +28,14 @@ are the input authorities. Repeated builds verify cached inputs. These are pinne
 input builds, not a claim of bit-for-bit installer reproducibility across hosts.
 
 Both formats consume one sealed unpacked resource tree. A pre-staged AppArmor
-resource prevents electron-builder's deb-only late write from changing the
-inventory. The `.deb` uses identity `odin-desktop`, installs application resources
+resource and explicit build umask `022` keep electron-builder's deb-only late
+profile copy identical to the sealed inventory. The after-pack hook canonicalizes
+all resource files to `0644` (non-executable) or `0755` (executable), directories to
+`0755`, and preserves symlinks before sealing. This includes builder-created ASAR
+and ownership files, not only the earlier runtime stage. Qualification still
+rejects any subsequent mode, content, size, inventory or link-target mismatch;
+it never rewrites the manifest to match extracted candidates. The `.deb` uses identity
+`odin-desktop`, installs application resources
 under `/opt/Odin`, and has an independent launcher/icon/state namespace. That path
 is not the unrelated `/opt/odin` live service. Nothing is installed on this host.
 
@@ -159,7 +165,14 @@ documented in [`maintenance/phase4-releases.md`](../../maintenance/phase4-releas
 P4.2 ownership/upgrades and alongside evidence
 are recorded in [`maintenance/phase4-packaging.md`](../../maintenance/phase4-packaging.md).
 The `.deb` now uses explicit self-contained preinst/postinst/prerm/postrm hooks
-with `python3-minimal` predependency. They fence replacement without starting
+with `python3` predependency. The hooks import JSON, which Debian's
+`python3-minimal` alone does not provide. Disposable install qualification stages
+the system interpreter, matching distro stdlib (without site-packages or
+sitecustomize), and ELF closure, then checks hook imports inside the isolated
+dpkg root before installing. This install-only Python is removed before exporting
+the tree for candidate runtime probes; workstation Python remains masked there.
+`--force-depends` remains an explicit dependency-resolution proof limitation.
+They fence replacement without starting
 or signalling any application/service and preserve all user state. The shared
 lease-bearing launcher and independent app/core lifetimes remain active through
 authoritative cleanup. AppImage replacement is explicitly user-managed and
