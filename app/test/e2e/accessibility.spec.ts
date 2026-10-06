@@ -415,11 +415,12 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await tabTo(page.getByRole('textbox', { name: 'Executable', exact: true }))
     }
     if (label === 'Tools') {
+      // D17 fresh settings enable the browser; this source-tree profile has no qualified bundle.
       const browser = page.getByRole('region', { name: 'Browser runtime', exact: true })
-      await expect(browser).toContainText('State: disabled')
+      await expect(browser).toContainText('State: unavailable')
       await expect(browser).toContainText('Not ready')
       await activate(browser.getByRole('button', { name: 'Refresh status for browser', exact: true }))
-      await expect(browser).toContainText('State: disabled')
+      await expect(browser).toContainText('State: unavailable')
     }
     if (label === 'Records') {
       const computer = page.getByRole('region', { name: 'Computer use', exact: true })

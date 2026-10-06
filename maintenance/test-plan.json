@@ -1,17 +1,90 @@
 {
+  "schema_version": 1,
   "baseline": {
     "archive": "maintenance/odin-v4.13.0.tar.gz",
     "commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
     "tag": "v4.13.0",
     "tracked_test_paths": 869
   },
+  "execution_status": "PR35 round2: assigned47=25restored21retired1deferred; global326=34restored26retired266deferred. Unique retained originals704 plus2 added Codex executions. All869 inherited hashes immutable. Current full qualification parent-owned pending; review1 evidence unchanged.",
+  "qualification_plan": "maintenance/qualification-plan.json",
+  "phase2_suite_map": "maintenance/phase2-suite-map.json",
+  "phase2_restored": [
+    "tests/characterization/test_executor_dispatch_parity.py",
+    "tests/test_action_diffs.py",
+    "tests/test_attachments.py",
+    "tests/test_audit_tail_v412.py",
+    "tests/test_bounded_process_wait.py",
+    "tests/test_campaign_audit_observability.py",
+    "tests/test_campaign_cli_coverage.py",
+    "tests/test_campaign_execution_risk.py",
+    "tests/test_campaign_openrouter_coverage.py",
+    "tests/test_campaign_prefix_measurement.py",
+    "tests/test_campaign_websocket_coverage.py",
+    "tests/test_channel_cursor_campaign.py",
+    "tests/test_channel_history_recency.py",
+    "tests/test_channel_logger_edge_regressions.py",
+    "tests/test_channel_state_recent_action_failure.py",
+    "tests/test_chat_steering_parity.py",
+    "tests/test_chat_steering_resume.py",
+    "tests/test_chat_steering_runtime.py",
+    "tests/test_codex_account_mutation_regressions.py",
+    "tests/test_codex_replay_matrix.py",
+    "tests/test_command_shell_framing.py",
+    "tests/test_compatible_output_reserve.py",
+    "tests/test_computer_audit_output_r21.py",
+    "tests/test_computer_checkpoint_privacy_r5.py",
+    "tests/test_computer_frame_boundary.py",
+    "tests/test_computer_native_vision_r5.py",
+    "tests/test_computer_privacy_r5.py",
+    "tests/test_connection_lifecycle_d1.py",
+    "tests/test_connection_pools.py",
+    "tests/test_delivery_review_regressions.py",
+    "tests/test_delivery_turn_observation.py",
+    "tests/test_knowledge_dedup.py",
+    "tests/test_knowledge_versions.py",
+    "tests/test_learning_disabled_crud.py",
+    "tests/test_local_supervisor_wrapper_r10.py",
+    "tests/test_log_search.py",
+    "tests/test_openrouter_admin_boundaries.py",
+    "tests/test_pr341_b10_channel_consistency.py",
+    "tests/test_pr341_b7_channel_reconciliation.py",
+    "tests/test_process_manager.py",
+    "tests/test_process_zero_offset.py",
+    "tests/test_recovery.py",
+    "tests/test_restored_process_shutdown.py",
+    "tests/test_resume_admission.py",
+    "tests/test_search_history_source_priority.py",
+    "tests/test_session_search.py",
+    "tests/test_tool_loop_helpers.py",
+    "tests/test_trajectories.py",
+    "tests/test_turn_durability_heartbeat.py",
+    "tests/test_web_api_knowledge_mem.py",
+    "tests/test_web_api_new_endpoints.py",
+    "tests/test_web_api_observability.py",
+    "tests/test_web_api_turn_state.py",
+    "tests/test_web_campaign_streams.py",
+    "tests/test_webui_selected_trace_filters.py"
+  ],
+  "methodology": {
+    "imports": "AST Import/ImportFrom relative resolution, package initializers, cross-test helper closure. Deduplicated pinned source import closure below. Literal src patch references also recorded. No source imported.",
+    "limitations": "Static closure is not runtime safety proof: conditional/dynamic imports, aliases, shell expansion and indirect subprocess behavior require clean namespace execution/failure triage. Baseline source closures include optional lazy imports removed by adaptation; no blanket gate of neutral src.discord/tools/guards.",
+    "selection": "Filename list whole-file safe selection. Mixed domain/transport suites retained Phase2, not deleted. Explicit foundation fixture mismatch adaptation-gated, not mislabeled Phase2. Native and prohibited literals safety-gated."
+  },
+  "safety_policy": {
+    "failure": "Do not gate neutral suites to avoid fixes. Explain real adaptation/intake/control coupling; original assertions stay original.",
+    "forbidden": "No destructive/attack test input execution even mocked, no native desktop/lifecycle/installer proof or real endpoints; no upstream /opt/odin writes or system installs/restarts.",
+    "runner": "scripts/run-phase1-tests.py only; PID namespace, env-i clean HOME/XDG/DBus, no live config/data/endpoints",
+    "support": "Fixtures/helpers original bytes retained; no direct execution selection."
+  },
   "counts": {
     "excluded": 18,
-    "phase2": 291,
+    "phase2": 245,
+    "phase2_restored": 55,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "retired": 5,
-    "safe_pass_now": 387,
+    "retired": 26,
+    "safe_pass_now": 412,
     "safety_manual_gated": 100
   },
   "entries": [
@@ -129,7 +202,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -146,7 +219,11 @@
         "src/discord/client.py",
         "src/discord/delivery.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/delivery.py: Desktop owner/intake/control/durable delivery adapter: delivery. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord chunked reply, file transport and retry delivery; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord chunked reply, file transport and retry delivery; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "aa67067f7f247f4a366cf50527c35dfb019b4051575dc08d86eeb69c270bf1fb",
       "string_source_references": [],
       "test_import_closure": [
@@ -159,7 +236,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/config/__init__.py",
@@ -177,7 +254,7 @@
       "phase2_seams": [
         "src/discord/client.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "reason": "Round2 retained dispatch corpus through authentic owner admission; exact foreign-caller and prior guest-tier case retirements only.",
       "sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
       "string_source_references": [],
       "test_import_closure": [
@@ -219,7 +296,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -238,7 +315,11 @@
         "src/discord/tool_loop.py",
         "src/discord/tool_loop_helpers.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord guild/channel intake, allowlists and multi-bot origin gating; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord guild/channel intake, allowlists and multi-bot origin gating; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "607ebffddbd77754c3d81a2705297ef1dfe54f30194b01ec7ad5294cf2350808",
       "string_source_references": [],
       "test_import_closure": [
@@ -345,7 +426,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/sessions/__init__.py",
@@ -361,7 +442,11 @@
       "phase2_seams": [
         "src/discord/client.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord pipeline routing, thread inheritance and reply/file handoff; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord pipeline routing, thread inheritance and reply/file handoff; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "d8b3da64ab8525523883638d08c700a78fc99721ddbab9059c575406f1fea7e2",
       "string_source_references": [],
       "test_import_closure": [
@@ -1700,7 +1785,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -1716,7 +1801,7 @@
       "phase2_seams": [
         "src/discord/attachments.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/attachments.py: Desktop owner/intake/control/durable delivery adapter: attachments. Preserve cases, no privileged fake shim.",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "sha256": "fd45c95e1c4ea5c2d0bca39bf8809b1912194695523973ebf0d8370bc58743f6",
       "string_source_references": [],
       "test_import_closure": [
@@ -2275,7 +2360,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -2300,7 +2385,7 @@
         "src/turn_state/codec.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/codec.py: install-bound context reconstruction; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "sha256": "01bf1930dba107e1881744830bbae61e6492ee76fa462828a69055746d213048",
       "string_source_references": [],
       "test_import_closure": [
@@ -2604,7 +2689,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/config/__init__.py",
@@ -2626,7 +2711,11 @@
         "src/discord/tool_loop.py",
         "src/discord/tool_loop_helpers.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/attachments.py: Desktop owner/intake/control/durable delivery adapter: attachments; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord attachment intake; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord attachment intake; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "3e7b098ed229a29e64287038b8a19803c79d1109cc2e5b63064f58f9f697aeb0",
       "string_source_references": [
         "src.discord.intake_pipeline.check_for_secrets"
@@ -2756,7 +2845,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/cli.py"
@@ -2771,7 +2860,7 @@
       "phase2_seams": [
         "src/cli.py"
       ],
-      "reason": "Phase2 retained integration: src/cli.py: local IPC control. Preserve cases, no privileged fake shim.",
+      "reason": "Round2 retained six original CLI executions through authenticated local IPC; exact HTTP-only case retirements, all retained assertions unchanged.",
       "sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b",
       "string_source_references": [],
       "test_import_closure": [
@@ -3053,7 +3142,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -3078,7 +3167,11 @@
         "src/web/api/sessions_chat.py",
         "src/web/websocket.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/attachments.py: Desktop owner/intake/control/durable delivery adapter: attachments; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord attachment intake and delivery; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord attachment intake and delivery; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "02a6f587d5a9771b2bfb5534f2bbf662614ece94075762d66485c235ca9d2d84",
       "string_source_references": [],
       "test_import_closure": [
@@ -3150,7 +3243,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -3170,7 +3263,11 @@
         "src/discord/tool_loop.py",
         "src/discord/tool_loop_helpers.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/attachments.py: Desktop owner/intake/control/durable delivery adapter: attachments; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord message intake; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord message intake; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "0f1220b61d5d606dcdc1eab4ad0d97bb73affd2219431380b959f9e119440e20",
       "string_source_references": [],
       "test_import_closure": [
@@ -3186,7 +3283,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/turn_state/__init__.py"
@@ -3204,7 +3301,11 @@
         "src/discord/turn_resume.py",
         "src/turn_state/codec.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/turn_resume.py: Desktop owner/intake/control/durable delivery adapter: turn_resume; src/turn_state/codec.py: install-bound context reconstruction. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord resume intake; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord resume intake; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "ca2d7d323e0cd9be584fb5e34576858b0a108decfa0abd824b83cb7514996574",
       "string_source_references": [],
       "test_import_closure": [
@@ -4539,7 +4640,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -4558,7 +4659,7 @@
       "phase2_seams": [
         "src/discord/channel_logger.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "sha256": "67b01211656e00656f447046057f931569ee8fd0bf76b112e3c396f0b0e0ca49",
       "string_source_references": [],
       "test_import_closure": [
@@ -4566,7 +4667,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -4582,7 +4683,7 @@
       "phase2_seams": [
         "src/discord/channel_logger.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "sha256": "ff261ad17c4c9cefd22d01c11a6aef90328ff86a6a54d9cf7ef43431c8194495",
       "string_source_references": [],
       "test_import_closure": [
@@ -4590,7 +4691,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -4608,7 +4709,11 @@
       "phase2_seams": [
         "src/discord/channel_logger.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord guild/DM channel logging; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord guild/DM channel logging; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "da1d2387fc51c197bb4c9e85afcd857acfdde3253161879535aece3f5191d267",
       "string_source_references": [],
       "test_import_closure": [
@@ -4616,7 +4721,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -4634,7 +4739,7 @@
       "phase2_seams": [
         "src/discord/channel_logger.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "sha256": "4629993659cdb3f439773865b0cecc470951dcb6349115846eadc19a8629f6e3",
       "string_source_references": [],
       "test_import_closure": [
@@ -4642,7 +4747,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/credential_redaction.py",
@@ -4663,7 +4768,11 @@
         "src/discord/channel_logger.py",
         "src/discord/intake_pipeline.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord channel privacy and allowlists; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord channel privacy and allowlists; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "88e6a8d5c7dad7a3d74f168d39300e20ad4f576d19c4ff49858c7e0358908bb6",
       "string_source_references": [],
       "test_import_closure": [
@@ -4741,7 +4850,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/web/__init__.py",
@@ -4760,7 +4869,11 @@
         "src/web/api/__init__.py",
         "src/web/chat.py"
       ],
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: HTTP chat session and web/API identities; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: HTTP chat session and web/API identities; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "aab21c70a29d895a95c8087ed2279c390954513058c08032db18cb310578b284",
       "string_source_references": [
         "src.web.api.process_web_chat",
@@ -4771,7 +4884,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -4790,7 +4903,11 @@
         "src/discord/channel_state.py",
         "src/discord/tool_loop.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord steering admission; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord steering admission; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "70080829a6851915ea9a781bb68da617594f381198492003061b6dcf120a329a",
       "string_source_references": [],
       "test_import_closure": [
@@ -4798,7 +4915,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -4821,7 +4938,11 @@
         "src/discord/tool_loop.py",
         "src/discord/wiring.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/steer_notifications.py: Desktop owner/intake/control/durable delivery adapter: steer_notifications; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/wiring.py: Desktop owner/intake/control/durable delivery adapter: wiring. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord steering notifications; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord steering notifications; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "a9d047ef34ada3e52002c9812eea7dc6ad6b408c5506ddee8887bcb2b856e87a",
       "string_source_references": [
         "src.discord.channel_state.notify_steer",
@@ -4833,7 +4954,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/config/__init__.py",
@@ -4857,7 +4978,7 @@
         "src/discord/tool_loop.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "reason": "Round2 exact one-to-one identity projection only; retained golden event order, guard decisions and delivery remain exact, one tier-prose case retired.",
       "sha256": "48cf45bcceed1be223a2cf8428af0a9eff3e57b695b1d147a3e6fe7a843233ec",
       "string_source_references": [],
       "test_import_closure": [
@@ -4865,7 +4986,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -4895,7 +5016,7 @@
         "src/turn_state/codec.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/codec.py: install-bound context reconstruction; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "sha256": "fd1316042f023dbabdd8f2d522bff522df54328bb04d984b619bbf93cb2f7f89",
       "string_source_references": [],
       "test_import_closure": [
@@ -4908,7 +5029,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -4937,7 +5058,7 @@
         "src/discord/tool_loop.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/steer_notifications.py: Desktop owner/intake/control/durable delivery adapter: steer_notifications; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "sha256": "b41818cc97a50a4794cac024b953f7199369b225e863e1c9b4c34b2e32cc3f2b",
       "string_source_references": [],
       "test_import_closure": [
@@ -5320,7 +5441,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -5345,7 +5466,7 @@
       "phase2_seams": [
         "src/discord/tool_loop.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "reason": "Round2 real63-name catalog, exact five removed tool rows and added read_conversation row; unchanged equality and other assertions on both replay paths.",
       "sha256": "eed93185f30efd619bafbfb1fd0f2d7bcac1eda96879b50214cfc1f8f5585256",
       "string_source_references": [],
       "test_import_closure": [
@@ -5487,7 +5608,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/tools/__init__.py",
@@ -5510,7 +5631,7 @@
         "src/discord/scheduled_events.py",
         "src/discord/tool_loop.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/scheduled_events.py: Desktop owner/intake/control/durable delivery adapter: scheduled_events; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "sha256": "cb5bd6655d51b4ed8994ea0df7f750a5295722e7234071e8935dcc4a4929324e",
       "string_source_references": [],
       "test_import_closure": [
@@ -5772,7 +5893,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/agents/__init__.py",
@@ -5802,7 +5923,7 @@
         "src/discord/native_tools/agents_tasks.py",
         "src/discord/tool_loop.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "sha256": "8ca908a54d6b66b20c10b766c6ddd86b0c82a293ab1908c0744dc8541ca2968c",
       "string_source_references": [],
       "test_import_closure": [
@@ -8916,7 +9037,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/computer/__init__.py",
@@ -8942,7 +9063,7 @@
         "src/discord/tool_loop.py",
         "src/turn_state/codec.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/codec.py: install-bound context reconstruction. Preserve cases, no privileged fake shim.",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "sha256": "41fd36c3afe06c24f1221d9a809fba96efddd4f77d12878080f6a4984b6681c7",
       "string_source_references": [
         "src.llm.openai_codex.CODEX_API_URL"
@@ -9215,7 +9336,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/audit/__init__.py",
@@ -9246,7 +9367,7 @@
         "src/turn_state/codec.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers; src/turn_state/codec.py: install-bound context reconstruction; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "sha256": "02625a61cd0ff31dc72f9f23d5015ba99d09f948f1b9c94a2d93268dbf797374",
       "string_source_references": [],
       "test_import_closure": [
@@ -12757,7 +12878,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -12773,7 +12894,11 @@
       "phase2_seams": [
         "src/discord/delivery.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/delivery.py: Desktop owner/intake/control/durable delivery adapter: delivery. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord file delivery retries; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord file delivery retries; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "cea07757691729a80ec3f82ed662d99280a22f92e6fb1d52c93fcf3847d29f6c",
       "string_source_references": [
         "src.discord.delivery.asyncio.sleep"
@@ -12783,7 +12908,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -12808,7 +12933,7 @@
         "src/web/api/sessions_chat.py",
         "src/web/websocket.py"
       ],
-      "reason": "Phase2 retained integration: src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "sha256": "bc0ddcfe244eeee48507dd6a5a16b333f18b421415b3fc1f1f1f856b340ae018",
       "string_source_references": [],
       "test_import_closure": [
@@ -12818,7 +12943,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -12834,7 +12959,11 @@
       "phase2_seams": [
         "src/discord/delivery.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/delivery.py: Desktop owner/intake/control/durable delivery adapter: delivery. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord delivery and typing status; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord delivery and typing status; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "d1dbc5f6cf47aedaed3c4005291531219b9fdb889429ac289c2081a81c7c3db2",
       "string_source_references": [],
       "test_import_closure": [
@@ -12842,7 +12971,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -12858,7 +12987,7 @@
       "phase2_seams": [
         "src/discord/turn_recorder.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/turn_recorder.py: Desktop owner/intake/control/durable delivery adapter: turn_recorder. Preserve cases, no privileged fake shim.",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "sha256": "14fd1148b43bb330206566ec926930b3e6e96671bab52399b4ff746e376bfbda",
       "string_source_references": [],
       "test_import_closure": [
@@ -13230,7 +13359,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/config/__init__.py",
@@ -13264,7 +13393,11 @@
         "src/web/api/__init__.py",
         "src/web/api/sessions_chat.py"
       ],
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: HTTP execute API routes and identities; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: HTTP execute API routes and identities; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "504900a3e35a622f0983db1acbf89d11357fcf0bccbbd60739498a1eb9bc95c8",
       "string_source_references": [
         "src.web.api.process_web_chat"
@@ -17418,7 +17551,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -17435,7 +17568,11 @@
         "src/discord/attachments.py",
         "src/discord/intake_pipeline.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/attachments.py: Desktop owner/intake/control/durable delivery adapter: attachments; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord message intake pipeline; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord message intake pipeline; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "4468540aeb50a719a15b70f8c4d9b9e38ef69f13d82220c5c3e1667f2970d386",
       "string_source_references": [
         "src.discord.attachments.AttachmentProcessor",
@@ -19497,7 +19634,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -19516,7 +19653,11 @@
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/channel_ops.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/channel_ops.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord channel operations; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord channel operations; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "1b423e5691516937e288395633547d8ac907c0732408af12f4c1b7233799fe15",
       "string_source_references": [],
       "test_import_closure": [
@@ -20521,7 +20662,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -20540,7 +20681,7 @@
       "phase2_seams": [
         "src/discord/channel_logger.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "sha256": "248a1ccf33f4723e0b5f453fefb65a7364ad8fd5b17dde34c96c49313ffc26d2",
       "string_source_references": [
         "src.discord.channel_logger.time.monotonic"
@@ -20577,7 +20718,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -20595,7 +20736,7 @@
       "phase2_seams": [
         "src/discord/channel_logger.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "sha256": "2e1bdd838c6204107963186f2f28dabc40868ffef0911305d45980d38ed109af",
       "string_source_references": [
         "src.discord.channel_logger.time.monotonic"
@@ -21451,7 +21592,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/tools/__init__.py",
@@ -21471,7 +21612,7 @@
         "src/web/api/sessions_chat.py",
         "src/web/websocket.py"
       ],
-      "reason": "Phase2 retained integration: src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "sha256": "b7db1aadbd1ad1fa965f13609906808ca282089f7b3acf87f6dfcc67dcd8b052",
       "string_source_references": [
         "src.async_utils.fire_and_forget"
@@ -22341,7 +22482,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -22368,7 +22509,7 @@
         "src/discord/turn_resume.py",
         "src/turn_state/codec.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/turn_resume.py: Desktop owner/intake/control/durable delivery adapter: turn_resume; src/turn_state/codec.py: install-bound context reconstruction. Preserve cases, no privileged fake shim.",
+      "reason": "All185 original assertion ASTs identical and complete reverse replay; actual canonical owner, RequestService controls and real terminal calibration correction; only exact8 removed Discord intake/denial cases retired.",
       "sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce",
       "string_source_references": [
         "src.turn_state"
@@ -23176,7 +23317,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -23200,7 +23341,7 @@
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/knowledge.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/knowledge.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "sha256": "f017dfb328b626e378ed045123c89b439f1f9c9db8def4f113f1ae5a01ed2bb5",
       "string_source_references": [],
       "test_import_closure": [
@@ -23507,7 +23648,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/search/__init__.py",
@@ -23528,7 +23669,7 @@
         "src/web/__init__.py",
         "src/web/api/__init__.py"
       ],
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "sha256": "38aa1cce39048336ef77697cade3d9d6f964e294fa8b9daed24a50600ab0c292",
       "string_source_references": [],
       "test_import_closure": [
@@ -23605,7 +23746,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/config/__init__.py",
@@ -23636,7 +23777,11 @@
         "src/web/api/sessions_chat.py",
         "src/web/chat.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord/web session identities and allowlists; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord/web session identities and allowlists; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "68cb855877714567c839ac983b2294ae1121ee48e94e504a7e597605187f4535",
       "string_source_references": [
         "src.web.api.process_web_chat"
@@ -24131,7 +24276,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -24148,7 +24293,11 @@
       "phase2_seams": [
         "src/discord/channel_state.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord slash-command stop intake; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord slash-command stop intake; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "2226fc01b8a881201f7d2e842aa22ee828abfc3ed9fb4d872253154005467e46",
       "string_source_references": [],
       "test_import_closure": [
@@ -24729,7 +24878,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -24745,7 +24894,7 @@
       "phase2_seams": [
         "src/discord/tool_loop_helpers.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers. Preserve cases, no privileged fake shim.",
+      "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
       "sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782",
       "string_source_references": [],
       "test_import_closure": [
@@ -25117,7 +25266,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/turn_state/__init__.py",
@@ -25134,7 +25283,7 @@
       "phase2_seams": [
         "src/turn_state/durability.py"
       ],
-      "reason": "Phase2 retained integration: src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "reason": "Complete six-case frozen heartbeat corpus: two exact legacy-admission calls use actual task-owned RequestService admission, supplied original store and genuine lease/heartbeat handle; no raw lease, fake enabled result or gate bypass.",
       "sha256": "e7595d33ed5660a9055e372a36bc98606df1b61f5c6f8aa8153cb727f440a04c",
       "string_source_references": [],
       "test_import_closure": [
@@ -25239,7 +25388,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -25269,7 +25418,11 @@
         "src/discord/tool_loop_helpers.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/intake_pipeline.py: Desktop owner/intake/control/durable delivery adapter: intake_pipeline; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: Discord typing and presence; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord typing and presence; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "af3ca9c9d79e3996938dd257368d602746481e3967b3401e2006b16266d5d5ba",
       "string_source_references": [],
       "test_import_closure": [
@@ -26223,7 +26376,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/web/__init__.py",
@@ -26240,7 +26393,11 @@
         "src/web/__init__.py",
         "src/web/chat.py"
       ],
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Retired: HTTP web chat routes and sessions; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: HTTP web chat routes and sessions; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
       "sha256": "64df3b00cc5a23bdc75238190c6e976bb0ce7278f81d230f299de8d8edd3f188",
       "string_source_references": [],
       "test_import_closure": [
@@ -26839,27 +26996,6 @@
       ]
     }
   ],
-  "excluded": [
-    "tests/test_channel_config.py",
-    "tests/test_connection_supervisor.py",
-    "tests/test_cooldowns.py",
-    "tests/test_discord_connection_api.py",
-    "tests/test_discordpy_adapter.py",
-    "tests/test_llm_hint_ui_gate.py",
-    "tests/test_models.py",
-    "tests/test_repository.py",
-    "tests/test_slash_commands.py",
-    "tests/test_slash_dm_commands.py",
-    "tests/test_token_auth_snapshot_security.py",
-    "tests/test_token_manager.py",
-    "tests/test_token_manager_fail_closed_campaign.py",
-    "tests/test_token_session_isolation.py",
-    "tests/test_tool_rbac.py",
-    "tests/test_ui_templates.py",
-    "tests/test_web_auth_policy.py",
-    "tests/test_webui_turn_state_render.py"
-  ],
-  "execution_status": "Historical eligibility inventory, not whole-product parity or acceptance. Nine whole inherited suites restored; five retired by Claude, review of #26, never passing. All 326 original paths remain in phase2 plus phase2_restored plus phase2_retired with original hashes. Merged main retains 30 qualification groups including phase2-step5-profile-management. Historical116/259 evidence unchanged.",
   "import_closures": {
     "028303ac91d9cfd3": [
       "src/__init__.py",
@@ -36320,23 +36456,34 @@
       "src/web/websocket.py"
     ]
   },
-  "methodology": {
-    "imports": "AST Import/ImportFrom relative resolution, package initializers, cross-test helper closure. Deduplicated pinned source import closure below. Literal src patch references also recorded. No source imported.",
-    "limitations": "Static closure is not runtime safety proof: conditional/dynamic imports, aliases, shell expansion and indirect subprocess behavior require clean namespace execution/failure triage. Baseline source closures include optional lazy imports removed by adaptation; no blanket gate of neutral src.discord/tools/guards.",
-    "selection": "Filename list whole-file safe selection. Mixed domain/transport suites retained Phase2, not deleted. Explicit foundation fixture mismatch adaptation-gated, not mislabeled Phase2. Native and prohibited literals safety-gated."
-  },
+  "excluded": [
+    "tests/test_channel_config.py",
+    "tests/test_connection_supervisor.py",
+    "tests/test_cooldowns.py",
+    "tests/test_discord_connection_api.py",
+    "tests/test_discordpy_adapter.py",
+    "tests/test_llm_hint_ui_gate.py",
+    "tests/test_models.py",
+    "tests/test_repository.py",
+    "tests/test_slash_commands.py",
+    "tests/test_slash_dm_commands.py",
+    "tests/test_token_auth_snapshot_security.py",
+    "tests/test_token_manager.py",
+    "tests/test_token_manager_fail_closed_campaign.py",
+    "tests/test_token_session_isolation.py",
+    "tests/test_tool_rbac.py",
+    "tests/test_ui_templates.py",
+    "tests/test_web_auth_policy.py",
+    "tests/test_webui_turn_state_render.py"
+  ],
   "phase2": [
     "tests/characterization/test_api_route_parity.py",
     "tests/characterization/test_autonomous_loop.py",
     "tests/characterization/test_chat_tool_loop.py",
-    "tests/characterization/test_delivery.py",
-    "tests/characterization/test_executor_dispatch_parity.py",
     "tests/characterization/test_facade_contract.py",
-    "tests/characterization/test_intake_gating.py",
     "tests/characterization/test_native_skill_dispatch_pins.py",
     "tests/characterization/test_p1_carve_semantics.py",
     "tests/characterization/test_p2_composition.py",
-    "tests/characterization/test_pipeline_persistence.py",
     "tests/characterization/test_scheduled_events.py",
     "tests/characterization/test_tool_parity.py",
     "tests/test_agent_audit_parity.py",
@@ -36352,7 +36499,6 @@
     "tests/test_agent_transcript_contract.py",
     "tests/test_agent_wait_budget.py",
     "tests/test_agents_tasks_provider_paths.py",
-    "tests/test_attachments.py",
     "tests/test_audit_signing.py",
     "tests/test_auth_config_integration_review.py",
     "tests/test_auth_entry_preservation.py",
@@ -36362,20 +36508,14 @@
     "tests/test_background_task_failure_visibility.py",
     "tests/test_bootstrap_bind_policy.py",
     "tests/test_bootstrap_runtime_bind.py",
-    "tests/test_bounded_process_wait.py",
     "tests/test_branch_freshness.py",
     "tests/test_browser_wait_timeout.py",
     "tests/test_campaign_a_coverage_boundaries.py",
     "tests/test_campaign_agent_routes_coverage.py",
-    "tests/test_campaign_attachment_intake_coverage.py",
     "tests/test_campaign_authorization_persistence.py",
-    "tests/test_campaign_cli_coverage.py",
     "tests/test_campaign_diagnostic_privacy.py",
-    "tests/test_campaign_discord_attachments.py",
     "tests/test_campaign_discord_digest.py",
     "tests/test_campaign_discord_final_coverage.py",
-    "tests/test_campaign_discord_intake.py",
-    "tests/test_campaign_discord_resume.py",
     "tests/test_campaign_display_binding_coverage.py",
     "tests/test_campaign_execution_outcomes.py",
     "tests/test_campaign_finish_boundaries.py",
@@ -36390,26 +36530,12 @@
     "tests/test_campaign_web_final_coverage.py",
     "tests/test_cancelled_persistence_settles.py",
     "tests/test_catalog_campaign.py",
-    "tests/test_channel_cursor_campaign.py",
-    "tests/test_channel_history_recency.py",
-    "tests/test_channel_logger.py",
-    "tests/test_channel_logger_edge_regressions.py",
-    "tests/test_channel_privacy_campaign.py",
     "tests/test_chat_loop_recovery.py",
-    "tests/test_chat_session.py",
-    "tests/test_chat_steering_admission.py",
-    "tests/test_chat_steering_notifications.py",
-    "tests/test_chat_steering_parity.py",
-    "tests/test_chat_steering_resume.py",
-    "tests/test_chat_steering_runtime.py",
     "tests/test_codex_quota_check.py",
     "tests/test_codex_replay_boundaries.py",
-    "tests/test_codex_replay_matrix.py",
     "tests/test_command_shell_callers.py",
-    "tests/test_command_shell_framing.py",
     "tests/test_command_shell_round2.py",
     "tests/test_command_shell_scope.py",
-    "tests/test_compatible_output_reserve.py",
     "tests/test_compatible_timeout_migration.py",
     "tests/test_computer_admission_http_r8.py",
     "tests/test_computer_api.py",
@@ -36439,11 +36565,9 @@
     "tests/test_computer_manager_coverage_r10.py",
     "tests/test_computer_modal_binding_recovery.py",
     "tests/test_computer_native_keyboard_focus_class.py",
-    "tests/test_computer_native_vision_r5.py",
     "tests/test_computer_normal_turn_r3.py",
     "tests/test_computer_observe_session_boundary.py",
     "tests/test_computer_operator_auth_r5.py",
-    "tests/test_computer_privacy_r5.py",
     "tests/test_computer_product_status_r11.py",
     "tests/test_computer_provisioning_r29.py",
     "tests/test_computer_r19_delivery.py",
@@ -36463,13 +36587,8 @@
     "tests/test_context_budget_activation.py",
     "tests/test_context_density_calibration.py",
     "tests/test_delivery_empty_fields.py",
-    "tests/test_delivery_file_retries.py",
-    "tests/test_delivery_review_regressions.py",
-    "tests/test_delivery_status.py",
-    "tests/test_delivery_turn_observation.py",
     "tests/test_direct_chat_reasoning_records.py",
     "tests/test_docs_campaign_contracts.py",
-    "tests/test_execute_api.py",
     "tests/test_executor_output_retention.py",
     "tests/test_executor_timeout_durability.py",
     "tests/test_fd_health.py",
@@ -36496,7 +36615,6 @@
     "tests/test_image_default_update_paths.py",
     "tests/test_image_model_config_api.py",
     "tests/test_independent_credential_review.py",
-    "tests/test_intake_pipeline.py",
     "tests/test_internals_bindings_contract.py",
     "tests/test_knowledge_ingest_outcomes.py",
     "tests/test_knowledge_snapshot_campaign.py",
@@ -36519,7 +36637,6 @@
     "tests/test_mcp_wiring.py",
     "tests/test_mixed_agent_reasoning_contract.py",
     "tests/test_native_agents_tasks.py",
-    "tests/test_native_channel_ops.py",
     "tests/test_native_knowledge.py",
     "tests/test_native_media.py",
     "tests/test_native_monitoring_removal.py",
@@ -36532,8 +36649,6 @@
     "tests/test_onboarding_partial_publication.py",
     "tests/test_output_executor_fences.py",
     "tests/test_output_streamer.py",
-    "tests/test_pr341_b10_channel_consistency.py",
-    "tests/test_pr341_b7_channel_reconciliation.py",
     "tests/test_pr341_b8_turn_totals.py",
     "tests/test_pr356_static_recovery_identity.py",
     "tests/test_pr356_storage_compatibility.py",
@@ -36545,7 +36660,6 @@
     "tests/test_process_command_visibility.py",
     "tests/test_process_retention_security.py",
     "tests/test_process_tail_correctness.py",
-    "tests/test_process_zero_offset.py",
     "tests/test_provider_argument_acceptance.py",
     "tests/test_provider_campaign_regressions.py",
     "tests/test_provider_shutdown_budget.py",
@@ -36553,7 +36667,6 @@
     "tests/test_reasoning_generation_records.py",
     "tests/test_resource_usage.py",
     "tests/test_restart.py",
-    "tests/test_resume_admission.py",
     "tests/test_round40_reviewer.py",
     "tests/test_runtime_output_delivery.py",
     "tests/test_schedule_report_format_parity.py",
@@ -36564,30 +36677,23 @@
     "tests/test_scheduled_report_pagination_listener.py",
     "tests/test_scheduled_report_wiring.py",
     "tests/test_scheduled_workflow.py",
-    "tests/test_search_history_source_priority.py",
     "tests/test_search_output_capture.py",
     "tests/test_search_small_delivery_budget.py",
     "tests/test_self_audit_fixes.py",
     "tests/test_self_update_campaign_rollback.py",
-    "tests/test_session_search.py",
-    "tests/test_sessions_review_regressions.py",
     "tests/test_setup_helpers.py",
     "tests/test_smoke_run_bot.py",
     "tests/test_startup_auth_middleware_review.py",
     "tests/test_startup_diagnostics.py",
     "tests/test_startup_onboarding_context.py",
-    "tests/test_stop_command.py",
     "tests/test_subsystem_guard.py",
     "tests/test_tool_catalog_dependency_gate.py",
     "tests/test_tool_failure_visibility.py",
     "tests/test_tool_lifecycle_correlation.py",
-    "tests/test_tool_loop_helpers.py",
     "tests/test_tool_loop_provenance.py",
     "tests/test_trajectory_completeness.py",
-    "tests/test_turn_durability_heartbeat.py",
     "tests/test_turn_recorder_loop_reflection.py",
     "tests/test_turn_recorder_webhook_campaign.py",
-    "tests/test_typing_resilience.py",
     "tests/test_ui_effort_mirror.py",
     "tests/test_wait_stuck_integration.py",
     "tests/test_web_api_agents_loops.py",
@@ -36605,7 +36711,6 @@
     "tests/test_web_campaign_authorization.py",
     "tests/test_web_campaign_policy_races.py",
     "tests/test_web_campaign_truth.py",
-    "tests/test_web_chat.py",
     "tests/test_web_persisted_sessions.py",
     "tests/test_web_security_reliability.py",
     "tests/test_web_skill_identity_v412.py",
@@ -36618,47 +36723,6 @@
     "tests/test_window_observer.py",
     "tests/test_write_invariant_integration.py"
   ],
-  "phase2_restored": [
-    "tests/test_action_diffs.py",
-    "tests/test_audit_tail_v412.py",
-    "tests/test_campaign_audit_observability.py",
-    "tests/test_campaign_execution_risk.py",
-    "tests/test_campaign_openrouter_coverage.py",
-    "tests/test_campaign_prefix_measurement.py",
-    "tests/test_campaign_websocket_coverage.py",
-    "tests/test_channel_state_recent_action_failure.py",
-    "tests/test_codex_account_mutation_regressions.py",
-    "tests/test_computer_audit_output_r21.py",
-    "tests/test_computer_checkpoint_privacy_r5.py",
-    "tests/test_computer_frame_boundary.py",
-    "tests/test_connection_lifecycle_d1.py",
-    "tests/test_connection_pools.py",
-    "tests/test_knowledge_dedup.py",
-    "tests/test_knowledge_versions.py",
-    "tests/test_learning_disabled_crud.py",
-    "tests/test_local_supervisor_wrapper_r10.py",
-    "tests/test_log_search.py",
-    "tests/test_openrouter_admin_boundaries.py",
-    "tests/test_process_manager.py",
-    "tests/test_recovery.py",
-    "tests/test_restored_process_shutdown.py",
-    "tests/test_trajectories.py",
-    "tests/test_web_api_knowledge_mem.py",
-    "tests/test_web_api_new_endpoints.py",
-    "tests/test_web_api_observability.py",
-    "tests/test_web_api_turn_state.py",
-    "tests/test_web_campaign_streams.py",
-    "tests/test_webui_selected_trace_filters.py"
-  ],
-  "phase2_retired": [
-    "tests/test_client.py",
-    "tests/test_command_reconciliation.py",
-    "tests/test_gateway_transition_regressions.py",
-    "tests/test_rate_limiter.py",
-    "tests/test_websocket_production_stack.py"
-  ],
-  "phase2_suite_map": "maintenance/phase2-suite-map.json",
-  "qualification_plan": "maintenance/qualification-plan.json",
   "retained_adaptation_gated": [
     "tests/test_affordances.py",
     "tests/test_agent_campaign.py",
@@ -36731,31 +36795,8 @@
     "tests/parallel_policy.py",
     "tests/supervised_shell_double.py"
   ],
-  "retired": [
-    "tests/test_client.py",
-    "tests/test_command_reconciliation.py",
-    "tests/test_gateway_transition_regressions.py",
-    "tests/test_rate_limiter.py",
-    "tests/test_websocket_production_stack.py"
-  ],
-  "safe_neutral_case_selections": [
-    {
-      "exclude_expression": "real_bot_guard_is_always_constructed_with_supported_thresholds",
-      "path": "tests/test_subsystem_guard.py",
-      "reason": "Parent neutral threshold/guard cases pass; only composition-root construction pair Phase2."
-    },
-    {
-      "exclude_expression": "packaged_systemd",
-      "path": "tests/test_fd_health.py",
-      "reason": "Parent neutral FD cases pass; obsolete server packaging case deferred Desktop packaging requalification."
-    },
-    {
-      "exclude_expression": "scan_host_references",
-      "path": "tests/test_hosts_control_plane.py",
-      "reason": "Parent verifies 59 unchanged host engine cases pass; one removed bot/user/token inventory expectation adaptation-gated."
-    }
-  ],
   "safe_pass_now": [
+    "tests/characterization/test_executor_dispatch_parity.py",
     "tests/computer/test_hyprland_backend.py",
     "tests/test_action_diffs.py",
     "tests/test_adaptive_compaction.py",
@@ -36768,6 +36809,7 @@
     "tests/test_apply_patch_corrective_errors.py",
     "tests/test_apply_patch_payload.py",
     "tests/test_async_utils_settled.py",
+    "tests/test_attachments.py",
     "tests/test_audit_config_reliability.py",
     "tests/test_audit_logger_edge_regressions.py",
     "tests/test_audit_logger_search.py",
@@ -36778,10 +36820,12 @@
     "tests/test_auxiliary_llm.py",
     "tests/test_backoff.py",
     "tests/test_binary_host_read.py",
+    "tests/test_bounded_process_wait.py",
     "tests/test_browser_automation.py",
     "tests/test_campaign_audit_durability.py",
     "tests/test_campaign_audit_observability.py",
     "tests/test_campaign_backend_environment_final_coverage.py",
+    "tests/test_campaign_cli_coverage.py",
     "tests/test_campaign_close_backend_capture_coverage.py",
     "tests/test_campaign_close_backend_focus_coverage.py",
     "tests/test_campaign_close_backend_recovery_coverage.py",
@@ -36814,7 +36858,13 @@
     "tests/test_campaign_system_coverage_restore.py",
     "tests/test_campaign_usage_lock.py",
     "tests/test_campaign_websocket_coverage.py",
+    "tests/test_channel_cursor_campaign.py",
+    "tests/test_channel_history_recency.py",
+    "tests/test_channel_logger_edge_regressions.py",
     "tests/test_channel_state_recent_action_failure.py",
+    "tests/test_chat_steering_parity.py",
+    "tests/test_chat_steering_resume.py",
+    "tests/test_chat_steering_runtime.py",
     "tests/test_circuit_breaker.py",
     "tests/test_codex_55_retirement.py",
     "tests/test_codex_account_mutation_regressions.py",
@@ -36824,9 +36874,12 @@
     "tests/test_codex_limit_aware.py",
     "tests/test_codex_quota.py",
     "tests/test_codex_reliability.py",
+    "tests/test_codex_replay_matrix.py",
     "tests/test_codex_spark_retirement.py",
     "tests/test_command_authority.py",
+    "tests/test_command_shell_framing.py",
     "tests/test_command_shell_matrix.py",
+    "tests/test_compatible_output_reserve.py",
     "tests/test_compatible_streaming.py",
     "tests/test_computer_accessibility_status_r19.py",
     "tests/test_computer_accessible_route_r19.py",
@@ -36878,8 +36931,10 @@
     "tests/test_computer_lifecycle_races_r21.py",
     "tests/test_computer_local_recovery.py",
     "tests/test_computer_native_gui_r5.py",
+    "tests/test_computer_native_vision_r5.py",
     "tests/test_computer_orchestration_coverage_r10.py",
     "tests/test_computer_pixel_guards_r19.py",
+    "tests/test_computer_privacy_r5.py",
     "tests/test_computer_product_controller_r11.py",
     "tests/test_computer_profile_hooks_r7.py",
     "tests/test_computer_provenance_r11.py",
@@ -36946,6 +37001,8 @@
     "tests/test_context_compressor.py",
     "tests/test_context_reload_report.py",
     "tests/test_cost_tracker.py",
+    "tests/test_delivery_review_regressions.py",
+    "tests/test_delivery_turn_observation.py",
     "tests/test_edge_error_recovery.py",
     "tests/test_email_campaign.py",
     "tests/test_email_client_paths.py",
@@ -37055,7 +37112,9 @@
     "tests/test_output_delivery_retention.py",
     "tests/test_output_handler.py",
     "tests/test_planning_store.py",
+    "tests/test_pr341_b10_channel_consistency.py",
     "tests/test_pr341_b6_audit_history.py",
+    "tests/test_pr341_b7_channel_reconciliation.py",
     "tests/test_pr356_environment_compatibility.py",
     "tests/test_process_host_lease_authority.py",
     "tests/test_process_kill_status.py",
@@ -37066,6 +37125,7 @@
     "tests/test_process_review_regressions.py",
     "tests/test_process_spool_descriptors.py",
     "tests/test_process_tree_reaping.py",
+    "tests/test_process_zero_offset.py",
     "tests/test_provider_conformance.py",
     "tests/test_provider_generation_lifecycle.py",
     "tests/test_provider_reasoning_usage.py",
@@ -37084,6 +37144,7 @@
     "tests/test_response_guards.py",
     "tests/test_restored_process_shutdown.py",
     "tests/test_result_validator.py",
+    "tests/test_resume_admission.py",
     "tests/test_retained_output_compression.py",
     "tests/test_round41_hedging_regression.py",
     "tests/test_safe_fetch.py",
@@ -37096,6 +37157,7 @@
     "tests/test_scheduler_gate_races_campaign.py",
     "tests/test_scheduler_history.py",
     "tests/test_scheduler_validation.py",
+    "tests/test_search_history_source_priority.py",
     "tests/test_search_identity.py",
     "tests/test_search_write_atomicity.py",
     "tests/test_secret_scrubber_spans.py",
@@ -37103,6 +37165,7 @@
     "tests/test_session_campaign.py",
     "tests/test_session_persistence_reliability.py",
     "tests/test_session_restore.py",
+    "tests/test_session_search.py",
     "tests/test_session_segment_index.py",
     "tests/test_session_vec_reindex.py",
     "tests/test_sessions_manager.py",
@@ -37123,11 +37186,13 @@
     "tests/test_token_budget.py",
     "tests/test_tool_effect_classifier.py",
     "tests/test_tool_failure_reporting.py",
+    "tests/test_tool_loop_helpers.py",
     "tests/test_tool_text_regressions.py",
     "tests/test_trajectories.py",
     "tests/test_trajectory_bounded_reads.py",
     "tests/test_trajectory_saver.py",
     "tests/test_turn_checkpoint_codec.py",
+    "tests/test_turn_durability_heartbeat.py",
     "tests/test_turn_state_store.py",
     "tests/test_url_safety.py",
     "tests/test_usage_rollup.py",
@@ -37145,7 +37210,6 @@
     "tests/test_webui_selected_trace_filters.py"
   ],
   "safety_manual_gated": [
-    "tests/test_hyprland_input_loss_campaign.py",
     "tests/test_attached_apps_r6_harness.py",
     "tests/test_campaign_a_validation.py",
     "tests/test_campaign_governor_skills.py",
@@ -37205,6 +37269,7 @@
     "tests/test_hyprland_durable_recovery_journal.py",
     "tests/test_hyprland_harness_exit_r48.py",
     "tests/test_hyprland_input_held_r38.py",
+    "tests/test_hyprland_input_loss_campaign.py",
     "tests/test_hyprland_input_wire_r32.py",
     "tests/test_hyprland_inventory_blockers.py",
     "tests/test_hyprland_original_resource_absence.py",
@@ -37246,11 +37311,77 @@
     "tests/test_tools_executor_skills_reliability.py",
     "tests/test_ts_ledger_fixes.py"
   ],
-  "safety_policy": {
-    "failure": "Do not gate neutral suites to avoid fixes. Explain real adaptation/intake/control coupling; original assertions stay original.",
-    "forbidden": "No destructive/attack test input execution even mocked, no native desktop/lifecycle/installer proof or real endpoints; no upstream /opt/odin writes or system installs/restarts.",
-    "runner": "scripts/run-phase1-tests.py only; PID namespace, env-i clean HOME/XDG/DBus, no live config/data/endpoints",
-    "support": "Fixtures/helpers original bytes retained; no direct execution selection."
-  },
-  "schema_version": 1
+  "safe_neutral_case_selections": [
+    {
+      "exclude_expression": "real_bot_guard_is_always_constructed_with_supported_thresholds",
+      "path": "tests/test_subsystem_guard.py",
+      "reason": "Parent neutral threshold/guard cases pass; only composition-root construction pair Phase2."
+    },
+    {
+      "exclude_expression": "packaged_systemd",
+      "path": "tests/test_fd_health.py",
+      "reason": "Parent neutral FD cases pass; obsolete server packaging case deferred Desktop packaging requalification."
+    },
+    {
+      "exclude_expression": "scan_host_references",
+      "path": "tests/test_hosts_control_plane.py",
+      "reason": "Parent verifies 59 unchanged host engine cases pass; one removed bot/user/token inventory expectation adaptation-gated."
+    }
+  ],
+  "retired": [
+    "tests/characterization/test_delivery.py",
+    "tests/characterization/test_intake_gating.py",
+    "tests/characterization/test_pipeline_persistence.py",
+    "tests/test_campaign_attachment_intake_coverage.py",
+    "tests/test_campaign_discord_attachments.py",
+    "tests/test_campaign_discord_intake.py",
+    "tests/test_campaign_discord_resume.py",
+    "tests/test_channel_logger.py",
+    "tests/test_channel_privacy_campaign.py",
+    "tests/test_chat_session.py",
+    "tests/test_chat_steering_admission.py",
+    "tests/test_chat_steering_notifications.py",
+    "tests/test_client.py",
+    "tests/test_command_reconciliation.py",
+    "tests/test_delivery_file_retries.py",
+    "tests/test_delivery_status.py",
+    "tests/test_execute_api.py",
+    "tests/test_gateway_transition_regressions.py",
+    "tests/test_intake_pipeline.py",
+    "tests/test_native_channel_ops.py",
+    "tests/test_rate_limiter.py",
+    "tests/test_sessions_review_regressions.py",
+    "tests/test_stop_command.py",
+    "tests/test_typing_resilience.py",
+    "tests/test_web_chat.py",
+    "tests/test_websocket_production_stack.py"
+  ],
+  "phase2_retired": [
+    "tests/characterization/test_delivery.py",
+    "tests/characterization/test_intake_gating.py",
+    "tests/characterization/test_pipeline_persistence.py",
+    "tests/test_campaign_attachment_intake_coverage.py",
+    "tests/test_campaign_discord_attachments.py",
+    "tests/test_campaign_discord_intake.py",
+    "tests/test_campaign_discord_resume.py",
+    "tests/test_channel_logger.py",
+    "tests/test_channel_privacy_campaign.py",
+    "tests/test_chat_session.py",
+    "tests/test_chat_steering_admission.py",
+    "tests/test_chat_steering_notifications.py",
+    "tests/test_client.py",
+    "tests/test_command_reconciliation.py",
+    "tests/test_delivery_file_retries.py",
+    "tests/test_delivery_status.py",
+    "tests/test_execute_api.py",
+    "tests/test_gateway_transition_regressions.py",
+    "tests/test_intake_pipeline.py",
+    "tests/test_native_channel_ops.py",
+    "tests/test_rate_limiter.py",
+    "tests/test_sessions_review_regressions.py",
+    "tests/test_stop_command.py",
+    "tests/test_typing_resilience.py",
+    "tests/test_web_chat.py",
+    "tests/test_websocket_production_stack.py"
+  ]
 }

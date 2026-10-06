@@ -27,6 +27,7 @@ from src.permissions.host_access import HostAccessManager
 from src.permissions.manager import PermissionManager as OwnerPermissionManager
 from src.tools.builtin_policy import BuiltinToolPolicy
 from src.tools.executor import ToolExecutor as EngineExecutor
+from src.tools.ssh_pool import SSHConnectionPool as EngineSSHConnectionPool
 from tests.desktop_adapters import step5_observability_http as http
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -60,9 +61,18 @@ def owner_fixture(tmp_path):
     request_binding = manager.set_request_owner(context)
     state = SimpleNamespace(paths=paths, authority=authority, manager=manager, executors=[])
     fixture_binding = _fixture.set(state)
+    # A bare SSHConnectionPool() must not create the engine's shared /tmp
+    # socket directory; this owner's temporary cache stands in for it.
+    pool_init = EngineSSHConnectionPool.__init__
+    pool_defaults = pool_init.__defaults__
+    pool_args = pool_init.__code__.co_varnames[1:pool_init.__code__.co_argcount]
+    pool_init.__defaults__ = tuple(
+        str(paths.cache_dir / "ssh-sockets") if name == "socket_dir" else value
+        for name, value in zip(pool_args[-len(pool_defaults):], pool_defaults))
     try:
         yield state
     finally:
+        pool_init.__defaults__ = pool_defaults
         for executor in state.executors:
             executor.set_user_context(None)
         _fixture.reset(fixture_binding)
@@ -79,6 +89,13 @@ class ToolExecutor(EngineExecutor):
         kwargs.setdefault("profile_paths", state.paths)
         kwargs.setdefault("permission_manager", state.manager)
         kwargs.setdefault("memory_path", str(state.paths.data_dir / "memory.json"))
+        config = kwargs.get("config")
+        pool = getattr(config, "ssh_pool", None)
+        if pool is not None and pool.socket_dir == SSHPoolConfig.model_fields["socket_dir"].default:
+            # The historical default string stays assertable on the declaration;
+            # a real pool always uses this owner's temporary cache.
+            kwargs["config"] = config.model_copy(update={"ssh_pool": pool.model_copy(
+                update={"socket_dir": str(state.paths.cache_dir / "ssh-sockets")})})
         super().__init__(*args, **kwargs)
         self._host_access = HostAccessManager(
             state.paths.config_dir / f"test-host-preferences-{len(state.executors)}.json",

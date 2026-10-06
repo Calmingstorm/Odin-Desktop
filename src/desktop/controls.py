@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 
 from ..discord.channel_state import STEER_MESSAGE_MAX_CHARS, STEER_MESSAGES_PER_TURN
 from ..discord.turn_resume import TurnResumeManager
-from ..turn_state.store import TurnKey
+from ..turn_state.store import TurnKey, TurnStatus
 from .commands import JournalStorageError, canonical_json, response_error
 
 CONTROL_COLUMNS = {
@@ -280,6 +280,12 @@ class ControlService:
             key = TurnKey("conversation", cid, params["request_id"])
             preserved = await asyncio.to_thread(manager._store.load_resumable_sync, key)
             if preserved is None:
+                # Loading can self-heal a corrupt checkpoint into a terminal
+                # rejection. Release its calibration lineage, but never release
+                # an ACTIVE concurrent resume winner's workload reservation.
+                status = await asyncio.to_thread(manager._store.turn_status_sync, key)
+                if status is None or status in TurnStatus.TERMINAL:
+                    manager._release_calibration(key)
                 return reject("checkpoint_unavailable",
                     "That preserved work is no longer resumable (it was just "
                     "rejected as unreadable, claimed by another resume, or "

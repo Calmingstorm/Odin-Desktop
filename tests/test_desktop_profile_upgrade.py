@@ -1,5 +1,6 @@
 """Ordinary established Desktop upgrades, not import from a server installation."""
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -84,16 +85,25 @@ def test_placeholders_are_not_shipped_literal_evidence(profile, monkeypatch):
 
 
 @pytest.mark.parametrize("removed", ["discord", "permissions", "web", "unknown"])
-def test_reject_obsolete_fields_before_any_migration_write(profile, removed):
+def test_unknown_sections_warn_once_and_upgrade_like_odin(profile, caplog, removed):
+    # Odin v4.13.0 warns once, migrates the legacy ceiling, keeps the unknown
+    # section on disk and starts. Desktop must never write and then refuse.
     text = (f"{removed}: {{}}\n"
             "openai_codex: {context_compression: {max_context_chars: 750000}}\n")
     profile.config_file.write_text(text)
-    before = sorted(p.relative_to(profile.data_dir) for p in profile.data_dir.rglob("*"))
-    with pytest.raises(SystemExit, match="Config validation failed"):
-        schema.load_config()
-    assert profile.config_file.read_text() == text
-    assert sorted(p.relative_to(profile.data_dir) for p in profile.data_dir.rglob("*")) == before
-    assert schema.active_config_path() is None
+    with caplog.at_level(logging.WARNING, logger="odin.config"):
+        cfg = schema.load_config()
+    warnings = [r.getMessage() for r in caplog.records if "Ignoring unknown" in r.getMessage()]
+    assert len(warnings) == 1
+    assert warnings[0].startswith(f"Ignoring unknown config key(s): {removed} — ")
+    assert removed not in cfg.model_dump()
+    assert cfg.openai_codex.context_compression.max_context_chars is None
+    assert profile.config_file.read_text() == (
+        f"{removed}: {{}}\nopenai_codex: {{context_compression: {{max_context_chars: null}}}}\n")
+    markers = sorted(p.name.split(".")[0]
+                     for p in (profile.data_dir / "config_migrations").glob("*.json"))
+    assert markers == ["image_model_defaults_v1", "legacy_max_context_chars_to_auto"]
+    assert schema.active_config_path() == profile.config_file
 
 
 def test_external_supplied_config_is_runtime_only(profile, tmp_path):

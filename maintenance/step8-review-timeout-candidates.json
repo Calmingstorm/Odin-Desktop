@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "status": "candidate-partial-production-blocked",
+  "review": "Claude, review of #35, group C: executor timeout durability through real RequestService admission",
+  "branch": "phase-2/restore-steps2-4",
+  "baseline_path": "tests/test_executor_timeout_durability.py",
+  "baseline_sha256": "7d1ad9553f761f999f910ed7843aba30312f4cc490b22ad95d03a59245de10c2",
+  "adapter_path": "tests/desktop_adapters/step8_review_timeout.py",
+  "adapter_sha256": "5319ab2b0bb4274e391ed68435feccedd1ba45c54ffbc0b1f36b4a5b939efdfe",
+  "executable_path": "tests/diagnostic_step8_review_timeout.py",
+  "adapter_checks_path": "tests/test_desktop_step8_review_timeout.py",
+  "executable_sha256": "3d8a9bbef4ef45b39c10c378fa49d935d43ed197c92284d25f65a56a56bae881",
+  "adapter_checks_sha256": "6163dc63de4e68dfa8a03675a1e7a820f5062403f2cb0fbceb0d0d5e99784066",
+  "hash_note": "Initial wrapper hash fb54f5a8a3e58e7fe2931dd24d96fcd900ecdd5d95335e13125203bf979d489b describes recorded 8-pass/4-fail run; blocked corpus now explicit diagnostic-only.",
+  "corpus": {
+    "original_test_functions": 3,
+    "original_parameterized_executions": 6,
+    "assertions_including_helpers": 19,
+    "assertions_sha256": "c0d84b740cb5e46368b66d498b21b340075e27beecd61e7016ba824f59673bfe",
+    "assertions_unchanged": true,
+    "decorators_unchanged": true,
+    "signatures_unchanged": true,
+    "parameter_matrix_unchanged": true,
+    "complete_ast_reverse_replay": true,
+    "exclusions": [],
+    "retirements": [],
+    "case_associations": [
+      {
+        "baseline_selector": "tests/test_executor_timeout_durability.py::test_effectful_executor_timeout_is_durably_unknown_and_not_replayed",
+        "executable_selector": "tests/diagnostic_step8_review_timeout.py::test_step8_review_timeout_effectful_executor_timeout_is_durably_unknown_and_not_replayed",
+        "assertions_sha256": "30a318e376e788e711adb7c6c11f3345de43fccfbfddc456bda93eef5a191b24",
+        "decorators_sha256": "7497098eb4630b9500dc7e6a418b16cbdf1adca41695913f79067cb18abee00a",
+        "signature_sha256": "d2c02eaa75fa10e4c67b202039e26fdac182662937420667038823ee6529baac",
+        "result": "passed"
+      },
+      {
+        "baseline_selector": "tests/test_executor_timeout_durability.py::test_safe_tool_retry_timeout_retains_structured_uncertainty",
+        "executable_selector": "tests/diagnostic_step8_review_timeout.py::test_step8_review_timeout_safe_tool_retry_timeout_retains_structured_uncertainty",
+        "assertions_sha256": "28a27af95c5d8cd6dd326db82f08df689a329ad02cec99ed6e5d49303399c846",
+        "decorators_sha256": "7497098eb4630b9500dc7e6a418b16cbdf1adca41695913f79067cb18abee00a",
+        "signature_sha256": "d2c02eaa75fa10e4c67b202039e26fdac182662937420667038823ee6529baac",
+        "result": "passed"
+      },
+      {
+        "baseline_selector": "tests/test_executor_timeout_durability.py::test_executor_timeout_effect_class_and_unstarted_failures",
+        "executable_selector": "tests/diagnostic_step8_review_timeout.py::test_step8_review_timeout_executor_timeout_effect_class_and_unstarted_failures",
+        "assertions_sha256": "184bd7df92f3c9714a15df75ce00047459b5817d0f535ef0918962b35c0ca8fb",
+        "decorators_sha256": "6ce06cb4cc81eace375f4e822581807aed93d89e5b893ea2fceced6efd132b90",
+        "signature_sha256": "33fcebe5dc66b2d3d1b2db19fdfabfb4db822c31b05f75662a36e0ac3081e203",
+        "parameter_order": ["tool_name", "expected_effect_class", "registered_handler"],
+        "executions": [
+          {"id": "wait_for_agents-EFFECT_FREE_OBSERVATION-False", "result": "failed-production-blocked"},
+          {"id": "wait_for_agents-EFFECT_FREE_OBSERVATION-True", "result": "failed-production-blocked"},
+          {"id": "future_dynamic_tool-EXTERNAL_EFFECT_CAPABLE-False", "result": "failed-production-blocked"},
+          {"id": "future_dynamic_tool-EXTERNAL_EFFECT_CAPABLE-True", "result": "failed-production-blocked"}
+        ]
+      }
+    ]
+  },
+  "adaptations": {
+    "setup_hunks": [
+      {"line": 19, "column": 0, "before_ast_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc", "purpose": "Real executor subclass injects canonical temporary profile and permission manager; live PHASE1 handler readiness; canonical admitted owner passed to execution."},
+      {"line": 35, "column": 23, "before_ast_sha256": "5e903cccd1c76c43887123512e9eae58bd35c1e73e1630524d485fc0be275ffd", "purpose": "Obsolete TurnDurability.admit becomes real EngineServices._admit_turn/RequestService.admit_turn on the current worker request."},
+      {"line": 46, "column": 0, "before_ast_sha256": "d376b5544b4c1506171da024c4a423fc2e127c8a7f948cb7b920f6c2e5e82837", "purpose": "Replace obsolete __new__ helper with real ToolLoopRunner(ToolLoopDeps); real native dispatcher, audit, channel state and durable delivery."},
+      {"line": 61, "column": 0, "before_ast_sha256": "541839123f063b835552f7fac5c57c101137279806d31b0e8666318450d4b55d", "purpose": "Real admitted request envelope and canonical profile owner in original minimal tool-call state."},
+      {"line": 77, "column": 8, "before_ast_sha256": "4aa1a8f86a1e442f0ca6fa212bfc8b040b8ffaa26ac1050b461ba4cd882bd114", "purpose": "Ledger lookup uses actual admitted conversation/request key; assertion untouched."},
+      {"line": 171, "column": 4, "before_ast_sha256": "110c6860b28ad89ccc447f1c84030b7a8e1d18ceed03fa918cd281f4c79858f7", "purpose": "Defer store close until RequestService terminal unknown-effect projection; original terminal settlement unchanged."},
+      {"line": 269, "column": 4, "before_ast_sha256": "110c6860b28ad89ccc447f1c84030b7a8e1d18ceed03fa918cd281f4c79858f7", "purpose": "Defer store close until RequestService terminal unknown-effect projection; original terminal settlement unchanged."}
+    ],
+    "task_boundary": "Each original coroutine executes inside RequestService's own queued-to-running worker, not in an unrelated parent test task. Real submit, seal, authentication, execution binding and admission are unchanged. functools.wraps preserves inherited signature and pytest decorators.",
+    "retry_case": "Executor-only original case is additionally admitted to a real temporary ledger in the worker before original coroutine execution.",
+    "cleanup": "Stop and await genuine heartbeat tasks; close RequestService then original temporary stores and request journal; no replay or repair of blocked results.",
+    "no_bypasses": "No fake enabled durability, __new__ runner, make_bot, allow-all policy, invented dynamic readiness, production modifications, or changed frozen bytes. Original sanctioned instance handler overrides remain exact. Real BuiltinToolPolicy never promotes unsupported names."
+  },
+  "results": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_timeout.py --tb=short",
+    "isolation": "run-phase1-tests.py isolated mount/PID namespace; env -i; odin non-root test user",
+    "latest_process_pid": 517612,
+    "latest_process_output_generation": "6174f677582509a5520d457ff571f47c",
+    "exit_code": 1,
+    "collected": 12,
+    "passed": 8,
+    "failed": 4,
+    "duration_seconds": 8.87,
+    "original_passed_executions": 2,
+    "original_blocked_executions": 4,
+    "integrity_and_authenticity_checks_passed": 6,
+    "checks": ["complete_corpus", "changed_bytes_rejected", "wrong_duplicate_assertion_hunks_rejected", "collateral_reverse_replay_rejected", "authentic_worker_required", "canonical_identity_real_ledger_foreign_task_refusal_and_actual_readiness"]
+  },
+  "blockers": [
+    {
+      "kind": "production-capability-and-failed-output-settlement",
+      "scope": "all four executor_timeout_effect_class_and_unstarted_failures matrix executions",
+      "observed": "PermissionError: Output capability unavailable. Do not replay the tool.",
+      "path": ["src/tools/executor.py:_execute_scoped built-in availability gate", "src/discord/tool_loop.py:2900 deliver_runtime_output", "src/tools/runtime_delivery.py:69 _require_retention_authority"],
+      "explanation": "wait_for_agents is audited effect-free but not a PHASE1 executor capability; future_dynamic_tool is not a supported built-in executor capability. Missing/registered sanctioned handler variants are rejected as unavailable rather than reaching legacy unknown-handler/timeout processing. Then wrapper retention rejects the unavailable capability before WI-3 settlement. The authenticity test independently proves a registered unsupported handler is not invoked and gets tool_unavailable, with uncertain_outcome false.",
+      "disposition": "blocked, not retired; production fix or authorized real capability route design required; do not weaken original matrix or force readiness"
+    }
+  ],
+  "qualification": "Partial candidate evidence only. The whole inherited suite is not restored/qualified while its four original matrix executions fail. No shared map or maintenance ledger changed."
+}

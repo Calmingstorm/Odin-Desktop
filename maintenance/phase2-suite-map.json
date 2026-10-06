@@ -65,12 +65,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Entire suite pins chunk/fence continuity, silent/file-only replies, pending-file consumption, connector-only bounded retries, no uncertain-send replay, deleted-reference fallback and exact attachment bytes/cleanup. Adapt reply/send projection to committed Desktop message/artifact delivery while keeping original transport-helper assertions, not UI-only or a generic event-journal smoke.",
+      "blocked_on": null,
       "inherited_sha256": "aa67067f7f247f4a366cf50527c35dfb019b4051575dc08d86eeb69c270bf1fb",
       "path": "tests/characterization/test_delivery.py",
-      "qualification_group": "delivery-artifact-parity",
-      "reason": "Entire suite pins chunk/fence continuity, silent/file-only replies, pending-file consumption, connector-only bounded retries, no uncertain-send replay, deleted-reference fallback and exact attachment bytes/cleanup. Adapt reply/send projection to committed Desktop message/artifact delivery while keeping original transport-helper assertions, not UI-only or a generic event-journal smoke.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord chunked reply, file transport and retry delivery; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord chunked reply, file transport and retry delivery; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "committed reply delivery",
@@ -79,12 +83,43 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pins dispatch partition and late-bound handler/object identity, then executes real executor unknown-tool, denial/metrics, timeout/no-retry, exception/exit-code, memory identity and concurrent contextvar paths. Other tool names are inventory/resolution checks, not live browser/agent execution. Adapt the copied executor authority injection without weakening denial or call-time resolution assertions.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
       "path": "tests/characterization/test_executor_dispatch_parity.py",
-      "qualification_group": "executor-dispatch-parity",
+      "qualification_group": "phase2-step3-restored-corpus",
       "reason": "Pins dispatch partition and late-bound handler/object identity, then executes real executor unknown-tool, denial/metrics, timeout/no-retry, exception/exit-code, memory identity and concurrent contextvar paths. Other tool names are inventory/resolution checks, not live browser/agent execution. Adapt the copied executor authority injection without weakening denial or call-time resolution assertions.",
-      "status": "deferred",
+      "restoration": {
+        "case_retirements": [
+          {
+            "case": "TestMiddlewarePins.test_contextvar_isolation_concurrent",
+            "reason": "multi-user caller identities removed; one canonical owner",
+            "reviewer": "Claude, review of #35, round 2",
+            "source_path": "tests/characterization/test_executor_dispatch_parity.py",
+            "source_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29"
+          },
+          {
+            "case": "TestMiddlewarePins.test_rbac_denial_shape_and_metrics",
+            "reason": "Guest-tier RBAC is removed by Desktop D17; Claude, review of #35 retires only this guest denial/metrics case.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/characterization/test_executor_dispatch_parity.py",
+            "source_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29"
+          },
+          {
+            "case": "TestPatchSeam.test_memory_manage_receives_user_id_kwarg",
+            "reason": "multi-user caller identities removed; one canonical owner",
+            "reviewer": "Claude, review of #35, round 2",
+            "source_path": "tests/characterization/test_executor_dispatch_parity.py",
+            "source_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29"
+          }
+        ],
+        "mode": "frozen-adapter",
+        "reason": "All retained original cases exported through hash-pinned frozen adapter; exact round2 reviewed case/parameter dispositions only.",
+        "selectors": [
+          "tests/test_desktop_step8_review_dispatch.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "tool executor middleware",
@@ -108,12 +143,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pins ordered intake, redaction, dedup/buffering, per-channel/guild admission precedence and provenance snapshots, including a Discord webhook-tagged message's bot provenance. This is request intake, not configured schedule-trigger ingress or signature/replay admission. Adapt source/owner/conversation identity and retained provenance without manufacturing an owner allow-list or silently dropping legacy origin cases.",
+      "blocked_on": null,
       "inherited_sha256": "607ebffddbd77754c3d81a2705297ef1dfe54f30194b01ec7ad5294cf2350808",
       "path": "tests/characterization/test_intake_gating.py",
-      "qualification_group": "request-intake-provenance",
-      "reason": "Pins ordered intake, redaction, dedup/buffering, per-channel/guild admission precedence and provenance snapshots, including a Discord webhook-tagged message's bot provenance. This is request intake, not configured schedule-trigger ingress or signature/replay admission. Adapt source/owner/conversation identity and retained provenance without manufacturing an owner allow-list or silently dropping legacy origin cases.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord guild/channel intake, allowlists and multi-bot origin gating; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord guild/channel intake, allowlists and multi-bot origin gating; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "request intake and redaction",
@@ -166,12 +205,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Exercises actual pipeline history/error-marker persistence, child inheritance, reply/file handoff and cancellation removing orphaned user history and pending files. Skill handoff is a stubbed runner return contract, not actual skill lifecycle. Cancellation settlement is the final needed surface; keep guest/identity equivalence under reviewed owner adaptation without inventing RBAC or weakening routing assertions.",
+      "blocked_on": null,
       "inherited_sha256": "d8b3da64ab8525523883638d08c700a78fc99721ddbab9059c575406f1fea7e2",
       "path": "tests/characterization/test_pipeline_persistence.py",
-      "qualification_group": "request-control-persistence",
-      "reason": "Exercises actual pipeline history/error-marker persistence, child inheritance, reply/file handoff and cancellation removing orphaned user history and pending files. Skill handoff is a stubbed runner return contract, not actual skill lifecycle. Cancellation settlement is the final needed surface; keep guest/identity equivalence under reviewed owner adaptation without inventing RBAC or weakening routing assertions.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord pipeline routing, thread inheritance and reply/file handoff; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord pipeline routing, thread inheritance and reply/file handoff; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 4,
       "surfaces": [
         "conversation context persistence and inheritance",
@@ -423,12 +466,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Attachment intent/type/filename, previews, image/PDF/text/binary, archive bounds and temp-workspace cleanup belong to attachment adoption. Explicit ingest only emits a marker, never runs knowledge ingestion. Adapt committed core inputs retaining all results/bounds; unsafe traversal/archive fixtures need reviewed safe pure/stub substitutions before execution.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "fd45c95e1c4ea5c2d0bca39bf8809b1912194695523973ebf0d8370bc58743f6",
       "path": "tests/test_attachments.py",
-      "qualification_group": "attachments-processing-workspace-parity",
+      "qualification_group": "phase2-step3-restored-corpus",
       "reason": "Attachment intent/type/filename, previews, image/PDF/text/binary, archive bounds and temp-workspace cleanup belong to attachment adoption. Explicit ingest only emits a marker, never runs knowledge ingestion. Adapt committed core inputs retaining all results/bounds; unsafe traversal/archive fixtures need reviewed safe pure/stub substitutions before execution.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
+        "selectors": [
+          "tests/test_desktop_step8_review_search_attachments_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "attachment processor",
@@ -592,12 +643,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Wait fingerprints/deadlines, stuck thresholds, forty silent polls, nonkilling expiry and mixed batches include tracker restoration and resumed entry judgment. Guarded resume is last; ProcessRegistry is used for pure output formatting, not background process admission.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "01bf1930dba107e1881744830bbae61e6492ee76fa462828a69055746d213048",
       "path": "tests/test_bounded_process_wait.py",
-      "qualification_group": "bounded-wait-resume",
+      "qualification_group": "phase2-step4-restored-corpus",
       "reason": "Wait fingerprints/deadlines, stuck thresholds, forty silent polls, nonkilling expiry and mixed batches include tracker restoration and resumed entry judgment. Guarded resume is last; ProcessRegistry is used for pure output formatting, not background process admission.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
+        "selectors": [
+          "tests/test_desktop_step8_wait_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 4,
       "surfaces": [
         "wait judgment",
@@ -666,12 +725,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Exclusive attachment saves, archive-preview read failures, retention failure preserving text/no cursor, source gating and extracted-secret scrubbing before pipeline require request attachment intake. Preserve failure behavior through committed attachment inputs.",
+      "blocked_on": null,
       "inherited_sha256": "3e7b098ed229a29e64287038b8a19803c79d1109cc2e5b63064f58f9f697aeb0",
       "path": "tests/test_campaign_attachment_intake_coverage.py",
-      "qualification_group": "attachment-intake-failures",
-      "reason": "Exclusive attachment saves, archive-preview read failures, retention failure preserving text/no cursor, source gating and extracted-secret scrubbing before pipeline require request attachment intake. Preserve failure behavior through committed attachment inputs.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord attachment intake; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord attachment intake; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "attachment processing",
@@ -718,12 +781,36 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Empty/piped prompts, authenticated successful prompt submission, timeout, prose output, JSON transport-error exits and legacy-daemon rejection are full client request semantics. Merged LocalClient only supports diagnostics; IPC alone cannot preserve these originals.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b",
       "path": "tests/test_campaign_cli_coverage.py",
-      "qualification_group": "cli-request-transport",
-      "reason": "Empty/piped prompts, authenticated successful prompt submission, timeout, prose output, JSON transport-error exits and legacy-daemon rejection are full client request semantics. Merged LocalClient only supports diagnostics; IPC alone cannot preserve these originals.",
-      "status": "deferred",
+      "qualification_group": "phase2-step3-restored-corpus",
+      "reason": "Retained CLI prompt and exit semantics replayed through authenticated local IPC; HTTP-only construction is removed by Desktop design.",
+      "restoration": {
+        "case_retirements": [
+          {
+            "case": "test_piped_prompt_and_environment_build_real_authenticated_request",
+            "reason": "HTTP API client replaced by the authenticated local IPC client",
+            "reviewer": "Claude, review of #35, round 2",
+            "source_path": "tests/test_campaign_cli_coverage.py",
+            "source_sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b"
+          },
+          {
+            "case": "test_transport_failure_is_nonzero_even_in_json_mode",
+            "reason": "HTTP API client replaced by the authenticated local IPC client",
+            "reviewer": "Claude, review of #35, round 2",
+            "source_path": "tests/test_campaign_cli_coverage.py",
+            "source_sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b"
+          }
+        ],
+        "mode": "frozen-adapter",
+        "reason": "Six original retained executions through authenticated local IPC; two literal HTTP-only case retirements covering three original executions. Original bytes and complete assertion/signature/decorator/parameter corpus immutable.",
+        "selectors": [
+          "tests/test_desktop_step8_review_cli_exact.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "CLI prompt intake",
@@ -748,12 +835,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Collision-free bytes/extractions/SHA metadata, original/PDF-expanded retention, cursor reconstruction and caller/conversation authorization require attachments/evidence. Ingestion intent is recorded only; no knowledge-store ingest runs.",
+      "blocked_on": null,
       "inherited_sha256": "02a6f587d5a9771b2bfb5534f2bbf662614ece94075762d66485c235ca9d2d84",
       "path": "tests/test_campaign_discord_attachments.py",
-      "qualification_group": "attachment-evidence-provenance",
-      "reason": "Collision-free bytes/extractions/SHA metadata, original/PDF-expanded retention, cursor reconstruction and caller/conversation authorization require attachments/evidence. Ingestion intent is recorded only; no knowledge-store ingest runs.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord attachment intake and delivery; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord attachment intake and delivery; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "attachment storage",
@@ -793,12 +884,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Buffered mixed/attachment-only sources retain each download, image blocks and admission fencing before downloads. Discord webhook_id is a source tag, not configured authenticated integration ingress; no step7 requirement.",
+      "blocked_on": null,
       "inherited_sha256": "0f1220b61d5d606dcdc1eab4ad0d97bb73affd2219431380b959f9e119440e20",
       "path": "tests/test_campaign_discord_intake.py",
-      "qualification_group": "buffered-attachment-intake",
-      "reason": "Buffered mixed/attachment-only sources retain each download, image blocks and admission fencing before downloads. Discord webhook_id is a source tag, not configured authenticated integration ingress; no step7 requirement.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord message intake; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord message intake; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "buffered request intake",
@@ -808,12 +903,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Persisted suspensions select caller-owned older work instead of another caller's latest, then resume preserved runner without replay or consuming unrelated work. Adapt genuine requester bindings retaining both identity and replay assertions.",
+      "blocked_on": null,
       "inherited_sha256": "ca2d7d323e0cd9be584fb5e34576858b0a108decfa0abd824b83cb7514996574",
       "path": "tests/test_campaign_discord_resume.py",
-      "qualification_group": "requester-owned-resume",
-      "reason": "Persisted suspensions select caller-owned older work instead of another caller's latest, then resume preserved runner without replay or consuming unrelated work. Adapt genuine requester bindings retaining both identity and replay assertions.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord resume intake; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord resume intake; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 4,
       "surfaces": [
         "resume ownership selection",
@@ -1125,12 +1224,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Transcript search indexing preserves durable cursors, equal-time arrivals, rollback, typed outcomes, rotation/replay idempotence, torn append and one-time legacy reconciliation without altering source/unrelated rows.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "67b01211656e00656f447046057f931569ee8fd0bf76b112e3c396f0b0e0ca49",
       "path": "tests/test_channel_cursor_campaign.py",
-      "qualification_group": "conversations-transcript-index-cursors",
+      "qualification_group": "phase2-step2-restored-corpus",
       "reason": "Transcript search indexing preserves durable cursors, equal-time arrivals, rollback, typed outcomes, rotation/replay idempotence, torn append and one-time legacy reconciliation without altering source/unrelated rows.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
+        "selectors": [
+          "tests/test_desktop_step8_conversations_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 2,
       "surfaces": [
         "conversation transcript",
@@ -1140,12 +1247,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Cross-conversation fallback returns newest matches irrespective of file order and applies author/channel/reset predicates before limits. Durable transcript/history search, not generic filesystem core.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "ff261ad17c4c9cefd22d01c11a6aef90328ff86a6a54d9cf7ef43431c8194495",
       "path": "tests/test_channel_history_recency.py",
-      "qualification_group": "conversations-history-search-recency",
+      "qualification_group": "phase2-step2-restored-corpus",
       "reason": "Cross-conversation fallback returns newest matches irrespective of file order and applies author/channel/reset predicates before limits. Durable transcript/history search, not generic filesystem core.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "direct-original",
+        "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
+        "selectors": [
+          "tests/test_channel_history_recency.py"
+        ]
+      },
+      "status": "restored",
       "step": 2,
       "surfaces": [
         "history search",
@@ -1154,12 +1269,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. JSONL transcript logging/defaults/provenance, unsupported-context ignore, filesystem failures and incremental/batched FTS/search require conversations. Adapt Desktop provenance equivalents preserving every original logger/index assertion.",
+      "blocked_on": null,
       "inherited_sha256": "da1d2387fc51c197bb4c9e85afcd857acfdde3253161879535aece3f5191d267",
       "path": "tests/test_channel_logger.py",
-      "qualification_group": "conversations-transcript-logger",
-      "reason": "JSONL transcript logging/defaults/provenance, unsupported-context ignore, filesystem failures and incremental/batched FTS/search require conversations. Adapt Desktop provenance equivalents preserving every original logger/index assertion.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord guild/DM channel logging; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord guild/DM channel logging; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 2,
       "surfaces": [
         "transcript logging",
@@ -1169,12 +1288,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Torn finals, deterministic legacy identities, malformed rejection, independent author filters and reset predicates before limits are transcript/search invariants. Preserve exact cases through adapted transcript storage.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "4629993659cdb3f439773865b0cecc470951dcb6349115846eadc19a8629f6e3",
       "path": "tests/test_channel_logger_edge_regressions.py",
-      "qualification_group": "conversations-transcript-index-edges",
+      "qualification_group": "phase2-step2-restored-corpus",
       "reason": "Torn finals, deterministic legacy identities, malformed rejection, independent author filters and reset predicates before limits are transcript/search invariants. Preserve exact cases through adapted transcript storage.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "direct-original",
+        "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
+        "selectors": [
+          "tests/test_channel_logger_edge_regressions.py"
+        ]
+      },
+      "status": "restored",
       "step": 2,
       "surfaces": [
         "transcript identity",
@@ -1184,12 +1311,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real intake redacts before JSONL/FTS including delete failure and differing origins; writer/author redaction and exact-identity rollback are earlier transcript dependencies. Intake is last actual requirement.",
+      "blocked_on": null,
       "inherited_sha256": "88e6a8d5c7dad7a3d74f168d39300e20ad4f576d19c4ff49858c7e0358908bb6",
       "path": "tests/test_channel_privacy_campaign.py",
-      "qualification_group": "requests-transcript-ingress-privacy",
-      "reason": "Real intake redacts before JSONL/FTS including delete failure and differing origins; writer/author redaction and exact-identity rollback are earlier transcript dependencies. Intake is last actual requirement.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord channel privacy and allowlists; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord channel privacy and allowlists; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "request redaction",
@@ -1237,12 +1368,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Identity-scoped continuity, invalid IDs/visibility and same-conversation locks are exercised through actual chat admission/dispatch. Adapt owner/profile/conversation submissions preserving identity independence without server RBAC or allow-lists.",
+      "blocked_on": null,
       "inherited_sha256": "aab21c70a29d895a95c8087ed2279c390954513058c08032db18cb310578b284",
       "path": "tests/test_chat_session.py",
-      "qualification_group": "requests-conversation-session-binding",
-      "reason": "Identity-scoped continuity, invalid IDs/visibility and same-conversation locks are exercised through actual chat admission/dispatch. Adapt owner/profile/conversation submissions preserving identity independence without server RBAC or allow-lists.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: HTTP chat session and web/API identities; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: HTTP chat session and web/API identities; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "conversation identity",
@@ -1252,12 +1387,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. FIFO once-only consumption, empty no-op, requester binding, unchanged limits, stopping rejection, stale request isolation and queued-only scrubbed receipts are Steer controls. Adapt presentation/bindings without stricter approvals.",
+      "blocked_on": null,
       "inherited_sha256": "70080829a6851915ea9a781bb68da617594f381198492003061b6dcf120a329a",
       "path": "tests/test_chat_steering_admission.py",
-      "qualification_group": "controls-steering-admission",
-      "reason": "FIFO once-only consumption, empty no-op, requester binding, unchanged limits, stopping rejection, stale request isolation and queued-only scrubbed receipts are Steer controls. Adapt presentation/bindings without stricter approvals.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord steering admission; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord steering admission; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 4,
       "surfaces": [
         "Steer admission and mailbox",
@@ -1267,12 +1406,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Detached terminal notification order/once-only closure, bounded callbacks, empty paths, canceled joins, initial receipt races, stale ownership and shutdown fences are control-observer settlement. Teardown here does not require settings/provider runtime5.",
+      "blocked_on": null,
       "inherited_sha256": "a9d047ef34ada3e52002c9812eea7dc6ad6b408c5506ddee8887bcb2b856e87a",
       "path": "tests/test_chat_steering_notifications.py",
-      "qualification_group": "controls-steering-notification-settlement",
-      "reason": "Detached terminal notification order/once-only closure, bounded callbacks, empty paths, canceled joins, initial receipt races, stale ownership and shutdown fences are control-observer settlement. Teardown here does not require settings/provider runtime5.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord steering notifications; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord steering notifications; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 4,
       "surfaces": [
         "Steer terminal receipts",
@@ -1282,12 +1425,29 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. No-steer goldens preserve real request/tool/permission/checkpoint/completion traces, native batch order and public resumed rebinding. Guarded resume/mailbox ownership is last; retain goldens/budgets via authentic owner adapters, never simplified runner.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "48cf45bcceed1be223a2cf8428af0a9eff3e57b695b1d147a3e6fe7a843233ec",
       "path": "tests/test_chat_steering_parity.py",
-      "qualification_group": "controls-unsteered-resume-runtime-parity",
+      "qualification_group": "phase2-step4-restored-corpus",
       "reason": "No-steer goldens preserve real request/tool/permission/checkpoint/completion traces, native batch order and public resumed rebinding. Guarded resume/mailbox ownership is last; retain goldens/budgets via authentic owner adapters, never simplified runner.",
-      "status": "deferred",
+      "restoration": {
+        "case_retirements": [
+          {
+            "case": "test_unsteered_native_batch_protocol_permissions_and_resume_parity",
+            "reason": "Tier-denial prose removed: both fresh and run-resumed-rebind goldens require Permission denied: blocked for the canonical owner; desktop has no per-tool tier ACL. Retire this case, not individual assertions.",
+            "reviewer": "Claude, review of #35, round 2",
+            "source_path": "tests/test_chat_steering_parity.py",
+            "source_sha256": "48cf45bcceed1be223a2cf8428af0a9eff3e57b695b1d147a3e6fe7a843233ec"
+          }
+        ],
+        "mode": "frozen-adapter",
+        "reason": "All retained original cases exported through hash-pinned frozen adapter; exact round2 reviewed case/parameter dispositions only.",
+        "selectors": [
+          "tests/test_desktop_step8_review2_parity_exact.py"
+        ]
+      },
+      "status": "restored",
       "step": 4,
       "surfaces": [
         "unsteered runner parity",
@@ -1298,12 +1458,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Consumed/pending steering, checkpoint continuity, replanning and mailbox closure require controls and guarded resume; preserve every race and terminal assertion.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "fd1316042f023dbabdd8f2d522bff522df54328bb04d984b619bbf93cb2f7f89",
       "path": "tests/test_chat_steering_resume.py",
-      "qualification_group": "phase2-step-4-headless",
+      "qualification_group": "phase2-step4-restored-corpus",
       "reason": "Consumed/pending steering, checkpoint continuity, replanning and mailbox closure require controls and guarded resume; preserve every race and terminal assertion.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
+        "selectors": [
+          "tests/test_desktop_step8_review_steer_resume.py"
+        ]
+      },
+      "status": "restored",
       "step": 4,
       "surfaces": [
         "turn runner",
@@ -1312,12 +1480,29 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Correction ordering, stale-answer suppression, checkpoint failure and cancellation/suspension settlement exercise real turn-control races.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "b41818cc97a50a4794cac024b953f7199369b225e863e1c9b4c34b2e32cc3f2b",
       "path": "tests/test_chat_steering_runtime.py",
-      "qualification_group": "phase2-step-4-headless",
+      "qualification_group": "phase2-step4-restored-corpus",
       "reason": "Correction ordering, stale-answer suppression, checkpoint failure and cancellation/suspension settlement exercise real turn-control races.",
-      "status": "deferred",
+      "restoration": {
+        "case_retirements": [
+          {
+            "case": "test_tool_batch_pairs_checkpoint_before_replan_no_stale_judgment_or_handoff",
+            "reason": "Removed Discord admin/multi-requester steering: this case admits user 999999 as admin and asserts a distinct numeric Discord requester retains tool authority; desktop has exactly one authenticated canonical profile owner.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_chat_steering_runtime.py",
+            "source_sha256": "b41818cc97a50a4794cac024b953f7199369b225e863e1c9b4c34b2e32cc3f2b"
+          }
+        ],
+        "mode": "frozen-adapter",
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
+        "selectors": [
+          "tests/test_desktop_step8_review_steering.py"
+        ]
+      },
+      "status": "restored",
       "step": 4,
       "surfaces": [
         "turn runner",
@@ -1397,12 +1582,29 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. All 522 lines cover offline strict-schema canonicalization, synthetic SSE, chat/agent-shaped history construction and byte-exact replay across every fixture. No schedule, skill, computer or agent handler runs; those names are schema data. Preserve full literal matrix including retired catalog entries through reviewed adaptation.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "eed93185f30efd619bafbfb1fd0f2d7bcac1eda96879b50214cfc1f8f5585256",
       "path": "tests/test_codex_replay_matrix.py",
-      "qualification_group": "phase2-step-3-headless",
+      "qualification_group": "phase2-step3-restored-corpus",
       "reason": "All 522 lines cover offline strict-schema canonicalization, synthetic SSE, chat/agent-shaped history construction and byte-exact replay across every fixture. No schedule, skill, computer or agent handler runs; those names are schema data. Preserve full literal matrix including retired catalog entries through reviewed adaptation.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "parameter_retirements": {
+          "test_emitted_replayed_matrix": [
+            "builtin-add_reaction",
+            "builtin-create_poll",
+            "builtin-purge_messages",
+            "builtin-read_channel",
+            "builtin-set_permission"
+          ]
+        },
+        "reason": "All retained original cases exported through hash-pinned frozen adapter; exact round2 reviewed case/parameter dispositions only.",
+        "selectors": [
+          "tests/test_desktop_step8_review_codex.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "strict tool schemas",
@@ -1447,12 +1649,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Exact raw/public frames, exit status, timeout uncertainty, temporary file reads and patch envelopes are tool execution/result delivery. Shared caller fixture must be adapted without demanding unused schedule/task/skill graph.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "cb5bd6655d51b4ed8994ea0df7f750a5295722e7234071e8935dcc4a4929324e",
       "path": "tests/test_command_shell_framing.py",
-      "qualification_group": "phase2-step-3-headless",
+      "qualification_group": "phase2-step3-restored-corpus",
       "reason": "Exact raw/public frames, exit status, timeout uncertainty, temporary file reads and patch envelopes are tool execution/result delivery. Shared caller fixture must be adapted without demanding unused schedule/task/skill graph.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
+        "selectors": [
+          "tests/test_desktop_step8_runner_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "executor",
@@ -1494,12 +1704,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Compatible tool-loop output reservation and result handling require request runner/delivery; schema/import closure alone is not background-work execution.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "8ca908a54d6b66b20c10b766c6ddd86b0c82a293ab1908c0744dc8541ca2968c",
       "path": "tests/test_compatible_output_reserve.py",
-      "qualification_group": "phase2-step-3-headless",
+      "qualification_group": "phase2-step3-restored-corpus",
       "reason": "Compatible tool-loop output reservation and result handling require request runner/delivery; schema/import closure alone is not background-work execution.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "direct-original",
+        "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
+        "selectors": [
+          "tests/test_compatible_output_reserve.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "turn runner",
@@ -1991,12 +2209,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Synthetic raster/native transport and loopback serialization cases also assert checkpoint pixel retirement and default-closed frame state on resume. Full-suite latest checkpoint/resume step wins; loopback is not provider acceptance.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "41fd36c3afe06c24f1221d9a809fba96efddd4f77d12878080f6a4984b6681c7",
       "path": "tests/test_computer_native_vision_r5.py",
-      "qualification_group": "phase2-step-4-headless",
+      "qualification_group": "phase2-step4-restored-corpus",
       "reason": "Synthetic raster/native transport and loopback serialization cases also assert checkpoint pixel retirement and default-closed frame state on resume. Full-suite latest checkpoint/resume step wins; loopback is not provider acceptance.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "direct-original",
+        "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
+        "selectors": [
+          "tests/test_computer_native_vision_r5.py"
+        ]
+      },
+      "status": "restored",
       "step": 4,
       "surfaces": [
         "native image serialization",
@@ -2047,12 +2273,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Scrubbing tool-input, turn-state storage and audit pipeline is request/result data handling; no settings secret provisioning or computer session admission.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "02625a61cd0ff31dc72f9f23d5015ba99d09f948f1b9c94a2d93268dbf797374",
       "path": "tests/test_computer_privacy_r5.py",
-      "qualification_group": "phase2-step-3-headless",
+      "qualification_group": "phase2-step3-restored-corpus",
       "reason": "Scrubbing tool-input, turn-state storage and audit pipeline is request/result data handling; no settings secret provisioning or computer session admission.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "direct-original",
+        "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
+        "selectors": [
+          "tests/test_computer_privacy_r5.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "request data",
@@ -2391,12 +2625,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Attachment retry byte identity, reserved descriptor cleanup, ambiguous delivery and cancellation use actual multipart library boundaries. Preserve stream ownership/settlement via Desktop artifact sink; obsolete reply presentation requires exact reviewed transport adaptation.",
+      "blocked_on": null,
       "inherited_sha256": "cea07757691729a80ec3f82ed662d99280a22f92e6fb1d52c93fcf3847d29f6c",
       "path": "tests/test_delivery_file_retries.py",
-      "qualification_group": "phase2-step-3-headless",
-      "reason": "Attachment retry byte identity, reserved descriptor cleanup, ambiguous delivery and cancellation use actual multipart library boundaries. Preserve stream ownership/settlement via Desktop artifact sink; obsolete reply presentation requires exact reviewed transport adaptation.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord file delivery retries; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord file delivery retries; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "attachment delivery",
@@ -2406,12 +2644,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Actual executor/output-delivery retention failure, bounded scrubbing, head/tail/ranked preview and default cursor limits are result delivery/evidence behavior; no live provider or background manager.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "bc0ddcfe244eeee48507dd6a5a16b333f18b421415b3fc1f1f1f856b340ae018",
       "path": "tests/test_delivery_review_regressions.py",
-      "qualification_group": "phase2-step-3-headless",
+      "qualification_group": "phase2-step3-restored-corpus",
       "reason": "Actual executor/output-delivery retention failure, bounded scrubbing, head/tail/ranked preview and default cursor limits are result delivery/evidence behavior; no live provider or background manager.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
+        "selectors": [
+          "tests/test_desktop_step8_review_delivery.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "result delivery",
@@ -2421,12 +2667,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Task pairing/debounce semantics map delivery status, but exact discord.ActivityType and change_presence presentation need reviewed transport-specific adaptation. Never treat changed status assertions as automatically equivalent.",
+      "blocked_on": null,
       "inherited_sha256": "d1dbc5f6cf47aedaed3c4005291531219b9fdb889429ac289c2081a81c7c3db2",
       "path": "tests/test_delivery_status.py",
-      "qualification_group": "phase2-step-3-headless",
-      "reason": "Task pairing/debounce semantics map delivery status, but exact discord.ActivityType and change_presence presentation need reviewed transport-specific adaptation. Never treat changed status assertions as automatically equivalent.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord delivery and typing status; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord delivery and typing status; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "delivery task status",
@@ -2435,12 +2685,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Only neutral TurnRecorder failure-tolerant user/trajectory/lifecycle observations run against stubs; outbound lifecycle callback is delivery, not inbound webhook triggers.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "14fd1148b43bb330206566ec926930b3e6e96671bab52399b4ff746e376bfbda",
       "path": "tests/test_delivery_turn_observation.py",
-      "qualification_group": "phase2-step-3-headless",
+      "qualification_group": "phase2-step3-restored-corpus",
       "reason": "Only neutral TurnRecorder failure-tolerant user/trajectory/lifecycle observations run against stubs; outbound lifecycle callback is delivery, not inbound webhook triggers.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "direct-original",
+        "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
+        "selectors": [
+          "tests/test_delivery_turn_observation.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "turn recorder",
@@ -2480,12 +2738,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Ephemeral request identity, validation, no durable reset and no per-request lock leakage require admission/delivery. Final CLI --url/--token/existence assertions are retired contracts and need reviewed exact dispositions within suite; HTTP route does not make its engine domain Phase3.",
+      "blocked_on": null,
       "inherited_sha256": "504900a3e35a622f0983db1acbf89d11357fcf0bccbbd60739498a1eb9bc95c8",
       "path": "tests/test_execute_api.py",
-      "qualification_group": "phase2-step-3-headless",
-      "reason": "Ephemeral request identity, validation, no durable reset and no per-request lock leakage require admission/delivery. Final CLI --url/--token/existence assertions are retired contracts and need reviewed exact dispositions within suite; HTTP route does not make its engine domain Phase3.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: HTTP execute API routes and identities; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: HTTP execute API routes and identities; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "request admission",
@@ -2511,11 +2773,13 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real executor timeout crosses durable turn wrapper and must preserve uncertainty/no replay versus definite effect-free failure. Handler overrides are harmless/temp, wait_for_agents is classifier-only name not agent execution. Controls/unknown-outcome state is latest.",
+      "blocked_on": "awaiting #28 and #37",
       "inherited_sha256": "7d1ad9553f761f999f910ed7843aba30312f4cc490b22ad95d03a59245de10c2",
       "path": "tests/test_executor_timeout_durability.py",
       "qualification_group": "phase2-step-4-headless",
       "reason": "Real executor timeout crosses durable turn wrapper and must preserve uncertainty/no replay versus definite effect-free failure. Handler overrides are harmless/temp, wait_for_agents is classifier-only name not agent execution. Controls/unknown-outcome state is latest.",
+      "restoration_target": "step8 part6A/6B",
+      "review": "Claude, review of #35, round 2",
       "status": "deferred",
       "step": 4,
       "surfaces": [
@@ -2899,12 +3163,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Allowlist/intake, attachments and early secret-scrub gates precede actual turns. Rebind Discord intake to trusted Desktop submission identity while preserving existing checks, not adding owner ACL.",
+      "blocked_on": null,
       "inherited_sha256": "4468540aeb50a719a15b70f8c4d9b9e38ef69f13d82220c5c3e1667f2970d386",
       "path": "tests/test_intake_pipeline.py",
-      "qualification_group": "phase2-request-intake",
-      "reason": "Allowlist/intake, attachments and early secret-scrub gates precede actual turns. Rebind Discord intake to trusted Desktop submission identity while preserving existing checks, not adding owner ACL.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord message intake pipeline; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord message intake pipeline; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "request admission",
@@ -3344,12 +3612,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Mixed native transcript read/reset and delivered reaction/poll operations are request/tool-delivery contracts. Explicitly disposition retired social/RBAC operations instead of preserving fabricated tiers or allowing model foreign-conversation reads.",
+      "blocked_on": null,
       "inherited_sha256": "1b423e5691516937e288395633547d8ac907c0732408af12f4c1b7233799fe15",
       "path": "tests/test_native_channel_ops.py",
-      "qualification_group": "phase2-request-native-conversations",
-      "reason": "Mixed native transcript read/reset and delivered reaction/poll operations are request/tool-delivery contracts. Explicitly disposition retired social/RBAC operations instead of preserving fabricated tiers or allowing model foreign-conversation reads.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord channel operations; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord channel operations; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "conversation read/reset",
@@ -3564,12 +3836,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. ChannelLogger/FTS reconciliation tests stale cursor/identity repair, transaction rollback, independent-reader snapshots, empty records and bounded indexed probes. Adapt source messages to committed temporary Desktop transcripts while preserving all table/cursor/count/idempotence and reader-race assertions.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "248a1ccf33f4723e0b5f453fefb65a7364ad8fd5b17dde34c96c49313ffc26d2",
       "path": "tests/test_pr341_b10_channel_consistency.py",
-      "qualification_group": "phase2-conversation-search",
+      "qualification_group": "phase2-step2-restored-corpus",
       "reason": "ChannelLogger/FTS reconciliation tests stale cursor/identity repair, transaction rollback, independent-reader snapshots, empty records and bounded indexed probes. Adapt source messages to committed temporary Desktop transcripts while preserving all table/cursor/count/idempotence and reader-race assertions.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
+        "selectors": [
+          "tests/test_desktop_step8_conversations_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 2,
       "surfaces": [
         "conversation transcript",
@@ -3578,12 +3858,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Full legacy-index reconciliation catches up more than5000 records atomically and retains prior coverage/cursors on timeout, SQL/source/commit errors and racing readers. Temporary-profile transcript/search composition replaces legacy channel presentation without weakening atomicity assertions.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "2e1bdd838c6204107963186f2f28dabc40868ffef0911305d45980d38ed109af",
       "path": "tests/test_pr341_b7_channel_reconciliation.py",
-      "qualification_group": "phase2-conversation-search",
+      "qualification_group": "phase2-step2-restored-corpus",
       "reason": "Full legacy-index reconciliation catches up more than5000 records atomically and retains prior coverage/cursors on timeout, SQL/source/commit errors and racing readers. Temporary-profile transcript/search composition replaces legacy channel presentation without weakening atomicity assertions.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
+        "selectors": [
+          "tests/test_desktop_step8_conversations_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 2,
       "surfaces": [
         "transcript indexing",
@@ -3781,12 +4069,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Zero-filled poll arguments must retain newest-lines status while cursors/nonzero offsets select exact retained byte ranges, running and finished. Real executor delivery/capture is required; no host-management mutation/assertion in this suite, so step3 wins despite importing richer tail helper fixtures.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "b7db1aadbd1ad1fa965f13609906808ca282089f7b3acf87f6dfcc67dcd8b052",
       "path": "tests/test_process_zero_offset.py",
-      "qualification_group": "phase2-request-process-output",
+      "qualification_group": "phase2-step3-restored-corpus",
       "reason": "Zero-filled poll arguments must retain newest-lines status while cursors/nonzero offsets select exact retained byte ranges, running and finished. Real executor delivery/capture is required; no host-management mutation/assertion in this suite, so step3 wins despite importing richer tail helper fixtures.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
+        "selectors": [
+          "tests/test_desktop_step8_runner_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "process poll delivery",
@@ -3972,12 +4268,77 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Suspend/resume admission and execution require controls, restored guard budgets, identity validation, uncertain-effect refusal and no replay. Adapt message origins to genuine temporary owner/conversation bindings rather than bypassing durable admission.",
+      "blocked_on": null,
       "inherited_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce",
       "path": "tests/test_resume_admission.py",
-      "qualification_group": "phase2-controls-resume",
+      "qualification_group": "phase2-step4-restored-corpus",
       "reason": "Suspend/resume admission and execution require controls, restored guard budgets, identity validation, uncertain-effect refusal and no replay. Adapt message origins to genuine temporary owner/conversation bindings rather than bypassing durable admission.",
-      "status": "deferred",
+      "restoration": {
+        "case_retirements": [
+          {
+            "case": "TestExplicitResume.test_fetch_permission_failure_is_truthful_and_keeps_turn_resumable",
+            "reason": "Removed Discord fetch-permission denial surface: injects Discord Forbidden 50013 and asserts Discord denial prose. Desktop transcript lookup has no Discord permission layer; retained fetch-outage cases preserve the checkpoint and calibration lease.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestExplicitResume.test_wrong_author_gets_notice",
+            "reason": "Removed Discord multi-author resume intake and wrong-author notice. Desktop has one authenticated canonical profile owner; authentication and original-author provenance rejection remain supported and tested.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_foreign_mention_is_not_stripped",
+            "reason": "Removed Discord foreign-mention stripping at resume intake; desktop bare resume and non-trigger pass-through remain supported and tested.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_leading_mention_resume_triggers",
+            "reason": "Removed Discord leading bot-mention resume intake; desktop bare resume remains supported and tested.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_mention_plus_sentence_is_not_a_command",
+            "reason": "Removed Discord mention-plus-sentence command intake; desktop bare resume and non-trigger pass-through remain supported and tested.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_mention_recognized_trigger_still_fails_closed",
+            "reason": "Removed Discord mention-recognized resume intake; desktop bare resume rejection and fail-closed checkpoint admission remain supported and tested.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_nickname_mention_form_triggers",
+            "reason": "Removed Discord nickname bot-mention resume intake; desktop bare resume remains supported and tested.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_trailing_mention_is_not_a_command",
+            "reason": "Removed Discord trailing-mention command intake; desktop bare resume and non-trigger pass-through remain supported and tested.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          }
+        ],
+        "mode": "frozen-adapter",
+        "reason": "All185 original assertion ASTs identical and complete reverse replay; actual canonical owner, RequestService controls and real terminal calibration correction; only exact8 removed Discord intake/denial cases retired.",
+        "selectors": [
+          "tests/test_desktop_step8_review_resume_exact.py"
+        ]
+      },
+      "status": "restored",
       "step": 4,
       "surfaces": [
         "guarded resume",
@@ -4142,12 +4503,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. History retrieval precedence/filtering spans current sessions, archived history, channel logs, FTS and semantic retrieval. Adapt provenance to committed transcript sources and native search without dropping priority/filter assertions.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "f017dfb328b626e378ed045123c89b439f1f9c9db8def4f113f1ae5a01ed2bb5",
       "path": "tests/test_search_history_source_priority.py",
-      "qualification_group": "phase2-conversation-search",
+      "qualification_group": "phase2-step2-restored-corpus",
       "reason": "History retrieval precedence/filtering spans current sessions, archived history, channel logs, FTS and semantic retrieval. Adapt provenance to committed transcript sources and native search without dropping priority/filter assertions.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
+        "selectors": [
+          "tests/test_desktop_step8_conversations_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 2,
       "surfaces": [
         "conversation history",
@@ -4218,12 +4587,29 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Session/archive/FTS search, bounds and failure distinctions map to conversation transcript/search. Adapt REST request/response presentation to named services while keeping original retrieval assertions.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "38aa1cce39048336ef77697cade3d9d6f964e294fa8b9daed24a50600ab0c292",
       "path": "tests/test_session_search.py",
-      "qualification_group": "phase2-conversation-search",
+      "qualification_group": "phase2-step2-restored-corpus",
       "reason": "Session/archive/FTS search, bounds and failure distinctions map to conversation transcript/search. Adapt REST request/response presentation to named services while keeping original retrieval assertions.",
-      "status": "deferred",
+      "restoration": {
+        "case_retirements": [
+          {
+            "case": "TestSessionSearchAPI.test_search_with_user_filter",
+            "reason": "Removed API identity surface: REST selects Bob from Alice/Bob messages; desktop one canonical installation owner, no multi-user participant/API identity metadata; fabricating seed identities as authority does not preserve meaning; copied engine user-provenance cases remain restored.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_session_search.py",
+            "source_sha256": "38aa1cce39048336ef77697cade3d9d6f964e294fa8b9daed24a50600ab0c292"
+          }
+        ],
+        "mode": "frozen-adapter",
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
+        "selectors": [
+          "tests/test_desktop_step8_review_search_attachments_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 2,
       "surfaces": [
         "conversation search",
@@ -4233,12 +4619,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Includes compaction/search but also chat execution and ephemeral turn/session persistence. Request admission/runner is later than storage; replace legacy web-origin fixtures with real temporary conversation/request identities.",
+      "blocked_on": null,
       "inherited_sha256": "68cb855877714567c839ac983b2294ae1121ee48e94e504a7e597605187f4535",
       "path": "tests/test_sessions_review_regressions.py",
-      "qualification_group": "phase2-requests-conversations",
-      "reason": "Includes compaction/search but also chat execution and ephemeral turn/session persistence. Request admission/runner is later than storage; replace legacy web-origin fixtures with real temporary conversation/request identities.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord/web session identities and allowlists; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord/web session identities and allowlists; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "session compaction",
@@ -4329,12 +4719,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Stop acknowledgements, ownership/generation isolation, timeouts and cleanup require control receipt/settlement composition. Adapt slash-command presentation to controls without allowing stale Stop to affect successors or publishing unconfirmed success.",
+      "blocked_on": null,
       "inherited_sha256": "2226fc01b8a881201f7d2e842aa22ee828abfc3ed9fb4d872253154005467e46",
       "path": "tests/test_stop_command.py",
-      "qualification_group": "phase2-controls-stop",
-      "reason": "Stop acknowledgements, ownership/generation isolation, timeouts and cleanup require control receipt/settlement composition. Adapt slash-command presentation to controls without allowing stale Stop to affect successors or publishing unconfirmed success.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord slash-command stop intake; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord slash-command stop intake; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 4,
       "surfaces": [
         "Stop receipts",
@@ -4408,12 +4802,50 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Request identity/time/preamble helpers are consumed by request runner composition. Preserve original helper assertions and request framing; instruction-affecting wording changes require D19 review rather than casual replacement.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782",
       "path": "tests/test_tool_loop_helpers.py",
-      "qualification_group": "phase2-requests-helpers",
+      "qualification_group": "phase2-step3-restored-corpus",
       "reason": "Request identity/time/preamble helpers are consumed by request runner composition. Preserve original helper assertions and request framing; instruction-affecting wording changes require D19 review rather than casual replacement.",
-      "status": "deferred",
+      "restoration": {
+        "branch_retirements": [
+          {
+            "after_source": "(False,)",
+            "before_source": "(True, False)",
+            "case": "TestBehaviorPreservedByRefactor.test_all_combinations_match_reference",
+            "column": 36,
+            "line": 170,
+            "node_sha256": "dca8f82ad2c13093e18831c63d876733f70de16f7f9f34083e01bc131bb8218e",
+            "reason": "Multi-bot origin handling (from_another_bot=True) is removed by Desktop; Claude, review of #35 retires only bot-origin cases.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_tool_loop_helpers.py",
+            "source_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782"
+          }
+        ],
+        "case_retirements": [
+          {
+            "case": "TestBuildRequestPreamble.test_bot_message_block",
+            "reason": "Multi-bot origin handling (from_another_bot=True) is removed by Desktop; Claude, review of #35 retires only bot-origin cases.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_tool_loop_helpers.py",
+            "source_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782"
+          },
+          {
+            "case": "TestBuildRequestPreamble.test_no_history_bot_turn_keeps_bot_origin_note",
+            "reason": "Multi-bot origin handling (from_another_bot=True) is removed by Desktop; Claude, review of #35 retires only bot-origin cases.",
+            "reviewer": "Claude, review of #35",
+            "source_path": "tests/test_tool_loop_helpers.py",
+            "source_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782"
+          }
+        ],
+        "mode": "frozen-adapter",
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
+        "selectors": [
+          "tests/test_desktop_step8_review_helpers.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "request identity",
@@ -4476,12 +4908,20 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real store heartbeat/checkpoint fencing, stolen leases, store death and terminal settlement exercise TurnDurability admission. Current admit deliberately refuses removed gateway shapes; adapt to actual Desktop durable request admission, not a fake enabled handle or weakened heartbeat assertions.",
+      "blocked_on": null,
+      "historical_classification": "phase2",
       "inherited_sha256": "e7595d33ed5660a9055e372a36bc98606df1b61f5c6f8aa8153cb727f440a04c",
       "path": "tests/test_turn_durability_heartbeat.py",
-      "qualification_group": "phase2-requests-durability",
+      "qualification_group": "phase2-step3-restored-corpus",
       "reason": "Real store heartbeat/checkpoint fencing, stolen leases, store death and terminal settlement exercise TurnDurability admission. Current admit deliberately refuses removed gateway shapes; adapt to actual Desktop durable request admission, not a fake enabled handle or weakened heartbeat assertions.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Complete six-case frozen heartbeat corpus: two exact legacy-admission calls use actual task-owned RequestService admission, supplied original store and genuine lease/heartbeat handle; no raw lease, fake enabled result or gate bypass.",
+        "selectors": [
+          "tests/test_desktop_step8_heartbeat_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 3,
       "surfaces": [
         "durable request admission",
@@ -4523,12 +4963,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Best-effort indicator failures/timeouts must not stop real request work, swallow body errors/cancellation, leak HTML or obscure recorder failures; escape cleanup, intake error delivery, call IDs and deliberate silence are runner/delivery contracts. Adapt Discord indicator to engine progress presentation while preserving original failure matrices and no fabricated final text.",
+      "blocked_on": null,
       "inherited_sha256": "af3ca9c9d79e3996938dd257368d602746481e3967b3401e2006b16266d5d5ba",
       "path": "tests/test_typing_resilience.py",
-      "qualification_group": "phase2-requests-delivery",
-      "reason": "Best-effort indicator failures/timeouts must not stop real request work, swallow body errors/cancellation, leak HTML or obscure recorder failures; escape cleanup, intake error delivery, call IDs and deliberate silence are runner/delivery contracts. Adapt Discord indicator to engine progress presentation while preserving original failure matrices and no fabricated final text.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: Discord typing and presence; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: Discord typing and presence; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "request runner",
@@ -4925,12 +5369,16 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Virtual message/channel/file capture, edited stream final deduplication, request execution error cleanup, status settlement and per-channel serialization belong to request/delivery/artifact adapters. Preserve file-size/error and no duplicate outer-final assertions; old author/mention presentation needs exact adaptation, not a bot gateway.",
+      "blocked_on": null,
       "inherited_sha256": "64df3b00cc5a23bdc75238190c6e976bb0ce7278f81d230f299de8d8edd3f188",
       "path": "tests/test_web_chat.py",
-      "qualification_group": "phase2-requests-delivery",
-      "reason": "Virtual message/channel/file capture, edited stream final deduplication, request execution error cleanup, status settlement and per-channel serialization belong to request/delivery/artifact adapters. Preserve file-size/error and no duplicate outer-final assertions; old author/mention presentation needs exact adaptation, not a bot gateway.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Retired: HTTP web chat routes and sessions; removed by Desktop design (group A, review of #35).",
+      "retirement": {
+        "reason": "Retired: HTTP web chat routes and sessions; removed by Desktop design (group A, review of #35).",
+        "reviewer": "Claude, review of #35"
+      },
+      "status": "retired",
       "step": 3,
       "surfaces": [
         "request adapter",
