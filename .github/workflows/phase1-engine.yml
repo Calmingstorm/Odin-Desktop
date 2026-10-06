@@ -66,6 +66,8 @@ jobs:
         run: .venv/bin/python scripts/maintenance/lint_gate.py
       - name: Phase 2 planned ownership checker
         run: .venv/bin/python scripts/maintenance/phase2_plan.py
+      - name: Phase 2 closure inventory (report only)
+        run: .venv/bin/python scripts/maintenance/phase2_closure.py report
       - name: Hermetic Cinnamon and GNOME fixtures (no graphical session)
         run: .venv/bin/python scripts/run-phase1-tests.py tests/test_lab_cinnamon.py tests/test_lab_gnome.py -rs
   full-suites:
@@ -112,7 +114,7 @@ jobs:
           .venv/bin/python -m pip install uv==0.12.23 setuptools==84.0.0 wheel==0.48.0
           .venv/bin/uv sync --locked --extra dev --active --no-build-isolation-package odin-desktop-engine
       - name: Phase 2 checker behaviour in a PID namespace
-        run: .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_phase2_plan.py
+        run: .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_phase2_plan.py tests/test_desktop_phase2_closure.py
       - name: App launcher unit and real-core contracts (no graphical session)
         working-directory: app
         run: |
