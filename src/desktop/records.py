@@ -16,6 +16,7 @@ from ..audit.logger import DEFAULT_MAX_FILES, AuditLogger
 from ..audit.signer import AuditSigner
 from ..observability.diagnostics import scrub_diagnostic
 from .management import MethodError
+from .secrets import SecretStoreError
 
 METHODS = frozenset({
     "audit.query", "audit.verify", "health.get", "logs.search", "turn_state.list",
@@ -124,7 +125,12 @@ class RecordsService:
         hmac_key = config.audit.hmac_key if config is not None else ""
         resolve_key = getattr(self._settings, "audit_signing_key", None)
         if callable(resolve_key):
-            hmac_key = resolve_key()
+            try:
+                hmac_key = resolve_key()
+            except SecretStoreError:
+                # Unavailable authority is not proof of integrity. Preserve
+                # readable history, but never reuse a cached or config key.
+                hmac_key = ""
         return self._bind_audit(hmac_key)
 
     async def _read_audit(self):
@@ -139,7 +145,12 @@ class RecordsService:
             # Keep round-2 signing authority without reintroducing synchronous
             # keyring I/O in round-3's async management composition. Construct
             # the reader and its asyncio lock only after returning to the loop.
-            hmac_key = await secret_call(resolve_key)
+            try:
+                hmac_key = await secret_call(resolve_key)
+            except SecretStoreError:
+                # Match Odin's no-key read contract without changing writer
+                # authority or swallowing read failures/cancellation.
+                hmac_key = ""
         return self._bind_audit(hmac_key)
 
     def _bind_audit(self, hmac_key):

@@ -3,7 +3,6 @@ import pytest
 
 from src.audit.logger import AuditLogger
 from src.desktop.hosts import HostsService
-from src.desktop.management import MethodError
 from src.desktop.records import RecordsService
 from src.desktop.secrets import ProfileSecretStore, SecretStoreError
 from src.desktop.settings import SettingsService
@@ -46,7 +45,7 @@ def test_composed_restart_verifies_keyring_signed_history_before_schema(tmp_path
         assert key not in paths.config_file.read_text()
 
 
-def test_reader_keyring_failure_is_unavailable_not_unsigned(tmp_path):
+def test_reader_keyring_failure_keeps_signed_history_readable_unverified(tmp_path):
     with temporary_guard_graph(tmp_path, False) as (core, runner):
         key = "temporary-profile-audit-signing-key"
         path = core.paths.data_dir / "audit.jsonl"
@@ -64,8 +63,16 @@ def test_reader_keyring_failure_is_unavailable_not_unsigned(tmp_path):
         with pytest.raises(SecretStoreError):
             settings.audit_signing_key()
         reader = RecordsService(core.paths, settings=settings)
-        with pytest.raises(MethodError, match="Records read is unavailable"):
-            runner.run(reader.handle("audit.verify", {}))
+        records = runner.run(reader.handle("audit.query", {}))
+        assert len(records) == 1
+        assert records[0]["tool_name"] == "saved"
+        assert runner.run(reader.handle("logs.search", {}))["entries"] == records
+        verified = runner.run(reader.handle("audit.verify", {}))
+        assert verified["valid"] is False
+        assert verified["verified"] == 0
+        assert verified["availability"] == "not_enabled"
+        assert verified["segments"] == []
+        assert reader.audit._signer is None
         assert path.read_bytes() == before
         service = HostsService(settings)
         runner.run(service._audit("save", "fixture"))

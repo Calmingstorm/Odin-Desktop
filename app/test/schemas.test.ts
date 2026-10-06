@@ -113,6 +113,12 @@ describe('review round 2: image-model intent', () => {
 })
 
 describe('hosts and schedules bridge methods', () => {
+  it('imports only a named existing host, without accepting trust overrides or activation fields', () => {
+    expect(parseRequest(MANAGEMENT_SCHEMAS.hostsImportLegacy, { alias: 'old-host' }).ok).toBe(true)
+    for (const request of [{}, { alias: '' }, { alias: 'a'.repeat(65) }, { alias: 'old-host', tested: true }, { alias: 'old-host', trust_mode: 'tofu' }, { alias: 'old-host', token: 'x' }]) {
+      expect(parseRequest(MANAGEMENT_SCHEMAS.hostsImportLegacy, request).ok).toBe(false)
+    }
+  })
   it("takes a new host only under Odin's alias, user and fingerprint rules", () => {
     const host = { alias: 'gpu_box', address: '10.0.0.9', ssh_user: 'odin', trust_mode: 'pinned', expected_fingerprints: ['SHA256:' + 'A'.repeat(43)] }
     expect(parseRequest(MANAGEMENT_SCHEMAS.hostsPrepare, host).ok).toBe(true)

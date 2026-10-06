@@ -841,6 +841,7 @@ export interface ManagementCalls {
   hostsSettings: [{ default_host?: string; allow_host_tofu?: boolean }, { saved: boolean; default_host: string; configured_default_host: string; tofu_enabled: boolean; registry_generation: number }]
   hostsPublicKey: [Empty, PublicKeyInfo]
   hostsPrepare: [HostPrepare, HostCandidate]
+  hostsImportLegacy: [{ alias: string }, HostCandidate]
   hostsTest: [{ token: string }, HostTestResult]
   hostsCommit: [{ token: string }, HostSaved]
   hostsSetEnabled: [{ alias: string; enabled: boolean }, HostSaved]
@@ -919,6 +920,7 @@ export const MANAGEMENT: { [K in ManagementMethod]: { channel: string; core: str
   hostsSettings: { channel: 'odin:manage:hosts.settings', core: 'hosts.settings', command: true },
   hostsPublicKey: { channel: 'odin:manage:hosts.public_key', core: 'hosts.public_key', command: false },
   hostsPrepare: { channel: 'odin:manage:hosts.prepare', core: 'hosts.prepare', command: true },
+  hostsImportLegacy: { channel: 'odin:manage:hosts.import_legacy', core: 'hosts.import_legacy', command: true },
   hostsTest: { channel: 'odin:manage:hosts.test', core: 'hosts.test', command: true },
   hostsCommit: { channel: 'odin:manage:hosts.commit', core: 'hosts.commit', command: true },
   hostsSetEnabled: { channel: 'odin:manage:hosts.set_enabled', core: 'hosts.set_enabled', command: true },
