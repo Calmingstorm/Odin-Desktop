@@ -52,7 +52,10 @@ async def secret_call(function, *args, **kwargs):
         except asyncio.CancelledError:
             if future.done():
                 if not future.cancelled():
-                    future.exception()
+                    # Settlement failure wins over cancellation. Merely
+                    # retrieving it would let rollback callers mistake an
+                    # uncertain vault effect for successful restoration.
+                    future.result()
                 raise
             cancelled = True
 

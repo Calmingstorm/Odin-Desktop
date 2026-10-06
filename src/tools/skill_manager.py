@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import threading
@@ -25,6 +26,7 @@ from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion
 
 from ..desktop.paths import private_directory
+from ..llm.secret_scrubber import is_credential_key, scrub_output_secrets
 from ..odin_log import get_logger
 from .registry import TOOLS
 from .skill_context import ResourceTracker, SkillContext
@@ -268,14 +270,50 @@ def _is_package_installed(spec: str, _seen: set[str] | None = None) -> bool:
         return False
 
 
-def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> tuple[bool, str]:
-    """Never install skill dependencies into the desktop app interpreter.
+def _pip_failure_output(stdout: str | bytes | None, stderr: str | bytes | None) -> str:
+    """Keep pip's explanation without reflecting authenticated index credentials."""
+    parts = [value.decode("utf-8", errors="replace") if isinstance(value, bytes) else value
+             for value in (stdout, stderr) if value]
+    output = "\n".join(parts).strip()
+    # Pip/plugins can echo inherited credentials without an identifying key.
+    # Apply the copied credential-key rule, even for short/non-pattern tokens.
+    values = {value for key, value in os.environ.items() if value and is_credential_key(key)}
+    for value in sorted(values, key=len, reverse=True):
+        output = output.replace(value, "[REDACTED]")
+    # The copied scrubber covers credential assignments and token formats, but
+    # HTTP index URL userinfo needs masking too (pip does not always mask it).
+    output = re.sub(r"(https?://)[^/\s]+@", r"\1[REDACTED]@", output,
+                    flags=re.IGNORECASE)
+    return scrub_output_secrets(output)
 
-    An approved isolated dependency environment and explicit dependency
-    consent are not wired in Phase 1. Inspection of existing distributions
-    remains available, but missing packages fail closed.
+
+def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> tuple[bool, str]:
+    """Retained Odin pip installation into the engine's Python environment.
+
+    Authoring admission belongs to the caller, not a requirement string. Keep
+    the upstream index-only spec policy and timeout; no extra Desktop consent.
     """
-    return False, "Approved isolated skill dependency installation is unavailable in Phase 1."
+    if len(specs) > MAX_SKILL_DEPENDENCIES or any(
+        not isinstance(spec, str) or not is_safe_dependency_spec(spec) for spec in specs
+    ):
+        return False, "Invalid skill dependency specification."
+    if not specs:
+        return True, ""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--quiet",
+             "--disable-pip-version-check", *specs],
+            capture_output=True, text=True, timeout=timeout,
+        )
+        if result.returncode == 0:
+            return True, ""
+        return False, (_pip_failure_output(result.stdout, result.stderr)
+                       or "pip installation failed")
+    except subprocess.TimeoutExpired as exc:
+        output = _pip_failure_output(exc.stdout, exc.stderr)
+        return False, f"pip install timed out after {timeout}s" + (f"\n{output}" if output else "")
+    except Exception:
+        return False, "pip installation could not start"
 
 
 def _extract_dependencies_from_source(source: str) -> list[str]:
@@ -636,6 +674,7 @@ class SkillManager:
         tool_timeouts: dict[str, int] | None = None,
         *,
         allowed_urls: tuple[str, ...] = (),
+        config_store=None,
     ) -> None:
         self.skills_dir = Path(skills_dir)
         if not self.skills_dir.is_absolute() or ".." in self.skills_dir.parts:
@@ -647,6 +686,12 @@ class SkillManager:
         self._executor = tool_executor
         self._tool_timeouts = tool_timeouts or {}
         self._allowed_urls = tuple(url.rstrip("/") for url in allowed_urls)
+        self._config_store = config_store
+        # Modules from independent profiles must not share Python module slots.
+        import hashlib
+        self._module_prefix = "odin_skill_" + hashlib.sha256(
+            str(self.skills_dir).encode()
+        ).hexdigest()[:16] + "_"
         # Derive a separate skill memory file to avoid corrupting the
         # executor's scoped memory structure (global/user_* namespaces).
         if memory_path:
@@ -721,7 +766,7 @@ class SkillManager:
             log.info("Loaded %d skill(s): %s", len(self._skills), ", ".join(self._skills))
 
     def _load_skill(self, path: Path) -> LoadedSkill | None:
-        module_name = f"odin_skill_{path.stem}"
+        module_name = self._module_prefix + path.stem
         previous_module = sys.modules.get(module_name)
         accepted = False
 
@@ -741,12 +786,6 @@ class SkillManager:
             for d in dep_diagnostics:
                 lvl = log.warning if d.level == "warn" else log.error
                 lvl("Skill %s deps: %s", path.name, d.message)
-            if any(d.level == "error" for d in dep_diagnostics):
-                self.definition_errors[path.name] = (
-                    "DependencyError: skill dependencies unavailable"
-                )
-                return None
-
         try:
             spec = importlib.util.spec_from_file_location(module_name, path)
             if not spec or not spec.loader:
@@ -765,6 +804,19 @@ class SkillManager:
             definition = getattr(module, "SKILL_DEFINITION", None)
             validate_skill_definition(definition)
             assert isinstance(definition, dict)
+            # Dependency failures are diagnostics, not publication refusals.
+            # Trusted modules may import successfully using existing packages;
+            # malformed metadata is handled by SkillMetadata below. Installation
+            # still refuses unsafe specs inside resolve_dependencies.
+            actual_deps = definition.get("dependencies", [])
+            if (isinstance(actual_deps, list)
+                    and all(isinstance(dep, str) for dep in actual_deps)
+                    and actual_deps != pre_deps):
+                _, _, dynamic_diagnostics = resolve_dependencies(actual_deps)
+                dep_diagnostics.extend(dynamic_diagnostics)
+                for d in dynamic_diagnostics:
+                    lvl = log.warning if d.level == "warn" else log.error
+                    lvl("Skill %s deps: %s", path.name, d.message)
 
             # Validate execute function
             execute_fn = getattr(module, "execute", None)
@@ -845,6 +897,10 @@ class SkillManager:
 
         path = self.skills_dir / f"{name}.py"
         try:
+            # Owner-authored Python may contain credentials; make new source
+            # files private before writing, without changing authoring policy.
+            fd = os.open(path, os.O_CREAT | os.O_WRONLY, 0o600)
+            os.close(fd)
             path.write_text(code)
         except Exception as e:
             return f"Failed to write skill file: {e}"
@@ -912,6 +968,8 @@ class SkillManager:
             return f"Skill '{name}' not found."
 
         path = self._skills[name].file_path
+        if self._config_store is not None:
+            self._config_store.delete(name)
         path.unlink(missing_ok=True)
         self._unload_skill(name)
         # Clean up config file and disabled state
@@ -999,6 +1057,8 @@ class SkillManager:
         return []
 
     def _load_config_file(self, name: str) -> dict:
+        if self._config_store is not None:
+            return self._config_store.load(name)
         path = self._config_path(name)
         if not path.exists():
             return {}
@@ -1008,8 +1068,13 @@ class SkillManager:
             return {}
 
     def _save_config_file(self, name: str, values: dict) -> None:
+        if self._config_store is not None:
+            self._config_store.save(name, values)
+            return
         path = self._config_path(name)
-        path.write_text(json.dumps(values, indent=2))
+        from ..permissions.persistence import write_private_atomic
+        if not write_private_atomic(path, json.dumps(values, indent=2)):
+            raise OSError("skill config persistence failed")
 
     def list_skills(self) -> list[dict]:
         """Return loaded/disabled metadata and failed on-disk module entries."""
@@ -1092,15 +1157,29 @@ class SkillManager:
 
     def get_tool_definitions(self) -> list[dict]:
         """Return tool definitions for enabled skills only."""
+        from copy import deepcopy
         return [
-            {
+            deepcopy({
                 "name": s.definition["name"],
                 "description": s.definition["description"],
                 "input_schema": s.definition["input_schema"],
-            }
+            })
             for s in self._skills.values()
-            if s.status != SkillStatus.DISABLED
+            if s.status == SkillStatus.LOADED
         ]
+
+    def reload(self) -> None:
+        """Requalify disk modules, fencing stale definitions before publication."""
+        for name in tuple(self._skills):
+            self._unload_skill(name)
+        self.definition_errors.clear()
+        self._disabled = self._load_disabled_set()
+        self._load_all()
+
+    def close(self) -> None:
+        """Retire only this profile's imported modules."""
+        for name in tuple(self._skills):
+            self._unload_skill(name)
 
     def validate_skill_code(self, code: str, filename: str = "<string>") -> dict:
         """Validate skill code without loading it. Returns a report dict.
@@ -1159,6 +1238,12 @@ class SkillManager:
             errors.append("Missing or invalid SKILL_DEFINITION dict.")
         elif isinstance(definition, dict):
             definition_keys = list(definition.keys())
+            try:
+                validate_skill_definition(definition)
+            except Exception:
+                errors.append(
+                    "Invalid skill definition or input schema; failed to load qualification."
+                )
             for key in ("name", "description", "input_schema"):
                 if key not in definition:
                     errors.append(f"SKILL_DEFINITION missing required key '{key}'.")
@@ -1247,8 +1332,8 @@ class SkillManager:
     ) -> str:
         """Execute trusted in-process Python with scoped admission and timeout.
 
-        This is not a Python sandbox. Phase 2 authoring intake must obtain
-        explicit trusted-code consent before importing owner-provided modules.
+        This is not a Python sandbox. Authoring intake uses the retained owner
+        permission path; source text and skill credentials supply no authority.
         """
         from .execution_outcome import DispatchEvidence, ToolFailure, dispatch_evidence
         from .output_authorization import tool_scope_allows
@@ -1270,6 +1355,8 @@ class SkillManager:
                 f"Skill '{tool_name}' is disabled. Use enable_skill to re-activate it."
             )
 
+        # As in Odin, the published schema guides callers, not runtime input
+        # admission. Trusted skills handle optional blank/null/default values.
         # Load config with defaults applied
         skill_config = self.get_skill_config(tool_name)
 
