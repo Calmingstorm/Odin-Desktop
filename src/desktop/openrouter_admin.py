@@ -116,7 +116,9 @@ class OpenRouterAdminService:
             from ..llm.openrouter import model_detail_path
             model_detail_path(model)
             if method == "openrouter.endpoints":
-                rows = await llm_admin._openrouter_endpoint_rows(model, api_key=await self._key(cfg))
+                rows = await llm_admin._openrouter_endpoint_rows(
+                    model, api_key=await self._key(cfg),
+                )
                 return await self._safe_result({
                     "model": model, "endpoints": rows,
                     "effective_profile": conservative_profile(rows, cfg.openrouter, model=model),
