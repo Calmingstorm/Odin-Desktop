@@ -610,12 +610,23 @@ class Core:
         item = {"kind": kind, "id": new_id(kind[0]), "title": title, "state": "running",
                 "conversation_id": req["conversation_id"], "request_id": req["id"], "started_at": now(),
                 "detail": detail, "actions": ["stop"]}
+        # An explicit Work fixture scenario keeps the legacy text projection available.
+        if kind == "agent" and "structured" in words(req["text"]):
+            item.update(manager_id=item["id"], manager_generation=item["started_at"],
+                        run_id=req["id"], generation=req["generation"], actions=["cancel", "steer"],
+                        detail={"iteration_count": 0, "max_iterations": 120,
+                                "inbox_sequence": 0, "last_consumed_sequence": 0,
+                                "unsettled_descendants": []},
+                        settlement={"state": "pending", "resource_release": "unproven"})
+            seconds = 600
         self.work[item["id"]] = item
         self.publish_work(item)
 
         def finish() -> None:
             if item["state"] == "running":
                 item.update(state="completed", detail="Finished", actions=[])
+                if "settlement" in item:
+                    item["settlement"] = {"state": "settled", "resource_release": "fixture_finished"}
                 self.publish_work(item)
         self.later(seconds, finish)
 
@@ -663,12 +674,27 @@ class Core:
         action = params.get("action")
         if action not in item["actions"]:
             return {"disposition": "not_available"}
+        for key in ("manager_generation", "run_id", "generation", "conversation_id"):
+            if key in params and params[key] != item.get(key):
+                return {"disposition": "not_available", "reason": "stale_target"}
+        if action == "steer":
+            text = params.get("text")
+            if not isinstance(text, str) or not text.strip():
+                raise CoreError("bad_request", "agent steering needs text")
+            item["detail"]["inbox_sequence"] += 1
+            sequence = item["detail"]["inbox_sequence"]
+            self.publish_work(item)
+            # Intentionally no consumed event: queuing does not prove agent delivery.
+            return {"disposition": "queued", "consumed": False, "sequence": sequence,
+                    "settlement": item["settlement"]}
         if action in ("stop", "cancel"):
             item.update(state="stopping", actions=[])
             self.publish_work(item)
 
             def stopped() -> None:
                 item.update(state="stopped", detail="Stopped by you")
+                if "settlement" in item:
+                    item["settlement"] = {"state": "unknown", "resource_release": "unknown"}
                 self.publish_work(item)
             self.later(0.3, stopped)
             return {"disposition": "requested"}

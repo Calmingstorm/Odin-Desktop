@@ -1,7 +1,9 @@
 // Development-only assertions, invoked exclusively by the isolated smoke runner.
 // Exercise the named preload bridge and rendered app, not a second mock client.
 import { strict as assert } from 'node:assert'
-import { writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type { BrowserWindow } from 'electron'
 import type { Broker } from './broker'
 
@@ -13,6 +15,15 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     assert(Date.now() < deadline, 'real-core smoke timed out waiting for the app and handshake')
     await pause(100)
   }
+  const proofPath = join(process.env.HOME!, 'work-proof.json')
+  while (!existsSync(proofPath)) {
+    assert(Date.now() < deadline, 'real work proof bootstrap did not settle')
+    await pause(100)
+  }
+  const proof = JSON.parse(readFileSync(proofPath, 'utf8')) as { conversation_id: string; report_id: string; recovery_id: string }
+  const counts = (): unknown => Object.fromEntries(['background', 'report'].map(name =>
+    [name, readFileSync(join(process.env.HOME!, `${name}-effects`), 'utf8').trim().split('\n').length]))
+  const beforePaging = counts()
   const result = await broker.request('status.get')
   assert(result.ok, 'real status.get must succeed')
   const status = result.result as { phase: string; version: string; core_instance_id: string; capabilities: string[] }
@@ -21,12 +32,13 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? '0.1.0.dev1')
   for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
     'tools.list', 'tools.timeouts.get', 'personality.get', 'hosts.list', 'hosts.public_key',
-    'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get']) {
+    'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get',
+    'work.list', 'work.control', 'reports.page', 'schedules.list', 'schedules.run', 'schedules.history']) {
     assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
   }
 
   // Later-slice reads are genuine core refusals, not empty successful lists.
-  for (const method of ['work.list', 'skills.list', 'mcp.status', 'schedules.list', 'computer.status']) {
+  for (const method of ['skills.list', 'mcp.status', 'computer.status']) {
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
@@ -66,11 +78,18 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
 
   await until(async () => (await text('.status')).includes(status.version), 'real core status bar')
   screens.push({ screen: 'Status', text: await text('.status') })
-  await until(async () => (await count('.conv-row')) === 1 && (await text('.message-scroll')).includes('Ask Odin anything.') &&
+  await until(async () => (await count('.conv-row')) === 1 && (await text('.message-scroll')).includes('Harmless catch-up notice') &&
     await run<boolean>('document.querySelector(".composer textarea")?.disabled === false'), 'real first conversation and snapshot')
   assert.equal(await text('.conv.active .conv-title'), 'Chat')
   assert.equal(await count('.sidebar-notice'), 0, 'served conversations must not claim unavailable')
-  assert.equal(await count('.msg'), 0, 'fresh real conversation must not seed fixture messages')
+  assert((await count('.msg')) > 0, 'real background publication must appear in the transcript')
+  assert(/Due:.*late by.*Omitted slots:/s.test(await text('.message-scroll')), 'real D12 reminder must show catch-up provenance')
+  await until(async () => (await text('.report-body')).includes('produced once'), 'stored real report first page')
+  await click('.report-nav button:nth-of-type(2)')
+  await until(async () => (await text('.report-body')).includes('no rerun'), 'stored real report second page')
+  assert.deepEqual(counts(), beforePaging, 'report paging must not execute the external tool again')
+  screens.push({ screen: 'Stored report paging and D12 catch-up notice', text: await text('.message-scroll') })
+  writeFileSync(out.replace(/\.png$/i, '') + '-report.png', (await win.webContents.capturePage()).toPNG())
   assert(await run('document.querySelector(".composer button[type=submit]")?.disabled === true'), 'empty composer must not send')
   assert(await run(`document.querySelector(${JSON.stringify('button[aria-label="Attach files"]')})?.disabled === false`), 'served chat must offer attachments')
   const initial = await broker.request('conversations.list')
@@ -125,8 +144,22 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   screens.push({ screen: 'Search', text: await text('.search-panel') })
   assert.equal(await run('document.querySelectorAll(".search-hits li").length'), 0)
   await click('.work-toggle')
-  await recordUnavailable('Work', '.work-panel')
-  assert.equal(await run('document.querySelectorAll(".work-item").length'), 0)
+  await until(async () => (await text('.work-panel')).includes('Harmless completed task') &&
+    (await text('.work-panel')).includes('Resource release is not confirmed'), 'real Work detail and honest unknown release')
+  const work = await broker.request('work.list')
+  assert(work.ok)
+  const workItems = (work.result as { items: Array<Record<string, unknown>> }).items
+  assert.deepEqual(new Set(workItems.map(i => i.kind)), new Set(['agent', 'task', 'workflow', 'loop', 'process', 'schedule']))
+  const cancellable = workItems.find(i => i.title === 'Harmless cancellable task')!
+  const controlParams = Object.fromEntries(['kind', 'id', 'manager_generation', 'run_id', 'generation', 'conversation_id'].map(k => [k, cancellable[k]]))
+  Object.assign(controlParams, { action: 'cancel', control_command_id: randomUUID() })
+  const receipt = await run<{ ok: boolean; result?: { disposition: string } }>(`window.odin.workControl(${JSON.stringify(controlParams)})`)
+  assert(receipt.ok)
+  assert.equal(receipt.result!.disposition, 'done')
+  assert.deepEqual(await run(`window.odin.workControl(${JSON.stringify(controlParams)})`), receipt, 'named bridge must return journaled receipt without repeating cancellation')
+  await click('button[aria-label="Refresh work"]')
+  await until(async () => (await text('.work-panel')).includes('cancelled'), 'settled actual task after journaled cancellation')
+  screens.push({ screen: 'Real Work all kinds, settled task and journaled receipt', text: await text('.work-panel') })
   writeFileSync(out, (await win.webContents.capturePage()).toPNG())
 
   await click('button[title="Settings (Ctrl+,)"]')
@@ -139,7 +172,6 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   const servicePanels: Record<string, string[]> = {
     Skills: ['section[aria-label="Skills"]'],
     'MCP servers': ['section[aria-label="MCP servers"]'],
-    'Scheduled and running work': ['section[aria-label="Schedules"]', 'section[aria-label="Running work"]'],
     Records: ['section[aria-label="Computer use"]']
   }
   const observations = await run<Record<string, { ok: boolean; result?: unknown; error?: { code: string; message: string } }>>(`(async () => ({
@@ -161,9 +193,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(hostData.hosts[0]!.alias, 'localhost')
   assert.equal(hostData.hosts[0]!.trust_state, 'local')
   assert.equal(hostData.default_host, 'localhost')
-  assert.deepEqual(observations.audit!.result, [], 'fresh audit must have no invented tool records')
-  assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [])
-  assert.equal((observations.turns!.result as { availability: string }).availability, 'not_enabled')
+  assert(Array.isArray(observations.audit!.result), 'audit must report actual local schedule/task records')
+  assert(Array.isArray((observations.logs!.result as { entries: unknown[] }).entries), 'logs must read actual engine records')
+  assert.equal((observations.turns!.result as { availability: string }).availability, 'available')
   for (let i = 0; i < sections.length; i++) {
     await click(`.settings-nav-item:nth-of-type(${i + 2})`)
     if (sections[i] === 'Models and providers') {
@@ -178,6 +210,11 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     if (sections[i] === 'Tools') {
       await until(async () => (await count('section[aria-label="Built-in tools"] .manage-row')) > 0, 'real built-in tools')
       assert((await text('section[aria-label="Tool timeouts"]')).includes('Timeouts'))
+    }
+    if (sections[i] === 'Scheduled and running work') {
+      await until(async () => (await text('section[aria-label="Schedules"]')).includes('D12 manual recovery check') &&
+        (await text('section[aria-label="Schedules"]')).includes('Recovery required'), 'real D12 recovery-required schedule')
+      assert((await text('section[aria-label="Schedules"]')).includes('No effects were replayed'), 'D12 must render actual recovery reason')
     }
     if (sections[i] === 'Hosts and trust') {
       await until(async () => (await text('section[aria-label=Hosts]')).includes('localhost'), 'real localhost row')
@@ -195,9 +232,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert((await text('section[aria-label="Named lists"]')).includes('No lists.'))
     }
     if (sections[i] === 'Records') {
-      await until(async () => (await text('section[aria-label=Audit]')).includes('Nothing recorded.'), 'real empty audit')
-      await until(async () => (await text('section[aria-label=Logs]')).includes('No entries.'), 'real empty logs')
-      await until(async () => (await text('section[aria-label="Turn state"]')).includes('Turn state is off.'), 'real turn-state availability')
+      await until(async () => !(await text('section[aria-label=Audit]')).includes('Loading'), 'real populated audit')
+      await until(async () => !(await text('section[aria-label=Logs]')).includes('Loading'), 'real engine logs')
+      await until(async () => (await text('section[aria-label="Turn state"]')).includes('Preserved work') &&
+        !(await text('section[aria-label="Turn state"]')).includes('Loading'), 'real turn-state availability')
       assert((await text('section[aria-label="Health"]')).includes('host(s) configured'), 'real health must observe profile hosts')
     }
     assert(!(await text('.settings-body')).includes('Service is not available yet'), `${sections[i]} must not leak a generic capability refusal`)
@@ -209,7 +247,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   }
   writeFileSync(out.replace(/\.png$/i, '') + '-settings.png', (await win.webContents.capturePage()).toPNG())
   assert.equal(broker.linkState, 'ready')
-  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, observations, screens }, null, 2) + '\n')
+  assert.deepEqual(counts(), beforePaging, 'all report reads and UI navigation must not rerun a check')
+  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, observations, proof, receipt, toolCounts: counts(), screens }, null, 2) + '\n')
   process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ link: broker.linkState, status, screens: screens.map(({ screen }) => screen), observations: Object.fromEntries(Object.entries(observations).map(([name, answer]) => [name, answer.ok ? 'observed' : answer.error?.code])) })}\n`)
   process.stdout.write(`real-core-smoke: ok link=ready version=${status.version} screens=${screens.length}\n`)
 }

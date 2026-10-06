@@ -19,6 +19,14 @@ class AccessibilityCore(fixture.Core):
             for n in range(130):
                 self.commit_message(cid, {"id": f"history-{n}", "role": "assistant",
                                          "text": f"History anchor {n}", "created_at": fixture.now()}, unread=False)
+        if case == "work-settlement":
+            self.work["fixture-unknown-settlement"] = {
+                "kind": "agent", "id": "fixture-unknown-settlement", "title": "Unknown release audit",
+                "state": "completed", "detail": {"exit_code": 0, "result": "done"},
+                "settlement": {"state": "unknown", "resource_release": "unproven",
+                               "remote_effects": "unknown", "unsettled_descendants": 0},
+                "actions": ["steer"],
+            }
 
     def dispatch(self, writer, frame):
         # Real transport response delay, not a mocked renderer or simulated focus.

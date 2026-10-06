@@ -3,9 +3,10 @@
 The desktop app: tray lifecycle (D3), the chat window, and the main-process broker that talks to Odin's core over
 the protocol in [`../docs/design/protocol.md`](../docs/design/protocol.md). P3.1 slice 2 connects settings and
 management to the real Phase 2 step-five core: provider/model configuration, device-code accounts, tools/timeouts,
-personality, hosts/trust, memory/lists/knowledge, records and profile runtime observations. Services not yet composed,
-including conversations/execution and step-six skills/MCP/background work/computer use, remain explicitly
-unavailable. Real-core sessions never substitute fixture rows or invented successful reads.
+personality, hosts/trust, memory/lists/knowledge, records and profile runtime observations. Conversations, guarded
+execution and step-6B background work, schedules and stored reports now use their actual core services. Services
+not composed on this slice's base, including skills/MCP management and computer use, remain explicitly unavailable.
+Real-core sessions never substitute fixture rows or invented successful reads.
 
 ## Build and test
 
@@ -58,12 +59,26 @@ management writes, knowledge versions, record filtering and write-only credentia
 an isolated localhost auth service and an ephemeral injected keyring, never a production account. These tests
 do not qualify native Secret Service unlock behavior or successful model generation.
 
+P3.1 slice 5 also qualifies the named Work, schedule and report methods. Work keeps the immutable public ID and
+manager/run/generation bindings, offered actions, structured details and settlement observations. Schedule Work
+controls and Settings share one lock by manager ID, while the command still names the immutable public work ID.
+Agent steering is queued once to the retained inbox; queued does not mean consumed. Unknown receipts remain locked
+under the original command identity. D12 recovery-required, missed-run counts, inert reasons and unknown settlement
+are shown without pretending the action ran. Report pages read stored output, never implicitly invoke a check.
+
 `smoke:real-core` checks real `status.get` version/phase/instance/capabilities and actual rendered status, exercises
-chat/search/work and every settings section's own service loads, and checks on-demand context reload. A fresh core
-shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge and audit/log
-records, unknown usage and disabled turn-state storage. Health reports absent runtime owners honestly; missing
-keyring access is a distinct failure with Retry, not an empty account success. Skills, MCP, scheduling and computer
-use remain unavailable. The gate exits through normal `runtime.shutdown` and parent-EOF cleanup. Evidence paths
+chat/search/work and every settings section's own service loads, and checks on-demand context reload. A test-only
+bootstrap admits work through the canonical owner and retained managers. A harmless real local command finishes
+one background task and produces a two-page report, with independent child-written effect counters. The rendered
+report's Next button reads page two; the counter stays at one. Work displays all six kinds, a journaled task-cancel
+receipt and unproven process release. A real scheduler tick coalesces an overdue reminder into a due/lateness/omitted
+slots notice and leaves a missed check recovery-required. Agent mailbox/process metadata and waiting-tool cleanup
+are controlled seeds, not provider/native execution qualification. Autonomous ticking is stopped only in this
+test bootstrap so clock seeding cannot race it; real tick/admission/history/delivery remain intact.
+The profile shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge,
+actual task/check audit/log records, unknown usage and its actual turn-state availability. Missing
+keyring access is a distinct failure with Retry, not an empty account success. Skills, MCP and computer use remain
+unavailable on this slice's base. The gate exits through normal `runtime.shutdown` and parent-EOF cleanup. Evidence paths
 and a compact result are printed as JSON. Set
 `ODIN_SMOKE_OUT` to retain screenshots of chat and every settings section plus a JSON evidence file alongside the
 named checkpoint; the default screenshots, evidence and profiles are discarded.
@@ -115,8 +130,8 @@ The fixture lane covers chat, native attachment selection/cancel, copying and sa
 paging/copy, conversation menus/children, Stop/Steer/Queue/Resume, work controls, all settings sections, validation,
 password/code privacy, delayed history/search, command suggestions, retained output and 200/400 percent reflow.
 The real-core lane covers keyboard status/usage reports and all eleven Settings sections with axe and Chromium
-AX audits: step five supplies actual settings/management data, while chat and uncomposed step-six services retain
-explicit unavailable views. Fresh usage is unknown with history not enabled, not a missing `usage.get` service.
+AX audits: step five supplies actual settings/management data and step 6B serves background work and schedules.
+Uncomposed services retain explicit unavailable views. Fresh usage is unknown with history not enabled, not a missing `usage.get` service.
 Neither a fixture pass nor a Chromium AX dump proves Orca/AT-SPI speech or Wayland qualification.
 
 Reports, full Chromium AX dumps, axe violations **and incomplete checks**, sandbox/cleanup receipts and screenshots
