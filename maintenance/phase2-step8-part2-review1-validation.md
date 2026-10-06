@@ -102,3 +102,19 @@ initial failures, correction scope and receipts are retained in
 Inherited AsyncMock/subprocess cleanup warnings and the imported inherited
 `Test*` collection warnings remain visible. No suppressed warnings, deployment,
 real endpoint/keyring access or active desktop acceptance claim.
+
+## Delivery boundary and remaining review work
+
+Group C is **not fully closed**. Complete health endpoint/startup corpora still
+need exact disposition of removed tier/Discord cases and actual health-carrier
+completion. Image intent remains partial for authority/async/audit seams. Mixed
+LLM-admin retains 84 unadapted definitions, including existing-feature carrier
+work as well as missing group B features. Log statistics remains group B.
+These five files are deferred, never silently counted restored or retired.
+
+After the tested step4 main merge and branch push, packaging PR24 landed as
+`main@5ba8d6df`. This delivery does not claim qualification of that newer lock,
+PDF/catalog/browser or packaging addition. GitHub now reports a main conflict;
+the PR remains open and needs another explicit merge/catch-up before merging.
+No further full invocation was started, consistent with the requested once-only
+full run. Actual remote branch head is verified separately at delivery.
