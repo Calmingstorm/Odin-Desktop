@@ -108,12 +108,14 @@ class TurnDurability:
         tools: list | None,
         session_snapshot: dict | None,
     ) -> TurnDurability:
-        """Refuse fresh effects until Desktop durable admission is wired in Phase 2.
+        """Preserve Odin's missing-store legacy fallback (D17).
 
-        The removed gateway message shape is not a Desktop request envelope.
-        In particular, absent/unavailable storage must never select the old
-        uncheckpointed execution fallback.
+        Desktop request admission owns live leases; the removed gateway message
+        shape cannot grant one here. Only a missing store (feature off / failed
+        open) selects legacy execution. An attached dead store still refuses.
         """
+        if store is None:
+            return cls.disabled()
         handle = cls.disabled()
         handle.blocked = "admission_error"
         return handle

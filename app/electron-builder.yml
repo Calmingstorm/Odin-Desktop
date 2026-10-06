@@ -1,0 +1,74 @@
+appId: net.calmingstorm.odin.desktop
+productName: Odin
+executableName: odin-desktop
+asar: true
+npmRebuild: false
+afterPack: packaging/after-pack.cjs
+electronVersion: 44.5.1
+electronDist: node_modules/electron/dist
+directories:
+  output: ../.packaging-candidates
+  buildResources: resources
+files:
+  - out/**
+  - resources/icon.png
+  - resources/tray.png
+  - resources/tray@2x.png
+  - package.json
+  - '!**/*.map'
+extraResources:
+  - from: ../.packaging-stage/runtime
+    to: runtime
+  - from: ../.packaging-stage/bundle-manifest.json
+    to: bundle-manifest.json
+  - from: ../.packaging-stage/legal
+    to: legal
+  - from: packaging/apparmor-profile
+    to: apparmor-profile
+linux:
+  target:
+    - target: deb
+      arch: [x64]
+    - target: AppImage
+      arch: [x64]
+  category: Utility
+  icon: resources/icon.png
+  artifactName: odin-desktop-${version}-candidate-${arch}.${ext}
+  desktop:
+    entry:
+      Name: Odin
+      Comment: Odin, your execution agent
+      StartupWMClass: Odin
+      Actions: exit;
+    desktopActions:
+      exit:
+        Name: Exit Odin
+        Exec: odin-desktop --exit
+deb:
+  packageName: odin-desktop
+  afterInstall: ../.packaging-stage/deb-control/postinst
+  afterRemove: ../.packaging-stage/deb-control/postrm
+  fpm:
+    - --before-install
+    - ../.packaging-stage/deb-control/preinst
+    - --before-remove
+    - ../.packaging-stage/deb-control/prerm
+    - --deb-pre-depends
+    - python3-minimal
+  appArmorProfile: packaging/apparmor-profile
+  maintainer: Calmingstorm
+  compression: xz
+  depends:
+    - libgtk-3-0
+    - libnss3
+    - libxss1
+    - libxtst6
+    - libatspi2.0-0
+    - libuuid1
+    - libsecret-1-0
+    - libgbm1
+    - libasound2t64
+    - libxshmfence1
+    - libx11-xcb1
+    - openssh-client
+publish: null

@@ -13,8 +13,10 @@ mkdirSync(runtime, { mode: 0o700 })
 chmodSync(runtime, 0o700)
 const out = process.env.ODIN_SMOKE_OUT || join(root, 'smoke.png')
 
-const env = { ...process.env }
-for (const key of ['DBUS_SESSION_BUS_ADDRESS', 'DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY']) delete env[key]
+// Do not inherit workstation credentials, desktop/session endpoints or arbitrary
+// Node/Electron flags. This gate supplies its own private bus and X server.
+const env = { PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8' }
+if (process.env.ODIN_SMOKE_MESSAGE) env.ODIN_SMOKE_MESSAGE = process.env.ODIN_SMOKE_MESSAGE
 Object.assign(env, {
   HOME: root,
   XDG_CONFIG_HOME: join(root, 'config'),
@@ -29,7 +31,9 @@ delete env.ODIN_SMOKE_REAL_CORE
 delete env.ODIN_DESKTOP_CORE_CMD
 
 const electron = join(appDir, 'node_modules', '.bin', 'electron')
-const result = spawnSync('xvfb-run', ['-a', '-s', '-screen 0 1280x800x24', electron, appDir, '--smoke-test'], {
+const result = spawnSync('dbus-run-session', ['--config-file',
+  join(appDir, '../tests/desktop_fixtures/private-session.conf'), '--',
+  'xvfb-run', '-a', '-s', '-screen 0 1280x800x24 -nolisten tcp', electron, appDir, '--smoke-test'], {
   env,
   encoding: 'utf8',
   timeout: 90_000

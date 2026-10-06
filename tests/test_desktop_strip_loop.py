@@ -31,6 +31,7 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
     adapted = {
         "run", "run_resumed", "_prepare_chat_turn", "_scoped_tools_for_request",
         "_call_llm", "run_autonomous", "_finalize_loop", "__init__",
+        "_run_one_tool_captured", "_audit_tool_outcome",
     }
     assert baseline.keys() == desktop.keys()
     for name in baseline.keys() - adapted:
@@ -101,7 +102,7 @@ assert "discord" not in sys.modules
 
 
 @pytest.mark.asyncio
-async def test_execution_and_presence_entrypoints_fail_before_any_dependency_access():
+async def test_uncomposed_execution_entrypoints_fail_before_any_dependency_access():
     from src.discord.tool_loop import (
         Phase2WiringRequired,
         ToolLoopRunner,
@@ -120,9 +121,9 @@ async def test_execution_and_presence_entrypoints_fail_before_any_dependency_acc
     ):
         with pytest.raises(Phase2WiringRequired):
             await operation
-    with pytest.raises(Phase2WiringRequired):
-        async with _best_effort_typing(None):
-            pytest.fail("presence gate yielded")
+    # Desktop presence is not transport input and publishes no model candidate.
+    async with _best_effort_typing(None):
+        pass
     with pytest.raises(Phase2WiringRequired):
         _LoopMessageProxy(None, "owner")
     with pytest.raises(Phase2WiringRequired):

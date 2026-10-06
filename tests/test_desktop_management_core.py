@@ -105,6 +105,8 @@ async def test_keyring_secret_and_memory_share_core_owners(connected):
     })
     assert saved["ok"]
     assert service.management.executor._load_all_memory()["global"]["step5"] == "shared-store"
+    assert service.management.executor is service.engine.deps.tool_executor
+    assert service.engine.deps.tool_executor._load_all_memory()["global"]["step5"] == "shared-store"
     backend.locked = True
     refused = await request(reader, writer, "secrets.set", {
         "path": "email.smtp.password", "value": "other-dummy",
@@ -193,6 +195,9 @@ async def test_unknown_extras_do_not_become_event_paths_and_shell_applies(connec
     })
     assert changed["ok"]
     assert service.management.executor._command_shell_mode() == "sh"
+    assert service.engine.deps.tool_executor._command_shell_mode() == "sh"
+    assert service.engine.deps.get_config() is service.management.settings.config
+    assert service.config is service.management.settings.config
     result = await request(reader, writer, "runtime.reload", {
         "scope": "context", "changes": [{"path": "dummy-private-value"}],
     })
@@ -264,6 +269,8 @@ async def test_config_reload_adopts_saved_live_values_atomically(connected):
     assert response["ok"], response
     assert service.management.executor._command_shell_mode() == "sh"
     assert service.management.settings.config.tools.command_shell == "sh"
+    assert service.engine.deps.tool_executor._command_shell_mode() == "sh"
+    assert service.engine.deps.get_config() is service.management.settings.config
 
 
 async def test_codex_login_publishes_and_last_remove_retires_real_provider(connected, monkeypatch):
@@ -292,6 +299,134 @@ async def test_codex_login_publishes_and_last_remove_retires_real_provider(conne
     })
     assert response["ok"], response
     assert service.management.providers.codex_client is not None
+    gateway = service.engine.deps.llm_gateway
+    assert gateway is service.management.providers
+    adopted = gateway.capture_serving_identity()
+    assert adopted.client is service.management.providers.codex_client
+    assert adopted.provider == "codex"
     removed = await request(reader, writer, "codex.accounts.remove", {"index": 0})
     assert removed["ok"], removed
     assert service.management.providers.codex_client is None
+    assert gateway.capture_serving_identity().client is None
+    assert adopted.client._generation_retired is True
+
+
+async def test_main_model_management_switch_changes_engine_identity(connected, monkeypatch):
+    service, reader, writer, _, _ = connected
+    from src.llm.ollama import OllamaClient
+
+    monkeypatch.setattr(service.management.providers, "_build",
+                        lambda provider, config, **kw: OllamaClient(model="endpoint-default"))
+    async def qualified_auxiliary(client):
+        return None
+    monkeypatch.setattr(service.management.providers, "_probe_aux", qualified_auxiliary)
+    switched = await request(reader, writer, "models.main.set", {"model": "ollama:chosen-model"})
+    assert switched["ok"], switched
+    deps = service.engine.deps
+    identity = deps.llm_gateway.capture_serving_identity()
+    assert identity.provider == "ollama" and identity.model == "chosen-model"
+    assert identity.client is service.management.providers.ollama_client
+    assert deps.get_config().llm_provider.model == "ollama:chosen-model"
+    assert deps.llm_gateway.subsystem_guard is not None
+    assert deps.llm_gateway.sessions is deps.sessions
+    assert deps.llm_gateway.reflector is deps.reflector
+
+
+async def test_management_governs_engine_shell_tools_and_readiness(connected):
+    from src.permissions.manager import PermissionManager
+
+    service, reader, writer, _, _ = connected
+    deps = service.engine.deps
+    executor = deps.tool_executor
+    assert executor is service.management.executor
+    assert service.management.hosts.registry is deps.host_registry
+    assert service.management.runtime.context is deps.context_loader
+    assert service.management.runtime.prompt_builder is deps.prompt_builder
+    assert service.management.providers.tool_catalog is deps.tool_catalog
+    assert executor._builtin_policy is deps.native_tools.builtin_policy
+    offered = {tool["name"] for tool in deps.tool_catalog.merged_definitions()}
+    assert "parse_time" in offered
+    assert "spawn_agent" not in offered  # Management must not broaden readiness.
+    schema = (await request(reader, writer, "settings.schema"))["result"]
+    changed = await request(reader, writer, "settings.set", {
+        "expected_revision": schema["revision"],
+        "changes": [{"path": "tools.command_shell", "value": "sh"}],
+    })
+    assert changed["ok"], changed
+    identity = service.authority.owner_id
+    owner = service.authority.authenticate_local(peer_uid=service.authority.owner_uid)
+    token = PermissionManager.set_request_owner(owner)
+    try:
+        result = await executor.execute("run_command", {
+            "host": "localhost", "command": "printf '%s' \"${BASH_VERSION-unset}\"",
+        }, user_id=identity)
+    finally:
+        PermissionManager.reset_request_owner(token)
+    assert result.ok, result
+    assert "unset" in result.output  # Real engine dispatch uses sh, not Bash.
+    disabled = await request(reader, writer, "tools.set_enabled", {
+        "name": "run_command", "enabled": False,
+    })
+    assert disabled["ok"], disabled
+    assert "run_command" not in {t["name"] for t in deps.tool_catalog.merged_definitions()}
+    token = PermissionManager.set_request_owner(owner)
+    try:
+        denied = await executor.execute("run_command", {
+            "host": "localhost", "command": "printf SHOULD_NOT_EXECUTE",
+        }, user_id=identity)
+    finally:
+        PermissionManager.reset_request_owner(token)
+    assert denied.error == "tool_disabled"
+    assert "SHOULD_NOT_EXECUTE" not in denied.output
+    native_disabled = await request(reader, writer, "tools.set_enabled", {
+        "name": "parse_time", "enabled": False,
+    })
+    assert native_disabled["ok"], native_disabled
+    rejected, _ = await deps.native_tools.dispatch(
+        "parse_time", {"expression": "in 1 hour"}, message=None,
+        user_id=identity, skill_file_delivery="stage")
+    assert rejected.error == "tool_unavailable"
+    timeouts = await request(reader, writer, "tools.timeouts.set", {
+        "default_timeout": 17, "overrides": {"read_file": 9},
+    })
+    assert timeouts["ok"], timeouts
+    assert executor.config.command_timeout_seconds == 17
+    assert executor.config.tool_timeouts == {"read_file": 9}
+    disabled_host = await request(reader, writer, "hosts.set_enabled", {
+        "alias": "localhost", "enabled": False,
+    })
+    assert disabled_host["ok"], disabled_host
+    assert deps.host_registry.acquire("localhost") is None
+
+
+async def test_persisted_settings_seed_actual_engine_on_restart(tmp_path):
+    from src.config.persistence import _patch_config_paths
+
+    paths, socket_path, token_file = profile(tmp_path)
+    read_fd, write_fd = os.pipe()
+    backend = TemporaryKeyring()
+    try:
+        core = CoreService(paths, socket_path, token_file, secret_backend=backend)
+        try:
+            await core.start(read_fd)
+        finally:
+            await core.close()
+        _patch_config_paths([
+            (("tools", "command_shell"), "sh"),
+            (("tools", "disabled_tools"), ["run_command"]),
+            (("tools", "command_timeout_seconds"), 23),
+        ], path=paths.config_file)
+        restarted = CoreService(paths, socket_path, token_file, secret_backend=backend)
+        try:
+            await restarted.start(read_fd)
+            deps = restarted.engine.deps
+            assert deps.get_config() is restarted.management.settings.config
+            assert deps.tool_executor._command_shell_mode() == "sh"
+            assert deps.tool_executor.config.command_timeout_seconds == 23
+            assert not deps.native_tools.builtin_policy.is_available("run_command")
+            assert "run_command" not in {t["name"] for t in deps.tool_catalog.merged_definitions()}
+        finally:
+            await restarted.close()
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)

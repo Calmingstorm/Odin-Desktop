@@ -9,8 +9,14 @@ import { ensureProfileDirs, ensureToken, profilePaths, type ProfilePaths } from 
 const repository = resolve(__dirname, '../..')
 
 // The published named contract, not an arbitrary renderer RPC surface. Step 6 is absent.
-export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', ...[
-  'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'models.image.intent',
+export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
+  'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
+  'artifacts.read', 'tool.detail', 'tool.output',
+  'control.stop', 'control.steer', 'control.resume',
+  'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
+  'conversations.reset_context', 'conversations.mark_read', 'messages.list',
+  'conversation.snapshot', 'search.query', 'messages.around',
+  'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'secrets.unlock', 'models.image.intent',
   'providers.codex.set', 'providers.auxiliary.set', 'providers.ollama.set', 'providers.compat.set',
   'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label',
   'codex.login.begin', 'codex.login.poll',
@@ -172,7 +178,10 @@ export class RealCoreHarness {
         throw new Error(`Real core startup failed. Check engine Python/dependencies. ${launchError?.message ?? ''}\n${this.output}`)
       }
       return existsSync(this.paths.socketPath)
-    }, 'real core socket creation')
+    // A cold installed engine imports its complete retained dependency closure.
+    // Allow bounded startup on busy self-hosted runners, without retrying or
+    // substituting a fixture after launch. Event wait defaults stay unchanged.
+    }, 'real core socket creation', 25_000)
   }
 
   broker(wrongToken = false): Broker {
@@ -180,7 +189,10 @@ export class RealCoreHarness {
       socketPath: this.paths.socketPath,
       readToken: () => wrongToken ? '0'.repeat(64) : readFileSync(this.paths.tokenPath, 'utf8').trim(),
       profileId: this.paths.profileId, clientVersion: 'real-core-contract',
-      requestTimeoutMs: 3_000, helloTimeoutMs: 3_000, reconnectDelaysMs: [40, 80, 150]
+      // Real first-use owners can import their retained dependencies lazily.
+      // Keep a bounded receipt wait below the production 30s default, without
+      // retrying an unknown outcome or fabricating a successful receipt.
+      requestTimeoutMs: 15_000, helloTimeoutMs: 3_000, reconnectDelaysMs: [40, 80, 150]
     })
     this.brokers.add(broker)
     return broker

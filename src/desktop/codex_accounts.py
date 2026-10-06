@@ -10,6 +10,7 @@ import asyncio
 import json
 import time
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 
 import aiohttp
 
@@ -27,7 +28,7 @@ from ..llm.codex_auth import (
     merge_authorized_account,
 )
 from ..llm.errors import LLMAuthError
-from .secrets import SecretStoreError
+from .secrets import SecretStoreError, secret_call
 
 METHODS = frozenset({
     "codex.accounts.list", "codex.accounts.activate", "codex.accounts.remove",
@@ -79,9 +80,36 @@ class KeyringCodexAuth(CodexAuth):
         return bool(self.expected.get("access_token"))
 
     def _load(self):
-        if self._credentials is None:
-            self._credentials = dict(self._canonical_row())
-        return self._credentials
+        # Retained pool diagnostics and get_account_id are synchronous and run
+        # on the loop. Never let those implicit reads unlock the keyring.
+        return self._credentials if self._credentials is not None else self.expected
+
+    async def _restore_credentials(self):
+        async with self._refresh_lock:
+            if self._credentials is None:
+                async with self.pool._pool_lock:
+                    self._credentials = dict(await secret_call(self._canonical_row))
+
+    async def get_access_token(self):
+        await self._restore_credentials()
+        return await super().get_access_token()
+
+    async def force_refresh(self, stale_token=None):
+        try:
+            await self._restore_credentials()
+        except Exception:
+            return False
+        return await super().force_refresh(stale_token)
+
+    async def _refresh(self, creds):
+        # Keep the retained OAuth/token derivation unchanged, but split its
+        # synchronous persistence seam from HTTP. The enclosing retained
+        # _refresh_shielded holds the single-use refresh lock until this durable
+        # write settles, including when the caller is cancelled.
+        refreshed = []
+        await CodexAuth._refresh(SimpleNamespace(_save=refreshed.append), creds)
+        async with self.pool._pool_lock:
+            await secret_call(self._save, refreshed[0])
 
     def _canonical_row(self):
         raw = self.pool.vault.read()
@@ -116,10 +144,11 @@ class KeyringCodexAuthPool(CodexAuthPool):
         self.vault = vault
         super().__init__("desktop-keyring-unused")
 
-    def _init_accounts(self):
-        raw = self.vault.read()
+    def _init_accounts(self, raw=None):
+        raw = self.vault.read() if raw is None else raw
         rows = raw if isinstance(raw, list) else [raw]
         previous = dict(getattr(self, "_loaded_auths", {}))
+        self._accounts = []
         self._generation += 1
         self._canonical_indices = []
         self._loaded_records = {}
@@ -140,6 +169,28 @@ class KeyringCodexAuthPool(CodexAuthPool):
             self._canonical_indices.append(slot)
             self._loaded_auths[slot] = auth
             self._loaded_records[slot] = dict(creds)
+
+    async def reload_async(self):
+        async with self._pool_lock:
+            records = []
+
+            def read_records():
+                records.append(self.vault.read())
+
+            cancelled = False
+            try:
+                await secret_call(read_records)
+            except asyncio.CancelledError:
+                cancelled = True
+            self._reload_accounts(records[0])
+            if cancelled:
+                raise asyncio.CancelledError
+            return self.account_count
+
+    def _reload_accounts(self, raw=None):
+        self._manual_active_index = None
+        self._init_accounts(raw)
+        self._current_index = min(self._current_index, max(self.account_count - 1, 0))
 
 
 class CodexDeviceClient:
@@ -192,6 +243,7 @@ class CodexAccountsService:
         self.vault = vault if vault is not None else KeyringCodexVault(settings.secrets)
         # Startup and login.begin do not unlock or read an owner's keyring.
         self._pool: KeyringCodexAuthPool | None = None
+        self._pool_init_lock = asyncio.Lock()
         self.client = client if client is not None else CodexDeviceClient()
         self._logins: dict[str, _Login] = {}
         self._tasks: set[asyncio.Task] = set()
@@ -204,6 +256,19 @@ class CodexAccountsService:
             self._pool = KeyringCodexAuthPool(self.vault)
         return self._pool
 
+    async def get_pool(self):
+        async with self._pool_init_lock:
+            if self._pool is None:
+                await secret_call(lambda: self.pool)
+            return self._pool
+
+    async def refresh_pool_if_initialized(self):
+        """Explicit unlock may rehydrate a cache, never force lazy keyring use."""
+        async with self._pool_init_lock:
+            if self._pool is not None:
+                return await self._pool.reload_async()
+        return None
+
     async def handle(self, method, params):
         if method not in METHODS:
             raise _error("method_not_found", "Unknown Codex method")
@@ -215,7 +280,9 @@ class CodexAccountsService:
         self._tasks.add(task)
         try:
             if method == "codex.accounts.list":
-                return self._list()
+                pool = await self.get_pool()
+                async with pool._pool_lock:
+                    return self._list()
             if method == "codex.login.begin":
                 return await self._begin()
             if method == "codex.login.poll":
@@ -290,41 +357,55 @@ class CodexAccountsService:
 
     async def _mutate(self, method, params):
         index = self._index(params)
+        pool = await self.get_pool()
         if method == "codex.accounts.activate":
             try:
-                await self.pool.set_active(index)
+                await pool.set_active(index)
             except ValueError:
                 raise _error("bad_request", "invalid account index") from None
             return {"status": "activated", "active_index": index}
         label = params.get("label", "")
         if method == "codex.accounts.label" and not isinstance(label, str):
             raise _error("bad_request", "label must be a string")
-        async with self.pool._pool_lock:
-            raw = self.vault.read()
+        cancelled = False
+        outcome = []
+
+        def mutate_settled():
+            outcome.append(self._mutate_records(method, index, label))
+
+        async with pool._pool_lock:
             try:
-                canonical = CodexAuthPool.canonical_index(raw, index)
-            except ValueError:
-                raise _error("bad_request", "invalid account index") from None
-            rows = raw if isinstance(raw, list) else [raw]
+                await secret_call(mutate_settled)
+            except asyncio.CancelledError:
+                cancelled = True
+            result, raw = outcome[0]
             if method == "codex.accounts.label":
-                rows[canonical]["label"] = label
-                self.vault.write(rows if isinstance(raw, list) else rows[0])
-                auth = self.pool._accounts[index]
+                auth = pool._accounts[index]
                 auth.expected["label"] = label
                 if auth._credentials is not None:
                     auth._credentials["label"] = label
-                return {"status": "updated", "label": label}
-            removed = rows.pop(canonical)
-            self.vault.write(rows)
-            self.pool._accounts.clear()
-            self.pool._manual_active_index = None
-            self.pool._init_accounts()
-            self.pool._current_index = min(
-                self.pool._current_index, max(self.pool.account_count - 1, 0),
-            )
-        if self.providers is not None:
+            else:
+                pool._reload_accounts(raw)
+        if method == "codex.accounts.remove" and self.providers is not None:
             await self.providers.reload_codex()
-        return {"status": "deleted", "email": removed.get("email", "unknown")}
+        if cancelled:
+            raise asyncio.CancelledError
+        return result
+
+    def _mutate_records(self, method, index, label):
+        raw = self.vault.read()
+        try:
+            canonical = CodexAuthPool.canonical_index(raw, index)
+        except ValueError:
+            raise _error("bad_request", "invalid account index") from None
+        rows = raw if isinstance(raw, list) else [raw]
+        if method == "codex.accounts.label":
+            rows[canonical]["label"] = label
+            self.vault.write(rows if isinstance(raw, list) else rows[0])
+            return {"status": "updated", "label": label}, raw
+        removed = rows.pop(canonical)
+        self.vault.write(rows)
+        return {"status": "deleted", "email": removed.get("email", "unknown")}, rows
 
     async def _begin(self):
         result = await self.client.request_device_code()
@@ -377,34 +458,45 @@ class CodexAccountsService:
             creds = login.credentials
             if not isinstance(creds, dict) or not creds.get("access_token"):
                 raise ValueError("Invalid credentials")
-            async with self.pool._pool_lock:
-                raw = self.vault.read()
-                if save_index is None:
-                    rows = merge_authorized_account(raw, creds)
-                else:
-                    rows = list(raw) if isinstance(raw, list) else [raw]
-                    authorized = mark_authorized_account(creds)
-                    try:
-                        canonical = CodexAuthPool.canonical_index(raw, save_index)
-                    except ValueError:
-                        rows.append(authorized)
-                    else:
-                        if "label" in rows[canonical]:
-                            authorized["label"] = rows[canonical]["label"]
-                        rows[canonical] = authorized
-                self.vault.write(rows)
-                self.pool._accounts.clear()
-                self.pool._manual_active_index = None
-                self.pool._init_accounts()
-                self.pool._current_index = min(
-                    self.pool._current_index, max(self.pool.account_count - 1, 0),
-                )
+            pool = await self.get_pool()
+            cancelled = False
+            records = []
+
+            def store_login():
+                records.append(self._store_login(creds, save_index))
+
+            async with pool._pool_lock:
+                try:
+                    await secret_call(store_login)
+                except asyncio.CancelledError:
+                    cancelled = True
+                pool._reload_accounts(records[0])
             if self.providers is not None:
                 await self.providers.reload_codex()
             login.done = {"status": "authenticated", "email": creds.get("email", "unknown"),
                           "account_id": creds.get("account_id", "")}
             login.credentials = None
+            if cancelled:
+                raise asyncio.CancelledError
             return dict(login.done)
+
+    def _store_login(self, creds, save_index):
+        raw = self.vault.read()
+        if save_index is None:
+            rows = merge_authorized_account(raw, creds)
+        else:
+            rows = list(raw) if isinstance(raw, list) else [raw]
+            authorized = mark_authorized_account(creds)
+            try:
+                canonical = CodexAuthPool.canonical_index(raw, save_index)
+            except ValueError:
+                rows.append(authorized)
+            else:
+                if "label" in rows[canonical]:
+                    authorized["label"] = rows[canonical]["label"]
+                rows[canonical] = authorized
+        self.vault.write(rows)
+        return rows
 
     async def close(self):
         """Internal lifecycle cancellation, not an invented protocol method."""

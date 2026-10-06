@@ -40,14 +40,49 @@ Odin's suite includes process-group tests. Run bare, these can signal every proc
 Odin or the desktop session. **Always run the suite in an isolated PID namespace:**
 
 ```bash
-sudo unshare --mount --pid --fork --mount-proc --kill-child \
-  sudo -u "$USER" env -u DBUS_SESSION_BUS_ADDRESS -u XDG_RUNTIME_DIR .venv/bin/pytest -q
+.venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_isolated_runner.py
+# Reviewed pass-now selection, then the full classified qualification:
+.venv/bin/python scripts/run-phase1-tests.py
+.venv/bin/python scripts/run-qualified-tests.py
 ```
 
 - Never point a test at `/opt/odin`, live config or data, or a real workspace.
+- The launchers first check permission for the restricted, root-owned
+  `/usr/local/sbin/odin-desktop-isolate` helper with `sudo -n -l`, then probe it.
+  It creates private mount/PID namespaces and drops straight back to the invoking
+  numeric UID/GID with no supplementary groups, capabilities or privilege escalation.
+  A generic non-interactive `sudo -n unshare` launcher is tried last for full-sudo users.
+  Both paths verify the separate `/proc`, PID namespace and non-root identity before
+  starting tests. If neither works, no tests run. Each invocation has a throwaway HOME/XDG tree and
+  a clean environment without credentials or live display/session sockets.
+- CI short gates run on `odin-desktop-ci-light` (server-2 or desktop); tests and
+  qualification run only on `odin-desktop-ci` (desktop). Server-2's util-linux 2.37.2
+  cannot preserve the UID in an unprivileged namespace. Both jobs require a cached
+  Python 3.12 before setup-python, and newer pushes cancel the old PR run.
+- A current-user-only user namespace reports
+  host root-owned files as overflow UID 65534. The unchanged profile, environment
+  and native trust guards then correctly reject ancestors such as `/home` and
+  `/tmp`. Passing the PID/identity probe does not prove filesystem qualification.
+  Do not accept overflow ownership, run tests as root, or hide failing groups.
+  The launchers therefore do not offer that path. The restricted helper preserves
+  actual host ownership without weakening guards or permitting privileged test code.
+  Cancellation kills the launcher's owned process group as the user with SIGKILL,
+  which kills namespace PID 1 and its descendants. No privileged kill permission is needed.
 - Never use destructive or attack commands as test input. Test failure paths with harmless failures or stubbed
   primitives.
 - Computer-use and native-lifecycle proofs run only in hard-isolated graphical environments, never on an active desktop.
+- Offline qualification-lab tests that deliberately create root-owned fixture
+  configuration run with `scripts/run-lab-fixture-tests.py` in a separate,
+  disposable Docker container. The fixed source allowlist is copied, never
+  mounted; runtime has no network, host devices, sockets, credentials or display.
+  Pytest stays non-root; root fixture commands remain container-local. The
+  restricted helper and its no-new-privileges setting are never changed for
+  these tests. This lane is not native desktop or VM qualification.
+- Offline Cinnamon/GNOME capture fixtures execute the test interpreter, including
+  the emitted PNG validators, so Pillow comes from the locked environment rather
+  than system Python. The real GNOME keyfile-compilation test skips with an explicit
+  reason when `dconf` is absent; it is not a host runner requirement. The disposable
+  lab image includes `dconf-cli`, so that lane still exercises real compilation.
 - Installing dependencies into this repo's own `.venv` (and `node_modules` for `app/`) is fine. System package installs
   need Aaron's OK first.
 
