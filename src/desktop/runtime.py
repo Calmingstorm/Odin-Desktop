@@ -5,11 +5,16 @@ saved model settings are not evidence of a serving model or a healthy provider.
 """
 from __future__ import annotations
 
+import asyncio
 import inspect
+import json
 import math
 import time
 from types import SimpleNamespace
 
+from ..config.apply_registry import flatten, is_secret
+from ..config.persistence import _load_document
+from ..config.schema import Config
 from ..discord.slash_commands import (
     USAGE_RANGES,
     collect_status,
@@ -18,9 +23,12 @@ from ..discord.slash_commands import (
     render_status,
     render_usage,
 )
+from ..llm.model_ref import parse_model_ref
 from ..observability.diagnostics import scrub_diagnostic
 from ..usage.rollup import UsageRollup
 from .management import MethodError
+from .provisioning import fresh_config
+from .secrets import SecretStoreError, secret_call
 
 
 def _number(value=None, kind="unknown") -> dict:
@@ -64,6 +72,9 @@ class RuntimeService:
                              or getattr(core, "tool_catalog", None))
         self.prompt_builder = (getattr(llm, "prompt_builder", None)
                               or getattr(core, "prompt_builder", None))
+        self._first_run_snapshot = {
+            "state": "degraded", "reason": "keyring_unavailable", "keyring_unavailable": True,
+        }
 
     @property
     def config(self):
@@ -75,6 +86,122 @@ class RuntimeService:
             raise MethodError("capability_unavailable", "Provider runtime is not available")
         result = switch(provider, persist=persist, model_ref=model_ref)
         return await result if inspect.isawaitable(result) else result
+
+    def _first_run(self) -> dict:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            self._first_run_snapshot = self._read_first_run()
+        return dict(self._first_run_snapshot)
+
+    async def status_async(self):
+        self._first_run_snapshot = await secret_call(self._read_first_run)
+        return self.status()
+
+    def _read_first_run(self) -> dict:
+        """A read-only projection, not an onboarding completion flag or probe.
+
+        Fresh means the bootstrap provider choices still equal this profile's
+        defaults and no primary credential exists. Saving those same defaults
+        without credentials intentionally remains fresh on every launch. Only
+        the retained owner's captured identity establishes effective settings;
+        hydrating desired settings never adopts a client. Optional health
+        observations can degrade it, but do not impose a new provider probe or
+        success-count gate stricter than Odin's existing runtime behavior.
+        """
+        def result(state, reason, *, keyring=False):
+            return {"state": state, "reason": reason, "keyring_unavailable": keyring}
+
+        try:
+            paths = self.settings.paths
+            defaults = fresh_config(paths)
+            document, _ = _load_document(paths.config_file)
+            values = defaults.model_dump(mode="json")
+            self.settings._merge(values, dict(document))
+            saved = Config.model_validate(values, context={"startup": True})
+            desired = parse_model_ref(self.config.llm_provider.model, allow_auto=False)
+            section_name = {"codex": "openai_codex", "ollama": "ollama",
+                            "compat": "openai_compatible"}[desired.provider.value]
+            section = getattr(saved, section_name)
+
+            # Read only the profile's keyring. Presence is not authorization or
+            # provider health, and no credential bytes become protocol fields.
+            raw = self.settings.secrets.get("codex_accounts")
+            accounts = json.loads(raw) if raw is not None else []
+            if not isinstance(accounts, (dict, list)):
+                raise ValueError("Invalid credential state")
+            rows = accounts if isinstance(accounts, list) else [accounts]
+            codex = any(isinstance(row, dict) and bool(row.get("access_token"))
+                        for row in rows)
+            compat = bool(self.settings.secrets.get("openai_compatible.api_key"))
+            ollama = bool(self.settings.secrets.get("ollama.api_key"))
+        except SecretStoreError:
+            return result("degraded", "keyring_unavailable", keyring=True)
+        except Exception:
+            return result("degraded", "credential_state_unavailable")
+        if getattr(self.settings, "_keyring_error", None):
+            # Presence is not full hydration. Explicit Retry rehydrates before
+            # reporting its result, without claiming runtime client adoption.
+            return result("degraded", "keyring_unavailable", keyring=True)
+
+        def choices(config):
+            values = config.model_dump(mode="json")
+            return {path: value for name in
+                    ("llm_provider", "openai_codex", "ollama", "openai_compatible")
+                    for path, value in flatten(values[name], name) if not is_secret(path)}
+
+        configured = (section.enabled and bool(desired.model)
+                      and (desired.provider.value == "ollama" or
+                           (codex if desired.provider.value == "codex" else compat))
+                      and (desired.provider.value == "codex" or bool(section.base_url)))
+        if not configured:
+            if choices(saved) == choices(defaults) and not (codex or compat or ollama):
+                return result("fresh", "provider_not_configured")
+            return result("incomplete", "provider_configuration_incomplete")
+
+        # A runtime-only switch or an uncommitted desired candidate is not setup
+        # completion. A successful save alone is not serving readiness either.
+        committed = parse_model_ref(saved.llm_provider.model, allow_auto=False)
+        if (committed.provider, committed.model) != (desired.provider, desired.model):
+            return result("saved", "provider_identity_not_adopted")
+        try:
+            identity = self.llm_gateway.capture_serving_identity()
+        except Exception:
+            return result("saved", "provider_runtime_unavailable")
+        if getattr(identity, "client", None) is None:
+            return result("saved", "provider_runtime_unavailable")
+        if (identity.provider, identity.model) != (desired.provider.value, desired.model):
+            return result("saved", "provider_identity_not_adopted")
+        adopted = getattr(self.llm_gateway, "_effective_config", None)
+        if adopted is not None:
+            def provider_settings(config):
+                return {path: value for path, value in
+                        flatten(getattr(config, section_name).model_dump(mode="json"), section_name)
+                        if not is_secret(path)}
+            if provider_settings(adopted) != provider_settings(self.config):
+                return result("saved", "provider_identity_not_adopted")
+        if (getattr(self.llm_gateway, "_closed", False)
+                or getattr(identity.client, "_generation_retired", False)):
+            return result("degraded", "provider_health_degraded")
+        guard = getattr(self.llm_gateway, "subsystem_guard", None)
+        try:
+            if guard is not None:
+                usable = guard.is_usable(f"llm_{desired.provider.value}")
+                healthy = guard.is_available(f"llm_{desired.provider.value}")
+                if usable is False or healthy is False:
+                    return result("degraded", "provider_health_degraded")
+        except Exception:
+            # Unknown optional health observations are not an execution or
+            # completion gate. Effective-ready describes adoption, not proof
+            # of generation, quota, reachability or a successful network probe.
+            pass
+        try:
+            breaker = getattr(identity.client, "breaker", None)
+            if breaker is not None and getattr(breaker, "state", None) != "closed":
+                return result("degraded", "provider_health_degraded")
+        except Exception:
+            pass
+        return result("effective-ready", "provider_effective")
 
     def status(self) -> dict:
         # Never call core.status here: the core delegates back to this service.
@@ -121,6 +248,7 @@ class RuntimeService:
             "summary": render_status(facts),
             "resource_cleanup": (self.core.resource_cleanup.public()
                                  if getattr(self.core, "resource_cleanup", None) else None),
+            "first_run": self._first_run(),
         })
 
     def _quota(self):
@@ -236,7 +364,7 @@ class RuntimeService:
         if type(params) is not dict:
             raise MethodError("bad_request", "Method params must be an object")
         if method == "status.get":
-            return self.status()
+            return await self.status_async()
         if method == "usage.get":
             return await self._usage(params)
         if method == "runtime.reload":

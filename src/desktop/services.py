@@ -102,6 +102,33 @@ class EngineServices:
             raise RuntimeError("Engine already belongs to another request service")
         self.requests = requests
 
+    async def initialize_profile_provider(self):
+        """Build startup Codex credentials off-loop after profile hydration."""
+        from .management import MethodError
+        from .secrets import SecretStoreError, secret_call
+
+        gateway = self.deps.llm_gateway
+        settings = getattr(gateway, "settings", None)
+        if settings is None or gateway.codex_client is not None:
+            return
+        if not settings.config.openai_codex.enabled:
+            return
+
+        def build():
+            # An empty or locked vault never becomes a cached empty auth pool.
+            if gateway.codex_accounts.vault.read():
+                return gateway._build("codex", settings.config)
+            return None
+
+        try:
+            client = await secret_call(build)
+        except (MethodError, SecretStoreError):
+            log.warning("Desktop Codex provider unavailable at startup")
+            return
+        gateway.codex_client = client
+        if gateway.active_client is not None:
+            gateway.wire_callbacks()
+
     def diagnostics(self):
         """Public, credential-free runtime state for optional engine services."""
         d = self.deps
@@ -548,9 +575,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             backoff_cap=get_config().llm_recovery.backoff_cap_seconds))
     if settings is not None:
         from .codex_accounts import CodexAccountsService
-        from .management import MethodError
         from .providers import ProviderOwner
-        from .secrets import SecretStoreError
 
         if injected_gateway is not None:
             for name in ("subsystem_guard", "auxiliary_llm_client", "cost_tracker",
@@ -560,15 +585,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         codex = CodexAccountsService(settings)
         gateway = ProviderOwner(settings, codex, executor=executor, **gateway_dependencies)
         codex.providers = gateway
-        if codex_client is None and cc.enabled:
-            try:
-                # Do not cache an empty auth pool at startup. Administration
-                # must still distinguish a subsequently locked keyring.
-                if codex.vault.read():
-                    gateway.codex_client = gateway._build("codex", cfg)
-            except (MethodError, SecretStoreError):
-                # Login and keyring recovery remain usable without a provider.
-                log.warning("Desktop Codex provider unavailable at startup")
+        # The async core initializes this vault-backed client off-loop after
+        # composition, retaining one provider/account owner for request work.
     else:
         gateway = getattr(runtime, "llm_gateway", None) or LLMGateway(**gateway_dependencies)
     if gateway.active_client is not None:

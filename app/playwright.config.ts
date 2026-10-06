@@ -5,7 +5,8 @@ import { defineConfig } from '@playwright/test'
 export default defineConfig({
   testDir: './test/e2e',
   // Each independently isolated lane runs its own tests. A lifecycle runner
-  // must not accidentally execute the differently rooted accessibility harness.
+  // must not execute the differently rooted accessibility harness. Onboarding
+  // uses Vitest's separately owned runner, not this Playwright configuration.
   testMatch: process.env.ODIN_APP_E2E === '1'
     ? ['**/lifecycle.spec.ts', '**/notifications.spec.ts', '**/admitted-work.spec.ts',
       '**/execution-containment.spec.ts', '**/native-reconciliation.spec.ts'] : '**/accessibility.spec.ts',

@@ -31,7 +31,7 @@ describe('actual app Broker ↔ repository real core', () => {
 
   test('authenticates the handshake, reads real status and replays events after a cursor', async () => {
     expect(realCoreCapabilities).toEqual(SERVED_CAPABILITIES)
-    expect(realCoreCapabilities).toHaveLength(90)
+    expect(realCoreCapabilities).toHaveLength(91)
     expect(new Set(realCoreCapabilities).size).toBe(realCoreCapabilities.length)
     const { broker, welcome } = await core.connect()
     expect(welcome).toMatchObject({

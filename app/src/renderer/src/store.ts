@@ -17,6 +17,7 @@
 import { reactive } from 'vue'
 import { images } from './artifacts'
 import { isUnavailable, resultMessage } from './capability'
+import { NAV } from './settings-form'
 import type {
   AppState,
   ControlRecord,
@@ -144,6 +145,9 @@ export const state = reactive({
   panel: null as { title: string; text: string } | null,
   /** Chat or the settings menu. */
   view: 'chat' as 'chat' | 'settings',
+  /** Retained section only, never a local readiness or completion flag. */
+  settingsSection: 'general',
+  setupReminderHidden: false,
   /** The app's notification settings, from the main process. */
   notifications: null as NotificationSettings | null,
   /** Resume requests by `request_id:generation`, until the resumed request starts or the core says no. */
@@ -177,6 +181,11 @@ export function onCoreEvent(listener: EventListener): void {
 /** Runs whenever the link becomes ready: at start, and after every recovery. */
 export function onReady(listener: () => void): void {
   readyListeners.push(listener)
+}
+
+export function openSettings(section?: string): void {
+  if (section && NAV.some((entry) => entry.id === section)) state.settingsSection = section
+  state.view = 'settings'
 }
 
 function notifyReady(): void {
