@@ -213,9 +213,10 @@ export class RealCoreHarness {
       }
       return existsSync(this.paths.socketPath)
     // A cold installed engine imports its complete retained dependency closure.
-    // Allow bounded startup on busy self-hosted runners, without retrying or
-    // substituting a fixture after launch. Event wait defaults stay unchanged.
-    }, 'real core socket creation', 25_000)
+    // Allow bounded startup on busy self-hosted runners (CI runs the shards and
+    // these contracts in parallel on one host), without retrying or substituting
+    // a fixture after launch. Event wait defaults stay unchanged.
+    }, 'real core socket creation', 60_000)
     if (this.services.workProof) await waitFor(() => {
       if (!this.running) throw new Error(`Work bootstrap failed: ${this.output}`)
       return existsSync(join(this.root, 'work-proof.json'))
