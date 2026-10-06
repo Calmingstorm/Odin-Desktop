@@ -1,0 +1,90 @@
+{
+  "probe": "electron",
+  "desktop": "kde",
+  "session": {
+    "Desktop": "KDE",
+    "Type": "wayland",
+    "Active": "yes",
+    "State": "active"
+  },
+  "session_environment": {
+    "XDG_RUNTIME_DIR": "/run/user/1001",
+    "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1001/bus",
+    "DISPLAY": ":1",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "XAUTHORITY": "/run/user/1001/xauth_hnGjVA",
+    "XDG_CURRENT_DESKTOP": "KDE",
+    "XDG_SESSION_DESKTOP": "KDE",
+    "XDG_SESSION_TYPE": "wayland",
+    "HOME": "/home/odq",
+    "USER": "odq",
+    "LOGNAME": "odq",
+    "PATH": "/usr/local/bin:/usr/bin:/bin",
+    "LANG": "C.UTF-8",
+    "XDG_SESSION_ID": "1"
+  },
+  "source_sha256": "fd6fa26cad7d7782aa558fbd7d79f0058790f7e14b60b6add9b36b06c74cd0cc",
+  "real_core_required": true,
+  "orca_version": "46.1",
+  "speech_sink": "private speech-dispatcher Unix socket, sd_dummy only",
+  "passed": true,
+  "cleanup": {
+    "method": "non-delegated-cgroup-v2+pidfd",
+    "owned_children_exited": true,
+    "descendants_exited": true,
+    "cgroup": "odq-orca-115f2085bbb048d59f626df70e9ea457",
+    "escalated": false,
+    "members_before_cleanup": [
+      {
+        "pid": 1516,
+        "starttime": 5879,
+        "uid": 1001,
+        "state": "S"
+      },
+      {
+        "pid": 1517,
+        "starttime": 5881,
+        "uid": 1001,
+        "state": "S"
+      },
+      {
+        "pid": 1523,
+        "starttime": 5890,
+        "uid": 1001,
+        "state": "S"
+      }
+    ],
+    "child_exit_codes": [
+      0,
+      -9,
+      0
+    ],
+    "cgroup_removed": true,
+    "native_sandbox_removed": true,
+    "uinput_restored": true
+  },
+  "native_sandbox": {
+    "path": "/usr/local/lib/odq/odq-orca-115f2085bbb048d59f626df70e9ea457-sandbox/electron/chrome-sandbox",
+    "sha256": "a4f6dfd7325ddd55f94ddc0c487d22726d40ef099ded6475d5dffe236e277896",
+    "uid": 0,
+    "mode": "0o4755"
+  },
+  "native_runtime_mount": "/      rw,relatime",
+  "task_exit_code": 0,
+  "orca_running_during_tasks": true,
+  "speechd_running_during_tasks": true,
+  "evidence_sha256": {
+    "probe-electron.png": "aa28916edb5b89e98418548dd519c66735025d85b39532a1fa8e0c8a966ce4ed",
+    "probe-electron-atspi.json": "188c4aba73cf23cee2d18a0ddc42fb9b2afd8ae051a64308e278fa1ab465840a",
+    "orca-debug.log": "de8e332b3235cc76a13dfcdf002f491632b28beb03463f50db593b32b23e869c",
+    "probe-electron-console.log": "ebca957d3b7138985fd500ad5e9dab5cd86ddf824757981c857bce65494dc04a",
+    "speech-dispatcher.log": "e0953dbb5569ab0d146702a640ce0cd2fe1a331f8d46edb98ad43aecb950f786",
+    "probe-result.json": "b83d1f1f6515a4509502d31ad6a42b2867ec8aeb884447132a6d2cd24d1d743a",
+    "orca-console.log": "af8b6aee793744d6ff76a9f5b80d0aa7a9e48a82afd8a06c8f387191012ceb90",
+    "probe-electron-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "probe-electron-stderr.log": "f130486f5799b22d5d24d9774c018dd9ecb058e42823b90f54e0e4337325e414",
+    "tasks.log": "cf76e6f3d7f6c9efb78ef11819405e4d6f5e6842b91dd1ad0dbc9df313e8b6e4",
+    "probe-electron-speech.json": "f613544c300a573d60f5b46967ff8e493c8ecdf2718363463feea53c930a0b99",
+    "probe-electron.json": "ca12ca1915ae59215b204bc3b77ef819594deef6de3dcc2670f0ea2cb9cf20b6"
+  }
+}

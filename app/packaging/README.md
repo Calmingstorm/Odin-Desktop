@@ -15,9 +15,10 @@ Use a disposable build environment if those pinned inputs are unavailable.
 
 From `app/`, run `npm ci --ignore-scripts`, provision the pinned Electron binary
 with `node node_modules/electron/install.js`, then `npm run check` and
-`npm run package:candidate`. Candidate construction never publishes. No packaging
-workflow is added; the pre-existing engine workflow is now manual-dispatch only
-so opening this private-repository PR does not spend hosted-runner minutes.
+`npm run package:candidate`. Candidate construction never publishes. Engine CI
+runs on pull requests and main pushes using separate self-hosted short-gate and
+full-suite runner labels. P4.3 adds a self-hosted release workflow whose default
+dispatch is a nonpublishing dry-run; publication remains separately guarded.
 
 Build-time downloads are hash checked: standalone CPython 3.12.15, build-only uv,
 the wheel-only production closure from `uv.lock`, Chromium Headless Shell,
@@ -110,6 +111,37 @@ installation from known bytes, not a successful internet download.
 The `.deb` declares `openssh-client`. AppImage users need host `ssh` and
 `ssh-keygen`; those host tools are not bundled.
 
+### Restricted user namespaces
+
+The shared ownership launcher performs an **AppImage-only** preflight before
+creating an install lease or starting Electron. It refuses with exit code 78 when
+`kernel.apparmor_restrict_unprivileged_userns` is nonzero (including Ubuntu 24.04's
+default 1), `kernel.unprivileged_userns_clone` is not 1, or
+`user.max_user_namespaces` is zero/negative. Unreadable or malformed values are
+also refused; absent optional sysctls are tolerated. There is no environment or
+CLI bypass. The Python sysctl-root argument exists solely for behavior-test fixtures.
+
+This is deliberately conservative: a site-specific AppArmor exception may permit
+an AppImage despite the global restriction, but this launcher still refuses it.
+Passing the preflight does not prove sandbox availability: other LSM policies,
+namespace quotas, mount settings or kernel support may still prevent startup.
+Refusal prints a plain explanation and recommends the `.deb`, without running
+Electron, adding sandbox-disabling flags, or changing system settings. On a
+graphical session, `/usr/bin/zenity`, if installed, additionally shows the same
+message in a native error dialog (15-second dismissal, 20-second process timeout).
+Without zenity/display support, or if the dialog fails, stderr remains the only
+delivery; graphical visibility is not guaranteed in that case.
+
+The `.deb` launch branch does **not** perform this preflight. Its AppArmor asset
+attaches `userns` permission separately to the actual Electron ELF
+`/opt/Odin/odin-desktop.bin` and the bundled D14 Headless Shell ELF
+`/opt/Odin/resources/runtime/browser/chromium/chrome-headless-shell-linux64/chrome-headless-shell`.
+These paths follow the renamed executable and pinned Chromium staging layout,
+not the shell/Python launcher or a Playwright download cache. The profiles are
+unconfined compatibility attachments, not a claim of additional confinement.
+Profile installation/loading and real sandbox execution still require disposable
+Ubuntu guest qualification; unit fixtures alone do not establish native success.
+
 ## Legal and release boundaries
 
 Each resource records provenance, digests and available license notices. Electron
@@ -121,8 +153,10 @@ candidates**. Its download provenance remains pinned for user-initiated PDF use;
 this packaging change does not assert that downloading resolves every licensing
 question. Other distributed third-party notice closure remains a release gate.
 
-No tag, GitHub Release, asset upload, update service or publishing workflow is
-created. Candidates stay local. P4.2 ownership/upgrades and alongside evidence
+These local packaging commands create no tag, GitHub Release, asset upload or
+update service. Candidates stay local. The separately guarded P4.3 workflow is
+documented in [`maintenance/phase4-releases.md`](../../maintenance/phase4-releases.md).
+P4.2 ownership/upgrades and alongside evidence
 are recorded in [`maintenance/phase4-packaging.md`](../../maintenance/phase4-packaging.md).
 The `.deb` now uses explicit self-contained preinst/postinst/prerm/postrm hooks
 with `python3-minimal` predependency. They fence replacement without starting

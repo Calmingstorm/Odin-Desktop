@@ -17,7 +17,8 @@ function fixture(results: Array<number | Error | 'pending'> = [0, 0, 0]) {
       HOME: root, ODIN_REAL_CORE_ROOT: root, ODIN_REAL_CORE_UID: '1001', ODIN_REAL_CORE_GID: '1002',
       ODIN_REAL_CORE_OUTER_PID_NS: 'pid:[outer]', XDG_CONFIG_HOME: `${root}/config`,
       XDG_DATA_HOME: `${root}/data`, XDG_CACHE_HOME: `${root}/cache`, XDG_RUNTIME_DIR: `${root}/run`,
-      RUNNER_TRACKING_ID: 'runner-cleanup-tag', DISPLAY: ':0', SECRET_TOKEN: 'never-inherit'
+      RUNNER_TRACKING_ID: 'runner-cleanup-tag', DISPLAY: ':0', SECRET_TOKEN: 'never-inherit',
+      AMBIENT_TEST_VALUE: 'must-not-leak'
     } as Record<string, string>,
     kill: vi.fn()
   })
@@ -77,7 +78,7 @@ describe('real-core isolation launcher with fake child_process only', () => {
       expect(args).toContain('ODIN_REAL_CORE_GID=1002')
       expect(args).toContain('ODIN_REAL_CORE_TIMEOUT_MS=600000')
       expect(args).toContain(`HOME=${root}`)
-      expect(args.join(' ')).not.toMatch(/DISPLAY=|SECRET_TOKEN=|never-inherit/)
+      expect(args.join(' ')).not.toMatch(/DISPLAY=|SECRET_TOKEN=|never-inherit|AMBIENT_TEST_VALUE=/)
     }
     expect(calls(f)[1]![1].at(-1)).toBe('--inside-probe')
     expect(calls(f)[2]![1]).toContain('--inside-run')
@@ -102,6 +103,15 @@ describe('real-core isolation launcher with fake child_process only', () => {
       expect(calls(f).flatMap(([, args]) => args)).not.toContain('--map-current-user')
     }
   )
+
+  it('keeps the selected cached Node directory in the isolated PATH instead of selecting a different system runtime', async () => {
+    const f = fixture()
+    f.host.execPath = '/runner/cache/node/22.23.3/x64/bin/node'
+    await f.launchIsolated('node', ['run'])
+    const run = calls(f)[2]![1]
+    expect(run).toContain('PATH=/runner/cache/node/22.23.3/x64/bin:/usr/local/bin:/usr/bin:/bin')
+    expect(run).toContain(f.host.execPath)
+  })
 
   it('fails clearly before running tests when all capability probes fail', async () => {
     const f = fixture([0, 1, 1])

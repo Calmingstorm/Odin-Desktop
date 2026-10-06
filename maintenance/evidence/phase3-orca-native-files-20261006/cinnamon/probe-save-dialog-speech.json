@@ -1,0 +1,10 @@
+[
+  "05:14:52.249111 - SPEECH OUTPUT: 'Save file file chooser.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:14:52.252791 - SPEECH OUTPUT: 'Saving notes.txt…' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:14:52.299398 - SPEECH OUTPUT: 'Name: text.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:14:52.300931 - SPEECH OUTPUT: 'notes.txt.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:14:52.537432 - SPEECH OUTPUT: 'Save file' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:14:53.111647 - SPEECH OUTPUT: 'Name: text.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:14:53.112974 - SPEECH OUTPUT: 'notes selected.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:14:53.114413 - SPEECH OUTPUT: 'Alt+N' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}"
+]

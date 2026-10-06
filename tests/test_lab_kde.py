@@ -2,12 +2,13 @@
 import configparser
 import json
 import os
-import shlex
 import subprocess
 from pathlib import Path
 
 import pytest
 from PIL import Image
+
+from scripts.qualification.lab.fixture_userns import NamespaceUnavailableError, emit_config
 
 ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / "scripts/qualification/lab/guest/kde.sh"
@@ -151,27 +152,17 @@ def test_recipe_declares_runtime_packages_and_unlocks_sddm_pam_account():
 
 @pytest.fixture(params=["fresh", "root-owned-retry"])
 def user_config(tmp_path, request):
-    # Real root-owned fixture directories reproduce install -d's intermediate
-    # ownership bug. This runs only inside the test launcher's PID namespace;
-    # no guest, host account, service, or desktop configuration is touched.
+    # Namespace-local root maps only unprivileged IDs, never host UID/GID 0.
+    # A retry requires two distinct mapped owners, not a second fresh emission.
+    # Pytest and the actual post-emission writes stay the non-root caller.
     home = tmp_path / "home"
     home.mkdir()
     uid, gid = os.getuid(), os.getgid()
     assert uid != 0, "Run through the repository PID launcher as the repo user"
-    command = [
-        "sudo", "-n", "env", "-i", "PATH=/usr/bin:/bin", "bash", "-c",
-        f"source {shlex.quote(str(RECIPE))}; "
-        'kde_write_user_config "$1" "$2" "$3"',
-        "_", str(home), str(uid), str(gid),
-    ]
-    if request.param == "root-owned-retry":
-        # Generate an earlier root-owned configuration, then repair it using
-        # exactly the same emitter that provisioning calls for odq.
-        result = subprocess.run(command[:-2] + ["0", "0"], capture_output=True, text=True)
-        assert result.returncode == 0, result.stderr
-        assert (home / ".config").stat().st_uid == 0
-    result = subprocess.run(command, capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr
+    try:
+        emit_config(RECIPE, home, retry=request.param == "root-owned-retry")
+    except NamespaceUnavailableError as error:
+        pytest.skip(str(error))
     return home, uid, gid
 
 

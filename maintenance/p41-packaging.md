@@ -1,5 +1,129 @@
 # P4.1 early candidate packaging evidence, 2026-10-05
 
+## PR #54 review round 1: fixed-probe installed `.deb` measurement
+
+**Latest disposition: GUI row FAIL; overall gate remains OPEN. Renderer sandbox
+is now directly witnessed in this new measurement.** At reviewer's request,
+the unchanged installed #54 `.deb` was launched exactly once on 2026-10-06,
+10:48:11–10:48:58 UTC, with the merged probe that saves `observations.json`
+before checking GUI success. #54 had already merged, so this is a small
+evidence-only follow-up from `main@541d29e7ad53ec4cd231a371774aa8fbb8f5500c`.
+No rebuild, sandbox switch, application patch, browser/AppImage rerun or native
+lifecycle run was performed.
+
+- Candidate SHA-256 remains
+  `41b8a927bd06d45ed0c1403d153ca038b33b31c11ea65f614a527bacc9609551`.
+  `dpkg -V odin-desktop` returned no discrepancies. The unchanged fixed probe
+  SHA-256 is `74d68b9d9c8c342bcab4f87a60561d559abe7c336641c7542455b200449eec30`.
+- Owned `odq-gnome`: Ubuntu 24.04, kernel `6.8.0-146-generic`, active GNOME
+  Wayland, candidate executed as `odq` UID 1001. AppArmor was active and
+  `apparmor_restrict_unprivileged_userns=1`. The second restriction,
+  `apparmor_restrict_unprivileged_unconfined`, had reset to 0 after reboot and
+  was restored to 1 **before** measurement. Unprofiled `unshare -Ur true` was
+  denied. This retains the earlier restored-policy, not untouched-stock-image,
+  limitation. No host policy or active desktop was changed.
+- **Sandbox witness:** 285 saved samples of renderer PID **1378**, all with
+  `Seccomp: 2`, `NoNewPrivs: 1`, `--enable-sandbox`, no `--no-sandbox` or
+  `--disable-setuid-sandbox`, and `odin-desktop (unconfined)` attachment.
+  Concurrent read-only guest-root collection confirms renderer user namespace
+  `user:[4026532708]`, PID namespace `pid:[4026532709]`, and network namespace
+  `net:[4026532712]`, all different from guest PID 1; `NSpid: 1378 4 1`.
+  The mount namespace is shared. The AppArmor exception is unconfined plus
+  userns, not a claim of full application confinement.
+- **Exact failed checkpoint:** exit **1**, `smoke: timed out`, then
+  `UnknownVizError`; no `electron.png` or `smoke: ok link=ready` survived.
+  Electron **44.5.1** maps this error to `CopyFromSurfaceError::kUnknownVizError`
+  in `OnCapturePageDone`. The unchanged candidate's smoke source calls
+  `webContents.capturePage()` after broker readiness. This identifies a Viz
+  surface-copy/capture failure, not an observed renderer sandbox startup denial.
+  The error is logged **after** the timeout; it may be a teardown consequence
+  of `app.exit(1)`, not the original reason capture did not complete. This run
+  has no event trace that resolves that ordering ambiguity.
+- **Graphics evidence, not a proven root cause:** the guest has virtio GPU
+  `-virgl`, zero capability sets, GNOME EGL `failed to create dri2 screen`,
+  fallback to `kms_swrast`, and no accelerated framebuffer sharing. These
+  support a VM/Electron Wayland graphics-path explanation. This one run does
+  **not** distinguish a guest graphics defect from an Electron/Viz capture
+  compatibility defect. No candidate AppArmor/SECCOMP denial appears in the
+  retained journal; its only namespace-related DENIED row is the deliberate
+  unprofiled `unshare` control. Absence of a logged denial is not universal
+  proof of absence. Do not close the GUI gate from the renderer witnesses.
+
+Summary and artifact SHA-256 paths:
+`maintenance/evidence/pr54-deb-probe-r1-20261006/`. Raw observations (about
+715 KiB) and journals remain outside Git under
+`/mnt/storage/odin-desktop-evidence/pr54-deb-probe-r1-req5cf491b3/`.
+The pulled isolated profile contains generated test credentials and is private;
+it is neither committed nor included in the public evidence manifest.
+All `odq-*` VMs were stopped after collection. The original failed row below is
+historical and is not retroactively upgraded by this newly authorized run.
+
+## Ubuntu 24.04 restricted-userns Task 1, 2026-10-06
+
+**Disposition: partially qualified, overall gate remains OPEN.** The one-shot
+installed `.deb` GUI row failed its rendered/core-handshake checkpoint. It is
+not converted into a sandbox pass, and was not retried. The installed browser
+and actual FUSE-mounted AppImage safe-refusal rows passed. Task 2 was not run.
+Full result and artifact digests are in
+`maintenance/evidence/lane7-userns-20261006/`.
+
+Fresh base: `ed0069674533c23e70a0302652a2fb76901ff385`. Final candidates built
+with P4.1 scripts at `d142968a3533c9a930f7e3147ef8cca6c79183e7`:
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `.deb` | 341776612 | `41b8a927bd06d45ed0c1403d153ca038b33b31c11ea65f614a527bacc9609551` |
+| AppImage | 489685623 | `b61f9f92d47a66cf5cbe6362b987246dfe9e204132fba2e71fe0adf9f7772981` |
+
+Guest: owned `odq-gnome`, Ubuntu 24.04.5, kernel `6.8.0-146-generic`, nonroot
+`odq` UID/GID 1001, GNOME Wayland. **The pre-existing minimal Noble image was
+initially sysctl=0 with AppArmor absent/inactive.** Guest-only distro AppArmor
+packages were installed and enabled; both
+`apparmor_restrict_unprivileged_userns` and
+`apparmor_restrict_unprivileged_unconfined` were set to **1** before any candidate
+launch. This is restored restricted-policy execution, not an untouched stock
+desktop-image claim. No host policy was changed. `unprivileged_userns (enforce)`
+was loaded and unprofiled `odq` `unshare -Ur true` was actually denied.
+
+The first candidate install exposed a maintainer-hook integration defect:
+custom P4.2 hooks replaced electron-builder's AppArmor installation. Neither
+profile was installed. No application/browser case had run. The fix installs
+and loads the immutable profile through the real postinst, with digest-owned
+removal and failure fencing; rebuilt candidate installation loaded both exact
+Electron and headless-shell attachments. The shipped attachments intentionally
+remain `flags=(unconfined)` plus `userns`, as Ubuntu's application exceptions do;
+they are not described as enforcing application confinement.
+
+- `.deb`, one launch: **FAIL**. `smoke: timed out`, then `UnknownVizError` during
+  capture. No screenshot or saved Electron renderer witness survived this failed
+  harness row, so Electron sandbox acceptance is **unproven**, not inferred from
+  loaded policy or a running core. Follow-up qualification is required.
+- Browser, one launch: **PASS**. Actual installed `BrowserManager`, bundled
+  Chromium **153.0.8010.12**, real HTML title/screenshot, renderer UID 1001,
+  `Seccomp: 2`, `NoNewPrivs: 1`, nested PID/user namespace and
+  `odin-desktop-headless` attachment. No sandbox-disable switches.
+- AppImage, one launch: **PASS safe-refusal branch**, not Electron startup.
+  Actual read-only `fuse.lane7.AppImage` mount observed. Preflight exits **78**
+  before Electron/lease creation; stderr and native Zenity plain error recommend
+  `.deb` without weakening security. Refusal is deliberately conservative even
+  if a site exception might permit user namespaces. Native dialog invocation
+  and its exact text were observed, not screen-reader acceptance or a screenshot.
+
+Gates: final app check **747 tests**, typecheck/build pass; private-Xvfb fixture
+smoke, real-core tests plus **6 onboarding**, real-core smoke and **15 a11y**
+cases pass. Full lifecycle gate **28 pass / 1 fail** at
+`lifecycle.spec.ts:333`, core not ready within its deadline; no retry. Packaging
+ordinary-owner suite **109 run / 22 prerequisite skips**, no failures; privileged
+targeted hook **21** and preflight **9** cases pass separately. Engine applicable
+resource selection **21 pass** in the prescribed PID namespace. Failed preliminary
+inherited packaging selections and an incorrectly root-run ordinary-owner suite
+are preserved, not relabelled as passes. No full inherited engine qualification
+or native Task 2 lifecycle acceptance is claimed.
+
+`odq-gnome` was powered off through its guest agent; all odq VMs were confirmed
+**STOPPED**. Raw files/candidates remain outside Git under
+`/mnt/storage/odin-desktop-evidence/lane7-userns-20261006/`.
+
 ## Last main merge, 2026-10-06
 
 **Moving-main addendum:** #23 landed while #22's rebuilt candidates completed

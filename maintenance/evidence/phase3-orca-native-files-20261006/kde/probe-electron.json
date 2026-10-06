@@ -1,0 +1,43 @@
+{
+  "kind": "focused-probes-not-qualification",
+  "probe": "native-files",
+  "launches": 1,
+  "passed": false,
+  "profile": "/var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/probe-files-ae909592-144d-42c2-b8d0-5bfc1fa36863",
+  "window": {
+    "visible": true,
+    "focused": true,
+    "minimized": false,
+    "preferences": {
+      "allowRunningInsecureContent": false,
+      "contextIsolation": true,
+      "disableDialogs": false,
+      "disablePopups": false,
+      "enableBlinkFeatures": "",
+      "experimentalFeatures": false,
+      "javascript": true,
+      "nodeIntegration": false,
+      "nodeIntegrationInSubFrames": false,
+      "nodeIntegrationInWorker": false,
+      "safeDialogs": false,
+      "safeDialogsMessage": "",
+      "sandbox": true,
+      "webSecurity": true,
+      "webviewTag": false
+    },
+    "arguments": [
+      "/usr/local/lib/odq/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3-sandbox/electron/electron",
+      "--inspect=0",
+      "--remote-debugging-port=0",
+      "/var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/app",
+      "--force-renderer-accessibility",
+      "--enable-logging=stderr",
+      "--ozone-platform=wayland"
+    ]
+  },
+  "message_focused": true,
+  "speech_message": true,
+  "native_frame": true,
+  "safe_preferences": true,
+  "error": "Error: Command failed: /usr/bin/python3 -B /var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/scripts/qualification/lab/guest/focused_probe.py dialog Attach files\nTraceback (most recent call last):\n  File \"/var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/scripts/qualification/lab/guest/focused_probe.py\", line 230, in <module>\n    print(json.dumps(dialog_snapshot(sys.argv[2] if len(sys.argv) > 2 else \"Attach files\")))\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/scripts/qualification/lab/guest/focused_probe.py\", line 177, in dialog_snapshot\n    binding = module.active_dialog(title)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/scripts/qualification/lab/guest/native_dialog_events.py\", line 295, in active_dialog\n    raise RuntimeError(f\"No owned active AT-SPI dialog: {title}\")\nRuntimeError: No owned active AT-SPI dialog: Attach files\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at checkExecSyncError (node:child_process:916:11)\n    at execFileSync (node:child_process:952:15)\n    at native (/var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/scripts/qualification/lab/guest/focused_electron.cjs:10:29)\n    at /var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/scripts/qualification/lab/guest/focused_electron.cjs:114:38\n    at poll (/var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/scripts/qualification/lab/guest/focused_electron.cjs:73:21)\n    at async dialogCommand (/var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/scripts/qualification/lab/guest/focused_electron.cjs:113:9)\n    at async /var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/scripts/qualification/lab/guest/focused_electron.cjs:138:7"
+}
