@@ -404,42 +404,94 @@ async def test_unwired_features_are_hidden_and_stale_calls_refused_not_restored(
 
 
 # Message and file posting are restored by skill delivery (D19-020/021); the
-# composed-core proofs live in test_desktop_skill_delivery.py.
-@pytest.mark.parametrize("body,diagnostic", [
-    pytest.param("await context.search_history('fixture')",
-                 "Owner-scoped conversation history is unavailable until Phase 2 wiring.",
-                 id="search_history"),
-    pytest.param("await context.schedule_task(description='fixture', action='reminder', "
-                 "conversation_id='fixture')",
-                 "Validated conversation scheduling is unavailable until Phase 2 wiring.",
-                 id="schedule_task"),
-    pytest.param("await context.update_schedule('fixture', paused=True)",
-                 "Validated conversation scheduling is unavailable until Phase 2 wiring.",
-                 id="update_schedule"),
-    pytest.param("await context.delete_schedule('fixture')",
-                 "Validated conversation scheduling is unavailable until Phase 2 wiring.",
-                 id="delete_schedule"),
-])
-async def test_dynamic_skill_context_fences_remain_reachable(composed, caplog, body, diagnostic):
-    graph = composed
-    definition = {"name": "d19_fixture", "description": "Private bounded D19 proof",
+# composed-core proofs live in test_desktop_skill_delivery.py. History and
+# scheduling (D19-022/023) use the request-bound transcript search and the
+# admitted schedule service, as the native tools do.
+async def save_skill(graph, name, lines):
+    definition = {"name": name, "description": "Private bounded D19 proof",
                   "input_schema": {"type": "object", "properties": {}}}
     code = (f"SKILL_DEFINITION = {definition!r}\n"
-            f"async def execute(inp, context):\n    {body}\n    return 'unexpected success'\n")
-    saved = await rpc(graph, "skills.save", {"name": "d19_fixture", "code": code})
+            "async def execute(inp, context):\n" + "".join(f"    {line}\n" for line in lines))
+    saved = await rpc(graph, "skills.save", {"name": name, "code": code})
     assert "created" in saved["result"]
-    assert graph.core.management.skills.skill_manager is graph.core.engine.deps.skill_manager
+
+
+async def test_restored_skill_history_searches_the_request_transcript(composed):
+    graph = composed
     cid = await conversation(graph)
-    await turn(graph, cid, "d19_fixture")
-    assert "d19_fixture" in {item["name"] for item in graph.provider.calls[0]["tools"]}
-    # The real trusted skill runs and reaches the still-pending context fence.
-    # Installed skills' results are model-visible (as in v4.13.0), so the model
-    # receives the refusal, never a fabricated success.
-    assert diagnostic in caplog.text
+    graph.core.transcript.commit(cid, "assistant", "D19 skill history marker")
+    await save_skill(graph, "d19_history", [
+        "hits = await context.search_history('D19 skill history marker')",
+        "return ' | '.join(f\"{hit['type']}: {hit['content']}\" for hit in hits)",
+    ])
+    await turn(graph, cid, "d19_history")
+    results = [str(content) for content in tool_results(graph)]
+    assert any("assistant: D19 skill history marker" in content for content in results), results
+
+
+async def test_restored_skill_scheduling_binds_owner_and_destination(composed):
+    from datetime import UTC, datetime, timedelta
+
+    graph = composed
+    scheduler = graph.core.engine.deps.scheduler
+    cid = await conversation(graph)
+    run_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    await save_skill(graph, "d19_schedule", [
+        f"created = await context.schedule_task('D19 skill reminder', 'reminder', {cid!r}, "
+        f"message='Skill reminder', run_at={run_at!r})",
+        "listed = [item['id'] for item in context.list_schedules()]",
+        "updated = await context.update_schedule(created['id'], paused=True)",
+        "return f\"created={created['id']} listed={created['id'] in listed} "
+        "paused={updated['paused']}\"",
+    ])
+    await turn(graph, cid, "d19_schedule")
+    results = " ".join(str(content) for content in tool_results(graph))
+    assert "listed=True paused=True" in results, results
+    stored, = scheduler.list_all()
+    assert stored["channel_id"] == cid and stored["paused"] is True
+    assert stored["requester_id"] == graph.core.authority.owner_id
+    assert stored["description"] == "D19 skill reminder"
+    await save_skill(graph, "d19_unschedule", [
+        f"first = await context.delete_schedule({stored['id']!r})",
+        f"second = await context.delete_schedule({stored['id']!r})",
+        "return f'deleted={first} again={second}'",
+    ])
+    await turn(graph, cid, "d19_unschedule")
+    assert "deleted=True again=False" in " ".join(str(c) for c in tool_results(graph))
+    assert not scheduler.list_all()
+
+
+async def test_restored_skill_scheduling_refuses_an_unknown_destination(composed):
+    from datetime import UTC, datetime, timedelta
+
+    graph = composed
+    cid = await conversation(graph)
+    run_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    await save_skill(graph, "d19_foreign_destination", [
+        "await context.schedule_task('D19 foreign', 'reminder', 'c_not_a_conversation', "
+        f"message='Never scheduled', run_at={run_at!r})",
+        "return 'unexpected success'",
+    ])
+    await turn(graph, cid, "d19_foreign_destination")
     results = [str(content) for content in tool_results(graph)]
     assert results and not any("unexpected success" in content for content in results)
     assert not graph.core.engine.deps.scheduler.list_all()
-    assert not [item for item in graph.core.transcript.list(cid)["items"] if item.get("artifacts")]
+
+
+async def test_skill_history_and_scheduling_require_an_admitted_request(composed):
+    graph = composed
+    deps = graph.core.engine.deps
+    manager = deps.skill_manager
+    # Skills never receive the unscoped stores, only the request-bound surfaces.
+    assert manager._session_manager is not deps.sessions
+    assert manager._scheduler is not deps.scheduler
+    # Outside an executing request there is no ambient owner or destination.
+    with pytest.raises(PermissionError, match="No current admitted request"):
+        await manager._session_manager.search_history("anything")
+    with pytest.raises(PermissionError, match="No current admitted request"):
+        manager._scheduler.list_all()
+    with pytest.raises(PermissionError, match="No current admitted request"):
+        await manager._scheduler.delete("missing")
 
 
 async def test_shared_settings_change_governs_next_real_request(composed):

@@ -15045,14 +15045,14 @@
         {
           "original": "tests/test_skill_context.py::TestMessaging::test_post_message_no_callback",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestMessaging::test_post_message_no_callback"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
@@ -15071,14 +15071,14 @@
         {
           "original": "tests/test_skill_context.py::TestMessaging::test_post_file_no_callback",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestMessaging::test_post_file_no_callback"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
@@ -15201,53 +15201,53 @@
         {
           "original": "tests/test_skill_context.py::TestDelegations::test_knowledge_and_history_disabled",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_knowledge_neutral_delegations_are_not_history_wiring"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_knowledge_and_history_disabled"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
           "original": "tests/test_skill_context.py::TestDelegations::test_knowledge_enabled",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_knowledge_neutral_delegations_are_not_history_wiring"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_knowledge_enabled"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
           "original": "tests/test_skill_context.py::TestDelegations::test_scheduler_disabled",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_scheduler_disabled"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
           "original": "tests/test_skill_context.py::TestDelegations::test_scheduler_enabled",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_scheduler_enabled"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
@@ -61205,6 +61205,30 @@
       "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestHttp::test_post"
     },
     {
+      "original": "tests/test_skill_context.py::TestMessaging::test_post_message_no_callback",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestMessaging::test_post_message_no_callback"
+    },
+    {
+      "original": "tests/test_skill_context.py::TestMessaging::test_post_file_no_callback",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestMessaging::test_post_file_no_callback"
+    },
+    {
+      "original": "tests/test_skill_context.py::TestDelegations::test_knowledge_and_history_disabled",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_knowledge_and_history_disabled"
+    },
+    {
+      "original": "tests/test_skill_context.py::TestDelegations::test_knowledge_enabled",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_knowledge_enabled"
+    },
+    {
+      "original": "tests/test_skill_context.py::TestDelegations::test_scheduler_disabled",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_scheduler_disabled"
+    },
+    {
+      "original": "tests/test_skill_context.py::TestDelegations::test_scheduler_enabled",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_scheduler_enabled"
+    },
+    {
       "original": "tests/test_desktop_shared_foundation.py::test_retained_secret_containers_remain_nonpublic[outbound_webhooks.targets]",
       "executable": "tests/test_desktop_shared_foundation.py::test_retained_secret_containers_remain_nonpublic[outbound_webhooks.targets]"
     },
@@ -61289,10 +61313,6 @@
       "executable": "tests/test_desktop_shared_foundation.py::test_skill_allowed_urls_are_instance_scoped"
     },
     {
-      "original": "tests/test_desktop_shared_foundation.py::test_skill_knowledge_neutral_delegations_are_not_history_wiring",
-      "executable": "tests/test_desktop_shared_foundation.py::test_skill_knowledge_neutral_delegations_are_not_history_wiring"
-    },
-    {
       "original": "tests/test_desktop_shared_foundation.py::test_schema_retained_container_ancestry_and_secret_facts",
       "executable": "tests/test_desktop_shared_foundation.py::test_schema_retained_container_ancestry_and_secret_facts"
     },
@@ -61311,10 +61331,6 @@
     {
       "original": "tests/test_desktop_shared_foundation.py::test_documentation_generation_is_pure_and_current_catalog_only",
       "executable": "tests/test_desktop_shared_foundation.py::test_documentation_generation_is_pure_and_current_catalog_only"
-    },
-    {
-      "original": "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly",
-      "executable": "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly"
     },
     {
       "original": "tests/test_desktop_shared_foundation.py::test_builtin_static_catalog_publishes_real_schemas",
@@ -65169,12 +65185,8 @@
       "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_conversation_callbacks_preserve_quotas"
     },
     {
-      "original": "tests/test_desktop_capabilities_skills_hosts.py::test_schedule_destination_is_not_a_free_form_scheduler_id",
-      "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_schedule_destination_is_not_a_free_form_scheduler_id"
-    },
-    {
-      "original": "tests/test_desktop_capabilities_skills_hosts.py::test_unscoped_history_store_cannot_be_used_by_skill",
-      "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_unscoped_history_store_cannot_be_used_by_skill"
+      "original": "tests/test_desktop_capabilities_skills_hosts.py::test_skill_schedule_api_names_conversations",
+      "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_skill_schedule_api_names_conversations"
     },
     {
       "original": "tests/test_desktop_capabilities_skills_hosts.py::test_url_grants_are_instance_scoped_and_used_for_hardened_fetch",
