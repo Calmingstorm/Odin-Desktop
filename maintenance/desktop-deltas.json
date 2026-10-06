@@ -18027,7 +18027,7 @@
         }
       ],
       "path": "tests/test_desktop_model_settings.py",
-      "reason": "Merge of #30 with main after P4.1: PR30 merge main #18/#22: PR30 P2 qualification: preserve model-owner rejection tests with import-group formatting required by lint | P31 slice2 tests verify persist MethodError identity and real ProviderOwner stale revision rollback, unchanged config bytes/revision/serving identity/generation and closed unpublished client. | Rebased main PR27 brings one import-order lint finding; separate third-party import from internal imports without changing assertions. Merged main conversation-capability assertions change the real-core-settings evidence bytes, not this Python test; the evidence digest is refreshed to the exact main bytes.",
+      "reason": "Merge of #30 with main after P4.1: PR30 merge main #18/#22: PR30 P2 qualification: preserve model-owner rejection tests with import-group formatting required by lint | P31 slice2 tests verify persist MethodError identity and real ProviderOwner stale revision rollback, unchanged config bytes/revision/serving identity/generation and closed unpublished client. | Rebased main PR27 brings one import-order lint finding; separate third-party import from internal imports without changing assertions. Merged main conversation-capability assertions change the real-core-settings evidence bytes, not this Python test; the evidence digest is refreshed to the exact main bytes. | P31 slice5 updates only the inherited app evidence to expect served schedules.list and composed turn-state availability on step6B; model-owner assertions and Python source remain unchanged. Exact updated evidence digest remains pending independent review.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -18035,7 +18035,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/real-core-settings.test.ts": "3692d63196550e5ee34f5340b24e2b13fb0e37519e968a7f491c09185f076759",
+        "app/test/real-core-settings.test.ts": "76c0d2bebee2e6a687ac519eaa69157522d5b524be7610b7e1537aaa242960b5",
         "tests/test_desktop_model_settings.py": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d"
       },
       "tests": [

@@ -4,6 +4,7 @@ import { reactive } from 'vue'
 import type { ScheduleRow, ScheduleRun, ScheduleSave } from '../../../shared/api'
 import { act, failure, management } from './management'
 import { isUnavailable } from '../capability'
+import { onCoreEvent, onReady } from '../store'
 
 export const schedules = reactive({
   list: [] as ScheduleRow[],
@@ -100,3 +101,17 @@ export async function checkCron(expression: string): Promise<void> {
     ? { expression, next_runs: result.result.next_runs, error: '' }
     : { expression, next_runs: [], error: result.error.message }
 }
+
+// Work controls and automatic scheduler completions can change a definition while Settings is open.
+// Re-read the actual schedule service rather than deriving pause/recovery state from a work event.
+let refreshTimer: ReturnType<typeof setTimeout> | undefined
+onCoreEvent((event) => {
+  if (event.type !== 'work.updated' || event.payload.kind !== 'schedule' || !schedules.loaded || refreshTimer) return
+  refreshTimer = setTimeout(() => {
+    refreshTimer = undefined
+    void loadSchedules()
+  }, 200)
+})
+
+// A new incarnation or cursor reset invalidates the open Settings projection too.
+onReady(() => { if (schedules.loaded) void loadSchedules() })

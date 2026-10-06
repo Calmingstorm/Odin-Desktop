@@ -66,8 +66,11 @@ describe('actual app Broker ↔ repository real core', () => {
     const subscribed = successful<Subscription>(await broker.request('events.subscribe', { after: '0' }))
     expect(subscribed).toEqual({ event_high: welcome.event_high, reset_required: false })
     await waitFor(() => events.length === 1, 'startup event replay')
+    // The persisted startup observation and a later fresh read have different
+    // uptime seconds. Compare the stable status contract, not wall-clock text.
+    const { summary: _summary, ...stableStatus } = status as Status & { summary: string }
     expect(events[0]).toMatchObject({ t: 'evt', seq: 1, cursor: '1', type: 'runtime.status',
-      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: { ...status, summary: expect.any(String) } })
+      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: stableStatus })
     expect(events[0]!.at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/)
     expect(Date.parse(events[0]!.at)).not.toBeNaN()
     expect(broker.cursor).toBe('1')
@@ -135,11 +138,14 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '0' }, id)).reset_required).toBe(false)
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '999999' }, id)).reset_required).toBe(true)
     expect(successful<{ items: unknown[] }>(await broker.request('conversations.list', {}, id)).items).toEqual([])
-    refused(await broker.request('work.list', {}, id), 'capability_unavailable')
-    refused(await broker.request('schedules.list', {}, id), 'capability_unavailable')
     expect(successful<{ fields: unknown[] }>(await broker.request('settings.schema', {}, id)).fields.length).toBeGreaterThan(0)
     refused(await broker.request('codex.accounts.list', {}, id), 'keyring_unavailable')
     expect(successful<{ tokens: unknown }>(await broker.request('usage.get', {}, id)).tokens).toEqual({ value: null, kind: 'unknown' })
+    expect(successful<{ items: unknown[] }>(await broker.request('work.list', {}, id)).items).toEqual([])
+    expect(successful<unknown[]>(await broker.request('schedules.list', {}, id))).toEqual([])
+    for (const method of ['skills.list', 'mcp.status', 'computer.status']) {
+      refused(await broker.request(method, {}, id), 'capability_unavailable')
+    }
     expect(await broker.request('runtime.shutdown', { reason: 'read ID is still available' }, id)).toEqual({
       ok: true, result: { disposition: 'accepted' }
     })

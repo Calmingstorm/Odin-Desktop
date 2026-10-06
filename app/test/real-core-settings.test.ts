@@ -77,7 +77,7 @@ describe('served settings/management through actual Broker and isolated reposito
     expect(result(await broker.request('knowledge.list'))).toEqual([])
     expect(result(await broker.request('audit.query'))).toEqual([])
     expect(result(await broker.request('logs.search'))).toEqual({ entries: [], count: 0 })
-    expect(result(await broker.request('turn_state.list'))).toMatchObject({ schema_version: 1, availability: 'not_enabled', data: {} })
+    expect(result(await broker.request('turn_state.list'))).toMatchObject({ schema_version: 1, availability: 'available', data: {} })
     expect(result(await broker.request('usage.get', { period: '7d' }))).toMatchObject({ period: '7d', tokens: { value: null, kind: 'unknown' },
       context: { used: { value: null, kind: 'unknown' }, budget: { value: null, kind: 'unknown' } }, quota: [] })
     expect(result(await broker.request('audit.verify'))).toMatchObject({ valid: false, verified: 0, availability: 'not_enabled' })
@@ -86,7 +86,8 @@ describe('served settings/management through actual Broker and isolated reposito
     result(await broker.request('runtime.reload', { scope: 'context' }))
     refused(await broker.request('usage.get', { period: 'invalid' }), 'bad_request')
     expect(result(await broker.request('conversations.list'))).toMatchObject({ items: [], watermark: expect.any(String) })
-    for (const method of ['turns.create', 'schedules.list', 'skills.list', 'loops.list', 'agents.list', 'mcp.list', 'shell.execute']) {
+    expect(result(await broker.request('schedules.list'))).toEqual([])
+    for (const method of ['turns.create', 'skills.list', 'loops.list', 'agents.list', 'mcp.list', 'shell.execute']) {
       expect(SERVED_CAPABILITIES).not.toContain(method)
       refused(await broker.request(method), 'capability_unavailable')
     }
@@ -351,6 +352,6 @@ describe('served settings/management through actual Broker and isolated reposito
     }
     result(await broker.request('codex.accounts.remove', { index: 0 }))
     expect(result(await broker.request('codex.accounts.list'))).toEqual({ configured: false, accounts: [] })
-    refused(await broker.request('schedules.list'), 'capability_unavailable')
+    expect(result(await broker.request('schedules.list'))).toEqual([])
   })
 })

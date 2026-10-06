@@ -21,7 +21,7 @@ try {
     timeoutMs: 600_000,
     env: {
       ODIN_DESKTOP_ENGINE_PYTHON: python,
-      ODIN_DESKTOP_CORE_CMD: JSON.stringify([python, '-B', '-P', '-m', 'src']),
+      ODIN_DESKTOP_CORE_CMD: JSON.stringify([python, '-B', '-P', join(repositoryRoot, 'app/test/services-b-core.py')]),
       ODIN_SMOKE_REAL_CORE: '1',
       ODIN_SMOKE_OUT: out
     }

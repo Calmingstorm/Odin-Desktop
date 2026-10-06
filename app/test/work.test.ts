@@ -47,6 +47,22 @@ async function connect() {
 }
 
 describe('running work', () => {
+  it('keeps structured steering queued, preserves exact binding, and exposes unknown release honestly', async () => {
+    const { broker, events, send, list, control } = await connect()
+    await send('start a structured agent')
+    const agent = (await list()).find((i) => i.kind === 'agent')!
+    expect(agent).toMatchObject({ actions: ['cancel', 'steer'], detail: { inbox_sequence: 0, last_consumed_sequence: 0 }, settlement: { state: 'pending', resource_release: 'unproven' } })
+    const commandId = crypto.randomUUID()
+    const params = { control_command_id: commandId, kind: agent.kind, id: agent.id, action: 'steer', text: 'Keep original scope',
+      manager_generation: agent.manager_generation, run_id: agent.run_id, generation: agent.generation, conversation_id: agent.conversation_id }
+    expect(await broker.request('work.control', params, commandId)).toMatchObject({ ok: true, result: { disposition: 'queued', consumed: false, sequence: 1 } })
+    expect(await broker.request('work.control', params, commandId)).toMatchObject({ ok: true, result: { disposition: 'queued', consumed: false, sequence: 1 } })
+    expect((await list()).find((i) => i.id === agent.id)).toMatchObject({ detail: { inbox_sequence: 1, last_consumed_sequence: 0 } })
+    expect(await control('agent', agent.id, 'cancel')).toMatchObject({ ok: true, result: { disposition: 'requested' } })
+    await waitFor(() => events.some((e) => e.type === 'work.updated' && e.payload.id === agent.id && e.payload.state === 'stopped'))
+    expect((await list()).find((i) => i.id === agent.id)).toMatchObject({ settlement: { state: 'unknown', resource_release: 'unknown' } })
+  })
+
   it('lists work with the controls Odin offers now, stops an agent, and stops offering what no longer applies', async () => {
     const { events, send, list, control } = await connect()
     await send('start an agent')

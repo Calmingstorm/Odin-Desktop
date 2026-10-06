@@ -114,9 +114,17 @@ export const workControlSchema = z
     control_command_id: z.uuid(),
     kind: workKind,
     id: coreId,
-    action: z.enum(['stop', 'cancel', 'restart', 'pause', 'resume', 'run_now'])
+    action: z.enum(['stop', 'cancel', 'restart', 'pause', 'resume', 'run_now', 'steer']),
+    manager_generation: z.string().min(1).max(512).optional(),
+    run_id: coreId.optional(),
+    generation: z.number().int().nonnegative().optional(),
+    conversation_id: coreId.optional(),
+    revision: z.number().int().nonnegative().optional(),
+    text: z.string().min(1).optional()
   })
   .strict()
+  .refine((v) => v.action !== 'steer' || (v.kind === 'agent' && Boolean(v.text)), { message: 'agent steering needs text' })
+  .refine((v) => v.text === undefined || v.action === 'steer', { message: 'text is only for agent steering' })
 
 export const toolDetailSchema = z.object({ request_id: coreId, invocation_id: coreId }).strict()
 
