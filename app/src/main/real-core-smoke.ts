@@ -20,13 +20,16 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(status.core_instance_id, broker.coreInstanceId)
   assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? '0.1.0.dev1')
   for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
+    'conversations.list', 'conversations.create', 'messages.list', 'conversation.snapshot', 'search.query',
+    'submission.send', 'control.stop', 'control.steer', 'control.resume',
     'tools.list', 'tools.timeouts.get', 'personality.get', 'hosts.list', 'hosts.public_key',
     'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get']) {
     assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
   }
 
-  // Later-slice reads are genuine core refusals, not empty successful lists.
-  for (const method of ['conversations.list', 'search.query', 'work.list', 'skills.list', 'mcp.status', 'schedules.list', 'computer.status']) {
+  // These services remain genuine core refusals, not empty successful lists.
+  for (const method of ['work.list', 'skills.list', 'mcp.status', 'schedules.list', 'computer.status']) {
+    assert(!status.capabilities.includes(method), `${method} must not be advertised as served`)
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
@@ -66,22 +69,35 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
 
   await until(async () => (await text('.status')).includes(status.version), 'real core status bar')
   screens.push({ screen: 'Status', text: await text('.status') })
-  await recordUnavailable('Chat and conversations', '.main')
-  await recordUnavailable('Conversation sidebar', 'nav[aria-label="Conversations"]')
-  const sidebarInset = await run<number>(`(() => {
-    const nav = document.querySelector('nav[aria-label="Conversations"]').getBoundingClientRect();
-    return document.querySelector('.sidebar-notice').getBoundingClientRect().left - nav.left;
-  })()`)
-  assert(sidebarInset >= 12, 'conversation unavailable notice must retain the sidebar inset')
-  assert.equal(await run('document.querySelectorAll(".conv-row").length'), 0, 'real session must never seed fixture conversations')
-  assert(await run('document.querySelector(".composer button[type=submit]")?.disabled === true'), 'unavailable chat must not offer a sendable composer')
-  assert(await run(`document.querySelector(${JSON.stringify('button[aria-label="Attach files"]')})?.disabled === true`), 'unavailable chat must not offer attachments')
+  // The renderer creates the first real, empty conversation on a fresh profile.
+  await until(async () => (await text('#conversation-history .empty')) === 'Ask Odin anything.', 'fresh empty chat')
+  assert.equal(await count('.conv-row'), 1, 'fresh renderer must create exactly one real chat')
+  assert.equal(await text('.conv-title'), 'Chat')
+  assert.equal(await count('.sidebar-notice'), 0, 'served conversations must not show an unavailable notice')
+  assert.equal(await count('.msg'), 0, 'fresh chat must never seed fixture messages')
+  assert(await run('document.querySelector(".composer textarea")?.disabled === false'), 'real chat must allow editing')
+  assert(await run('document.querySelector(".composer button[type=submit]")?.disabled === true'), 'empty draft must not be sendable')
+  assert(await run(`document.querySelector(${JSON.stringify('button[aria-label="Attach files"]')})?.disabled === false`), 'served chat must offer attachments')
+  const listed = await broker.request('conversations.list')
+  assert(listed.ok, 'real conversation list must succeed')
+  const first = (listed.result as { items: Array<{ id: string; title: string }> }).items
+  assert.equal(first.length, 1)
+  assert.equal(first[0]!.title, 'Chat')
+  screens.push({ screen: 'Chat and conversations', text: await text('.main') })
   await click('button[aria-label="New conversation"]')
-  await until(async () => unavailable.test(await text('.composer .notice:last-child')), 'new conversation refusal')
-  assert.equal(await run('document.querySelectorAll(".conv-row").length'), 0, 'refused creation must not invent a conversation')
+  await until(async () => (await count('.conv-row')) === 2 && (await text('.topbar h1')) === 'New chat'
+    && (await text('#conversation-history .empty')) === 'Ask Odin anything.', 'new real empty conversation')
+  const created = await broker.request('conversations.list')
+  assert(created.ok, 'real list after creation must succeed')
+  const conversations = (created.result as { items: Array<{ id: string; title: string }> }).items
+  assert.equal(conversations.length, 2)
+  const conversationId = conversations.find((item) => item.title === 'New chat')!.id
+  assert.notEqual(conversationId, first[0]!.id, 'New must create a distinct durable conversation')
+  const emptyMessages = await broker.request('messages.list', { conversation_id: conversationId, limit: 100 })
+  assert(emptyMessages.ok, 'real empty transcript must succeed')
+  assert.deepEqual((emptyMessages.result as { items: unknown[] }).items, [])
 
-  // Slash commands remain useful without chat. Exercise the actual command
-  // palette and bridge; /status and /usage now use real step-five observations.
+  // Slash commands use core reports, not model execution or fixture replies.
   for (const command of ['/status', '/usage']) {
     await run(`(() => {
       const input = document.querySelector('.composer textarea');
@@ -106,8 +122,14 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     input.value = 'smoke query'; input.dispatchEvent(new Event('input', { bubbles: true }));
     document.querySelector('.search-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
   })()`)
-  await recordUnavailable('Search', '.search-panel')
+  await until(async () => (await text('.search-note')) === 'No matches.', 'real empty search')
+  assert.equal(await count('#conversation-search-error'), 0, 'served search must not show a refusal')
   assert.equal(await run('document.querySelectorAll(".search-hits li").length'), 0)
+  const searched = await broker.request('search.query', { query: 'smoke query' })
+  assert(searched.ok, 'real search must succeed')
+  assert.deepEqual((searched.result as { hits: unknown[] }).hits, [])
+  assert.equal((searched.result as { next_cursor: string | null }).next_cursor, null)
+  screens.push({ screen: 'Search', text: await text('.search-panel') })
   await click('.work-toggle')
   await recordUnavailable('Work', '.work-panel')
   assert.equal(await run('document.querySelectorAll(".work-item").length'), 0)
@@ -192,6 +214,45 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     writeFileSync(out.replace(/\.png$/i, '') + `-settings-${i + 1}.png`, (await win.webContents.capturePage()).toPNG())
   }
   writeFileSync(out.replace(/\.png$/i, '') + '-settings.png', (await win.webContents.capturePage()).toPNG())
+  // Served controls fence a missing request without invoking desktop input or a provider.
+  for (const method of ['control.stop', 'control.steer', 'control.resume']) {
+    const controlled = await broker.request(method, {
+      control_command_id: `smoke-${method}`, conversation_id: conversationId,
+      request_id: 'r_missing_smoke', generation: 1,
+      ...(method === 'control.steer' ? { text: 'smoke steering' } : {})
+    })
+    assert.deepEqual(controlled, { ok: true, result: method === 'control.resume'
+      ? { disposition: 'rejected', reason: 'stale_binding' } : { disposition: 'stale_binding' } },
+    `${method} must serve its concrete request-binding disposition`)
+  }
+  // A credential-free profile admits requests but honestly cannot run a model.
+  // Check after the empty records assertions: admission now produces real logs.
+  await click('.settings-nav .back')
+  const submitted = await broker.request('submission.send', {
+    client_submission_id: 'smoke-submission', conversation_id: conversationId,
+    text: 'smoke request without a configured provider', attachments: []
+  })
+  assert(submitted.ok, 'real request admission must succeed')
+  const admission = submitted.result as { disposition: string; request_id: string; message_id: string }
+  assert.equal(admission.disposition, 'accepted')
+  assert.match(admission.request_id, /^r_[a-f0-9]+$/)
+  assert.match(admission.message_id, /^m_[a-f0-9]+$/)
+  await until(async () => (await text('#conversation-history')).includes('No LLM provider available. Please try again later.'), 'real provider failure notice')
+  const snapshot = await broker.request('conversation.snapshot', { conversation_id: conversationId })
+  assert(snapshot.ok, 'real request snapshot must succeed')
+  const projected = snapshot.result as { running: unknown; queued: unknown[]; recent: Array<{ request_id: string; outcome: string }>; messages: { items: Array<{ id: string; role: string; text: string }> } }
+  assert.equal(projected.running, null)
+  assert.deepEqual(projected.queued, [])
+  assert.equal(projected.recent.length, 1)
+  assert.equal(projected.recent[0]!.request_id, admission.request_id)
+  assert.equal(projected.recent[0]!.outcome, 'failed')
+  assert.equal(projected.messages.items[0]!.id, admission.message_id)
+  assert.equal(projected.messages.items[0]!.role, 'user')
+  assert.equal(projected.messages.items[0]!.text, 'smoke request without a configured provider')
+  assert.equal(projected.messages.items.length, 2)
+  assert.equal(projected.messages.items[1]!.text, 'No LLM provider available. Please try again later.')
+  screens.push({ screen: 'Request admission and provider failure', text: await text('#conversation-history') })
+  writeFileSync(out, (await win.webContents.capturePage()).toPNG())
   assert.equal(broker.linkState, 'ready')
   writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, observations, screens }, null, 2) + '\n')
   process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ link: broker.linkState, status, screens: screens.map(({ screen }) => screen), observations: Object.fromEntries(Object.entries(observations).map(([name, answer]) => [name, answer.ok ? 'observed' : answer.error?.code])) })}\n`)
