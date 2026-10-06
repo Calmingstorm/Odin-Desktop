@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
-import { assertRealCoreIsolation, launchIsolated, repositoryRoot } from './real-core-isolation.mjs'
+import { launchIsolated, repositoryRoot } from './real-core-isolation.mjs'
 
 const appDir = resolve(import.meta.dirname, '..')
 const python = resolve(process.env.ODIN_DESKTOP_ENGINE_PYTHON || join(repositoryRoot, '.venv/bin/python'))
@@ -23,17 +23,19 @@ async function electron(env) {
 }
 
 async function inside() {
-  assertRealCoreIsolation()
+  // #25 keeps the exact isolation runner at PID 1; this script is its child.
+  // Use the real harness's descendant guard, never relax the runner's PID-1 assertion.
+  const { build } = await import('esbuild')
+  const bundle = join(appDir, 'out', 'real-core-seed.cjs')
+  await build({ entryPoints: [join(appDir, 'test/real-core-smoke-seed.ts')], outfile: bundle,
+    bundle: true, platform: 'node', format: 'cjs', external: ['electron'],
+    define: { __dirname: JSON.stringify(join(appDir, 'test')) } })
+  const require = createRequire(join(appDir, 'package.json'))
+  const { assertIsolated, seed } = require(bundle)
+  assertIsolated()
   const { startCannedProvider } = await import('../test/real-core-provider-fixture.mjs')
   const provider = await startCannedProvider({ root: join(process.env.ODIN_REAL_CORE_ROOT, 'provider') })
   try {
-    const { build } = await import('esbuild')
-    const bundle = join(appDir, 'out', 'real-core-seed.cjs')
-    await build({ entryPoints: [join(appDir, 'test/real-core-smoke-seed.ts')], outfile: bundle,
-      bundle: true, platform: 'node', format: 'cjs', external: ['electron'],
-      define: { __dirname: JSON.stringify(join(appDir, 'test')) } })
-    const require = createRequire(join(appDir, 'package.json'))
-    const { seed } = require(bundle)
     await seed(provider.baseUrl, async () => {
       const deadline = Date.now() + 8000
       while (!provider.requests.some((entry) => entry.token === '[hold-resume]')) {

@@ -1,11 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { statSync } from 'node:fs'
+import { readFileSync, readlinkSync, statSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import type { ConversationSnapshot, CoreEvent } from '../src/shared/api'
 import { PROTOCOL, type Settled, type Welcome } from '../src/main/broker'
 import { FILE_CONTENT, IMAGE_BYTES, PAGED_TEXT, REPLY, TOOL_REPLY } from './real-core-provider-fixture.mjs'
 import { assertIsolated, onceEvent, RealCoreHarness, waitFor, SERVED_CAPABILITIES } from './real-core-harness'
 import { assertFreshManagementStatus, realCoreCapabilities, type RealCoreStatus } from '../src/main/real-core-smoke'
+import { assertRealCoreIsolation } from '../scripts/real-core-isolation.mjs'
+import { assertIsolated as assertSmokeIsolated } from './real-core-smoke-seed'
 
 // Intentional module-level hard failure if someone invokes this file with the normal/unisolated Vitest gate.
 assertIsolated()
@@ -21,6 +24,22 @@ function refused(answer: Settled, code: string, disposition = 'rejected'): void 
 }
 type Status = RealCoreStatus
 type Subscription = { event_high: string; reset_required: boolean }
+
+test('chat smoke accepts a runner descendant while the exact PID-1 guard still refuses it', () => {
+  expect(process.pid).not.toBe(1)
+  const namespace = readlinkSync('/proc/self/ns/pid')
+  expect(namespace).not.toBe(process.env.ODIN_REAL_CORE_OUTER_PID_NS)
+  expect(readlinkSync('/proc/1/ns/pid')).toBe(namespace)
+  const repository = resolve(__dirname, '../..')
+  expect(readFileSync('/proc/1/cmdline', 'utf8').split('\0').slice(0, 3)).toEqual([
+    process.execPath, join(repository, 'app/scripts/real-core-isolation.mjs'), '--inside-run'
+  ])
+  expect(String(process.getuid!())).toBe(process.env.ODIN_REAL_CORE_UID)
+  expect(String(process.getgid!())).toBe(process.env.ODIN_REAL_CORE_GID)
+  expect(assertSmokeIsolated).toBe(assertIsolated)
+  expect(() => assertSmokeIsolated()).not.toThrow()
+  expect(() => assertRealCoreIsolation()).toThrow('PID 1 and a separate PID namespace with private /proc')
+})
 
 describe('actual app Broker ↔ repository real core', () => {
   let core: RealCoreHarness

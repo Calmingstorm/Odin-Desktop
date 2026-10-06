@@ -6,6 +6,9 @@ import { randomUUID } from 'node:crypto'
 import { RealCoreHarness } from './real-core-harness'
 import { configureCannedProvider } from '../src/main/real-core-smoke'
 
+// The smoke script is a child of #25's PID-1 runner, just like the contract tests.
+export { assertIsolated } from './real-core-harness'
+
 export async function seed(baseUrl: string, generationStarted: () => Promise<void>): Promise<void> {
   const core = new RealCoreHarness({ memoryKeyring: true, profileRoot: process.env.ODIN_REAL_CORE_ROOT })
   await core.start()
