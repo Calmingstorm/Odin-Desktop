@@ -88,7 +88,7 @@
     "TestProcesses.test_list_processes_no_registry"
   ],
   "artifact_sha256": {
-    "src/desktop/work.py": "0668ba8e8b15266e6fe87ff2f29ea2aa650de137fd50305637cdc847e4a36172",
+    "src/desktop/work.py": "4ab6ebf5e8f7738860c95573d0a797e08f2acd9c4a6c5a789040cd57fbf09b81",
     "src/desktop/settings.py": "5998e2350539f989a02877711836e3e484ab95b73a69d06ed7a7cdd7302c5ca8",
     "src/desktop/work_loops.py": "353cb5edcef905f67ef2929c2f0befd4d9dc668eac2a108cc7398c21e9c32399",
     "src/desktop/work_policy.py": "83ad85d863b1dd4df5de55fb718c062214864930f3ddc5f6c347f7f7f3fae196",
@@ -109,5 +109,8 @@
     "ruff": "All checks passed",
     "isolation": "Required scripts/run-phase1-tests.py PID/mount namespace and private env/XDG/HOME; no live services/desktop",
     "parent_correction": "All retained source tests passed in parent328-case integration run. Metadata pin guard exposed post-probe static-only changes; regenerate these explicit named artifact hashes, then rerun full fresh qualification. Earlier failed guard remains recorded."
-  }
+  },
+  "production_changes": [
+    "Parent full qualification exposed completed work callback feedback: never register callbacks on already-finished tasks; loop age uses original monotonic clock. Actual IPC loop read passes without enlarged wait."
+  ]
 }

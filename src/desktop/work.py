@@ -164,7 +164,7 @@ class WorkService(WorkLoopOperations):
 
     def _watch(self, item):
         task = _get(item, "_task", _get(item, "_asyncio_task", _get(item, "_exit_task")))
-        if task is not None and task not in self._watched:
+        if task is not None and not task.done() and task not in self._watched:
             self._watched.add(task)
             def settled(done):
                 self._watched.discard(done)
@@ -217,7 +217,7 @@ class WorkService(WorkLoopOperations):
                       "max_iterations", "iteration_count", "stop_condition")}
             detail.update(id=record["manager_id"], goal=_get(item, "goal", ""),
                           iteration_history=list(_get(item, "_iteration_history", [])),
-                          last_trigger_age_seconds=max(0, time.time() -
+                          last_trigger_age_seconds=max(0, time.monotonic() -
                               (_get(item, "last_trigger", 0) or 0)))
             if state == "running":
                 actions = ["stop"]

@@ -155,10 +155,11 @@
       "path": "src/desktop/work.py",
       "tests": [
         "tests/test_desktop_lane6_work_projection_finish.py",
-        "tests/test_desktop_work.py"
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_background_core.py"
       ],
       "reason": "Retained full work detail/lineage/process presentation, loop lifecycle and policy settings parity.",
-      "contract": "Actual manager results and truthful preview counts, owner/conversation/manager generation checked controls, durable loop restart history and canonical settings transaction.",
+      "contract": "Actual manager results and truthful preview counts, owner/conversation/manager generation checked controls, durable loop restart history and canonical settings transaction. Do not re-add already-completed manager task watchers; read-triggered publication cannot feedback-loop. Original monotonic trigger age preserved.",
       "invariant": "No invented execution identity; stale/foreign work rejected; restart cancellation preserves owner settlement; preview secrets scrubbed."
     },
     {
@@ -658,11 +659,21 @@
     },
     {
       "path": "tests/test_desktop_background_core.py",
-      "reason": "Real authenticated IPC schedule stats read is served and advertised.",
-      "contract": "Real authenticated IPC schedule stats read is served and advertised.",
+      "reason": "Actual authenticated IPC loop settlement exposed completed-task work publication feedback; production watcher fixed, original3second read wait retained.",
+      "contract": "Original admitted loop reaches actual settled WorkService read without reattaching terminal callbacks or endless publication; tests unchanged except earlier stats read supplement.",
       "invariant": "Existing authorization, containment, unknown outcome and source corpus remain unchanged; named regressions prove actual behavior.",
       "tests": [
         "tests/test_desktop_background_core.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_engine_services.py",
+      "reason": "Merge accepted lifecycle cleanup fixture with 6B explicitly shared outbound owner field.",
+      "contract": "Harmless graph contains outbound_webhook_dispatcher=None, matching real deps when owner not started; provider failure test keeps successful original-owner receipts and truthful unknown.",
+      "invariant": "Production cleanup still requires real shared owner, no swallowing provider or resource failures.",
+      "tests": [
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_shared_outbound.py"
       ]
     },
     {
@@ -1189,13 +1200,13 @@
       ]
     },
     {
-      "path": "tests/test_desktop_engine_services.py",
-      "reason": "Merge accepted lifecycle cleanup fixture with 6B explicitly shared outbound owner field.",
-      "contract": "Harmless graph contains outbound_webhook_dispatcher=None, matching real deps when owner not started; provider failure test keeps successful original-owner receipts and truthful unknown.",
-      "invariant": "Production cleanup still requires real shared owner, no swallowing provider or resource failures.",
+      "path": "tests/test_desktop_work.py",
+      "reason": "Real manager terminal watcher regression and monotonic clock provenance.",
+      "contract": "Completed task never reattaches settlement callback; repeated reads under frozen monotonic clock emit no new events and keep settlement truthful.",
+      "invariant": "No synthetic settlement, no resource release inferred from receipt ACK; no old owner callback replay.",
       "tests": [
-        "tests/test_desktop_engine_services.py",
-        "tests/test_desktop_shared_outbound.py"
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_background_core.py"
       ]
     }
   ]

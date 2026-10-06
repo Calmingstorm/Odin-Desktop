@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -272,6 +273,34 @@ async def test_loop_stop_observes_actual_settlement(work):
     assert item._task.done()
     assert receipt["disposition"] == "done"
     assert receipt["settlement"]["resource_release"] == "manager_task_finished"
+
+
+@pytest.mark.asyncio
+async def test_terminal_work_does_not_resubscribe_callbacks_or_emit_per_read(work, monkeypatch):
+    service, message, _context = work
+    monkeypatch.setattr(time, "monotonic", lambda: 100.0)
+    item = LoopInfo("settled-loop", "harmless", "silent", 60, None, 1,
+                    message.conversation_id, message.owner_id, "Owner")
+    item.last_trigger = 98.0
+    item._task = asyncio.create_task(asyncio.sleep(0))
+    await item._task
+    item.status = "completed"
+    service.loops._loops[item.id] = item
+    service.register("loop", item.id, message)
+    assert service._watched == set()
+    observed = []
+    append = service.events.append
+    def record(*args, **kwargs):
+        observed.append(args)
+        return append(*args, **kwargs)
+    service.events.append = record
+    for _ in range(5):
+        listed = service.list({"kind": "loop"})["items"]
+        assert listed[0]["settlement"]["state"] == "settled"
+        await asyncio.sleep(0)
+    assert service._watched == set()
+    assert observed == []
+    assert listed[0]["detail"]["last_trigger_age_seconds"] == 2.0
 
 
 @pytest.mark.asyncio
