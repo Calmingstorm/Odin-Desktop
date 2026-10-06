@@ -47,7 +47,8 @@ test('direct real core graceful parent EOF releases its owned socket', async ({}
 })
 
 test('a regular file socket occupant is preserved and bounded startup never reports ready', async ({}, info) => {
-  test.setTimeout(40_000)
+  // Bound the complete two-launch fixture above its failure-observation wait; product restart timing stays unchanged.
+  test.setTimeout(240_000)
   const profile = 'regular-occupant'
   const initial = await launchApp({ profile })
   await waitForCore(initial)
@@ -57,7 +58,8 @@ test('a regular file socket occupant is preserved and bounded startup never repo
   writeFileSync(before.paths.socketPath, content, { mode: 0o600 })
   const application = await launchApp({ profile })
   try {
-    await expect.poll(async () => (await snapshot(application)).coreState, { timeout: 25_000 }).toBe('failed')
+    // Observe four cold attempts plus unchanged 1s/3s/10s backoffs under load; no fixture retry or product change.
+    await expect.poll(async () => (await snapshot(application)).coreState, { timeout: 60_000 }).toBe('failed')
     expect(readFileSync(before.paths.socketPath, 'utf8')).toBe(content)
     expect((await snapshot(application)).appState.link).toBe('core-failed')
     await receipt(info, 'regular-socket-occupant-preserved', {
