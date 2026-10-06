@@ -2,7 +2,9 @@
 
 import configparser
 import os
+import shlex
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -18,12 +20,18 @@ def capture(tmp_path):
     helper.write_text(payload)
     binaries = tmp_path / "bin"
     binaries.mkdir()
+    # Both the fake scrot and the emitted PNG validator need the locked Pillow
+    # dependency. A shell shim preserves the venv identity; a symlink outside
+    # the venv can make Python rediscover the host installation instead.
+    python = binaries / "python3"
+    python.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} "$@"\n')
+    python.chmod(0o755)
     fake_id = binaries / "id"
     fake_id.write_text('#!/bin/sh\necho "${FAKE_USER:-odq}"\n')
     fake_id.chmod(0o755)
     fake_scrot = binaries / "scrot"
     fake_scrot.write_text(
-        "#!/usr/bin/python3\n"
+        f"#!{sys.executable}\n"
         "from PIL import Image\n"
         "import os, pathlib, sys\n"
         "if os.environ.get('FAIL_CAPTURE'): sys.exit(7)\n"
@@ -44,7 +52,8 @@ def execute_capture(capture, **environment):
 
 def test_guest_capture_outputs_valid_png(capture):
     _, _, home = capture
-    assert execute_capture(capture).returncode == 0
+    result = execute_capture(capture)
+    assert result.returncode == 0, result.stderr
     from PIL import Image
     with Image.open(home / "screenshot.png") as image:
         assert image.size == (32, 24)
