@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import inventory
 
-MAIN = "288ce7b4"
+MAIN = "f597c1af"
 SERVICES = "dda129d8"
 MERGE_FILES = {
     "src/desktop/management.py", "scripts/maintenance/phase2_suites.py",
