@@ -15,12 +15,14 @@ import { coreCommand, type CoreLaunch } from './core-command'
 import { CoreSupervisor } from './core-supervisor'
 import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
+import { DeviceLoginBoundary } from './device-login'
 import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
 import { inspectPackagedState } from './package-state'
 import { acquirePackagedApp } from './package-ownership'
 import { realCoreSmoke } from './real-core-smoke'
+import { onboardingSmoke } from './onboarding-smoke'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
 import { OdinTray, detectTray } from './tray'
@@ -167,6 +169,7 @@ function run(): void {
   }
 
   const drafts = new DraftStore(join(paths.dataDir, 'drafts.json'))
+  const deviceLogin = new DeviceLoginBoundary()
   // Until the core announces its own limits. A chunk stays well inside one frame after base64.
   let limits: AttachmentLimits = { attachment_bytes: 25 * 1024 * 1024, chunk_bytes: 512 * 1024 }
   const attachments = new AttachmentManager(broker, () => limits)
@@ -207,7 +210,7 @@ function run(): void {
     onCoreEvent(event)
   })
   broker.on('receipt', (receipt) => {
-    win?.webContents.send(IPC.receipt, receipt)
+    win?.webContents.send(IPC.receipt, deviceLogin.receipt(receipt, broker.coreInstanceId))
     publishAppState()
   })
   // The interval since our cursor is unknown: the window rebuilds every view from fresh snapshots.
@@ -304,6 +307,8 @@ function run(): void {
         return chosen.canceled || !chosen.filePath ? null : chosen.filePath
       },
       copyText: (text) => clipboard.writeText(text),
+      openVerification: async (url) => { await shell.openExternal(url) },
+      deviceLogin,
       mainFrame: () => win?.webContents.mainFrame ?? null,
       getSettings: settings,
       setAutostart: (enabled) => {
@@ -380,7 +385,15 @@ function run(): void {
     broker.connect()
     broker.startEvents()
 
-    if (flags.smokeTest && process.env.ODIN_SMOKE_REAL_CORE === '1') {
+    if (!app.isPackaged && flags.smokeTest && process.env.ODIN_SMOKE_ONBOARDING) {
+      void onboardingSmoke(win, broker, process.env.ODIN_SMOKE_OUT ?? '').then(
+        () => exitOdin(),
+        (error: unknown) => {
+          process.stderr.write(`onboarding-smoke: failed: ${String(error)}\n`)
+          return exitOdin(1)
+        }
+      )
+    } else if (flags.smokeTest && process.env.ODIN_SMOKE_REAL_CORE === '1') {
       void realCoreSmoke(win, broker, process.env.ODIN_SMOKE_OUT ?? '').then(
         () => exitOdin(),
         (error: unknown) => {
