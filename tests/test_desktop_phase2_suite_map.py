@@ -256,7 +256,7 @@ def test_restore_cannot_claim_a_subset_or_unqualified_whole_suite(repo, mutation
     row = mapping["entries"][0]
     group = next(g for g in qualification["groups"] if g["name"] == "phase2-core-transport")
     if mutation == "late_step":
-        row["step"] = 2
+        row["step"] = 6
     elif mutation == "restored_blocker":
         row["blocked_on"] = "not yet"
     elif mutation == "not_safe":
@@ -337,6 +337,31 @@ def test_phase3_is_a_handoff_not_a_restore(repo):
     mapping["entries"][0]["step"] = "Phase 3"
     _write(repo, checker.MAP_PATH, mapping)
     assert checker.validate(repo) == []
+
+
+@pytest.mark.parametrize("step", [2, 3, 4])
+@pytest.mark.parametrize("adapter", [False, True])
+def test_restored_steps_two_to_four_require_complete_owning_group(repo, step, adapter):
+    path, selector = _restore(repo, adapter=adapter)
+    mapping = _read(repo, checker.MAP_PATH)
+    qualification = _read(repo, checker.QUALIFICATION_PATH)
+    row = mapping["entries"][0]
+    row["step"] = step
+    _write(repo, checker.MAP_PATH, mapping)
+    assert checker.validate(repo)
+    row["qualification_group"] = checker.RESTORATION_GROUPS[step]
+    next(group for group in qualification["groups"]
+         if group["name"] == "phase2-core-transport")["files"].remove(selector)
+    qualification["groups"].append({
+        "name": row["qualification_group"], "files": [selector],
+    })
+    _write(repo, checker.MAP_PATH, mapping)
+    _write(repo, checker.QUALIFICATION_PATH, qualification)
+    assert checker.validate(repo) == []
+    assert path in _read(repo, checker.PLAN_PATH)["phase2_restored"]
+    qualification["groups"][-1]["files"] = [selector + "::one_case"]
+    _write(repo, checker.QUALIFICATION_PATH, qualification)
+    assert checker.validate(repo)
 
 
 def test_equal_population_size_cannot_substitute_historical_member(repo):

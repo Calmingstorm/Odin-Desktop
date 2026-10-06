@@ -6,19 +6,33 @@
     "tracked_test_paths": 869,
     "archive": "maintenance/odin-v4.13.0.tar.gz"
   },
-  "execution_status": "Historical eligibility inventory, not whole-product parity or acceptance. Nine whole inherited suites restored; five retired by Claude, review of #26, never passing. All 326 original paths remain in phase2 plus phase2_restored plus phase2_retired with original hashes. Merged main retains 30 qualification groups including phase2-step5-profile-management. Historical116/259 evidence unchanged.",
+  "execution_status": "Historical eligibility inventory, not whole-product parity. Step8part3 restores 14 whole suites (step2=6, step3=6, step4=2); 33 assigned suites retain exact blockers. All869 original byte hashes and historical326 members remain. Five reviewed step1 retirements remain nonpassing. Final frozen checkout qualification recorded separately.",
   "qualification_plan": "maintenance/qualification-plan.json",
   "phase2_suite_map": "maintenance/phase2-suite-map.json",
   "phase2_restored": [
+    "tests/test_bounded_process_wait.py",
     "tests/test_campaign_execution_risk.py",
+    "tests/test_channel_cursor_campaign.py",
+    "tests/test_channel_history_recency.py",
+    "tests/test_channel_logger_edge_regressions.py",
     "tests/test_channel_state_recent_action_failure.py",
+    "tests/test_command_shell_framing.py",
+    "tests/test_compatible_output_reserve.py",
     "tests/test_computer_audit_output_r21.py",
     "tests/test_computer_checkpoint_privacy_r5.py",
     "tests/test_computer_frame_boundary.py",
+    "tests/test_computer_native_vision_r5.py",
+    "tests/test_computer_privacy_r5.py",
     "tests/test_connection_lifecycle_d1.py",
+    "tests/test_delivery_turn_observation.py",
     "tests/test_local_supervisor_wrapper_r10.py",
+    "tests/test_pr341_b10_channel_consistency.py",
+    "tests/test_pr341_b7_channel_reconciliation.py",
     "tests/test_process_manager.py",
-    "tests/test_restored_process_shutdown.py"
+    "tests/test_process_zero_offset.py",
+    "tests/test_restored_process_shutdown.py",
+    "tests/test_search_history_source_priority.py",
+    "tests/test_turn_durability_heartbeat.py"
   ],
   "methodology": {
     "imports": "AST Import/ImportFrom relative resolution, package initializers, cross-test helper closure. Deduplicated pinned source import closure below. Literal src patch references also recorded. No source imported.",
@@ -33,12 +47,13 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 312,
+    "phase2": 298,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "safe_pass_now": 366,
+    "safe_pass_now": 380,
     "safety_manual_gated": 100,
-    "retired": 5
+    "retired": 5,
+    "phase2_restored": 23
   },
   "entries": [
     {
@@ -2330,8 +2345,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/codec.py: install-bound context reconstruction; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "phase2_seams": [
         "src/discord/client.py",
         "src/discord/tool_loop.py",
@@ -4585,8 +4600,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "phase2_seams": [
         "src/discord/channel_logger.py"
       ]
@@ -4609,8 +4624,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "phase2_seams": [
         "src/discord/channel_logger.py"
       ]
@@ -4661,8 +4676,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "phase2_seams": [
         "src/discord/channel_logger.py"
       ]
@@ -5539,8 +5554,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/scheduled_events.py: Desktop owner/intake/control/durable delivery adapter: scheduled_events; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "phase2_seams": [
         "src/discord/background_task.py",
         "src/discord/client.py",
@@ -5827,8 +5842,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "phase2_seams": [
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/agents_tasks.py",
@@ -8973,8 +8988,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/codec.py: install-bound context reconstruction. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "phase2_seams": [
         "src/discord/tool_loop.py",
         "src/turn_state/codec.py"
@@ -9276,8 +9291,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/tool_loop_helpers.py: Desktop owner/intake/control/durable delivery adapter: tool_loop_helpers; src/turn_state/codec.py: install-bound context reconstruction; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "phase2_seams": [
         "src/computer/integration.py",
         "src/discord/channel_state.py",
@@ -12885,8 +12900,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/turn_recorder.py: Desktop owner/intake/control/durable delivery adapter: turn_recorder. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole unchanged inherited original, inspected and run in isolated PID namespace and throwaway HOME; no Desktop or live-state input.",
       "phase2_seams": [
         "src/discord/turn_recorder.py"
       ]
@@ -20571,8 +20586,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "phase2_seams": [
         "src/discord/channel_logger.py"
       ]
@@ -20626,8 +20641,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "phase2_seams": [
         "src/discord/channel_logger.py"
       ]
@@ -21500,8 +21515,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "phase2_seams": [
         "src/permissions/token_manager.py",
         "src/web/__init__.py",
@@ -23225,8 +23240,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_logger.py: Desktop owner/intake/control/durable delivery adapter: channel_logger; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/knowledge.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole frozen inherited suite with exact audited temporary-profile/transport setup only. No selections or exclusions; inherited corpus and full AST reverse replay remain guarded.",
       "phase2_seams": [
         "src/discord/channel_logger.py",
         "src/discord/native_tools/__init__.py",
@@ -25161,8 +25176,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Complete six-case frozen heartbeat corpus: two exact legacy-admission calls use actual task-owned RequestService admission, supplied original store and genuine lease/heartbeat handle; no raw lease, fake enabled result or gate bypass.",
       "phase2_seams": [
         "src/turn_state/durability.py"
       ]
@@ -36384,7 +36399,6 @@
     "tests/test_background_task_failure_visibility.py",
     "tests/test_bootstrap_bind_policy.py",
     "tests/test_bootstrap_runtime_bind.py",
-    "tests/test_bounded_process_wait.py",
     "tests/test_branch_freshness.py",
     "tests/test_browser_wait_timeout.py",
     "tests/test_campaign_a_coverage_boundaries.py",
@@ -36416,10 +36430,7 @@
     "tests/test_campaign_websocket_coverage.py",
     "tests/test_cancelled_persistence_settles.py",
     "tests/test_catalog_campaign.py",
-    "tests/test_channel_cursor_campaign.py",
-    "tests/test_channel_history_recency.py",
     "tests/test_channel_logger.py",
-    "tests/test_channel_logger_edge_regressions.py",
     "tests/test_channel_privacy_campaign.py",
     "tests/test_chat_loop_recovery.py",
     "tests/test_chat_session.py",
@@ -36433,10 +36444,8 @@
     "tests/test_codex_replay_boundaries.py",
     "tests/test_codex_replay_matrix.py",
     "tests/test_command_shell_callers.py",
-    "tests/test_command_shell_framing.py",
     "tests/test_command_shell_round2.py",
     "tests/test_command_shell_scope.py",
-    "tests/test_compatible_output_reserve.py",
     "tests/test_compatible_timeout_migration.py",
     "tests/test_computer_admission_http_r8.py",
     "tests/test_computer_api.py",
@@ -36466,11 +36475,9 @@
     "tests/test_computer_manager_coverage_r10.py",
     "tests/test_computer_modal_binding_recovery.py",
     "tests/test_computer_native_keyboard_focus_class.py",
-    "tests/test_computer_native_vision_r5.py",
     "tests/test_computer_normal_turn_r3.py",
     "tests/test_computer_observe_session_boundary.py",
     "tests/test_computer_operator_auth_r5.py",
-    "tests/test_computer_privacy_r5.py",
     "tests/test_computer_product_status_r11.py",
     "tests/test_computer_provisioning_r29.py",
     "tests/test_computer_r19_delivery.py",
@@ -36494,7 +36501,6 @@
     "tests/test_delivery_file_retries.py",
     "tests/test_delivery_review_regressions.py",
     "tests/test_delivery_status.py",
-    "tests/test_delivery_turn_observation.py",
     "tests/test_direct_chat_reasoning_records.py",
     "tests/test_docs_campaign_contracts.py",
     "tests/test_execute_api.py",
@@ -36565,8 +36571,6 @@
     "tests/test_openrouter_admin_boundaries.py",
     "tests/test_output_executor_fences.py",
     "tests/test_output_streamer.py",
-    "tests/test_pr341_b10_channel_consistency.py",
-    "tests/test_pr341_b7_channel_reconciliation.py",
     "tests/test_pr341_b8_turn_totals.py",
     "tests/test_pr356_static_recovery_identity.py",
     "tests/test_pr356_storage_compatibility.py",
@@ -36578,7 +36582,6 @@
     "tests/test_process_command_visibility.py",
     "tests/test_process_retention_security.py",
     "tests/test_process_tail_correctness.py",
-    "tests/test_process_zero_offset.py",
     "tests/test_provider_argument_acceptance.py",
     "tests/test_provider_campaign_regressions.py",
     "tests/test_provider_shutdown_budget.py",
@@ -36598,7 +36601,6 @@
     "tests/test_scheduled_report_pagination_listener.py",
     "tests/test_scheduled_report_wiring.py",
     "tests/test_scheduled_workflow.py",
-    "tests/test_search_history_source_priority.py",
     "tests/test_search_output_capture.py",
     "tests/test_search_small_delivery_budget.py",
     "tests/test_self_audit_fixes.py",
@@ -36619,7 +36621,6 @@
     "tests/test_tool_loop_provenance.py",
     "tests/test_trajectories.py",
     "tests/test_trajectory_completeness.py",
-    "tests/test_turn_durability_heartbeat.py",
     "tests/test_turn_recorder_loop_reflection.py",
     "tests/test_turn_recorder_webhook_campaign.py",
     "tests/test_typing_resilience.py",
@@ -36732,15 +36733,6 @@
     "tests/supervised_shell_double.py"
   ],
   "safe_pass_now": [
-    "tests/test_campaign_execution_risk.py",
-    "tests/test_channel_state_recent_action_failure.py",
-    "tests/test_computer_audit_output_r21.py",
-    "tests/test_computer_checkpoint_privacy_r5.py",
-    "tests/test_computer_frame_boundary.py",
-    "tests/test_connection_lifecycle_d1.py",
-    "tests/test_local_supervisor_wrapper_r10.py",
-    "tests/test_process_manager.py",
-    "tests/test_restored_process_shutdown.py",
     "tests/computer/test_hyprland_backend.py",
     "tests/test_adaptive_compaction.py",
     "tests/test_agent_cascade_retention.py",
@@ -36761,6 +36753,7 @@
     "tests/test_auxiliary_llm.py",
     "tests/test_backoff.py",
     "tests/test_binary_host_read.py",
+    "tests/test_bounded_process_wait.py",
     "tests/test_browser_automation.py",
     "tests/test_campaign_audit_durability.py",
     "tests/test_campaign_backend_environment_final_coverage.py",
@@ -36773,6 +36766,7 @@
     "tests/test_campaign_coverage_core_observability.py",
     "tests/test_campaign_coverage_core_scheduler.py",
     "tests/test_campaign_evidence_review.py",
+    "tests/test_campaign_execution_risk.py",
     "tests/test_campaign_execution_validation.py",
     "tests/test_campaign_host_collisions.py",
     "tests/test_campaign_hosts_trust_coverage.py",
@@ -36792,6 +36786,10 @@
     "tests/test_campaign_scheduler_time.py",
     "tests/test_campaign_system_coverage_restore.py",
     "tests/test_campaign_usage_lock.py",
+    "tests/test_channel_cursor_campaign.py",
+    "tests/test_channel_history_recency.py",
+    "tests/test_channel_logger_edge_regressions.py",
+    "tests/test_channel_state_recent_action_failure.py",
     "tests/test_circuit_breaker.py",
     "tests/test_codex_55_retirement.py",
     "tests/test_codex_auth.py",
@@ -36802,7 +36800,9 @@
     "tests/test_codex_reliability.py",
     "tests/test_codex_spark_retirement.py",
     "tests/test_command_authority.py",
+    "tests/test_command_shell_framing.py",
     "tests/test_command_shell_matrix.py",
+    "tests/test_compatible_output_reserve.py",
     "tests/test_compatible_streaming.py",
     "tests/test_computer_accessibility_status_r19.py",
     "tests/test_computer_accessible_route_r19.py",
@@ -36814,12 +36814,14 @@
     "tests/test_computer_app_offering_r7.py",
     "tests/test_computer_app_profiles_r6.py",
     "tests/test_computer_attached_controller_r5.py",
+    "tests/test_computer_audit_output_r21.py",
     "tests/test_computer_audit_reason_codes.py",
     "tests/test_computer_campaign_absence_resolution.py",
     "tests/test_computer_campaign_cache_retirement.py",
     "tests/test_computer_campaign_orphans.py",
     "tests/test_computer_capture_scope_boundary_r19.py",
     "tests/test_computer_capture_settling_r5.py",
+    "tests/test_computer_checkpoint_privacy_r5.py",
     "tests/test_computer_class1_receipt_recovery.py",
     "tests/test_computer_clean_interruption_recovery.py",
     "tests/test_computer_contract_r1.py",
@@ -36830,6 +36832,7 @@
     "tests/test_computer_dispatch_truth_r21.py",
     "tests/test_computer_drawing_modal_r5.py",
     "tests/test_computer_field_adoption_r21.py",
+    "tests/test_computer_frame_boundary.py",
     "tests/test_computer_freshness_r1.py",
     "tests/test_computer_geometry_r1.py",
     "tests/test_computer_guardian_semantic_r19.py",
@@ -36851,8 +36854,10 @@
     "tests/test_computer_lifecycle_races_r21.py",
     "tests/test_computer_local_recovery.py",
     "tests/test_computer_native_gui_r5.py",
+    "tests/test_computer_native_vision_r5.py",
     "tests/test_computer_orchestration_coverage_r10.py",
     "tests/test_computer_pixel_guards_r19.py",
+    "tests/test_computer_privacy_r5.py",
     "tests/test_computer_product_controller_r11.py",
     "tests/test_computer_profile_hooks_r7.py",
     "tests/test_computer_provenance_r11.py",
@@ -36912,11 +36917,13 @@
     "tests/test_computer_x11_topology_r11.py",
     "tests/test_config_ceiling_migration.py",
     "tests/test_config_init.py",
+    "tests/test_connection_lifecycle_d1.py",
     "tests/test_context_budget.py",
     "tests/test_context_budget_legacy_profile_conversion.py",
     "tests/test_context_compressor.py",
     "tests/test_context_reload_report.py",
     "tests/test_cost_tracker.py",
+    "tests/test_delivery_turn_observation.py",
     "tests/test_edge_error_recovery.py",
     "tests/test_email_campaign.py",
     "tests/test_email_client_paths.py",
@@ -36999,6 +37006,7 @@
     "tests/test_local_supervisor_ack.py",
     "tests/test_local_supervisor_pidfd.py",
     "tests/test_local_supervisor_worker_r10.py",
+    "tests/test_local_supervisor_wrapper_r10.py",
     "tests/test_loop_error_sanitization.py",
     "tests/test_mcp_campaign.py",
     "tests/test_mcp_media_retention_checkpoint.py",
@@ -37020,16 +37028,20 @@
     "tests/test_output_delivery_retention.py",
     "tests/test_output_handler.py",
     "tests/test_planning_store.py",
+    "tests/test_pr341_b10_channel_consistency.py",
     "tests/test_pr341_b6_audit_history.py",
+    "tests/test_pr341_b7_channel_reconciliation.py",
     "tests/test_pr356_environment_compatibility.py",
     "tests/test_process_host_lease_authority.py",
     "tests/test_process_kill_status.py",
+    "tests/test_process_manager.py",
     "tests/test_process_output_retention.py",
     "tests/test_process_read_leases.py",
     "tests/test_process_retention_error_paths.py",
     "tests/test_process_review_regressions.py",
     "tests/test_process_spool_descriptors.py",
     "tests/test_process_tree_reaping.py",
+    "tests/test_process_zero_offset.py",
     "tests/test_provider_conformance.py",
     "tests/test_provider_generation_lifecycle.py",
     "tests/test_provider_reasoning_usage.py",
@@ -37045,6 +37057,7 @@
     "tests/test_remote_process_streaming.py",
     "tests/test_remote_processes.py",
     "tests/test_response_guards.py",
+    "tests/test_restored_process_shutdown.py",
     "tests/test_result_validator.py",
     "tests/test_retained_output_compression.py",
     "tests/test_round41_hedging_regression.py",
@@ -37058,6 +37071,7 @@
     "tests/test_scheduler_gate_races_campaign.py",
     "tests/test_scheduler_history.py",
     "tests/test_scheduler_validation.py",
+    "tests/test_search_history_source_priority.py",
     "tests/test_search_identity.py",
     "tests/test_search_write_atomicity.py",
     "tests/test_secret_scrubber_spans.py",
@@ -37089,6 +37103,7 @@
     "tests/test_trajectory_bounded_reads.py",
     "tests/test_trajectory_saver.py",
     "tests/test_turn_checkpoint_codec.py",
+    "tests/test_turn_durability_heartbeat.py",
     "tests/test_turn_state_store.py",
     "tests/test_url_safety.py",
     "tests/test_usage_rollup.py",
@@ -37100,7 +37115,6 @@
     "tests/test_webhook_text.py"
   ],
   "safety_manual_gated": [
-    "tests/test_hyprland_input_loss_campaign.py",
     "tests/test_attached_apps_r6_harness.py",
     "tests/test_campaign_a_validation.py",
     "tests/test_campaign_governor_skills.py",
@@ -37160,6 +37174,7 @@
     "tests/test_hyprland_durable_recovery_journal.py",
     "tests/test_hyprland_harness_exit_r48.py",
     "tests/test_hyprland_input_held_r38.py",
+    "tests/test_hyprland_input_loss_campaign.py",
     "tests/test_hyprland_input_wire_r32.py",
     "tests/test_hyprland_inventory_blockers.py",
     "tests/test_hyprland_original_resource_absence.py",

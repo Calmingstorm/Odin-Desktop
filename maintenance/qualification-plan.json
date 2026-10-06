@@ -1476,7 +1476,8 @@
         "tests/test_desktop_strip_root.py",
         "tests/test_desktop_strip_web.py",
         "tests/test_desktop_test_plan.py",
-        "tests/test_desktop_transcript.py"
+        "tests/test_desktop_transcript.py",
+        "tests/test_desktop_checkpoint_concurrency.py"
       ],
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups."
     },
@@ -1673,7 +1674,9 @@
     },
     {
       "name": "faithful-retirement-corpus",
-      "files": ["tests/test_desktop_shared_retirement.py"],
+      "files": [
+        "tests/test_desktop_shared_retirement.py"
+      ],
       "reason": "Frozen model-retirement cases keep assertions and parameter data; only exact inert transport YAML and genuine selected-profile setup are changed. Retired WebUI source inspection stays excluded."
     },
     {
@@ -1686,17 +1689,23 @@
     },
     {
       "name": "final-helper-cases",
-      "files": ["tests/test_desktop_final_helpers.py"],
+      "files": [
+        "tests/test_desktop_final_helpers.py"
+      ],
       "reason": "Exact retained schema, error, knowledge and documentation behavior; removed route/intake claims receive named effect-free boundary evidence."
     },
     {
       "name": "final-distribution-cases",
-      "files": ["tests/test_desktop_final_distribution.py"],
+      "files": [
+        "tests/test_desktop_final_distribution.py"
+      ],
       "reason": "Exact retired server packaging and native dispatch dispositions; private wheel and current disabled/unready capability boundaries verified without native input."
     },
     {
       "name": "final-config-cases",
-      "files": ["tests/test_desktop_final_config.py"],
+      "files": [
+        "tests/test_desktop_final_config.py"
+      ],
       "reason": "Exact remaining configuration, evidence digest, model identity, skill listing and timeout definitions with real profile boundaries; removed schema/intake contracts receive named replacements."
     },
     {
@@ -1740,6 +1749,36 @@
         "tests/test_desktop_state.py"
       ],
       "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification."
+    },
+    {
+      "name": "phase2-step2-restored-corpus",
+      "files": [
+        "tests/test_channel_history_recency.py",
+        "tests/test_channel_logger_edge_regressions.py",
+        "tests/test_desktop_step8_conversations_corpus.py"
+      ],
+      "reason": "Six complete inherited transcript/search component suites: exact temporary-owner message setup for four frozen corpora and two unchanged originals. Every assertion, signature, decorator and parameter survives; full AST replay and hash safeguards. Retained ChannelLogger/FTS component evidence is not SQLite TranscriptStore wiring."
+    },
+    {
+      "name": "phase2-step3-restored-corpus",
+      "files": [
+        "tests/test_compatible_output_reserve.py",
+        "tests/test_computer_privacy_r5.py",
+        "tests/test_delivery_turn_observation.py",
+        "tests/test_desktop_step8_heartbeat_corpus.py",
+        "tests/test_desktop_step8_intake_corpus.py",
+        "tests/test_desktop_step8_runner_corpus.py"
+      ],
+      "reason": "Six complete inherited request-execution helper suites: two actual-owner frozen shell/process corpora, unchanged reserve, privacy and observation suites. Static intake blocker safeguards do not count as restored original cases. No obsolete gateway, permissive owner shim, native desktop or traversal-archive substitution. Heartbeat uses the supplied real store and actual request worker admission."
+    },
+    {
+      "name": "phase2-step4-restored-corpus",
+      "files": [
+        "tests/test_computer_native_vision_r5.py",
+        "tests/test_desktop_step8_controls_corpus.py",
+        "tests/test_desktop_step8_wait_corpus.py"
+      ],
+      "reason": "Complete synthetic vision original plus bounded-process-wait frozen corpus through authentic profile ownership, actual RequestService worker admission and real runner. Supplemental vision loader repeats the original corpus with three hash/export safeguards; executions are not unique cases. No live native backend."
     }
   ],
   "acceptance": {

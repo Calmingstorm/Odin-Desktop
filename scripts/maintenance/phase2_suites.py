@@ -53,6 +53,12 @@ KINDS = ("excluded", "phase2", "retained_adaptation_gated", "retained_support",
 MAP_PATH = "maintenance/phase2-suite-map.json"
 PLAN_PATH = "maintenance/test-plan.json"
 QUALIFICATION_PATH = "maintenance/qualification-plan.json"
+RESTORATION_GROUPS = {
+    1: "phase2-core-transport",
+    2: "phase2-step2-restored-corpus",
+    3: "phase2-step3-restored-corpus",
+    4: "phase2-step4-restored-corpus",
+}
 
 
 def _digest(data: bytes) -> str:
@@ -362,7 +368,9 @@ def _check(root: Path) -> tuple[list[str], dict]:
     old_names = {group["name"] for group in old_groups}
     merged_groups = merged_qualification["groups"]
     merged_names = {group["name"] for group in merged_groups}
-    if not old_names <= merged_names or set(named) != merged_names:
+    restoration_names = set(RESTORATION_GROUPS.values()) - {"phase2-core-transport"}
+    if (not old_names <= merged_names or not merged_names <= set(named)
+            or set(named) - merged_names - restoration_names):
         errors.append("qualification: preserve all historical and merged main named groups")
     for group in merged_groups:
         if not set(group["files"]) <= set(named.get(group["name"], {}).get("files", [])):
@@ -435,8 +443,10 @@ def _check(root: Path) -> tuple[list[str], dict]:
                 errors.append(f"mapping: deferred suite carries restoration: {path}")
             continue
         mapped_restored.add(path)
-        if type(step) is not int or step != 1:
-            errors.append(f"mapping: restored suite must belong to step 1: {path}")
+        if type(step) is not int or step not in RESTORATION_GROUPS:
+            errors.append(f"mapping: restored suite must belong to qualified steps 1 to 4: {path}")
+        elif row.get("qualification_group") != RESTORATION_GROUPS[step]:
+            errors.append(f"mapping: restored suite must use its owning step group: {path}")
         if row.get("blocked_on", "missing") is not None:
             errors.append(f"mapping: restored suite must have blocked_on null: {path}")
         if path not in classified["safe_pass_now"] or path not in restored_paths:
