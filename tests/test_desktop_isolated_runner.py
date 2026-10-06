@@ -202,6 +202,24 @@ def test_long_selection_keeps_proc_cmdline_small_without_dropping_arguments(tmp_
     assert not captured[0].exists()
 
 
+def test_long_selection_keeps_plugin_preloads_outside_response_file(tmp_path, monkeypatch):
+    runner = configure_runner(tmp_path, monkeypatch)
+    selections = [f"tests/test_fixture_{index}.py" for index in range(700)]
+    arguments = [*selections, "-p", "scripts.qualification_once", "-pother.plugin",
+                 "--collect-only", "--qualification-once-state=fixture.json"]
+    probe_results(runner, monkeypatch, [0])
+
+    def execute(command):
+        assert command[-4:-1] == ["-p", "scripts.qualification_once", "-pother.plugin"]
+        assert Path(command[-1].removeprefix("@")).read_text().splitlines() == [
+            *selections, "--collect-only", "--qualification-once-state=fixture.json",
+        ]
+        return 0
+
+    monkeypatch.setattr(runner, "run_namespace", execute)
+    assert runner.main(arguments) == 0
+
+
 @pytest.mark.parametrize("changed", [
     {}, {"getuid": 0}, {"getuid": 4321}, {"geteuid": 0},
     {"getgid": 8765}, {"getegid": 0}, {"getpid": 2},
@@ -408,8 +426,19 @@ def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():
     ]
     assert "run-qualified-tests.py" not in light_commands
     assert "scripts/maintenance/phase2_plan.py" in light_commands
-    assert "scripts/run-phase1-tests.py tests/test_desktop_phase2_plan.py" in full_commands
+    assert "scripts/run-phase1-tests.py tests/test_desktop_phase2_plan.py" not in full_commands
     assert "scripts/run-qualified-tests.py" in full_commands
+    namespace_commands = [step["run"] for step in full["steps"]
+                          if "run-phase1-tests.py" in step.get("run", "")]
+    assert namespace_commands == [
+        ".venv/bin/python scripts/run-phase1-tests.py --additional-desktop-boundaries",
+    ]
+    pass_now = next(step for step in full["steps"] if step.get("id") == "pass-now")
+    assert "continue-on-error" not in pass_now
+    for script in ("run-qualified-tests.py", "run-lab-fixture-tests.py"):
+        step = next(step for step in full["steps"] if script in step.get("run", ""))
+        assert step["if"] == "${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}"
+        assert "continue-on-error" not in step
     assert workflow["concurrency"]["cancel-in-progress"] is True
     assert "github.event.pull_request.number || github.ref" in workflow["concurrency"]["group"]
 def test_default_selection_runs_full_adapter_instead_of_obsolete_original(tmp_path, monkeypatch):
@@ -437,3 +466,40 @@ def test_default_selection_runs_full_adapter_instead_of_obsolete_original(tmp_pa
     assert "tests/test_direct_helper.py" in command
     assert adapter in command
     assert command.count(adapter) == 1
+
+
+def test_additional_flag_keeps_namespace_supervisor_and_receipt(tmp_path, monkeypatch):
+    import json
+
+    runner = load_runner()
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    (tmp_path / "maintenance").mkdir()
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/test_plan.py").touch()
+    (tmp_path / "tests/test_desktop_extra.py").touch()
+    (tmp_path / "maintenance/qualification-plan.json").write_text(json.dumps({
+        "groups": [{"name": "plan", "reason": "reviewed", "files": ["tests/test_plan.py"]}],
+    }))
+    captured = []
+    probe_results(runner, monkeypatch, [0])
+    monkeypatch.setattr(runner, "run_namespace", lambda command: captured.append(command) or 0)
+    assert runner.main(["--additional-desktop-boundaries"]) == 0
+    assert len(captured) == 1
+    assert runner.NAMESPACE_SUPERVISOR in captured[0]
+    assert "tests/test_desktop_extra.py" in captured[0]
+    assert "tests/test_plan.py" not in captured[0]
+    assert "--junitxml=.test-state/additional-desktop-boundaries.xml" in captured[0]
+
+
+@pytest.mark.parametrize("arguments", [
+    ["tests/test_other.py"], ["-k", "other"], ["--maxfail=1"],
+    ["--additional-desktop-boundaries"],
+])
+def test_additional_flag_refuses_selection_overrides_before_launch(
+    tmp_path, monkeypatch, arguments,
+):
+    runner = load_runner()
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner, "run_namespace", lambda command: pytest.fail("must not launch"))
+    with pytest.raises(SystemExit, match="accepts only"):
+        runner.main(["--additional-desktop-boundaries", *arguments])

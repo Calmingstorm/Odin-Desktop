@@ -171,6 +171,16 @@ def test_container_entrypoint_refuses_root_before_pytest(monkeypatch):
         entry.main()
 
 
+def test_container_selection_is_disjoint_from_desktop_extras_and_entrypoint_matches():
+    spec = importlib.util.spec_from_file_location("fixture_entry", ROOT / runner.CI / "run.py")
+    entry = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(entry)
+    assert runner.TESTS == entry.TESTS
+    assert set(runner.TESTS) == {path.relative_to(ROOT).as_posix()
+                               for path in (ROOT / "tests").glob("test_lab_*.py")}
+    assert not any(Path(path).name.startswith("test_desktop_") for path in runner.TESTS)
+
+
 def test_start_timeout_cleans_owned_container(fake, monkeypatch):
     calls, original, _ = fake
 

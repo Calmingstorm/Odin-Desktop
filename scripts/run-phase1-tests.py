@@ -137,6 +137,11 @@ def main(argv: list[str] | None = None) -> int:
     state = ROOT / ".test-state"
     state.mkdir(mode=0o700, exist_ok=True)
     arguments = list(sys.argv[1:] if argv is None else argv)
+    extras_only = "--additional-desktop-boundaries" in arguments
+    if extras_only:
+        arguments.remove("--additional-desktop-boundaries")
+        if arguments not in ([], ["--collect-only"]):
+            raise SystemExit("Additional Desktop selection accepts only --collect-only")
     if not any(not argument.startswith("-") for argument in arguments):
         spec = importlib.util.spec_from_file_location(
             "phase1_default_selection", Path(__file__).with_name("phase1-default-selection.py")
@@ -147,7 +152,8 @@ def main(argv: list[str] | None = None) -> int:
         spec.loader.exec_module(selection)
         # Run each group in this supervisor process, so cancellation reaches
         # run_namespace's exact owned group rather than orphaning an extra launcher.
-        return selection.run_default(ROOT, arguments, execute=lambda command: main(command[2:]))
+        return selection.run_default(ROOT, arguments, execute=lambda command: main(command[2:]),
+                                     extras_only=extras_only)
     if not any(not argument.startswith("-") for argument in arguments):
         raise SystemExit("Refusing an unclassified full-suite invocation")
     with tempfile.TemporaryDirectory(prefix="isolation-", dir=state) as scratch:
@@ -176,9 +182,25 @@ def main(argv: list[str] | None = None) -> int:
         if sum(len(os.fsencode(argument)) + 1 for argument in arguments) > 8192:
             if any("\n" in argument or "\r" in argument for argument in arguments):
                 raise SystemExit("Refusing newline-containing response-file arguments")
+            # Pytest loads -p plugins before expanding response-file arguments.
+            # Keep explicit plugin loads on argv, or long selections silently
+            # omit collection/ownership hooks while shorter groups load them.
+            plugin_arguments, response_arguments = [], []
+            index = 0
+            while index < len(arguments):
+                argument = arguments[index]
+                if argument == "-p" and index + 1 < len(arguments):
+                    plugin_arguments.extend(arguments[index:index + 2])
+                    index += 2
+                    continue
+                if argument.startswith("-p") and len(argument) > 2:
+                    plugin_arguments.append(argument)
+                else:
+                    response_arguments.append(argument)
+                index += 1
             response = home / "pytest-arguments.txt"
-            response.write_text("\n".join(arguments) + "\n", encoding="utf-8")
-            arguments = [f"@{response}"]
+            response.write_text("\n".join(response_arguments) + "\n", encoding="utf-8")
+            arguments = [*plugin_arguments, f"@{response}"]
         # env -i excludes credentials, display/socket paths and live config overrides.
         command = [
             *namespace_command(environment),
