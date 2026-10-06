@@ -1465,6 +1465,7 @@
         "tests/test_desktop_maintenance.py",
         "tests/test_desktop_maintenance_review.py",
         "tests/test_desktop_native_history_binding.py",
+        "tests/test_desktop_pdf_catalog.py",
         "tests/test_desktop_persisted_outputs.py",
         "tests/test_desktop_profile_upgrade.py",
         "tests/test_desktop_qualification.py",
@@ -1479,6 +1480,9 @@
         "tests/test_desktop_round2_acceptance.py",
         "tests/test_desktop_runtime_retirement.py",
         "tests/test_desktop_step8_review_cli.py",
+        "tests/test_desktop_step8_review_cli_exact.py",
+        "tests/test_desktop_step8_review_codex_alternative.py",
+        "tests/test_desktop_step8_review_dispatch.py",
         "tests/test_desktop_step8_review_resume.py",
         "tests/test_desktop_step8_review_timeout.py",
         "tests/test_desktop_strip_loop.py",
@@ -1487,9 +1491,8 @@
         "tests/test_desktop_strip_web.py",
         "tests/test_desktop_test_plan.py",
         "tests/test_desktop_tool_details.py",
-        "tests/test_pdf_resources.py",
-        "tests/test_desktop_pdf_catalog.py",
-        "tests/test_desktop_transcript.py"
+        "tests/test_desktop_transcript.py",
+        "tests/test_pdf_resources.py"
       ],
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups."
     },
@@ -1792,11 +1795,12 @@
       "files": [
         "tests/test_computer_native_vision_r5.py",
         "tests/test_desktop_step8_controls_corpus.py",
+        "tests/test_desktop_step8_review_resume_exact.py",
         "tests/test_desktop_step8_review_steer_resume.py",
         "tests/test_desktop_step8_review_steering.py",
         "tests/test_desktop_step8_wait_corpus.py"
       ],
-      "reason": "Complete synthetic vision original plus bounded-process-wait frozen corpus through authentic profile ownership, actual RequestService worker admission and real runner. Supplemental vision loader repeats the original corpus with three hash/export safeguards; executions are not unique cases. No live native backend. Review1 adds retained steering runtime and full steering checkpoint/resume corpora through authentic worker admission; exact removed multi-requester case disposition, no fabricated parity trace."
+      "reason": "Complete synthetic vision original plus bounded-process-wait frozen corpus through authentic profile ownership, actual RequestService worker admission and real runner. Supplemental vision loader repeats the original corpus with three hash/export safeguards; executions are not unique cases. No live native backend. Review1 adds retained steering runtime and full steering checkpoint/resume corpora through authentic worker admission; exact removed multi-requester case disposition, no fabricated parity trace. Exact resume-admission corpus restored after real terminal-calibration release fix; eight explicit removed Discord cases, all original assertions unchanged."
     }
   ],
   "acceptance": {

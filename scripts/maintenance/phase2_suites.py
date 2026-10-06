@@ -82,6 +82,34 @@ PR35_RETIREMENT_REASONS = {
     for path, (_, surface) in PR35_RETIREMENTS.items()
 }
 PR35_CASE_REASONS = {
+    "tests/test_resume_admission.py": {
+        "TestExplicitResume.test_fetch_permission_failure_is_truthful_and_keeps_turn_resumable":
+        "Removed Discord fetch-permission denial surface: injects Discord Forbidden 50013 "
+        "and asserts Discord denial prose. Desktop transcript lookup has no Discord permission "
+        "layer; retained fetch-outage cases preserve the checkpoint and calibration lease.",
+        "TestExplicitResume.test_wrong_author_gets_notice":
+        "Removed Discord multi-author resume intake and wrong-author notice. Desktop has one "
+        "authenticated canonical profile owner; authentication and original-author provenance "
+        "rejection remain supported and tested.",
+        "TestMentionAnchoredResumeTrigger.test_foreign_mention_is_not_stripped":
+        "Removed Discord foreign-mention stripping at resume intake; desktop bare resume "
+        "and non-trigger pass-through remain supported and tested.",
+        "TestMentionAnchoredResumeTrigger.test_leading_mention_resume_triggers":
+        "Removed Discord leading bot-mention resume intake; desktop bare resume remains "
+        "supported and tested.",
+        "TestMentionAnchoredResumeTrigger.test_mention_plus_sentence_is_not_a_command":
+        "Removed Discord mention-plus-sentence command intake; desktop bare resume and "
+        "non-trigger pass-through remain supported and tested.",
+        "TestMentionAnchoredResumeTrigger.test_mention_recognized_trigger_still_fails_closed":
+        "Removed Discord mention-recognized resume intake; desktop bare resume rejection "
+        "and fail-closed checkpoint admission remain supported and tested.",
+        "TestMentionAnchoredResumeTrigger.test_nickname_mention_form_triggers":
+        "Removed Discord nickname bot-mention resume intake; desktop bare resume remains "
+        "supported and tested.",
+        "TestMentionAnchoredResumeTrigger.test_trailing_mention_is_not_a_command":
+        "Removed Discord trailing-mention command intake; desktop bare resume and "
+        "non-trigger pass-through remain supported and tested.",
+    },
     "tests/test_chat_steering_runtime.py": {
         "test_tool_batch_pairs_checkpoint_before_replan_no_stale_judgment_or_handoff":
         "Removed Discord admin/multi-requester steering: this case admits user 999999 as admin "
@@ -109,6 +137,8 @@ PR35_CASE_REASONS = {
     },
 }
 PR35_CASE_SOURCE_SHA256 = {
+    "tests/test_resume_admission.py":
+        "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce",
     "tests/test_chat_steering_runtime.py":
         "b41818cc97a50a4794cac024b953f7199369b225e863e1c9b4c34b2e32cc3f2b",
     "tests/test_session_search.py":

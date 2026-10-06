@@ -106,3 +106,98 @@ async def test_timeout_authentic_identity_and_readiness(tmp_path):
         adapter.defer_close(store)
 
     await adapter.run_admitted_case(inspect, tmp_path=tmp_path)
+
+
+async def test_timeout_unavailable_refusal_fails_before_wi3(tmp_path):
+    """Expose the production gap without repairing or hiding its checkpoint."""
+    from types import SimpleNamespace
+
+    from src.config.schema import ToolsConfig
+    from src.turn_state import OpState
+
+    async def inspect(tmp_path):
+        graph = adapter.current()
+        store = adapter.TurnStateStore(tmp_path / "unavailable.sqlite3")
+        handle = await adapter.request_admit(
+            store, message=graph.message, system_prompt="test", tools=[], session_snapshot=None)
+        executor = adapter.OwnerExecutor(config=ToolsConfig(), memory_path=str(tmp_path / "m.json"))
+        calls = []
+
+        async def must_not_dispatch(_input):
+            calls.append(True)
+            return "unauthorized evidence"
+
+        executor._handle_future_dynamic_tool = must_not_dispatch
+        block = SimpleNamespace(name="future_dynamic_tool", input={},
+                                id="unavailable-wi3", parse_error=None)
+        handle.generation_seq = 1
+        store.record_intents_sync(handle.lease, 1, [{
+            "tool_call_id": block.id, "tool_name": block.name, "tool_input": {},
+            "effect_class": "EXTERNAL_EFFECT_CAPABLE",
+        }], iteration=1)
+        runner = adapter.request_runner(executor, executor.config)
+        with pytest.raises(PermissionError, match="Output capability unavailable"):
+            await runner._run_one_tool_with_timeout(adapter.request_state(handle), block)
+        assert calls == []
+        state, result = store._conn.execute(
+            "SELECT state,result FROM operations WHERE tool_call_id=?", (block.id,)
+        ).fetchone()
+        assert state == OpState.RUNNING
+        assert result is None
+        # Normal terminal cleanup is not a synthetic WI-3 repair. The blocked
+        # operation still carries unknown-effect conservative shutdown behavior.
+        await handle.settle_terminal(cancelled=False, is_error=True)
+        adapter.defer_close(store)
+
+    await adapter.run_admitted_case(inspect, tmp_path=tmp_path)
+
+
+async def test_timeout_real_authored_skill_registry_does_not_grant_retention(tmp_path):
+    """An actual dynamic loader exists, but is not an executor readiness grant."""
+    from src.config.schema import ToolsConfig
+    from src.discord.native_tools.registry import NativeToolDispatcher
+    from src.tools.execution_outcome import ToolFailure
+    from src.tools.runtime_delivery import deliver_runtime_result
+    from src.tools.skill_manager import SkillManager
+
+    async def inspect(tmp_path):
+        graph = adapter.current()
+        store = adapter.TurnStateStore(tmp_path / "skill.sqlite3")
+        handle = await adapter.request_admit(
+            store, message=graph.message, system_prompt="test", tools=[], session_snapshot=None)
+        executor = adapter.OwnerExecutor(config=ToolsConfig(), memory_path=str(tmp_path / "m.json"))
+        skills = SkillManager(str(graph.owner.paths.data_dir / "actual-skills"), executor,
+                              tool_timeouts={"future_dynamic_tool": 1})
+        code = (
+            "import asyncio\n"
+            "SKILL_DEFINITION = {'name': 'future_dynamic_tool', 'description': 'timeout fixture', "
+            "'input_schema': {'type': 'object', 'properties': {}}}\n"
+            "calls = 0\n"
+            "async def execute(inp, context):\n"
+            "    global calls\n"
+            "    calls += 1\n"
+            "    await asyncio.Event().wait()\n"
+        )
+        created = skills.create_skill("future_dynamic_tool", code)
+        assert skills.has_skill("future_dynamic_tool"), created
+        assert not skills.has_skill("wait_for_agents")
+        collision = skills.create_skill("wait_for_agents", code)
+        assert "reserved" in collision.lower() or "built-in" in collision.lower()
+        native = NativeToolDispatcher(owners={}, skill_manager=skills, tool_catalog=None,
+                                      prompt_builder=None,
+                                      channel_state=graph.engine.deps.channel_state)
+        assert native.handles("future_dynamic_tool")
+        outcome, _effects = await native.dispatch(
+            "future_dynamic_tool", {}, message=graph.message, user_id=graph.message.owner_id,
+            skill_file_delivery="stage")
+        assert isinstance(outcome, ToolFailure) and outcome.uncertain_outcome
+        assert "timed out" in outcome.lower()
+        assert skills._skills["future_dynamic_tool"].execute_fn.__globals__["calls"] == 1
+        assert not executor._builtin_policy.is_available("future_dynamic_tool")
+        with pytest.raises(PermissionError, match="Output capability unavailable"):
+            deliver_runtime_result(executor, outcome, tool_name="future_dynamic_tool",
+                                   tool_input={}, user_id=graph.message.owner_id)
+        await handle.settle_terminal(cancelled=False, is_error=True)
+        adapter.defer_close(store)
+
+    await adapter.run_admitted_case(inspect, tmp_path=tmp_path)

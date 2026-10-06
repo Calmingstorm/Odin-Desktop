@@ -135,6 +135,23 @@ async def test_resume_increments_wire_generation_and_restores_exact_spent_state(
     assert [event["payload"]["generation"] for event in h.events.between(0)] == [2]
 
 
+@pytest.mark.parametrize("status,releases", [
+    (None, True), (TurnStatus.TERMINAL_REJECTED, True),
+    (TurnStatus.TERMINAL_COMPLETED, True), (TurnStatus.ACTIVE, False),
+    (TurnStatus.SUSPENDED, False),
+])
+async def test_empty_resume_load_releases_only_terminal_or_absent_lineage(
+    h, monkeypatch, status, releases,
+):
+    monkeypatch.setattr(h.ledger, "load_resumable_sync", lambda _key: None)
+    monkeypatch.setattr(h.ledger, "turn_status_sync", lambda _key: status)
+    answer = await h.controls.dispatch("control.resume", h.params())
+    assert answer["result"] == {
+        "disposition": "rejected", "reason": "checkpoint_unavailable"}
+    assert h.released == ([h.key] if releases else [])
+    assert h.requests.resumed == []
+
+
 async def test_resume_binds_requested_row_not_latest_other_suspension(h):
     h.requests.add("newer", state="suspended", ledger_generation="other")
     answer = await h.controls.dispatch("control.resume", h.params())

@@ -2,11 +2,11 @@
   "schema_version": 1,
   "artifact": "Phase2 step8 part3 review1 parent-owned suite dispositions",
   "original_suites": 47,
-  "restored": 20,
+  "restored": 21,
   "retired": 21,
-  "deferred": 6,
+  "deferred": 5,
   "review": "Claude, review of #35",
-  "restored_this_review": 6,
+  "restored_this_review": 7,
   "by_step": {
     "2": {
       "restored": 7,
@@ -18,9 +18,9 @@
       "restored": 9
     },
     "4": {
+      "restored": 5,
       "retired": 5,
-      "restored": 4,
-      "deferred": 3
+      "deferred": 2
     }
   },
   "dispositions": [
@@ -470,9 +470,73 @@
     {
       "path": "tests/test_resume_admission.py",
       "step": 4,
-      "status": "deferred",
+      "status": "restored",
       "inherited_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce",
-      "blocker": "Canonical Desktop resume behavior was probed through real RequestService/controls, but unchanged Discord-specific access-denial wording assertion cannot be preserved without a forbidden assertion-normalization/prose bridge. Prototype not qualified; source/owner edit and no-replay obligations remain. maintenance/step8-review-resume-admission-candidates.json."
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_review_resume_exact.py"
+        ],
+        "reason": "All185 original assertion ASTs identical and complete reverse replay; actual canonical owner, RequestService controls and real terminal calibration correction; only exact8 removed Discord intake/denial cases retired.",
+        "case_retirements": [
+          {
+            "case": "TestExplicitResume.test_fetch_permission_failure_is_truthful_and_keeps_turn_resumable",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord fetch-permission denial surface: injects Discord Forbidden 50013 and asserts Discord denial prose. Desktop transcript lookup has no Discord permission layer; retained fetch-outage cases preserve the checkpoint and calibration lease.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestExplicitResume.test_wrong_author_gets_notice",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord multi-author resume intake and wrong-author notice. Desktop has one authenticated canonical profile owner; authentication and original-author provenance rejection remain supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_foreign_mention_is_not_stripped",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord foreign-mention stripping at resume intake; desktop bare resume and non-trigger pass-through remain supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_leading_mention_resume_triggers",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord leading bot-mention resume intake; desktop bare resume remains supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_mention_plus_sentence_is_not_a_command",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord mention-plus-sentence command intake; desktop bare resume and non-trigger pass-through remain supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_mention_recognized_trigger_still_fails_closed",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord mention-recognized resume intake; desktop bare resume rejection and fail-closed checkpoint admission remain supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_nickname_mention_form_triggers",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord nickname bot-mention resume intake; desktop bare resume remains supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_trailing_mention_is_not_a_command",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord trailing-mention command intake; desktop bare resume and non-trigger pass-through remain supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          }
+        ]
+      }
     },
     {
       "path": "tests/test_search_history_source_priority.py",
@@ -641,5 +705,5 @@
       }
     }
   ],
-  "qualification": "pending single final fresh-checkout run; targeted evidence is not approval"
+  "qualification": "First full frozen gate failed; corrected source and alternative evidence require explicitly authorized second full gate. No failed evidence erased."
 }

@@ -6,7 +6,7 @@
     "tracked_test_paths": 869,
     "archive": "maintenance/odin-v4.13.0.tar.gz"
   },
-  "execution_status": "PR35 review1: assigned47 = restored20 + retired21 + deferred6. Historical326 = restored29 + retired26 + deferred271. Original869 hashes remain; final full gate separately recorded, no whole-product acceptance.",
+  "execution_status": "PR35 review1 continued: assigned47=21restored21retired5deferred; all869 original hashes326 population preserved. Full gate v1 failed, v2 source qualification recorded separately.",
   "qualification_plan": "maintenance/qualification-plan.json",
   "phase2_suite_map": "maintenance/phase2-suite-map.json",
   "phase2_restored": [
@@ -35,6 +35,7 @@
     "tests/test_process_manager.py",
     "tests/test_process_zero_offset.py",
     "tests/test_restored_process_shutdown.py",
+    "tests/test_resume_admission.py",
     "tests/test_search_history_source_priority.py",
     "tests/test_session_search.py",
     "tests/test_tool_loop_helpers.py",
@@ -53,13 +54,13 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 271,
+    "phase2": 270,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "safe_pass_now": 386,
+    "safe_pass_now": 387,
     "safety_manual_gated": 100,
     "retired": 26,
-    "phase2_restored": 29
+    "phase2_restored": 30
   },
   "entries": [
     {
@@ -22489,8 +22490,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/turn_resume.py: Desktop owner/intake/control/durable delivery adapter: turn_resume; src/turn_state/codec.py: install-bound context reconstruction. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "All185 original assertion ASTs identical and complete reverse replay; actual canonical owner, RequestService controls and real terminal calibration correction; only exact8 removed Discord intake/denial cases retired.",
       "phase2_seams": [
         "src/discord/client.py",
         "src/discord/tool_loop.py",
@@ -36659,7 +36660,6 @@
     "tests/test_recovery.py",
     "tests/test_resource_usage.py",
     "tests/test_restart.py",
-    "tests/test_resume_admission.py",
     "tests/test_round40_reviewer.py",
     "tests/test_runtime_output_delivery.py",
     "tests/test_schedule_report_format_parity.py",
@@ -37126,6 +37126,7 @@
     "tests/test_response_guards.py",
     "tests/test_restored_process_shutdown.py",
     "tests/test_result_validator.py",
+    "tests/test_resume_admission.py",
     "tests/test_retained_output_compression.py",
     "tests/test_round41_hedging_regression.py",
     "tests/test_safe_fetch.py",

@@ -31,16 +31,7 @@ from tests.fakes import FakeLLM, FakeMessage
 
 SOURCE_PATH = "tests/test_resume_admission.py"
 SOURCE_SHA256 = "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
-CORPUS_SELECTIONS = {"test_resume_admission": None}
-CORPUS_EXCLUSIONS = {"test_resume_admission": [
-    "TestExplicitResume.test_wrong_author_gets_notice",
-    "TestMentionAnchoredResumeTrigger.test_leading_mention_resume_triggers",
-    "TestMentionAnchoredResumeTrigger.test_nickname_mention_form_triggers",
-    "TestMentionAnchoredResumeTrigger.test_trailing_mention_is_not_a_command",
-    "TestMentionAnchoredResumeTrigger.test_mention_plus_sentence_is_not_a_command",
-    "TestMentionAnchoredResumeTrigger.test_foreign_mention_is_not_stripped",
-    "TestMentionAnchoredResumeTrigger.test_mention_recognized_trigger_still_fails_closed",
-]}
+# Fixture dependencies only: qualification metadata belongs to the exact adapter.
 RETIRED = {
     "TestExplicitResume.test_wrong_author_gets_notice": (
         "Removed Discord multi-author intake; local canonical owner authentication remains "

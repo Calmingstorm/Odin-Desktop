@@ -22988,11 +22988,11 @@
       "fixtures_closure": "retained-test-support",
       "owner": "Odin",
       "path": "tests/test_resume_admission.py",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/turn_resume.py: Desktop owner/intake/control/durable delivery adapter: turn_resume; src/turn_state/codec.py: install-bound context reconstruction. Preserve cases, no privileged fake shim.",
+      "reason": "All185 original assertion ASTs identical and complete reverse replay; actual canonical owner, RequestService controls and real terminal calibration correction; only exact8 removed Discord intake/denial cases retired.",
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "3685ca94d36c388e",
       "upstream_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
     },

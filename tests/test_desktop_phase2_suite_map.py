@@ -393,8 +393,8 @@ def _reviewed_cases(path):
             for case, reason in sorted(checker.PR35_CASE_REASONS[path].items())]
 
 
-def _reviewed_adapter(root):
-    path, selector = _restore(root, adapter=True, source_path="tests/test_tool_loop_helpers.py")
+def _reviewed_adapter(root, source_path="tests/test_tool_loop_helpers.py"):
+    path, selector = _restore(root, adapter=True, source_path=source_path)
     dispositions = _reviewed_cases(path)
     mapping = _read(root, checker.MAP_PATH)
     row = next(row for row in mapping["entries"] if row["path"] == path)
@@ -422,6 +422,9 @@ def test_reviewed_case_exclusions_keep_full_original_and_restoration_agreement(r
     assert not checker._full_adapter(repo, selector, path, checker.PR35_CASE_SOURCE_SHA256[path])
 
 
+@pytest.mark.parametrize("source_path", [
+    "tests/test_tool_loop_helpers.py", "tests/test_resume_admission.py",
+])
 @pytest.mark.parametrize("mutation", [
     "case", "parameter", "reviewer", "reason", "source_path", "source_sha256",
     "duplicate", "unsorted", "extra_field", "loader_disagreement", "unreviewed_suite",
@@ -429,8 +432,8 @@ def test_reviewed_case_exclusions_keep_full_original_and_restoration_agreement(r
     "direct_original", "no_metadata", "no_plan_cases", "empty_row",
     "mutated_constant", "mutated_item", "annotation", "hidden_kwargs",
 ])
-def test_case_retirement_mutations_fail_closed(repo, mutation):
-    path, selector, dispositions = _reviewed_adapter(repo)
+def test_case_retirement_mutations_fail_closed(repo, mutation, source_path):
+    path, selector, dispositions = _reviewed_adapter(repo, source_path)
     mapping = _read(repo, checker.MAP_PATH)
     row = next(row for row in mapping["entries"] if row["path"] == path)
     cases = row["restoration"]["case_retirements"]
@@ -487,6 +490,62 @@ def test_case_retirement_mutations_fail_closed(repo, mutation):
         target.write_text(source)
     _write(repo, checker.MAP_PATH, mapping)
     assert checker.validate(repo), mutation
+
+
+def test_resume_eight_removed_surface_dispositions_use_genuine_validator(repo):
+    path, selector, dispositions = _reviewed_adapter(repo, "tests/test_resume_admission.py")
+    assert len(dispositions) == 8
+    assert checker.validate(repo) == []
+    assert checker._full_adapter(repo, selector, path, checker.PR35_CASE_SOURCE_SHA256[path],
+                                 dispositions)
+    for supported in (
+        "TestCalibrationReleaseTotality.test_rebuild_author_mismatch_is_terminal_and_releases",
+        "TestExplicitResume.test_deleted_original_is_terminal_rejected",
+        "TestExplicitResume.test_confirmed_not_found_is_terminal_but_fetch_outage_preserves_lease",
+    ):
+        changed = copy.deepcopy(dispositions)
+        changed[0]["case"] = supported
+        changed.sort(key=lambda row: row["case"])
+        assert not checker._case_retirements(
+            repo, path, checker.PR35_CASE_SOURCE_SHA256[path], changed)
+
+
+@pytest.mark.parametrize("case_index", range(8))
+@pytest.mark.parametrize("field", ["case", "reviewer", "reason", "source_path", "source_sha256"])
+def test_every_resume_disposition_is_individually_pinned(repo, case_index, field):
+    path = "tests/test_resume_admission.py"
+    dispositions = _reviewed_cases(path)
+    assert checker._case_retirements(repo, path, checker.PR35_CASE_SOURCE_SHA256[path],
+                                    dispositions)
+    dispositions[case_index][field] = "unreviewed"
+    assert not checker._case_retirements(repo, path, checker.PR35_CASE_SOURCE_SHA256[path],
+                                        dispositions)
+
+
+def test_resume_dispositions_reject_changed_actual_source_bytes(repo):
+    path = "tests/test_resume_admission.py"
+    target = repo / path
+    replacement = target.with_suffix(".changed")
+    replacement.write_bytes(target.read_bytes() + b"\n# source drift\n")
+    replacement.replace(target)
+    assert not checker._case_retirements(
+        repo, path, checker.PR35_CASE_SOURCE_SHA256[path], _reviewed_cases(path))
+
+
+def test_actual_exact_resume_wrapper_has_complete_static_association():
+    import ast
+
+    path = "tests/test_resume_admission.py"
+    adapter = ROOT / "tests/desktop_adapters/step8_review_resume_exact.py"
+    tree = ast.parse(adapter.read_bytes())
+    exclusions = next(
+        ast.literal_eval(node.value)["test_resume_admission"]
+        for node in tree.body if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "CORPUS_EXCLUSIONS"
+                for target in node.targets))
+    assert checker._full_adapter(
+        ROOT, "tests/test_desktop_step8_review_resume_exact.py", path,
+        checker.PR35_CASE_SOURCE_SHA256[path], exclusions)
 
 
 @pytest.mark.parametrize("mutation", [None, "wrong_path", "wrong_hash"])
