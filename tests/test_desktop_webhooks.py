@@ -211,6 +211,51 @@ async def test_native_scheduler_change_wakes_listener(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_failed_schedule_write_does_not_notify_adoption(tmp_path, monkeypatch):
+    async with graph(tmp_path) as (_, scheduler, _, _, _, _, _, _):
+        notifications = []
+        unsubscribe = scheduler.subscribe_changes(lambda: notifications.append(True))
+        def fail():
+            raise OSError('temporary schedule write failure')
+        monkeypatch.setattr(scheduler, '_save', fail)
+        async with scheduler._lock:
+            with pytest.raises(OSError):
+                await scheduler._publish(scheduler.list_all())
+        assert notifications == []
+        unsubscribe()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_durable_schedule_write_notifies_adoption(tmp_path, monkeypatch):
+    import threading
+    async with graph(tmp_path) as (_, scheduler, _, _, _, _, _, _):
+        entered, release = threading.Event(), threading.Event()
+        notifications = []
+        unsubscribe = scheduler.subscribe_changes(lambda: notifications.append(True))
+        original = scheduler._save
+        def blocked():
+            entered.set()
+            assert release.wait(5)
+            original()
+        monkeypatch.setattr(scheduler, '_save', blocked)
+        async with scheduler._lock:
+            publishing = asyncio.create_task(scheduler._publish(scheduler.list_all()))
+            try:
+                async with asyncio.timeout(3):
+                    while not entered.is_set():
+                        await asyncio.sleep(0.01)
+                publishing.cancel()
+                release.set()
+                with pytest.raises(asyncio.CancelledError):
+                    await publishing
+            finally:
+                release.set()
+                await asyncio.gather(publishing, return_exceptions=True)
+        assert notifications == [True]
+        unsubscribe()
+
+
+@pytest.mark.asyncio
 async def test_threaded_keyring_change_wakes_listener(tmp_path):
     async with graph(tmp_path) as (ingress, _, settings, _, _, _, _, _):
         backend = settings.secrets._backend
