@@ -51,6 +51,9 @@ it launch Electron once with full stderr logging. Probe proofs are explicitly
 `focused-probes-not-qualification`, never passing seven-task reports.
 `--probe native-attach` observes an actual native chooser and cancels it with
 grounded keyboard input, without running the unrelated task groups.
+`--probe native-files` adds positive native selection, attachment UI adoption,
+and native Save with exact returned file bytes, still in one Electron launch.
+Neither probe substitutes a dialog result or qualifies the remaining task groups.
 
 Both destinations must be new. Archives contain an explicit base Git SHA,
 dirty-tree flag, actual working-source digests, runtime version and every file
@@ -98,19 +101,43 @@ and object path, then revalidates the live process incarnation, UID, executable,
 title, role and ACTIVE/SHOWING states. Orca's debug text is **never input
 authority**. The event writer's ready header, bus/process identity and open
 descriptor are checked; stale, foreign or unavailable references fail closed.
-GNOME's exact `/usr/libexec/xdg-desktop-portal-gnome` backend is supported only
-in the GNOME guest, for the same two requested chooser titles. Executable and
+GNOME's exact `/usr/libexec/xdg-desktop-portal-gnome` and KDE's exact
+`/usr/lib/x86_64-linux-gnu/libexec/xdg-desktop-portal-kde` backends are eligible
+only in their respective guests, for the same two requested chooser titles.
+Eligibility is not a runtime qualification claim. Executable and
 all ancestors must be canonical, root-owned and not writable by the guest.
 GTK4 4.14's dialog reports MODAL/SHOWING but omits ACTIVE from `GetState` despite
 emitting a real `object:state-changed:active(1)` event. For that backend only,
-the latest collector event supplies the active state while MODAL/SHOWING,
+the actual activation event supplies the active state while MODAL/SHOWING,
 title, dialog role, UID, PID and start time are rechecked before every chord.
-A newer inactive event or any other observed activation revokes that binding;
+A newer same-target inactive event or any other observed activation revokes that binding;
+another window merely becoming inactive does not revoke the current modal.
 foreign activations are recorded as revocations, never input targets. No
 portal request-token association is claimed. This VM-only fixture lane trusts
 the exact installed portal plus actual current native modal activation.
 Confirmed input release is required; partial native input errors are not
-replayed by the suite's readiness polling.
+replayed by the suite's readiness polling. Readiness polls observation only,
+then invokes input exactly once outside polling. Collector exhaustion or an
+event-processing error invalidates its ledger and stops it; a still-running
+process or an old activation cannot preserve authority. Valid foreign activation
+paths are recorded as revocations even outside the input-target path allowlist.
+
+Native file entry requires focused EDITABLE entry/text readback from the same
+modal before the final Open/Save chord. Field matching is not file acceptance:
+the probe also checks the actual returned path and actual saved bytes. GTK4
+readback uses CharacterCount, not a negative GetText end. The observation-only
+`describe` command does not synthesize speech or send keypad Enter, which can
+accidentally activate a native dialog's default button. Mark speech before opening
+the dialog and require Orca's actual opening utterances.
+
+In KDE, after Orca and the collector are ready, the bootstrap temporarily sets
+the two Qt accessibility flags in the guest user manager and restarts only
+`plasma-xdg-desktop-portal-kde.service`. It verifies the installed process,
+graphical session environment and unchanged accessibility bus, then restores the
+prior manager values. The measured v30 probe still lacked the Qt chooser's AT-SPI
+application/dialog, despite these checks. Plasmashell's task button is never
+accepted as the chooser. This remains a runtime blocker, not a title-matching
+exception or permission to redirect the chooser through another toolkit.
 
 Default host timeout is 2100 seconds, longer than the guest's 1800-second task
 deadline and bounded cleanup. Failed output is retained, never replayed. The
@@ -132,7 +159,8 @@ sudo -n unshare --mount --pid --fork --mount-proc --kill-child \
   sudo -u "$USER" env -u DBUS_SESSION_BUS_ADDRESS -u XDG_RUNTIME_DIR \
   .venv/bin/python -m pytest -q tests/test_lab_orca*.py \
     tests/test_native_dialog_events.py tests/test_orca_guest_tasks.py \
-    tests/test_lab_focused_probe.py
+    tests/test_lab_focused_probe.py tests/test_orca_native_input.py \
+    tests/test_kde_portal_preparation.py
 ```
 
 These test archives, provenance, fail-closed targets/preflight, private output,

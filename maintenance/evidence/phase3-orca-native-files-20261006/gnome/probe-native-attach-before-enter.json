@@ -1,0 +1,26 @@
+{
+  "binding": {
+    "type": "source",
+    "run": "f68c1d02b02ad0eec18735c4a64db9b8",
+    "observed_ns": 80457056812,
+    "identity": {
+      "pid": 1356,
+      "uid": 1001,
+      "exe": "/usr/libexec/xdg-desktop-portal-gnome",
+      "start": "5883"
+    },
+    "peer": ":1.16",
+    "path": "/org/gtk/application/xdg_desktop_portal_gnome/a11y/b4abc02a_b050_4c25_9dd1_c21dbff7e099",
+    "event": "object:state-changed:active",
+    "signature": "siiva{sv}"
+  },
+  "title": "Attach files",
+  "expected": "/var/tmp/odq-orca-d48e984f62634fb392c224d75c555d68/probe-files-69eac8da-21ca-4db4-a282-69a2f9db5b19/keyboard-attachment.txt",
+  "focused_field": {
+    "peer": ":1.16",
+    "path": "/org/gtk/application/xdg_desktop_portal_gnome/a11y/c8d8a4a8_465b_45ae_9c8d_e91f7211c036",
+    "text": "/var/tmp/odq-orca-d48e984f62634fb392c224d75c555d68/probe-files-69eac8da-21ca-4db4-a282-69a2f9db5b19/keyboard-attachment.txt"
+  },
+  "matches": true,
+  "acceptance_proven": false
+}

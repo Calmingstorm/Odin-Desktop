@@ -1,0 +1,19 @@
+
+Running 7 tests using 1 worker
+
+
+  ✓  1 test/e2e/orca.spec.ts:189:5 › orca-bridge-named-message-and-native-button-role (7.1s)
+
+  ✓  2 test/e2e/orca.spec.ts:195:5 › orca-chat-results-attach-cancel-save-copy-report (50.3s)
+
+  ✓  3 test/e2e/orca.spec.ts:236:5 › orca-conversation-child-modal-search (11.4s)
+
+  ✓  4 test/e2e/orca.spec.ts:272:5 › orca-busy-steer-consumed-queued-stop-resume-unknown-no-flood (20.0s)
+
+  ✓  5 test/e2e/orca.spec.ts:322:5 › orca-all-eleven-settings-names-roles-states-errors-secret (2.6m)
+
+  ✓  6 test/e2e/orca.spec.ts:382:5 › orca-delayed-history-search-retains-focused-current-message (10.8s)
+
+  ✓  7 test/e2e/orca.spec.ts:397:5 › orca-real-core-services-when-explicitly-provisioned (14.2s)
+
+  7 passed (4.5m)
