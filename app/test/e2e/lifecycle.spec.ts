@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { expect, test, type ElectronApplication, type TestInfo } from '@playwright/test'
 import { exitApp, isolatedEnv, launchApp, launchRaw, launchSecond, repository, request, snapshot, waitForCore } from './harness'
@@ -271,6 +271,98 @@ test('unexpected ready core loss fences replacement with unknown cleanup', async
     await receipt(info, 'core-loss-replacement-fenced', { owned, after })
     await exitApp(application)
   } finally { await dispose(application) }
+})
+
+test('unknown cleanup is nonmodal even when hidden, acknowledgment archives it, and a later loss warns anew', async ({}, info) => {
+  const profile = 'acknowledge-cleanup'
+  let application: ElectronApplication | null = await launchApp({ profile })
+  const core = await waitForCore(application)
+  const before = await snapshot(application)
+  const owned = identity(core.pid)
+  const closed = application.waitForEvent('close')
+  application.process().kill('SIGKILL')
+  await closed
+  application = null
+  await expect.poll(() => alive(owned), { timeout: 12_000 }).toBe(false)
+  try {
+    application = await launchApp({ profile, args: ['--hidden'] })
+    await waitForCore(application)
+    const page = await application.firstWindow()
+    const notice = page.getByRole('region', { name: 'Cleanup unknown' })
+    await expect(notice).toBeVisible()
+    await expect(notice).toContainText('without a shutdown receipt')
+    // Inspect the private X server, not an Electron-only window inventory:
+    // native message boxes would otherwise escape BrowserWindow accounting.
+    expect(execFileSync('xwininfo', ['-root', '-tree'], { encoding: 'utf8' })).not.toContain('Odin cleanup unknown')
+    expect((await snapshot(application)).visible).toBe(false)
+    expect((await request(application, 'status.get')).ok).toBe(true)
+    await launchSecond(application)
+    await expect.poll(async () => (await snapshot(application!)).visible).toBe(true)
+    // A real renderer button invokes the guarded bridge; no main-only
+    // acknowledgment hook or injected modal dismissal substitutes for it.
+    await notice.getByRole('button', { name: 'Acknowledge', exact: true }).click()
+    await expect(notice).toHaveCount(0)
+    const archived = JSON.parse(readFileSync(before.cleanupPath, 'utf8')).archived
+    expect(archived.length).toBeGreaterThan(0)
+    expect(archived[0].records[0]).toMatchObject({ state: 'unknown' })
+    expect(Number.isFinite(Date.parse(archived[0].acknowledgedAt))).toBe(true)
+    await exitApp(application)
+    application = await launchApp({ profile })
+    const quietCore = await waitForCore(application)
+    await expect((await application.firstWindow()).getByRole('region', { name: 'Cleanup unknown' })).toHaveCount(0)
+    expect((await snapshot(application)).cleanupUnknown).toBeNull()
+    expect(JSON.parse(readFileSync(before.cleanupPath, 'utf8')).archived).toEqual(archived)
+    const secondOwned = identity(quietCore.pid)
+    const secondClosed = application.waitForEvent('close')
+    application.process().kill('SIGKILL')
+    await secondClosed
+    application = null
+    await expect.poll(() => alive(secondOwned), { timeout: 12_000 }).toBe(false)
+    application = await launchApp({ profile })
+    await waitForCore(application)
+    await expect((await application.firstWindow()).getByRole('region', { name: 'Cleanup unknown' })).toBeVisible()
+    expect((await snapshot(application)).cleanupUnknown?.state).toBe('unknown')
+    expect(JSON.parse(readFileSync(before.cleanupPath, 'utf8')).archived).toEqual(archived)
+    await receipt(info, 'nonmodal-cleanup-acknowledgment', { archived, renewed: await snapshot(application),
+      journal: JSON.parse(readFileSync(before.cleanupPath, 'utf8')) })
+    await exitApp(application)
+    application = null
+  } finally { if (application) await dispose(application) }
+})
+
+test('acknowledgment of a core resource warning stays quiet without clearing core reconciliation', async ({}, info) => {
+  const profile = 'acknowledge-core-resource'
+  let application: ElectronApplication | null = await launchApp({ profile })
+  try {
+    const core = await waitForCore(application)
+    const before = await snapshot(application)
+    process.kill(core.pid, 'SIGKILL')
+    await expect.poll(async () => (await snapshot(application!)).coreState).toBe('failed')
+    await exitApp(application)
+    application = await launchApp({ profile })
+    await waitForCore(application)
+    const page = await application.firstWindow()
+    const notice = page.getByRole('region', { name: 'Cleanup unknown' })
+    await expect(notice).toContainText('native resources require reconciliation')
+    const publicBefore = await request(application, 'status.get')
+    expect((publicBefore.result as any).resource_cleanup.reconciliation_required).toBe(true)
+    await notice.getByRole('button', { name: 'Acknowledge', exact: true }).click()
+    await expect(notice).toHaveCount(0)
+    const publicAfter = await request(application, 'status.get')
+    expect((publicAfter.result as any).resource_cleanup).toEqual((publicBefore.result as any).resource_cleanup)
+    const archived = JSON.parse(readFileSync(before.cleanupPath, 'utf8')).archived
+    await exitApp(application)
+    application = await launchApp({ profile })
+    await waitForCore(application)
+    const publicRestart = await request(application, 'status.get')
+    expect((publicRestart.result as any).resource_cleanup.reconciliation_required).toBe(true)
+    await expect((await application.firstWindow()).getByRole('region', { name: 'Cleanup unknown' })).toHaveCount(0)
+    expect((await snapshot(application)).cleanupUnknown).toBeNull()
+    expect(JSON.parse(readFileSync(before.cleanupPath, 'utf8')).archived).toEqual(archived)
+    await receipt(info, 'acknowledgment-is-not-resource-reconciliation', { publicBefore, publicAfter, publicRestart, archived })
+    await exitApp(application)
+    application = null
+  } finally { if (application) await dispose(application) }
 })
 
 test('exit-only with no app constructs neither core nor Odin profile', async () => {

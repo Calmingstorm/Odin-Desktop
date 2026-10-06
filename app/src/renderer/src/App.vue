@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import { init, state } from './store'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+import CleanupNotice from './components/CleanupNotice.vue'
 import ConversationList from './components/ConversationList.vue'
 import MessageList from './components/MessageList.vue'
 import Composer from './components/Composer.vue'
@@ -55,6 +56,7 @@ const active = computed(() => state.conversations.find((c) => c.id === state.act
 
 <template>
   <div class="shell">
+    <CleanupNotice />
     <ConversationList class="sidebar" />
     <main v-if="state.view === 'chat'" class="main">
       <header class="topbar">

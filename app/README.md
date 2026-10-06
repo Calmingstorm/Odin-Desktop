@@ -116,8 +116,11 @@ Unexpected loss of an already authenticated core stops automatic replacement: a 
 effect/native-resource release. Exit freezes admission and reconnect reconciliation before persisting state and
 requesting one shutdown. Process escalation has a separate unknown receipt, never an "undone" result.
 Cleanup evidence is fsynced in an app-only sibling file `config/odin-desktop/default-cleanup-state.json`, not in
-the identity-checked engine profile. Previous unknown evidence remains visible on subsequent starts and is not
-cleared by a later ordinary Exit.
+the identity-checked engine profile. Previous unknown evidence remains visible in a nonmodal banner on subsequent
+starts and is not cleared by a later ordinary Exit. **Acknowledge** durably archives the displayed warning with its
+time in that same journal. It is an acknowledgment of uncertainty, never proof of undo or release: core resource
+quarantine/reconciliation and no-replay policy are unchanged. The same archived evidence stays quiet on restart;
+a new unknown event raises a fresh notice. Hidden login starts never open a cleanup modal.
 
 Notification tests exercise actual Electron D-Bus requests, acceptance/refusal and native `ActionInvoked`, then
 inspect the exact older conversation/message in the renderer, including renderer loss. Their conversation and

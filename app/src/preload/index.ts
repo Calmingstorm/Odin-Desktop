@@ -113,6 +113,7 @@ const api: OdinApi = {
     return () => ipcRenderer.removeListener(IPC.openConversation, handler)
   },
   getAppState: () => ipcRenderer.invoke(IPC.getAppState),
+  acknowledgeCleanup: (id) => ipcRenderer.invoke(IPC.acknowledgeCleanup, { id }),
   onEvent: (listener) => {
     const handler = (_event: IpcRendererEvent, coreEvent: CoreEvent): void => listener(coreEvent)
     ipcRenderer.on(IPC.event, handler)

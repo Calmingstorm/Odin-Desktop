@@ -1,6 +1,8 @@
 // Process exit is not a tool/native-input release receipt. Unknown evidence is never silently cleared.
 import { closeSync, fsyncSync, openSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { createHash, randomUUID } from 'node:crypto'
+import type { CleanupWarning } from '../shared/api'
 import type { StopOutcome } from './core-supervisor'
 
 export interface CleanupRecord {
@@ -12,41 +14,132 @@ export interface CleanupRecord {
   shutdownAccepted?: boolean
   unsaved?: boolean
   unreceipted?: number
+  /** App-local evidence identity, never authority to replay or release a resource. */
+  eventId?: string
+  source?: string
+}
+
+export interface CleanupAcknowledgment extends CleanupWarning {
+  acknowledgedAt: string
+  records: CleanupRecord[]
+}
+interface JournalWarning extends CleanupWarning { records: CleanupRecord[] }
+interface JournalEvidence extends CleanupRecord {
+  journalVersion: 2
+  current: CleanupRecord
+  warning: JournalWarning | null
+  archived: CleanupAcknowledgment[]
+}
+
+/** JSON persistence may reorder object keys without creating new uncertainty. */
+export function resourceCleanupSource(evidence: unknown): string {
+  const canonical = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(canonical)
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => [key, canonical(child)]))
+    }
+    return value
+  }
+  return `core-resource:${createHash('sha256').update(JSON.stringify(canonical(evidence))).digest('hex')}`
+}
+
+function validRecord(value: unknown): value is CleanupRecord {
+  if (!value || typeof value !== 'object') return false
+  const row = value as CleanupRecord
+  return row.version === 1 && ['running', 'process-exited', 'unknown'].includes(row.state)
+    && typeof row.at === 'string' && typeof row.reason === 'string'
+}
+function validWarning(value: unknown): value is JournalWarning {
+  if (!value || typeof value !== 'object') return false
+  const row = value as JournalWarning
+  return typeof row.id === 'string' && row.id.length > 0 && typeof row.at === 'string'
+    && Array.isArray(row.records) && row.records.length > 0
+    && row.records.every((record) => validRecord(record) && record.state === 'unknown')
 }
 
 export class CleanupJournal {
-  private unknown: CleanupRecord | null
+  private unknown: JournalWarning | null = null
+  private current: CleanupRecord = this.record('running', 'App running; shutdown not yet observed')
+  private archive: CleanupAcknowledgment[] = []
   constructor(private readonly path: string) {
     try {
-      const saved = JSON.parse(readFileSync(path, 'utf8')) as CleanupRecord
-      this.unknown = saved.version === 1 && saved.state === 'process-exited' ? null : {
-        ...saved,
-        version: 1, state: 'unknown', at: saved.at ?? new Date().toISOString(),
-        reason: saved.state === 'running' ? 'Previous app stopped without a shutdown receipt. Cleanup unknown; effects are not undone.' : saved.reason ?? 'Previous cleanup receipt is unknown'
+      const saved: unknown = JSON.parse(readFileSync(path, 'utf8'))
+      if (!validRecord(saved)) throw new Error('Invalid cleanup evidence')
+      if ('journalVersion' in saved) {
+        const evidence = saved as JournalEvidence
+        if (evidence.journalVersion !== 2 || !validRecord(evidence.current)
+          || (evidence.warning !== null && !validWarning(evidence.warning))
+          || !Array.isArray(evidence.archived)
+          || !evidence.archived.every((row) => validWarning(row) && typeof row.acknowledgedAt === 'string')) {
+          throw new Error('Invalid cleanup journal')
+        }
+        this.current = evidence.current
+        this.unknown = evidence.warning
+        this.archive = evidence.archived
+      } else {
+        // Migrate the previous single-record format without discarding uncertainty.
+        this.current = saved
+        if (saved.state === 'unknown') this.unknown = this.addUnknown(saved)
+      }
+      if (this.current.state === 'running') {
+        this.unknown = this.addUnknown({ ...this.current, state: 'unknown',
+          source: `app-lifetime:${this.current.eventId ?? this.current.at}`,
+          reason: 'Previous app stopped without a shutdown receipt. Cleanup unknown; effects are not undone.' })
       }
     } catch (error) {
-      this.unknown = (error as NodeJS.ErrnoException).code === 'ENOENT' ? null : {
-        version: 1, state: 'unknown', at: new Date().toISOString(), reason: 'Previous cleanup evidence could not be read'
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        this.unknown = this.addUnknown(this.record('unknown', 'Previous cleanup evidence could not be read'))
       }
     }
   }
-  get warning(): CleanupRecord | null { return this.unknown }
-  begin(): void { this.write(this.unknown ?? this.record('running', 'App running; shutdown not yet observed')) }
-  markUnknown(reason: string): void {
-    this.unknown ??= this.record('unknown', reason)
-    this.write(this.unknown)
+  get warning(): CleanupRecord | null { return this.unknown ? structuredClone(this.unknown.records[0]!) : null }
+  get notice(): CleanupWarning | null { return structuredClone(this.unknown) }
+  get archived(): CleanupAcknowledgment[] { return structuredClone(this.archive) }
+  begin(): void {
+    const current = this.record('running', 'App running; shutdown not yet observed')
+    this.write(current, this.unknown, this.archive)
+    this.current = current
+  }
+  markUnknown(reason: string, source?: string): void {
+    const warning = this.addUnknown({ ...this.record('unknown', reason), ...(source ? { source } : {}) })
+    this.write(this.current, warning, this.archive)
+    this.unknown = warning
   }
   finish(record: CleanupRecord): void {
-    if (record.state === 'unknown') this.unknown ??= record
-    this.write(this.unknown ?? record)
+    const warning = record.state === 'unknown' ? this.addUnknown(record) : this.unknown
+    this.write(record, warning, this.archive)
+    this.current = record
+    this.unknown = warning
+  }
+  /** Archive the observed notice only. Never change core quarantine, release truth or replay policy. */
+  acknowledge(id: string): boolean {
+    if (!this.unknown || this.unknown.id !== id) return false
+    const archived = [...this.archive, { ...this.unknown, acknowledgedAt: new Date().toISOString() }]
+    // Do not hide the notice until the same journal has durably retained its evidence.
+    this.write(this.current, null, archived)
+    this.archive = archived
+    this.unknown = null
+    return true
+  }
+  private addUnknown(record: CleanupRecord): JournalWarning | null {
+    // A repeated core report of the SAME uncertainty is not a new event. A new
+    // receipt/count has a different source, so it raises a fresh warning.
+    const retained = [...(this.unknown?.records ?? []), ...this.archive.flatMap((row) => row.records)]
+    if (record.source && retained.some((row) => row.source === record.source)) return this.unknown
+    return { id: randomUUID(), at: record.at, records: [...(this.unknown?.records ?? []), record] }
   }
   private record(state: CleanupRecord['state'], reason: string): CleanupRecord {
-    return { version: 1, state, reason, at: new Date().toISOString() }
+    return { version: 1, state, reason, at: new Date().toISOString(), eventId: randomUUID() }
   }
-  private write(record: CleanupRecord): void {
+  private write(current: CleanupRecord, warning: JournalWarning | null, archived: CleanupAcknowledgment[]): void {
+    // Keep the legacy top-level summary readable, and separately retain the
+    // current lifetime marker even while older uncertainty remains visible.
+    const evidence: JournalEvidence = { ...(warning?.records[0] ?? current),
+      journalVersion: 2, current, warning, archived }
     const pending = `${this.path}.pending`
     const fd = openSync(pending, 'w', 0o600)
-    try { writeFileSync(fd, JSON.stringify(record)); fsyncSync(fd) } finally { closeSync(fd) }
+    try { writeFileSync(fd, JSON.stringify(evidence)); fsyncSync(fd) } finally { closeSync(fd) }
     renameSync(pending, this.path)
     const directory = openSync(dirname(this.path), 'r')
     try { fsyncSync(directory) } finally { closeSync(directory) }

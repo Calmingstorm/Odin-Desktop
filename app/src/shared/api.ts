@@ -244,6 +244,20 @@ export type Result<T> = { ok: true; result: T } | { ok: false; error: CoreError 
 /** Connection state as the app's main process sees it. */
 export type LinkState = 'starting' | 'connecting' | 'ready' | 'reconnecting' | 'core-restarting' | 'core-failed'
 
+/** Retained cleanup uncertainty. Acknowledgment archives the notice, not resource quarantine or effects. */
+export interface CleanupWarning {
+  id: string
+  at: string
+  records: Array<{
+    at: string
+    reason: string
+    processOutcome?: string
+    shutdownAccepted?: boolean
+    unsaved?: boolean
+    unreceipted?: number
+  }>
+}
+
 export interface AppState {
   link: LinkState
   coreInstanceId: string | null
@@ -251,6 +265,7 @@ export interface AppState {
   noTray: boolean
   /** Commands that were sent but whose receipt is still pending reconciliation. */
   unreceipted: number
+  cleanupWarning?: CleanupWarning | null
 }
 
 export type ApplyMode = 'live_read' | 'live_apply' | 'live_for_new_work' | 'restart' | 'activation_required' | 'dormant'
@@ -1123,6 +1138,8 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   /** A notification was clicked: open its exact committed message, including older history. Main-to-window only. */
   onOpenConversation(listener: (target: { conversationId: string; messageId: string }) => void): () => void
   getAppState(): Promise<AppState>
+  /** Archives only the current cleanup notice by its opaque ID. Never replays work or reconciles resources. */
+  acknowledgeCleanup(id: string): Promise<Result<AppState>>
   onEvent(listener: (event: CoreEvent) => void): () => void
   onAppState(listener: (state: AppState) => void): () => void
   /** Late receipts for commands whose first answer was 'no_receipt'. */
@@ -1197,6 +1214,7 @@ export const IPC = {
   /** Preload listener readiness only. No payload, target, command or renderer-controlled core operation. */
   notificationRouteReady: 'odin:notification-route-ready',
   getAppState: 'odin:app-state:get',
+  acknowledgeCleanup: 'odin:cleanup:acknowledge',
   event: 'odin:event',
   appState: 'odin:app-state',
   receipt: 'odin:receipt',

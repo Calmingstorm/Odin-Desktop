@@ -141,3 +141,29 @@ core/driver regression passed 172, real-core contract passed 8 and management-aw
 checkpoints. Final counts, source commit and artifact hashes are in the external fresh-checkout evidence.
 Neither a clean lineage report nor these passing cases
 constitutes independent Claude review or release/native-matrix qualification.
+
+## PR #32 review round 1: acknowledge uncertainty without a startup modal
+
+Merged reviewed `origin/main` `1c72a3f14b1257126ddd8f51863e0f707bccd4c5` with merge commit
+`8375be4353dc9ff7d799bb8640c3dc7308372d3e`, not a rebase. Combined the stronger lifecycle quiescing checks
+with main's real settings/runtime contracts and retained the merged accessibility `/status` correction.
+
+- Removed the startup cleanup message box, including hidden-login launches. A persistent, named nonmodal banner
+  spans chat and settings, displays retained reasons/times, and never captures focus or blocks work.
+- Added one named, trusted-top-frame/admission-checked acknowledgment bridge. Its bounded token must match the
+  current warning; a new unknown rotates that token. No core call, arbitrary path, replay or quarantine change.
+- The fsynced journal now retains its current lifetime separately from unknown notices and their timestamped
+  archives. Legacy single receipts migrate without losing fields. Acknowledgment archives before hiding; failed
+  persistence leaves the notice visible. Ordinary Exit cannot silently acknowledge uncertainty.
+- Archived core reports use recursively canonical evidence identities, so sorted-key persistence does not
+  manufacture a new event. A new receipt/count or interrupted app lifetime raises a new notice. Core resource
+  status remains reconciliation-required even when its app notice has been acknowledged.
+- Added journal, sender/schema/admission, preload, renderer/layout/focus/error/stale-response tests. Two real-core
+  E2E cases cover hidden startup without a native modal, owner button acknowledgment, readable retained archive,
+  quiet normal restart, new crash warning, and unchanged core reconciliation across acknowledgment/restart.
+
+The first expanded E2E run exposed unstable object-key hashing (18/19 passed). Read-only review independently
+identified the same defect; canonicalization repairs it rather than weakening the quiet-restart assertion.
+Earlier failed evidence is retained under `/home/odin/desktop-pr32-r1-e2e/`. Final rerun evidence is recorded
+separately. The lifecycle evidence digests in `desktop-deltas.json` were updated only for the two added behavior
+cases, with no engine/fixture byte or safety approval recapture.

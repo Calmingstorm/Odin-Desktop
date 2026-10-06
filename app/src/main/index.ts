@@ -22,7 +22,7 @@ import { realCoreSmoke } from './real-core-smoke'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
 import { OdinTray, detectTray } from './tray'
-import { boundedShutdown, CleanupJournal } from './shutdown'
+import { boundedShutdown, CleanupJournal, resourceCleanupSource } from './shutdown'
 import { showNativeNotification } from './native-notifications'
 
 registerAppScheme()
@@ -67,7 +67,6 @@ function run(): void {
 
   let win: BrowserWindow | null = null
   let tray: OdinTray | null = null
-  const cleanupNotice = new AbortController()
   let supervisorLink: LinkState | null = null
   let pendingOpen = !flags.hidden
   let notificationRouteReady = false
@@ -178,11 +177,18 @@ function run(): void {
     listConversations()
     void broker.request('status.get').then((status) => {
       const resourceCleanup = status.ok
-        ? (status.result as { resource_cleanup?: { reconciliation_required?: boolean } }).resource_cleanup
+        ? (status.result as { resource_cleanup?: { reconciliation_required?: boolean; previous_unknown?: unknown;
+          previous_unknown_count?: number; state?: string; resources?: unknown } }).resource_cleanup
         : undefined
       if (resourceCleanup?.reconciliation_required) {
-        cleanup.markUnknown('The core reports unresolved resource cleanup from a previous lifetime. Effects are not undone; native resources require reconciliation. No work is replayed.')
-        showCleanupWarning()
+        // Archive app presentation, not core uncertainty/quarantine. Repeated
+        // reports of this exact receipt stay quiet; new evidence/count warns anew.
+        const source = resourceCleanupSource({
+          previous: resourceCleanup.previous_unknown, count: resourceCleanup.previous_unknown_count,
+          current: resourceCleanup.state === 'unknown' ? resourceCleanup.resources : undefined
+        })
+        cleanup.markUnknown('The core reports unresolved resource cleanup from a previous lifetime. Effects are not undone; native resources require reconciliation. No work is replayed.', source)
+        publishAppState()
       }
       const announced = status.ok ? (status.result as { limits?: Partial<AttachmentLimits> }).limits : undefined
       if (announced?.attachment_bytes && announced.chunk_bytes) {
@@ -195,7 +201,8 @@ function run(): void {
     link: supervisorLink ?? broker.linkState,
     coreInstanceId: broker.coreInstanceId,
     noTray: !lifecycle.trayAvailable,
-    unreceipted: broker.unreceiptedCount
+    unreceipted: broker.unreceiptedCount,
+    cleanupWarning: cleanup.notice
   })
 
   const publishAppState = (): void => {
@@ -254,7 +261,7 @@ function run(): void {
   const settings = (): Settings => ({ autostart: isAutostartEnabled(), notifications: notificationSettings })
 
   const shutdown = boundedShutdown({
-    stopAdmission: () => { lifecycle.quitting = true; cleanupNotice.abort(); broker.quiesce(); tray?.setStatus('Stopping Odin…') },
+    stopAdmission: () => { lifecycle.quitting = true; broker.quiesce(); tray?.setStatus('Stopping Odin…') },
     persist: () => { drafts.flush(); if (!savePersisted()) throw new Error('App preferences were not persisted') },
     requestShutdown: async () => broker.linkState === 'ready'
       && (await coreRequest('runtime.shutdown', { reason: 'exit' })).ok,
@@ -274,15 +281,6 @@ function run(): void {
     exit: (code) => app.exit(code)
   })
   const exitOdin = async (code = 0): Promise<void> => { await shutdown(code) }
-  let cleanupWarningShown = false
-  const showCleanupWarning = (): void => {
-    if (cleanupWarningShown || !win || !cleanup.warning || lifecycle.quitting) return
-    cleanupWarningShown = true
-    void dialog.showMessageBox(win, { type: 'warning', title: 'Odin cleanup unknown',
-      message: 'Previous cleanup is unknown',
-      detail: `${cleanup.warning.reason}\nNo effects are labelled undone. No work is replayed. This warning remains on future starts.`,
-      buttons: ['Continue'], noLink: true, signal: cleanupNotice.signal })
-  }
 
   // Main-only hooks; not exposed through IPC/preload. The E2E runner enforces isolation before launch.
   if (!app.isPackaged && process.env.ODIN_APP_E2E === '1'
@@ -363,7 +361,12 @@ function run(): void {
         savePersisted()
         return settings()
       },
-      appState
+      appState,
+      acknowledgeCleanup: (id) => {
+        if (!cleanup.acknowledge(id)) throw new Error('Cleanup notice changed; acknowledge the current notice')
+        publishAppState()
+        return appState()
+      }
     })
 
     lifecycle.trayAvailable = flags.smokeTest ? false : await detectTray()
@@ -445,7 +448,6 @@ function run(): void {
     supervisor.start()
     broker.connect()
     broker.startEvents()
-    showCleanupWarning()
 
     if (flags.smokeTest && process.env.ODIN_SMOKE_REAL_CORE === '1') {
       void realCoreSmoke(win, broker, process.env.ODIN_SMOKE_OUT ?? '').then(
