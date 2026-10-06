@@ -2,10 +2,12 @@
 
 Implementation PR: https://github.com/Calmingstorm/Odin-Desktop/pull/61
 Base fetched before branch: `da2d3d4adbc7864ed78ffb972e3792f8557fbcb2`.
-Engine/test qualification tree: `cd2be334b8e0b8554705fe3bed74b7a22df8352a`.
-Subsequent `c33e391f5535b9ff9abe814b755f78f0d05cf219` changes only the app
-Broker test to pin the restored browser default/retry seam, including disable
-and re-enable. No engine, Python test or qualification selection changes.
+Original engine/test tree: `cd2be334b8e0b8554705fe3bed74b7a22df8352a`.
+Final corrected merged engine/test qualification tree:
+`357a870a575d2c46908affd13df97f0504d37a97`.
+It merges `edbbdfbf72984bcde080a7fbcb9985b1033ac2c0` from main, including P4.3
+and P3.1 slice 4. The later `8279f9a` changes only the app Broker browser-health
+pin. No later Python source/test or qualification selection changes.
 
 ## Delivered scope
 
@@ -46,24 +48,58 @@ resource skip; core seam selection 16 passed; parity/provisioning/settings 49
 passed; closure temporary-data checker tests 20 passed. These are not aggregate
 product acceptance counts.
 
-Final app checks: typecheck/build and 747 app tests passed. Actual isolated
-Broker/core 22 tests and onboarding 6 tests passed after the fresh-default
-correction. The first post-restoration Broker run had 21 passed and 1 failed
-because its old assertion expected the browser to be unavailable. Updated that
-Desktop-origin assertion to the existing enabled retry-seam contract and added
-actual disable/re-enable pins. No native browser qualification is implied.
+App checks before main integration: typecheck/build and 747 app tests passed;
+isolated Broker/core 22 and onboarding 6 passed after fresh-default correction.
+After main integration, typecheck/build and **829 app tests** passed, and isolated Broker/core **28**
+and onboarding **6** passed. Two earlier Broker runs (before and after main
+integration) each caught an obsolete fresh-browser assertion: respectively
+21/1 and 27/1 passed/failed. Desktop-origin assertions now pin enabled settings,
+unavailable bundle qualification with a live retry seam, and actual tool
+disable/re-enable. No native browser qualification is implied.
 
 Offline inventory: zero drift errors, zero new lint findings, plan ownership
 checker passed, suite map has zero integrity errors, actionlint passed with the
-declared self-hosted runner-label configuration, and diff whitespace clean.
+declared self-hosted runner-label configuration on the touched Phase 1 workflow,
+and diff whitespace clean. Supplemental actionlint of main's untouched release
+workflow reports inherited ShellCheck SC2016 at line 98 on the single-quoted
+printf containing Markdown backticks. No release-workflow modification here.
 
-Full qualification: pending final receipt. An initial delegated invocation
+Final corrected fresh-checkout qualification **passed 31/31 groups** in one
+complete clean invocation: **14,755 passed, zero failures/errors, 3 skips**,
+14,758 total executions (duplicates included, not a unique-case claim).
+Per-group JUnit receipts and SHA-256 values are retained outside Git.
+An initial delegated invocation
 lost its command-supervisor ownership at 900 seconds during group 17. Its
 partial output is retained and is not a qualification pass. No process from
 that invocation remained. `manage_process` was unavailable at its configured
 20-job capacity. A bounded independent process starts the complete qualification
 again from group 1, with streamed/retained output and explicit exit receipt.
 No alternate test/isolation launcher, exclusion or weakened assertion is used.
+
+That completed original-tree run had two failed groups: boundary tests and 6A
+services. Three boundary failures were five-second IPC/handoff timeouts; unchanged
+focused cases later passed. Two deterministic failures were obsolete tests:
+the lock-wide exclusion rejected the new **dev-only** original-executor dependency,
+and 6A expected browser disabled. Corrected pins now traverse the actual product
+dependency closure to keep Discord out of runtime, require the explicit pinned
+dev dependency, and prove enabled/unqualified/retry browser state. All five
+failure cases plus related tests passed together: 27 passed, budgets unchanged.
+The next merged-tree run passed 30/31 groups but caught two obsolete distribution
+pins which expected `.github/workflows/release.yml` absent. Main's reviewed P4.3
+reuses that name for a different Desktop candidate workflow, with owner tag builds
+and separately verified manual publication. The corrected behavior test parses
+actual executable workflow data, preserves absence of removed server build jobs,
+proves the bytes differ from the frozen server workflow, keeps it out of the
+private engine wheel, and pins manual owner/approval/verify publication conditions.
+The corrected 32-case distribution group passed. Final corrected tree then passed
+all 31 groups in the complete rerun; earlier failures and corrections stay retained.
+
+Main merge ledger has 396 entries. All live path union entries and both-side
+metadata were preserved and exact current bytes/evidence hashes were produced
+through inventory.record. Three obsolete Docker fixture records removed by
+main's #49 were not restored as orphaned live entries; their original metadata
+remains in retained merge generation evidence. Source-only original corpus and
+all current main additions remain intact. No force-push or rebase.
 
 ## Current report and scope limits
 
@@ -73,9 +109,9 @@ The D19 bridge inventory has not landed on this branch and is explicitly missing
 Fresh-profile parity is valid and the checker has zero integrity errors. This
 PR does not change other lanes' dispositions or claim Phase 2 exit.
 
-P4.3 was pending PR39 when mapped; later main advancement does not retroactively
-qualify its integration with this branch. The core does not duplicate or pretend
-to have run that app-owned release notice. Distribution/native qualification,
+P4.3 was pending PR39 when first mapped and is now integrated via main.
+The core does not duplicate or pretend to have run that app-owned release notice.
+The originally pending map remains historical provenance. Distribution/native qualification,
 external replacement/preflight, publication, body-free tombstone privacy and
 other mapped open contracts remain separate gates.
 
