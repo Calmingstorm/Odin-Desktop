@@ -139,6 +139,46 @@ async def test_unbound_foreign_and_settled_skill_callbacks_refused(graph):
 
 
 @pytest.mark.asyncio
+async def test_skill_callbacks_refused_during_final_delivery_after_execution_settles(graph):
+    requests, engine, provider, transcript, cid, _artifacts = setup_skill(graph)
+    captured = []
+    attempted = []
+    original = engine.run
+
+    async def capture(message, **kwargs):
+        skills = engine.deps.native_tools.skills
+        captured.extend([skills._skill_message_cb(message),
+                         skills._skill_file_cb(message, "send", "delivery_probe"),
+                         skills._skill_file_cb(message, "stage", "delivery_probe")])
+        return await original(message, **kwargs)
+
+    class Sink:
+        async def deliver(self, _delivery_id, frame):
+            if (frame["type"] == "message.committed"
+                    and frame["payload"]["message"]["role"] == "assistant"):
+                for index, callback in enumerate(captured):
+                    with pytest.raises(PermissionError):
+                        if index == 0:
+                            await asyncio.create_task(callback("late notice"))
+                        else:
+                            await asyncio.create_task(callback(b"late", "late.txt"))
+                    attempted.append(index)
+            return True
+
+    engine.run = capture
+    requests.delivery.sink = Sink()
+    provider.responses = [LLMResponse(text="Settled reply.")]
+    requests.submit({"client_submission_id": "late-child", "conversation_id": cid,
+                     "text": "Finish without late callbacks"})
+    await requests.after_commit()
+    await asyncio.gather(*requests._tasks)
+    assert attempted == [0, 1, 2]
+    assert not any(row["text"] == "late notice" for row in transcript.list(cid)["items"])
+    assert requests.store.connection.execute(
+        "SELECT COUNT(*) FROM desktop_staged_files").fetchone()[0] == 0
+
+
+@pytest.mark.asyncio
 async def test_stage_failure_is_atomic_survives_reopen_and_never_crosses_request(graph):
     requests, _engine, _provider, transcript, cid, artifacts = setup_skill(graph)
     # Admission is covered above; here exercise the durable domain independently.

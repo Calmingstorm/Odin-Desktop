@@ -696,6 +696,10 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         if engine.requests is None:
             raise PermissionError("Request admission unavailable")
         engine.requests.assert_bound_request(message)
+        row = engine.requests.binding(message.conversation_id, message.request_id,
+                                      message.generation)
+        if row is None or row["state"] not in {"running", "stop_requested"}:
+            raise PermissionError("Skill delivery requires an executing request")
 
     def make_artifact(message, data, filename, producer):
         from ..tools.output_authorization import accessed_hosts
@@ -710,7 +714,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             tuple(deepcopy(list((accessed_hosts.get() or {}).values()))))
 
     async def send_skill_message(message, text):
-        engine.requests.assert_bound_request(message)
+        assert_skill_request(message)
         return await delivery.send(message, text)
 
     async def post_skill_file(message, data, filename, caption, *, producer, mode):
