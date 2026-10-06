@@ -55,6 +55,20 @@ class UserReplacement(unittest.TestCase):
             self.run_replace()
         self.assertEqual(hashlib.sha256(self.old.read_bytes()).hexdigest(), self.old_hash)
 
+    def test_nonwritable_destination_with_external_transaction_recovers_after_owner_fix(self):
+        destination_dir = self.root / 'Applications read only'
+        destination_dir.mkdir()
+        self.old = self.old.rename(destination_dir / self.old.name)
+        destination_dir.chmod(0o555)
+        self.addCleanup(destination_dir.chmod, 0o700)
+        with self.assertRaises(PermissionError):
+            self.run_replace()
+        self.assertTrue(self.transaction.exists())
+        self.assertEqual(hashlib.sha256(self.old.read_bytes()).hexdigest(), self.old_hash)
+        destination_dir.chmod(0o700)
+        self.assertEqual(self.run_replace()['status'], 'replaced')
+        self.assertFalse(self.transaction.exists())
+
     def test_hash_refusal_does_not_write_transaction(self):
         self.new_hash = '0' * 64
         with self.assertRaises(replacement.ReplacementError):
