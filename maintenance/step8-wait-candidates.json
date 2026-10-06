@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "artifact": "Complete bounded-process-wait authentic admission restoration candidate; parent owns final integration",
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "qualification_group": "phase2-step4-restored-corpus",
+  "safety": {
+    "full_original_suite_and_wait_integration_helpers_read": true,
+    "actual_services_requests_authority_and_admission_read": true,
+    "original_bytes_modified": false,
+    "destructive_command_inputs_executed": false,
+    "desktop_used": false,
+    "services_modified": false,
+    "opt_used": false,
+    "isolation": "USER=odin, repository Python 3.12 venv, scripts/run-phase1-tests.py explicit selector, mount/PID namespace, env-i throwaway HOME/XDG, no display/DBus/credentials",
+    "test_command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_wait_corpus.py --junitxml=.test-state/step8-wait-targeted.xml"
+  },
+  "validation": {
+    "passed": 47,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "inherited_cases": 40,
+    "loader_and_authentic_admission_safeguards": 7,
+    "elapsed_seconds": 12.64,
+    "log": ".test-state/step8-wait-targeted.log",
+    "log_sha256": "afaaaca6a3384030e3433891d4e88be6bed8f37d0d8d66db180cf6bfba22fd30",
+    "junit": ".test-state/step8-wait-targeted.xml",
+    "junit_sha256": "351a2683b627f6ea9fad200de93e6019a9df75565152ac26d974237d6601464b",
+    "initial_attempt": "All inherited assertions passed; four teardown errors because original FakeLLM exposes close but lacks newer drain_and_close lifecycle name. Fixed by read-through alias fake.drain_and_close=fake.close, preserving scripted generation methods and original responses. Full reruns: 47 pass, then 47 pass with JUnit/log."
+  },
+  "entries": [
+    {
+      "path": "tests/test_bounded_process_wait.py",
+      "inherited_sha256": "01bf1930dba107e1881744830bbae61e6492ee76fa462828a69055746d213048",
+      "candidate_status": "restorable",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_wait_corpus.py",
+      "group": "phase2-step4-restored-corpus",
+      "adapter_module": "tests.desktop_adapters.step8_wait",
+      "prefix": "step8_wait",
+      "adaptations": [
+        "One exact line-13 whole-node-hashed import rebinds tests.test_wait_stuck_integration build/run_loop to authentic setup adapter; all inherited assertions, signatures, decorators, parameters and executor AsyncMock assignments are unchanged.",
+        "Existing authentic temporary_owner creates private ProfilePaths, OwnerAuthority and PermissionManager, authenticates actual non-root local peer UID; no fake profile owner, no fake tier gate, no _execution or request state assignment by adapter.",
+        "Real build_engine_services composes ToolLoopRunner, gateway, permissions, tool executor, readiness, prompt/session owners and durable turn store. Unmodified FakeLLM(script) is injected at compatible provider seam; lifecycle close alias only.",
+        "RequestService.submit commits queued row; after_commit and real _drain authenticate the persisted profile owner, transition running, fetch sealed EngineRequest and bind actual worker task. Real engine.run invokes genuine RequestService.admit_turn and persists ledger generation, then real delivery and accounting settle request.",
+        "FakeMessage is transport content only. Its fake IDs/owner/channel are not reused. Components facade exposes actual tool_executor and ToolLoopRunner by read-through properties, preserving inherited AsyncMock executor point.",
+        "ObservedEngine.run delegates to real EngineServices.run and records its unchanged five-tuple for run_loop return after durable request completion. No authority, admission, loop, wait judgment, executor behavior or service implementation replaced.",
+        "Frozen archive/source hashes, full CORPUS_SELECTIONS with exclusions {}, assertion/signature/decorator/parameter corpus equality, exact setup allowlist and independent complete AST reverse replay checked before compile/exec/register_module/load(globals())."
+      ],
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 13,
+          "column": 0,
+          "kind": "statement",
+          "before_sha256": "cd5a8ea320dcb05e8ea543d80d923ac3ad98095856660cccd6976ed721c37d63",
+          "after_sha256": "bbacbad5b916f534dde8d04c234a8b9b6830af7cca50926a7dae9021822f1740",
+          "after_source": "from tests.desktop_adapters.step8_wait import build, run_loop"
+        }
+      ],
+      "blocker": null,
+      "counts": {
+        "static_test_definitions": 11,
+        "static_assertions": 23,
+        "passed": 40,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "adapter_hashes": [
+        {"path": "tests/desktop_adapters/step8_wait.py", "sha256": "c9c97b7f9c5940805a781ee03b68195e0da89234cdcda31c3b2236f9938faed7"},
+        {"path": "tests/test_desktop_step8_wait_corpus.py", "sha256": "d89ecacfed6a97c6c0ab4dead3a8917f5f3c863e3e54f08af27d718b739f764d"}
+      ],
+      "logs": [".test-state/step8-wait-targeted.log", ".test-state/step8-wait-targeted.xml"]
+    }
+  ],
+  "safeguards": [
+    "Complete frozen corpus: 11 definitions, 23 assertion nodes, 40 parameter-expanded inherited cases",
+    "Changed source bytes rejected",
+    "Wrong, duplicate and assertion-targeting setup hunks rejected",
+    "Collateral AST mutations rejected by complete reverse replay",
+    "Factory rejects absence of authentic temporary owner",
+    "Real engine gate rejects FakeMessage and even fetched sealed request outside admitted execution task",
+    "Real service completes with unmodified original five-tuple, authentic persisted owner UUID distinct from FakeMessage ID, non-null ledger generation and durable assistant transcript"
+  ]
+}

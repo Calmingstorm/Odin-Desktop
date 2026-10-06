@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "run": "health-delivery-req7ebb92cd",
+  "final_exercised_head": "191825c09f9ec0b28ccbdbcb51c8d162608af0ae",
+  "artifacts": [
+    {"path": "/mnt/storage/odin-desktop-evidence/health-delivery-req7ebb92cd/drift.json", "sha256": "7f8a4ece57c79d5ea61d015830239e68c68098a2e5a69bbdb96fac691232289a", "purpose": "Final exact-byte inventory and pending-review report"},
+    {"path": "/mnt/storage/odin-desktop-evidence/health-delivery-req7ebb92cd/lint.json", "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584", "purpose": "Final lint, seven inherited and zero new findings"},
+    {"path": "/mnt/storage/odin-desktop-evidence/health-delivery-req7ebb92cd/ownership.json", "sha256": "ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48", "purpose": "Final planned ownership accounting, not runtime qualification"},
+    {"path": "/mnt/storage/odin-desktop-evidence/health-delivery-req7ebb92cd/suites.json", "sha256": "3ee8b788e4a26e508a80e64d7a049eb23e1129168be5519ac9b60a1e131377b1", "purpose": "Final valid suite-map check with no errors"},
+    {"path": "/mnt/storage/odin-desktop-evidence/health-delivery-req7ebb92cd/postmerge-regression.log", "sha256": "fd9a986e55ca4bf5e246cf2a59b6c98be6effb7dff8e8f8cdeb6029385200a39", "purpose": "Final post-main-merge run, 410 passed"},
+    {"path": "/mnt/storage/odin-desktop-evidence/health-delivery-req7ebb92cd/targeted-final.log", "sha256": "60205c1abc8c905d7050dc1efd2d3e11040fa2d3a2130f2384c001b00d681257", "purpose": "Pre-latest-main broad run, 156 passed"},
+    {"path": "/mnt/storage/odin-desktop-evidence/health-delivery-req7ebb92cd/targeted.log", "sha256": "3bfec4892f0d0dbcf1004530c2d20d42be632e393a7e372272d4cc56b4adffd3", "purpose": "Earlier broad run, 147 passed and two unchanged management IPC deadline failures"},
+    {"path": "/mnt/storage/odin-desktop-evidence/health-delivery-req7ebb92cd/focused-final.log", "sha256": "45d48ed36cc90c9038b2712dbfe94f8fb1c984f950a4aa3ff76c1044d65e4d51", "purpose": "Intermediate focused run, 13 passed and new shutdown test missing its required reason"}
+  ]
+}

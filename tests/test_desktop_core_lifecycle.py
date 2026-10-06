@@ -135,6 +135,17 @@ async def test_real_core_status_ping_events_and_shutdown_are_ordered():
             assert str(uuid.UUID(instance)) == instance
             result = await request(reader, writer, "status.get")
             status = result["result"]
+            assert {key: status[key] for key in (
+                "phase", "core_instance_id", "version", "capabilities", "limits", "diagnostics",
+            )} == {
+                "phase": "ready", "core_instance_id": instance,
+                "version": welcome["core"]["version"], "capabilities": welcome["capabilities"],
+                "limits": service.attachments.limits,
+                "diagnostics": {
+                    "turn_durability": {"state": "on", "reason": None},
+                    "compatible_provider": {"state": "off", "reason": None},
+                },
+            }
             assert status["phase"] == "ready"
             assert status["core_instance_id"] == instance
             assert status["version"] == welcome["core"]["version"]
@@ -145,6 +156,8 @@ async def test_real_core_status_ping_events_and_shutdown_are_ordered():
             assert len(status["capabilities"]) == len(set(status["capabilities"]))
             assert status["limits"] == service.attachments.limits
             assert service.management.runtime.status()["limits"] == service.attachments.limits
+            assert status["computer"] == {
+                "published_available": False, "reason": "native_unqualified"}
             assert status["diagnostics"] == {
                 "turn_durability": {"state": "on", "reason": None},
                 "compatible_provider": {"state": "off", "reason": None},
@@ -160,6 +173,7 @@ async def test_real_core_status_ping_events_and_shutdown_are_ordered():
             assert ready["payload"]["phase"] == "ready"
             assert ready["payload"]["limits"] == service.attachments.limits
             assert ready["payload"]["diagnostics"] == status["diagnostics"]
+            assert ready["payload"]["computer"] == status["computer"]
             response = await request(reader, writer, "runtime.shutdown", {"reason": "test"})
             assert response["result"] == {"disposition": "accepted"}
             await asyncio.wait_for(service.lifetime.wait(), 1)

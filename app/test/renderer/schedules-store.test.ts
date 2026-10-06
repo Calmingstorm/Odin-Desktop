@@ -8,7 +8,7 @@ type Work = typeof import('../../src/renderer/src/stores/work')
 const ok = <T>(result: T): Result<T> => ({ ok: true, result })
 const unknown = (id: string) => ({ ok: false, error: { code: 'no_receipt', message: 'No receipt yet.', disposition: 'outcome_unknown', command_id: id } }) as const
 const ROW = { id: 'sched01', description: 'Disk report', action: 'check', paused: false } as ScheduleRow
-const ITEM = { kind: 'schedule', id: 'sched01', state: 'scheduled' } as WorkItem
+const ITEM: WorkItem = { kind: 'schedule', id: 'immutable-work-id', manager_id: 'sched01', title: ROW.description, state: 'scheduled', detail: { revision: 1 }, actions: ['run_now'] }
 
 let schedules: Schedules
 let work: Work
@@ -65,5 +65,23 @@ describe('review round 4: the schedule list', () => {
     lists[0]!(ok([{ ...ROW, paused: false }]))
     await older
     expect(schedules.schedules.list[0]?.paused).toBe(true)
+  })
+
+  it('re-reads actual schedule state after a Work control event instead of inferring it', async () => {
+    vi.useFakeTimers()
+    try {
+      await schedules.loadSchedules()
+      holdLists = true
+      const store = await import('../../src/renderer/src/store')
+      store.applyEvent({ type: 'work.updated', seq: 1, cursor: '1', at: '', entity: { kind: 'schedule', id: 'immutable-work-id' },
+        payload: { kind: 'schedule', id: 'immutable-work-id', state: 'scheduled' } })
+      await vi.advanceTimersByTimeAsync(200)
+      expect(lists).toHaveLength(1)
+      lists[0]!(ok([{ ...ROW, recovery_required: 'Missed action; run explicitly.', settlement: 'unknown' }]))
+      await Promise.resolve()
+      expect(schedules.schedules.list[0]).toMatchObject({ recovery_required: 'Missed action; run explicitly.', settlement: 'unknown' })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

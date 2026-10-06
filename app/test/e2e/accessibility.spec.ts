@@ -371,6 +371,9 @@ test('200 percent zoom reflow, reduced motion and keyboard view menu', async () 
 
 test('real core keyboard status usage and every real settings or unavailable service panel', async () => {
   await launch(true)
+  const skillCode = readFileSync(join(appDir, 'test/harmless-skill.py'), 'utf8')
+  const saved = await page.evaluate(async (code) => (window as any).odin.skillsSave({ name: 'slice4_constant', code, create: true }), skillCode)
+  expect(saved.ok).toBe(true)
   await send('/status')
   await expect(page.getByRole('region', { name: 'Status', exact: true }).locator('.panel-text')).toContainText('Odin v0.1.0.dev1')
   await send('/usage')
@@ -385,15 +388,59 @@ test('real core keyboard status usage and every real settings or unavailable ser
   const labels = await nav.locator('.settings-nav-item').allTextContents()
   expect(labels).toHaveLength(11)
   for (const label of labels) {
-    await activate(nav.getByRole('button', { name: label, exact: true }))
+    // Real Tools has the full catalog, potentially hundreds of controls. Walk
+    // backwards from its first status control to the settings navigation rather
+    // than treating a >200-tab forward circuit as proof of inaccessible nav.
+    const section = nav.getByRole('button', { name: label, exact: true })
+    await tabTo(section, label === 'Skills')
+    await page.keyboard.press('Enter')
     await expect(page.locator('.settings-body')).toContainText(label)
     await page.waitForTimeout(200)
+    if (label === 'Skills') {
+      const panel = page.getByRole('region', { name: 'Skills', exact: true })
+      await expect(panel).toContainText('slice4_constant')
+      await expect(panel).not.toContainText('Skills is unavailable in this core')
+      await activate(panel.getByRole('button', { name: 'Open slice4_constant', exact: true }))
+      await tabTo(page.getByRole('textbox', { name: 'Skill code', exact: true }))
+      await expect(panel).not.toContainText('Test is unavailable in this core.')
+      const editor = page.getByRole('region', { name: 'Skill editor', exact: true })
+      const testSkill = editor.getByRole('button', { name: 'Test slice4_constant', exact: true })
+      await expect(testSkill).toBeEnabled()
+      await activate(testSkill)
+      await expect(editor.locator('.manage-json')).toHaveText('harmless constant')
+      await expect(editor.locator('.manage-json')).not.toHaveClass(/warn/)
+      await expect(panel.locator('.manage-count')).toHaveText('1 runs')
+    }
+    if (label === 'MCP servers') {
+      const panel = page.getByRole('region', { name: 'MCP servers', exact: true })
+      await expect(panel.locator('.manage-row')).toHaveCount(0)
+      await expect(panel).not.toContainText('MCP is unavailable in this core')
+      await activate(panel.getByRole('button', { name: 'Add server', exact: true }))
+      await tabTo(page.getByRole('textbox', { name: 'Executable', exact: true }))
+    }
+    if (label === 'Tools') {
+      // D17 fresh settings enable the browser; this source-tree profile has no qualified bundle.
+      const browser = page.getByRole('region', { name: 'Browser runtime', exact: true })
+      await expect(browser).toContainText('State: unavailable')
+      await expect(browser).toContainText('Not ready')
+      await activate(browser.getByRole('button', { name: 'Refresh status for browser', exact: true }))
+      await expect(browser).toContainText('State: unavailable')
+    }
     if (label === 'Records') {
+      const computer = page.getByRole('region', { name: 'Computer use', exact: true })
+      await expect(computer).toContainText('No computer-use session is reported by this status')
+      await expect(computer).toContainText('Native input is not qualified or supported')
+      await expect(computer.getByRole('button', { name: 'Reconcile', exact: true })).toHaveCount(0)
       const usage = page.getByRole('region', { name: 'Usage', exact: true })
       await expect(usage.getByRole('combobox', { name: 'Period', exact: true })).toBeVisible()
       await expect(usage).toContainText('history unavailable (usage history not enabled)')
       await expect(usage).toContainText("not measured: Odin doesn't know this value")
       await expect(usage).not.toContainText('Usage is unavailable in this core')
+    }
+    if (label === 'Scheduled and running work') {
+      await expect(page.getByRole('region', { name: 'Schedules', exact: true })).toContainText('No schedules yet.')
+      await expect(page.getByRole('region', { name: 'Running work', exact: true })).toContainText('Nothing is running.')
+      await expect(page.locator('.settings-body')).not.toContainText('Work (agents, tasks, loops, processes, workflows and schedules) is unavailable')
     }
     await audit(`real-${label}`)
     await ax(`real-${label}`)
@@ -493,6 +540,39 @@ test('keyboard management disclosures and editor forms are named and auditable',
   await audit('other-settings')
 })
 
+test('real-shape service failure cards and readiness are accessible without claiming native input', async () => {
+  // Explicit fixture AX lane; real lifecycle/redaction are independently proved
+  // by the actual-core Broker suite, never by these displayed fixture strings.
+  await launch(false, 'services-real-shape')
+  await page.keyboard.press('Control+,')
+  await settingsSection('Skills')
+  const broken = page.getByRole('region', { name: 'Skills', exact: true }).locator('.manage-row').filter({ hasText: 'broken_sync' })
+  await expect(broken).toContainText('Syntax error')
+  await expect(broken.getByRole('button', { name: 'Test broken_sync', exact: true })).toBeDisabled()
+  await audit('failed-skill-card')
+  expect(await ax('failed-skill-card')).toContain('broken_sync')
+  await settingsSection('MCP servers')
+  const servers = page.getByRole('region', { name: 'MCP servers', exact: true })
+  await expect(servers).toContainText('LMMS')
+  await expect(servers).toContainText('Profile keyring is unavailable or locked')
+  await tabTo(servers.getByRole('button', { name: 'Reconnect locked-local', exact: true }))
+  await audit('per-server-keyring-reason')
+  expect(await ax('per-server-keyring-reason')).toContain('Profile keyring is unavailable or locked')
+  await settingsSection('Tools')
+  const browser = page.getByRole('region', { name: 'Browser runtime', exact: true })
+  await expect(browser).toContainText('State: unavailable')
+  await expect(browser).toContainText('Not ready')
+  await expect(browser).toContainText(/next .*use|next-use/i)
+  await audit('browser-next-use-unavailable')
+  await settingsSection('Records')
+  const computer = page.getByRole('region', { name: 'Computer use', exact: true })
+  await expect(computer).toContainText('No computer-use session is reported by this status')
+  await expect(computer).toContainText('Native input is not qualified or supported')
+  await expect(computer.getByRole('button', { name: 'Reconcile', exact: true })).toHaveCount(0)
+  await audit('computer-unqualified-envelope')
+  expect(await ax('computer-unqualified-envelope')).toContain('Native input is not qualified or supported')
+})
+
 test('work panel keyboard controls, focus return and target names', async () => {
   await launch()
   await send('slow agent process keyboard work')
@@ -515,6 +595,31 @@ test('work panel keyboard controls, focus return and target names', async () => 
   await activate(openConversation)
   await expect(page.getByRole('region', { name: 'Conversation history', exact: true })).toBeFocused()
   await expect(page.locator('.work-panel')).toHaveCount(0)
+})
+
+test('keyboard and accessibility tree preserve unknown work settlement and steer boundaries', async () => {
+  await launch(false, 'work-settlement')
+  await activate(page.locator('.work-toggle'))
+  const row = page.locator('.work-item').filter({ hasText: 'Unknown release audit' })
+  await expect(row).toContainText('Settlement')
+  await expect(row).toContainText('unknown')
+  await expect(row).toContainText('unproven')
+  await expect(row).toContainText('Resource release is not confirmed')
+  await audit('work-unknown-settlement')
+  const tree = await ax('work-unknown-settlement')
+  expect(tree).toContain('Work settlement')
+  expect(tree).toContain('Resource release')
+  const steer = row.getByRole('button', { name: 'Steer agent: Unknown release audit', exact: true })
+  await activate(steer)
+  const input = row.getByRole('textbox', { name: 'Steer agent: Unknown release audit', exact: true })
+  await expect(input).toBeFocused()
+  await page.keyboard.insertText('Do not infer that resources were released.')
+  await expect(input).toHaveValue('Do not infer that resources were released.')
+  await expect(row.getByRole('button', { name: 'Send steer to agent: Unknown release audit', exact: true })).toHaveAttribute('aria-disabled', 'false')
+  await audit('work-steer-form')
+  const steerTree = await ax('work-steer-form')
+  expect(steerTree).toContain('Queued is not consumed')
+  expect(steerTree).toContain('Unknown outcomes are not retried')
 })
 
 test('rejected assistant drafts never enter DOM or real AX tree, structural announcements remain quiet', async () => {

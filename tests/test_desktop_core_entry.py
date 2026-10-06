@@ -454,6 +454,9 @@ async def test_real_core_accepts_node_style_socketpair_stdin_and_exits_on_parent
             parent.sendall(b"supervisor alive\n")
             status = await request(reader, writer, "status.get")
             assert status["result"]["phase"] == "ready"
+            # General profile ancestors are intentionally broader than computer
+            # storage permits. Startup must not repair or bypass its guards.
+            assert not (paths.data_dir / "computer").exists()
             assert root.stat().st_mode & 0o777 == ancestor_mode
             for path in (paths.config_dir, paths.data_dir, paths.cache_dir):
                 assert path.stat().st_mode & 0o777 == 0o700
@@ -540,6 +543,10 @@ async def test_real_core_starts_with_symlinked_xdg_or_socket_folder(linked_area)
             reader, writer, welcome = await wait_connected(process, socket_path)
             assert welcome["t"] == "welcome"
             assert (await request(reader, writer, "status.get"))["result"]["phase"] == "ready"
+            # A linked XDG data root is valid for the general core, not for a
+            # computer store. Startup must not resolve links to bypass its guard.
+            if linked_area == "data":
+                assert not (paths.data_dir / "computer").exists()
             for directory in (paths.config_dir, paths.data_dir, paths.cache_dir):
                 assert stat.S_IMODE(directory.stat().st_mode) == 0o700
                 assert stat.S_IMODE(directory.parent.stat().st_mode) == 0o700

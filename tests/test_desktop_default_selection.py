@@ -95,13 +95,14 @@ def test_failures_visible_all_groups_executed_without_retries(tmp_path, monkeypa
     {"files": [None]}, {"reason": None}, {"reason": " "},
     {"exclude_expression": []},
 ])
-def test_invalid_later_group_refuses_all_execution(tmp_path, monkeypatch, bad):
+@pytest.mark.parametrize("extras_only", [False, True])
+def test_invalid_later_group_refuses_all_execution(tmp_path, monkeypatch, bad, extras_only):
     module = load_selection()
     make_plan(tmp_path, [group("valid", ["tests/test_good.py"]),
                          {**group("invalid", ["tests/test_good.py"]), **bad}])
     calls = fake_calls(module, monkeypatch)
     with pytest.raises(SystemExit, match="Default selection refused"):
-        module.run_default(tmp_path, [])
+        module.run_default(tmp_path, [], extras_only=extras_only)
     assert calls == []
 
 
@@ -115,7 +116,8 @@ def test_missing_reason_refuses_execution(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("kind", ["empty", "missing-plan", "missing-file", "symlink", "malformed"])
-def test_missing_or_unsafe_plan_and_files_fail_closed(tmp_path, monkeypatch, kind):
+@pytest.mark.parametrize("extras_only", [False, True])
+def test_missing_or_unsafe_plan_and_files_fail_closed(tmp_path, monkeypatch, kind, extras_only):
     module = load_selection()
     make_plan(tmp_path, [] if kind == "empty" else [group("one", ["tests/test_good.py"])])
     if kind == "missing-plan":
@@ -131,7 +133,7 @@ def test_missing_or_unsafe_plan_and_files_fail_closed(tmp_path, monkeypatch, kin
         (tmp_path / "maintenance/qualification-plan.json").write_text("{")
     calls = fake_calls(module, monkeypatch)
     with pytest.raises(SystemExit):
-        module.run_default(tmp_path, [])
+        module.run_default(tmp_path, [], extras_only=extras_only)
     assert calls == []
 
 
@@ -156,3 +158,43 @@ def test_actual_reviewed_plan_preserved_exactly(monkeypatch):
     assert len(calls) == len(plan["groups"]) + bool(extras)
     if extras:
         assert calls[-1][0][2:] == [*extras, "--collect-only"]
+
+
+def test_additional_only_validates_plan_and_keeps_exact_extra_files_and_receipt(
+    tmp_path, monkeypatch,
+):
+    module = load_selection()
+    make_plan(tmp_path, [group("plan", ["tests/test_good.py"], exclude_expression="old_surface")])
+    (tmp_path / "tests/test_desktop_extra.py").touch()
+    calls = fake_calls(module, monkeypatch)
+    assert module.run_default(tmp_path, ["--collect-only"], extras_only=True) == 0
+    assert calls == [([sys.executable, str(tmp_path / "scripts/run-phase1-tests.py"),
+                      "tests/test_desktop_extra.py", "--collect-only",
+                      "--junitxml=.test-state/additional-desktop-boundaries.xml"], tmp_path)]
+
+
+def test_additional_only_empty_extras_do_not_fall_back_to_plan(tmp_path, monkeypatch):
+    module = load_selection()
+    make_plan(tmp_path, [group("plan", ["tests/test_good.py"])])
+    calls = fake_calls(module, monkeypatch)
+    assert module.run_default(tmp_path, [], extras_only=True) == 0
+    assert calls == []
+
+
+@pytest.mark.parametrize("outcome", [7, OSError("launch failed")])
+def test_additional_failure_fails_without_retries(tmp_path, monkeypatch, outcome):
+    module = load_selection()
+    make_plan(tmp_path, [group("plan", ["tests/test_good.py"])])
+    (tmp_path / "tests/test_desktop_extra.py").touch()
+    calls = fake_calls(module, monkeypatch, [outcome])
+    assert module.run_default(tmp_path, [], extras_only=True) == 1
+    assert len(calls) == 1
+
+
+def test_plan_cannot_impersonate_generated_additional_group(tmp_path, monkeypatch):
+    module = load_selection()
+    make_plan(tmp_path, [group("additional-desktop-boundaries", ["tests/test_good.py"])])
+    calls = fake_calls(module, monkeypatch)
+    with pytest.raises(SystemExit, match="reserved"):
+        module.run_default(tmp_path, [], extras_only=True)
+    assert calls == []

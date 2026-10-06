@@ -14,6 +14,17 @@ adapter with authentic temporary ownership/workspace and exact AST replay.
 `phase2-step8-part1-validation.md` records current gate evidence and limitations.
 The historical Phase 1 gate above remains provenance, not the current total.
 
+Step 8 part 3 retains every historical and merged-main selector, then adds
+`phase2-step2-restored-corpus`, `phase2-step3-restored-corpus` and
+`phase2-step4-restored-corpus`, for **33 named groups**. Fourteen complete
+inherited suites return: six from step 2, six from step 3 and two from step 4.
+Six are unchanged originals; eight are exact frozen adapters with authentic
+temporary ownership or task-bound admission. The 33 remaining assigned suites
+retain precise blockers, not partial passing exports. Static intake safeguards
+and duplicate vision corpus execution are supplemental, not additional restored
+original cases. Final fresh-checkout execution evidence is recorded in
+`phase2-step8-part3-validation.md` and its result receipt.
+
 Historical failed runs remain visible: **116 failed, 5,824 passed, 3 skipped** in the interrupted 781.08-second run; **259 failed, 10,169 passed, 4 skipped** in the complete bounded 460.54-second run. No selection change makes these passing evidence.
 
 Original cases run directly or through frozen-source adapters whose literal `CORPUS_SELECTIONS` identifies exact original functions/classes. Each adapter must preserve assertions, decorators and parameter data and verify original bytes. Unselected cases are not implicitly covered. Genuine disposable owner/profile/model/import roots and documentation catalogue imports are permitted setup alternatives, not permissive authority shims.

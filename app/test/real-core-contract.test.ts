@@ -17,7 +17,7 @@ assertIsolated()
 
 const capabilities = SERVED_CAPABILITIES
 function successful<T>(answer: Settled): T {
-  expect(answer.ok).toBe(true)
+  expect(answer.ok, JSON.stringify(answer)).toBe(true)
   if (!answer.ok) throw new Error(`Expected a real-core receipt, got ${answer.error.code}`)
   return answer.result as T
 }
@@ -58,7 +58,7 @@ describe('actual app Broker ↔ repository real core', () => {
 
   test('authenticates the handshake, reads real status and replays events after a cursor', async () => {
     expect(realCoreCapabilities).toEqual(SERVED_CAPABILITIES)
-    expect(realCoreCapabilities).toHaveLength(120)
+    expect(realCoreCapabilities).toHaveLength(179)
     expect(new Set(realCoreCapabilities).size).toBe(realCoreCapabilities.length)
     const { broker, welcome } = await core.connect()
     expect(welcome).toMatchObject({
@@ -79,14 +79,23 @@ describe('actual app Broker ↔ repository real core', () => {
     // A configured model label is not provider readiness. No client is available on a fresh profile.
     expect(status).toMatchObject({ model: { main: expect.any(String), provider: 'codex' },
       providers: expect.arrayContaining([{ name: 'codex', health: 'unavailable' }]) })
+    expect(status.summary).toContain('Agents active: 0')
+    expect(status.summary).toContain('Loops active: 0')
 
     const events: CoreEvent[] = []
     broker.on('event', (event: CoreEvent) => events.push(event))
     const subscribed = successful<Subscription>(await broker.request('events.subscribe', { after: '0' }))
     expect(subscribed).toEqual({ event_high: welcome.event_high, reset_required: false })
     await waitFor(() => events.length === 1, 'startup event replay')
+    // The durable startup observation precedes the current read. Uptime in
+    // the human summary is expected to advance; every stable field still
+    // matches, and the next connection must replay the exact stored event.
+    const { summary: currentSummary, ...stableStatus } = status as Status & { summary: string }
     expect(events[0]).toMatchObject({ t: 'evt', seq: 1, cursor: '1', type: 'runtime.status',
-      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: { ...status, summary: expect.any(String) } })
+      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: stableStatus })
+    const startupSummary = (events[0]!.payload as { summary: string }).summary
+    const withoutUptime = (value: string): string => value.replace(/· up \d+s/, '· up <seconds>')
+    expect(withoutUptime(startupSummary)).toBe(withoutUptime(currentSummary))
     expect(events[0]!.at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/)
     expect(Date.parse(events[0]!.at)).not.toBeNaN()
     expect(broker.cursor).toBe('1')
@@ -147,7 +156,7 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(core.running).toBe(true)
   })
 
-  test('fresh reads and unserved capabilities do not reserve command IDs', async () => {
+  test('fresh work/report/schedule reads do not reserve IDs; real schedule execution and report reads never replay effects', async () => {
     const { broker, welcome } = await core.connect()
     const id = randomUUID()
     expect(successful<Status>(await broker.request('status.get', {}, id)).core_instance_id).toBe(welcome.core.instance_id)
@@ -167,7 +176,17 @@ describe('actual app Broker ↔ repository real core', () => {
       input_supported: false, dispatch: 'none'
     } })
     expect(computer).not.toHaveProperty('input_dispatch')
-    for (const method of ['work.list', 'schedules.list', 'turns.create', 'skills.test',
+    expect(successful(await broker.request('work.list', {}, id))).toEqual({ items: [] })
+    expect(successful(await broker.request('schedules.list', {}, id))).toEqual([])
+    expect(successful(await broker.request('schedules.history', {}, id))).toEqual([])
+    expect(successful(await broker.request('schedules.validate_cron', { expression: 'invalid' }, id)))
+      .toEqual({ valid: false, next_runs: [] })
+    const cron = successful<{ valid: boolean; next_runs: string[] }>(await broker.request('schedules.validate_cron', { expression: '0 0 1 1 *' }, id))
+    expect(cron.valid).toBe(true)
+    expect(cron.next_runs).toHaveLength(5)
+    expect(cron.next_runs.every((instant) => Date.parse(instant) > Date.now())).toBe(true)
+    refused(await broker.request('reports.page', { report_id: 'absent-report', page: 1 }, id), 'not_found')
+    for (const method of ['turns.create',
       'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
       expect(capabilities).not.toContain(method)
       refused(await broker.request(method, {}, id), 'capability_unavailable')
@@ -175,6 +194,50 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(successful<{ fields: unknown[] }>(await broker.request('settings.schema', {}, id)).fields.length).toBeGreaterThan(0)
     refused(await broker.request('codex.accounts.list', {}, id), 'keyring_unavailable')
     expect(successful<{ tokens: unknown }>(await broker.request('usage.get', {}, id)).tokens).toEqual({ value: null, kind: 'unknown' })
+    // Execute only a disposable namespace-local printf, with no provider, network,
+    // real credentials, graphical input or changes to workstation services.
+    const { conversation } = successful<{ conversation: { id: string } }>(await broker.request('conversations.create', { title: 'Isolated scheduled report' }))
+    const output = JSON.stringify({ format: 'paginated_embed_v1', pages: [
+      { title: 'Retained first page', description: 'Only one execution' },
+      { title: 'Retained second page', description: 'Reading is not execution' }
+    ] })
+    const saved = successful<{ id: string }>(await broker.request('schedules.save', {
+      description: 'Disposable report check', action: 'check', channel_id: conversation.id,
+      cron: '0 0 1 1 *', cron_timezone: 'UTC', tool_name: 'run_command',
+      tool_input: { command: `printf '%s' '${output}'`, host: 'localhost' }, report_format: 'paginated_embed_v1'
+    }))
+    type Work = { id: string; kind: string; conversation_id: string; actions: string[]; detail: { revision: number } }
+    const work = successful<{ items: Work[] }>(await broker.request('work.list', { kind: 'schedule' }, id)).items
+    expect(work).toHaveLength(1)
+    expect(work[0]).toMatchObject({ kind: 'schedule', conversation_id: conversation.id, state: 'scheduled',
+      actions: expect.arrayContaining(['pause', 'cancel', 'run_now']) })
+    const control = { control_command_id: randomUUID(), kind: 'schedule', id: work[0]!.id, action: 'run_now', revision: work[0]!.detail.revision }
+    expect(successful(await broker.request('work.control', { ...control, control_command_id: randomUUID(), revision: -1 })))
+      .toMatchObject({ disposition: 'not_available' })
+    expect(successful(await broker.request('schedules.history', { id: saved.id }, id))).toEqual([])
+    const ran = await broker.request('work.control', control)
+    expect(successful(ran)).toMatchObject({ disposition: 'done', schedule: { status: 'success', schedule_id: saved.id } })
+    expect(await broker.request('work.control', control)).toEqual(ran)
+    refused(await broker.request('work.control', { ...control, action: 'cancel' }), 'id_conflict')
+    const history = successful<Array<{ status: string }>>(await broker.request('schedules.history', { id: saved.id }, id))
+    expect(history).toHaveLength(1)
+    expect(history[0]).toMatchObject({ status: 'success' })
+    const snapshot = successful<ConversationSnapshot>(await broker.request('conversation.snapshot', { conversation_id: conversation.id }, id))
+    const reports = snapshot.messages.items.flatMap((message) => message.artifacts ?? []).filter((artifact) => artifact.kind === 'report')
+    expect(reports).toHaveLength(1)
+    const pageParams = { report_id: reports[0]!.ref, page: 2 }
+    const page = successful(await broker.request('reports.page', pageParams, id))
+    expect(page).toMatchObject({ page: 2, pages: 2, text: expect.stringContaining('Retained second page') })
+    expect(successful(await broker.request('reports.page', pageParams, id))).toEqual(page)
+    refused(await broker.request('reports.page', { ...pageParams, page: 3 }, id), 'bad_request')
+    expect(successful(await broker.request('schedules.history', { id: saved.id }, id))).toEqual(history)
+    expect(successful(await broker.request('schedules.list', {}, id))).toEqual([
+      expect.objectContaining({ id: saved.id, channel_id: conversation.id, action: 'check' })
+    ])
+    successful(await broker.request('schedules.delete', { id: saved.id }))
+    expect(successful(await broker.request('schedules.list', {}, id))).toEqual([])
+    // Reports remain readable after definition deletion; no schedule can run again.
+    expect(successful(await broker.request('reports.page', pageParams, id))).toEqual(page)
     expect(await broker.request('runtime.shutdown', { reason: 'read ID is still available' }, id)).toEqual({
       ok: true, result: { disposition: 'accepted' }
     })
@@ -378,7 +441,8 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
     await waitFor(() => events.length === 1, 'old incarnation quiescing event')
     expect(broker.cursor).toBe('2')
-    const changed = onceEvent<string>(broker, 'core-changed')
+    // Observe the 25s cold-start harness plus the unchanged 5s handshake under load; never repeat startup.
+    const changed = onceEvent<string>(broker, 'core-changed', 35_000)
     await core.start()
     const newInstance = await changed
     expect(newInstance).not.toBe(welcome.core.instance_id)
@@ -405,7 +469,8 @@ describe('actual app Broker ↔ repository real core', () => {
     const id = randomUUID()
     successful(await broker.request('status.get', {}, id))
     expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
-    const next = onceEvent<string>(broker, 'core-changed')
+    // This event wait starts before cold startup too; bound observation above its startup/handshake budgets.
+    const next = onceEvent<string>(broker, 'core-changed', 35_000)
     await core.start()
     const nextInstance = await next
     expect(successful<Status>(await broker.request('status.get', {}, id)).core_instance_id).toBe(nextInstance)

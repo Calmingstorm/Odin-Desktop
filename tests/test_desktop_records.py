@@ -364,4 +364,5 @@ async def test_turn_absence_and_read_errors_return_empty_envelopes(paths):
 def test_all_methods_are_read_only():
     assert METHODS == READ_METHODS == RecordsService.READ_METHODS == {
         "audit.query", "audit.verify", "health.get", "logs.search", "turn_state.list",
+        "audit.diffs", "audit.failures", "audit.tail", "logs.stats", "logs.tail",
     }

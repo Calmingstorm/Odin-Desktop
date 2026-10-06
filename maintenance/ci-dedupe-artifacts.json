@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "run": "ci-dedupe-req3c08",
+  "tested_code_head": "2239dce0ad265fec31070b429364b2bfe48bf832",
+  "final_integrated_code_head": "6085c8378e3931603110e675d47a5211c95b3dba",
+  "dependency_head": "7e70bd1e6c90b3a3a527469a57a3d58eb7281bcc",
+  "main_watermark": "efc5e20c76e5d43ddea466c844ada46456b9d663",
+  "artifacts": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/final-release-artifact-manifest.json",
+      "sha256": "7ed25bcf1b11d782f16a20814527b65b92dfde21db060fcd873bcbfbc86c26d8",
+      "description": "Final release-main merge focused tests, app gates and drift receipts"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/post52-main-proof/artifact-manifest.json",
+      "sha256": "0dfb36ccf96505dd719fd8799121882dc2b039fd21b2945d9f6428b82201bc69",
+      "description": "148 final integrated-main artifacts, paths, byte counts and SHA256 digests"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/post52-main-proof/collection/ci-differential.json",
+      "sha256": "f1e4467a7eac45b2fb4cedc01424842986f122dae2eab5f564dc67d7a6fbf771",
+      "description": "Final current-main requested union and full schedule equality, zero duplicates"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/post52-proof/artifact-manifest.json",
+      "sha256": "cad89b06e18f39f3125563f080e1a67e5a1161fa4d28c5b83b3b02eb4a721a17",
+      "description": "143 post52 combined-head artifacts, paths, byte counts and SHA256 digests"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/post52-proof/collection/ci-differential.json",
+      "sha256": "cadb325cadf4b719d4e4dcbc678cf4cf607f6462bba4e11fcfa529ed8f263d6f",
+      "description": "Post52 exact requested-union and full-schedule equality, zero duplicates"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/artifact-manifest.json",
+      "sha256": "31f96c47158f9dd2a2075bfce3140972e2a1901cc9cf78dfd0da43f01353b9e9",
+      "description": "All 149 raw artifacts, paths, byte counts and SHA256 digests"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/collection/ci-differential.json",
+      "sha256": "0412669e967a9785cd83e1a30b8329bac4b13b2a1554d3de2015cd148e37023a",
+      "description": "Exact requested-union and full-schedule count and difference results"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/differential-merged.log",
+      "sha256": "a4b3a37a40b321895d7f81ce138af65afd2fd9c26dd87d0c3a7bc74f268f8d96",
+      "description": "Real collection output from both schedules on merged main"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/focused-merged.log",
+      "sha256": "a8ab4148f0ae8f9d613a212df8cc4b6934436188906f48d95244c768d089a5b3",
+      "description": "131 passing scheduling, runner and maintenance regressions"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/additional.log",
+      "sha256": "ced72a31379fc95601f9fe75b52030809eec786657dbdebbd9af68894b117359",
+      "description": "Actual extras-only execution, 292 passed"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/container-fixtures.log",
+      "sha256": "bfead2bdabf1f2bda164bc4768eecdd399f4d3afaa830e1f4e12b7bfc2a11b45",
+      "description": "Actual fixed six-suite container execution, 118 passed"
+    }
+  ]
+}

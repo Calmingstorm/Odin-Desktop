@@ -1,0 +1,5 @@
+[1253:1006/055746.151320:WARNING:components/dbus/xdg/portal.cc:126] Failed to register with org.freedesktop.host.portal.Registry
+[1253:1006/055804.175611:ERROR:components/dbus/xdg/request.cc:173] Request ended (non-user cancelled).
+[1290:1006/055835.990322:ERROR:components/viz/service/display/display.cc:271] Frame latency is negative: -0.129 ms
+Debugger ending on ws://127.0.0.1:45705/3e9c6d1b-a25b-4e00-9f26-fe3450ceb321
+For help, see: https://nodejs.org/learn/getting-started/debugging

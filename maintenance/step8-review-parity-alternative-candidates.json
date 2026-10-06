@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "review": "PR35 steering parity alternate admitted diagnostic",
+  "qualified": false,
+  "status": "blocked_diagnostic_only",
+  "suite": "tests/test_chat_steering_parity.py",
+  "source_sha256": "48cf45bcceed1be223a2cf8428af0a9eff3e57b695b1d147a3e6fe7a843233ec",
+  "adapter": "tests/desktop_adapters/step8_review_parity_exact.py",
+  "wrapper": "tests/diagnostic_step8_review_parity_exact.py",
+  "discovery": "Parent source-freeze correction moved owned test wrapper to diagnostic_ prefix. Explicit-only; not default test_ discovery.",
+  "counts": {
+    "original_case_functions": 4,
+    "original_parameter_cases": 7,
+    "original_assertions": 45,
+    "passed_inherited_cases": 4,
+    "failed_inherited_cases": 3,
+    "passed_loader_proofs": 3,
+    "qualified_restored_suites": 0,
+    "retired_cases": 0
+  },
+  "preservation": {
+    "original_bytes_unchanged": true,
+    "assertion_ast_unchanged": true,
+    "signatures_decorators_parameters_unchanged": true,
+    "identity_or_golden_substitutions": [],
+    "whole_ast_reverse_replay": true,
+    "verification": "frozen_source validates archive and original bytes. Exact local line/column/whole-node SHA hunk allowlist; corpus(original)==corpus(adapted); reverse all hunks then compare entire AST. No assertion changes."
+  },
+  "exact_setup_hunks": [
+    {
+      "line": 147, "column": 4,
+      "before_ast_sha256": "402276aab6ab74518a15b379054b9426b8fe64e023874d0ea6fc208187d96e25",
+      "replacement": "runner = module._fixture_runner"
+    },
+    {
+      "line": 254, "column": 4,
+      "before_ast_sha256": "543be3790f48c215e774c09a39060ffc8e952d55515f6661b2bf98139e117634",
+      "replacement": "runner._channel_state = runner._channel_state"
+    },
+    {
+      "line": 262, "column": 4,
+      "before_ast_sha256": "07db6669e9477776676e881726c8f7121605f88655185ac1cb49a0a041dbe439",
+      "replacement": "runner._tool_executor = real_permission(runner, events)"
+    },
+    {
+      "line": 276, "column": 0,
+      "before_ast_sha256": "88d4bd5dd5b6829395ee43d82fa919a7d6b2d2da4fcaca92e585e3f4c94d42fc",
+      "replacement": "async def _run(module, scenario, *, iteration=0, cap=3, resumed=False, initial_messages=None):\n    return await admitted_run(module, scenario, iteration=iteration, cap=cap, resumed=resumed, initial_messages=initial_messages)"
+    }
+  ],
+  "real_execution_proof": [
+    "Nonroot temporary_owner authenticates local UID through actual OwnerAuthority and PermissionManager.",
+    "Actual RequestService submit, after_commit and worker; current task must equal RequestService's conversation worker.",
+    "Actual composed ToolLoopRunner, no __new__; assert_request before preparation and core execution; unchanged run_resumed gate.",
+    "Actual _prepare_chat_turn and lease; persisted ledger generation equals lease generation.",
+    "Production permission accepts canonical owner and rejects requester-1 in every attempted execution. Instrumented permission forwards actual executor gate without extra fake blocked denial.",
+    "Durability observer records inputs then calls actual lease writes. Successful request rows and terminal ledger states checked; failed requests and TERMINAL_FAILED checked before re-raising original exception."
+  ],
+  "limitations": [
+    "Historical provider, guard, no-tool finalizer, budget/compression, classifier, native dispatch, status, audit and trajectory collaborators remain characterization seams, not E2E services.",
+    "No trace identity normalization, no permission denial prose fabrication, no output capability/readiness bypass.",
+    "Fresh cases measure loop-only boundary, then settle actual lease outside captured trace. Resume measures actual guarded run_resumed entry, not durable ControlService resume integration."
+  ],
+  "observed_targeted_validation_before_diagnostic_rename": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_parity_exact.py --tb=short",
+    "isolation": "unshare mount/pid/fork/mount-proc/kill-child; nonroot odin; env -i; disposable HOME; no display or live credentials",
+    "result": "3 failed, 7 passed in 8.92s",
+    "exit_code": 1,
+    "process_pid": 937704,
+    "log_path": "/tmp/pr35-parity-alternative-final.log",
+    "ruff": "All checks passed",
+    "full_gate": false
+  },
+  "blockers": [
+    {
+      "cases": ["unsteered_tool_checkpoint_trace_matches_pre_steer_runtime", "unsteered_native_batch_protocol_permissions_and_resume_parity[fresh]", "unsteered_native_batch_protocol_permissions_and_resume_parity[run-resumed-rebind]"],
+      "observed": "PermissionError: Output capability unavailable. Do not replay the tool.",
+      "path": "tool_loop.py:2900 -> runtime_delivery.py:48 -> _require_retention_authority:69",
+      "cause": "Historical synthetic read_only/blocked tool names have no supported live BuiltinPolicy output capability. Actual executor refuses native fake result retention before inherited goldens; never faked readiness."
+    },
+    {
+      "assertion_lines": [393, 401, 402, 470, 477, 480, 501, 502],
+      "static_fact": "Unchanged inline Assert AST contains literal requester-1 and request-1; verified by passing isolated loader proof.",
+      "runtime_fact": "Actual allocated owner UUID and r_ request identity differ; actual permission rejects requester-1.",
+      "judgment": "Even supplying a supported tool capability cannot make immutable literal identity assertions pass honestly. Parent hard correction forbids assertion identity edits and fabricated producer observations."
+    },
+    {
+      "assertion_lines": [469, 484],
+      "static_fact": "Batch golden requires Permission denied: blocked and denied checkpoint.",
+      "runtime_fact": "Authenticated production owner has no tool ACL; check_permission returns None. Original historical deny mock is deliberately not retained.",
+      "judgment": "Adding a synthetic blocked denial after actual owner validation would still fabricate permission behavior."
+    }
+  ],
+  "production_changes": [],
+  "shared_map_ledger_script_changes": [],
+  "operational_changes": [],
+  "git_commit_or_reset": false,
+  "disposition": "Detailed alternate attempt only. Complete parity suite not restored; no cases retired."
+}

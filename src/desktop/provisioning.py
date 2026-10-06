@@ -40,6 +40,7 @@ def fresh_config_document(paths: ProfilePaths) -> dict:
             "ssh_pool": {"socket_dir": str(cache / "ssh-sockets")},
             "audit_log_path": str(data / "audit.jsonl"),
             "trajectory_path": str(data / "trajectories"),
+            "skill_allowed_urls": ["http://localhost:8188"],
         },
         "logging": {"directory": str(data / "logs")},
         "usage": {"directory": str(data / "usage")},
@@ -54,6 +55,10 @@ def fresh_config_document(paths: ProfilePaths) -> dict:
         "turn_state": {"db_path": str(data / "turn_state" / "turns.sqlite3")},
         "attachments": {"temp_directory": str(cache / "attachments")},
         "computer": {"storage_dir": str(data / "computer")},
+        "browser": {
+            "enabled": True,
+            "allow_private_targets": ["http://127.0.0.1:3000", "http://localhost:3000"],
+        },
     }
 
 

@@ -49,12 +49,16 @@ deb:
   afterInstall: ../.packaging-stage/deb-control/postinst
   afterRemove: ../.packaging-stage/deb-control/postrm
   fpm:
+    - --deb-user
+    - root
+    - --deb-group
+    - root
     - --before-install
     - ../.packaging-stage/deb-control/preinst
     - --before-remove
     - ../.packaging-stage/deb-control/prerm
     - --deb-pre-depends
-    - python3-minimal
+    - python3
   appArmorProfile: packaging/apparmor-profile
   maintainer: Calmingstorm
   compression: xz

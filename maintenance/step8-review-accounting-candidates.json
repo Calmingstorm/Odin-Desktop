@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "kind": "offline-accounting-review-evidence",
+  "reviewer": "Claude, review of #35",
+  "reviewed_head": "19f3c4a",
+  "review_source": "/home/odin/reviews/desktop-pr35-review.md",
+  "group_a_whole_suite_retirements": 21,
+  "preserved_review_26_retirements": 5,
+  "preservation": {
+    "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+    "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+    "original_inventory_count": 869,
+    "historical_phase2_count": 326,
+    "historical_population_sha256": "a4bcf41b3ee1660c991df903cccbda1583497c2ec01cea6bb2be6425ba43888f",
+    "test_bytes_changed": false,
+    "source_hashes_changed": false
+  },
+  "counts_after_group_a_before_parent_restoration": {
+    "mapped": 326, "restored": 23, "deferred": 277, "retired": 26
+  },
+  "case_schema": {
+    "location": "mapping.entries[].restoration.case_retirements",
+    "loader_location": "literal CORPUS_EXCLUSIONS[original_suite_stem]",
+    "fields": ["case", "reviewer", "reason", "source_path", "source_sha256"],
+    "case_format": "Original top-level test_name or Class.test_method; no parameter selectors, globs or expressions.",
+    "ordering": "Unique, sorted canonical case names.",
+    "export_projection": "register_module(..., excluded=[item['case'] for item in CORPUS_EXCLUSIONS.get(stem, ())])",
+    "agreement": "Literal loader dispositions must exactly equal restoration.case_retirements; source path and frozen SHA pinned independently.",
+    "guard": "Full original corpus remains AST-preserved, compiled and hash-checked before exact reviewed export exclusions."
+  },
+  "branch_schema": {
+    "location": "mapping.entries[].restoration.branch_retirements",
+    "loader_location": "literal CORPUS_BRANCH_RETIREMENTS[original_suite_stem]",
+    "authority": "Only TestBehaviorPreservedByRefactor.test_all_combinations_match_reference bot-origin branch substitution.",
+    "fields": ["case", "reviewer", "reason", "source_path", "source_sha256", "line", "column", "node_sha256", "before_source", "after_source"],
+    "node": "Line170,column36, exact frozen tuple node SHA dca8f82ad2c13093e18831c63d876733f70de16f7f9f34083e01bc131bb8218e; (True, False) to (False,).",
+    "agreement": "Exact loader and restoration metadata, exact frozen source AST node identity; retained assertion unchanged."
+  },
+  "testing": {
+    "runner": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_phase2_suite_map.py",
+    "isolation": "Sanitized env -i and PID/mount namespace, disposable pytest directories; no live services, native tools or desktop.",
+    "initial_passed": 118,
+    "intermediate_passed": 122,
+    "final_passed": 139,
+    "final_elapsed_seconds": 39.53,
+    "final_process_pid": 595028,
+    "final_exit_code": 0,
+    "final_output_cursor": "bf91300aa17f4efca6164137f9f53c88:0",
+    "coverage": ["All869 original bytes/hashes", "Historical326 membership", "Exact21 group-A paths/reasons/steps", "Preserved five #26 paths and old recorder", "Idempotence", "Case/source/reviewer provenance agreement", "Malformed/dynamic/blanket exclusions reject", "Whole-corpus guards remain required"]
+  },
+  "not_claimed": [
+    "Runtime qualification of adapter candidates",
+    "Acceptance or whole-product parity",
+    "Parent restoration entries or qualification-plan updates",
+    "CLI proposed HTTP case retirements authorized by group C: group B explicitly requires restoration, remains deferred",
+    "Commit, push, live deployment or service changes"
+  ]
+}
