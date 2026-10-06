@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import pwd
+import shlex
 import stat
 import subprocess
 import sys
@@ -56,6 +57,79 @@ def guest_context(desktop):
 
 def user_command(env, argv):
     return ["env", "-i", *(f"{key}={value}" for key, value in env.items()), *argv]
+
+
+def prepare_kde_portal(session, account, collector_ready):
+    """Restart only the fixed guest backend after Orca has enabled its live bus.
+
+    The systemd user manager does not inherit the session shell's Qt flags.
+    Temporarily import only those flags; restore their prior manager values in
+    all exits. Never admit plasmashell or derive an input target from this setup.
+    """
+    service = "plasma-xdg-desktop-portal-kde.service"
+    executable = Path("/usr/lib/x86_64-linux-gnu/libexec/xdg-desktop-portal-kde")
+    if not collector_ready.get("address"):
+        raise RuntimeError("KDE portal preparation requires the ready accessibility collector")
+    for path in (executable, *executable.parents):
+        metadata = path.lstat()
+        if path.is_symlink() or metadata.st_uid != 0 or metadata.st_mode & 0o022:
+            raise RuntimeError("KDE portal executable ancestry is not canonical root-owned")
+    flags = {"QT_ACCESSIBILITY": "1", "QT_LINUX_ACCESSIBILITY_ALWAYS_ON": "1"}
+
+    def command(argv):
+        return subprocess.check_output(
+            user_command(session, argv), text=True, user=account.pw_uid,
+            group=account.pw_gid, timeout=20,
+        ).strip()
+
+    prior = {}
+    for line in command(["systemctl", "--user", "show-environment"]).splitlines():
+        key, separator, value = line.partition("=")
+        if separator and key in flags:
+            if value not in ("0", "1"):
+                raise RuntimeError("Unsupported prior Qt accessibility manager value")
+            prior[key] = value
+    for name in ("IsEnabled", "ScreenReaderEnabled"):
+        if command([
+            "busctl", "--user", "get-property", "org.a11y.Bus", "/org/a11y/bus",
+            "org.a11y.Status", name,
+        ]) != "b true":
+            raise RuntimeError("KDE portal requires enabled live accessibility status")
+    try:
+        command(["systemctl", "--user", "set-environment", *(f"{k}={v}" for k, v in flags.items())])
+        command(["systemctl", "--user", "restart", service])
+    finally:
+        missing = [key for key in flags if key not in prior]
+        if missing:
+            command(["systemctl", "--user", "unset-environment", *missing])
+        if prior:
+            command([
+                "systemctl", "--user", "set-environment",
+                *(f"{k}={v}" for k, v in prior.items()),
+            ])
+    pid = int(command(["systemctl", "--user", "show", service, "-p", "MainPID", "--value"]))
+    if pid <= 0:
+        raise RuntimeError("KDE portal service has no live process")
+    proc = Path("/proc") / str(pid)
+    if proc.stat().st_uid != account.pw_uid or (proc / "exe").resolve() != executable:
+        raise RuntimeError("KDE portal service process identity mismatch")
+    actual_env = dict(
+        entry.split("=", 1) for entry in (proc / "environ").read_text().split("\0") if "=" in entry
+    )
+    if any(actual_env.get(key) != value for key, value in flags.items()):
+        raise RuntimeError("KDE portal did not inherit the accessibility flags")
+    address_reply = shlex.split(command([
+        "busctl", "--user", "call", "org.a11y.Bus", "/org/a11y/bus",
+        "org.a11y.Bus", "GetAddress",
+    ]))
+    if address_reply != ["s", collector_ready["address"]]:
+        raise RuntimeError("KDE portal preparation changed the collector accessibility bus")
+    session_keys = ("DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR", "WAYLAND_DISPLAY")
+    if any(actual_env.get(key) != session.get(key) for key in session_keys):
+        raise RuntimeError("KDE portal inherited a different graphical session")
+    return {"service": service, "pid": pid, "exe": str(executable), "qt_environment": flags,
+            "collector_address": collector_ready["address"], "manager_environment_restored": True,
+            "session_environment": {key: actual_env[key] for key in session_keys}}
 
 
 def orca_pid(uid, log):
@@ -224,7 +298,7 @@ def start_native_collector(containment, processes, env, account, root, console_o
 
 
 def run(desktop, root, probe=None):
-    if probe not in (None, "electron", "gtk-electron", "native-attach"):
+    if probe not in (None, "electron", "gtk-electron", "native-attach", "native-files"):
         raise RuntimeError("Unsupported focused probe")
     account, info, session = guest_context(desktop)
     root = Path(root)
@@ -403,6 +477,8 @@ def run(desktop, root, probe=None):
                 containment, processes, env, account, root, collector_log
             )
             proof["native_dialog_collector"] = ready
+            if desktop == "kde":
+                proof["kde_portal_preparation"] = prepare_kde_portal(session, account, ready)
             # This is the isolated guest's synthetic keyboard device, never a
             # shared host device. Restore its exact owner/mode in every exit.
             os.chown(uinput, input_stat.st_uid, account.pw_gid)
@@ -504,6 +580,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("desktop", choices=("cinnamon", "gnome", "kde"))
     parser.add_argument("root")
-    parser.add_argument("--probe", choices=("electron", "gtk-electron", "native-attach"))
+    parser.add_argument(
+        "--probe", choices=("electron", "gtk-electron", "native-attach", "native-files")
+    )
     args = parser.parse_args()
     sys.exit(run(args.desktop, args.root, args.probe))

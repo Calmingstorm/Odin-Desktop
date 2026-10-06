@@ -76,7 +76,10 @@ def test_actual_event_source_is_message_sender_and_path_not_trailer_or_variant(s
         Message(args=[]),
         Message(sender="org.example.App"),
         Message(sender="None"),
-        Message(path="/"),
+        Message(path="relative"),
+        Message(path="/org/gtk/application/foreign-app/a11y/7"),
+        Message(path="/org/gtk/application/foreign//a11y/7"),
+        Message(path="/org/gtk/application/foreign/a11y/7/"),
     ],
 )
 def test_unknown_event_source_or_signature_rejected(message):
@@ -206,9 +209,13 @@ def test_credentials_rechecked_after_accessible_queries(model):
 
 
 @pytest.mark.parametrize("title", events.TITLES)
-def test_exact_portal_backend_real_source_and_states_supported(model, title):
+@pytest.mark.parametrize("executable,desktop", list(events.PORTAL_EXECUTABLES.items()))
+def test_exact_portal_backend_real_source_and_states_supported(
+    model, monkeypatch, title, executable, desktop
+):
     state, bus, atspi, record, item, _ = model
-    record["identity"]["exe"] = "/usr/libexec/xdg-desktop-portal-gnome"
+    monkeypatch.setenv("ODIN_ORCA_DESKTOP", desktop)
+    record["identity"]["exe"] = executable
     state["identity"] = record["identity"].copy()
     state["name"] = title
     assert events.DialogBinding(bus, record, atspi).revalidate(title) is item
@@ -247,11 +254,61 @@ def test_portal_binding_rejects_foreign_stale_or_untrusted_sources(model, monkey
         events.DialogBinding(bus, record, atspi).revalidate("Attach files")
 
 
-def test_actual_gtk4_portal_event_path_accepted_not_arbitrary_namespace():
+@pytest.mark.parametrize(
+    ("later_event", "same_reference", "retained"),
+    [
+        ("object:state-changed:inactive", False, True),
+        ("object:state-changed:inactive", True, False),
+        ("object:state-changed:active", False, False),
+        ("window:activate", False, False),
+        ("object:state-changed:active", True, True),
+    ],
+)
+def test_activation_witness_revokes_only_target_inactive_or_foreign_active(
+    later_event, same_reference, retained
+):
+    record = {
+        "peer": ":1.2", "path": "/org/a11y/atspi/accessible/1",
+        "event": "object:state-changed:active",
+    }
+    later = dict(record, event=later_event)
+    if not same_reference:
+        later["peer"] = ":1.3"
+    assert events.activation_witness(record, [record, later]) is retained
+
+
+def test_activation_witness_requires_the_original_observed_activation():
+    record = {"peer": ":1.2", "path": "/modal", "event": "object:state-changed:active"}
+    assert not events.activation_witness(record, [])
+    record["event"] = "window:activate"
+    assert not events.activation_witness(record, [record])
+
+
+@pytest.mark.parametrize("defect", ["wrong-desktop", "gtk-namespace", "hidden", "inactive"])
+def test_kde_backend_never_uses_gnome_lease_or_other_desktop(model, monkeypatch, defect):
+    state, bus, atspi, record, _, _ = model
+    record["identity"]["exe"] = events.KDE_PORTAL
+    state["identity"] = record["identity"].copy()
+    monkeypatch.setenv("ODIN_ORCA_DESKTOP", "kde")
+    if defect == "wrong-desktop":
+        monkeypatch.setenv("ODIN_ORCA_DESKTOP", "gnome")
+    elif defect == "gtk-namespace":
+        record["path"] = (
+            "/org/gtk/application/xdg_desktop_portal_gnome/a11y/"
+            "8d94a6f5_862e_4f84_90f2_626f890bb694"
+        )
+    else:
+        state["words"] = [1 if defect == "hidden" else 2, 0]
+    with pytest.raises(RuntimeError):
+        events.DialogBinding(bus, record, atspi).revalidate("Attach files")
+
+
+def test_valid_gtk4_event_observation_includes_foreign_namespaces():
     path = "/org/gtk/application/xdg_desktop_portal_gnome/a11y/8d94a6f5_862e_4f84_90f2_626f890bb694"
     assert events.event_reference(Message(path=path))["path"] == path
-    with pytest.raises(RuntimeError):
-        events.event_reference(Message(path=path.replace("portal_gnome", "terminal")))
+    foreign = path.replace("portal_gnome", "terminal")
+    assert events.event_reference(Message(path=foreign))["path"] == foreign
+    assert events.event_reference(Message(path="/"))["path"] == "/"
 
 
 @pytest.mark.parametrize(
@@ -561,10 +618,12 @@ def test_event_file_only_in_current_run_evidence_directory(tmp_path, monkeypatch
         events.event_path()
 
 
-def test_collector_ready_header_precedes_only_post_registration_real_source(tmp_path, monkeypatch):
+@pytest.fixture
+def collector_model(tmp_path, monkeypatch):
     path = tmp_path / "events.jsonl"
     identity = {"pid": 200, "uid": 1001, "exe": "/usr/bin/python3", "start": "1"}
     callbacks, teardown = [], []
+    state = {"messages": [Message()], "quit": False}
     monkeypatch.setenv("ODIN_ORCA_ROOT", str(tmp_path))
     monkeypatch.setattr(
         importlib.util,
@@ -590,8 +649,11 @@ def test_collector_ready_header_precedes_only_post_registration_real_source(tmp_
     class Loop:
         def run(self):
             assert json.loads(path.read_text())["type"] == "ready"
-            callbacks[0](message=Message())
-            callbacks[0](message=Message(sender="anonymous"))
+            for message in state["messages"]:
+                callbacks[0](message=message)
+
+        def quit(self):
+            state["quit"] = True
 
     monkeypatch.setitem(
         sys.modules, "gi.repository", SimpleNamespace(GLib=SimpleNamespace(MainLoop=Loop))
@@ -603,6 +665,11 @@ def test_collector_ready_header_precedes_only_post_registration_real_source(tmp_
     monkeypatch.setattr(
         events, "source_identity", lambda *args: {**identity, "exe": "/lab/electron"}
     )
+    return path, state, teardown
+
+
+def test_collector_ready_header_precedes_only_post_registration_real_source(collector_model):
+    path, _, teardown = collector_model
     events.collect()
     lines = [json.loads(line) for line in path.read_text().splitlines()]
     assert [line["type"] for line in lines] == ["ready", "source"]
@@ -613,3 +680,146 @@ def test_collector_ready_header_precedes_only_post_registration_real_source(tmp_
     assert teardown == [*events.EVENTS, "close"]
     with pytest.raises(FileExistsError):
         events.collect()
+
+
+@pytest.mark.parametrize("failure", ["exhaustion", "malformed-path", "processing-error"])
+def test_collector_failure_is_terminal_and_drops_all_later_callbacks(
+    collector_model, monkeypatch, failure
+):
+    path, state, teardown = collector_model
+    active = Message(interface="Object", member="StateChanged", args=["active", 1, 0, "", {}])
+    if failure == "exhaustion":
+        state["messages"] = [active] * 4096 + [Message(sender=":1.99")]
+        # Keep this model's evidence under read_events' independent byte bound
+        # so the assertion exercises the terminal marker rather than size.
+        monkeypatch.setattr(events, "source_identity", lambda *args: {})
+        expected_count = 4096
+    elif failure == "malformed-path":
+        state["messages"] = [active, Message(path="/foreign//invalid")]
+        expected_count = 1
+    else:
+        state["messages"] = [active, Message(sender=":1.99")]
+        original = events.event_reference
+
+        def broken(message):
+            if message.get_sender() == ":1.99":
+                raise RuntimeError("event processing failed")
+            return original(message)
+
+        monkeypatch.setattr(events, "event_reference", broken)
+        expected_count = 1
+    # Deliberately dispatch after quit to model a queued callback. It cannot
+    # append new source authority after the terminal invalidation.
+    state["messages"].append(active)
+    with pytest.raises(RuntimeError, match="collector invalidated"):
+        events.collect()
+    lines = [json.loads(line) for line in path.read_text().splitlines()]
+    assert state["quit"]
+    assert len(lines) == expected_count + 2
+    assert lines[-1] == {"type": "invalidated", "run": lines[0]["run"]}
+    assert lines[1]["event"] == "object:state-changed:active"
+    # The original active witness remains on disk, but reading that actual
+    # evidence cannot return it as authority, even before process teardown.
+    with pytest.raises(RuntimeError, match="collector invalidated"):
+        events.read_events(object(), "unix:guest")
+    assert teardown == [*events.EVENTS, "close"]
+
+
+@pytest.mark.parametrize("marker_writable", [True, False])
+def test_collector_write_failure_invalidates_or_closes_live_evidence_binding(
+    collector_model, monkeypatch, marker_writable
+):
+    path, state, teardown = collector_model
+    original = events.os.fdopen
+    streams = []
+
+    class FailingOutput:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            self.close()
+
+        def write(self, text):
+            kind = json.loads(text)["type"]
+            if kind == "source" or kind == "invalidated" and not marker_writable:
+                raise OSError("evidence write failed")
+            return self.stream.write(text)
+
+        def flush(self):
+            self.stream.flush()
+
+        def close(self):
+            self.stream.close()
+
+    def fdopen(*args, **kwargs):
+        stream = original(*args, **kwargs)
+        streams.append(stream)
+        return FailingOutput(stream)
+
+    monkeypatch.setattr(events.os, "fdopen", fdopen)
+    with pytest.raises(RuntimeError, match="collector invalidated"):
+        events.collect()
+    assert state["quit"]
+    assert streams[0].closed
+    assert teardown == [*events.EVENTS, "close"]
+    lines = [json.loads(line) for line in path.read_text().splitlines()]
+    assert [line["type"] for line in lines] == (
+        ["ready", "invalidated"] if marker_writable else ["ready"]
+    )
+
+
+def test_foreign_gtk4_activation_is_revocation_never_an_input_source(
+    collector_model, monkeypatch
+):
+    path, state, _ = collector_model
+    foreign = "/org/gtk/application/terminal/a11y/8d94a6f5_862e_4f84_90f2_626f890bb694"
+    active = Message(interface="Object", member="StateChanged", args=["active", 1, 0, "", {}])
+    state["messages"] = [active, Message(sender=":1.99", path=foreign)]
+    original = events.source_identity
+
+    def identity(bus, peer, source_path):
+        if peer == ":1.99":
+            raise RuntimeError("foreign GTK4 application")
+        return original(bus, peer, source_path)
+
+    monkeypatch.setattr(events, "source_identity", identity)
+    events.collect()
+    _, witness, revoke = [json.loads(line) for line in path.read_text().splitlines()]
+    assert revoke["path"] == foreign
+    assert revoke["type"] == "revocation"
+    assert revoke["identity"] is None
+    assert not events.activation_witness(witness, [witness, revoke])
+    assert not state["quit"]
+
+
+@pytest.mark.parametrize("executable", ["/lab/electron", events.GNOME_PORTAL])
+def test_foreign_gtk4_namespace_never_passes_input_allowlist(model, executable):
+    state, bus, atspi, record, _, _ = model
+    record["identity"]["exe"] = executable
+    state["identity"] = record["identity"].copy()
+    record["path"] = "/org/gtk/application/terminal/a11y/7"
+    assert events.event_reference(Message(path=record["path"]))["path"] == record["path"]
+    with pytest.raises(RuntimeError):
+        events.source_identity(bus, record["peer"], record["path"])
+    with pytest.raises(RuntimeError, match="Invalid observed native source"):
+        events.DialogBinding(bus, record, atspi).revalidate("Attach files")
+
+
+@pytest.mark.parametrize("age", [0, 60_000_000_001])
+def test_invalidation_rejects_old_activation_even_if_collector_still_live(
+    evidence_model, monkeypatch, age
+):
+    state, ready, witness = evidence_model
+    witness.update({
+        "peer": ":1.42", "path": "/org/a11y/atspi/accessible/7",
+        "event": "object:state-changed:active",
+    })
+    assert events.activation_witness(witness, events.read_events(object(), "unix:guest"))
+    state["lines"].append({"type": "invalidated", "run": ready["run"]})
+    monkeypatch.setattr(events.time, "monotonic_ns", lambda: 300 + age)
+    with pytest.raises(RuntimeError, match="collector invalidated"):
+        events.read_events(object(), "unix:guest")

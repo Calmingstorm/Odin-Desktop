@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One native launch per app, measured GTK/Orca then Electron, never task suite."""
+"""Focused native launches and file-dialog diagnostics, never task qualification."""
 
 from __future__ import annotations
 
@@ -166,7 +166,7 @@ def measure_gtk(evidence, log):
                 app.wait(timeout=10)
 
 
-def dialog_snapshot():
+def dialog_snapshot(title="Attach files"):
     guard()
     root = Path(os.environ["ODIN_ORCA_ROOT"])
     spec = importlib.util.spec_from_file_location(
@@ -174,13 +174,13 @@ def dialog_snapshot():
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    binding = module.active_dialog("Attach files")
-    binding.revalidate("Attach files")
+    binding = module.active_dialog(title)
+    binding.revalidate(title)
     return binding.record
 
 
 def run(mode):
-    if mode not in ("electron", "gtk-electron", "native-attach"):
+    if mode not in ("electron", "gtk-electron", "native-attach", "native-files"):
         raise ValueError("Only focused launch modes")
     identity = guard()
     os.environ["DEBUG"] = "pw:browser"
@@ -190,6 +190,7 @@ def run(mode):
     log = Path(os.environ["ODIN_ORCA_LOG"])
     result = {
         "kind": "focused-probes-not-qualification",
+        "probe": mode,
         "guard": identity,
         "source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "passed": False,
@@ -205,7 +206,7 @@ def run(mode):
                 cwd=root / "app",
                 stdout=output,
                 stderr=subprocess.STDOUT,
-                timeout=150,
+                timeout=360 if mode == "native-files" else 150,
             )
         result["electron_exit_code"] = launch.returncode
         result["passed"] = launch.returncode == 0
@@ -226,6 +227,6 @@ if __name__ == "__main__":
     elif operation == "key":
         key(sys.argv[2])
     elif operation == "dialog":
-        print(json.dumps(dialog_snapshot()))
+        print(json.dumps(dialog_snapshot(sys.argv[2] if len(sys.argv) > 2 else "Attach files")))
     else:
         sys.exit(run(operation))

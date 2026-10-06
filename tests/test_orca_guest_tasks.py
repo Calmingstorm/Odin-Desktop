@@ -116,8 +116,14 @@ def virtual_keyboard(monkeypatch, tmp_path):
     monkeypatch.setattr(
         guest, "active_dialog", lambda _: SimpleNamespace(revalidate=lambda _: object())
     )
+    # These cases model keyboard ordering only. Real modal text/state readback
+    # and refusal before Enter are covered separately in test_orca_native_input.
+    monkeypatch.setattr(
+        guest, "verify_native_text", lambda binding, title, expected: binding.revalidate(title)
+    )
     monkeypatch.setattr(guest.time, "sleep", lambda _: None)
     monkeypatch.setenv("ODIN_ORCA_ROOT", str(tmp_path))
+    monkeypatch.setenv("ODIN_ORCA_DESKTOP", "cinnamon")
     return codes, events
 
 
@@ -129,14 +135,10 @@ def test_native_cancel_has_matched_press_release(virtual_keyboard):
     assert events[-1] == ("close",)
 
 
-def test_describe_uses_real_orca_keyboard_commands_not_fake_speech(virtual_keyboard):
-    codes, events = virtual_keyboard
+def test_describe_only_observes_modal_without_input_or_fake_speech(virtual_keyboard):
+    _, events = virtual_keyboard
     guest.native("Save file", "describe")
-    keys = [event for event in events if len(event) == 3]
-    presses = [key for kind, key, state in keys if state == 1]
-    releases = [key for kind, key, state in keys if state == 0]
-    assert presses == [codes.KEY_INSERT, codes.KEY_KPENTER, codes.KEY_KPENTER]
-    assert sorted(presses) == sorted(releases)
+    assert events == []
 
 
 def test_file_path_outside_disposable_root_refused_before_device(virtual_keyboard):

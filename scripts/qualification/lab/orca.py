@@ -413,7 +413,7 @@ def validate_tasks(report, *, real_core_required=False):
 
 
 def run(api, name, artifact, evidence, *, timeout=2100, probe=None):
-    if probe not in (None, "electron", "gtk-electron", "native-attach"):
+    if probe not in (None, "electron", "gtk-electron", "native-attach", "native-files"):
         raise Error("Unsupported focused probe")
     if name not in NAMES:
         raise Error("Orca accepts only Cinnamon, GNOME and KDE lab VMs")
@@ -736,7 +736,9 @@ def main(argv=None):
     execute.add_argument("--artifact", required=True)
     execute.add_argument("--evidence", required=True)
     execute.add_argument("--timeout", type=int, default=2100)
-    execute.add_argument("--probe", choices=("electron", "gtk-electron", "native-attach"))
+    execute.add_argument(
+        "--probe", choices=("electron", "gtk-electron", "native-attach", "native-files")
+    )
     args = parser.parse_args(argv)
     try:
         if args.action == "pack":

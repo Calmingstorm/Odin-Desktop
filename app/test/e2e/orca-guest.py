@@ -125,10 +125,88 @@ def active_dialog(title):
     return module.active_dialog(title)
 
 
+def focused_native_text(binding, title):
+    """Read only the focused text descendant of this revalidated modal."""
+    item = binding.revalidate(title)
+    pending = [(binding.record["peer"], binding.record["path"], item)]
+    seen = set()
+    while pending and len(seen) < 256:
+        peer, path, node = pending.pop(0)
+        if (peer, path) in seen:
+            continue
+        seen.add((peer, path))
+        if peer != binding.record["peer"]:
+            continue
+        words = node.GetState(dbus_interface="org.a11y.atspi.Accessible")
+        flags = int(words[0]) | (int(words[1]) << 32)
+        if (
+            flags & (1 << int(binding.atspi.StateType.FOCUSED))
+            and flags & (1 << int(binding.atspi.StateType.EDITABLE))
+            and int(node.GetRole(dbus_interface="org.a11y.atspi.Accessible"))
+            in (int(binding.atspi.Role.ENTRY), int(binding.atspi.Role.TEXT))
+        ):
+            count = int(node.Get(
+                "org.a11y.atspi.Text", "CharacterCount",
+                dbus_interface="org.freedesktop.DBus.Properties",
+            ))
+            if not 0 <= count <= 4096:
+                raise RuntimeError("Native focused field text length is outside bounds")
+            text = str(node.GetText(0, count, dbus_interface="org.a11y.atspi.Text"))
+            binding.revalidate(title)
+            return {"peer": peer, "path": path, "text": text}
+        children = node.GetChildren(dbus_interface="org.a11y.atspi.Accessible")
+        for child_peer, child_path in children[:256]:
+            if str(child_peer) == binding.record["peer"]:
+                pending.append(
+                    (
+                        str(child_peer),
+                        str(child_path),
+                        binding.bus.get_object(child_peer, child_path),
+                    )
+                )
+    raise RuntimeError("No focused native text descendant; no submission")
+
+
+def verify_native_text(binding, title, expected):
+    result = focused_native_text(binding, title)
+    prefix = os.environ.get("ODIN_ORCA_NATIVE_EVIDENCE_PREFIX")
+    if prefix:
+        if prefix not in ("probe-native-attach", "probe-native-save"):
+            raise RuntimeError("Unknown native evidence prefix")
+        evidence = Path(os.environ["ODIN_ORCA_EVIDENCE"])
+        target = evidence / f"{prefix}-before-enter.json"
+        data = {
+            "binding": binding.record,
+            "title": title,
+            "expected": expected,
+            "focused_field": result,
+            "matches": result["text"] == expected,
+            "acceptance_proven": False,
+        }
+        with target.open("x") as stream:
+            json.dump(data, stream, indent=2)
+        subprocess.run(
+            ["/usr/local/lib/odq/capture", str(evidence / f"{prefix}-before-enter.png")],
+            check=True,
+            timeout=75,
+        )
+    binding.revalidate(title)
+    if result["text"] != expected:
+        raise RuntimeError(f"Native field readback differs; no submission: {result!r}")
+    print(json.dumps({"native_field_readback": result}), flush=True)
+    return result
+
+
 def native(title, action, path=None):
     if title not in ("Attach files", "Save file") or action not in ("cancel", "file", "describe"):
         raise ValueError("Only the task suite file dialogs are permitted")
     binding = active_dialog(title)
+    if action == "describe":
+        # Observe the actual modal. Orca announces it on opening; callers must
+        # mark speech BEFORE activation. KPEnter can activate the default Save
+        # button if a toolkit consumes it rather than the screen reader.
+        binding.revalidate(title)
+        return
     from evdev import UInput
     from evdev import ecodes as e
 
@@ -181,12 +259,6 @@ def native(title, action, path=None):
         if action == "cancel":
             chord(e.KEY_ESC)
             return
-        if action == "describe":
-            # Real Orca desktop-layout title and Where Am I commands. No generated speech.
-            chord(e.KEY_INSERT, e.KEY_KPENTER)
-            time.sleep(0.5)
-            chord(e.KEY_KPENTER)
-            return
         chord(e.KEY_LEFTCTRL, e.KEY_L)
         time.sleep(0.25)
         chord(e.KEY_LEFTCTRL, e.KEY_A)
@@ -213,7 +285,12 @@ def native(title, action, path=None):
             type_text(Path(path).name)
         else:
             type_text(path)
-        chord(e.KEY_ENTER)
+        time.sleep(0.15)
+        verify_native_text(binding, title, Path(path).name if title == "Save file" else path)
+        if os.environ["ODIN_ORCA_DESKTOP"] == "cinnamon":
+            chord(e.KEY_LEFTALT, letters["s" if title == "Save file" else "o"])
+        else:
+            chord(e.KEY_ENTER)
 
 
 if __name__ == "__main__":

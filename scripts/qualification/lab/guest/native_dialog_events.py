@@ -25,13 +25,16 @@ PROPERTIES = "org.freedesktop.DBus.Properties"
 REGISTRY = "org.a11y.atspi.Registry"
 EVENTS = ("window:activate", "object:state-changed:active")
 UNIQUE = re.compile(r"^:[0-9]+\.[0-9]+$")
+DBUS_OBJECT_PATH = re.compile(r"^(?:/|(?:/[A-Za-z0-9_]+)+)$")
 OBJECT_PATH = re.compile(r"^/org/a11y/atspi/accessible/[A-Za-z0-9_/]+$")
 GNOME_PATH = re.compile(
     r"^/org/gtk/application/xdg_desktop_portal_gnome/a11y/"
     r"[0-9a-f]{8}(?:_[0-9a-f]{4}){3}_[0-9a-f]{12}$"
 )
 # Noble's installed chooser backend, not any similarly named application.
-PORTAL_EXECUTABLES = frozenset({"/usr/libexec/xdg-desktop-portal-gnome"})
+GNOME_PORTAL = "/usr/libexec/xdg-desktop-portal-gnome"
+KDE_PORTAL = "/usr/lib/x86_64-linux-gnu/libexec/xdg-desktop-portal-kde"
+PORTAL_EXECUTABLES = {GNOME_PORTAL: "gnome", KDE_PORTAL: "kde"}
 TITLES = ("Attach files", "Save file")
 
 
@@ -54,8 +57,9 @@ def source_identity(bus, peer, path):
     identity = peer_identity(bus, peer)
     executable = identity["exe"]
     if executable in PORTAL_EXECUTABLES:
-        if os.environ.get("ODIN_ORCA_DESKTOP") != "gnome" or not (
-            GNOME_PATH.fullmatch(path) or OBJECT_PATH.fullmatch(path)
+        if os.environ.get("ODIN_ORCA_DESKTOP") != PORTAL_EXECUTABLES[executable] or not (
+            OBJECT_PATH.fullmatch(path)
+            or executable == GNOME_PORTAL and GNOME_PATH.fullmatch(path)
         ):
             raise RuntimeError("Native portal source is outside the exact guest backend scope")
     elif executable == os.environ.get("ODIN_ORCA_ELECTRON"):
@@ -63,7 +67,8 @@ def source_identity(bus, peer, path):
             raise RuntimeError("Unknown Electron native source path")
     else:
         raise RuntimeError(
-            "AT-SPI peer is not the installed Electron or exact native portal backend"
+            "AT-SPI peer is not the installed Electron or exact native portal backend: "
+            f"pid={identity['pid']} uid={identity['uid']} exe={executable!r}"
         )
     trusted_executable(executable)
     return identity
@@ -123,9 +128,10 @@ def event_reference(message):
     else:
         return None
     peer, path = str(message.get_sender()), str(message.get_path())
-    if not UNIQUE.fullmatch(peer) or not (
-        OBJECT_PATH.fullmatch(path) or GNOME_PATH.fullmatch(path)
-    ):
+    # Observation is broader than input authority: a foreign GTK4 namespace
+    # still revokes an earlier active-event lease. source_identity keeps the
+    # installed backend/path allowlist for input targets unchanged.
+    if not UNIQUE.fullmatch(peer) or not DBUS_OBJECT_PATH.fullmatch(path):
         raise RuntimeError("Unknown AT-SPI event source")
     return {"peer": peer, "path": path, "event": kind, "signature": str(message.get_signature())}
 
@@ -166,6 +172,10 @@ def read_events(bus, address):
     ready = json.loads(lines[0])
     if ready.get("type") != "ready" or ready.get("address") != address:
         raise RuntimeError("Native event collector bus mismatch")
+    # Terminal invalidation never expires and cannot be filtered as an old
+    # observation. An intact earlier activation is no longer authority.
+    if any(json.loads(line).get("type") == "invalidated" for line in lines[1:]):
+        raise RuntimeError("Native event collector invalidated")
     collector = peer_identity(bus, ready["collector_peer"])
     if collector != ready["collector"]:
         raise RuntimeError("Stale native collector process binding")
@@ -192,6 +202,24 @@ def read_events(bus, address):
     return records
 
 
+def activation_witness(record, activity):
+    """A different window losing ACTIVE cannot revoke this modal's activation."""
+    if record["event"] != "object:state-changed:active":
+        return False
+    try:
+        index = activity.index(record)
+    except ValueError:
+        return False
+    reference = (record["peer"], record["path"])
+    for later in activity[index + 1:]:
+        same = (later["peer"], later["path"]) == reference
+        if later["event"] in EVENTS and not same:
+            return False
+        if later["event"] == "object:state-changed:inactive" and same:
+            return False
+    return True
+
+
 class DialogBinding:
     def __init__(self, bus, record, atspi):
         self.bus, self.record, self.atspi = bus, record, atspi
@@ -215,16 +243,14 @@ class DialogBinding:
             raise RuntimeError("Unknown native state representation")
         flags = int(words[0]) | (int(words[1]) << 32)
         active = bool(flags & (1 << int(atspi.StateType.ACTIVE)))
-        if record["identity"]["exe"] in PORTAL_EXECUTABLES and not active:
+        if record["identity"]["exe"] == GNOME_PORTAL and not active:
             # GTK4's GetState omits ACTIVE even for its native focused modal.
             # Use the actual active(1) event, revoked by a later active(0) or
             # another activation, never title inference or cached Orca text.
             _, address = bus_connection()
             activity = read_events(self.bus, address)
-            latest = activity[-1] if activity else {}
             active = (
-                record["event"] == "object:state-changed:active"
-                and latest == record
+                activation_witness(record, activity)
                 and bool(flags & (1 << int(atspi.StateType.MODAL)))
             )
         if (
@@ -308,12 +334,13 @@ def collect():
     with os.fdopen(fd, "w", buffering=1) as output:
         count = 0
         ready = False
+        failure = None
 
         def callback(*args, message):
-            nonlocal count
+            nonlocal count, failure
             # A synchronous registry call may dispatch queued signals. The
             # header must be first; only post-readiness events belong to this run.
-            if not ready:
+            if not ready or failure is not None:
                 return
             try:
                 reference = event_reference(message)
@@ -324,9 +351,12 @@ def collect():
                 try:
                     identity = source_identity(bus, reference["peer"], reference["path"])
                     record_type = "source"
-                except Exception:
+                except Exception as error:
                     # A foreign activation revokes the GTK4 active-event lease;
                     # it never supplies an input target or executable authority.
+                    print(
+                        json.dumps({"native_source_rejected": str(error), **reference}), flush=True
+                    )
                     identity = None
                     record_type = "revocation"
                 output.write(
@@ -343,8 +373,19 @@ def collect():
                 )
                 count += 1
             except Exception as error:
-                # Foreign peers/errors are diagnostic only, never synthetic sources.
-                print(json.dumps({"native_event_rejected": str(error)}), flush=True)
+                # Missing even one revocation makes every prior witness unsafe.
+                # Invalidate before quitting, including while GLib drains queued
+                # callbacks. If evidence cannot be written, drop the live fd
+                # binding so read_events still fails closed.
+                failure = str(error)
+                try:
+                    output.write(json.dumps({"type": "invalidated", "run": run}) + "\n")
+                    output.flush()
+                except Exception:
+                    output.close()
+                finally:
+                    loop.quit()
+                print(json.dumps({"native_event_rejected": failure}), flush=True)
 
         registry = register(bus, dbus, callback)
         started = time.monotonic_ns()
@@ -365,10 +406,14 @@ def collect():
         ready = True
         try:
             loop.run()
+            if failure is not None:
+                raise RuntimeError(f"Native event collector invalidated: {failure}")
         finally:
-            for event in EVENTS:
-                registry.DeregisterEvent(event, dbus_interface=REGISTRY)
-            bus.close()
+            try:
+                for event in EVENTS:
+                    registry.DeregisterEvent(event, dbus_interface=REGISTRY)
+            finally:
+                bus.close()
 
 
 if __name__ == "__main__":

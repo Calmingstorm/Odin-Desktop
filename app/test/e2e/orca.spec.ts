@@ -160,19 +160,24 @@ async function send(text: string): Promise<void> {
 
 async function native(title: string, action: 'cancel' | 'file' | 'describe', path?: string): Promise<void> {
   let lookup = ''
+  // Poll observation ONLY. No error after typing or submission can replay input.
   await expect.poll(() => {
     try {
-      execFileSync('/usr/bin/python3', ['-B', guest, 'native', title, action, ...(path ? [path] : [])],
+      execFileSync('/usr/bin/python3', ['-B', guest, 'native', title, 'describe'],
         { encoding: 'utf8', timeout: 30_000 })
       return true
     } catch (error) {
       const output = (error as { stdout?: string }).stdout ?? String(error)
       if (output.includes('No owned active AT-SPI dialog')) { lookup = output; return false }
-      throw new Error(`Native dialog input failed: ${output}`) // Never replay uncertain input.
+      throw new Error(`Native dialog observation failed: ${output}`)
     }
   }, { message: `Owned active native dialog required: ${title}` }).toBe(true).catch((error) => {
     throw new Error(`${error}\nLast AT-SPI lookup: ${lookup}`)
   })
+  if (action !== 'describe') {
+    execFileSync('/usr/bin/python3', ['-B', guest, 'native', title, action, ...(path ? [path] : [])],
+      { encoding: 'utf8', timeout: 30_000 })
+  }
 }
 
 async function section(name: string): Promise<void> {
@@ -207,7 +212,6 @@ test('orca-chat-results-attach-cancel-save-copy-report', async () => {
   await expect.poll(() => app!.evaluate(({ clipboard }) => clipboard.readText())).toContain('Stored result, page 1 of 3')
   let from = speech!.mark()
   await activate(page.getByRole('button', { name: 'Attach files', exact: true }), /Attach files/i)
-  from = speech!.mark()
   await native('Attach files', 'describe')
   await hear(from, /Attach files/i, /table|file chooser|dialog/i)
   await native('Attach files', 'cancel')
@@ -222,7 +226,6 @@ test('orca-chat-results-attach-cancel-save-copy-report', async () => {
   const saved = join(root, 'keyboard-saved.txt')
   from = speech!.mark()
   await activate(page.locator('.file-card').filter({ hasText: 'notes.txt' }).getByRole('button', { name: /Save/ }), /Save/i)
-  from = speech!.mark()
   await native('Save file', 'describe')
   await hear(from, /Save file/i, /entry|table|file chooser|dialog/i)
   await native('Save file', 'file', saved)
