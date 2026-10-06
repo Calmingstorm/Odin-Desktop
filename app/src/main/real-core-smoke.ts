@@ -179,6 +179,16 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
 
+  // Odin starts its usage backfill at boot. Settle it once, so every read and
+  // panel below sees one coverage state instead of racing the first pass.
+  const settleBy = Date.now() + 15_000
+  for (;;) {
+    const usage = await broker.request('observability.usage')
+    assert(usage.ok, 'observability.usage management read must succeed')
+    if ((usage.result as { coverage?: { backfill_complete?: unknown } }).coverage?.backfill_complete === true) break
+    assert(Date.now() < settleBy, 'usage backfill must complete within 15 s of startup')
+    await pause(100)
+  }
   const reads: Record<string, unknown> = {}
   for (const method of ['settings.schema', 'usage.get', 'personality.get', 'tools.list', 'tools.timeouts.get', 'hosts.list', 'memory.list', 'lists.list', 'knowledge.list', 'health.get', 'audit.query', 'logs.search', 'turn_state.list', 'skills.list', 'mcp.list', 'mcp.status', 'computer.status', 'work.list', 'schedules.list', 'schedules.history']) {
     const answer = await broker.request(method)
@@ -229,7 +239,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert.deepEqual(reads['logs.search'], { entries: [], count: 0 })
     }
     assert.equal((reads['turn_state.list'] as { availability: string }).availability, 'available')
-    assert.deepEqual((reads['usage.get'] as { tokens: unknown }).tokens, { value: null, kind: 'unknown' })
+    assert.deepEqual((reads['usage.get'] as { tokens: unknown }).tokens, { value: 0, kind: 'measured' })
   }
   assert((reads['settings.schema'] as { fields: unknown[] }).fields.length > 0, 'real management schema must contain fields')
 
@@ -453,7 +463,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
 
   // Slash commands remain useful without a provider. Exercise the actual command
   // palette and bridge; /status and /usage use real step-five observations,
-  // with served usage remaining unknown when history is missing.
+  // with served usage measured once the boot backfill has settled.
   for (const command of ['/status', '/usage']) {
     await run(`(() => {
       const input = document.querySelector('.composer textarea');
@@ -815,7 +825,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     'MCP servers': [['section[aria-label="MCP"]', /1 of 1 servers connected.*1 tools offered/s], ['section[aria-label="MCP servers"]', /Add server/]],
     'Hosts and trust': [['section[aria-label="Hosts"]', /localhost/]],
     State: [['section[aria-label="Memory"]', /0 entries/], ['section[aria-label="Named lists"]', /No lists\./], ['section[aria-label="Knowledge"]', /Knowledge/]],
-    Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /not measured: Odin doesn't know this value/], ['section[aria-label="Computer use"]', /Refresh/]]
+    Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /tokens in .*\(measured\)/], ['section[aria-label="Computer use"]', /Refresh/]]
   }
   const observations = await run<Record<string, { ok: boolean; result?: unknown; error?: { code: string; message: string } }>>(`(async () => ({
     settings: await window.odin.settingsSchema(), hosts: await window.odin.hostsList({}),
