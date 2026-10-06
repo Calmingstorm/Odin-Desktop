@@ -31,6 +31,44 @@ class ToolProvider(Provider):
         return LLMResponse(text="The requested work was admitted.")
 
 
+@pytest.mark.asyncio
+async def test_background_reads_share_live_settings_and_effective_runtime_owners(tmp_path):
+    from copy import deepcopy
+    from types import SimpleNamespace
+
+    from src.web.api._agent_display import agent_display_policy
+
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, Provider())
+    try:
+        deps = core.engine.deps
+        assert core.work.display_config is core.settings
+        status = (await request(reader, writer, "status.get"))["result"]
+        assert f"Agents active: {deps.agent_manager.active_count}" in status["summary"]
+        assert f"Loops active: {deps.loop_manager.active_count}" in status["summary"]
+        pending = SimpleNamespace(status="pending", model_override=None,
+                                  reasoning_effort_override=None)
+        replacement = deepcopy(core.config)
+        replacement.agents.model = "compat:changed-agent-model"
+        core.settings._publish(replacement, [], False)
+        display = agent_display_policy(pending, core.work.display_config)
+        assert display["display_model"] == "changed-agent-model"
+        assert display["display_model_source"] == "current_inheritance"
+        before = await request(reader, writer, "turn_state.list")
+        assert before["result"]["availability"] == "available"
+        schema = (await request(reader, writer, "settings.schema"))["result"]
+        changed = await request(reader, writer, "settings.set", {
+            "expected_revision": schema["revision"],
+            "changes": [{"path": "turn_state.enabled", "value": False}],
+        })
+        assert changed["ok"], changed
+        assert core.config.turn_state.enabled is False
+        assert core.engine.diagnostics()["turn_durability"]["state"] == "on"
+        after = await request(reader, writer, "turn_state.list")
+        assert after["result"]["availability"] == "available"
+    finally:
+        await cleanup(core, writer, rfd, wfd)
+
+
 async def session(tmp_path, provider):
     paths, socket_path, token_file = profile(tmp_path)
     core = service(paths, socket_path, token_file, provider)

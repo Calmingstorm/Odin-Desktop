@@ -111,7 +111,7 @@ describe('model and effort shortcuts (deferred from step 2)', () => {
     expect(await commands.dispatch(command('model'), 'gpt-9')).toBe(false)
     expect(calls.edit).toEqual([])
     await commands.dispatch(command('model'), 'gpt-6-luna')
-    expect(calls.edit).toEqual([{ method: 'models.main.set', params: { model: 'gpt-6-luna' } }])
+    expect(calls.edit).toEqual([{ method: 'models.main.set', params: { model: 'gpt-6-luna', expected_revision: 'rev-1' } }])
     expect(store.state.notice).toBe('Main model is now gpt-6-luna.')
   })
 

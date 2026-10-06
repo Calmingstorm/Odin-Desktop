@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "step": 5,
+  "review": "PR #21 round 1, reviewed head 982477643adaa7652a74199198110981fe2fdfa0",
+  "evidence_boundary": "Pending exact deltas and named regression-test hashes, not independent approval. Original corpus, selection boundaries and qualification budgets remain unchanged. The first full fresh-checkout run exposed a selected-profile migration identity-lock deadlock; preserve its failed evidence, correct production locking, then repeat all groups from another fresh group-writable checkout with isolated PID/mount namespaces.",
+  "entries": [
+    {
+      "path": "src/desktop/provisioning.py",
+      "reason": "Fix P2 fresh-profile SSH parity by generating the absent profile-owned Ed25519 key before publishing fresh config, and repairing that default key on older profiles without rewriting their config.",
+      "contract": "No-passphrase key at the configured profile secrets path, mode 0600; shared authority lock and no-replace publication preserve existing keys, including concurrent creation and symlinks. Failed generation leaves fresh config absent and supports retry. Existing config loads outside the identity lock because selected-profile migrations construct their own authority; key publication alone reacquires the lock.",
+      "invariant": "No prior-install adoption, custom external-key creation, existing-key/config replacement, parent-mode refusal or remote enrollment. Directory durability uncertainty is exposed on the same authority.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_provisioning.py", "tests/test_desktop_management_core.py", "tests/test_desktop_foundation_config.py", "tests/test_desktop_core_entry.py"]
+    },
+    {
+      "path": "src/desktop/codex_accounts.py",
+      "reason": "Fix P3 by classifying the profile adapter's SecretStoreError as keyring_unavailable with a fixed safe message, separate from provider or corrupt-record failures.",
+      "contract": "Locked, absent or failing keyring answers The system keyring is locked or unavailable. Reads remain rejected; mutations and login persistence retain outcome_unknown. Retained pool, exchange and persistence-before-publication behavior stays unchanged.",
+      "invariant": "No secret reflection, exception-text classification, credential-file fallback, false success or automatic uncertain-effect replay. Non-keyring errors remain generic unavailable.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_codex_accounts.py", "tests/test_desktop_management_core.py", "tests/test_desktop_providers.py"]
+    },
+    {
+      "path": "tests/test_desktop_provisioning.py",
+      "reason": "Add P2 behavior regressions for both provisioning entrypoints, real SSH public-key derivation, fingerprint and mode, identity preservation, missing-default repair, custom paths, symlinks, concurrent creation and failed-generation retry. Assert a separate descriptor can acquire the identity lock during existing-config load to prevent migration self-deadlock.",
+      "contract": "Actual no-passphrase Ed25519 keys are generated only in throwaway profile secrets folders; second provisioning preserves key bytes, inode and mtime; existing config and unrelated key paths remain unchanged.",
+      "invariant": "No upstream assertion rewrite, live key/host/desktop operation, destructive probe or secret output. Existing workspace/parent-mode/alongside-sentinel tests remain intact.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_provisioning.py"]
+    },
+    {
+      "path": "tests/test_desktop_codex_accounts.py",
+      "reason": "Exercise P3 through ProfileSecretStore with a temporary keyring adapter raising locked, missing and generic backend failures on reads and writes; distinguish corrupt JSON and provider errors.",
+      "contract": "Assert exact safe keyring code/message, unchanged dispositions/storage, no response/log secret leak, explicit recovery/retry and no repeated device exchange; retain existing pool/quota/refresh tests.",
+      "invariant": "Only temporary adapters and fake network, no real keyring/accounts, credential-file fallback, upstream corpus change or success before durable write.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_codex_accounts.py"]
+    },
+    {
+      "path": "tests/test_desktop_management_core.py",
+      "reason": "Add actual authenticated transport regressions for fresh hosts.public_key across two real core starts and distinct keyring failure/retry on codex.accounts.list.",
+      "contract": "Fresh core exposes the generated Ed25519 public key/fingerprint at mode 0600, second core retains private/public identity; locked keyring returns safe keyring_unavailable without a mutation receipt and recovers after unlock.",
+      "invariant": "Isolated PID/mount namespaces, throwaway HOME and temporary keyring only; no live desktop/service/account/network or assertion-budget change. Existing replay/HMAC/status/event tests remain intact.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_management_core.py"]
+    }
+  ],
+  "unchanged_source_evidence_refresh": {
+    "rule": "Keep each existing exact source patch, reason, contract, invariant, owner and test selection; append the concrete path-specific review-fix evidence rationale below and refresh only its named changed Desktop-test hashes. All records remain pending independent review.",
+    "entries": [
+      {"path":"pyproject.toml","reason_kept":"The declared keyring dependency is unchanged; expanded temporary-adapter tests now distinguish backend failures from provider/data failures."},
+      {"path":"uv.lock","reason_kept":"The frozen dependency closure is unchanged; temporary keyring failure regressions add no native qualification claim."},
+      {"path":"src/desktop/core.py","reason_kept":"Composition/transport/receipt dispatch is unchanged; new two-start public-key and keyring-read cases exercise this same graph."},
+      {"path":"src/desktop/hosts.py","reason_kept":"Enrollment/trust/public-key derivation and registry leases are unchanged; provisioning regressions now supply a real temporary private key."},
+      {"path":"src/desktop/management.py","reason_kept":"Admission/HMAC/receipt behavior is unchanged; added keyring read refusal creates no mutation receipt and restart key identity uses the same graph."},
+      {"path":"src/desktop/model_settings.py","reason_kept":"Dedicated settings methods are unchanged; composed transport regressions add no ownerless adoption or provider-readiness behavior."},
+      {"path":"src/desktop/profile.py","reason_kept":"Selected-profile delegation is unchanged; both entrypoints now exercise absent-key provisioning while preserving existing-profile refusal."},
+      {"path":"src/desktop/protocol.py","reason_kept":"Protocol/framing/minor constants are unchanged; new responses use the existing error/result envelope."},
+      {"path":"src/desktop/providers.py","reason_kept":"Provider generation/lease/refresh behavior is unchanged; keyring exception regressions retain persistence-before-publication and no duplicate exchange."},
+      {"path":"src/desktop/records.py","reason_kept":"Read-only record/health methods are unchanged; additional composed read/restart tests do not introduce writers or boot sweeps."},
+      {"path":"src/desktop/runtime.py","reason_kept":"Status/reload/usage behavior is unchanged; public-key identity across two starts adds no fabricated readiness or measurements."},
+      {"path":"src/desktop/secrets.py","reason_kept":"The profile Secret Service boundary is unchanged; actual temporary-adapter failure tests exercise its existing scrubbed SecretStoreError contract."},
+      {"path":"src/desktop/settings.py","reason_kept":"Settings transactions and owner adoption remain byte-identical; new transport/read regressions retain shared actual profile settings."},
+      {"path":"src/desktop/state.py","reason_kept":"Memory/list ownership remains byte-identical; expanded transport tests retain prior shared-memory/replay evidence."}
+    ]
+  }
+}

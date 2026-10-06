@@ -153,10 +153,14 @@ class EngineServices:
         await release(getattr(d.tool_executor, "ssh_pool", None), "close_all")
         await release(d.browser_manager, "shutdown")
         try:
-            await shutdown_provider_clients(d.llm_gateway)
+            close = getattr(d.llm_gateway, "close", None)
+            if callable(close):
+                await close()
+            else:
+                await shutdown_provider_clients(d.llm_gateway)
         except Exception as error:
             failures.append(error)
-        await release(getattr(d.runtime_context, "outbound_webhook_dispatcher", None), "close")
+        await release(d.outbound_webhook_dispatcher, "close")
         try:
             await asyncio.to_thread(d.sessions.save)
         except Exception as error:
@@ -289,7 +293,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
                           codex_client=None, ollama_client=None, compatible_client=None,
                           codex_auth=None, runtime_context=None, readiness_gate=None,
                           session_manager=None, turn_store=None, channel_state=None,
-                          native_owners=None):
+                          native_owners=None, settings=None):
     """Compose explicit profile settings or injected runtime owners.
 
     readiness_gate is a live zero-argument Mapping[str, bool] provider. It may
@@ -322,10 +326,15 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..tools.time_parser import set_default_timezone
     from ..trajectories.saver import TrajectorySaver
     from ..turn_state import TurnStateStore
+    from .integrations import ProfileOutboundWebhookDispatcher
 
     runtime = runtime_context or SimpleNamespace()
-    get_config = getattr(runtime, "get_config", lambda: config)
+    get_config = (lambda: settings.config) if settings is not None else getattr(runtime, "get_config", lambda: config)
     cfg = get_config()
+    outbound = getattr(runtime, "outbound_webhook_dispatcher", None)
+    if outbound is None:
+        outbound = ProfileOutboundWebhookDispatcher(
+            get_config, secrets=settings.secrets if settings is not None else None)
     set_default_timezone(cfg.timezone)
     paths.create_private()
     state = channel_state or getattr(runtime, "channel_state", None) or ChannelStateRegistry()
@@ -404,8 +413,15 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     codex_client = codex_client or getattr(runtime, "codex_client", None)
     ollama_client = ollama_client or getattr(runtime, "ollama_client", None)
     compatible_client = compatible_client or getattr(runtime, "compatible_client", None)
+    injected_gateway = getattr(runtime, "llm_gateway", None)
+    if settings is not None and injected_gateway is not None:
+        # Retain injected concrete generations and recovery owners while the
+        # profile-owned gateway remains the single administrative boundary.
+        codex_client = codex_client or injected_gateway.codex_client
+        ollama_client = ollama_client or injected_gateway.ollama_client
+        compatible_client = compatible_client or injected_gateway.compatible_client
     cc = cfg.openai_codex
-    if codex_client is None and cc.enabled:
+    if codex_client is None and cc.enabled and settings is None:
         auth = codex_auth
         if auth is None:
             credential_path = Path(cc.credentials_path)
@@ -448,7 +464,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     for provider in ("codex", "ollama", "compat"):
         guard.register(f"llm_{provider}")
     lr = cfg.llm_recovery
-    gateway = getattr(runtime, "llm_gateway", None) or LLMGateway(get_config=get_config,
+    gateway_dependencies = dict(get_config=get_config,
         codex_client=codex_client, ollama_client=ollama_client, kimi_client=None,
         compatible_client=compatible_client, subsystem_guard=guard,
         auxiliary_llm_client=getattr(runtime, "auxiliary_llm_client", None),
@@ -459,6 +475,31 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         recovery_policy_source=lambda: RecoveryPolicy(
             deadline_seconds=get_config().llm_recovery.generation_deadline_seconds,
             backoff_cap=get_config().llm_recovery.backoff_cap_seconds))
+    if settings is not None:
+        from .codex_accounts import CodexAccountsService
+        from .management import MethodError
+        from .providers import ProviderOwner
+        from .secrets import SecretStoreError
+
+        if injected_gateway is not None:
+            for name in ("subsystem_guard", "auxiliary_llm_client", "cost_tracker",
+                         "model_breakers"):
+                gateway_dependencies[name] = getattr(injected_gateway, name)
+            gateway_dependencies["recovery_policy_source"] = injected_gateway._recovery_policy_source
+        codex = CodexAccountsService(settings)
+        gateway = ProviderOwner(settings, codex, executor=executor, **gateway_dependencies)
+        codex.providers = gateway
+        if codex_client is None and cc.enabled:
+            try:
+                # Do not cache an empty auth pool at startup. Administration
+                # must still distinguish a subsequently locked keyring.
+                if codex.vault.read():
+                    gateway.codex_client = gateway._build("codex", cfg)
+            except (MethodError, SecretStoreError):
+                # Login and keyring recovery remain usable without a provider.
+                log.warning("Desktop Codex provider unavailable at startup")
+    else:
+        gateway = getattr(runtime, "llm_gateway", None) or LLMGateway(**gateway_dependencies)
     if gateway.active_client is not None:
         gateway.wire_callbacks()
     owners = dict(native_owners or getattr(runtime, "native_owners", {}) or {})
@@ -508,11 +549,13 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         computer_available=lambda: bool(getattr(owners.get("computer"),
                                                 "published_available", False)),
         get_email_config=lambda: executor._email_config)
+    if settings is not None:
+        gateway.tool_catalog, gateway.prompt_builder = catalog, prompt
     gateway.on_provider_switch = catalog.invalidate
     if mcp is not None:
         mcp.set_on_catalog_changed(catalog.invalidate)
     recorder = TurnRecorder(get_config=get_config, trajectory_saver=trajectories,
-        reflector=reflector, outbound_webhook_dispatcher=getattr(runtime, "outbound_webhook_dispatcher", None),
+        reflector=reflector, outbound_webhook_dispatcher=outbound,
         loop_reflection_gate=LoopReflectionGate(cooldown_hours=cfg.learning.loop_reflection_cooldown_hours,
             max_per_hour=cfg.learning.loop_reflection_max_per_hour))
     completion = CompletionClassifier(get_llm_client=lambda: gateway.active_client,
@@ -591,7 +634,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         skill_manager=skills, audit=audit, agent_manager=agents, loop_manager=loops,
         host_registry=hosts, host_access_manager=access, scheduler=scheduler, reflector=reflector,
-        context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime)
+        context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime,
+        outbound_webhook_dispatcher=outbound)
     d.native_owners = owners
     engine = EngineServices(d, None)
     runner = ToolLoopRunner(ToolLoopDeps(get_config=get_config,

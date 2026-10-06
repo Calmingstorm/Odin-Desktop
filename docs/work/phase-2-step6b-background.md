@@ -1,6 +1,7 @@
 # Phase 2 step 6, part B: work, reports and recovery
 
-Stack: `phase-2/controls-resume`, merged without rebasing or rewriting history.
+Stack: `phase-2/controls-resume`, merged without rebasing or rewriting history,
+including the final integration snapshot `f20c9f4adb6ae45b0296170f4cd40d5fe891615a`.
 Part A and runtime management remain separate lanes. This implements no webhook
 ingress, native desktop qualification, packaging, or Phase 2 closure claim.
 
@@ -25,6 +26,12 @@ ingress, native desktop qualification, packaging, or Phase 2 closure claim.
 - Report pages are stored once with immutable owner/conversation/request/run/
   generation/producer provenance. Reading pages or repairing delivery never
   reruns the check. Stored pages are receipts, not live retained-evidence cursors.
+- Integration with profile management shares its live settings owner for agent
+  display, resolves status counts from the real engine managers, and keeps turn
+  inspection on the effective startup ledger despite desired restart-only edits.
+  Management and execution share one retained outbound dispatcher. Construction
+  remains inert, signing secrets stay in the keyring, and the engine alone owns
+  shutdown. This fixes detached management delivery, not webhook ingress.
 
 ## D12 and computer admission
 
@@ -65,5 +72,9 @@ An initial qualification attempt was stopped after discovering a scheduler
 control response-shape gap during integration review. It is not counted as final
 qualification. A subsequent complete run exposed stale Phase 1 capability
 expectations and native-storage startup isolation; those failed results remain
-in the evidence directory. Final qualification must finish on corrected source.
+in the evidence directory. The corrected pre-integration snapshot passed all
+29 groups (13,915 passed, 2 skipped). After the base advanced with profile
+management and restored-suite accounting, it was merged without rewriting
+history and qualified again from a fresh checkout. The final result and exact
+source identity are recorded in the accompanying review response.
 No live service, `/opt/odin`, active desktop or destructive test command was used.

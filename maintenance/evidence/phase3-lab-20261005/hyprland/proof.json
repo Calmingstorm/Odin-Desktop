@@ -1,0 +1,108 @@
+{
+  "passed": true,
+  "session": {
+    "Desktop": "Hyprland",
+    "Type": "wayland",
+    "Active": "yes",
+    "State": "active"
+  },
+  "orca_pids": [
+    "684"
+  ],
+  "desktop_identity": "Hyprland",
+  "screenshot_size": [
+    1280,
+    800
+  ],
+  "timestamp": 1791240426,
+  "capture_output": "{\"screenshot\": \"/var/tmp/odq-smoke.png\", \"session_type\": \"wayland\", \"desktop\": \"Hyprland\", \"accessibility_bus\": \"responding\", \"orca\": \"process-present\", \"monitors\": [{\"id\": 0, \"name\": \"Virtual-1\", \"description\": \"Red Hat Inc. QEMU Monitor\", \"make\": \"Red Hat, Inc.\", \"model\": \"QEMU Monitor\", \"serial\": \"\", \"width\": 1280, \"height\": 800, \"physicalWidth\": 320, \"physicalHeight\": 200, \"refreshRate\": 74.994, \"x\": 0, \"y\": 0, \"activeWorkspace\": {\"id\": 1, \"name\": \"1\"}, \"specialWorkspace\": {\"id\": 0, \"name\": \"\"}, \"reserved\": [0, 0, 0, 0], \"scale\": 1.0, \"transform\": 0, \"focused\": true, \"dpmsStatus\": true, \"vrr\": false, \"solitary\": \"0\", \"solitaryBlockedBy\": [\"NOTIFICATION\", \"WINDOWED\", \"CANDIDATE\"], \"activelyTearing\": false, \"tearingBlockedBy\": [\"NOT_TORN\", \"USER\", \"CANDIDATE\"], \"directScanoutTo\": \"0\", \"directScanoutBlockedBy\": [\"USER\", \"SW\", \"CANDIDATE\"], \"disabled\": false, \"currentFormat\": \"XRGB8888\", \"mirrorOf\": \"none\", \"availableModes\": [\"1280x800@74.99Hz\", \"5120x2160@50.00Hz\", \"4096x2160@50.00Hz\", \"3840x2160@60.00Hz\", \"3840x2160@59.94Hz\", \"3840x2160@50.00Hz\", \"1920x1440@60.00Hz\", \"2560x1080@50.00Hz\", \"1856x1392@59.99Hz\", \"1792x1344@60.00Hz\", \"2048x1152@60.00Hz\", \"1920x1200@59.88Hz\", \"1920x1080@60.00Hz\", \"1920x1080@50.00Hz\", \"1600x1200@60.00Hz\", \"1680x1050@59.95Hz\", \"1400x1050@59.98Hz\", \"1280x1024@60.02Hz\", \"1440x900@59.89Hz\", \"1280x960@60.00Hz\", \"1360x768@60.02Hz\", \"1280x768@59.87Hz\", \"1024x768@60.00Hz\", \"800x600@60.32Hz\", \"640x480@60.00Hz\", \"640x480@59.94Hz\"], \"colorManagementPreset\": \"srgb\", \"sdrBrightness\": 1.0, \"sdrSaturation\": 1.0, \"sdrMinLuminance\": 0.2, \"sdrMaxLuminance\": 80}], \"renderer_qualification\": \"requires EGL renderer log review\"}\n",
+  "listeners": "udp UNCONN 0      0                             127.0.0.54:53  0.0.0.0:* users:((\"systemd-resolve\",pid=380,fd=18))\nudp UNCONN 0      0                          127.0.0.53%lo:53  0.0.0.0:* users:((\"systemd-resolve\",pid=380,fd=16))\nudp UNCONN 0      0                  10.150.152.191%enp5s0:68  0.0.0.0:* users:((\"systemd-network\",pid=563,fd=33))\nudp UNCONN 0      0      [fe80::1266:6aff:fe46:bb6]%enp5s0:546    [::]:* users:((\"systemd-network\",pid=563,fd=35))\ntcp LISTEN 0      4096                          127.0.0.54:53  0.0.0.0:* users:((\"systemd-resolve\",pid=380,fd=19))\ntcp LISTEN 0      4096                       127.0.0.53%lo:53  0.0.0.0:* users:((\"systemd-resolve\",pid=380,fd=17))",
+  "limits": "Orca process start only, not verified speech or app accessibility",
+  "instance": "odq-hyprland",
+  "image": {
+    "name": "odq-hyprland",
+    "remote": "images",
+    "alias": "ubuntu/26.04/default",
+    "fingerprint": "beff715a10e50946d610c1e47f6411c41fd50e6d56927019e76810665c847d49",
+    "serial": "20261005_07:42",
+    "architecture": "amd64",
+    "os": "Ubuntu",
+    "release": "resolute",
+    "variant": "default",
+    "type": "virtual-machine",
+    "desktop": "Hyprland",
+    "session": "wayland",
+    "guest_script": "guest/hyprland.sh",
+    "package": "hyprland=0.53.3+ds-4",
+    "provenance": {
+      "index_url": "https://images.linuxcontainers.org/streams/v1/images.json",
+      "product": "ubuntu:resolute:amd64:default",
+      "observed_date": "2026-10-05",
+      "fingerprint_field": "incus.tar.xz.combined_disk-kvm-img_sha256",
+      "metadata_path": "images/ubuntu/resolute/amd64/default/20261005_07:42/incus.tar.xz",
+      "metadata_sha256": "030cd42ec2477d81fed3ce27b20c80dc7190a81c1eccbaec173f6f0cf30c9194",
+      "disk_path": "images/ubuntu/resolute/amd64/default/20261005_07:42/disk.qcow2",
+      "disk_sha256": "97f9f925ea2d03db1464e90f6e4cb486b620793ca304843f5850c903e9d5b205",
+      "package_url": "https://packages.ubuntu.com/resolute/hyprland",
+      "renderer_source_url": "https://raw.githubusercontent.com/hyprwm/Hyprland/v0.53.3/src/render/OpenGL.cpp",
+      "renderer_source_git_blob": "33e380e12048c04724f70c276f26cf4a578e63e0",
+      "config_source_url": "https://raw.githubusercontent.com/hyprwm/Hyprland/v0.53.3/src/config/ConfigManager.cpp"
+    },
+    "software_renderer": {
+      "requested": "Mesa llvmpipe on Incus emulated GPU",
+      "environment": {
+        "LIBGL_ALWAYS_SOFTWARE": "1",
+        "GALLIUM_DRIVER": "llvmpipe",
+        "AQ_NO_MODIFIERS": "1",
+        "HYPRLAND_EGL_NO_MODIFIERS": "1"
+      },
+      "status": "unqualified",
+      "note": "Aquamarine/GBM EGL initialization and DRM presentation may fail with software rendering. Environment variables request a renderer; they do not prove it works. No virgl, host GPU or headless fallback is authorized. Review actual EGL renderer logs plus capture before promotion."
+    },
+    "runtime_status": "Smoke evidence and qualification limits are recorded in maintenance/phase3-lab.md",
+    "limitations": [
+      "Ubuntu 24.04 and Debian trixie base repositories lack the required packaged Hyprland. Ubuntu 26.04 universe provides this version; Arch current is rolling and now uses a different Lua-config compositor release.",
+      "The base VM disk and metadata are pinned, not the entire apt dependency closure. Record installed package versions after provisioning; package and remote image retention are not guaranteed.",
+      "Fail closed if the exact fingerprint is no longer offered; never substitute the moving alias. Runtime evidence is separate from this immutable image pin.",
+      "Orca process presence and accessibility bus response are only startup smoke checks, not accessible UI tree, receiver-confirmed input or audible speech qualification.",
+      "A grim PNG proves guest capture availability, not physical GPU/display/input/audio compatibility or host-desktop qualification."
+    ]
+  },
+  "screenshot_sha256": "dd52f015dc83dcd7493f0fbf45d415c9789f478729ed15bd6622eecf525bd841",
+  "visual_inspection": "required",
+  "source_sha": "ff347abbbc4ea7ece168f49689e6e74bb50fd27f",
+  "source_dirty": false,
+  "host_files_sha256": {
+    "scripts/qualification/lab/lab.py": "d8c69bc6eecd35141834f7cac8386a3bf5d332b1a0764be1f02cbe8bab00f82c",
+    "scripts/qualification/lab/guest/common.sh": "d5f29f77f918814a35e76b388c2c98660b99c7ecbeed7417e40ade153f7fbe8d",
+    "scripts/qualification/lab/guest/smoke.py": "26b1eb215747c0cb93a1e6b8ca24eb43544d919a883644306c36fad2a88f3153",
+    "scripts/qualification/lab/guest/hyprland.sh": "e98236043aa7ff5a92133da25b47d16dae78fbc57538649df9f4c8d6b77f7856",
+    "scripts/qualification/lab/images/hyprland.json": "ab55e7627b6e0fefe229c08c8e9c74385f271b12f71f9bfd05384760cdb39fa6"
+  },
+  "guest_files_sha256": {
+    "/root/odq/common.sh": "d5f29f77f918814a35e76b388c2c98660b99c7ecbeed7417e40ade153f7fbe8d",
+    "/root/odq/smoke.py": "26b1eb215747c0cb93a1e6b8ca24eb43544d919a883644306c36fad2a88f3153",
+    "/root/odq/hyprland.sh": "e98236043aa7ff5a92133da25b47d16dae78fbc57538649df9f4c8d6b77f7856",
+    "/usr/local/lib/odq/capture": "be523e06587f4c6b5d280e696aae4b979756d7e278a5cd6fdc5072bb01e12be2"
+  },
+  "source_comparison": {
+    "/root/odq/common.sh": {
+      "host_path": "scripts/qualification/lab/guest/common.sh",
+      "matches": true
+    },
+    "/root/odq/smoke.py": {
+      "host_path": "scripts/qualification/lab/guest/smoke.py",
+      "matches": true
+    },
+    "/root/odq/hyprland.sh": {
+      "host_path": "scripts/qualification/lab/guest/hyprland.sh",
+      "matches": true
+    },
+    "/usr/local/lib/odq/capture": {
+      "host_path": null,
+      "matches": null,
+      "reason": "Generated guest artifact; no host byte-equivalent comparison"
+    }
+  },
+  "source_matches": true
+}

@@ -39,6 +39,60 @@ class Provider:
         self.closed = True
 
 
+@pytest.mark.asyncio
+async def test_management_mutation_governs_retained_request_runner(tmp_path):
+    import os
+    from types import SimpleNamespace
+
+    from src.desktop.core import CoreService, profile_config
+    from tests.test_desktop_core_lifecycle import profile
+    from tests.test_desktop_management_core import TemporaryKeyring
+
+    paths, socket_path, token_file = profile(tmp_path)
+    config = profile_config(paths)
+    config.openai_codex.enabled = False
+    config.llm_provider.model = "compat:test"
+    config.openai_compatible.enabled = True
+    config.learning.enabled = False
+    config.browser.enabled = False
+    provider = Provider([LLMResponse(text="The request used the shared runtime.")])
+    read_fd, write_fd = os.pipe()
+    core = CoreService(paths, socket_path, token_file,
+        config_provider=lambda _: config,
+        runtime_provider=lambda *_: SimpleNamespace(compatible_client=provider),
+        secret_backend=TemporaryKeyring())
+    try:
+        await core.start(read_fd)
+        assert isinstance(core.engine.runner, ToolLoopRunner)
+        gateway = core.engine.deps.llm_gateway
+        assert gateway is core.management.providers
+        assert gateway.capture_serving_identity().client is provider
+        changed = await core.management.invoke("tools.set_enabled", {
+            "name": "parse_time", "enabled": False,
+        })
+        assert changed["ok"], changed
+        cid = core.conversations.create()["conversation"]["id"]
+        owner = core.authority.authenticate_local(peer_uid=core.authority.owner_uid)
+        token = PermissionManager.set_request_owner(owner)
+        try:
+            receipt = core.requests.submit({"client_submission_id": "managed",
+                "conversation_id": cid, "text": "Give a short factual response"})
+        finally:
+            PermissionManager.reset_request_owner(token)
+        await core.requests.after_commit()
+        await asyncio.gather(*core.requests._tasks)
+        assert core.requests.get_request(receipt["request_id"])["state"] == "completed"
+        offered = {t["name"] for t in provider.calls[0]["tools"]}
+        assert "parse_time" not in offered
+        assert "read_file" in offered
+        assert core.transcript.read_conversation(cid)[-1]["text"] == (
+            "The request used the shared runtime.")
+    finally:
+        await core.close()
+        os.close(read_fd)
+        os.close(write_fd)
+
+
 @pytest.fixture
 def graph(tmp_path):
     paths = ProfilePaths.from_xdg("test", home=tmp_path, environ={})

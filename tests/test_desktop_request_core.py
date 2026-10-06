@@ -243,6 +243,64 @@ async def test_worker_events_replay_live_no_gap_with_zero_replay_retention(tmp_p
         os.close(write_fd)
 
 
+@pytest.mark.asyncio
+async def test_management_commit_flushes_pending_worker_events_in_sequence(tmp_path, monkeypatch):
+    paths, socket_path, token_file = profile(tmp_path)
+    provider = Provider(blocked=True)
+    core = service(paths, socket_path, token_file, provider)
+    read_fd, write_fd = os.pipe()
+    writers = []
+    try:
+        await core.start(read_fd)
+        reader, writer, _ = await connect(socket_path)
+        writers.append(writer)
+        created = await request(reader, writer, "conversations.create")
+        cid = created["result"]["conversation"]["id"]
+        await request(reader, writer, "submission.send", {
+            "client_submission_id": "management-interleave", "conversation_id": cid,
+            "text": "Hello"})
+        await asyncio.wait_for(provider.entered.wait(), 2)
+        events_reader, events_writer, _ = await connect(socket_path)
+        writers.append(events_writer)
+        subscribed = await request(events_reader, events_writer, "events.subscribe", {
+            "after": None})
+        high = int(subscribed["result"]["event_high"])
+        schema = await request(reader, writer, "settings.schema")
+        original_invoke = core.management.invoke
+
+        async def interleave(method, params):
+            if method == "settings.set":
+                # Dispatch holds _serial across this management await. Actual request
+                # workers commit their results while the ordered publisher is waiting.
+                assert core._serial.locked()
+                provider.release.set()
+                await settled(core)
+                assert int(core.events.high) > high
+                assert core._published_seq <= high
+            return await original_invoke(method, params)
+
+        monkeypatch.setattr(core.management, "invoke", interleave)
+        saved = await request(reader, writer, "settings.set", {
+            "expected_revision": schema["result"]["revision"],
+            "changes": [{"path": "tools.command_shell", "value": "sh"}]})
+        assert saved["ok"]
+        final_high = int(core.events.high)
+        frames = []
+        for _ in range(final_high - high):
+            frames.append(await asyncio.wait_for(receive(events_reader), 2))
+        assert [frame["seq"] for frame in frames] == list(range(high + 1, final_high + 1))
+        assert frames[-1]["type"] == "settings.changed"
+        assert "request.completed" in [frame["type"] for frame in frames]
+    finally:
+        provider.release.set()
+        for writer in writers:
+            writer.close()
+            await writer.wait_closed()
+        await core.close()
+        os.close(read_fd)
+        os.close(write_fd)
+
+
 def test_committed_publication_capture_discards_transaction_and_savepoint_rollbacks(tmp_path):
     wakes = []
     store = _PublicationStore(tmp_path / "journal.sqlite3", "test",

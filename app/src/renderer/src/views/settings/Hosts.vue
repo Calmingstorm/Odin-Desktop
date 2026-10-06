@@ -36,14 +36,19 @@ const TRUST: Record<string, string> = {
 // The host settings as edited here; null means unchanged from what Odin has.
 const defaultHost = ref<string | null>(null)
 const allowTofu = ref<boolean | null>(null)
-const shownDefault = computed(() => defaultHost.value ?? hosts.list?.default_host ?? '')
+const shownDefault = computed(() => defaultHost.value ?? hosts.list?.configured_default_host ?? hosts.list?.default_host ?? '')
 const shownTofu = computed(() => allowTofu.value ?? hosts.list?.tofu_enabled ?? false)
 const copied = ref('')
 
 async function saveSettings(): Promise<void> {
-  if (await saveHostSettings({ default_host: shownDefault.value, allow_host_tofu: shownTofu.value })) {
-    defaultHost.value = null
-    allowTofu.value = null
+  const change = {
+    ...(defaultHost.value === null ? {} : { default_host: defaultHost.value }),
+    ...(allowTofu.value === null ? {} : { allow_host_tofu: allowTofu.value })
+  }
+  if (!Object.keys(change).length) return
+  if (await saveHostSettings(change)) {
+    if (defaultHost.value === change.default_host) defaultHost.value = null
+    if (allowTofu.value === change.allow_host_tofu) allowTofu.value = null
   }
 }
 
@@ -65,7 +70,7 @@ async function remove(host: HostRow): Promise<void> {
 async function revoke(host: HostRow): Promise<void> {
   const confirmed = await ask({
     title: 'Force revoke this host?',
-    message: `Odin stops using ${host.alias} at once. Work running there is interrupted and the processes it started there are stopped, so what they had done may be unknown.`,
+    message: `Revoke existing uses of ${host.alias}. Odin attempts to stop the processes it started there; their outcomes may be unknown. This does not turn off the host for future work.`,
     confirmLabel: 'Force revoke',
     danger: true
   })
@@ -74,7 +79,7 @@ async function revoke(host: HostRow): Promise<void> {
 
 function lastTest(host: HostRow): string {
   if (!host.last_test) return 'Not tested since Odin started'
-  const at = host.last_test.at ? new Date(host.last_test.at).toLocaleString() : ''
+  const at = typeof host.last_test.checked_at === 'number' ? new Date(host.last_test.checked_at * 1000).toLocaleString() : ''
   return `${host.last_test.ok === false ? 'Failed' : 'Passed'}${at ? ` ${at}` : ''}${host.last_test.detail ? `: ${host.last_test.detail}` : ''}`
 }
 </script>
@@ -111,15 +116,15 @@ function lastTest(host: HostRow): string {
           <span class="manage-count">{{ host.ssh_user }}@{{ host.address }}:{{ host.port }}</span>
           <span class="tag">{{ host.os }}</span>
           <span class="tag">{{ host.trust_state === 'local' ? TRUST.local : (TRUST[host.trust_mode] ?? host.trust_mode) }}</span>
-          <span :class="['state-chip', host.targetable ? 'connected' : 'disabled']">{{ host.targetable ? 'Ready' : 'Off' }}</span>
+          <span :class="['state-chip', host.targetable ? 'connected' : 'disabled']">{{ host.targetable ? 'Ready' : host.enabled ? 'Not ready' : 'Off' }}</span>
           <span v-if="host.draining" class="state-chip failed">Draining</span>
           <span class="manage-actions">
-            <button class="ghost" @click="beginEdit(host)">Edit</button>
-            <button class="ghost" :disabled="management.busy[`host:${host.alias}`]" @click="setHostEnabled(host.alias, !host.enabled)">
+            <button class="ghost" :aria-label="`Edit host ${host.alias}`" @click="beginEdit(host)">Edit</button>
+            <button class="ghost" :aria-label="`${host.enabled ? 'Turn off' : 'Turn on'} host ${host.alias}`" :disabled="management.busy[`host:${host.alias}`]" @click="setHostEnabled(host.alias, !host.enabled)">
               {{ host.enabled ? 'Turn off' : 'Turn on' }}
             </button>
-            <button v-if="host.draining" class="ghost danger-item" @click="revoke(host)">Force revoke…</button>
-            <button class="ghost danger-item" @click="remove(host)">Delete…</button>
+            <button v-if="host.draining" class="ghost danger-item" :aria-label="`Force revoke host ${host.alias}…`" @click="revoke(host)">Force revoke…</button>
+            <button class="ghost danger-item" :aria-label="`Delete host ${host.alias}…`" @click="remove(host)">Delete…</button>
           </span>
         </div>
         <p v-if="host.description" class="manage-desc">{{ host.description }}</p>
@@ -160,7 +165,7 @@ function lastTest(host: HostRow): string {
         <button class="ghost" @click="closeEnrollment">Close</button>
       </header>
       <ol class="steps">
-        <li v-for="(name, index) in STEPS" :key="name" :class="{ current: e.step === index + 1, done: e.step > index + 1 }">{{ name }}</li>
+        <li v-for="(name, index) in STEPS" :key="name" :aria-current="e.step === index + 1 ? 'step' : undefined" :class="{ current: e.step === index + 1, done: e.step > index + 1 }">{{ name }}</li>
       </ol>
 
       <template v-if="e.step === 1">
@@ -193,10 +198,11 @@ function lastTest(host: HostRow): string {
       </template>
 
       <template v-else-if="e.step === 2">
-        <p class="manage-desc">Install Odin's key for {{ e.form.ssh_user }}@{{ e.form.address }}, then continue.</p>
-        <pre v-if="hosts.key" class="manage-json">{{ hosts.key.authorized_keys_command }}</pre>
+        <p v-if="isLocal(e.form.address)" class="manage-desc">This computer runs commands inside Odin. No SSH key installation is needed.</p>
+        <p v-else class="manage-desc">Install Odin's key for {{ e.form.ssh_user }}@{{ e.form.address }}, then continue.</p>
+        <pre v-if="hosts.key && !isLocal(e.form.address)" class="manage-json">{{ hosts.key.authorized_keys_command }}</pre>
         <div class="panel-actions">
-          <button v-if="hosts.key" class="ghost" @click="copy('The command', hosts.key.authorized_keys_command)">Copy the command</button>
+          <button v-if="hosts.key && !isLocal(e.form.address)" class="ghost" @click="copy('The command', hosts.key.authorized_keys_command)">Copy the command</button>
           <button class="ghost" @click="goTo(1)">Back</button>
           <button class="ghost" @click="goTo(3)">Next</button>
         </div>
@@ -204,7 +210,8 @@ function lastTest(host: HostRow): string {
       </template>
 
       <template v-else-if="e.step === 3">
-        <p v-if="e.form.trust_mode === 'pinned'" class="manage-desc">
+        <p v-if="isLocal(e.form.address)" class="manage-desc">Confirm this computer's details. There is no remote host key to compare.</p>
+        <p v-else-if="e.form.trust_mode === 'pinned'" class="manage-desc">
           Check the host's key yourself: on the host, run <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>, and paste its
           SHA256 fingerprint.
         </p>
@@ -212,15 +219,17 @@ function lastTest(host: HostRow): string {
           Paste the SHA256 fingerprint of the CA that signs the host's certificate, checked out of band. Not the host's own key.
         </p>
         <p v-else class="manage-desc">Odin scans the host's key and shows it. Check it, tick to trust it, then scan again.</p>
+        <label v-if="!isLocal(e.form.address) && e.form.trust_mode !== 'tofu'" class="field-input">Expected fingerprints
         <textarea
-          v-if="e.form.trust_mode !== 'tofu'"
           v-model="e.expected"
           class="field-input"
           rows="3"
           spellcheck="false"
           placeholder="SHA256:…"
-          aria-label="Expected fingerprints"
+          :aria-describedby="e.note ? 'host-enrollment-note' : undefined"
+          :aria-invalid="e.note.includes('is not a fingerprint') ? 'true' : undefined"
         />
+        </label>
         <p v-if="e.observed.length" class="manage-desc">Scanned: <code v-for="f in e.observed" :key="f" class="fingerprint">{{ f }}</code></p>
         <label v-if="e.form.trust_mode === 'tofu' && e.observed.length" class="toggle-inline">
           <input v-model="e.form.confirm_tofu" type="checkbox" /> Trust exactly this key
@@ -232,7 +241,7 @@ function lastTest(host: HostRow): string {
       </template>
 
       <template v-else-if="e.step === 4">
-        <p class="manage-desc">Odin logs in without a password and checks the system, before the host can be used.</p>
+        <p class="manage-desc">{{ isLocal(e.form.address) ? 'Odin checks the local system without SSH.' : 'Odin logs in without a password and checks the system, before the host can be used.' }}</p>
         <div class="panel-actions">
           <button class="ghost" @click="goTo(3)">Back</button>
           <button class="ghost" :disabled="e.busy" @click="testConnection">{{ e.busy ? 'Testing…' : 'Test the connection' }}</button>
@@ -241,16 +250,16 @@ function lastTest(host: HostRow): string {
       </template>
 
       <template v-else>
-        <p class="manage-desc">The test passed. Activating makes {{ e.form.alias }} live at once.</p>
+        <p class="manage-desc">The test passed. {{ e.form.enabled ? `Saving makes ${e.form.alias} available for new work if its trust is ready.` : 'Saving keeps this host switched off.' }}</p>
         <div class="panel-actions">
           <button class="ghost" @click="goTo(3)">Back</button>
           <button class="ghost" :disabled="e.busy || !e.tested || management.busy[hostKey(e)]" @click="activate">
-            {{ e.editing ? 'Save and activate' : 'Activate' }}
+            {{ !e.form.enabled ? 'Save, keeping off' : e.editing ? 'Save and activate' : 'Activate' }}
           </button>
         </div>
         <p v-if="management.notes[hostKey(e)]" class="manage-note" role="status">{{ management.notes[hostKey(e)] }}</p>
       </template>
-      <p v-if="e.note" :class="e.step === 3 && e.observed.length && !e.token ? 'manage-note' : 'warn'" role="status">{{ e.note }}</p>
+      <p v-if="e.note" id="host-enrollment-note" :class="e.step === 3 && e.observed.length && !e.token ? 'manage-note' : 'warn'" role="status">{{ e.note }}</p>
     </template>
   </section>
 </template>
