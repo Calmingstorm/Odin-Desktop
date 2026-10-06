@@ -48,6 +48,9 @@ const uploading = computed(() => attachments.value.some((a) => a.status === 'upl
 const failedAttachment = computed(() => attachments.value.some((a) => a.status === 'failed'))
 // The status bar already owns a refused usage report; don't repeat that same message below the box.
 const notice = computed(() => state.app.link === 'ready' && status.usageUnavailable && state.notice === status.usageError ? '' : state.notice)
+// Local command reports have no chat task terminal event. Announce only
+// readiness and the structural title, never report contents or composer drafts.
+const reportAnnouncement = computed(() => state.panel ? `${state.panel.title} report ready.` : '')
 const paletteOpen = computed(() => !paletteDismissed.value && text.value.startsWith('/') && !text.value.includes('\n'))
 // Dismissing suggestions changes only their presentation, not what a completed slash command executes.
 const matches = computed(() => (text.value.startsWith('/') && !text.value.includes('\n') ? matchCommands(text.value) : []))
@@ -188,6 +191,7 @@ async function closeReport(): Promise<void> {
 </script>
 
 <template>
+  <p class="report-announcement" role="status" aria-live="polite" aria-atomic="true">{{ reportAnnouncement }}</p>
   <div v-if="state.panel" class="panel" role="region" :aria-label="state.panel.title">
     <div class="panel-head">
       <strong>{{ state.panel.title }}</strong>
@@ -251,6 +255,7 @@ async function closeReport(): Promise<void> {
 </template>
 
 <style scoped>
+.report-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .composer-help { font-size: .8rem; color: var(--muted); margin: .4rem 0; }
 textarea:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent, #91baff); outline-offset: 3px; }
 button[aria-disabled="true"] { opacity: .65; }

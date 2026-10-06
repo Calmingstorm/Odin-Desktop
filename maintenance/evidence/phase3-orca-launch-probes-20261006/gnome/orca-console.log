@@ -1,0 +1,3 @@
+Warning:          Could not load keyboard geometry for :0
+                  BadName (named color or font does not exist)
+                  Resulting keymap file will not describe geometry

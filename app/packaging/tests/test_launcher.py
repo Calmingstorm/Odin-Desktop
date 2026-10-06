@@ -21,6 +21,10 @@ class LauncherTests(unittest.TestCase):
             resources.mkdir(parents=True)
             # A real ELF fixture is renamed by the real hook, just as Electron is.
             shutil.copy2('/bin/true', app / 'odin-desktop')
+            chromium_lock = json.loads((HOOK.parent / 'python/chromium.lock.json').read_text())
+            headless = resources / 'runtime/browser/chromium' / chromium_lock['chromium']['executable']
+            headless.parent.mkdir(parents=True)
+            shutil.copy2('/bin/true', headless)
             shutil.copy2(PROFILE, resources / 'apparmor-profile')
             tools = root / 'tools'
             tools.mkdir()
@@ -36,13 +40,17 @@ class LauncherTests(unittest.TestCase):
             profile = (resources / 'apparmor-profile').read_text()
             attachments = re.findall(r'^profile\s+\S+\s+"([^"]+)"\s+flags=',
                                      profile, re.MULTILINE)
-            self.assertEqual(len(attachments), 1)
-            attached = app / Path(attachments[0]).relative_to('/opt/Odin')
-            self.assertTrue(attached.is_file(), attachments[0])
-            self.assertTrue(os.access(attached, os.X_OK), attachments[0])
-            # Merely finding an executable shell wrapper would miss the review bug.
-            self.assertEqual(attached.read_bytes()[:4], b'\x7fELF')
-            self.assertEqual(subprocess.run([str(attached)]).returncode, 0)
+            self.assertEqual(set(attachments), {
+                '/opt/Odin/odin-desktop.bin',
+                '/opt/Odin/resources/runtime/browser/chromium/' + chromium_lock['chromium']['executable'],
+            })
+            for attachment in attachments:
+                attached = app / Path(attachment).relative_to('/opt/Odin')
+                self.assertTrue(attached.is_file(), attachment)
+                self.assertTrue(os.access(attached, os.X_OK), attachment)
+                # A shell wrapper is not the ELF that needs userns permission.
+                self.assertEqual(attached.read_bytes()[:4], b'\x7fELF')
+                self.assertEqual(subprocess.run([str(attached)]).returncode, 0)
             self.assertRegex(profile, re.compile(r'^\s+userns,\s*$', re.MULTILINE))
 
     def test_symlink_launcher_resolves_install_and_preserves_argv(self):
