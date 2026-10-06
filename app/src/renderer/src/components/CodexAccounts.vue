@@ -23,6 +23,11 @@ async function copyCode(): Promise<void> {
 }
 const accountName = (account: CodexAccount): string => account.label || account.email || `Account ${account.index + 1}`
 
+async function openVerification(): Promise<void> {
+  const result = await window.odin.codexOpenVerification()
+  if (!result.ok) settings.codex.error = result.error.message
+}
+
 function windowName(minutes: number): string {
   if (minutes >= 10080) return 'weekly'
   if (minutes >= 1440) return `${Math.round(minutes / 1440)}-day`
@@ -67,7 +72,7 @@ async function remove(account: CodexAccount): Promise<void> {
     <header class="panel-head">
       <h3>Codex accounts</h3>
       <span class="panel-hint">Odin uses one at a time and moves to the next when one hits its limit.</span>
-      <button v-if="!settings.codex.unavailable" class="ghost" :disabled="settings.codex.beginning || settings.codex.login?.status === 'waiting'" @click="beginLogin">Add account</button>
+      <button v-if="!settings.codex.unavailable" data-testid="codex-add-account" class="ghost" :disabled="settings.codex.beginning || settings.codex.login?.status === 'waiting'" @click="beginLogin">Add account</button>
     </header>
     <p v-if="settings.codex.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Codex accounts') }}</p>
     <template v-else>
@@ -75,18 +80,18 @@ async function remove(account: CodexAccount): Promise<void> {
       <p role="status" aria-atomic="true">{{ loginAnnouncement }}</p>
       <template v-if="settings.codex.login.status === 'waiting'">
         <p>
-          Open <a :href="settings.codex.login.url" target="_blank" rel="noopener noreferrer" aria-describedby="codex-login-browser">{{ settings.codex.login.url }}</a>
+          Open <button class="ghost" data-testid="codex-open-verification" aria-describedby="codex-login-browser" @click="openVerification">{{ settings.codex.login.url }}</button>
           and enter the sign-in code. Odin adds the account once you approve it.
         </p>
         <p id="codex-login-browser" class="panel-hint">Opens in your browser. The sign-in code is temporary; your stored credentials are never shown here.</p>
         <p>Sign-in code: <code class="login-code">{{ settings.codex.login.code }}</code></p>
         <button class="ghost" @click="copyCode">Copy sign-in code</button>
         <p v-if="copyStatus" role="status">{{ copyStatus }}</p>
-        <button class="ghost" @click="stopLogin">Stop waiting</button>
+        <button class="ghost" data-testid="codex-cancel-login" @click="stopLogin">Stop waiting</button>
       </template>
-      <button v-if="settings.codex.login.status === 'failed'" class="ghost" @click="retryLogin">Retry login</button>
+      <button v-if="settings.codex.login.status === 'failed'" class="ghost" data-testid="codex-retry-login" @click="retryLogin">Retry login</button>
       </div>
-      <p v-if="settings.codex.error" class="warn" role="status">{{ settings.codex.error }} <button class="ghost" @click="loadCodex">Retry</button></p>
+      <p v-if="settings.codex.error" class="warn" role="status">{{ settings.codex.error }} <button class="ghost" @click="loadCodex">Retry accounts</button></p>
       <p v-if="settings.codex.busy" role="status">Updating Codex accounts.</p>
       <p v-if="settings.codex.stale && !settings.codex.busy" class="warn">
         The list couldn't be refreshed after your last change, so it may be out of date.
