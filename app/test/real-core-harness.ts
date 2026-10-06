@@ -43,7 +43,6 @@ export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.s
   'observability.usage', 'observability.usage_totals', 'observability.subsystems',
   'recovery.stats', 'recovery.recent', 'capacity.snapshot', 'turn_state.snapshot',
   'pools.ssh', 'pools.http', 'pools.close',
-  'control.stop', 'control.steer', 'turns.resume',
   'openrouter.catalogue', 'openrouter.endpoints', 'openrouter.select',
   'providers.compat.diagnostic', 'models.status', 'models.provider.get', 'models.provider.set'
 ].sort()]
