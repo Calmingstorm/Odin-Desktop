@@ -8854,7 +8854,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/real-core-settings.test.ts": "18f54f3b681e289060f4ff1b75b80d113487fb80a7046ed95d4d4b124c9cf9ed",
+        "app/test/real-core-settings.test.ts": "0dec0c81e9543585fdbcc9df4cc7973eddacfdbc9c24648ca59c4e00fc03a7ab",
         "tests/test_desktop_management_core.py": "1dc20f2f83cfb04037f5a3b3547b7b426b25c88b920f26409e9f72a4560b2ed2",
         "tests/test_desktop_model_settings.py": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d",
         "tests/test_desktop_providers.py": "c87384c98b1cb1d85bd5da314b256f6c16bd73ab72aba90124f41d9983fdc93b",
@@ -10620,7 +10620,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/real-core-settings.test.ts": "18f54f3b681e289060f4ff1b75b80d113487fb80a7046ed95d4d4b124c9cf9ed",
+        "app/test/real-core-settings.test.ts": "0dec0c81e9543585fdbcc9df4cc7973eddacfdbc9c24648ca59c4e00fc03a7ab",
         "tests/test_desktop_keyring_retry.py": "22cb8b8a144442069dceaffeec10fa372ecf4e0254a22136086b821af0d42e23",
         "tests/test_desktop_management_core.py": "1dc20f2f83cfb04037f5a3b3547b7b426b25c88b920f26409e9f72a4560b2ed2",
         "tests/test_desktop_model_settings.py": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d",
@@ -34521,7 +34521,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/real-core-settings.test.ts": "18f54f3b681e289060f4ff1b75b80d113487fb80a7046ed95d4d4b124c9cf9ed",
+        "app/test/real-core-settings.test.ts": "0dec0c81e9543585fdbcc9df4cc7973eddacfdbc9c24648ca59c4e00fc03a7ab",
         "tests/test_desktop_model_settings.py": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d"
       },
       "tests": [
