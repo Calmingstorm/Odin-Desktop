@@ -443,6 +443,17 @@ class CoreService:
             self.commands.prune(time.time() - RECEIPT_RETENTION)
             await self._status_event()
             await self._flush_publications()
+        # Odin starts usage reconciliation at boot (OdinBot.setup_hook). It only
+        # schedules bounded work, before any client is admitted; failure is logged
+        # and never blocks the core. EngineServices.close stops it.
+        usage = getattr(self.engine.deps, "usage_rollup", None)
+        if usage is not None:
+            try:
+                await usage.start()
+            except Exception:
+                from ..odin_log import get_logger
+
+                get_logger("desktop.core").exception("Usage backfill startup failed (non-fatal)")
         # Hydration/status now await workers. Commit the initial event before
         # admitting any handshake, preserving welcome/catch-up's high watermark.
         await self.server.start()

@@ -435,7 +435,8 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await expect(usage.getByRole('combobox', { name: 'Period', exact: true })).toBeVisible()
       // Step 8 part 4 composes the real usage rollup: served history, not 'not enabled'.
       await expect(usage).toContainText('settled turns 0')
-      await expect(usage).toContainText("not measured: Odin doesn't know this value")
+      // Odin's boot backfill moves fresh usage from unknown to measured zero.
+      await expect(usage).toContainText(/\((?:measured|not measured: Odin doesn't know this value)\)/)
       await expect(usage).not.toContainText('Usage is unavailable in this core')
     }
     if (label === 'Scheduled and running work') {

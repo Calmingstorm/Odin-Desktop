@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import type { Broker, Settled } from '../src/main/broker'
 import type { CoreEvent } from '../src/shared/api'
-import { assertIsolated, RealCoreHarness, SERVED_CAPABILITIES, waitFor } from './real-core-harness'
+import { assertIsolated, RealCoreHarness, SERVED_CAPABILITIES, usageSettled, waitFor } from './real-core-harness'
 
 assertIsolated()
 
@@ -58,7 +58,7 @@ describe('served settings/management through actual Broker and isolated reposito
     return `http://127.0.0.1:${address.port}`
   }
 
-  test('fresh real profile publishes only served names, local/default host, empty stores and unknown usage', async () => {
+  test('fresh real profile publishes only served names, local/default host, empty stores and settled empty usage', async () => {
     const broker = await connect()
     result(await broker.request('events.subscribe', { after: null }))
     expect(result(await broker.request('status.get'))).toMatchObject({ phase: 'ready', capabilities: SERVED_CAPABILITIES,
@@ -77,7 +77,8 @@ describe('served settings/management through actual Broker and isolated reposito
     expect(result(await broker.request('audit.query'))).toEqual([])
     expect(result(await broker.request('logs.search'))).toEqual({ entries: [], count: 0 })
     expect(result(await broker.request('turn_state.list'))).toMatchObject({ schema_version: 1, availability: 'available', data: {} })
-    expect(result(await broker.request('usage.get', { period: '7d' }))).toMatchObject({ period: '7d', tokens: { value: null, kind: 'unknown' },
+    await usageSettled(broker)
+    expect(result(await broker.request('usage.get', { period: '7d' }))).toMatchObject({ period: '7d', tokens: { value: 0, kind: 'measured' },
       context: { used: { value: null, kind: 'unknown' }, budget: { value: null, kind: 'unknown' } }, quota: [] })
     expect(result(await broker.request('audit.verify'))).toMatchObject({ valid: false, verified: 0, availability: 'not_enabled' })
     expect(result(await broker.request('health.get'))).toMatchObject({ overall: expect.any(String),
