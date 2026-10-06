@@ -581,7 +581,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert.equal(await count('.settings-body .warn'), 0, 'served Step 6A reads must not present a renderer fault')
     }
     assert.equal(await run('document.querySelectorAll(".settings-body [role=alert]").length'), 0, `${sections[i]} must not present capability refusal as a fault`)
-    assert.equal(await run('document.querySelectorAll(".settings-body .work-item, .settings-body .account").length'), 0, `${sections[i]} must not display fixture accounts/work`)
+    // Seeded Work is real 6B work in its own section; accounts are never served in this isolated profile.
+    const fixtureRows = seededWorkProof && sections[i] === 'Scheduled and running work'
+      ? '.settings-body .account' : '.settings-body .work-item, .settings-body .account'
+    assert.equal(await run(`document.querySelectorAll(${JSON.stringify(fixtureRows)}).length`), 0, `${sections[i]} must not display fixture accounts/work`)
     const renderedPaths = await run<string[]>('Array.from(document.querySelectorAll(".settings-body .field-path"), e => e.textContent)')
     const fields = (reads['settings.schema'] as { fields: Array<{ path: string }> }).fields
     for (const path of renderedPaths) assert(fields.some((field) => field.path === path), `rendered field ${path} must belong to the served schema`)
