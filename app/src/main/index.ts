@@ -22,6 +22,7 @@ import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
 import { inspectPackagedState } from './package-state'
 import { acquirePackagedApp, admitPackagedApp } from './package-ownership'
 import { realCoreSmoke } from './real-core-smoke'
+import { ReleaseNoticeService } from './release-notice'
 import { onboardingSmoke } from './onboarding-smoke'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
@@ -223,6 +224,7 @@ function run(): void {
   })
 
   const appState = (): AppState => ({
+    appVersion: app.getVersion(),
     link: supervisorLink ?? broker.linkState,
     coreInstanceId: broker.coreInstanceId,
     noTray: !lifecycle.trayAvailable,
@@ -370,6 +372,7 @@ function run(): void {
         return chosen.canceled || !chosen.filePath ? null : chosen.filePath
       },
       copyText: (text) => clipboard.writeText(text),
+      releases: new ReleaseNoticeService(app.getVersion(), (url) => shell.openExternal(url)),
       openVerification: async (url) => { await shell.openExternal(url) },
       deviceLogin,
       mainFrame: () => win?.webContents.mainFrame ?? null,

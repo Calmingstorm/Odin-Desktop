@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "run": "pr39-merge-main-20261006",
+  "artifact_root": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006",
+  "source_parents": [
+    "1c48529b0af3ad18d9c413882166cb6ee40702d1",
+    "ed0069674533c23e70a0302652a2fb76901ff385"
+  ],
+  "artifacts": [
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/all-gates.log", "bytes": 135764, "sha256": "ea4822dd023ac0baa6aaeb5badaad108ddabe5e8322db08833b669fac2ef9930"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/drift.log", "bytes": 84597, "sha256": "00aa801f80c6fd006fd039771497d29b4bd71d9c4bcc2348f66940955c47bfce"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/lint.log", "bytes": 52, "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/plan.log", "bytes": 972, "sha256": "ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/short-fixtures.log", "bytes": 161, "sha256": "3bd9a27a081663112f3681c5cad6422ed98abb83dc13355b0f5ca915a8e6fde0"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/release-python.log", "bytes": 6148, "sha256": "a4e8acee4a8c748814e3cd0143049b5d2a5683b18959d6fbbb83e1fce4ecd90b"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/release-node.log", "bytes": 2065, "sha256": "a241e210f4fb35f7cc96412fba9220c38e0fc6dce911ed8f9d4a6fffefcce4f7"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/npm-check.log", "bytes": 17963, "sha256": "ab2fb32f7888656be973832b9b5061254efcc2f8db256171d0b080f8df06fcfa"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/release-notice.log", "bytes": 822, "sha256": "8c1aa7c021f336a24c0623a413d51b761ec5677066829c2779270267183a1b33"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/packaging-normal-user.log", "bytes": 14299, "sha256": "26b903f44fbdec6a35bfaae34635dc20388820ca24842d3453f8c1ead0846025"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/packaging-root-transaction.log", "bytes": 1934, "sha256": "80323cabc8885c730349fd4a4931db7d4a10defe81c4b1db56bd61d496c44c4d"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/real-core.log", "bytes": 6134, "sha256": "e9e920650d4ff6e2771fd99502e8153c3339142ed5b18b92a753b9ed2db3d371"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/actionlint.log", "bytes": 0, "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/diff-check.log", "bytes": 0, "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr39-merge-main-20261006/run-merge-gates.sh", "bytes": 2758, "sha256": "0b9b3964579c81f85a5342f7322445fb4f586e7c9498f77d55a35dde6e74c7aa"}
+  ]
+}

@@ -28,13 +28,24 @@ class DebTransactionTests(unittest.TestCase):
         self.proc = self.base / 'proc'
         self.proc.mkdir()
         self.launcher = self.base / 'odin-desktop'
+        self.profile_source = self.install / 'resources' / 'apparmor-profile'
+        self.profile_source.parent.mkdir(parents=True)
+        (self.profile_source.parent / 'ownership.py').write_text('guarded package fixture')
+        self.profile_source.write_text('profile odin-desktop /opt/Odin/odin-desktop { userns, }\n')
+        self.apparmor_dir = self.base / 'apparmor.d'
+        self.parser_log = self.base / 'parser.log'
+        self.apparmor_parser = self.base / 'apparmor_parser'
+        self.apparmor_parser.write_text(
+            '#!/bin/sh\nprintf "%s\\n" "$@" >> "' + str(self.parser_log) + '"\n')
+        self.apparmor_parser.chmod(0o755)
 
     def tearDown(self):
         self.temp.cleanup()
 
     def call(self, script, *args):
         deb.transaction(script, list(args), root=self.root, install=self.install,
-                        proc=self.proc, launcher=self.launcher)
+                        proc=self.proc, launcher=self.launcher,
+                        apparmor_dir=self.apparmor_dir, apparmor_parser=self.apparmor_parser)
 
     def test_install_remove_purge_keep_lease_inode_and_data(self):
         data = self.base / 'user-history'
@@ -138,7 +149,8 @@ class DebTransactionTests(unittest.TestCase):
         self.assertEqual(os.readlink(self.launcher), str(self.install / 'odin-desktop'))
 
     def test_unguarded_predecessor_upgrade_refuses_without_scan_or_mutation(self):
-        self.install.mkdir()
+        (self.install / 'resources' / 'ownership.py').unlink()
+        self.install.mkdir(exist_ok=True)
         sentinel = self.install / 'odin-desktop'
         sentinel.write_text('old unguarded executable')
         with self.assertRaisesRegex(deb.Refusal, 'Unguarded predecessor'):
@@ -148,7 +160,7 @@ class DebTransactionTests(unittest.TestCase):
 
     def test_guarded_predecessor_upgrade_uses_normal_transaction(self):
         resources = self.install / 'resources'
-        resources.mkdir(parents=True)
+        resources.mkdir(parents=True, exist_ok=True)
         (resources / 'ownership.py').write_text('guarded predecessor fixture')
         self.call('preinst', 'upgrade', '0.1.0')
         self.assertTrue((self.root / 'transaction.json').exists())
@@ -163,6 +175,122 @@ class DebTransactionTests(unittest.TestCase):
                 self.call('postinst', 'configure')
         finally:
             os.close(old)
+
+
+    def test_profile_install_load_remove_after_source_is_gone(self):
+        self.call('preinst', 'install')
+        self.call('postinst', 'configure')
+        profile = self.apparmor_dir / 'odin-desktop'
+        self.assertEqual(profile.read_bytes(), self.profile_source.read_bytes())
+        self.assertEqual(profile.stat().st_mode & 0o777, 0o644)
+        self.assertEqual(self.parser_log.read_text().splitlines(), ['-r', str(profile)])
+        self.call('prerm', 'remove')
+        self.profile_source.unlink()  # dpkg unpacks/removes resources before postrm.
+        self.call('postrm', 'remove')
+        self.call('postrm', 'purge')
+        self.assertFalse(profile.exists())
+        self.assertFalse((self.root / 'apparmor-profile.json').exists())
+        self.assertEqual(self.parser_log.read_text().splitlines(),
+                         ['-r', str(profile), '-R', str(profile)])
+
+    def test_profile_upgrade_replaces_owned_bytes_and_reloads(self):
+        self.call('preinst', 'install')
+        self.call('postinst', 'configure')
+        (self.install / 'resources' / 'ownership.py').write_text('guarded')
+        self.call('preinst', 'upgrade')
+        self.profile_source.write_text('profile odin-desktop { userns, }\n')
+        self.call('postrm', 'upgrade')
+        self.assertEqual(len(self.parser_log.read_text().splitlines()), 2)
+        self.call('postinst', 'configure')
+        self.assertEqual((self.apparmor_dir / 'odin-desktop').read_bytes(),
+                         self.profile_source.read_bytes())
+        self.assertEqual(self.parser_log.read_text().splitlines()[2], '-r')
+
+    def test_foreign_profile_is_not_overwritten_or_removed(self):
+        self.apparmor_dir.mkdir()
+        profile = self.apparmor_dir / 'odin-desktop'
+        profile.write_text('foreign sentinel')
+        self.call('preinst', 'install')
+        with self.assertRaisesRegex(deb.Refusal, 'another AppArmor'):
+            self.call('postinst', 'configure')
+        self.assertTrue((self.root / 'transaction.json').exists())
+        self.call('prerm', 'remove')
+        self.call('postrm', 'remove')
+        self.call('postrm', 'purge')
+        self.assertEqual(profile.read_text(), 'foreign sentinel')
+        self.assertFalse(self.parser_log.exists())
+
+    def test_locally_replaced_profile_and_unrelated_files_survive_removal(self):
+        self.call('preinst', 'install')
+        self.call('postinst', 'configure')
+        profile = self.apparmor_dir / 'odin-desktop'
+        profile.write_text('local replacement')
+        unrelated = self.apparmor_dir / 'other-package'
+        unrelated.write_text('unrelated sentinel')
+        self.call('prerm', 'remove')
+        self.call('postrm', 'remove')
+        self.call('postrm', 'purge')
+        self.assertEqual(profile.read_text(), 'local replacement')
+        self.assertEqual(unrelated.read_text(), 'unrelated sentinel')
+        self.assertEqual(len(self.parser_log.read_text().splitlines()), 2)
+
+    def test_parser_failure_retains_fence_and_configure_can_retry(self):
+        self.apparmor_parser.write_text('#!/bin/sh\nexit 1\n')
+        self.call('preinst', 'install')
+        with self.assertRaisesRegex(deb.Refusal, 'parser failed'):
+            self.call('postinst', 'configure')
+        self.assertTrue((self.root / 'transaction.json').exists())
+        self.assertTrue((self.root / 'apparmor-profile.json').exists())
+        self.apparmor_parser.write_text('#!/bin/sh\nexit 0\n')
+        self.call('postinst', 'configure')
+        self.assertFalse((self.root / 'transaction.json').exists())
+
+    def test_parser_unload_failure_keeps_owned_profile_and_fence(self):
+        self.call('preinst', 'install')
+        self.call('postinst', 'configure')
+        self.call('prerm', 'remove')
+        self.apparmor_parser.write_text('#!/bin/sh\nexit 1\n')
+        with self.assertRaisesRegex(deb.Refusal, 'parser failed'):
+            self.call('postrm', 'remove')
+        self.assertTrue((self.apparmor_dir / 'odin-desktop').exists())
+        self.assertTrue((self.root / 'transaction.json').exists())
+        self.apparmor_parser.write_text('#!/bin/sh\nexit 0\n')
+        self.call('postrm', 'remove')
+        self.assertFalse((self.apparmor_dir / 'odin-desktop').exists())
+
+    def test_missing_parser_still_installs_and_removes_profile(self):
+        self.apparmor_parser.unlink()
+        self.call('preinst', 'install')
+        self.call('postinst', 'configure')
+        self.assertTrue((self.apparmor_dir / 'odin-desktop').exists())
+        self.call('prerm', 'remove')
+        self.call('postrm', 'remove')
+        self.assertFalse((self.apparmor_dir / 'odin-desktop').exists())
+
+    def test_symlink_source_and_destination_are_rejected(self):
+        actual = self.base / 'actual-profile'
+        actual.write_text('sentinel')
+        self.profile_source.unlink()
+        self.profile_source.symlink_to(actual)
+        self.call('preinst', 'install')
+        with self.assertRaises(OSError):
+            self.call('postinst', 'configure')
+        self.profile_source.unlink()
+        self.profile_source.write_text('profile fixture')
+        self.apparmor_dir.mkdir()
+        (self.apparmor_dir / 'odin-desktop').symlink_to(actual)
+        with self.assertRaises(OSError):
+            self.call('postinst', 'configure')
+        self.assertEqual(actual.read_text(), 'sentinel')
+
+    def test_writable_source_is_rejected_without_installing(self):
+        self.profile_source.chmod(0o666)
+        self.call('preinst', 'install')
+        with self.assertRaisesRegex(deb.Refusal, 'root-owned and immutable'):
+            self.call('postinst', 'configure')
+        self.assertFalse((self.apparmor_dir / 'odin-desktop').exists())
+        self.assertTrue((self.root / 'transaction.json').exists())
+        self.assertFalse(self.parser_log.exists())
 
 
 class HookGeneratorTests(unittest.TestCase):

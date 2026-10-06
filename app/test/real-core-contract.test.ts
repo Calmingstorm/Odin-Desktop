@@ -39,7 +39,7 @@ describe('actual app Broker ↔ repository real core', () => {
 
   test('authenticates the handshake, reads real status and replays events after a cursor', async () => {
     expect(realCoreCapabilities).toEqual(SERVED_CAPABILITIES)
-    expect(realCoreCapabilities).toHaveLength(120)
+    expect(realCoreCapabilities).toHaveLength(121)
     expect(new Set(realCoreCapabilities).size).toBe(realCoreCapabilities.length)
     const { broker, welcome } = await core.connect()
     expect(welcome).toMatchObject({
@@ -66,6 +66,8 @@ describe('actual app Broker ↔ repository real core', () => {
     const subscribed = successful<Subscription>(await broker.request('events.subscribe', { after: '0' }))
     expect(subscribed).toEqual({ event_high: welcome.event_high, reset_required: false })
     await waitFor(() => events.length === 1, 'startup event replay')
+    // Startup is historical; status.get is a fresh read. Their uptime summaries
+    // may legitimately cross a second boundary while the durable payload agrees.
     expect(events[0]).toMatchObject({ t: 'evt', seq: 1, cursor: '1', type: 'runtime.status',
       entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: { ...status, summary: expect.any(String) } })
     expect(events[0]!.at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/)
@@ -148,7 +150,7 @@ describe('actual app Broker ↔ repository real core', () => {
       input_supported: false, dispatch: 'none'
     } })
     expect(computer).not.toHaveProperty('input_dispatch')
-    for (const method of ['work.list', 'schedules.list', 'turns.create', 'skills.test',
+    for (const method of ['work.list', 'schedules.list', 'turns.create',
       'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
       expect(capabilities).not.toContain(method)
       refused(await broker.request(method, {}, id), 'capability_unavailable')
@@ -359,7 +361,8 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
     await waitFor(() => events.length === 1, 'old incarnation quiescing event')
     expect(broker.cursor).toBe('2')
-    const changed = onceEvent<string>(broker, 'core-changed')
+    // Observe the 25s cold-start harness plus the unchanged 5s handshake under load; never repeat startup.
+    const changed = onceEvent<string>(broker, 'core-changed', 35_000)
     await core.start()
     const newInstance = await changed
     expect(newInstance).not.toBe(welcome.core.instance_id)
@@ -386,7 +389,8 @@ describe('actual app Broker ↔ repository real core', () => {
     const id = randomUUID()
     successful(await broker.request('status.get', {}, id))
     expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
-    const next = onceEvent<string>(broker, 'core-changed')
+    // This event wait starts before cold startup too; bound observation above its startup/handshake budgets.
+    const next = onceEvent<string>(broker, 'core-changed', 35_000)
     await core.start()
     const nextInstance = await next
     expect(successful<Status>(await broker.request('status.get', {}, id)).core_instance_id).toBe(nextInstance)

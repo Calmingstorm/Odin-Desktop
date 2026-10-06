@@ -23,6 +23,7 @@ beforeEach(async () => {
   mounted = []
   api = {
     toolsList: vi.fn(async () => ok(inventory)), toolsTimeoutsGet: vi.fn(async () => ok(timeouts)),
+    healthGet: vi.fn(async () => ok({ browser: { state: 'disabled', ready: false, reason: null, retry_available: false } })),
     skillsList: vi.fn(async () => ok([skill])), skillsGet: vi.fn(async () => ok(detail)),
     mcpStatus: vi.fn(async () => ok(mcp)), mcpTools: vi.fn(async () => ok({ tools: [] })),
     hostsList: vi.fn(async () => ok(hostList)), hostsPublicKey: vi.fn(async () => ok(key)),
@@ -170,7 +171,13 @@ describe('management capability refusals', () => {
     expect(panel.textContent()).toContain(message)
     expect(panel.findAll((node) => node.props.role === 'status')).toHaveLength(1)
     expect(screen.root.textContent()).not.toMatch(/Service is not available yet|cached_tool|cached_skill|old public key|Loading/)
-    expect(screen.root.findAll((node) => ['button', 'input', 'select', 'textarea'].includes(node.tag))).toEqual([])
+    // Browser status is an independent read capability, not a tool-management mutation or qualification probe.
+    const controls = screen.root.findAll((node) => ['button', 'input', 'select', 'textarea'].includes(node.tag))
+    if (name === 'Tools') {
+      expect(controls).toHaveLength(1)
+      expect(controls[0]!.props['aria-label']).toBe('Refresh status for browser')
+      expect(api.healthGet).toHaveBeenCalledExactlyOnceWith({})
+    } else expect(controls).toEqual([])
     expect(screen.root.findAll((node) => node.props.class === 'warn')).toEqual([])
     if (name === 'Tools') expect(screen.root.textContent()).toContain('Tool timeout management is unavailable in this core.')
     if (reload === 'loadHosts') await hostStore.loadHosts()

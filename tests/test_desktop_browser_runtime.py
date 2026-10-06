@@ -137,7 +137,8 @@ async def test_disabled_default_does_not_resolve_launch_or_publish(tmp_path, dri
     executor = SimpleNamespace(_browser_manager=None)
     owner = BrowserRuntime(BrowserConfig(), executor=executor, bundle_root=tmp_path / "missing")
     assert not await owner.start()
-    assert owner.status() == {"state": "disabled", "ready": False, "reason": None}
+    assert owner.status() == {"state": "disabled", "ready": False, "reason": None,
+                              "retry_available": False}
     assert not owner.available()
     assert executor._browser_manager is None
     driver.starter.start.assert_not_awaited()
@@ -184,6 +185,7 @@ async def test_qualify_before_publication_uses_bundle_and_boot_policy(
     driver.playwright.chromium.launch.assert_awaited_once()
     await owner.close()
     assert owner.status()["state"] == "closed"
+    assert owner.status()["retry_available"] is False
     assert not owner.readiness() and executor._browser_manager is None
     with pytest.raises(RuntimeError, match="closed"):
         await manager._ensure_connected()
@@ -199,6 +201,8 @@ async def test_missing_bundle_unavailable_without_worker_or_install(tmp_path, dr
     owner = BrowserRuntime(BrowserConfig(enabled=True), bundle_root=tmp_path / "missing")
     assert not await owner.start()
     assert owner.status()["state"] == "unavailable"
+    assert owner.status()["ready"] is False
+    assert owner.status()["retry_available"] is True
     assert owner.manager is None
     driver.starter.start.assert_not_awaited()
 
@@ -214,6 +218,8 @@ async def test_guard_qualification_failure_cleans_up_and_never_publishes(tmp_pat
     assert not await owner.start()
     assert not owner.readiness() and owner.manager is None
     assert owner.available() and executor._browser_manager is owner
+    assert owner.status()["ready"] is False
+    assert owner.status()["retry_available"] is True
     browser.contexts[0].close.assert_awaited_once()
     browser.close.assert_awaited_once()
     assert driver.playwright.stop.await_count >= 1
@@ -222,6 +228,8 @@ async def test_guard_qualification_failure_cleans_up_and_never_publishes(tmp_pat
     driver.playwright.chromium.launch.return_value = recovered
     async with executor._browser_manager.new_page():
         assert owner.readiness()
+        assert owner.status()["ready"] is True
+        assert owner.status()["retry_available"] is True
     assert driver.playwright.chromium.launch.await_count == 2
     assert len(recovered.contexts) == 2
     await owner.close()

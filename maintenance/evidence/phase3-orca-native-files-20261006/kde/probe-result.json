@@ -1,0 +1,17 @@
+{
+  "kind": "focused-probes-not-qualification",
+  "probe": "native-files",
+  "guard": {
+    "session": {
+      "User": "1001",
+      "Name": "odq",
+      "Type": "wayland",
+      "Active": "yes"
+    },
+    "orca_pid": 1504,
+    "uid": 1001
+  },
+  "source_sha256": "7135e0705f059bdbbc310f31c1cddead17baa13cf83b59bde6aac4af4d18226e",
+  "passed": false,
+  "electron_exit_code": 1
+}

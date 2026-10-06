@@ -34,7 +34,7 @@ def classify(findings, root=ROOT):
 
 
 def main() -> int:
-    files = ["src", "scripts/maintenance", "scripts/run-phase1-tests.py",
+    files = ["src", "scripts/maintenance", "scripts/release", "scripts/run-phase1-tests.py",
              "scripts/run-qualified-tests.py", "tests/desktop_adapters"]
     files.extend(
         str(path.relative_to(ROOT)) for path in sorted((ROOT / "tests").glob("test_desktop*.py"))
