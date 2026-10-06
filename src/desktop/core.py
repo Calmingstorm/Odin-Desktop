@@ -1,4 +1,4 @@
-"""Profile owner, transport journals and named runtime management composition."""
+"""Owner-authenticated conversation and management services with supervised lifetime."""
 from __future__ import annotations
 
 import asyncio
@@ -8,15 +8,25 @@ from pathlib import Path
 from ..permissions.manager import PermissionManager
 from .authority import OwnerAuthority
 from .commands import CommandJournal, JournalStorageError, JournalStore
+from .conversations import ConversationError, ConversationStore
 from .events import EventJournal
 from .ipc import IpcServer
 from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .management import ManagementService
 from .paths import ProfilePaths
+from .search import TranscriptSearch
+from .transcript import TranscriptStore
 
 VERSION = "0.1.0.dev1"
-CAPABILITIES = ("status.get", "events.subscribe", "runtime.shutdown")
+CONVERSATION_METHODS = frozenset({
+    "conversations.list", "conversations.create", "conversations.update",
+    "conversations.delete", "conversations.reset_context", "conversations.mark_read",
+})
+TRANSCRIPT_METHODS = frozenset({"messages.list", "conversation.snapshot"})
+SEARCH_METHODS = frozenset({"search.query", "messages.around"})
+CAPABILITIES = ("status.get", "events.subscribe", "runtime.shutdown",
+                *sorted(CONVERSATION_METHODS | TRANSCRIPT_METHODS | SEARCH_METHODS))
 READ_METHODS = frozenset({
     "status.get", "events.subscribe", "conversations.list", "messages.list",
     "conversation.snapshot", "usage.get", "work.list", "settings.schema", "search.query",
@@ -98,6 +108,9 @@ class CoreService:
         self.store: JournalStore | None = None
         self.commands: CommandJournal | None = None
         self.events: EventJournal | None = None
+        self.conversations: ConversationStore | None = None
+        self.transcript: TranscriptStore | None = None
+        self.search: TranscriptSearch | None = None
         self.server: IpcServer | None = None
         self.permissions: PermissionManager | None = None
         self.lifetime = CoreLifetime()
@@ -144,8 +157,13 @@ class CoreService:
         )
         self.commands = CommandJournal(self.store)
         self.events = EventJournal(self.store)
+        self.conversations = ConversationStore(self.store, self.events)
+        self.transcript = TranscriptStore(self.store, self.events, self.conversations)
+        self.search = TranscriptSearch(self.transcript, self.events)
         self.management = ManagementService.compose(self, secret_backend=self._secret_backend)
-        self.capabilities = tuple(dict.fromkeys((*CAPABILITIES, *sorted(self.management.methods))))
+        self.capabilities = (*CAPABILITIES[:3],
+                             *sorted((set(CAPABILITIES) | set(self.management.methods))
+                                     - set(CAPABILITIES[:3])))
         self.server = IpcServer(
             self.socket_path, self.token_file, self.paths.profile_id,
             self.authority, self.welcome, self.dispatch,
@@ -179,6 +197,20 @@ class CoreService:
 
     async def _publish(self, event: dict) -> None:
         await self.server.publish(event)
+
+    def _domain(self, method: str, params: dict) -> dict:
+        try:
+            if method in CONVERSATION_METHODS:
+                result = self.conversations.handle(method, params)
+            elif method in TRANSCRIPT_METHODS:
+                result = self.transcript.handle(method, params)
+            elif method in SEARCH_METHODS:
+                result = self.search.handle(method, params)
+            else:
+                return failure("capability_unavailable", "Service is not available yet")
+            return {"ok": True, "result": result}
+        except ConversationError as error:
+            return error.response()
 
     async def dispatch(self, connection, request: dict) -> dict | None:
         owner = self.permissions.set_request_owner(connection.owner_context)
@@ -239,11 +271,12 @@ class CoreService:
                     if method == "status.get":
                         result = {"ok": True, "result": self.status()}
                     else:
-                        result = failure("capability_unavailable", "Service is not available yet")
+                        result = self._domain(method, params)
                 return {"t": "res", "id": command_id, **result}
 
             fresh_shutdown = False
             shutdown_event = None
+            before = self.events.high
 
             def execute() -> dict:
                 nonlocal fresh_shutdown, shutdown_event
@@ -259,7 +292,7 @@ class CoreService:
                         {**self.status(), "phase": "quiescing"},
                     )
                     return {"ok": True, "result": {"disposition": "accepted"}}
-                return failure("capability_unavailable", "Service is not available yet")
+                return self._domain(method, params)
 
             result = self.commands.execute(command_id, method, params, execute)
             response = {"t": "res", "id": command_id, **result}
@@ -273,6 +306,10 @@ class CoreService:
                 finally:
                     await self._publish(shutdown_event)
                 return None
+            # Publish only after the domain, event and receipt transaction committed.
+            # A duplicate receipt has appended nothing and cannot repeat an event.
+            for event in self.events.between(before):
+                await self._publish(event)
             return response
 
     async def close(self) -> None:

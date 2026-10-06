@@ -518,4 +518,29 @@ describe('fixture core conversation management (minor 3)', () => {
     expect(around.items.map((m) => m.id)).toEqual([first.id])
     expect(around).toMatchObject({ has_before: false, has_after: true })
   })
+
+  it('rejects a missing transcript paging anchor instead of returning the newest page', async () => {
+    const core = await withFixture()
+    const { broker, events } = await connectedBroker(core)
+    const conv = await chatWithReply(broker, events, 'one page of history')
+    expect(await broker.request('messages.list', { conversation_id: conv.id, before: 'm_missing' }))
+      .toMatchObject({ ok: false, error: { code: 'not_found' } })
+  })
+
+  it('allows context reset while a fixture request is running', async () => {
+    const core = await withFixture()
+    const { broker, events } = await connectedBroker(core)
+    const conv = result<{ conversation: Conv }>(await broker.request('conversations.create', {})).conversation
+    const sub = uuid()
+    const sent = result<{ request_id: string }>(await broker.request('submission.send', { client_submission_id: sub, conversation_id: conv.id, text: 'slow' }, sub))
+    await waitFor(() => events.some((e) => e.type === 'request.started'))
+    expect(await broker.request('conversations.delete', { id: conv.id, expected_rev: conv.rev }))
+      .toMatchObject({ ok: false, error: { code: 'busy' } })
+    const reset = await broker.request('conversations.reset_context', { id: conv.id, expected_rev: conv.rev })
+    expect(reset.ok).toBe(true)
+    expect(events.some((e) => e.type === 'conversation.context_reset')).toBe(true)
+    const stop = uuid()
+    await broker.request('control.stop', { control_command_id: stop, conversation_id: conv.id, request_id: sent.request_id, generation: 1 }, stop)
+    await waitFor(() => events.some((e) => e.type === 'request.cancelled'))
+  })
 })

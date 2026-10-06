@@ -1432,6 +1432,9 @@
         "tests/test_desktop_capabilities_skills_hosts.py",
         "tests/test_desktop_ci_interpreter.py",
         "tests/test_desktop_collection_refresh.py",
+        "tests/test_desktop_conversation_core.py",
+        "tests/test_desktop_conversation_search.py",
+        "tests/test_desktop_conversations.py",
         "tests/test_desktop_core_computer.py",
         "tests/test_desktop_core_durability.py",
         "tests/test_desktop_core_paths.py",
@@ -1463,7 +1466,8 @@
         "tests/test_desktop_strip_web.py",
         "tests/test_desktop_test_plan.py",
         "tests/test_pdf_resources.py",
-        "tests/test_desktop_pdf_catalog.py"
+        "tests/test_desktop_pdf_catalog.py",
+        "tests/test_desktop_transcript.py"
       ],
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups."
     },
