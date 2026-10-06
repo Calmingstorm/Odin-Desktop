@@ -90,4 +90,6 @@ Health remains pending because the actual projection still emits its delivery-un
 
 Executed locally in the sanitized ordinary-user PID namespace: **46 gate tests**, **32 composed-engine tests**, and **165 existing integration/regression tests** passed. The gate module has **97% statement coverage**. A first coverage command used the dynamic module's wrong import name and collected no data; the corrected path-based run produced the measured coverage. No runtime failures were hidden by that reporting correction.
 
+The full classified qualification ran once: **31/31 groups, 14,704 passing executions, three skips, zero failures/errors**. This inherited classified run is separate from the two new closure suites executed above, not final product acceptance. Drift reports zero errors with independent review still pending; lint reports zero new findings. Raw qualification evidence is external, with path and SHA-256 in `phase2-d19-validation.json`.
+
 The static gate validates coverage, dispositions and references, not composed runtime restoration or wording approval. Raw logs, full AST scans and large artifacts are not stored in Git here. No model-facing source or approval-table bytes are changed.
