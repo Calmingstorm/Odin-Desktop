@@ -66,6 +66,8 @@ jobs:
         run: .venv/bin/python scripts/maintenance/lint_gate.py
       - name: Phase 2 planned ownership checker
         run: .venv/bin/python scripts/maintenance/phase2_plan.py
+      - name: D19 exact wording disposition inventory
+        run: .venv/bin/python scripts/maintenance/d19.py report
       - name: Hermetic Cinnamon and GNOME fixtures (no graphical session)
         run: .venv/bin/python scripts/run-phase1-tests.py tests/test_lab_cinnamon.py tests/test_lab_gnome.py -rs
   full-suites:
