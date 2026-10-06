@@ -1,7 +1,7 @@
 # Linux v1 release checklist
 
 **P4.4 first draft only. No release authorization.** Documentation watermark:
-Desktop main `0b7d596f7e870d06699722f151c4d9837c5433f1`, 2026-10-06.
+Desktop main `ed0069674533c23e70a0302652a2fb76901ff385`, 2026-10-06.
 This checklist does not assert that P4.5 or P4.6 has passed, authorize a tag,
 install/run on the active desktop, or approve publication. Leave items open until
 the reviewer records evidence and the required owner approvals. Earlier candidate
@@ -62,10 +62,10 @@ Source: [P3.6, P4.4 and R4/CC inventory](../work/phase-3-app-v1.md#p36-d11-matri
 
 ### Ownership and upgrade evidence
 
-**pending: #36**
+The ownership/compatibility implementation (#36) is merged. Its earlier evidence
+does not substitute for final-candidate acceptance below.
 
-- [ ] Independently review and merge the ownership/compatibility implementation
-  before claiming it as main behavior. Repeat fresh install/ordinary-user launch,
+- [ ] Repeat fresh install/ordinary-user launch,
   clean Exit, package-manager `.deb` replacement/removal and user-managed AppImage
   same-path replacement on final hashes.
 - [ ] Include busy/surviving-core and interrupted-transaction fences, incompatible
@@ -81,9 +81,10 @@ Source: [P3.6, P4.4 and R4/CC inventory](../work/phase-3-app-v1.md#p36-d11-matri
 - [ ] Recheck FUSE/native AppImage lifetime, stable autostart path and relocation
   stale-command behavior. Container and old-inode tests are not FUSE qualification.
 
-Pinned sources: [P4.2 evidence/open gates](https://github.com/Calmingstorm/Odin-Desktop/blob/30402eb95154d9a4d3076fb5cae165771d4aee36/maintenance/phase4-packaging.md),
-[compatibility/backup implementation](https://github.com/Calmingstorm/Odin-Desktop/blob/30402eb95154d9a4d3076fb5cae165771d4aee36/src/desktop/package_state.py),
-[manual AppImage helper boundaries](https://github.com/Calmingstorm/Odin-Desktop/blob/30402eb95154d9a4d3076fb5cae165771d4aee36/app/packaging/APPIMAGE-REPLACEMENT.md).
+Sources in the integrated main tree: [P4.2 evidence/open gates](../../maintenance/phase4-packaging.md),
+[compatibility/backup implementation](../../src/desktop/package_state.py),
+[manual AppImage helper boundaries](../../app/packaging/APPIMAGE-REPLACEMENT.md).
+Exact source identities are recorded in [P4.4 validation](../../maintenance/p44-user-docs-validation.md).
 
 ### Notice and non-publishing release rehearsal
 

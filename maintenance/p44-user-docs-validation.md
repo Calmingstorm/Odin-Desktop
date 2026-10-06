@@ -146,3 +146,132 @@ against immutable candidates remains an explicit checklist item for the integrat
 
 No live service, `/opt/odin`, active desktop session, production credential, installer, repository visibility,
 tag, release publication or GitHub merge was changed. PR is for review; no attribution trailers.
+
+## PR #44 review round 1: separate user guidance from provenance
+
+Work order: `/home/odin/reviews/desktop-pr44-review.md`, reviewed original head
+`3a83d7f5d0cd3c2294d6958f5e3d62242ad439e1`. Date: 2026-10-06.
+The preceding sections remain historical first-draft evidence, not repeated
+qualification or current feature claims.
+
+The eight `docs/user/*.md` guides now use task-first language and describe only
+merged `main` behavior. Commit identities, source/PR links, pending markers,
+review-lane terminology and qualification bookkeeping are kept here and in
+maintainer documentation. The only user-facing upstream watermark is the short
+paragraph in `install.md`: based on Odin v4.13.0; later changes require release-note
+disclosure. That is not current-upstream parity or identical-engine approval.
+
+### Integrated source and scope
+
+- Re-read and merged `origin/main` at
+  `ed0069674533c23e70a0302652a2fb76901ff385` with two-parent merge
+  `d7c245618c42245f46edad3c7eb870c77f55987c`. No PR was merged on GitHub.
+- #36 merged at `dbc9ef0322211f653b0fbc28303b6060164e81dd` and is no longer
+  pending. User installation/removal, guarded `.deb` upgrades, offline AppImage
+  replacement and compatibility/backup/refusal guidance use its actual merged
+  code, including the reviewed AppArmor correction. The historical first-draft
+  links at `30402eb95154d9a4d3076fb5cae165771d4aee36` are not its final identity.
+- #46 merged at `7c3d6fe0acd412a7d76f40769b09a96856a774a4`. Removed the obsolete
+  claim that checking Add to knowledge calls a missing attachment-ingestion
+  handler and fails processing. It now selects the existing per-attachment intent;
+  retention remains a model-tool operation, not an automatic knowledge write.
+  Default model-side knowledge-store composition is still absent. Neither that
+  fix nor this documentation claims actual knowledge ingestion succeeded.
+- #45 changes bundled-component laboratory isolation; #51 and #53 change CI
+  routing. Their presence in main is not new user-facing functionality or a
+  substitute for the original/final native acceptance gates.
+- README navigation and the maintainer release checklist were aligned. #36's
+  merge requirement was replaced with final-candidate acceptance requirements.
+  P4.5/P4.6, Aaron's immediate active-desktop consent and separate publication,
+  audience/license/version approvals remain required, not implied.
+- No product code, dependency, test, workflow or ledger edits were made by this
+  documentation revision. Changes inherited from main are its already-merged
+  work, not new product changes authored in this PR.
+
+### Claim-to-source map for the user guides
+
+Every link below is pinned to the integrated main source
+`ed0069674533c23e70a0302652a2fb76901ff385`. This map records source inspection,
+not native procedure execution. Existing historical gate results above retain
+their original source identities and limits.
+
+| User guide / claims | Checked against |
+|---|---|
+| Install: x86-64 formats, package identity/dependencies and resource paths | [builder configuration](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/electron-builder.yml), [resource layout/qualification](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/packaging/README.md), [launcher](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/packaging/odin-desktop.desktop), [runtime selection](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/main/core-command.ts) |
+| Install: first-use PDF dependency; normal runtime bundled versus external helper Python | [resource downloader](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/runtime/pdf_resources.py), [approved Decision F](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/docs/work/phase-3-app-v1.md), [manual replacement procedure](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/packaging/APPIMAGE-REPLACEMENT.md) |
+| Install/First run/Background: opt-in login, single instance, Close versus Exit and no-tray paths | [startup/lifecycle integration](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/main/index.ts), [lifecycle rules](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/main/lifecycle.ts), [autostart](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/main/autostart.ts) |
+| Install: profile locations, retained data and profile-keyring identity | [app paths](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/main/paths.ts), [core paths](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/paths.py), [keyring namespace](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/secrets.py) |
+| First run: real banner states, explicit Retry, write-only credentials and provider/account controls | [readiness banner](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/components/FirstRunBanner.vue), [accounts](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/components/CodexAccounts.vue), [schema controls](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/components/SchemaForm.vue), [model reference parser](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/llm/model_ref.py), [runtime readiness](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/runtime.py) |
+| Settings: save/apply labels, sections, notification privacy and follow/pin intent | [settings form](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/settings-form.ts), [navigation](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/views/Settings.vue), [General](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/views/settings/General.vue), [settings transactions](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/settings.py) |
+| Settings: Personality, built-in tool availability and timeouts | [Personality](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/views/settings/Personality.vue), [Tools](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/views/settings/Tools.vue), [request/tool owners and readiness](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/services.py) |
+| Settings: managed SSH enrollment, trust/default target and uncertain host controls | [Hosts](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/views/settings/Hosts.vue), [management composition](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/management.py) |
+| Settings/First run/Chat: memory/list/knowledge operations and absent default model-side store wiring | [State](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/views/settings/State.vue), [knowledge management](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/knowledge.py), [core/runtime composition](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/core.py), [model-side store dependency](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/services.py) |
+| Chat: drafts/conversations/search/Thread/attachment Queue and controls | [composer](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/components/Composer.vue), [conversation store](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/store.ts), [controls](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/controls.py), [slash commands](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/commands.ts) |
+| Chat: attachment limits/expiry and checked Add to knowledge intent (not successful ingestion) | [uploads](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/attachments.py), [fresh request processing](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/requests.py), [merged fix evidence/limits](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/maintenance/attachment-knowledge-intent-validation.md) |
+| Chat/Background: Copy/file actions, unavailable bytes, evidence TTL/quotas/read scope, unavailable report paging | [message/file views](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/components/Message.vue), [tool output](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/components/ToolActivity.vue), [artifacts](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/artifacts.py), [retained evidence](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/tools/output_retention.py), core composition above |
+| Settings/Background/Recovery: unavailable Skills/MCP/computer/work/schedule services; no pending workflows taught as current | [management composition](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/management.py), core composition above |
+| Recovery: Records, Resume, bounded core restart and cleanup Acknowledge semantics | [Records](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/views/settings/Records.vue), [record observer](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/records.py), [Resume](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/components/ResumeBanner.vue), [cleanup notice](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/components/CleanupNotice.vue), [supervisor](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/main/core-supervisor.ts), [shutdown](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/main/shutdown.ts) |
+| Install/Updates/Recovery: package lifetime/removal retention, guarded upgrades, offline same-path AppImage helper/refusals | [package transactions](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/packaging/deb_transaction.py), [ownership records](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/packaging/ownership.py), [helper arguments/recovery](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/packaging/replace-appimage.py), [manual procedure](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/packaging/APPIMAGE-REPLACEMENT.md), [actual packaging evidence and limits](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/maintenance/phase4-packaging.md) |
+| Updates/Recovery: compatibility before writes, backups/exclusions, pending migration identity, no automatic rollback | [state inspection/backup/migration](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/src/desktop/package_state.py), [behavior tests](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/tests/test_desktop_package_state.py) |
+| Install/Updates: unsigned GitHub releases/manual installation and no in-app apply; upstream watermark | [approved release decisions](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/docs/work/phase-3-app-v1.md), [recorded baseline](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/maintenance/baseline.md), [maintenance policy](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/docs/design/maintenance.md) |
+| Accessibility: actual keys/focus/menu/zoom; native Orca/dialog/Wayland limits | [app shortcuts](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/app/src/renderer/src/App.vue), composer and native menu above, [accessibility evidence](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/maintenance/phase3-accessibility.md) |
+| Install/Updates: stock Ubuntu 24.04 restricted namespaces and mounted-AppImage gate still open | [P4.1 open gate](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/maintenance/p41-packaging.md), [P4.2 final reviewed AppArmor/open gate](https://github.com/Calmingstorm/Odin-Desktop/blob/ed0069674533c23e70a0302652a2fb76901ff385/maintenance/phase4-packaging.md) |
+
+The SHA-256 procedure uses the ordinary checksum tool as user guidance. It
+establishes byte equality, not signatures or provenance. No credential/private
+history screenshots or new acceptance claims were introduced.
+
+### Pending-section tracking, now maintainer-only
+
+Original task prose and pinned branch references are preserved in
+[`docs/release/pending-user-docs.md`](../docs/release/pending-user-docs.md).
+These historical snapshots were not updated to imply current-head review or a
+combined candidate. Promote a section only after its prerequisite merges,
+checking actual integration behavior, then removing development provenance from
+the user-facing copy.
+
+| Open PR | Historical inspected source | Draft topics awaiting integration |
+|---|---|---|
+| #28 | `2d91071a692a646b6d8c466daa5711a37cd8c93f` (later lifecycle-only inspection `dda129d8f0597d12dbb16837baa5b84ec1c866dc`) | Skills/MCP/browser/computer services, workspace diagnostics, native recovery limits |
+| #37 | `4ede9e75fb079a0a305c7b24f89700d7fb7c4416` | Work owners/controls, schedules, D12 missed-run behavior, stored reports and recovery |
+| #39 | `1c48529b0af3ad18d9c413882166cb6ee40702d1` | Manual notice-only update check and private-repo Can't check; release rehearsal stays maintainer-only |
+| #40 | `6321eec26e1c87dd5b9682e902723818a5fdda03` | Account refresh, OpenRouter, shared knowledge, learned context, extended records/observability |
+| #42 | `50f90306176dd2abd724a1a2d5b97199d294b9c8` | Incoming integrations, receipt-local uncertainty, new-delivery/no-deduplication limits and privacy |
+
+### Review-round validation boundaries
+
+This round is a structural documentation correction with link checking as data,
+not a new application qualification. No Markdown-wording tests were added, no
+full suite rerun was requested, and no action was taken on the separately rerunning
+CI qualification. Native provider/keyring/Orca/portal, stock Ubuntu and actual FUSE
+acceptance remain open in the maintainer checklist. No system installation,
+running service, active desktop, production profile or release was changed.
+
+Observed round-1 checks:
+
+- Link checker covers the eight guides, both READMEs, the release checklist,
+  preserved pending drafts and this validation record. It validates local targets
+  and heading fragments, checks pinned Git objects through `git cat-file`, and
+  checks other external URLs for syntax only. No anonymous private-GitHub access
+  or live release availability is asserted.
+- `env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS .venv/bin/python
+  scripts/docs/generate_tool_reference.py --check`: generated reference is current.
+  This checks generated catalog data, not human-written Markdown wording.
+- `git diff --check`: passed. Documentation-only changed-path review against
+  integrated main: passed. Manual user-guide structural review: no commit IDs,
+  PR/source links, pending markers, author/lane mentions or qualification records.
+- Independent read-only user-guide audit found no concrete factual/scope defect
+  in the checked knowledge intent, unavailable-service, secret clearing, shortcut,
+  accessibility and package/helper descriptions. Separate package-source review
+  confirmed the helper is not installed in either package and stock Ubuntu/FUSE
+  acceptance remains open. Neither review is native procedure execution.
+- Root filesystem admission measured 123 GB available initially and 120 GB during
+  this small documentation run; no heavy qualification checkout was created.
+- After pushing and verifying the remote head, remove this lane's inactive
+  historical fresh clone and reference worktrees. Keep committed evidence,
+  external evidence directories and small logs; do not touch other lanes.
+
+The small artifact manifest is
+[`p44-user-docs-round1-artifacts.json`](p44-user-docs-round1-artifacts.json).
+Raw link results and the bounded checker stay under
+`/mnt/storage/odin-desktop-evidence/p44-r1-req-c55cf225/`, outside Git.

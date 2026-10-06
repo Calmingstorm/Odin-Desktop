@@ -12,10 +12,13 @@ lifecycle qualification for bounded shutdown, quiescing, unknown-cleanup journal
 ## User documentation and review status
 
 The [first-draft user guide](../README.md#user-guide-first-draft) covers installation, first run, chat/results,
-settings, background work, recovery, updates and accessibility. Its [source/review watermark](../README.md#documentation-watermark)
-distinguishes `main` from **pending: #28**, **pending: #37**, **pending: #42**, **pending: #36**,
-**pending: #39** and **pending: #40** sections. The [Linux release checklist](../docs/release/linux-v1-checklist.md)
-requires P4.5, P4.6 and Aaron's explicit approvals. This documentation PR is not package or live acceptance.
+settings, current work boundaries, recovery, updates and accessibility using merged `main` behavior only.
+Source/review watermarks and claim references are in
+[P4.4 validation](../maintenance/p44-user-docs-validation.md); preserved drafts for open #28, #37,
+#39, #40 and #42 are in [pending user docs](../docs/release/pending-user-docs.md).
+Merged #36 ownership/upgrades/removal are included in the guides.
+The [Linux release checklist](../docs/release/linux-v1-checklist.md) still requires P4.5,
+P4.6 and Aaron's explicit approvals. This documentation PR is not package or live acceptance.
 
 ## Build and test
 
