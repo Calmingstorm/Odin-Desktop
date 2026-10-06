@@ -31,7 +31,10 @@ Both formats consume one sealed unpacked resource tree. A pre-staged AppArmor
 resource and explicit build umask `022` keep electron-builder's deb-only late
 profile copy identical to the sealed inventory. The after-pack hook canonicalizes
 all resource files to `0644` (non-executable) or `0755` (executable), directories to
-`0755`, and preserves symlinks before sealing. This includes builder-created ASAR
+`0755`, including the unpacked app root and resources root, and preserves
+symlinks before sealing. Fpm explicitly packages root-owned entries; a real
+fpm/dpkg extraction regression checks `/opt`, `/opt/Odin` and resources as `0755`.
+This includes builder-created ASAR
 and ownership files, not only the earlier runtime stage. Qualification still
 rejects any subsequent mode, content, size, inventory or link-target mismatch;
 it never rewrites the manifest to match extracted candidates. The `.deb` uses identity
@@ -95,6 +98,15 @@ only maintainer-script tools. It proves dpkg/maintainer-script behavior and pack
 execution, **not dependency resolution on a clean distro**. Native graphics,
 portal/keyring, login lifecycle, AppImage FUSE mounting and oldest-distro acceptance
 remain later gates. Do not mistake Xvfb for native desktop qualification.
+
+Before export/chown, the disposable installer audits real root-owned `0755`
+application directories and checks the installed AppArmor profile and ownership
+digest against the source. A generated-hook fixture also proves pre-existing
+`0777` install directories are refused, not repaired. Dpkg can retain permissions
+on existing directories; after-pack normalization does not authorize chmod of a
+live installation. The minimal chroot lacks `apparmor_parser`, so profile install
+and receipt proof is **not kernel loading/attachment proof**. Root-only fixtures
+with a recording parser cover transaction behavior, not an actual AppArmor kernel.
 
 The candidate probes real core transport and clean shutdown, actual offline
 Chromium rendering with renderer seccomp/no-new-privileges evidence, 384-dimensional

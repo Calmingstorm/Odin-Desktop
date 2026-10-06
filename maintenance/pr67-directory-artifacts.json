@@ -1,0 +1,11 @@
+{
+  "root": "/mnt/storage/odin-desktop-evidence/pr59-packaging-direction-req9133/directory-followup",
+  "artifacts": [
+    {"path": "packaging-tests.log", "sha256": "f0dc49affd9f2661820074d2a7f86b456db88cae829801f8b463236166e9d692"},
+    {"path": "root-install-tests.log", "sha256": "a830d7528085fa7e221380bdce6c8ad84ca72dd002d85a69b4d07c3a30959be7"},
+    {"path": "root-transaction-tests.log", "sha256": "688534eb38c3076f5a238fb34b9c4b830ef124e0ff9bc91423681a8f1a60696e"},
+    {"path": "inventory-report.json", "sha256": "97688617b70321b47493ed13c075d7f13b191eedb1c3ce19935eb237f85c84fd"},
+    {"path": "old-qualified-deb-directory-metadata.log", "sha256": "fcb69a5f7a267dfa4314c1ecf7577204e49db6e03e92ab1c446c4aa40d039aa0"},
+    {"path": "old-qualified-deb-sha256.txt", "sha256": "613a795d7766e774bedfc777c1080a5f451917e6332ee9c3734236e127e2a2f9"}
+  ]
+}

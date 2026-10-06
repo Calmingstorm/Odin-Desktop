@@ -4,6 +4,9 @@ import json
 import os
 from pathlib import Path
 import pwd
+import shutil
+import stat
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -97,13 +100,22 @@ class InstallPrerequisiteBehaviour(unittest.TestCase):
                 'Package: odin-desktop\nVersion: 0.0.0\nArchitecture: all\n'
                 'Maintainer: test <test@example.invalid>\nPre-Depends: python3\n'
                 'Description: disposable Python hook prerequisite test\n')
-            package.joinpath('opt/Odin/resources').mkdir(parents=True)
-            for directory in [package / 'opt', package / 'opt/Odin', package / 'opt/Odin/resources']:
-                directory.chmod(0o755)
-            package.joinpath('opt/Odin/odin-desktop').write_text('non-executable fixture payload')
+            old_umask = os.umask(0o002)
+            try:
+                package.joinpath('opt/Odin/resources').mkdir(parents=True)
+            finally:
+                os.umask(old_umask)
+            # /opt is fpm-created, while these two roots come from afterPack.
+            package.joinpath('opt').chmod(0o755)
+            shutil.copy2('/bin/true', package / 'opt/Odin/odin-desktop')
             package.joinpath('opt/Odin/resources/apparmor-profile').write_text(
                 'profile odin-desktop /opt/Odin/odin-desktop { userns, }\n')
             package.joinpath('opt/Odin/resources/apparmor-profile').chmod(0o644)
+            package.joinpath('opt/Odin/resources/bundle-manifest.json').write_text('{"schema":1}')
+            subprocess.run(['node', '-e',
+                'process.umask(0o002);require(process.argv[1])({appOutDir:process.argv[2]})'
+                '.catch(e=>{console.error(e);process.exit(1)})',
+                str(here / 'after-pack.cjs'), str(package / 'opt/Odin')], check=True)
             # Trace hook execution without replacing the generated Python hooks.
             preinst = control / 'preinst'
             preinst.write_text(preinst.read_text().replace('set -eu\n', 'set -eu\nprintf preinst > /hook-proof\n'))
@@ -111,13 +123,21 @@ class InstallPrerequisiteBehaviour(unittest.TestCase):
             qualify.run(['dpkg-deb', '--root-owner-group', '--build', str(package), str(deb)])
             log = qualify.install_deb(deb, package, installed, account.pw_name)
             self.assertIn('Setting up odin-desktop', log)
+            self.assertIn('AppArmor postinst profile/receipt/root-directory audit: PASS', log)
+            for relative in ('opt', 'opt/Odin', 'opt/Odin/resources'):
+                self.assertEqual(stat.S_IMODE((installed / relative).stat().st_mode), 0o755)
+            self.assertEqual(installed.joinpath('etc/apparmor.d/odin-desktop').read_bytes(),
+                             package.joinpath('opt/Odin/resources/apparmor-profile').read_bytes())
+            receipt = json.loads(installed.joinpath(
+                'var/lib/odin-desktop/package-ownership/apparmor-profile.json').read_text())
+            self.assertEqual(len(receipt['sha256']), 64)
             self.assertEqual(installed.joinpath('hook-proof').read_text(), 'preinst')
             self.assertTrue(installed.joinpath('var/lib/odin-desktop/package-ownership/lease').is_file())
             self.assertFalse(installed.joinpath('var/lib/odin-desktop/package-ownership/transaction.json').exists())
             self.assertEqual(os.readlink(installed / 'usr/bin/odin-desktop'), '/opt/Odin/odin-desktop')
             self.assertIn('Status: install ok installed', installed.joinpath('var/lib/dpkg/status').read_text())
             self.assertFalse(installed.joinpath('usr/bin/python3').exists())
-            self.assertFalse(list(installed.rglob('*.py')))
+            self.assertFalse(list(installed.joinpath('usr').rglob('*.py')))
             self.assertFalse(list(installed.rglob('libpython*.so*')))
             # The unchanged runtime sandbox hides host Python and the exported
             # tree does not offer a second path to the install-only interpreter.
@@ -129,6 +149,22 @@ class InstallPrerequisiteBehaviour(unittest.TestCase):
                  'test ! -e "/candidate with spaces/usr/bin/python3"; echo runtime-python-hidden'],
                 user_namespace=namespace))
             self.assertIn('runtime-python-hidden', text)
+
+            # Dpkg deliberately retains permissions on existing directories.
+            # This root-only fixture must fail, not silently repair stale 0777.
+            sandbox = qualify.sandbox
+            def stale_root(*args, **kwargs):
+                work = args[1]
+                for relative in ('opt/Odin', 'opt/Odin/resources'):
+                    path = work / 'root' / relative
+                    path.mkdir(parents=True, exist_ok=True)
+                    path.chmod(0o777)
+                return sandbox(*args, **kwargs)
+            with mock.patch.object(qualify, 'sandbox', side_effect=stale_root):
+                with self.assertRaisesRegex(qualify.QualificationError,
+                                            'AppArmor source directory is not immutable'):
+                    qualify.install_deb(deb, package, base / 'stale-installed', account.pw_name)
+            self.assertFalse((base / 'stale-installed').exists())
 
 
 if __name__ == '__main__':
