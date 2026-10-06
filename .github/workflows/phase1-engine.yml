@@ -181,4 +181,6 @@ jobs:
           .venv/bin/python -m pip install uv==0.12.23 setuptools==84.0.0 wheel==0.48.0
           .venv/bin/uv sync --locked --extra dev --active --no-build-isolation-package odin-desktop-engine
       - name: Classified qualification shard in PID namespaces
-        run: .venv/bin/python scripts/run-qualified-tests.py --shard ${{ matrix.shard }}/5
+        env:
+          QUALIFICATION_SHARD: ${{ matrix.shard }}
+        run: .venv/bin/python scripts/run-qualified-tests.py --shard "$QUALIFICATION_SHARD/5"

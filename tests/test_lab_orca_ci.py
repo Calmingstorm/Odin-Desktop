@@ -28,4 +28,4 @@ def test_ci_preserves_canonical_fixture_runner_without_duplicate_fixture_selecti
     assert not any("run-qualified-tests.py" in step.get("run", "") for step in steps)
     shards = workflow["jobs"]["qualification"]["steps"]
     assert sum(step.get("run", "").strip().endswith(
-        "scripts/run-qualified-tests.py --shard ${{ matrix.shard }}/5") for step in shards) == 1
+        'scripts/run-qualified-tests.py --shard "$QUALIFICATION_SHARD/5"') for step in shards) == 1

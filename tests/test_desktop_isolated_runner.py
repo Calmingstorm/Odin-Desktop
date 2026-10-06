@@ -432,10 +432,12 @@ def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():
     qualification = workflow["jobs"]["qualification"]
     assert qualification["runs-on"] == ["self-hosted", "odin-desktop-ci"]
     assert qualification["strategy"] == {"fail-fast": False, "matrix": {"shard": [1, 2, 3, 4, 5]}}
-    shard_commands = [step["run"] for step in qualification["steps"]
-                      if "run-qualified-tests.py" in step.get("run", "")]
-    assert shard_commands == [
-        ".venv/bin/python scripts/run-qualified-tests.py --shard ${{ matrix.shard }}/5"]
+    shard_steps = [step for step in qualification["steps"]
+                   if "run-qualified-tests.py" in step.get("run", "")]
+    assert [step["run"] for step in shard_steps] == [
+        '.venv/bin/python scripts/run-qualified-tests.py --shard "$QUALIFICATION_SHARD/5"']
+    # The matrix value reaches the shell only through the environment.
+    assert shard_steps[0]["env"] == {"QUALIFICATION_SHARD": "${{ matrix.shard }}"}
     namespace_commands = [line for step in full["steps"]
                           for line in step.get("run", "").splitlines()
                           if line.startswith(".venv/bin/python scripts/run-phase1-tests.py")]
