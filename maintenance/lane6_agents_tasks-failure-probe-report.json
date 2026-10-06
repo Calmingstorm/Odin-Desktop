@@ -1,0 +1,21 @@
+{
+  "batch": "lane6_agents_tasks_failure",
+  "status": "retained_exact_pass_proposed_nonexports_need_review",
+  "path": "tests/test_background_task_failure_visibility.py",
+  "selector": "tests/test_desktop_lane6_agents_tasks_failure.py",
+  "adapter": "tests/desktop_adapters/lane6_agents_tasks_recovery.py",
+  "source_sha256": "30720be2e4e3b64bbc7e97d8932d7e5e328ae43c055670da3897fcf92addcd78",
+  "corpus_sha256": "42c91ca115a6a1472a0e7cd58df6b352492d3e70399b681f2d92396698afebd2",
+  "whole_source_exported": false,
+  "whole_corpus_guarded_before_export": true,
+  "assertions_signatures_decorators_parameters_unchanged": true,
+  "exact_partition": {"frozen_collected": 19, "restored_retained": 16, "proposed_nonexport": 3, "retired": 0, "unfinished": 0},
+  "case_exclusions": [
+    {"case": "TestStructuredFailureVisibility.test_nested_validated_tool_permission_is_rechecked_before_execution", "status": "proposed_nonexport", "reason": "Actual authenticated UUID supplied to executor; immutable spy expectation requires4242."},
+    {"case": "TestStructuredFailureVisibility.test_nested_invoke_skill_permission_is_checked_for_selected_skill", "status": "proposed_nonexport", "reason": "Actual authenticated UUID supplied to permission observations; immutable expected call tuples require4242."},
+    {"case": "TestStructuredFailureVisibility.test_workflow_substitutes_outputs_and_skips_unmatched_condition", "status": "proposed_nonexport", "reason": "Actual authenticated UUID supplied to executor effect observation; immutable expected calls require4242."}
+  ],
+  "last_retained_probe": {"passed": 16, "failed": 0, "errors": 0, "skipped": 0, "xfailed": 0, "aggregate_passed": 151, "aggregate_seconds": 28.96, "log": "/dev/shm/lane6-native-final3.log", "junit": "/dev/shm/lane6-native-final3.xml"},
+  "fixed_setup": ["Committed transcript receipts recorded in FakeChannel.sent, not ephemeral sent_texts property", "Authenticated real executor retention", "Builtin policy fault injection setter", "Canonical task admission/execution/work registration", "Actual MCPManager publishes ToolRecord through its generation-fenced _publish path; injected runtime owner publishes real catalog definitions and has_tool readiness. Hermetic connection seam does not invent production metadata or perform live I/O."],
+  "production_changes": []
+}

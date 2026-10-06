@@ -1,0 +1,35 @@
+{
+  "batch": "lane6_agents_tasks_native",
+  "status": "retained_exact_pass_proposed_nonexports_need_review",
+  "path": "tests/test_native_agents_tasks.py",
+  "selector": "tests/test_desktop_lane6_agents_tasks_native.py",
+  "adapter": "tests/desktop_adapters/lane6_agents_tasks_native.py",
+  "source_sha256": "f42a7364881ee0fc07afb7953a94fe517c2008222815a0d779a0e1de2ceadc92",
+  "corpus_sha256": "91c1b6a08a7fc0a9268935b8a7a68e16908aa1339c6d4f09a22f237407eb8575",
+  "whole_source_exported": false,
+  "whole_corpus_guarded_before_export": true,
+  "assertions_signatures_decorators_parameters_unchanged": true,
+  "exact_partition": {"frozen_collected": 102, "restored_retained": 93, "proposed_nonexport": 9, "retired": 0, "unfinished": 0, "supplemental": 1},
+  "case_exclusions": [
+    {"case": "TestDelegateTask.test_strict_invoke_skill_missing_name_denied_before_launch", "status": "proposed_nonexport", "reason": "Immutable permission spy requires literal owner 7; persisted Desktop authority requires a UUID."},
+    {"case": "TestDelegateTask.test_strict_invoke_skill_target_permission_checked_before_launch", "status": "proposed_nonexport", "reason": "Immutable permission spy requires literal owner 7; persisted Desktop authority requires a UUID."},
+    {"case": "TestListCancelTasks.test_dispatch_scopes_tasks[7-42-True]", "status": "proposed_nonexport", "reason": "Removed multi-user tier setup inseparable from retained privacy assertions."},
+    {"case": "TestListCancelTasks.test_dispatch_scopes_tasks[8-42-False]", "status": "proposed_nonexport", "reason": "Removed multi-user tier setup inseparable from retained privacy assertions."},
+    {"case": "TestListCancelTasks.test_dispatch_scopes_tasks[7-43-False]", "status": "proposed_nonexport", "reason": "Removed multi-user tier setup inseparable from retained privacy assertions."},
+    {"case": "TestListCancelTasks.test_dispatch_scopes_tasks[admin-43-True]", "status": "proposed_nonexport", "reason": "Removed multi-user tier setup inseparable from retained privacy assertions."},
+    {"case": "TestListCancelTasks.test_dispatch_scopes_tasks[-42-False]", "status": "proposed_nonexport", "reason": "Removed multi-user tier setup inseparable from retained privacy assertions."},
+    {"case": "TestListCancelTasks.test_dispatch_scopes_tasks[guest-42-False]", "status": "proposed_nonexport", "reason": "Removed multi-user tier setup inseparable from retained privacy assertions."},
+    {"case": "test_spawn_agent_links_triggering_message_turn", "status": "proposed_nonexport", "reason": "Frozen Discord trigger ID/turn ID 4242 contradicts immutable Desktop request UUID; no envelope mutation permitted."}
+  ],
+  "last_retained_probe": {"passed": 94, "failed": 0, "errors": 0, "skipped": 0, "xfailed": 0, "aggregate_passed": 151, "aggregate_seconds": 28.96, "log": "/dev/shm/lane6-native-final3.log", "junit": "/dev/shm/lane6-native-final3.xml"},
+  "production_changes": [],
+  "notes": [
+    "Frozen source bytes and full assertions/signatures/decorators/parameters corpus validated before exports. Proposals remain nonexported, not skips or xfails, and need reviewer disposition.",
+    "Actual AgentManager/LoopManager admission, list, get-results, waits, send, kill and stop algorithms are recorded with Mock/AsyncMock wraps, never replacement return-value algorithms.",
+    "Mock-only manager setup translated to actual AgentInfo, AgentStateMachine, BackgroundTask and LoopInfo fixture metadata; stable ID entropy seam replaces UUID generation only.",
+    "RequestService background_execution binds the current test task. WorkService registrations and ControlService receipts persist before actual manager controls. Old synchronous send/kill presentation observes the committed real control and queued/cancel signal, not claimed worker settlement.",
+    "Supplemental owner/task-conversation privacy test covers retained privacy without restoring removed multi-user tier authorization. It is not counted as inherited restoration.",
+    "All adapter fixture blockers resolved. Native93 exact cases passed plus1supplement. Zero retired cases, zero unfinished adapter deferrals.",
+    "Readiness services.py and ledger requests.py source fixes are parent/sibling-owned. This agent edited adapters/wrappers/reports only; no live service touched."
+  ]
+}
