@@ -1,8 +1,9 @@
 # PR #32 main integration validation
 
 Validated 2026-10-06 in `/home/odin/desktop-p33-part1`, branch
-`app/p33-lifecycle-part1`. Only PR #32 was integrated; no PR #30 ancestry or
-onboarding work was adopted. No rebase, PR merge, deployment or live restart.
+`app/p33-lifecycle-part1`. The earlier sections below describe historical pins.
+The final authorized main30 integration at the end adopts accepted PR #30 through
+main, after its actual merge. No rebase, PR merge, deployment or live restart.
 
 ## Exact history and integration decisions
 
@@ -228,4 +229,106 @@ af08797ee89fedbebd9d58fcfa069a343208ad594deee7b98d14a4b107bef601  e2e/playwright
 57cffd7bc1c2997879f42e03b13198fdfa7d4f2c05a09d17eae53b666cc32f43  packaging-regressions.log
 13c078f4a9452cbc02ee51d66b8724e21a0024ec1db60425c0e73336566bebb9  packaging-regressions.xml
 40b58bf1d50f2527928ef5401a1ecb27cb68263c39ed357d4508ac393e5798a8  packaging-behavior.log
+```
+
+## Final authorized main30 integration
+
+After Aaron merged PR #30, the parent explicitly authorized fixed main
+`ddd054fe399fef46dd64b6e8ec95b2676af8f09f`. The final proper merge has first
+parent `d6b348587fd47c68d91508ef43fb54fe2f9a7655` and that exact main as
+second parent. No rebase or stacked unaccepted PR was introduced. Remote main
+was still at the fixed pin after all gates; unrelated later changes were not adopted.
+
+### Source and conflict decisions
+
+- Playwright retains the five lifecycle spec lanes and accessibility isolation;
+  onboarding remains in its separately owned Vitest/Electron runner, invoked by
+  `test:real-core`. All lifecycle and onboarding app scripts survive.
+- Runtime publishes both async keyring-backed `first_run` and the original
+  `resource_cleanup` journal projection. Unknown native/process receipts remain
+  unknown, no effects-undone claim, no replay or replacement cleanup owner.
+- Core, management and engine services auto-merged, then were compared critically
+  against both parents. Accepted main's off-loop settings hydration, startup vault
+  reads/client construction, `engine.initialize_profile_provider`, async readiness
+  and initial status-before-listener exposure survive. SQLite remains loop-owned.
+- Durable explicit-only `secrets.unlock` keeps prompt-only serialization release,
+  cancellation-safe reacquisition and original receipt replay. Lifecycle request
+  and producer settlement still gate original-owner cleanup; unknown barriers stop
+  transport/turn-store teardown and retain graph/profile ownership.
+- Real smoke retains all 39 lifecycle-branch checkpoints, served persisted
+  conversations/search and provider-failure assertions. Its expected capability
+  union now includes `secrets.unlock` (91 names), plus actual first-run readiness.
+- Added one async runtime test proves repeated readiness refresh preserves the
+  durable unknown cleanup projection unchanged. The real keyring-core test now
+  checks both projections together on the same status route.
+
+The supplied `/home/odin/reviews/merge_ledger.py` refused double changes. Only five
+named entries were excluded from temporary strict-union inputs and regenerated
+with the existing drift tooling: `src/desktop/{core,management,providers,runtime,
+services}.py`. Both parents' contracts, invariants and evidence witnesses survive.
+Changed first-run/keyring behavioral evidence digests were refreshed only for
+their explicitly dependent records. No blanket recapture or invented approval.
+Original three inputs, refusal, strict union and explicit plans are in `ledger/`
+under the evidence root below.
+
+### Final fresh gates
+
+External evidence: `/home/odin/pr32-main-integration-evidence/main30/`.
+
+| Gate | Observed result | Evidence |
+| --- | --- | --- |
+| Offline drift | `errors: []`, archive verified, review pending | `drift.log` |
+| Lint | zero new findings; 7 inherited | `lint.log` |
+| Phase 2 plan | passed, 122 modules; ownership coverage only | `plan.log` |
+| `npm run check` | typecheck/build passed; 693 tests in 75 files | `app-check.log` |
+| `npm run smoke` | fixture Electron smoke passed | `app-smoke.log` |
+| `npm run test:real-core` | 21 actual core contracts + 6 actual Electron onboarding cases passed | `app-test-real-core.log` |
+| `npm run smoke:real-core` | all 39 checkpoints passed | `app-smoke-real-core.log`, `fixture-smoke-evidence.json` |
+| `npm run test:a11y` | 15/15, zero skips/flaky/failures | `app-test-a11y.log`, `a11y-report.json` |
+| `npm run test:e2e` | 29/29, zero retries/skips/flaky/failures | `app-test-e2e.log`, `e2e/playwright.json` |
+| Core/request/control/lifecycle/keyring/first-run Python selection | 769 passed in 232.99s; zero failures/skips | `python.log`, `python.xml`, `python-selection.txt` |
+| Secret-domain off-loop regressions | 9 passed in 3.91s; zero failures/skips | `secret-domain.log`, `secret-domain.xml` |
+| Journals, IPC, artifacts and retained stripped loop | 164 passed in 8.76s; zero failures/skips | `journals.log`, `journals.xml` |
+| Whitespace/conflicts | working and fixed-main delta clean; no unmerged entries | Git diff checks |
+
+Total fresh Python cases: **942** across disjoint selections. Exact bounded
+launchers/arguments are retained as `run-{app,python}-gates.sh`,
+`run-secret-domain-gate.sh` and `run-journal-gate.sh`. Python/process tests ran as
+unprivileged odin uid/gid 1003, isolated PID/mount namespace, disposable HOME/XDG,
+no inherited desktop display/bus or profile. App graphics used private Xvfb and
+owned session buses. Long jobs streamed tee logs and exited 0 under bounded
+`manage_process` polling. Existing project-local dependencies sufficed; no refresh
+or system install was needed. Accessibility emitted isolated bus/portal warnings
+without failures. One added test initially exceeded the line-length gate by one
+character; wrapped it and reran drift/lint/plan before all final gates. No test
+weakened, disabled or skipped.
+
+Independent technical source review found no concrete merge blocker in the stable
+final executable tree. This remains source/touched-suite integration, not native
+prompt acceptance, live provider generation, full engine or packaging/release
+qualification. Native platform part-2 rows remain open. No live service, install,
+account, workstation desktop or PR merge was changed. Commits have no attribution
+trailers; the branch is pushed normally, never force-pushed.
+
+### Main30 evidence SHA-256
+
+```text
+f5e6c59e127852b8fc5cf1dee0c2332f6fa634c0c799538c63e17dd66865ce6c  drift.log
+9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584  lint.log
+ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48  plan.log
+af111b6a8cda4558328c506e8a5a72095b76737200fe0465e179738ced37c50d  app-check.log
+52dc786c3a2611b1f75ade60a7c681771821e5edf1b637045f38acc606733131  app-smoke.log
+44a54d23a65dc3732b6619cbb313cbdc9430d84ebd309352d0061c70c44687e7  app-test-real-core.log
+03d883cd57bd679120ca7067b13bff75aecb9238db5a7d23c3a60dfbf6716650  app-smoke-real-core.log
+b48c7d4b36ff474278553fb1410527e34f7e5d3cfd6c21856e4e355dd298763a  fixture-smoke-evidence.json
+c2c46e0807fddfd7d70dcd1787f8fbaae7a3f9d68ed3ba38e2639a02c927e9c4  app-test-a11y.log
+38e6f3028a5f193bd060406ff65bbc4b6438b772798d5ba578d62fcf70a694d5  a11y-report.json
+632a6476810b1e70d45f891cd2a5739b00a81f65cdbbde2a6c843401ce4f2d28  app-test-e2e.log
+b2234b5447e08e4197181483de35d212adc0b50750183010b526a3a28477b630  e2e/playwright.json
+0416cea35987c772280f8819c22aaca0c45bc569dafa2f2849d19b0fcd21c4f3  python.log
+4388fa6832dc64aad72fe8e53bfff431afca0e9a56dc117f4384d23632239fbb  python.xml
+d3dae66b5da2c939d2d682dfff41cefa89cf9af9e52e5797adfd468dd13aed6f  secret-domain.log
+f28f21b089f8e38bcbbb1d64914df3af8b4cde8275f71ff2d446087cf54d5fa3  secret-domain.xml
+459f6523f151ea90eacf65b1e477d1c0e452a4981a3051caa4a64aff2b1b4123  journals.log
+7268f1c3e15b0ffc4a0e09de967c4137907379deced04365f13d74ef0fdb286a  journals.xml
 ```

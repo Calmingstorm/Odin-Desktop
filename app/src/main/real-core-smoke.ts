@@ -15,7 +15,7 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
   'conversations.reset_context', 'conversations.mark_read', 'messages.list',
   'conversation.snapshot', 'search.query', 'messages.around',
-  'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'models.image.intent',
+  'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'secrets.unlock', 'models.image.intent',
   'providers.codex.set', 'providers.auxiliary.set', 'providers.ollama.set', 'providers.compat.set',
   'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label', 'codex.login.begin', 'codex.login.poll',
   'hosts.list', 'hosts.settings', 'hosts.prepare', 'hosts.test', 'hosts.commit', 'hosts.set_enabled', 'hosts.references', 'hosts.delete', 'hosts.public_key', 'hosts.force_revoke',
@@ -29,7 +29,8 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
 ].sort()]
 export type RealCoreStatus = { phase: string; version: string; core_instance_id: string; capabilities: string[];
   model: { main: string | null; effort: string | null; provider: string | null };
-  providers: Array<{ name: string; health: string }>; limits: Record<string, number>; summary: string }
+  providers: Array<{ name: string; health: string }>; limits: Record<string, number>; summary: string;
+  first_run: { state: string; reason: string; keyring_unavailable: boolean } }
 
 export function assertFreshManagementStatus(status: RealCoreStatus): void {
   assert.equal(status.phase, 'ready') // Transport lifetime, not provider readiness.
@@ -42,6 +43,7 @@ export function assertFreshManagementStatus(status: RealCoreStatus): void {
   ])
   assert.deepEqual(status.limits, { chunk_bytes: 512 * 1024, attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10 })
   assert.match(status.summary, /Codex: unavailable/)
+  assert.deepEqual(status.first_run, { state: 'degraded', reason: 'keyring_unavailable', keyring_unavailable: true })
 }
 
 export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: string): Promise<void> {
