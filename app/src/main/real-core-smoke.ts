@@ -527,7 +527,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert(!/Service is not available yet|Loading…|Searching…/.test(await text(selector)), `${selector} must settle its served read`)
       if (selector === 'section[aria-label="Computer use"]') {
         // Served management and unqualified native input are separate claims.
-        assert.equal(await count(selector + ' .capability-unavailable'), 1)
+        await until(async () => (await count(selector + ' .capability-unavailable')) === 1, 'computer use foreground refusal')
         assert.match(await text(selector + ' .capability-unavailable'), /Foreground computer use is unavailable.*Native input is not qualified or supported.*Dispatch: none/s)
         assert.equal(await run(`document.querySelector(${JSON.stringify('button[aria-label="Refresh computer use"]')})?.disabled`), false)
       } else {
@@ -624,7 +624,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   await until(async () => (await text('.message-scroll .msg.notice .body')).includes('No LLM provider available. Please try again later.') &&
     (await text('.message-scroll .outcome')).includes('The task failed.') && (await count('.working, .msg.pending')) === 0, 'actual unavailable-provider task outcome')
   assert.equal(await count('.message-scroll .msg.user'), 1, 'submission must commit exactly one user message')
-  assert.equal(await text('.message-scroll .msg.user .body'), submissionText)
+  await until(async () => (await text('.message-scroll .msg.user .body')) === submissionText, 'committed user message text')
   assert.equal(await count('.message-scroll .msg.assistant'), 0, 'missing provider must not invent an assistant reply')
   assert(await run('document.querySelector(".composer textarea").value === ""'), 'accepted submission clears its draft')
   const failed = await broker.request('conversation.snapshot', { conversation_id: conversationId })
