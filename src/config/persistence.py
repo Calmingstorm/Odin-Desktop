@@ -796,6 +796,11 @@ def _patch_config_paths(
                     if previous is None:
                         previous = {}
                     for field_name, field_value in entry.items():
+                        # Model defaults must not materialize an ID in legacy
+                        # index/URL-identified rows. Their absent ID is durable
+                        # desired state, not an incomplete explicit identity.
+                        if field_name == "id" and field_value == "" and "id" not in previous:
+                            continue
                         if field_name == "secret" and _placeholder_still_accurate(
                             previous.get(field_name), field_value
                         ):

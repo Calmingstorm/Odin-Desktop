@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "worktree": "/home/odin/desktop-phase2-step8-part2/guard",
+  "branch": "phase-2/step8p2-guard",
+  "base": "b74056c4c9a16071426cb832db361cf86c84989a",
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "review": "/home/odin/reviews/desktop-pr26-review.md",
+  "owned_suites": [
+    {
+      "path": "tests/test_subsystem_guard.py",
+      "sha256": "5c4f14908ca2b46527800bc7304633e2833509048ee474d9192c8c68de24c1d7",
+      "status": "restored",
+      "owner_step": 5,
+      "mode": "frozen-adapter",
+      "adapter": "tests/desktop_adapters/step8_runtime_guard.py",
+      "test_entry": "tests/test_desktop_phase2_runtime_guard.py",
+      "full_export": true,
+      "case_functions": 115,
+      "collected_inherited_cases": 116,
+      "assertions": 206,
+      "exclusions": [],
+      "source_bytes_changed": false,
+      "setup_symbol": "TestGracefulDegradationConfig.test_real_bot_guard_is_always_constructed_with_supported_thresholds",
+      "setup_lines": [767, 768, 770, 779],
+      "setup_ast_sha256": "9086afe8b438724161cd25d175c34ec72b2968497b1fbf5d5ce1ce223bd03d90",
+      "setup_hash_encoding": "SHA-256 of newline-joined ast.dump(include_attributes=False) for the four complete setup statements",
+      "replacement_source": "cfg, bot = desktop_guard_graph(legacy_enabled)",
+      "corpus_verified": true,
+      "reverse_ast_verified": true,
+      "reason": "Entire inherited guard corpus executes, replacing only obsolete Discord Config/OdinBot setup with real authenticated temporary CoreService/ManagementService composition. Both original legacy_enabled parameters and all assertions/signatures/decorators remain exact."
+    }
+  ],
+  "production_changes": {
+    "files": ["src/desktop/management.py", "src/desktop/runtime.py"],
+    "construction": "ManagementService.compose constructs exactly one retained SubsystemGuard unconditionally using settings.config.graceful_degradation thresholds",
+    "shared_owners": ["ManagementService", "ToolExecutor", "ProviderOwner", "RuntimeService"],
+    "registered": ["llm_codex", "llm_ollama", "llm_compat", "codex", "ssh", "knowledge", "browser"],
+    "upstream_wiring": "Pinned src/discord/wiring.py:471-489 constructs unconditionally from the same thresholds, registers llm_codex,llm_ollama,llm_kimi,codex,ssh,knowledge,browser. Desktop's retained gateway provider name is compat, replacing upstream's legacy kimi spelling.",
+    "policy": "No modifications to SubsystemGuard thresholds/clamping, gateway outcome classification, failure recovery, transient degradation or admission policy. Existing executor-to-provider handoff now carries the production instance."
+  },
+  "validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_phase2_runtime_guard.py tests/test_desktop_management_core.py tests/test_desktop_providers.py tests/test_desktop_runtime.py",
+    "exit_code": 0,
+    "passed": 178,
+    "duration_seconds": 7.22,
+    "log": "maintenance/step8-part2-guard-test.log",
+    "pid_namespace": true,
+    "sanitized_environment": true,
+    "full_qualification_run": false,
+    "behavioral_evidence": [
+      "Both legacy_enabled parameters authenticate a real temporary token handshake and status.get; removed flag absent on actual adopted Config",
+      "Constructor observation delegates to real __init__, verifies a single construction with 7/19 and exact identity across executor/providers/runtime/management",
+      "Registration exact and always available initially even with Codex disabled",
+      "Real gateway call_with_tools for codex, ollama and compat records actual stub-transport failures; 6 remain available, 7 becomes degraded, 19 unavailable, 20th admission blocked before dispatch",
+      "Runtime observes degraded/unavailable on that same shared guard; success through real gateway resets a degraded guard and counters",
+      "Omitted profile thresholds adopt default 3/10 transitions; independent subsystem state remains available",
+      "Negative AST tests reject setup threshold mutation, inherited assertion mutation, and unrelated nonassert setup insertion"
+    ]
+  },
+  "independent_review": {
+    "agent_id": "11a6da6d",
+    "verdict": "approved",
+    "scope": "Read-only production composition and full frozen adapter fidelity; no concrete defect found. Reviewer did not run tests or rely on test log."
+  },
+  "scope": {
+    "shared_maps_ledgers_checker_qualification_plan_changed": false,
+    "live_install_or_native_desktop_touched": false,
+    "network_calls": false,
+    "pushed": false
+  }
+}

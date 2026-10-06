@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "reviewer_merge_helper": "/home/odin/reviews/merge_ledger.py",
+  "records": [
+    {
+      "main": "d546c44c29388225015f20747c55930413b03f75",
+      "path": "src/desktop/core.py",
+      "ours_after_sha256": "e7a642f228606369a08af786d49301913823e29afd930eaa6c82fb15924236db",
+      "theirs_after_sha256": "c9c7f61d4b48b89f16833da8dad34c809dfb3e59c2de68f0290871b793d50d77",
+      "merged_after_sha256": "5d08bc22231809f47fd6930d468b4f0c139977c80c38424e40e2c459e1ab3eab",
+      "qualification_tests": [
+        "tests/test_desktop_conversation_core.py",
+        "tests/test_desktop_core_durability.py",
+        "tests/test_desktop_core_entry.py",
+        "tests/test_desktop_core_lifecycle.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_review_quota_lifecycle.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    },
+    {
+      "main": "d546c44c29388225015f20747c55930413b03f75",
+      "path": "src/desktop/hosts.py",
+      "ours_after_sha256": "a2fd28f55df70807f7ffcefc6f9594e33fff28c15291143c3d0eb74c962467dd",
+      "theirs_after_sha256": "4d521f6214b78d7f267b99fb6f4d55b1de44c67ac97d3d85fc03aba39fdac707",
+      "merged_after_sha256": "a2fd28f55df70807f7ffcefc6f9594e33fff28c15291143c3d0eb74c962467dd",
+      "qualification_tests": [
+        "tests/test_desktop_hosts.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_provisioning.py",
+        "tests/test_desktop_review_audit_authority.py",
+        "tests/test_desktop_review_provider_hosts.py",
+        "tests/test_desktop_review_provider_hosts_provenance.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    },
+    {
+      "main": "d546c44c29388225015f20747c55930413b03f75",
+      "path": "src/desktop/management.py",
+      "ours_after_sha256": "46fd36deca55d88a46aab2bcace5f30ef1806ff17b5197d0607ab1d6a478dbbe",
+      "theirs_after_sha256": "8c1bfd9f6ddcc01ef2dee56d8396da1cd2e6793eab83e6195ebc8c646bdfd89c",
+      "merged_after_sha256": "10e08bcbaf74c96dd83998cf2de2bf0f85488f7ea4e120c3439fec1bef775b10",
+      "qualification_tests": [
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_management.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_review_provider_quota.py",
+        "tests/test_desktop_review_quota_lifecycle.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    },
+    {
+      "main": "d546c44c29388225015f20747c55930413b03f75",
+      "path": "src/desktop/model_settings.py",
+      "ours_after_sha256": "9fb744062baaa5a8d38c6f9f853fc1d1f723041423f556438178578230e290a2",
+      "theirs_after_sha256": "9fb744062baaa5a8d38c6f9f853fc1d1f723041423f556438178578230e290a2",
+      "merged_after_sha256": "9fb744062baaa5a8d38c6f9f853fc1d1f723041423f556438178578230e290a2",
+      "qualification_tests": [
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
+        "tests/test_desktop_providers.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    },
+    {
+      "main": "d546c44c29388225015f20747c55930413b03f75",
+      "path": "src/desktop/providers.py",
+      "ours_after_sha256": "2280032fc2514754a53f3617bb931c7517d522179a37b966a15a35d0749d624f",
+      "theirs_after_sha256": "1c34c7980a9c303cb86c9b252c78b14b0c971929d21660ba8dd8c3108a6c7374",
+      "merged_after_sha256": "0ecef62c96858728086da9e97bada26b903a0226f932ad00b70ef16a5f0b1f22",
+      "qualification_tests": [
+        "tests/test_desktop_codex_accounts.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
+        "tests/test_desktop_phase2_review_llm.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_providers.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_review_provider_policy_reload.py",
+        "tests/test_desktop_review_quota_lifecycle.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    },
+    {
+      "main": "d546c44c29388225015f20747c55930413b03f75",
+      "path": "src/desktop/records.py",
+      "ours_after_sha256": "44504318eb705db9656c0b916f1abfd72332f46cd9e5f3774d0bc2f546e41557",
+      "theirs_after_sha256": "cf3795dcc667bf07e8b87dbe7d1046d6f7d93faf162fe65e8f2a1473da449173",
+      "merged_after_sha256": "44504318eb705db9656c0b916f1abfd72332f46cd9e5f3774d0bc2f546e41557",
+      "qualification_tests": [
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_records.py",
+        "tests/test_desktop_review_audit_authority.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    },
+    {
+      "main": "d546c44c29388225015f20747c55930413b03f75",
+      "path": "src/desktop/runtime.py",
+      "ours_after_sha256": "b0f1a577b0300a7b12e0e21f82746e92a029f80a805cc0ed3f3ad38f0b03755f",
+      "theirs_after_sha256": "715253dd309b6e85c7bab484d266652e95a7ffbb6a35af56c704b0a98a18c2f1",
+      "merged_after_sha256": "b0f1a577b0300a7b12e0e21f82746e92a029f80a805cc0ed3f3ad38f0b03755f",
+      "qualification_tests": [
+        "tests/test_desktop_core_lifecycle.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_runtime.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    },
+    {
+      "main": "d546c44c29388225015f20747c55930413b03f75",
+      "path": "src/desktop/settings.py",
+      "ours_after_sha256": "74089442562f58b07a4d86d369ae66f74e6241661be678e5d18a40ec2fd0260d",
+      "theirs_after_sha256": "17e0bfc8a0c99bb1ee7d72e7a645cbe87d6dc943e8aa3bd92f1890910f3e52aa",
+      "merged_after_sha256": "74089442562f58b07a4d86d369ae66f74e6241661be678e5d18a40ec2fd0260d",
+      "qualification_tests": [
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
+        "tests/test_desktop_providers.py",
+        "tests/test_desktop_review_audit_authority.py",
+        "tests/test_desktop_review_provider_image.py",
+        "tests/test_desktop_review_provider_image_inherited.py",
+        "tests/test_desktop_settings.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    },
+    {
+      "main": "4ea7aa0f3b423a301854a9f0bdd2a46bc92d9d7b",
+      "path": "src/desktop/core.py",
+      "ours_after_sha256": "dcc977bda68ed2b28aabc50bf1cfdde99debbedb71f29f8f65e07bbf97e5f39b",
+      "theirs_after_sha256": "11cae7e4adf6175272a6e0b542ffd7a6d3266a32163560965d5f3bec1f6de08a",
+      "merged_after_sha256": "5d08bc22231809f47fd6930d468b4f0c139977c80c38424e40e2c459e1ab3eab",
+      "qualification_tests": [
+        "tests/test_desktop_auto_resume.py",
+        "tests/test_desktop_control_core.py",
+        "tests/test_desktop_conversation_core.py",
+        "tests/test_desktop_core_durability.py",
+        "tests/test_desktop_core_entry.py",
+        "tests/test_desktop_core_lifecycle.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_resume_no_ledger.py",
+        "tests/test_desktop_resume_trigger.py",
+        "tests/test_desktop_review_quota_lifecycle.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    },
+    {
+      "main": "4ea7aa0f3b423a301854a9f0bdd2a46bc92d9d7b",
+      "path": "src/desktop/management.py",
+      "ours_after_sha256": "10e08bcbaf74c96dd83998cf2de2bf0f85488f7ea4e120c3439fec1bef775b10",
+      "theirs_after_sha256": "8c1bfd9f6ddcc01ef2dee56d8396da1cd2e6793eab83e6195ebc8c646bdfd89c",
+      "merged_after_sha256": "10e08bcbaf74c96dd83998cf2de2bf0f85488f7ea4e120c3439fec1bef775b10",
+      "qualification_tests": [
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_management.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_review_provider_quota.py",
+        "tests/test_desktop_review_quota_lifecycle.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    },
+    {
+      "main": "4ea7aa0f3b423a301854a9f0bdd2a46bc92d9d7b",
+      "path": "src/desktop/providers.py",
+      "ours_after_sha256": "0ecef62c96858728086da9e97bada26b903a0226f932ad00b70ef16a5f0b1f22",
+      "theirs_after_sha256": "1c34c7980a9c303cb86c9b252c78b14b0c971929d21660ba8dd8c3108a6c7374",
+      "merged_after_sha256": "0ecef62c96858728086da9e97bada26b903a0226f932ad00b70ef16a5f0b1f22",
+      "qualification_tests": [
+        "tests/test_desktop_codex_accounts.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
+        "tests/test_desktop_phase2_review_llm.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_providers.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_review_provider_policy_reload.py",
+        "tests/test_desktop_review_quota_lifecycle.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    },
+    {
+      "main": "4ea7aa0f3b423a301854a9f0bdd2a46bc92d9d7b",
+      "path": "src/desktop/services.py",
+      "ours_after_sha256": "b0768fdff8fc6d876f23fa31c1d6514cd6b7091a75442b2486298c3db6d4cf4b",
+      "theirs_after_sha256": "e1ee8663296793ff0b016efc6dcf13f27f9c552bc1adc061cac089511e95a188",
+      "merged_after_sha256": "b0768fdff8fc6d876f23fa31c1d6514cd6b7091a75442b2486298c3db6d4cf4b",
+      "qualification_tests": [
+        "tests/desktop_adapters/test_phase2_runner_characterization.py",
+        "tests/test_desktop_core_durability.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_persisted_outputs.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_request_failures.py",
+        "tests/test_desktop_review_quota_lifecycle.py"
+      ],
+      "resolution": "Preserve both actual source behaviors and exact by-path test union; no independent approval fabricated."
+    }
+  ]
+}

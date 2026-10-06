@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "artifact": "Step8 part2 rebased-main single clean qualification receipt",
+  "execution_commit": "4a65cf423a7b420d967dab3ee7045657db0d0542",
+  "integration_base": "caa871cdee8017015eef1b994af2c0453f09d5f2",
+  "fresh_checkout": "/home/odin/desktop-phase2-step8-part2/qualification-rebased/final",
+  "workspace_mode": "2775 parent/checkout; umask002 before worktree add",
+  "installation": "uv sync --locked --extra dev; pip26.2.1 carried by lock; no manual remediation",
+  "runner": "USER=odin .venv/bin/python scripts/run-qualified-tests.py",
+  "isolation": "nonroot odin isolated mount/PID namespace procfs env-i throwaway HOME/XDG no display/DBus/live credentials",
+  "full_runs": 1,
+  "single_clean_full_invocation": true,
+  "exit_code": 0,
+  "groups": 30,
+  "totals": {
+    "passed": 14328,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 2
+  },
+  "group_results": [
+    {
+      "name": "direct-shared-stores-providers-tools",
+      "passed": 3158,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "7a910fc6b6a559a0754d2ffde1a4c4d8c683228795293f5b55841c7b8a9b3412"
+    },
+    {
+      "name": "direct-shared-computer",
+      "passed": 3559,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "e8b1424c19fdb5de816d340f87cfe384f20fa1d8ac30c181df5b6e7a06512fca"
+    },
+    {
+      "name": "direct-shared-hyprland",
+      "passed": 888,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "junit_sha256": "6462b551310a083bfa6065249c107057eb9c55eff7b8a8144348a8a5efab4a89"
+    },
+    {
+      "name": "direct-shared-engine",
+      "passed": 1442,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "f365c0695649df1cf766b1bb1d5c51b551afe600328af43b445ed47d83845633"
+    },
+    {
+      "name": "faithful-computer-recovery",
+      "passed": 188,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "fd5d7e70d301855371c3db02c45fd6d9c63166301f5e10dbe068a75376ef6d0e"
+    },
+    {
+      "name": "faithful-config",
+      "passed": 286,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "2ea2eaf8d0716d09a64df0ca7501e94dc2f431dbb051c3deff9ea15d709255ce"
+    },
+    {
+      "name": "faithful-computer-declaration",
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "7d4ca04cc06781f16ec93915860559c56416857ae15ed059d841d2341d0429f0"
+    },
+    {
+      "name": "faithful-tools",
+      "passed": 269,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "junit_sha256": "f99fe76a8d045addc9ac8b23e4e0559895397ae8286d63da3a2d2638c46d00fe"
+    },
+    {
+      "name": "faithful-tools-extra",
+      "passed": 135,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "ac89557510cb593b3562bc3bac46b6b69d42bab19dfdc0dcbc3e3f643986245b"
+    },
+    {
+      "name": "faithful-llm",
+      "passed": 187,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "a15eea4e21cdaa918beb133c6d88a4e49309c6e3f8493390d14629935a5c96cb"
+    },
+    {
+      "name": "direct-neutral-metadata",
+      "passed": 36,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "a96796a30a419dbd66789646cd1040af6a040841491a5c8ce2a25adbbee0be09"
+    },
+    {
+      "name": "neutral-completion-classifier",
+      "passed": 28,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "daab67bd81fc64ce428908b16517fcdf53b08e59a87e91d00b07fba57b49e57a"
+    },
+    {
+      "name": "neutral-host-control",
+      "passed": 59,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "5d6aa8bfce5904a0c423777ef7c50aaa6c50217466f1b789711c2b124d85d3ee"
+    },
+    {
+      "name": "neutral-subsystem-guard",
+      "passed": 126,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "6fa454fa36bb76aec51ed5b3105a80cae371b60f7eb899fa83b330a4eed276cd"
+    },
+    {
+      "name": "neutral-fd-health",
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "ce27e898e614f8efa7a5d501f46d319a9d0091eeaf38b6ecf87a5fae9dfdbf8d"
+    },
+    {
+      "name": "neutral-parallel-policy",
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "b7674c01ec4a61adb7eb2d16d864150ff2ec2e03b37a8de1ee51858eabac472b"
+    },
+    {
+      "name": "faithful-foundation",
+      "passed": 946,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "24a2837612bd13b1931a24dd79aefb95b6bfd8fcb59a62f91a5be6f00ad0c517"
+    },
+    {
+      "name": "faithful-migrations",
+      "passed": 33,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "bc095b93bca360fde564336fb5141dc05f3b84d8715fc9207171d79b53f3e0b3"
+    },
+    {
+      "name": "mixed-original-passed-cases",
+      "passed": 875,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "021b429248a6d8cbec9c2e6a7bd4a52fdd84543dab066f316dfd2e0986e61910"
+    },
+    {
+      "name": "desktop-boundary-tests",
+      "passed": 481,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "d72774e5298006359098462b7064c508652731ac7ddf0769272c582271ac8108"
+    },
+    {
+      "name": "direct-foundation-neutral-remainder",
+      "passed": 167,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "5ed40c617590aa432013db11dadbbcb63df1f64f43445927ee679d893a7450c6"
+    },
+    {
+      "name": "direct-isolation-timeout-neutrals",
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "e940879fd5ea148c11d6bce038aece8b665acb4f0126323211eb98c932a25655"
+    },
+    {
+      "name": "faithful-owner-contracts",
+      "passed": 122,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "4dbb598c5d36059277a5f0c8d1fe03cd225675f374c7909790f65c0f869e2397"
+    },
+    {
+      "name": "faithful-retirement-corpus",
+      "passed": 32,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "493c8096b58491e2f447d66d42e59fd2a8d1c6b0966dca0bded7a51ab3688101"
+    },
+    {
+      "name": "final-historical-cases",
+      "passed": 36,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "1dfd87f6932de5bed2b5d5c93315a7faff8ba890f57dbf6faad52993eec70990"
+    },
+    {
+      "name": "final-helper-cases",
+      "passed": 34,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "698de14950ef2839d63a59cf58a0a1c4a6e2f71cd7126c348b31da80595e046b"
+    },
+    {
+      "name": "final-distribution-cases",
+      "passed": 32,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "e12bf6fd0792c1d28231cbb824ee6a2037d6b492a04c260780ce42a6ddd0a620"
+    },
+    {
+      "name": "final-config-cases",
+      "passed": 72,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "039f28b486626c73f9e4707572358ddd18ae738e96ac60487583dc17eed50ec6"
+    },
+    {
+      "name": "phase2-core-transport",
+      "passed": 567,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "ad2aa33405ce49fdf51bbd982744b76fcf561e22eeda04ec7862f6cbf3153da1"
+    },
+    {
+      "name": "phase2-step5-profile-management",
+      "passed": 552,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "d3d5c4b516b9eada17ef4020bf107d05d5036a734e6f19d4889b55f5c4410547"
+    }
+  ],
+  "qualification_plan_sha256": "073da35db6a3973e3206a82f22d95e881f3db0fb21aff46c52e781e1e49b4fc4",
+  "step5": {
+    "audited": 85,
+    "restored_whole": 10,
+    "direct_original": 4,
+    "frozen_adapter": 6,
+    "inherited_cases": 201,
+    "still_deferred": 75
+  },
+  "historical": {
+    "population": 326,
+    "restored": 19,
+    "retired": 5,
+    "deferred": 302
+  },
+  "acceptance": "pending independent PR review; not Phase2 closure",
+  "limitations": [
+    "Execution totals include existing group duplication and new tests; not unique inherited-case totals",
+    "Two inherited skips; unsuppressed coroutine and process-finalizer warnings",
+    "Native/network/whole-engine parity not claimed;75 step5 suites still blocked"
+  ],
+  "log": "/home/odin/desktop-phase2-step8-part2/qualification-rebased/full.log",
+  "preceding_clean_invocation": "maintenance/phase2-step8-part2-result.json",
+  "reason_for_second_full_gate": "ExternalPR27 merge changed actual runtime/test bytes; first gate cannot qualify rebased result"
+}

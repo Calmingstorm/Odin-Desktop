@@ -1,0 +1,348 @@
+{
+  "schema_version": 1,
+  "reviewer": "Claude, review of #34",
+  "entries": [
+    {
+      "path": "tests/test_hosts_api.py",
+      "inherited_sha256": "5d430317b977293f50151292dec46c455b93088a4dde0d99a811c9bd32796173",
+      "status": "restored",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_review_provider_hosts.py"
+        ],
+        "reason": "Complete frozen inherited corpus on actual Desktop owners",
+        "inherited_cases": 29
+      },
+      "references": [
+        "tests/desktop_adapters/review_provider_hosts.py",
+        "tests/test_desktop_review_provider_hosts_provenance.py",
+        "src/desktop/hosts.py"
+      ],
+      "evidence": "29 inherited cases, 12 adapter/product proofs and 9 existing desktop host cases passed. Frozen retained byte hash unchanged; all inherited assertion/signature/decorator/parameter ASTs identical; six exact setup hunks independently reverse to entire original AST."
+    },
+    {
+      "path": "tests/test_codex_quota_check.py",
+      "status": "restored",
+      "inherited_sha256": "f478b1afe910589314a8ea4ffaae91f73edfe09a27debc4455a8252efe0cf462",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_review_provider_quota.py"
+        ],
+        "reason": "Complete frozen inherited corpus on actual Desktop owners",
+        "inherited_cases": 10
+      },
+      "references": [
+        "tests/desktop_adapters/review_provider_quota.py"
+      ],
+      "evidence": [
+        "Complete named inherited suite passed with original bytes/hash/corpus intact"
+      ]
+    },
+    {
+      "path": "tests/test_campaign_provider_reload_coverage.py",
+      "status": "restored",
+      "inherited_sha256": "e710eaf69e4d04367498a18432f0238460bdce0b0412adfa74ecb59bdab78f39",
+      "references": [
+        "src/desktop/settings.py",
+        "src/desktop/providers.py",
+        "tests/desktop_adapters/review_provider_reload.py"
+      ],
+      "evidence": [
+        "1 inherited case/6 assertions unchanged; actual candidate file patch and real byte-for-byte snapshot restoration are recorded as two durable phases"
+      ],
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_review_provider_reload.py"
+        ],
+        "reason": "Actual qualification rejection/internal_error carrier and observed durable rollback, no expected business result fake",
+        "inherited_cases": 1
+      }
+    },
+    {
+      "path": "tests/test_image_model_config_api.py",
+      "status": "deferred",
+      "inherited_sha256": "25a525b1f9b5b5b1c45aac61b61f34c814afafc57d4fc5c3f361e635da145a62",
+      "blocked_on": "awaiting the step 5 completion PR",
+      "references": [
+        "src/desktop/settings.py",
+        "tests/desktop_adapters/review_provider_image_inherited.py"
+      ],
+      "evidence": [
+        "5 inherited definitions/10 parameter cases passed with unchanged assertion corpus; full11 definitions/17 parameter cases not restored",
+        "Real whole-image follow/pin roundtrip bug fixed; blocked authority/async cancellation/legacy transaction lock/audit hook meanings remain honest"
+      ],
+      "partial_adaptation": {
+        "mode": "frozen-adapter-partial",
+        "selectors": [
+          "tests/test_desktop_review_provider_image_inherited.py"
+        ],
+        "inherited_cases": 10,
+        "selected_definitions": [
+          "test_bad_operation_rejected",
+          "test_equal_value_pin_invalidates_stale_follow_revision",
+          "test_follow_both_atomic_preserves_other_text_and_runtime",
+          "test_generic_roundtrip_preserves_follow_and_pin",
+          "test_metadata_uses_presence_not_default_equality"
+        ],
+        "missing_behavior": {
+          "test_operation_admin_only": "Desktop has no multi-user HTTP api-token/admin policy; profile authority is not anonymous-token rejection.",
+          "test_cancellation_publishes_only_durable_commit": "Synchronous Desktop image intent has no awaited persistence (error, cancelled) result/publication contract.",
+          "test_pin_uses_lock_current_state_and_preserves_concurrent_save": "Desktop uses profile/file locks, not legacy async config_transaction; inventing a suspended request changes scheduling meaning.",
+          "test_error_branches_and_audit_failure": "Desktop image intent does not call the inherited diff-tracker hook; unused-hook fault injection would not test audit-failure isolation."
+        },
+        "whole_suite_restored": false
+      }
+    }
+  ],
+  "setup_hunks": [
+    {
+      "path": "tests/test_campaign_provider_reload_coverage.py",
+      "symbol": "<module>",
+      "line": 4,
+      "before_source": "from aiohttp.test_utils import TestClient, TestServer",
+      "after_source": "from tests.desktop_adapters.review_provider_reload import TestClient, TestServer",
+      "kind": "statement",
+      "reversible": true,
+      "before_sha256": "a4c9ffaa0ad4b0d5f73d26288eb4909a6de85c114195ec40be4767111b566dfd",
+      "after_sha256": "28d584f2df3f35262de2205f10a3169b055b50883a2d2586e5b4382cb184910c"
+    },
+    {
+      "path": "tests/test_campaign_provider_reload_coverage.py",
+      "symbol": "<module>",
+      "line": 6,
+      "before_source": "from src.web.api.llm_admin import register_provider_config",
+      "after_source": "from tests.desktop_adapters.review_provider_reload import register_provider_config",
+      "kind": "statement",
+      "reversible": true,
+      "before_sha256": "235760f97a7bf1c1c7a1d32a2b69dd5d183bfb86468e9c2b9520a301007c2e31",
+      "after_sha256": "51640832bbac0925dd1fb56c06c99a4ce96c56d470d765a2c3668cda9d84edb0"
+    },
+    {
+      "path": "tests/test_campaign_provider_reload_coverage.py",
+      "symbol": "<module>",
+      "line": 7,
+      "before_source": "from tests.test_web_api_llm_admin import _app, _gw",
+      "after_source": "from tests.desktop_adapters.review_provider_reload import _app, _gw",
+      "kind": "statement",
+      "reversible": true,
+      "before_sha256": "3e0f0b27310ef89022cc03081e336ab4c5a13ecf8af415080361c8fa5027143b",
+      "after_sha256": "9fef39f375718a5e409fa22578784a2305e8f2d99323fd24235a1d5f7214b08f"
+    },
+    {
+      "path": "tests/test_campaign_provider_reload_coverage.py",
+      "symbol": "test_enabled_compatible_reload_reason_rolls_back_configuration",
+      "line": 17,
+      "before_source": "monkeypatch.setattr(\"src.web.api.llm_admin.persist_config_paths_locked\", persist)",
+      "after_source": "monkeypatch.setattr(\"tests.desktop_adapters.review_provider_reload.persist_config_paths_locked\", persist)",
+      "kind": "statement",
+      "reversible": true,
+      "before_sha256": "0c63dfe073c3ee5f57e7d8a7befbd8b0ad38753875d033af103cad57af0b136d",
+      "after_sha256": "90abe28461c1368a82a9074ae1960ede61974a5ecc22eb79e9b6b6362bf24f43"
+    },
+    {
+      "path": "tests/test_campaign_provider_reload_coverage.py",
+      "symbol": "test_enabled_compatible_reload_reason_rolls_back_configuration",
+      "line": 18,
+      "before_source": "gateway.reload_openai_compatible_inner = AsyncMock(return_value={\"configured\": True, \"reason\": \"candidate qualification failed\"})",
+      "after_source": "gateway._probe_openai_compatible = AsyncMock(return_value=\"candidate qualification failed\")",
+      "kind": "statement",
+      "reversible": true,
+      "before_sha256": "668223c843856e1cb8761967da8922609be84152b070e417da05e39112a55ffc",
+      "after_sha256": "672f1320adb58edd0429b576142551472f0867cf9228705066179d8d9fdca0a9"
+    },
+    {
+      "path": "tests/test_image_model_config_api.py",
+      "symbol": "<module>",
+      "line": 8,
+      "before_source": "from aiohttp.test_utils import TestClient as BaseTestClient",
+      "after_source": "from tests.desktop_adapters.review_provider_image_inherited import TestClient as BaseTestClient",
+      "before_sha256": "e0ed078dd5810f70063baac31ff46bf0a24b33a4929b2d9d888278cf978206a0",
+      "after_sha256": "0fad50a53ac6ab75b546c048633e02b3efcc139877a8b22c1d6d1e0ec87462de",
+      "reversible": true,
+      "kind": "statement"
+    },
+    {
+      "path": "tests/test_image_model_config_api.py",
+      "symbol": "<module>",
+      "line": 9,
+      "before_source": "from aiohttp.test_utils import TestServer",
+      "after_source": "from tests.desktop_adapters.review_provider_image_inherited import TestServer",
+      "before_sha256": "84e8429252fd0dce082f8fb441849d35f0cce7755fda3dc07f159d55267c0ae6",
+      "after_sha256": "a89ccfe065551ef6cc00a144a29c8625c5e787d22135e943e9235632465844dd",
+      "reversible": true,
+      "kind": "statement"
+    },
+    {
+      "path": "tests/test_image_model_config_api.py",
+      "symbol": "<module>",
+      "line": 11,
+      "before_source": "from src.config.schema import Config, active_config_path, set_active_config_path",
+      "after_source": "from tests.desktop_adapters.review_provider_image_inherited import Config",
+      "before_sha256": "d6af6bfe88f2cb44ee9f0415ccee5da8a61bb62319c70752f11f1fef69d5b008",
+      "after_sha256": "af37435857bc0e404bc91d70bc2df8f178c089b5be06894b4d691edacb947454",
+      "reversible": true,
+      "kind": "statement"
+    },
+    {
+      "path": "tests/test_image_model_config_api.py",
+      "symbol": "state",
+      "line": 37,
+      "before_source": "@pytest.fixture\ndef state(tmp_path):\n    path = tmp_path / 'config.yml'\n    path.write_text('discord:\\n  token: fake\\n# keep this\\nimage:\\n  openai:\\n    outer_model: custom-outer\\n')\n    previous = active_config_path()\n    set_active_config_path(path)\n    bot = SimpleNamespace(config=Config(discord={'token': 'fake'}, image={'openai': {'outer_model': 'custom-outer'}}), api_token_manager=None, tool_catalog=None)\n    routes = web.RouteTableDef()\n    config_admin.register_discord_config(routes, bot)\n    app = web.Application()\n    app.router.add_routes(routes)\n    yield (app, bot, path)\n    set_active_config_path(previous)",
+      "after_source": "@pytest.fixture\ndef state(tmp_path):\n    graph = make_graph(tmp_path)\n    yield (graph, graph, graph.settings.paths.config_file)",
+      "before_sha256": "d6151797b78f574b34a95751d59b85f6d2d3f3d825b66fdd95c470ae3f42d2c1",
+      "after_sha256": "59f6a5499aaaf850aeaa48b25553bca0a4be4c4f51aabe108c2f48ff59b66eeb",
+      "reversible": true,
+      "kind": "statement"
+    },
+    {
+      "symbol": "<module>",
+      "line": 17,
+      "kind": "ImportFrom",
+      "before_sha256": "3d8c3610792369d562462f782609dfc65e70367a4cfe745f783096882dc296a2",
+      "after_sha256": "0428aef03e3a773cda86d9aa770bd275bfd849c7be7d1ca40d792f8ef56eb810",
+      "before_source": "from aiohttp import web",
+      "after_source": "from typing import Any as web"
+    },
+    {
+      "symbol": "<module>",
+      "line": 18,
+      "kind": "ImportFrom",
+      "before_sha256": "a4c9ffaa0ad4b0d5f73d26288eb4909a6de85c114195ec40be4767111b566dfd",
+      "after_sha256": "a9869a046927efe162ac0ea23891b84d13f11e87ce4889f555a566621728db64",
+      "before_source": "from aiohttp.test_utils import TestClient, TestServer",
+      "after_source": "from typing import Any as TestClient, Any as TestServer"
+    },
+    {
+      "symbol": "<module>",
+      "line": 23,
+      "kind": "ImportFrom",
+      "before_sha256": "e9e7178fdbf54bd2ca454dba8981cd5277331927c8a20d44fa1c177ac7f93b92",
+      "after_sha256": "5620342be1f9f3751a3760c7400c598ed76d9bff46d845f93a8ba50cfd2c30d2",
+      "before_source": "from src.web.api import hosts as hosts_api",
+      "after_source": "from tests.desktop_adapters.review_provider_hosts import api as hosts_api"
+    },
+    {
+      "symbol": "_bot",
+      "line": 60,
+      "kind": "FunctionDef",
+      "before_sha256": "8190432b4ff3aaa7ec8434faae4a848c26e91c60b0f64069e3743c0656fbc977",
+      "after_sha256": "b0c319dd714a3db48f44d8cb50d8c6047010c852816db8bd7a5f698be7eeb1ef",
+      "before_source": "def _bot(tmp_path, *, hosts=None, auth=False, with_registry=True):\n    configured = hosts if hosts is not None else {'alpha': _host()}\n    registry = HostRegistry(configured, key_path='/fake/effective-key', legacy_known_hosts_path='/fake/effective-known-hosts', default_host='alpha', trust_dir=tmp_path / 'trust') if with_registry else None\n    tools = SimpleNamespace(hosts=configured, default_host='alpha' if 'alpha' in configured else '', allow_host_tofu=False, ssh_key_path='/fake/desired-key', ssh_known_hosts_path='/fake/desired-known-hosts')\n    return SimpleNamespace(config=SimpleNamespace(tools=tools, web=SimpleNamespace(api_token='configured' if auth else '', api_tokens=[])), host_registry=registry, prompt_builder=SimpleNamespace(cached_hosts={'old': 'value'}), audit=_Audit(), tool_executor=SimpleNamespace(_process_registry=_Processes()))",
+      "after_source": "def _bot(tmp_path, *, hosts=None, auth=False, with_registry=True):\n    return make_bot(tmp_path, hosts=hosts, auth=auth, with_registry=with_registry, host_factory=_host, audit_factory=_Audit, process_factory=_Processes)"
+    },
+    {
+      "symbol": "_app",
+      "line": 92,
+      "kind": "FunctionDef",
+      "before_sha256": "db4aa161edd2685f0f9720889db1d18332a7e22e91b99a31d2a872a535df9029",
+      "after_sha256": "f88e39e8c34815b0bdc6362a1d33681df29edb23feca759b0c1d18fb8615379b",
+      "before_source": "def _app(bot) -> web.Application:\n    app = web.Application()\n    routes = web.RouteTableDef()\n    hosts_api.register_hosts(routes, bot)\n    app.router.add_routes(routes)\n    return app",
+      "after_source": "def _app(bot) -> web.Application:\n    return bot.service"
+    },
+    {
+      "symbol": "_client",
+      "line": 100,
+      "kind": "AsyncFunctionDef",
+      "before_sha256": "7941e72c306ca09ecd33b39df5aa2bf6a2e62fcbe276e7f2dcfdd90096914e52",
+      "after_sha256": "9a0d7594984231c26f13b5bf92f0ddf8733a04dfb8a495dabb8c74f722a05fb1",
+      "before_source": "async def _client(bot) -> TestClient:\n    return TestClient(TestServer(_app(bot)))",
+      "after_source": "async def _client(bot) -> TestClient:\n    return CommandClient(bot)"
+    }
+  ],
+  "targeted_results": {
+    "passed": 132,
+    "failed": 0,
+    "warnings": 2,
+    "scope": "12 named provider/settings/hosts suites; USER=odin phase1 runner isolated PID/mount namespace sanitized throwaway HOME",
+    "full_qualification": false
+  },
+  "changes_by_path": [
+    {
+      "path": "src/desktop/hosts.py",
+      "after_sha256": "ec1b1220697179944caa4440b9c4faa7ea46e79c027757edb3242901a3f56db1"
+    },
+    {
+      "path": "src/desktop/providers.py",
+      "after_sha256": "2280032fc2514754a53f3617bb931c7517d522179a37b966a15a35d0749d624f"
+    },
+    {
+      "path": "src/desktop/settings.py",
+      "after_sha256": "8c6b2543aff8309f006d009091759b86cfb4ed785c9510529ca90362978af1c5"
+    },
+    {
+      "path": "tests/desktop_adapters/review_provider_hosts.py",
+      "after_sha256": "08fab286067b1d01e291111884126914d49c6282c86f98ad838af0a668e65c3d"
+    },
+    {
+      "path": "tests/desktop_adapters/review_provider_image.py",
+      "after_sha256": "955753e2d8a9441e2f92694e5f111695a11054dd4d5d4067035350c56b89c956"
+    },
+    {
+      "path": "tests/desktop_adapters/review_provider_image_inherited.py",
+      "after_sha256": "db83f3a8ca75d1c109dceed22c2bd54e9ecec5890b332de3829b1d1682b8d0a1"
+    },
+    {
+      "path": "tests/desktop_adapters/review_provider_llm.py",
+      "after_sha256": "ef9b891c075b4e0cdef71f4c80c4e75d75378eb87982abcd9ca343c5adbd5412"
+    },
+    {
+      "path": "tests/desktop_adapters/review_provider_quota.py",
+      "after_sha256": "49b39e016a1821924767aacd7e2ee1d3604c9096f89fd5f449ef19e529685f1a"
+    },
+    {
+      "path": "tests/desktop_adapters/review_provider_reload.py",
+      "after_sha256": "e203a99982d574d100c66b4fb1d3e4ade49af76b7c2ec1b106bbcf6e4b88d190"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_hosts.py",
+      "after_sha256": "0e9edd0ee44bc69fbbd7d310f3b303c5439b81d886e5e8b878fc5d8ca69ed4b1"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_hosts_provenance.py",
+      "after_sha256": "337da70a903ca37614b8dd42f77a271600f1429cbb71501b06d59a2f2078bff7"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_image.py",
+      "after_sha256": "b15906e9513c56815952c06da1ad7ed8138e5a298a98318503c2f963ec61b748"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_image_inherited.py",
+      "after_sha256": "c9b48da09e68912a93e3b67bd7e67be0490843985b21446de054fd4b06377573"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_image_provenance.py",
+      "after_sha256": "e8b7f28333d7ebddd0dc50aa06b822c9a5f78726804fd7bdd0e2e277c9619e1d"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_llm.py",
+      "after_sha256": "dda9cdc60ad415097ae3c8e2ac4efcbfa5d220a7f3bd76dfdeea2bdcfd78f8a2"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_llm_provenance.py",
+      "after_sha256": "7a4f077220f41a774d8fb81c9f13a3f7c521a4c6b9aa8d0254349cbefbc70e07"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_policy_reload.py",
+      "after_sha256": "e37c35a2892ca1193a4c8b1a1154901f599ee94bba0b6a4e22fb07f57a02d35c"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_quota.py",
+      "after_sha256": "63745c41005191a53f272f3cff3b2819dba31bb87ffc4c5fa1fe3bd587ae2bd5"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_quota_provenance.py",
+      "after_sha256": "7615c424e93e323f0e75f586f0a7d6f4f6af9a8a0b2f70b77b85d3835e3a60e5"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_reload.py",
+      "after_sha256": "97aa908b366e782573ab3e4c9a1401dbddcefe64ae94aa9afb7642bde31dd250"
+    },
+    {
+      "path": "tests/test_desktop_review_provider_reload_provenance.py",
+      "after_sha256": "5b32bfa5e59692001f8da199cb94b1b30cb4fe87aaaf4627ba7b5f95c8c03240"
+    }
+  ]
+}

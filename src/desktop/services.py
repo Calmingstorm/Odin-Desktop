@@ -592,9 +592,17 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             reasoning_content_feedback_policy=pc.reasoning_content_feedback_policy,
             openrouter_routing=pc.openrouter if pc.preset == "openrouter" else None,
             model_profiles=pc.model_profiles)
-    guard = getattr(runtime, "subsystem_guard", None) or SubsystemGuard()
-    for provider in ("codex", "ollama", "compat"):
-        guard.register(f"llm_{provider}")
+    guard = getattr(runtime, "subsystem_guard", None)
+    if guard is None:
+        degradation = cfg.graceful_degradation
+        guard = SubsystemGuard(
+            degraded_threshold=degradation.degraded_threshold,
+            unavailable_threshold=degradation.unavailable_threshold,
+        )
+    for name in ("llm_codex", "llm_ollama", "llm_compat", "codex", "ssh",
+                 "knowledge", "browser"):
+        guard.register(name)
+    executor.subsystem_guard = guard
     lr = cfg.llm_recovery
     gateway_dependencies = dict(get_config=get_config,
         codex_client=codex_client, ollama_client=ollama_client, kimi_client=None,
