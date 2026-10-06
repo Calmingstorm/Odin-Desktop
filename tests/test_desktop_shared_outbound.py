@@ -120,8 +120,13 @@ async def test_actual_graph_shares_retained_owner_and_management_adoption(graph)
     deleted = await core.management.invoke("webhooks.outbound.delete", {"id": ident})
     assert deleted["ok"], deleted
     assert await owner.dispatch("loop.stuck", {}) == []
-    await core.management.close()
+    # The integrated lifecycle barrier refuses management teardown beneath
+    # active producers. Shared ownership means no outbound transport is closed.
+    from src.desktop.resource_cleanup import ResourceCleanupError
+    with pytest.raises(ResourceCleanupError):
+        await core.management.close()
     assert transport.closes == 0
+    await core.requests.close()
     await core.engine.close()
     await core.engine.close()
     assert transport.closes == 1
@@ -170,7 +175,9 @@ async def test_injected_runtime_dispatcher_is_shared_and_engine_closes_once(tmp_
         assert core.engine.deps.outbound_webhook_dispatcher is owner
         assert core.management.integrations.dispatcher is owner
         assert core.engine.deps.turn_recorder._outbound_webhook_dispatcher is owner
-        await core.management.close()
+        from src.desktop.resource_cleanup import ResourceCleanupError
+        with pytest.raises(ResourceCleanupError):
+            await core.management.close()
         assert transport.closes == 0
     finally:
         await core.close()
