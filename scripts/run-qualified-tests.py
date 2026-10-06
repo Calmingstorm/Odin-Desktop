@@ -15,10 +15,13 @@ WEIGHTS = "maintenance/qualification-group-weights.json"
 
 
 def assign_shards(groups, minutes, count):
-    """Assign whole groups to `count` shards, longest measured group first.
+    """Assign whole groups to `count` shards, longest measured cluster first.
 
     Each group lands in exactly one shard, so the shards together run the plan
-    once. A group without a measurement takes the median measured duration.
+    once. Groups that select the same test file always share a shard: its
+    invocation-local once-only ownership then gives every node to the first such
+    group in plan order, exactly as one unsharded run does. A group without a
+    measurement takes the median measured duration.
     """
     measured = sorted(float(value) for value in minutes.values())
     default = measured[len(measured) // 2] if measured else 1.0
@@ -26,12 +29,32 @@ def assign_shards(groups, minutes, count):
     def weight(index):
         return float(minutes.get(groups[index]["name"], default))
 
+    parent = list(range(len(groups)))
+
+    def root(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    owner = {}
+    for index, group in enumerate(groups):
+        for selector in group.get("files", ()):
+            path = selector.split("::", 1)[0]
+            if path in owner:
+                parent[root(index)] = root(owner[path])
+            else:
+                owner[path] = index
+    clusters = {}
+    for index in range(len(groups)):
+        clusters.setdefault(root(index), []).append(index)
+
     loads = [0.0] * count
     members = [[] for _ in range(count)]
-    for index in sorted(range(len(groups)), key=lambda i: (-weight(i), i)):
+    for cluster in sorted(clusters.values(), key=lambda c: (-sum(map(weight, c)), min(c))):
         shard = min(range(count), key=lambda s: (loads[s], s))
-        loads[shard] += weight(index)
-        members[shard].append(index)
+        loads[shard] += sum(map(weight, cluster))
+        members[shard].extend(cluster)
     return [sorted(member) for member in members]
 
 
