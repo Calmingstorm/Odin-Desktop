@@ -364,7 +364,9 @@ def test_runtime_miscomposition_branch_spies_positive_control(case):
     spy.assert_called_once()
 
 
-async def test_restored_agent_context_requires_admission_and_reaches_real_registration(guarded_core):
+async def test_restored_agent_context_requires_admission_and_reaches_real_registration(
+    guarded_core,
+):
     """Trace the real admission line, not an obsolete unconditional spawn fence.
 
     The two old diagnostics are removed, not merely dead after an earlier raise.
