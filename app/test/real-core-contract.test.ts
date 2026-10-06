@@ -7,7 +7,7 @@ import type { ConversationSnapshot, CoreEvent } from '../src/shared/api'
 import { PROTOCOL, type Settled, type Welcome } from '../src/main/broker'
 import { FILE_CONTENT, IMAGE_BYTES, PAGED_TEXT, REPLY, TOOL_REPLY } from './real-core-provider-fixture.mjs'
 import { AttachmentManager } from '../src/main/attachments'
-import { assertIsolated, onceEvent, RealCoreHarness, waitFor, SERVED_CAPABILITIES } from './real-core-harness'
+import { assertIsolated, onceEvent, RealCoreHarness, usageSettled, waitFor, SERVED_CAPABILITIES } from './real-core-harness'
 import { assertFreshManagementStatus, realCoreCapabilities, type RealCoreStatus } from '../src/main/real-core-smoke'
 import { assertRealCoreIsolation } from '../scripts/real-core-isolation.mjs'
 import { assertIsolated as assertSmokeIsolated } from './real-core-smoke-seed'
@@ -193,7 +193,8 @@ describe('actual app Broker ↔ repository real core', () => {
     }
     expect(successful<{ fields: unknown[] }>(await broker.request('settings.schema', {}, id)).fields.length).toBeGreaterThan(0)
     refused(await broker.request('codex.accounts.list', {}, id), 'keyring_unavailable')
-    expect(successful<{ tokens: unknown }>(await broker.request('usage.get', {}, id)).tokens).toEqual({ value: null, kind: 'unknown' })
+    await usageSettled(broker)
+    expect(successful<{ tokens: unknown }>(await broker.request('usage.get', {}, id)).tokens).toEqual({ value: 0, kind: 'measured' })
     // Execute only a disposable namespace-local printf, with no provider, network,
     // real credentials, graphical input or changes to workstation services.
     const { conversation } = successful<{ conversation: { id: string } }>(await broker.request('conversations.create', { title: 'Isolated scheduled report' }))
