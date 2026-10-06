@@ -382,7 +382,7 @@ def test_ci_uses_only_an_exact_stable_cached_python(tmp_path, versions, expected
             assert not output.exists()
 
 
-def test_ci_labels_keep_all_namespace_tests_on_the_desktop():
+def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():
     workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
     light = workflow["jobs"]["short-gates"]
     full = workflow["jobs"]["full-suites"]
@@ -395,7 +395,17 @@ def test_ci_labels_keep_all_namespace_tests_on_the_desktop():
     assert full["runs-on"] == ["self-hosted", "odin-desktop-ci"]
     light_commands = "\n".join(step.get("run", "") for step in light["steps"])
     full_commands = "\n".join(step.get("run", "") for step in full["steps"])
-    assert "run-phase1-tests.py" not in light_commands
+    # The offline capture fixtures are safe on either machine. Only this
+    # explicit selection may use the namespace launcher in the light lane;
+    # the broad engine/process suites still require desktop-only runners.
+    light_namespace_commands = [
+        step["run"] for step in light["steps"]
+        if "run-phase1-tests.py" in step.get("run", "")
+    ]
+    assert light_namespace_commands == [
+        ".venv/bin/python scripts/run-phase1-tests.py "
+        "tests/test_lab_cinnamon.py tests/test_lab_gnome.py -rs"
+    ]
     assert "run-qualified-tests.py" not in light_commands
     assert "scripts/maintenance/phase2_plan.py" in light_commands
     assert "scripts/run-phase1-tests.py tests/test_desktop_phase2_plan.py" in full_commands
