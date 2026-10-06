@@ -7,7 +7,7 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-EVIDENCE = Path('/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7')
+EVIDENCE = Path('/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main')
 PYTHON = str(ROOT / '.venv/bin/python')
 
 
@@ -29,6 +29,8 @@ def main():
         ('lint', [PYTHON, 'scripts/maintenance/lint_gate.py'], ROOT),
         ('phase2-plan', [PYTHON, 'scripts/maintenance/phase2_plan.py'], ROOT),
         ('d19', [PYTHON, 'scripts/maintenance/d19.py', 'report'], ROOT),
+        ('closure', [PYTHON, 'scripts/maintenance/phase2_closure.py', 'report'], ROOT),
+        ('fresh-profile', [PYTHON, 'scripts/maintenance/fresh_profile_parity.py', 'report'], ROOT),
         ('phase2-suites', [PYTHON, 'scripts/maintenance/phase2_suites.py', 'check'], ROOT),
         ('pip-check', [PYTHON, '-m', 'pip', 'check'], ROOT),
         ('fixtures', [PYTHON, 'scripts/run-phase1-tests.py', 'tests/test_lab_cinnamon.py',

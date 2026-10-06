@@ -121,7 +121,25 @@ def test_private_wheel_metadata_and_no_legacy_entry_scripts(private_wheel):
     ".github/workflows/release.yml",
 ])
 def test_retired_distribution_path_is_absent(path, private_wheel):
-    assert not (ROOT / path).exists(), path
+    if path == ".github/workflows/release.yml":
+        # P4.3 reuses the filename, not the removed server/tag build workflow.
+        # Parse its executable trigger contract; do not mistake a new Desktop
+        # workflow for restoration of the retired upstream consumer.
+        workflow = yaml.safe_load((ROOT / path).read_text())
+        events = workflow.get("on", workflow.get(True, {}))
+        assert set(events) == {"workflow_dispatch", "push"}
+        assert events["push"] == {"tags": ["v*"]}
+        assert workflow["permissions"] == {}
+        assert workflow["jobs"]["build"]["permissions"] == {"contents": "read"}
+        assert "github.event_name == 'workflow_dispatch'" in workflow["jobs"]["publish"]["if"]
+        assert "inputs.mode == 'publish-approved'" in workflow["jobs"]["publish"]["if"]
+        assert workflow["jobs"]["publish"]["needs"] == "verify"
+        assert "build-deb" not in workflow["jobs"]
+        from scripts.maintenance.inventory import baseline_blobs
+
+        assert (ROOT / path).read_bytes() != baseline_blobs(ROOT)[path]
+    else:
+        assert not (ROOT / path).exists(), path
     assert path not in private_wheel.namelist()
 
 
@@ -354,14 +372,22 @@ def test_current_workflow_has_no_expression_interpolation_into_shell():
 
 
 def test_no_current_release_tag_consumer_or_autonomous_engine_script(monkeypatch):
-    assert not (ROOT / ".github/workflows/release.yml").exists()
     for path in (ROOT / ".github/workflows").glob("*.yml"):
         workflow = yaml.safe_load(path.read_text())
         assert "build-deb" not in workflow.get("jobs", {})
         events = workflow.get("on", workflow.get(True, {}))
-        assert not any("tags" in settings for settings in events.values()
-                       if isinstance(settings, dict))
-        assert "GITHUB_REF_NAME" not in path.read_text()
+        if path.name != "release.yml":
+            assert not any("tags" in settings for settings in events.values()
+                           if isinstance(settings, dict))
+            assert "GITHUB_REF_NAME" not in path.read_text()
+        else:
+            # The reviewed Desktop candidate builder accepts owner tags, but
+            # publication is a separate manual verified-candidate operation.
+            publish = workflow["jobs"]["publish"]
+            assert "github.actor == 'Calmingstorm'" in publish["if"]
+            assert "github.event_name == 'workflow_dispatch'" in publish["if"]
+            assert "inputs.mode == 'publish-approved'" in publish["if"]
+            assert "needs.verify.result == 'success'" in publish["if"]
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
     assert not project.get("scripts")
     from src import cli

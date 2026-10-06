@@ -55,9 +55,14 @@ async def test_service_readiness_and_integrated_delivery_are_honest(connected):
     assert not computer["result"]["readiness"]["input_supported"]
     health = (await request(reader, writer, "health.get"))["result"]
     assert health["workspace"]["local_only"] is True
-    assert health["browser"]["state"] == "disabled"
+    # D17 restores enabled fresh-install browser settings. This source-tree
+    # profile has no qualifying bundle: the retry seam is not native readiness.
+    assert service.settings.config.browser.enabled is True
+    assert health["browser"]["state"] == "unavailable"
+    assert health["browser"]["ready"] is False
+    assert health["browser"]["retry_available"] is True
     assert not health["computer"]["native_qualified"]
-    assert service.management.executor._browser_manager is None
+    assert service.management.executor._browser_manager is service.management.browser
     assert service.management.executor is service.engine.deps.tool_executor
     assert service.management.skills.skill_manager is service.engine.deps.skill_manager
     assert service.management.tool_catalog is service.engine.deps.tool_catalog

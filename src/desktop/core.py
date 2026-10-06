@@ -22,6 +22,7 @@ from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .management import ManagementService
 from .package_state import PackageUpgrade, inspect_profile
+from .package_status import PackageStatus
 from .paths import ProfilePaths
 from .requests import RequestService
 from .resource_cleanup import ResourceCleanupJournal
@@ -220,6 +221,8 @@ class CoreService:
         self.lifetime = CoreLifetime()
         self._serial = asyncio.Lock()
         self._closed = False
+        self._close_complete = False
+        self.package_status: PackageStatus | None = None
         self._quiescing_persisted = False
         self._release_runtime_on_close = release_runtime_on_close
         self._receipt_pruner: asyncio.Task | None = None
@@ -266,13 +269,17 @@ class CoreService:
         return self.delivery_readiness_reason is None
 
     def status(self) -> dict:
+        package = ({"package": self.package_status.snapshot()}
+                   if self.package_status is not None else {})
         if self.management is not None:
             return {
                 **self.management.runtime.status(),
+                **package,
                 "limits": self.limits,
                 "diagnostics": self.engine.diagnostics(),
             }
         return {
+            **package,
             "phase": self.phase,
             "core_instance_id": self.authority.runtime_id,
             "version": VERSION,
@@ -293,13 +300,14 @@ class CoreService:
         from ..version import get_version
 
         # Refuse newer state before identity/bootstrap/store constructors write.
-        inspect_profile(self.paths, package_version=get_version())
+        package_record = inspect_profile(self.paths, package_version=get_version())
         # The app creates the credential. Validate it before bootstrap adopts any state.
         load_token(self.token_file)
         self.authority = OwnerAuthority(self.paths, app_bootstrap=True)
         self.authority.acquire_runtime()
         upgrade = PackageUpgrade(self.paths, self.authority, get_version())
         upgrade.prepare()
+        self.package_status = PackageStatus(self, upgrade.record or package_record)
         self.permissions = PermissionManager(self.authority)
         self.store = _PublicationStore(
             self.paths.data_dir / "transport.sqlite3", self.paths.profile_id,
@@ -380,6 +388,7 @@ class CoreService:
         await secret_call(settings.hydrate_secrets)
         await self.engine.initialize_profile_provider()
         upgrade.commit()
+        self.package_status.migration_committed()
         await self._start_management()
         self.capabilities = (*CAPABILITIES[:5],
                              *sorted((set(CAPABILITIES) | set(self.management.methods))
@@ -474,6 +483,8 @@ class CoreService:
         status = (await self.management.runtime.status_async()
                   if self.management is not None else self.status())
         status.update(limits=self.limits, diagnostics=self.engine.diagnostics())
+        if self.package_status is not None:
+            status["package"] = self.package_status.snapshot()
         self.events.append(
             "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id}, status,
         )
@@ -641,9 +652,18 @@ class CoreService:
                     return failure("busy", "Core is quiescing")
                 if method == "runtime.shutdown":
                     fresh_shutdown = True
+                    stopping_status = self.status()
+                    if "package" in stopping_status:
+                        # This event is committed before the stop edge. It is
+                        # acceptance, not producer settlement or cleanup proof.
+                        handoff = stopping_status["package"]["handoff"]
+                        handoff.update(state="quiescing", admitting=False,
+                                       stop_reason="runtime.shutdown")
+                        handoff["blockers"] = [reason for reason in handoff["blockers"]
+                                               if reason != "shutdown_not_requested"]
                     self.events.append(
                         "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id},
-                        {**self.status(), "phase": "quiescing"},
+                        {**stopping_status, "phase": "quiescing"},
                     )
                     return {"ok": True, "result": {"disposition": "accepted"}}
                 return self._domain(method, params)
@@ -742,6 +762,9 @@ class CoreService:
             finally:
                 if self._release_runtime_on_close:
                     self.release_runtime()
+        # _closed is an entry/idempotency guard, never cleanup success. This
+        # barrier sits outside finally: even a listener failure must stay false.
+        self._close_complete = True
 
     def release_runtime(self) -> None:
         """Entry may defer owner release until its containment finalization barrier."""

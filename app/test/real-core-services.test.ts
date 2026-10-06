@@ -155,7 +155,9 @@ describe('real 6A services through the app Broker, private profiles only', () =>
   test('reports real browser health and unqualified computer envelope; unknown reconcile is bounded and creates no session/input', async () => {
     const broker = await connect()
     const health = result<{ browser: { state: string; ready: boolean; reason: string; retry_available: boolean } }>(await broker.request('health.get'))
-    expect(health.browser).toMatchObject({ state: 'disabled', ready: false, retry_available: false })
+    // Fresh D17 settings enable the browser, but this source-tree profile has
+    // no qualifying bundle. Availability is the retry seam, not native success.
+    expect(health.browser).toMatchObject({ state: 'unavailable', ready: false, retry_available: true })
     const initial = result(await broker.request('computer.status'))
     expect(initial).toMatchObject({ session: null, readiness: { management_available: true, native_qualified: false, foreground_available: false, input_supported: false, dispatch: 'none' } })
     refused(await broker.request('computer.reconcile', { session_id: 'absent-disposable-identity', generation: 1 }, randomUUID()), 'not_found')
