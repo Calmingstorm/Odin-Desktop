@@ -89,7 +89,32 @@ a new keyword; and the post-main-merge readiness removal experiment. The
 corrected implementation preserves real readiness and ordinary-user isolation.
 The first fresh pre-qualification gate chain was cancelled before full
 qualification to fix the settled-child publication issue. It is not a passing
-final gate. The final classified qualification is run once on fixed source.
+final gate. The final classified qualification was invoked once on fixed source.
+
+## Final fresh-checkout results
+
+- Exact lineage/safety drift, lint, ownership plan and suite-map gates passed.
+- Touched Python selection: **99 passed**, ordinary UID 1003 in the restricted
+  mount/PID namespace. No skipped or failed cases.
+- `npm run check`: typecheck, **747 passed**, build passed.
+- `npm run test:real-core`: **24 contracts plus six onboarding tests passed**.
+  Both new skill contracts passed, with no skips.
+- `npm run smoke:real-core`: passed **40 screen checkpoints** on private Xvfb
+  and private D-Bus. The actual workstation session was not used.
+- Classified full qualification: **incomplete infrastructure failure**. Five
+  of 31 groups completed, **9,235 passed, zero failures/errors, one skip**. The
+  supervising tool reported `Local command supervisor ownership lost` at
+  900,011 ms while group six was starting. No final qualification-result JSON
+  exists. This is not a clean full gate. No second full invocation was run;
+  the attempted process launch was refused before starting because the shared
+  process registry was at its 20-job limit. Original log and five XML files are
+  retained. No remaining group, parity, background or release acceptance is
+  inferred from the partial results.
+
+Final delivery remains draft for both independent background admission and the
+unfinished full qualification. The raw artifact manifest records SHA-256 and
+absolute path for every retained artifact. Final commits after `c077388` add
+only documentation/evidence, not tested engine or app source.
 
 The inherited npm dependency graph reported 11 audit findings (10 high, one
 critical). No dependency lock was changed or blind audit fix applied by this
