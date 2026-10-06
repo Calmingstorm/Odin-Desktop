@@ -194,7 +194,7 @@ class SkillContext:
             await self._message_callback(text)
             self._tracker.messages_sent += 1
         else:
-            raise RuntimeError("Conversation delivery is unavailable until Phase 2 wiring.")
+            self._log.warning("post_message called but no channel callback available")
 
     async def post_file(self, data: bytes, filename: str, caption: str = "") -> None:
         """Send a binary file to the conversation that invoked this skill."""
@@ -205,9 +205,7 @@ class SkillContext:
             await self._file_callback(data, filename, caption)
             self._tracker.files_sent += 1
         else:
-            raise RuntimeError(
-                "Conversation attachment delivery is unavailable until Phase 2 wiring."
-            )
+            self._log.warning("post_file called but no channel callback available")
 
     def remember(self, key: str, value: str) -> None:
         """Save a key/value pair to persistent memory.
