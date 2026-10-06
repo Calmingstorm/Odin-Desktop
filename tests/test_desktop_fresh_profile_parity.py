@@ -51,7 +51,8 @@ def test_extraction_data_covers_every_difference(observed, tmp_path):
     (tmp_path / "observations.json").write_text(
         json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n")
     assert result["deltas"]
-    assert len(result["deltas"]) == 38
+    # 38 reviewed deltas plus step 7's four D10 webhook ingress settings.
+    assert len(result["deltas"]) == 42
     assert all(row["approval"]["status"] == "approved" for row in result["deltas"])
 
 
