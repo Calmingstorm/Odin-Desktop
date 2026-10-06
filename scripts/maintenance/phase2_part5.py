@@ -42,7 +42,7 @@ SUITES = (
 )
 RETIREMENT_CATEGORIES = {
     "web-ui-only", "self-update-apply-rollback", "systemd-docker-postinstall",
-    "raw-source-web-build",
+    "raw-source-web-build", "operator-document-wording",
 }
 STATES = {"restored", "retired", "deferred", "proposed"}
 
@@ -219,6 +219,29 @@ def validate(root=ROOT, data=None) -> tuple[list[str], dict]:
                             f"retirement needs named removed surface and citation: {label}")
                     if case.get("selectors"):
                         errors.append(f"retirement cannot claim passing selectors: {label}")
+                    if case.get("category") == "operator-document-wording":
+                        if (path != "tests/test_docs_campaign_contracts.py"
+                                or not _text(case, "decision")):
+                            errors.append(
+                                f"wording retirement needs exact reviewed docs scope: {label}")
+                        if case.get("case") != (
+                                "test_docs_do_not_claim_removed_native_grafana_or_prometheus_features"):
+                            supplemental = case.get("supplemental_selectors")
+                            if not isinstance(supplemental, list) or not supplemental:
+                                errors.append(
+                                    f"wording retirement needs behavior coverage: {label}")
+                            else:
+                                for selector in supplemental:
+                                    if not isinstance(selector, str) or "::" not in selector:
+                                        errors.append(
+                                            f"behavior coverage needs exact selectors: {label}")
+                                        continue
+                                    target = selector.split("::")[0]
+                                    _file(root, target)
+                                    if target.startswith("tests/") and target not in selected:
+                                        errors.append(
+                                            "behavior coverage absent from qualification: "
+                                            f"{label}: {target}")
                 elif state in {"deferred", "proposed"}:
                     if not _text(case, "owner") or not _text(case, "blocker"):
                         errors.append(f"handoff/proposal needs named owner and blocker: {label}")

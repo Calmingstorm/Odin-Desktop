@@ -482,6 +482,7 @@ label.field-input > input:not([type='checkbox']):not([type='radio']), label.fiel
 .sub-head { margin: 14px 0 4px; font-size: 13px; }
 .config-key { min-width: 120px; color: var(--muted); }
 .mcp-tools { list-style: none; padding: 6px 0 0 12px; margin: 0; display: grid; gap: 2px; }
+.mcp-tools > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
 .secret-set { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-top: 8px; }
 .secret-set legend { color: var(--muted); font-size: 12px; padding: 0 4px; }
 .field-input.readonly { color: var(--muted); }
