@@ -178,6 +178,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   }
   const text = (selector: string): Promise<string> => run(`document.querySelector(${JSON.stringify(selector)})?.innerText ?? ''`)
   const count = (selector: string): Promise<number> => run(`document.querySelectorAll(${JSON.stringify(selector)}).length`)
+  // Message bodies are committed DOM content. Off-screen messages use content-visibility,
+  // which innerText omits until rendered, so message checks read textContent.
+  const content = (selector: string): Promise<string> => run(`(document.querySelector(${JSON.stringify(selector)})?.textContent ?? '').replace(/\\s+/g, ' ').trim()`)
   const click = async (selector: string): Promise<void> => {
     assert(await run(`Boolean(document.querySelector(${JSON.stringify(selector)}))`), `missing UI control ${selector}`)
     await run(`document.querySelector(${JSON.stringify(selector)}).click()`)
@@ -215,18 +218,18 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   screens.push({ screen: 'Status', text: await text('.status') })
   // The renderer creates Chat only after a successful empty list, then loads
   // an authoritative snapshot. A missing provider does not unserve chat.
-  await until(async () => (await count('.conv-row')) === 1 && (await text('.message-scroll')).includes(seededWorkProof ? 'Harmless catch-up notice' : 'Ask Odin anything.') &&
+  await until(async () => (await count('.conv-row')) === 1 && (await content('.message-scroll')).includes(seededWorkProof ? 'Harmless catch-up notice' : 'Ask Odin anything.') &&
     await run<boolean>('document.querySelector(".composer textarea")?.disabled === false'), 'real first conversation and snapshot')
   assert.equal(await text('.conv.active .conv-title'), 'Chat')
   assert.equal(await count('.sidebar-notice'), 0, 'served conversations must not claim unavailable')
   if (seededWorkProof) {
     assert((await count('.msg')) > 0, 'real background publication must appear in the transcript')
-    assert(/Due:.*late by.*Omitted slots:/s.test(await text('.message-scroll')), 'real D12 reminder must show catch-up provenance')
+    assert(/Due:.*late by.*Omitted slots:/s.test(await content('.message-scroll')), 'real D12 reminder must show catch-up provenance')
     await until(async () => (await text('.report-body')).includes('produced once'), 'stored real report first page')
     await click('.report-nav button:nth-of-type(2)')
     await until(async () => (await text('.report-body')).includes('no rerun'), 'stored real report second page')
     assert.deepEqual(counts(), beforePaging, 'report paging must not execute the external tool again')
-    screens.push({ screen: 'Stored report paging and D12 catch-up notice', text: await text('.message-scroll') })
+    screens.push({ screen: 'Stored report paging and D12 catch-up notice', text: await content('.message-scroll') })
     writeFileSync(out.replace(/\.png$/i, '') + '-report.png', (await win.webContents.capturePage()).toPNG())
   } else {
     assert.equal(await count('.msg'), 0, 'fresh real conversation must not seed fixture messages')
@@ -621,10 +624,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   })()`)
   await until(async () => await run<boolean>('document.querySelector(".composer button[type=submit]")?.disabled === false'), 'served composer ready to submit')
   await click('.composer button[type=submit]')
-  await until(async () => (await text('.message-scroll .msg.notice .body')).includes('No LLM provider available. Please try again later.') &&
-    (await text('.message-scroll .outcome')).includes('The task failed.') && (await count('.working, .msg.pending')) === 0, 'actual unavailable-provider task outcome')
+  await until(async () => (await content('.message-scroll .msg.notice .body')).includes('No LLM provider available. Please try again later.') &&
+    (await content('.message-scroll .outcome')).includes('The task failed.') && (await count('.working, .msg.pending')) === 0, 'actual unavailable-provider task outcome')
   assert.equal(await count('.message-scroll .msg.user'), 1, 'submission must commit exactly one user message')
-  await until(async () => (await text('.message-scroll .msg.user .body')) === submissionText, 'committed user message text')
+  await until(async () => (await content('.message-scroll .msg.user .body')) === submissionText, 'committed user message text')
   assert.equal(await count('.message-scroll .msg.assistant'), 0, 'missing provider must not invent an assistant reply')
   assert(await run('document.querySelector(".composer textarea").value === ""'), 'accepted submission clears its draft')
   const failed = await broker.request('conversation.snapshot', { conversation_id: conversationId })
@@ -658,7 +661,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(await count('#conversation-search-error'), 0)
   assert((await text('.search-hits .hit-snippet')).includes(submissionText))
   await click('.search-hits .hit')
-  await until(async () => (await text('.message-scroll .msg.highlight .body')) === submissionText, 'real search hit navigation')
+  await until(async () => (await content('.message-scroll .msg.highlight .body')) === submissionText, 'real search hit navigation')
   screens.push({ screen: 'Search / committed transcript', text: await text('.search-panel') })
   writeFileSync(out.replace(/\.png$/i, '') + '-chat.png', (await win.webContents.capturePage()).toPNG())
   assert.equal(broker.linkState, 'ready')
