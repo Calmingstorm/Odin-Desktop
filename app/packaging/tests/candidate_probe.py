@@ -269,8 +269,21 @@ def gui(executable):
             raise RuntimeError('sandbox-intact GUI smoke failed: ' + result.stdout[-8000:])
         png = Path('/work/smoke.png').read_bytes()
         assert png[:8] == b'\x89PNG\r\n\x1a\n' and len(png) > 1000
+        # Actual packaged app guardian and independent core must publish fresh
+        # clean evidence, not merely vanish with the private namespace teardown.
+        receipts = Path('/work/home/.local/state/odin-desktop/install-ownership/appimage/receipts')
+        deadline = time.monotonic() + 10
+        while True:
+            records = [json.loads(path.read_text()) for path in receipts.glob('*.json')]
+            if {row.get('role') for row in records} == {'app', 'core'} and all(
+                    row.get('state') == 'clean' for row in records):
+                break
+            if time.monotonic() > deadline:
+                raise RuntimeError('Actual packaged app/core Exit evidence remains unresolved')
+            time.sleep(.05)
         print(json.dumps({'full_app': True, 'sandbox': 'intact, no bypass flags',
                           'private_xvfb': True, 'development_override_ignored': True,
+                          'app_and_core_lifetime_receipts': 'fresh clean evidence, not PID absence',
                           'screenshot_bytes': len(png), 'stdout': result.stdout[-2000:]}))
     finally:
         display.terminate()
