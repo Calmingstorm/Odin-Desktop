@@ -79,6 +79,59 @@ lint findings**. The final evidence-only commit does not change tested source
 or test bytes. Independent Claude review and full-gate acceptance remain
 pending. No second full qualification was run, as requested.
 
+## PR42 review round 1 follow-up
+
+The ingress review findings are implemented without changing its authentication,
+limits, matching or delivery-only surface:
+
+- Unknown receipt recovery no longer mutates or pauses schedule definitions.
+  Receipt settlement failures attempt a durable unknown marker; an already
+  persisted dispatching marker becomes unknown on reopen if storage is still
+  unavailable. Neither path admits internal replay.
+- Status reports the durable unknown-delivery count. Lost handoff acknowledgement
+  is covered through two actual scheduler reconstructions, with the original
+  receipt still unknown and each new authenticated delivery executing once.
+- Adopted scheduler/settings changes and worker-thread keyring hydration notify
+  a coalescing listener watcher. Idle ingress does not scan/copy schedules.
+  Missing owner events and cached availability/admission changes have a 1 Hz
+  fallback. Failed binds share a bounded retry seam, including direct mutation
+  hooks, and never broaden the address.
+- Notification tests cover failed versus cancelled durable writes, rollback
+  recovery, native scheduler edits, worker hydration, coalescing, close during
+  bind, bounded retry and subscription cleanup.
+
+Latest targeted run of ingress/adapters/settings/background/lifecycle/runtime/
+schedule recovery: **243 passed, 1 failed**, under the sanitized namespace
+runner. The sole failing case is
+`test_cancelled_handoff_fences_and_recovers_notice_only`: the inherited #37
+scheduler still quarantines an interrupted recurring run. The test is retained,
+not weakened or excluded from acceptance. Its two-restart/new-delivery proof
+cannot run past that assertion until lane 9's P2-1 base fix lands.
+
+Earlier narrower pre-base runs were **265 passed, 1 deselected**, then
+**48 passed, 1 deselected**; the dependency case was explicitly omitted only
+from those diagnostics. Five durable-notification/rollback/bind edge tests also
+passed. These numbers are separate evidence, not an aggregated gate result.
+
+The short gates pass: exact byte drift has no errors, ownership and suite
+accounting are clean, and lint has seven inherited findings with no new ones.
+
+Required upstream state at the final check:
+
+- PR37 remains open at `4ede9e75fb079a0a305c7b24f89700d7fb7c4416`.
+- PR34 remains open at `78582fc86d53794bb60dd40f4870981327ae1a99`.
+
+A bounded upstream watcher expired without either dependency becoming ready.
+No replacement full qualification was run prematurely. The requested base/main
+merges and single final fresh-checkout full gate remain **pending**, not green.
+An exploratory merge of current main was aborted; no partial conflict resolution
+is included in the published branch. No rebase or force-push.
+
+Evidence under `/home/odin/desktop-step7-20261006/`:
+`review1-targeted-final-prebase.log`, `review1-prebase-ingress.log`,
+`review1-ingress-audit.log`, `review1-notification-edges.log`,
+`review1-base-wait.log`. Independent review remains pending.
+
 ## Explicit limits
 
 Headless loopback qualification does not prove real LAN/tailnet reachability,
