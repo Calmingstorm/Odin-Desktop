@@ -71,10 +71,10 @@ jobs:
   full-suites:
     if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: [self-hosted, odin-desktop-ci]
-    # The explicit default selection and classified qualification deliberately
-    # replay the broad boundary corpus. Bound the whole job without cancelling
-    # its last groups when this self-hosted machine is running parallel lanes.
-    timeout-minutes: 60
+    # The explicit default selection and classified qualification currently
+    # replay the broad boundary corpus. Under parallel lane load the job ran past
+    # 60 minutes and was cancelled mid-qualification, so bound it at 120.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -129,7 +129,7 @@ jobs:
       - name: Qualification lab orchestration (offline, no host daemon)
         if: ${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}
         run: |
-          .venv/bin/ruff check scripts/qualification/lab tests/test_desktop_qualification_lab.py tests/test_lab_*.py
-          # KDE's unchanged ownership emitter fixtures require root only inside
-          # a separate disposable container. Never relax the PID helper's NNP.
+          .venv/bin/ruff check scripts/qualification/lab scripts/run-lab-fixture-tests.py tests/test_desktop_lab_fixture_runner.py tests/test_desktop_qualification_lab.py tests/test_lab_*.py
+          # Fixed offline corpus uses fresh fixture user namespaces; unsupported
+          # mappings skip explicitly. Never relax the unchanged PID helper's NNP.
           .venv/bin/python scripts/run-lab-fixture-tests.py
