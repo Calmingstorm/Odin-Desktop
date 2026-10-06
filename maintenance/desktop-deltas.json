@@ -400,6 +400,66 @@
       ]
     },
     {
+      "after_sha256": "b69f2c93cd74c0d3a43e42b5d9737622b38b9739b04ee73c56a606cc9523d54d",
+      "approval": "pending independent review",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Execute exactly one case as guest odq in its Wayland session; never run a candidate as guest root.",
+      "date": "2026-10-06",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Evidence collection is not qualification; no sandbox-disabling flags, host desktop execution or native retries.",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwoiIiJHdWVzdCByb290IG9yY2hlc3RyYXRvciwgYWxsIGNhbmRpZGF0ZSBleGVjdXRpb24gdW5kZXIgaXNvbGF0ZWQgZ3Vlc3Qgb2RxLiIiIgppbXBvcnQgaW1wb3J0bGliLnV0aWwKaW1wb3J0IGpzb24KZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmltcG9ydCBwd2QKaW1wb3J0IHN1YnByb2Nlc3MKaW1wb3J0IHN5cwoKYXNzZXJ0IHN1YnByb2Nlc3MuY2hlY2tfb3V0cHV0KFsnc3lzdGVtZC1kZXRlY3QtdmlydCddLCB0ZXh0PVRydWUpLnN0cmlwKCkgaW4gKCdrdm0nLCAncWVtdScpCnNwZWMgPSBpbXBvcnRsaWIudXRpbC5zcGVjX2Zyb21fZmlsZV9sb2NhdGlvbignc2Vzc2lvbicsICcvdmFyL3RtcC9sYW5lNy1zZXNzaW9uLnB5JykKc2Vzc2lvbiA9IGltcG9ydGxpYi51dGlsLm1vZHVsZV9mcm9tX3NwZWMoc3BlYykKc3BlYy5sb2FkZXIuZXhlY19tb2R1bGUoc2Vzc2lvbikKaW5mbyA9IHNlc3Npb24uc2Vzc2lvbl9pbmZvKCkKYXNzZXJ0IGluZm9bJ1R5cGUnXSA9PSAnd2F5bGFuZCcKZW52aXJvbm1lbnQgPSBzZXNzaW9uLnNlc3Npb25fZW52aXJvbm1lbnQocHdkLmdldHB3bmFtKCdvZHEnKS5wd191aWQsICd3YXlsYW5kJykKY2FzZSA9IHN5cy5hcmd2WzFdCmJhc2UgPSBQYXRoKCcvaG9tZS9vZHEvbGFuZTctcHJvb2YnKQpiYXNlLm1rZGlyKG1vZGU9MG83MDAsIGV4aXN0X29rPVRydWUpCnN1YnByb2Nlc3MucnVuKFsnY2hvd24nLCAnb2RxOm9kcScsIHN0cihiYXNlKV0sIGNoZWNrPVRydWUpCmVudmlyb25tZW50LnVwZGF0ZSh7J1hER19DT05GSUdfSE9NRSc6IHN0cihiYXNlIC8gJ2NvbmZpZycpLCAnWERHX0RBVEFfSE9NRSc6IHN0cihiYXNlIC8gJ2RhdGEnKSwKICAgICAgICAgICAgICAgICAgICAnWERHX0NBQ0hFX0hPTUUnOiBzdHIoYmFzZSAvICdjYWNoZScpfSkKb3V0ID0gYmFzZSAvIGNhc2UKaWYgY2FzZSA9PSAnZGViJzoKICAgIGVudmlyb25tZW50WydPRElOX1NNT0tFX09VVCddID0gc3RyKG91dCAvICdlbGVjdHJvbi5wbmcnKQogICAgYXJndW1lbnRzID0gWydndWknLCBzdHIob3V0KSwgJy9vcHQvT2Rpbi9vZGluLWRlc2t0b3AnLCAnLS1zbW9rZS10ZXN0J10KZWxpZiBjYXNlID09ICdhcHBpbWFnZSc6CiAgICBhcmd1bWVudHMgPSBbJ2d1aScsIHN0cihvdXQpLCAnL2hvbWUvb2RxL2xhbmU3LkFwcEltYWdlJywgJy0tc21va2UtdGVzdCddCmVsaWYgY2FzZSA9PSAnYnJvd3Nlcic6CiAgICBhcmd1bWVudHMgPSBbJ2Jyb3dzZXInLCBzdHIob3V0KV0KZWxzZToKICAgIHJhaXNlIFZhbHVlRXJyb3IoY2FzZSkKcHJpbnQoanNvbi5kdW1wcyh7J2Nhc2UnOiBjYXNlLCAnc2Vzc2lvbic6IGluZm8sICd1aWQnOiBwd2QuZ2V0cHduYW0oJ29kcScpLnB3X3VpZCwKICAgICAgICAgICAgICAgICAgJ2Vudmlyb25tZW50JzogZW52aXJvbm1lbnR9KSwgZmx1c2g9VHJ1ZSkKcmVzdWx0ID0gc3VicHJvY2Vzcy5ydW4oWydydW51c2VyJywgJy11JywgJ29kcScsICctLScsICdlbnYnLCAnLWknLAogICAgICAgICAgICAgICAgICAgICAgICAgKihmJ3trZXl9PXt2YWx1ZX0nIGZvciBrZXksIHZhbHVlIGluIGVudmlyb25tZW50Lml0ZW1zKCkpLAogICAgICAgICAgICAgICAgICAgICAgICAgJy9vcHQvT2Rpbi9yZXNvdXJjZXMvcnVudGltZS9weXRob24vYmluL3B5dGhvbjMnLCAnLUknLCAnLUInLAogICAgICAgICAgICAgICAgICAgICAgICAgJy92YXIvdG1wL2xhbmU3LXByb2JlLnB5JywgKmFyZ3VtZW50c10pCnJhaXNlIFN5c3RlbUV4aXQocmVzdWx0LnJldHVybmNvZGUpCg==",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "scripts/packaging/ubuntu_userns_driver.py",
+      "reason": "Task1 Ubuntu restricted-userns qualification helper was omitted from byte accounting; add its exact existing bytes without changing shipped candidates.",
+      "reviewer": "pending Claude",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "app/packaging/tests/test_userns_evidence.py": "2ef70048cabc5ee6d8943623abe8dafc0b3e21b1d65ef84813b706f2fbc2e89b"
+      },
+      "tests": [
+        "app/packaging/tests/test_userns_evidence.py"
+      ]
+    },
+    {
+      "after_sha256": "74d68b9d9c8c342bcab4f87a60561d559abe7c336641c7542455b200449eec30",
+      "approval": "pending independent review",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Capture bundled sandbox renderer witnesses and refusal evidence; persist completed GUI observations before assertions; never retry a failed case.",
+      "date": "2026-10-06",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Evidence collection is not qualification; no sandbox-disabling flags, host desktop execution or native retries.",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwoiIiJPbmUtc2hvdCBndWVzdCBwcm9iZXMuIE5vIHNhbmRib3ggc3dpdGNoLCByZXBsYWNlbWVudCBicm93c2VyIG9yIHJldHJ5LiIiIgppbXBvcnQgYXN5bmNpbwppbXBvcnQgaGFzaGxpYgppbXBvcnQganNvbgppbXBvcnQgb3MKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmltcG9ydCBwd2QKaW1wb3J0IHN1YnByb2Nlc3MKaW1wb3J0IHN5cwppbXBvcnQgdGltZQoKCmRlZiBwcm9jZXNzZXMobWF0Y2gpOgogICAgcm93cyA9IFtdCiAgICBmb3IgZW50cnkgaW4gUGF0aCgnL3Byb2MnKS5pdGVyZGlyKCk6CiAgICAgICAgaWYgbm90IGVudHJ5Lm5hbWUuaXNkaWdpdCgpOgogICAgICAgICAgICBjb250aW51ZQogICAgICAgIHRyeToKICAgICAgICAgICAgY21kID0gKGVudHJ5IC8gJ2NtZGxpbmUnKS5yZWFkX2J5dGVzKCkucmVwbGFjZShiJ1wwJywgYicgJykuZGVjb2RlKCkKICAgICAgICAgICAgaWYgbWF0Y2ggbm90IGluIGNtZCBvciBlbnRyeS5zdGF0KCkuc3RfdWlkICE9IG9zLmdldHVpZCgpOgogICAgICAgICAgICAgICAgY29udGludWUKICAgICAgICAgICAgaWYgJyAtLW5vLXNhbmRib3ggJyBpbiBjbWQgb3IgJyAtLWRpc2FibGUtc2V0dWlkLXNhbmRib3ggJyBpbiBjbWQ6CiAgICAgICAgICAgICAgICByYWlzZSBBc3NlcnRpb25FcnJvcignU2FuZGJveC1kaXNhYmxpbmcgYXJndW1lbnQ6ICcgKyBjbWQpCiAgICAgICAgICAgIGlmICctLXR5cGU9cmVuZGVyZXInIG5vdCBpbiBjbWQ6CiAgICAgICAgICAgICAgICBjb250aW51ZQogICAgICAgICAgICBzdGF0dXMgPSAoZW50cnkgLyAnc3RhdHVzJykucmVhZF90ZXh0KCkKICAgICAgICAgICAgYXNzZXJ0ICdTZWNjb21wOlx0MicgaW4gc3RhdHVzIGFuZCAnTm9OZXdQcml2czpcdDEnIGluIHN0YXR1cywgc3RhdHVzCiAgICAgICAgICAgIHJvd3MuYXBwZW5kKHsncGlkJzogaW50KGVudHJ5Lm5hbWUpLCAnY21kbGluZSc6IGNtZCwgJ3N0YXR1cyc6IHN0YXR1cywKICAgICAgICAgICAgICAgICAgICAgICAgICdhcHBhcm1vcic6IChlbnRyeSAvICdhdHRyL2N1cnJlbnQnKS5yZWFkX3RleHQoKSwKICAgICAgICAgICAgICAgICAgICAgICAgICd1c2VyX25hbWVzcGFjZSc6IG9zLnJlYWRsaW5rKGVudHJ5IC8gJ25zL3VzZXInKX0pCiAgICAgICAgZXhjZXB0IEZpbGVOb3RGb3VuZEVycm9yOgogICAgICAgICAgICBjb250aW51ZQogICAgcmV0dXJuIHJvd3MKCgphc3luYyBkZWYgYnJvd3NlcihvdXRwdXQpOgogICAgcnVudGltZSA9IFBhdGgoJy9vcHQvT2Rpbi9yZXNvdXJjZXMvcnVudGltZScpCiAgICBvcy5lbnZpcm9uWydPRElOX0RFU0tUT1BfQlVORExFX1JPT1QnXSA9IHN0cihydW50aW1lKQogICAgb3MuZW52aXJvblsnUExBWVdSSUdIVF9CUk9XU0VSU19QQVRIJ10gPSBzdHIocnVudGltZSAvICdicm93c2VyJykKICAgIGZyb20gc3JjLnRvb2xzLmJyb3dzZXIgaW1wb3J0IEJyb3dzZXJNYW5hZ2VyCiAgICBtYW5hZ2VyID0gQnJvd3Nlck1hbmFnZXIoKQogICAgYXdhaXQgbWFuYWdlci5fZW5zdXJlX2Nvbm5lY3RlZCgpCiAgICB0cnk6CiAgICAgICAgY29udGV4dCwgcGFnZSA9IGF3YWl0IG1hbmFnZXIuX2NyZWF0ZV9wYWdlKCkKICAgICAgICBhd2FpdCBwYWdlLmdvdG8oJ2RhdGE6dGV4dC9odG1sLDx0aXRsZT5VYnVudHUgcmVzdHJpY3RlZCB1c2VybnM8L3RpdGxlPjxoMT5SZWFsIGluc3RhbGxlZCBicm93c2VyPC9oMT4nKQogICAgICAgIGFzc2VydCBhd2FpdCBwYWdlLnRpdGxlKCkgPT0gJ1VidW50dSByZXN0cmljdGVkIHVzZXJucycKICAgICAgICBwbmcgPSBhd2FpdCBwYWdlLnNjcmVlbnNob3QoKQogICAgICAgIChvdXRwdXQgLyAnYnJvd3Nlci5wbmcnKS53cml0ZV9ieXRlcyhwbmcpCiAgICAgICAgcm93cyA9IHByb2Nlc3NlcygnY2hyb21lLWhlYWRsZXNzLXNoZWxsJykKICAgICAgICBhc3NlcnQgcm93cywgJ05vIHNhbmRib3hlZCBidW5kbGVkIGJyb3dzZXIgcmVuZGVyZXInCiAgICAgICAgcmV0dXJuIHsncGFzc2VkJzogVHJ1ZSwgJ3RpdGxlJzogYXdhaXQgcGFnZS50aXRsZSgpLCAndmVyc2lvbic6IG1hbmFnZXIuX2Jyb3dzZXIudmVyc2lvbiwKICAgICAgICAgICAgICAgICdwbmdfc2hhMjU2JzogaGFzaGxpYi5zaGEyNTYocG5nKS5oZXhkaWdlc3QoKSwgJ3JlbmRlcmVycyc6IHJvd3N9CiAgICBmaW5hbGx5OgogICAgICAgIGF3YWl0IG1hbmFnZXIuX2Jyb3dzZXIuY2xvc2UoKQogICAgICAgIGF3YWl0IG1hbmFnZXIuX3BsYXl3cmlnaHQuc3RvcCgpCgoKZGVmIGd1aShvdXRwdXQsIGNvbW1hbmQpOgogICAgd2l0aCAob3V0cHV0IC8gJ2xhdW5jaC5sb2cnKS5vcGVuKCd3JykgYXMgbG9nOgogICAgICAgIGNoaWxkID0gc3VicHJvY2Vzcy5Qb3Blbihjb21tYW5kLCBzdGRvdXQ9bG9nLCBzdGRlcnI9c3VicHJvY2Vzcy5TVERPVVQpCiAgICAgICAgcm93cywgbW91bnRfcm93cywgZGlhbG9ncyA9IFtdLCBbXSwgW10KICAgICAgICBkZWFkbGluZSA9IHRpbWUubW9ub3RvbmljKCkgKyA3NQogICAgICAgIHdoaWxlIGNoaWxkLnBvbGwoKSBpcyBOb25lIGFuZCB0aW1lLm1vbm90b25pYygpIDwgZGVhZGxpbmU6CiAgICAgICAgICAgIHJvd3MuZXh0ZW5kKHByb2Nlc3Nlcygnb2Rpbi1kZXNrdG9wLmJpbicpKQogICAgICAgICAgICBtb3VudF9yb3dzLmV4dGVuZChsaW5lIGZvciBsaW5lIGluIFBhdGgoJy9wcm9jL3NlbGYvbW91bnRpbmZvJykucmVhZF90ZXh0KCkuc3BsaXRsaW5lcygpCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlmICcubW91bnRfJyBpbiBsaW5lIGFuZCAnZnVzZScgaW4gbGluZSkKICAgICAgICAgICAgZm9yIGVudHJ5IGluIFBhdGgoJy9wcm9jJykuaXRlcmRpcigpOgogICAgICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgICAgIGlmIGVudHJ5Lm5hbWUuaXNkaWdpdCgpIGFuZCBlbnRyeS5zdGF0KCkuc3RfdWlkID09IG9zLmdldHVpZCgpOgogICAgICAgICAgICAgICAgICAgICAgICBjbWQgPSAoZW50cnkgLyAnY21kbGluZScpLnJlYWRfYnl0ZXMoKS5yZXBsYWNlKGInXDAnLCBiJyAnKS5kZWNvZGUoKQogICAgICAgICAgICAgICAgICAgICAgICBpZiBjbWQuc3RhcnRzd2l0aCgnL3Vzci9iaW4vemVuaXR5ICcpOgogICAgICAgICAgICAgICAgICAgICAgICAgICAgZGlhbG9ncy5hcHBlbmQoY21kKQogICAgICAgICAgICAgICAgZXhjZXB0IChGaWxlTm90Rm91bmRFcnJvciwgUGVybWlzc2lvbkVycm9yKToKICAgICAgICAgICAgICAgICAgICBwYXNzCiAgICAgICAgICAgIHRpbWUuc2xlZXAoLjE1KQogICAgICAgIGlmIGNoaWxkLnBvbGwoKSBpcyBOb25lOgogICAgICAgICAgICBjaGlsZC50ZXJtaW5hdGUoKQogICAgICAgICAgICBjaGlsZC53YWl0KHRpbWVvdXQ9MTApCiAgICAgICAgICAgIHJhaXNlIEFzc2VydGlvbkVycm9yKCdPbmUtc2hvdCBHVUkgZGVhZGxpbmUgZXhjZWVkZWQ7IG5vIHJldHJ5JykKICAgIHRleHQgPSAob3V0cHV0IC8gJ2xhdW5jaC5sb2cnKS5yZWFkX3RleHQoKQogICAgYXBwaW1hZ2UgPSBjb21tYW5kWzBdLmVuZHN3aXRoKCcuQXBwSW1hZ2UnKQogICAgIyBQcmVzZXJ2ZSBzYW5kYm94IHdpdG5lc3NlcyBldmVuIHdoZW4gdGhlIHN1YnNlcXVlbnQgR1VJIGNoZWNrcG9pbnQgZmFpbHMuCiAgICAjIEVhcmxpZXIgbGFuZTcgcnVuIGxhY2tlZCB0aGlzIGZpbGU7IGRvIG5vdCByZWNvbnN0cnVjdCBtaXNzaW5nIGV2aWRlbmNlLgogICAgb2JzZXJ2YXRpb25zID0geydjb21tYW5kJzogY29tbWFuZCwgJ2V4aXQnOiBjaGlsZC5yZXR1cm5jb2RlLAogICAgICAgICAgICAgICAgICAgICdyZW5kZXJlcnMnOiByb3dzLCAnZnVzZV9tb3VudHMnOiBzb3J0ZWQoc2V0KG1vdW50X3Jvd3MpKSwKICAgICAgICAgICAgICAgICAgICAnZGlhbG9nX2NvbW1hbmRzJzogc29ydGVkKHNldChkaWFsb2dzKSl9CiAgICAob3V0cHV0IC8gJ29ic2VydmF0aW9ucy5qc29uJykud3JpdGVfdGV4dChqc29uLmR1bXBzKG9ic2VydmF0aW9ucywgaW5kZW50PTIpICsgJ1xuJykKICAgIGlmIGFwcGltYWdlOgogICAgICAgIGFzc2VydCBjaGlsZC5yZXR1cm5jb2RlID4gMCBhbmQgY2hpbGQucmV0dXJuY29kZSA8IDEyOCwgdGV4dAogICAgICAgIGFzc2VydCAnLmRlYicgaW4gdGV4dCBhbmQgJ3NhbmRib3gnIGluIHRleHQubG93ZXIoKSwgdGV4dAogICAgICAgIGFzc2VydCBub3Qgcm93cywgJ0FwcEltYWdlIGxhdW5jaGVkIEVsZWN0cm9uIGluc3RlYWQgb2YgcmVmdXNpbmcgc2FmZWx5JwogICAgICAgIGFzc2VydCBtb3VudF9yb3dzLCAnTm8gYWN0dWFsIEZVU0UgQXBwSW1hZ2UgbW91bnQgb2JzZXJ2ZWQnCiAgICAgICAgYXNzZXJ0IGRpYWxvZ3MsICdObyBncmFwaGljYWwgcGxhaW4tZXJyb3IgZGlhbG9nIG9ic2VydmVkJwogICAgZWxzZToKICAgICAgICBhc3NlcnQgY2hpbGQucmV0dXJuY29kZSA9PSAwIGFuZCAnc21va2U6IG9rIGxpbms9cmVhZHknIGluIHRleHQsIHRleHQKICAgICAgICBhc3NlcnQgcm93cywgJ05vIEVsZWN0cm9uIHJlbmRlcmVyIHNhbmRib3ggZXZpZGVuY2UnCiAgICAgICAgYXNzZXJ0IChvdXRwdXQgLyAnZWxlY3Ryb24ucG5nJykuaXNfZmlsZSgpLCAnTm8gcmVuZGVyZWQgYXBwIHNjcmVlbnNob3QnCiAgICByZXR1cm4geydwYXNzZWQnOiBUcnVlLCAqKm9ic2VydmF0aW9ucywgJ2Nhc2UnOiAnYXBwaW1hZ2UnIGlmIGFwcGltYWdlIGVsc2UgJ2RlYid9CgoKaWYgX19uYW1lX18gPT0gJ19fbWFpbl9fJzoKICAgIGFzc2VydCBvcy5nZXR1aWQoKSA9PSBwd2QuZ2V0cHduYW0oJ29kcScpLnB3X3VpZCAhPSAwCiAgICBhc3NlcnQgUGF0aCgnL3Byb2Mvc3lzL2tlcm5lbC9hcHBhcm1vcl9yZXN0cmljdF91bnByaXZpbGVnZWRfdXNlcm5zJykucmVhZF90ZXh0KCkuc3RyaXAoKSA9PSAnMScKICAgIGFzc2VydCBQYXRoKCcvc3lzL21vZHVsZS9hcHBhcm1vci9wYXJhbWV0ZXJzL2VuYWJsZWQnKS5yZWFkX3RleHQoKS5zdHJpcCgpID09ICdZJwogICAgb3V0cHV0ID0gUGF0aChzeXMuYXJndlsyXSkKICAgIG91dHB1dC5ta2RpcihleGlzdF9vaz1GYWxzZSkKICAgIHRyeToKICAgICAgICByZXN1bHQgPSBhc3luY2lvLnJ1bihicm93c2VyKG91dHB1dCkpIGlmIHN5cy5hcmd2WzFdID09ICdicm93c2VyJyBlbHNlIGd1aShvdXRwdXQsIHN5cy5hcmd2WzM6XSkKICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZXhjOgogICAgICAgIChvdXRwdXQgLyAncHJvb2YuanNvbicpLndyaXRlX3RleHQoanNvbi5kdW1wcyh7J3Bhc3NlZCc6IEZhbHNlLCAnZXJyb3InOiBzdHIoZXhjKX0sIGluZGVudD0yKSkKICAgICAgICByYWlzZQogICAgKG91dHB1dCAvICdwcm9vZi5qc29uJykud3JpdGVfdGV4dChqc29uLmR1bXBzKHJlc3VsdCwgaW5kZW50PTIpICsgJ1xuJykK",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "scripts/packaging/ubuntu_userns_probe.py",
+      "reason": "Task1 Ubuntu restricted-userns qualification helper was omitted from byte accounting; add its exact existing bytes without changing shipped candidates.",
+      "reviewer": "pending Claude",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "app/packaging/tests/test_userns_evidence.py": "2ef70048cabc5ee6d8943623abe8dafc0b3e21b1d65ef84813b706f2fbc2e89b"
+      },
+      "tests": [
+        "app/packaging/tests/test_userns_evidence.py"
+      ]
+    },
+    {
       "after_sha256": "a591755cdd7095acb0837f24ac56e7de70aff81146d6656407bbef8ef8d4361a",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
@@ -8481,7 +8541,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "931d27a9f7eb57d9c59b978dc403d2764ecc3c608de659df5c552f526f721e11",
-      "contract": "phase-2/requests-delivery provenance: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18.\n\nphase-2/conversations provenance: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> \u2192 thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only.",
+      "contract": "phase-2/requests-delivery provenance: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18.\n\nphase-2/conversations provenance: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> → thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
