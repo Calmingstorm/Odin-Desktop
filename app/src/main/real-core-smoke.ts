@@ -368,7 +368,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(sliceComputer.readiness.input_supported, false)
   assert.equal(sliceComputer.readiness.native_qualified, false)
   const health = await observedService('healthGet') as { browser: { state: string; ready: boolean; retry_available: boolean } }
-  assert.deepEqual({ state: health.browser.state, ready: health.browser.ready, retry_available: health.browser.retry_available }, { state: 'disabled', ready: false, retry_available: false })
+  // D17 fresh settings enable the browser; no bundle is qualified in this
+  // source-tree profile. Preserve the unavailable retry seam, not native success.
+  assert.deepEqual({ state: health.browser.state, ready: health.browser.ready, retry_available: health.browser.retry_available }, { state: 'unavailable', ready: false, retry_available: true })
   for (let i = 0; i < sections.length; i++) {
     await click(`.settings-nav-item:nth-of-type(${i + 2})`)
     if (sections[i] === 'Models and providers') {
@@ -391,7 +393,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       for (const tool of tools) {
         assert(rows.some((row) => row.includes(tool.name) && row.includes(`Cost: ${tool.cost ?? 'not reported'}. Risk: ${tool.risk ?? 'not reported'}.`)), `${tool.name} must render its reported cost and risk without invented measurements`)
       }
-      await until(async () => /disabled/i.test(await text('section[aria-label="Browser runtime"]')), 'real disabled browser state')
+      await until(async () => /unavailable/i.test(await text('section[aria-label="Browser runtime"]')), 'real unqualified browser state')
     }
     if (sections[i] === 'Skills') {
       await until(async () => (await text('section[aria-label="Skills"]')).includes('slice4_constant'), 'real skill card')

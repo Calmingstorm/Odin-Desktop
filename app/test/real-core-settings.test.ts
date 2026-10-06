@@ -214,7 +214,14 @@ describe('served settings/management through actual Broker and isolated reposito
     expect(result(await broker.request('personality.get'))).toMatchObject({ preset: 'odin', user_presets: [] })
     const inventory = result<{ tools: { name: string; state: string }[] }>(await broker.request('tools.list'))
     expect(inventory.tools.length).toBeGreaterThan(10)
-    expect(inventory.tools.find((tool) => tool.name === 'browser_read_page')?.state).toBe('unavailable')
+    // D17 restores the pinned fresh-install enabled browser. This is its wired
+    // retry seam, not proof of a qualified Chromium launch in this source tree.
+    expect(field(await schema(broker), 'browser.enabled').desired).toBe(true)
+    expect(inventory.tools.find((tool) => tool.name === 'browser_read_page')?.state).toBe('available')
+    result(await broker.request('tools.set_enabled', { name: 'browser_read_page', enabled: false }))
+    expect(result<{ tools: unknown[] }>(await broker.request('tools.list')).tools).toContainEqual(expect.objectContaining({ name: 'browser_read_page', enabled: false, state: 'disabled' }))
+    result(await broker.request('tools.set_enabled', { name: 'browser_read_page', enabled: true }))
+    expect(result<{ tools: unknown[] }>(await broker.request('tools.list')).tools).toContainEqual(expect.objectContaining({ name: 'browser_read_page', enabled: true, state: 'available' }))
     result(await broker.request('tools.set_enabled', { name: 'run_command', enabled: false }))
     expect(result<{ tools: unknown[] }>(await broker.request('tools.list')).tools).toContainEqual(expect.objectContaining({ name: 'run_command', enabled: false, state: 'disabled' }))
     const rev = (await schema(broker)).revision
