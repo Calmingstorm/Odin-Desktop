@@ -1,11 +1,43 @@
 {
-  "schema_version": 1,
+  "acceptance": {
+    "all_retained_neutral_cases_require_direct_or_exact_adapter_evidence": true,
+    "native_scope": "Phase 3 hard-isolated qualification only; never active desktop.",
+    "observed_failures_are_not_waived": true,
+    "original_851_retained_paths_unchanged": true,
+    "prohibited_literal_scope": "Never execute destructive/attack literal inputs even mocked; explicit safety limitation, not parity claim.",
+    "unmapped_cases_are_blockers_not_implicit_passes": true
+  },
+  "accounting_summary": {
+    "foundation_blockers": 22,
+    "foundation_definitions": {
+      "executable": 724,
+      "native-prohibited-scope": 15,
+      "phase2-admission-wiring": 7,
+      "removed-surface-replacement": 130,
+      "unmapped-neutral-blocker": 0
+    },
+    "historical_blockers": 8,
+    "historical_failures": {
+      "executable": 185,
+      "phase2-admission-wiring": 8,
+      "removed-surface-replacement": 66,
+      "unmapped-neutral-blocker": 0
+    },
+    "status": "pending-review-not-accepted"
+  },
   "artifact": "Phase 1 original-corpus qualification",
-  "baseline_plan": "maintenance/test-plan.json",
   "baseline_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
-  "status": "not-accepted",
-  "suite_pairing": "All869 original suites/support paths in test-plan.json remain paired by exact hashes. Literal CORPUS_SELECTIONS/CORPUS_EXCLUSIONS in adapters specify exact originals. No unselected neutral case is implicitly proved.",
+  "baseline_plan": "maintenance/test-plan.json",
+  "case_accounting": "maintenance/case-accounting.json",
+  "disposition_rules": {
+    "direct_original": "Version7/type12/coverage original cases contain neutral algorithms; previous metadata label incorrect.",
+    "faithful_adapter_exact_selected_corpus": "Only literal CORPUS_SELECTIONS named cases proved, never implicit full-suite coverage. Config inside assertions cannot change with identical assertion claim. Missing neutral remainder still blocks.",
+    "mixed_retired_manifest_assertions_retained_native_bundle_safety": "nfpm destinations/dependency names, REST inventories and API-token prose retired. ABI/source-only/no hooks/no automatic activation, consent warnings/link closure/no personal host paths and tool docs remain explicit bundle requirements. Phase3 hard-isolated native scope, not blanket Phase2 waiver.",
+    "retired_server_distribution_contract": "Old server CLI/remote API client and build-deb release workflow removed D3/D5/D6; original bytes preserved. Hostile release tag literals additionally prohibited even mocked.",
+    "still_required_neutral_exact_case_mapping_blocker": "Remove specific tier/WebUI/server assertions only, never neutral redaction/validator/reset/import/governor/host safety corpus. Actual disposable profile/model/import roots, instance allowed_urls, static catalogue, genuine owner and mocked provider fixtures are minimal alternatives. D5 forbids prior-install import, not normal Desktop runtime/loader upgrades, document ingestion or explicit profile-scoped helpers."
+  },
   "failure_accounting": {
+    "ordinary_upgrade_rule": "D5 startup/import waivers superseded by profile-upgrade-triage.json. Normal established owner profile upgrades retained.",
     "population": ".test-state/inherited-bounded.xml all259 failures across49 original files",
     "triage_sources": [
       "maintenance/tool-suite-triage.json",
@@ -16,10 +48,8 @@
       "maintenance/foundation-suite-triage.json",
       "maintenance/profile-upgrade-triage.json"
     ],
-    "unmapped_failure": "Phase1-blocker-needs-exact-case-review, never automatically Phase2 or ignored",
-    "ordinary_upgrade_rule": "D5 startup/import waivers superseded by profile-upgrade-triage.json. Normal established owner profile upgrades retained."
+    "unmapped_failure": "Phase1-blocker-needs-exact-case-review, never automatically Phase2 or ignored"
   },
-  "foundation_original_count": 38,
   "foundation_dispositions": {
     "direct_original": [
       "tests/test_version.py",
@@ -47,14 +77,14 @@
       "tests/test_hosts_control_plane.py",
       "tests/test_parallel_policy.py"
     ],
-    "retired_server_distribution_contract": [
-      "tests/test_cli_migration_contract.py",
-      "tests/test_release_workflow.py"
-    ],
     "mixed_retired_manifest_assertions_retained_native_bundle_safety": [
       "tests/test_computer_kwin_packaging_r11.py",
       "tests/test_computer_shipped_docs_r11.py",
       "tests/test_docs_live_inventory.py"
+    ],
+    "retired_server_distribution_contract": [
+      "tests/test_cli_migration_contract.py",
+      "tests/test_release_workflow.py"
     ],
     "still_required_neutral_exact_case_mapping_blocker": [
       "tests/test_apply_registry.py",
@@ -72,35 +102,9 @@
       "tests/test_skill_context.py"
     ]
   },
-  "disposition_rules": {
-    "direct_original": "Version7/type12/coverage original cases contain neutral algorithms; previous metadata label incorrect.",
-    "faithful_adapter_exact_selected_corpus": "Only literal CORPUS_SELECTIONS named cases proved, never implicit full-suite coverage. Config inside assertions cannot change with identical assertion claim. Missing neutral remainder still blocks.",
-    "retired_server_distribution_contract": "Old server CLI/remote API client and build-deb release workflow removed D3/D5/D6; original bytes preserved. Hostile release tag literals additionally prohibited even mocked.",
-    "mixed_retired_manifest_assertions_retained_native_bundle_safety": "nfpm destinations/dependency names, REST inventories and API-token prose retired. ABI/source-only/no hooks/no automatic activation, consent warnings/link closure/no personal host paths and tool docs remain explicit bundle requirements. Phase3 hard-isolated native scope, not blanket Phase2 waiver.",
-    "still_required_neutral_exact_case_mapping_blocker": "Remove specific tier/WebUI/server assertions only, never neutral redaction/validator/reset/import/governor/host safety corpus. Actual disposable profile/model/import roots, instance allowed_urls, static catalogue, genuine owner and mocked provider fixtures are minimal alternatives. D5 forbids prior-install import, not normal Desktop runtime/loader upgrades, document ingestion or explicit profile-scoped helpers."
-  },
-  "observed_failures": [
-    {
-      "artifact": ".test-logs-pass-now-full.txt",
-      "failed": 116,
-      "passed": 5824,
-      "skipped": 3,
-      "seconds": 781.08,
-      "complete": false
-    },
-    {
-      "artifact": ".test-state/inherited-bounded.xml",
-      "failed": 259,
-      "passed": 10169,
-      "skipped": 4,
-      "seconds": 460.54,
-      "complete": true
-    }
-  ],
+  "foundation_original_count": 38,
   "groups": [
     {
-      "name": "direct-shared-stores-providers-tools",
-      "reason": "Explicit remaining unchanged shared suites in parent309suite9053pass replay; no hidden disposition of259historical failures.",
       "files": [
         "tests/test_context_budget.py",
         "tests/test_context_budget_legacy_profile_conversion.py",
@@ -219,11 +223,11 @@
         "tests/test_web_tools.py",
         "tests/test_webhook_persistence.py",
         "tests/test_webhook_text.py"
-      ]
+      ],
+      "name": "direct-shared-stores-providers-tools",
+      "reason": "Explicit remaining unchanged shared suites in parent309suite9053pass replay; no hidden disposition of259historical failures."
     },
     {
-      "name": "direct-shared-computer",
-      "reason": "Explicit pure/mocked unchanged computer corpus from parent309suite replay; no native qualification implied.",
       "files": [
         "tests/test_computer_accessibility_status_r19.py",
         "tests/test_computer_accessible_route_r19.py",
@@ -326,11 +330,11 @@
         "tests/test_computer_x11_popup_r11.py",
         "tests/test_computer_x11_r11.py",
         "tests/test_computer_x11_topology_r11.py"
-      ]
+      ],
+      "name": "direct-shared-computer",
+      "reason": "Explicit pure/mocked unchanged computer corpus from parent309suite replay; no native qualification implied."
     },
     {
-      "name": "direct-shared-hyprland",
-      "reason": "Explicit unchanged pure/mocked protocol/recovery corpus from parent309suite replay, no compositor access.",
       "files": [
         "tests/test_hyprland_absence_backend.py",
         "tests/test_hyprland_absence_scope_drain.py",
@@ -368,10 +372,11 @@
         "tests/test_hyprland_store_migration_campaign.py",
         "tests/test_hyprland_task_recovery_campaign.py",
         "tests/test_hyprland_unsettled_parser_r35.py"
-      ]
+      ],
+      "name": "direct-shared-hyprland",
+      "reason": "Explicit unchanged pure/mocked protocol/recovery corpus from parent309suite replay, no compositor access."
     },
     {
-      "name": "direct-shared-engine",
       "files": [
         "tests/computer/test_hyprland_backend.py",
         "tests/test_adaptive_compaction.py",
@@ -428,115 +433,115 @@
         "tests/test_command_shell_matrix.py",
         "tests/test_compatible_streaming.py"
       ],
+      "name": "direct-shared-engine",
       "reason": "Explicit direct unchanged shared corpus, first chunk of309suite parent replay9053passed1skip304.52s; failed mixed cases never waived."
     },
     {
-      "name": "faithful-computer-recovery",
       "files": [
         "tests/test_desktop_shared_recovery.py"
       ],
+      "name": "faithful-computer-recovery",
       "reason": "Exact original mocked recovery corpus plus explicit Desktop operator denial replacements; no native proof. Runner supervisor must avoid PID2 identity collision without changing case parameters."
     },
     {
-      "name": "faithful-config",
       "files": [
         "tests/test_desktop_shared_config.py"
       ],
+      "name": "faithful-config",
       "reason": "Frozen original assert/decorator/parameter corpus with narrow disposable Desktop setup; unselected original cases remain blockers or exact reviewed dispositions."
     },
     {
-      "name": "faithful-computer-declaration",
       "files": [
         "tests/test_desktop_shared_computer.py"
       ],
+      "name": "faithful-computer-declaration",
       "reason": "Declaration-only original corpus; no native input or lifecycle qualification."
     },
     {
-      "name": "faithful-tools",
       "files": [
         "tests/test_desktop_shared_tools.py"
       ],
+      "name": "faithful-tools",
       "reason": "Frozen tool corpus with authentic disposable owner/profile setup and static documentation catalogue."
     },
     {
-      "name": "faithful-tools-extra",
       "files": [
         "tests/test_desktop_shared_tools_extra.py"
       ],
+      "name": "faithful-tools-extra",
       "reason": "Frozen file/output/backoff/lease corpus with explicit disposable host profile."
     },
     {
-      "name": "faithful-llm",
       "files": [
         "tests/test_desktop_shared_llm.py"
       ],
+      "name": "faithful-llm",
       "reason": "Frozen provider/model-hint corpus, mocked transport and profile-local setup."
     },
     {
-      "name": "direct-neutral-metadata",
       "files": [
         "tests/test_version.py",
         "tests/test_type_gate.py",
         "tests/test_coverage_gate.py"
       ],
+      "name": "direct-neutral-metadata",
       "reason": "Original neutral tests are not obsolete merely by filename; parent direct execution proved these cases."
     },
     {
-      "name": "neutral-completion-classifier",
+      "exclude_expression": "iteration_cap_failure_visible_to_wait_results_and_agents_api or agent_manager_receives_completion_classifier_from_composition_root",
       "files": [
         "tests/test_agent_completion_classifier.py"
       ],
-      "exclude_expression": "iteration_cap_failure_visible_to_wait_results_and_agents_api or agent_manager_receives_completion_classifier_from_composition_root",
+      "name": "neutral-completion-classifier",
       "reason": "Exactly two cases require unwired API publication or removed OdinBot composition; all neutral judge cases remain direct."
     },
     {
-      "name": "neutral-host-control",
+      "exclude_expression": "scan_host_references",
       "files": [
         "tests/test_hosts_control_plane.py"
       ],
-      "exclude_expression": "scan_host_references",
+      "name": "neutral-host-control",
       "reason": "59 unchanged host cases parent-proven; one removed bot/user/token inventory assertion requires exact replacement."
     },
     {
-      "name": "neutral-subsystem-guard",
+      "exclude_expression": "real_bot_guard_is_always_constructed_with_supported_thresholds",
       "files": [
         "tests/test_subsystem_guard.py"
       ],
-      "exclude_expression": "real_bot_guard_is_always_constructed_with_supported_thresholds",
+      "name": "neutral-subsystem-guard",
       "reason": "Only removed bot composition requires Phase 2; neutral guard thresholds remain direct."
     },
     {
-      "name": "neutral-fd-health",
+      "exclude_expression": "packaged_systemd",
       "files": [
         "tests/test_fd_health.py"
       ],
-      "exclude_expression": "packaged_systemd",
+      "name": "neutral-fd-health",
       "reason": "Systemd server packaging assertion retired; neutral FD health corpus retained."
     },
     {
-      "name": "neutral-parallel-policy",
+      "exclude_expression": "ci_uses_make_targets_and_bounded_workers",
       "files": [
         "tests/test_parallel_policy.py"
       ],
-      "exclude_expression": "ci_uses_make_targets_and_bounded_workers",
+      "name": "neutral-parallel-policy",
       "reason": "Retired upstream workflow assertion only; shared collection grouping retained."
     },
     {
-      "name": "faithful-foundation",
       "files": [
         "tests/test_desktop_shared_foundation.py"
       ],
+      "name": "faithful-foundation",
       "reason": "Exact frozen corpus plus meaningful real-owner boundary replacements."
     },
     {
-      "name": "faithful-migrations",
       "files": [
         "tests/test_desktop_shared_migrations.py"
       ],
+      "name": "faithful-migrations",
       "reason": "Ordinary selected-profile upgrades, exact unchanged assertions and matrices."
     },
     {
-      "name": "mixed-original-passed-cases",
       "files": [
         "tests/test_apply_patch.py::test_add_creates_missing_parent_chain_without_replacing_existing_directories",
         "tests/test_apply_patch.py::test_add_existing_move_destination_and_non_utf8_update_are_refused",
@@ -1414,10 +1419,10 @@
         "tests/test_strict_tool_adapter.py::test_external_nullable_omission_distinguishes_meaningful_null",
         "tests/test_strict_tool_adapter.py::test_external_unsupported_subschemas_never_break_catalog"
       ],
+      "name": "mixed-original-passed-cases",
       "reason": "Exact historical passed row selectors across all49mixed files. Failed rows accounted separately, actual endpoint tests excluded."
     },
     {
-      "name": "desktop-boundary-tests",
       "files": [
         "tests/test_desktop_capabilities_definitions.py",
         "tests/test_desktop_capabilities_owner.py",
@@ -1478,10 +1483,10 @@
         "tests/test_desktop_test_plan.py",
         "tests/test_desktop_transcript.py"
       ],
+      "name": "desktop-boundary-tests",
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups."
     },
     {
-      "name": "direct-foundation-neutral-remainder",
       "files": [
         "tests/test_outbound_webhooks.py::TestEventType::test_values",
         "tests/test_outbound_webhooks.py::TestEventType::test_count",
@@ -1651,10 +1656,10 @@
         "tests/test_memory_fail_closed.py::TestLearnedConsumerHardening::test_update_entry_rejects_empty_and_invalid_direct_calls",
         "tests/test_memory_fail_closed.py::TestLearnedConsumerHardening::test_save_validates_all_in_memory_results"
       ],
+      "name": "direct-foundation-neutral-remainder",
       "reason": "Actual128 unchanged pure/mocked outbound dispatch+timeout cases and39corruptmemory cases passed. No API/native/real sockets selected."
     },
     {
-      "name": "direct-isolation-timeout-neutrals",
       "files": [
         "tests/test_tool_timeouts.py::TestSkillManagerPerToolTimeout::test_accepts_tool_timeouts",
         "tests/test_tool_timeouts.py::TestSkillManagerPerToolTimeout::test_default_empty_timeouts",
@@ -1662,45 +1667,53 @@
         "tests/test_bulkhead.py::TestIsolationSemantics::test_ssh_bulkhead_tracks_errors",
         "tests/test_bulkhead.py::TestIsolationSemantics::test_separate_bulkheads_independent"
       ],
+      "name": "direct-isolation-timeout-neutrals",
       "reason": "Five exact unchanged bulkhead isolation/SkillManager timeout original cases passed; owner-dependent sixth case separately blocked."
     },
     {
-      "name": "faithful-owner-contracts",
       "files": [
         "tests/test_desktop_shared_owner_contracts.py"
       ],
+      "name": "faithful-owner-contracts",
       "reason": "Exact genuine-owner mocked MCP/evidence/retry/tool failure/bulkhead/validation original corpus; actual frozen parameters preserved."
     },
     {
+      "files": [
+        "tests/test_desktop_shared_retirement.py"
+      ],
       "name": "faithful-retirement-corpus",
-      "files": ["tests/test_desktop_shared_retirement.py"],
       "reason": "Frozen model-retirement cases keep assertions and parameter data; only exact inert transport YAML and genuine selected-profile setup are changed. Retired WebUI source inspection stays excluded."
     },
     {
-      "name": "final-historical-cases",
       "files": [
         "tests/test_desktop_final_history.py",
         "tests/test_evaluative_discipline_prompt.py::test_system_prompt_and_workspace_share_runtime_install_root"
       ],
+      "name": "final-historical-cases",
       "reason": "Exact final historical mappings preserve neutral shutdown, lease, strict-schema and error cases; actual Phase 2 admission/delivery boundaries remain refused."
     },
     {
+      "files": [
+        "tests/test_desktop_final_helpers.py"
+      ],
       "name": "final-helper-cases",
-      "files": ["tests/test_desktop_final_helpers.py"],
       "reason": "Exact retained schema, error, knowledge and documentation behavior; removed route/intake claims receive named effect-free boundary evidence."
     },
     {
+      "files": [
+        "tests/test_desktop_final_distribution.py"
+      ],
       "name": "final-distribution-cases",
-      "files": ["tests/test_desktop_final_distribution.py"],
       "reason": "Exact retired server packaging and native dispatch dispositions; private wheel and current disabled/unready capability boundaries verified without native input."
     },
     {
+      "files": [
+        "tests/test_desktop_final_config.py"
+      ],
       "name": "final-config-cases",
-      "files": ["tests/test_desktop_final_config.py"],
       "reason": "Exact remaining configuration, evidence digest, model identity, skill listing and timeout definitions with real profile boundaries; removed schema/intake contracts receive named replacements."
     },
     {
-      "name": "phase2-core-transport",
       "files": [
         "tests/test_desktop_core_entry.py",
         "tests/test_desktop_receipt_retention.py",
@@ -1720,10 +1733,10 @@
         "tests/test_restored_process_shutdown.py",
         "tests/test_desktop_phase2_suite_map.py"
       ],
+      "name": "phase2-core-transport",
       "reason": "Phase 2 step 1 Desktop-origin temporary-profile process, parent EOF, private framing/authentication, durable receipts and retention. Step 5 adapts lifecycle/IPC/retention to minor 3 and served management, not upstream corpus assertions. Step 8 part 1 restores eight unchanged inherited helper suites and every process-manager case through a frozen adapter with authentic temporary owner/workspace; mapping binds all 326 historical suites. No native desktop input."
     },
     {
-      "name": "phase2-step5-profile-management",
       "files": [
         "tests/test_desktop_codex_accounts.py",
         "tests/test_desktop_hosts.py",
@@ -1737,36 +1750,46 @@
         "tests/test_desktop_records.py",
         "tests/test_desktop_runtime.py",
         "tests/test_desktop_settings.py",
-        "tests/test_desktop_state.py"
+        "tests/test_desktop_state.py",
+        "tests/test_desktop_step5_accounting.py",
+        "tests/test_desktop_step5_completion_core.py",
+        "tests/test_desktop_step5_knowledge_corpus.py",
+        "tests/test_desktop_step5_knowledge_methods.py",
+        "tests/test_desktop_step5_llm_corpus.py",
+        "tests/test_desktop_step5_llm_methods.py",
+        "tests/test_desktop_step5_observability_http.py",
+        "tests/test_desktop_step5_observability_methods.py",
+        "tests/test_desktop_step5_observability_neutral.py",
+        "tests/test_desktop_step5_observability_turn_state.py",
+        "tests/test_desktop_step5_records_corpus.py",
+        "tests/test_desktop_step5_records_methods.py",
+        "tests/test_desktop_step5_sensitivity.py",
+        "tests/test_desktop_step5_traces_frozen.py",
+        "tests/test_desktop_step5_traces_methods.py"
       ],
-      "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification."
+      "name": "phase2-step5-profile-management",
+      "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification. Step-five completion additionally executes all 21 requested original filenames through whole hash/corpus-bound adapters, plus named-method and authenticated transport proofs. No original selection is removed, no new skip/exclusion is added."
     }
   ],
-  "acceptance": {
-    "all_retained_neutral_cases_require_direct_or_exact_adapter_evidence": true,
-    "unmapped_cases_are_blockers_not_implicit_passes": true,
-    "observed_failures_are_not_waived": true,
-    "original_851_retained_paths_unchanged": true,
-    "native_scope": "Phase 3 hard-isolated qualification only; never active desktop.",
-    "prohibited_literal_scope": "Never execute destructive/attack literal inputs even mocked; explicit safety limitation, not parity claim."
-  },
-  "case_accounting": "maintenance/case-accounting.json",
-  "accounting_summary": {
-    "historical_failures": {
-      "executable": 185,
-      "unmapped-neutral-blocker": 0,
-      "removed-surface-replacement": 66,
-      "phase2-admission-wiring": 8
+  "observed_failures": [
+    {
+      "artifact": ".test-logs-pass-now-full.txt",
+      "complete": false,
+      "failed": 116,
+      "passed": 5824,
+      "seconds": 781.08,
+      "skipped": 3
     },
-    "foundation_definitions": {
-      "executable": 724,
-      "removed-surface-replacement": 130,
-      "unmapped-neutral-blocker": 0,
-      "phase2-admission-wiring": 7,
-      "native-prohibited-scope": 15
-    },
-    "historical_blockers": 8,
-    "foundation_blockers": 22,
-    "status": "pending-review-not-accepted"
-  }
+    {
+      "artifact": ".test-state/inherited-bounded.xml",
+      "complete": true,
+      "failed": 259,
+      "passed": 10169,
+      "seconds": 460.54,
+      "skipped": 4
+    }
+  ],
+  "schema_version": 1,
+  "status": "not-accepted",
+  "suite_pairing": "All869 original suites/support paths in test-plan.json remain paired by exact hashes. Literal CORPUS_SELECTIONS/CORPUS_EXCLUSIONS in adapters specify exact originals. No unselected neutral case is implicitly proved."
 }

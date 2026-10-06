@@ -8,11 +8,14 @@ bound by phase2_suites and inventory. No unrelated deferred suite is promoted.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
-from scripts.maintenance import inventory
-
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from scripts.maintenance import inventory  # noqa: E402
+
 GROUP = "phase2-step5-profile-management"
 RESTORATIONS = {
     "tests/test_desktop_step5_records_corpus.py": [
@@ -35,6 +38,7 @@ RESTORATIONS = {
     ],
 }
 METHOD_TESTS = [
+    "tests/test_desktop_step5_accounting.py",
     "tests/test_desktop_step5_completion_core.py",
     "tests/test_desktop_step5_knowledge_methods.py",
     "tests/test_desktop_step5_llm_methods.py",

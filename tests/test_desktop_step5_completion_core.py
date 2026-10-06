@@ -49,12 +49,13 @@ async def test_completion_read_transport_never_reserves_commands(connected, meth
         "SELECT COUNT(*) FROM command_receipts").fetchone()[0] == 0
 
 
-async def test_missing_runtime_measurement_is_not_a_fabricated_counter(connected):
+async def test_runtime_measurement_distinguishes_no_samples_from_actual_compression(connected):
     _, reader, writer, _, _ = connected
     result = await request(reader, writer, "observability.stats")
     assert result["ok"], result
-    assert result["result"]["compression"]["available"] is False
-    assert "not available" in result["result"]["compression"]["reason"]
+    assert result["result"]["compression"]["prefix_measurement"] == "unmeasured"
+    assert result["result"]["compression"]["prefix_hit_rate"] is None
+    assert result["result"]["compression"]["upstream_cache_measured"] is False
     # The actual gateway constructs the breaker registry. Empty measurements
     # from that real owner are different from inventing an absent registry.
     capacity = await request(reader, writer, "capacity.snapshot")
@@ -71,6 +72,8 @@ async def test_completion_reads_share_the_request_graphs_original_owners(connect
     assert manager.learned.reflector is deps.reflector
     assert manager.trajectories.saver is deps.turn_recorder._trajectory_saver
     assert manager.observations._owner("model_breakers") is deps.llm_gateway.model_breakers
+    assert manager.observations._owner("compression_stats") is deps.compression_stats
+    assert core.engine.runner._get_compression_stats() is deps.compression_stats
     assert manager.knowledge.store is deps.knowledge_store
     assert deps.native_tools.owners["knowledge"]._knowledge_store is manager.knowledge.store
 
@@ -87,6 +90,31 @@ async def test_management_ingest_is_visible_to_original_native_knowledge_tools(c
     found = await native._handle_search_knowledge({"query": "shared knowledge"})
     assert "management-reference" in found
     assert "one shared knowledge store" in found
+
+
+async def test_actual_compression_owner_updates_are_visible_over_transport(connected):
+    from src.llm.context_compressor import compress_tool_context
+
+    core, reader, writer, _, _ = connected
+    stats = core.engine.runner._get_compression_stats()
+    messages = [{"role": "user", "content": "Initial context"}]
+    for index in range(4):
+        messages.extend([
+            {"role": "assistant", "content": [{"type": "tool_use", "id": str(index),
+                "name": "read_file", "input": {"path": "disposable-document"}}]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": str(index),
+                "content": "Measured context " * 100}]},
+        ])
+    _, compressed = compress_tool_context(messages, max_context_chars=200,
+                                          keep_recent=1, stats=stats)
+    assert compressed > 0
+    observed = await request(reader, writer, "observability.compression")
+    assert observed["ok"], observed
+    assert observed["result"]["chars_saved"] == stats.chars_saved > 0
+    assert observed["result"]["iterations_compressed"] == compressed
+    assert observed["result"]["compressions"] == 1
+    assert observed["result"]["prefix_measurement"] == "unmeasured"
+    assert observed["result"]["upstream_cache_measured"] is False
 
 
 async def test_pool_close_command_replay_does_not_repeat_effect(connected, monkeypatch):

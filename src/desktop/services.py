@@ -310,11 +310,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..discord.native_tools.media import MediaTools
     from ..discord.native_tools.scheduling import SchedulingTools
     from ..health.subsystem_guard import SubsystemGuard
+    from ..knowledge.store import KnowledgeStore
     from ..learning import ConversationReflector
     from ..learning.loop_reflection import LoopReflectionGate
-    from ..knowledge.store import KnowledgeStore
     from ..llm import CodexChatClient, OllamaClient, OpenAICompatibleClient
     from ..llm.codex_auth import CodexAuthPool
+    from ..llm.context_compressor import CompressionStats
     from ..llm.cost_tracker import CostTracker
     from ..llm.model_breaker import ModelBreakerRegistry
     from ..llm.recovery import RecoveryPolicy
@@ -622,6 +623,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     dispatcher = _ReadyDispatcher(owners=owners, skill_manager=skills, tool_catalog=catalog,
         prompt_builder=prompt, channel_state=state, builtin_policy=policy)
     compression = getattr(runtime, "context_compressor", cc.context_compression if cc.context_compression.enabled else None)
+    compression_stats = getattr(runtime, "compression_stats", None) or CompressionStats()
     d = SimpleNamespace(get_config=get_config, paths=paths, permissions=permissions,
         sessions=sessions, tool_executor=executor, channel_state=state, turn_store=ledger,
         durability_reason=durability_reason, compatible_skipped=compatible_skipped,
@@ -630,11 +632,11 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         skill_manager=skills, audit=audit, agent_manager=agents, loop_manager=loops,
         host_registry=hosts, host_access_manager=access, scheduler=scheduler, reflector=reflector,
         context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime,
-        knowledge_store=knowledge, embedder=embedder)
+        knowledge_store=knowledge, embedder=embedder, compression_stats=compression_stats)
     engine = EngineServices(d, None)
     runner = ToolLoopRunner(ToolLoopDeps(get_config=get_config,
         get_default_system_prompt=lambda: prompt.default_prompt, get_context_compressor=lambda: compression,
-        get_compression_stats=lambda: getattr(runtime, "compression_stats", None),
+        get_compression_stats=lambda: compression_stats,
         llm_gateway=gateway, prompt_builder=prompt, tool_catalog=catalog, channel_state=state,
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         native_tools=dispatcher, tool_executor=executor, permissions=permissions,
