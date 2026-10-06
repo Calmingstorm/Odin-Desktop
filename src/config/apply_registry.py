@@ -202,9 +202,8 @@ SECTIONS: dict[str, SectionSpec] = {
         "history must be enabled explicitly before this path is written.",
     ),
     "webhook": SectionSpec(
-        "restart",
+        "live_read",
         "Inbound webhook listener and authentication policy.",
-        restart_reason="The listener binds its routes and auth policy at startup.",
     ),
     "learning": SectionSpec(
         "restart",
@@ -336,6 +335,7 @@ GROUP_DESCRIPTIONS: dict[str, str] = {
         "OpenRouter provider pinning, route filters, and derived model profiles."
     ),
     "outbound_webhooks.targets": "Where lifecycle events are delivered.",
+    "webhook.triggers": "Per-schedule inbound sources and independent profile credentials.",
     "personality.user_presets": "Saved custom identity presets.",
     "tools.branch_freshness": "Warn when work starts from a stale git branch.",
     "tools.bulkhead": "Concurrency ceilings per execution kind, so one busy "

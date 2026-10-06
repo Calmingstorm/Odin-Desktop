@@ -1518,7 +1518,9 @@
         "tests/test_desktop_test_plan.py",
         "tests/test_desktop_tool_details.py",
         "tests/test_desktop_transcript.py",
-        "tests/test_pdf_resources.py"
+        "tests/test_pdf_resources.py",
+        "tests/test_desktop_webhooks.py",
+        "tests/test_desktop_webhook_adapters.py"
       ],
       "name": "desktop-boundary-tests",
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups. Preserve merged onboarding/lifecycle pure temporary-profile and synthetic-driver regressions, not native/backend or active desktop qualification."

@@ -235,13 +235,15 @@ retained computer controller/store/integration/provenance/policy and runtime ada
 `src/scheduler/{scheduler,history}.py`, retained integration logic from `src/web/api/integrations.py`.
 `src/notifications/outbound_webhooks.py` remains separate outbound delivery.
 
-Implement core-contracts section 8: explicitly configured lifecycle/bind policy, scoped source authentication,
-signature/replay/body bounds, durable acceptance identity and schedule/run mapping, current-policy admission,
+Implement core-contracts section 8 with Claude's step-7 D17 clarification: explicitly configured lifecycle/bind policy, scoped source authentication,
+signature/header/JSON/body bounds, unique durable identity per delivery and schedule/run mapping, current-policy admission,
 revocation and publication receipts. Trigger input does not inherit owner authority from profile ownership.
-Disabling ingress fences stale work per contract. No chat/settings/control API on this listener.
+Disabling ingress fences stale work per contract. Preserve Odin's generic/GitHub/Gitea responses and send each
+integration notice to its schedule's conversation. Identical authenticated bodies run twice; no freshness window,
+rate limits or TLS requirement. No chat/settings/control API on this listener.
 
 **Tests:** `tests/test_desktop_webhooks.py` and safe inherited authentication/persistence/text/scheduler adapters:
-duplicates, storage failure, disabled/revoked ingress, replay/size limits, unknown dispatch, parent-loss cleanup,
+duplicates run twice, storage failure, disabled/revoked ingress, parsing/size limits, unknown dispatch, parent-loss cleanup,
 using ephemeral loopback and temporary profiles only.
 
 ### Step 8: closure and later-phase handoff
