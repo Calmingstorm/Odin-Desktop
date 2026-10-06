@@ -8,8 +8,8 @@ Baseline: `16e35e8f370661a2baf8e7030a27919b3e658b3b`. Section 4 of `maintenance/
 
 | Disposition | Rows |
 |---|---:|
-| Removed by restored behaviour | 5 |
-| Pending restoration (4 unassigned) | 28 |
+| Removed by restored behaviour | 19 |
+| Pending restoration (2 unassigned) | 14 |
 | Internal unreachable guard (Claude review) | 12 |
 | Proposed mechanical | 0 |
 | Proposed behavioural (Aaron review) | 0 |
@@ -21,6 +21,8 @@ Baseline: `16e35e8f370661a2baf8e7030a27919b3e658b3b`. Section 4 of `maintenance/
 - **D19-024, D19-025:** The old dependency refusal literals are absent. `tests/test_desktop_d19_behaviour.py::test_composed_skill_dependency_resolution_and_actual_admitted_execution` exercises preinstalled dependencies and missing-dependency installer success/failure through the real composed manager and admitted skill execution. Package metadata is real; missing-dependency pip subprocess I/O is stubbed. Dynamic result delivery remains gated, so these rows do not close skill delivery.
 - **D19-045:** The old main-entry deferral is absent. Evidence: `tests/test_desktop_core_entry.py::test_real_core_accepts_node_style_socketpair_stdin_and_exits_on_parent_eof`, `tests/test_desktop_core_entry.py::test_entry_uses_containment_and_finalize_barrier`, and `tests/test_desktop_d19_behaviour.py::test_real_main_entry_and_local_client_complete_supervised_shutdown`.
 - **D19-046:** The old CLI deferral is absent. `tests/test_desktop_d19_behaviour.py::test_real_cli_entry_authenticates_to_composed_core` exercises the actual CLI entry against the authenticated composed core, not just the LocalClient class.
+- **D19-022, D19-023:** The skill history and scheduling fences are absent. `SkillContext` again delegates to its session-manager and scheduler surfaces, as v4.13.0 does; Desktop composes them as the request-bound transcript search and the admitted schedule service the native tools use. Evidence: `tests/test_desktop_d19_behaviour.py::test_restored_skill_history_searches_the_request_transcript`, `::test_restored_skill_scheduling_binds_owner_and_destination`, `::test_restored_skill_scheduling_refuses_an_unknown_destination` and `::test_skill_history_and_scheduling_require_an_admitted_request`; Odin's original `TestDelegations` and no-callback `TestMessaging` cases run again through the shared foundation adapter.
+- **D19-003 to 008, 010, 018 to 021 and 043:** restored by merged PRs after round 3. Each row's restoration observation and evidence tests are in `maintenance/phase2-d19-closure.json`.
 - **D19-049:** Merged **PR #69** restores the live `health.get` delivery projection. Exact evidence: `tests/test_desktop_health_delivery.py::test_health_delivery_ready_after_startup_and_real_guarded_turn`. Startup and a completed real guarded turn both report delivery ready, with durable publication observed. The ready/not-ready and uncomposed-owner diagnostics legitimately remain in `check_delivery`: this is composed behaviour restoration, not literal removal. The gate requires this exact status, restoration kind and test nodeid, without waiving active-string checks for any other row.
 
 ## Proposed mechanical substitutions
@@ -98,15 +100,11 @@ Each normal fragment binds to its recorded source path. D19-050 explicitly recor
 | Rows | Owner | Exact pending reference | Dependency / scope |
 |---|---|---|---|
 | 002, 031 | Odin | PR #48 (media publication) | Generated-image/browser-screenshot publication identity and durable bytes. |
-| 003, 004, 005, 007, 008, 018, 019, 033, 034, 035, 036, 041, 042, 044 | Odin | PR #37 (6B) | Work/report/schedule recovery, native producers, background execution and publication. |
-| 009, 010, 020, 021 | Odin | PR #62 (skill delivery, lane 3) | Request-bound callbacks/export; background skill publication integration still depends on PR #37 (6B). |
+| 033, 034, 035, 036, 041, 042, 044 | Odin | PR #37 (6B) | Work/report/schedule recovery, native producers, background execution and publication. |
 | 029, 030 | Odin | PR #37 (6B) | Foreground admission/binding; **P3.5** is the separate native receiver/quarantine qualification dependency (`docs/work/phase-3-app-v1.md:238-269`). |
 | 047 | Odin | P3.3 | Relaunch/bounded shutdown/replacement acceptance, not PR61 status reporting (`docs/work/phase-3-app-v1.md:175-209`). |
-| 043 | D17 restoration (next bridge task) | D17 restoration (next bridge task) | Restore Odin's warn-and-ignore unknown top-level key behaviour instead of refusing startup; source unchanged here. |
-| 022, 023, 048, 050 | unassigned | unassigned | Four gaps remain unassigned below. |
+| 048, 050 | unassigned | unassigned | Two gaps remain unassigned below. |
 
-- **022:** `SkillContext.search_history` is still an unconditional fence (`src/tools/skill_context.py:369-373`); PR62 message/file callbacks do not restore its owner-scoped history helper.
-- **023:** Skill scheduling helpers remain unconditional fences (`src/tools/skill_context.py:375-404`); PR37 native scheduling/background admission and PR42 inbound webhook triggers do not establish restoration of these helpers.
 - **048:** Actual onboarding is **P3.2**, outside the permitted owner references (`docs/work/phase-3-app-v1.md:133-171`); PR61 fresh-profile parity evidence does not restore `setup_wizard.is_setup_needed`, and P3.3/P3.5 do not own onboarding.
 - **050:** The omnibus `require_phase2` helper spans conversation, skill, lifecycle, setup, work and scheduling operations; PR37, PR62, PR61 and P3.3 are only operation-level dependencies, and PR42 inbound webhooks do not restore the whole row.
 

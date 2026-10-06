@@ -1963,8 +1963,8 @@
       "phase2-admission-wiring": 8
     },
     "foundation_definitions": {
-      "executable": 724,
-      "removed-surface-replacement": 130,
+      "executable": 730,
+      "removed-surface-replacement": 124,
       "unmapped-neutral-blocker": 0,
       "phase2-admission-wiring": 7,
       "native-prohibited-scope": 15
