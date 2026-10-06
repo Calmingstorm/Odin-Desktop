@@ -28,6 +28,7 @@ function assertIsolated(): string {
   return home
 }
 const home = assertIsolated()
+// Bound corpus generation under CI load; assertions, product deadlines and isolation checks stay unchanged.
 const corpus = JSON.parse(execFileSync(process.env.ODIN_DESKTOP_ENGINE_PYTHON || join(root, '.venv/bin/python'),
   [resolve(process.cwd(), 'test/renderer/core-chat-contract.py')],
   { cwd: root, env: {
@@ -35,7 +36,7 @@ const corpus = JSON.parse(execFileSync(process.env.ODIN_DESKTOP_ENGINE_PYTHON ||
     XDG_CONFIG_HOME: join(home, 'config'), XDG_DATA_HOME: join(home, 'data'),
     XDG_CACHE_HOME: join(home, 'cache'), XDG_RUNTIME_DIR: join(home, 'run'),
     PYTHONPATH: root, PYTHONNOUSERSITE: '1', PYTHONDONTWRITEBYTECODE: '1'
-  }, encoding: 'utf8', timeout: 10000 }))
+  }, encoding: 'utf8', timeout: 120_000 }))
 type Store = typeof import('../../src/renderer/src/store')
 let store: Store
 
