@@ -137,6 +137,22 @@ class DebTransactionTests(unittest.TestCase):
         self.call('postinst', 'configure')
         self.assertEqual(os.readlink(self.launcher), str(self.install / 'odin-desktop'))
 
+    def test_unguarded_predecessor_upgrade_refuses_without_scan_or_mutation(self):
+        self.install.mkdir()
+        sentinel = self.install / 'odin-desktop'
+        sentinel.write_text('old unguarded executable')
+        with self.assertRaisesRegex(deb.Refusal, 'Unguarded predecessor'):
+            self.call('preinst', 'upgrade', '0.1.0')
+        self.assertEqual(sentinel.read_text(), 'old unguarded executable')
+        self.assertFalse((self.root / 'transaction.json').exists())
+
+    def test_guarded_predecessor_upgrade_uses_normal_transaction(self):
+        resources = self.install / 'resources'
+        resources.mkdir(parents=True)
+        (resources / 'ownership.py').write_text('guarded predecessor fixture')
+        self.call('preinst', 'upgrade', '0.1.0')
+        self.assertTrue((self.root / 'transaction.json').exists())
+
     def test_changed_lease_inode_refuses_configure(self):
         self.call('preinst', 'install')
         old = os.open(self.root / 'lease', os.O_RDONLY)

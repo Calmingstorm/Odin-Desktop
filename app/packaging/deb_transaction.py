@@ -138,6 +138,11 @@ def transaction(script: str, args: list[str], *, root: Path = ROOT, install: Pat
                 raise Refusal('Interrupted package fence is incompatible')
         if (script in {'preinst', 'prerm'}
                 and operation in {'install', 'upgrade', 'remove', 'deconfigure'}):
+            if (script == 'preinst' and operation == 'upgrade' and install.exists()
+                    and not (install / 'resources/ownership.py').is_file()):
+                raise Refusal(
+                    'Unguarded predecessor cannot be upgraded live; use an externally '
+                    'fenced offline remove/install transition')
             legacy_process_check(install, proc)
             clean_receipts(root)
             if current and current.get('operation') not in {'install', 'upgrade', operation}:
