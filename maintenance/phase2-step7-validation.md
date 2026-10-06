@@ -43,8 +43,41 @@ records remain pending independent Claude review, not author-approved.
 
 ## Final fresh-checkout gate
 
-Pending the one final full qualification run from a new group-writable checkout.
-The final evidence will be appended here without changing tested source bytes.
+The requested **single full qualification run** completed all **30 groups**
+from fresh checkout `e8e5b27b820f1bd2f889e1fce524e016722f96b3`. Parent and checkout
+were `2775`, owned by `odin:odin`; the runner used the sanitized PID namespace
+and throwaway HOME/config/data/cache. Result: **14,707 passed, 11 failed,
+2 skipped, zero errors**. Four groups failed; this is **not a green full gate**.
+
+One failure was a genuine omitted settings subgroup description for
+`webhook.triggers`. Commit `a653ac7e51daf6c041ecb90bffeb5ad2def07585` adds the
+description and updates its exact drift record. The other ten failures were
+existing 3/5/15-second IPC/startup/handoff/process-output deadlines. The full
+run remains preserved, and no assertion, deadline or selection was weakened.
+Concurrent host load was observed, but that observation does not prove the
+cause of these failures.
+
+A second **fresh targeted checkout**, not a second full run, exercised every
+failed case and its parameter family, subgroup descriptions, all new ingress
+cases and all inherited webhook adapters on `a653ac7e`: **166 passed, zero
+failures**, in 80.92 seconds. The ten deadline failures did not reproduce in
+this run. The subgroup failure is fixed and its original assertion passes.
+All ingress/adapters had also passed in the single full run. This targeted
+regression evidence is separate from, not a replacement for, full acceptance.
+
+Final evidence:
+
+- `/home/odin/desktop-step7-20261006/qualification-final.log`
+- `/home/odin/desktop-step7-20261006/final/.test-state/qualification-*.xml`
+- `/home/odin/desktop-step7-20261006/failed-case-regression.log`
+- `/home/odin/desktop-step7-20261006/targeted-final.log`
+- Fresh full tree: `/home/odin/desktop-step7-20261006/final/`
+- Fresh regression tree: `/home/odin/desktop-step7-20261006/regression/`
+
+Final byte drift, ownership/suite accounting and lint are clean with **zero new
+lint findings**. The final evidence-only commit does not change tested source
+or test bytes. Independent Claude review and full-gate acceptance remain
+pending. No second full qualification was run, as requested.
 
 ## Explicit limits
 
