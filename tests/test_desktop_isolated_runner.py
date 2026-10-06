@@ -427,7 +427,15 @@ def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():
     assert "run-qualified-tests.py" not in light_commands
     assert "scripts/maintenance/phase2_plan.py" in light_commands
     assert "scripts/run-phase1-tests.py tests/test_desktop_phase2_plan.py" not in full_commands
-    assert "scripts/run-qualified-tests.py" in full_commands
+    assert "run-qualified-tests.py" not in full_commands
+    # Whole classified groups run once across duration-balanced parallel shards.
+    qualification = workflow["jobs"]["qualification"]
+    assert qualification["runs-on"] == ["self-hosted", "odin-desktop-ci"]
+    assert qualification["strategy"] == {"fail-fast": False, "matrix": {"shard": [1, 2, 3, 4, 5]}}
+    shard_commands = [step["run"] for step in qualification["steps"]
+                      if "run-qualified-tests.py" in step.get("run", "")]
+    assert shard_commands == [
+        ".venv/bin/python scripts/run-qualified-tests.py --shard ${{ matrix.shard }}/5"]
     namespace_commands = [line for step in full["steps"]
                           for line in step.get("run", "").splitlines()
                           if line.startswith(".venv/bin/python scripts/run-phase1-tests.py")]
@@ -440,7 +448,7 @@ def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():
     assert not any(Path(path).name.startswith("test_desktop_") for path in lab_files)
     pass_now = next(step for step in full["steps"] if step.get("id") == "pass-now")
     assert "continue-on-error" not in pass_now
-    for script in ("run-qualified-tests.py", "run-lab-fixture-tests.py"):
+    for script in ("run-lab-fixture-tests.py",):
         step = next(step for step in full["steps"] if script in step.get("run", ""))
         assert step["if"] == "${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}"
         assert "continue-on-error" not in step

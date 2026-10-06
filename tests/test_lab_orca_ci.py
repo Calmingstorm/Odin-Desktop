@@ -25,5 +25,7 @@ def test_ci_preserves_canonical_fixture_runner_without_duplicate_fixture_selecti
             "tests/test_lab_orca_ci.py"}.issubset(orca)
     assert not {"tests/test_lab_kde.py", "tests/test_lab_cinnamon.py",
                 "tests/test_lab_gnome.py"}.intersection(orca)
-    assert sum(step.get("run", "").strip().endswith("scripts/run-qualified-tests.py")
-               for step in steps) == 1
+    assert not any("run-qualified-tests.py" in step.get("run", "") for step in steps)
+    shards = workflow["jobs"]["qualification"]["steps"]
+    assert sum(step.get("run", "").strip().endswith(
+        "scripts/run-qualified-tests.py --shard ${{ matrix.shard }}/5") for step in shards) == 1
