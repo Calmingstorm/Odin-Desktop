@@ -333,8 +333,12 @@ class PackageUpgrade:
         destination.mkdir(mode=0o700)
         entries = {}
         excluded = {".identity.lock", ".core.lock", "ipc.token"}
+        def unreadable(error):
+            raise error
+
         for label, source in (("config", self.paths.config_dir), ("data", self.paths.data_dir)):
-            for folder, directories, files in os.walk(source, followlinks=False):
+            for folder, directories, files in os.walk(
+                    source, followlinks=False, onerror=unreadable):
                 relative = Path(folder).relative_to(source)
                 directories[:] = [d for d in directories if not (
                     label == "data" and relative == Path(".") and d in {BACKUPS_NAME, "logs"})]
@@ -378,7 +382,8 @@ class PackageUpgrade:
             raise PackageStateError("Invalid package backup; explicit recovery required")
         for name, expected in manifest["files"].items():
             path = Path(name)
-            if path.is_absolute() or ".." in path.parts or path.parts[0] not in {"config", "data"}:
+            if (not path.parts or path.is_absolute() or ".." in path.parts
+                    or path.parts[0] not in {"config", "data"}):
                 raise PackageStateError("Invalid package backup path")
             digest = hashlib.sha256()
             with _reader(root / path) as stream:

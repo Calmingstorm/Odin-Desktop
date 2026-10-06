@@ -19,6 +19,7 @@ import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type Lifecyc
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
 import { inspectPackagedState } from './package-state'
+import { acquirePackagedApp } from './package-ownership'
 import { realCoreSmoke } from './real-core-smoke'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
@@ -32,7 +33,23 @@ if (!app.requestSingleInstanceLock()) {
   // Another Odin is running: it receives our argv through 'second-instance' (focus, or exit for --exit).
   app.quit()
 } else {
-  run()
+  if (app.isPackaged) {
+    void (async () => {
+      try {
+        const guardian = await acquirePackagedApp(profilePaths(), process.resourcesPath, process.env)
+        // Keep stdin open through real process exit. EOF plus fresh cleanup
+        // receipts releases the guardian, not a pre-exit event or bare PID.
+        guardian.once('exit', () => app.exit(1))
+        run()
+      } catch (error) {
+        await app.whenReady()
+        dialog.showErrorBox('Odin ownership unavailable', (error as Error).message)
+        app.exit(1)
+      }
+    })()
+  } else {
+    run()
+  }
 }
 
 function run(): void {

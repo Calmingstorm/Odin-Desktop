@@ -496,8 +496,12 @@ def main() -> None:
 
     from src.cli import parse_core_args
     from src.desktop.core import CoreService
+    from src.desktop.package_ownership import acquire_core_lease
 
     options = parse_core_args()
+    # Independent kernel-held lease, not an inherited app process or env flag.
+    # Retained through the complete finalization/containment barrier below.
+    package_lease = acquire_core_lease(options.paths)
     # Select paths before service construction. Values are paths, not credentials.
     os.environ["ODIN_DESKTOP_PROFILE"] = options.paths.profile_id
     os.environ["ODIN_DESKTOP_TOKEN_FILE"] = str(options.token_file)
@@ -547,6 +551,15 @@ def main() -> None:
         exit_code = 1
     finally:
         _finalize_and_exit(loop, reaper, log, exit_code)
+        if package_lease is not None:
+            try:
+                package_lease.finish()
+            except Exception:
+                # No clean attestation when authoritative release is missing.
+                # Preserve dirty receipt but still finish profile teardown.
+                exit_code = 1
+            finally:
+                package_lease.close()
         # A successor cannot acquire this profile while async finalizers or
         # contained descendants might still own it. Emergency exit releases
         # the kernel lock only by ending this incarnation, never early here.
