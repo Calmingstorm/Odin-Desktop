@@ -1,0 +1,7 @@
+[
+  "05:58:00.946442 - SPEECH OUTPUT: 'Attach files push button.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:00.951812 - SPEECH OUTPUT: 'Browse mode' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:02.333284 - SPEECH OUTPUT: 'Attach files dialog' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:02.335041 - SPEECH OUTPUT: 'cache /var/tmp/odq-orca-d48e984f62634fb392c224d75c555d68/probe-files-69eac8da-21ca-4db4-a282-69a2f9db5b19/cache /var/tmp/odq-orca-d48e984f62634fb392c224d75c555d68/probe-files-69eac8da-21ca-4db4-a282-69a2f9db5b19/cache 05‎∶57.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:02.337298 - SPEECH OUTPUT: 'multi-select list.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}"
+]

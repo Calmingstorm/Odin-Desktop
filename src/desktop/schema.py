@@ -6,6 +6,8 @@ changed columns are not silently adopted as a different profile's data.
 from __future__ import annotations
 
 DOMAIN_COLUMNS = {
+    "desktop_webhook_receipts": {"id", "schedule_id", "destination", "source",
+                                 "schedule_binding", "state", "run_binding", "text", "published"},
     "desktop_controls": {"control_command_id", "binding", "conversation_id", "request_id",
                          "generation", "kind", "disposition", "sequence", "response", "created_at"},
     "desktop_conversations": {"id", "record", "context_position", "read_position"},
@@ -23,6 +25,9 @@ DOMAIN_COLUMNS.update({
                          "state", "text", "attachments", "created_at", "started_at", "ended_at",
                          "unknown_effects", "ledger_generation"},
     "desktop_submissions": {"client_submission_id", "binding", "response"},
+    "desktop_background_requests": {"request_id", "kind", "run_id", "parent_request_id",
+                                    "binding"},
+    "desktop_work": {"kind", "id", "manager_generation", "record"},
     "desktop_delivery_outbox": {"delivery_id", "conversation_id", "request_id", "kind",
                                 "payload", "event_seq", "state", "created_at", "delivered_at"},
     "desktop_notifications": {"dedupe_key", "conversation_id", "request_id", "payload",

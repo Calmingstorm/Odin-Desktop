@@ -72,7 +72,8 @@ async def test_schema_write_event_and_stale_binding_over_transport(connected):
     params = {"expected_revision": schema["revision"],
               "changes": [{"path": "logging.level", "value": "DEBUG"}]}
     command_id = str(uuid.uuid4())
-    first = await request(reader, writer, "settings.set", params, command_id)
+    # Bound one real settings receipt under load; this IPC path has no product RPC deadline.
+    first = await request(reader, writer, "settings.set", params, command_id, timeout=15)
     assert first["ok"], first
     assert await request(reader, writer, "settings.set", params, command_id) == first
     stale = await request(reader, writer, "settings.set", params)
@@ -346,7 +347,16 @@ async def test_management_governs_engine_shell_tools_and_readiness(connected):
     assert executor._builtin_policy is deps.native_tools.builtin_policy
     offered = {tool["name"] for tool in deps.tool_catalog.merged_definitions()}
     assert "parse_time" in offered
-    assert "spawn_agent" not in offered  # Management must not broaden readiness.
+    assert "spawn_agent" in offered  # Actual background admission is now composed.
+    deps.background_work_ready = False
+    deps.tool_catalog.invalidate()
+    try:
+        # Management cannot make an unbound background owner ready.
+        assert "spawn_agent" not in {
+            tool["name"] for tool in deps.tool_catalog.merged_definitions()}
+    finally:
+        deps.background_work_ready = True
+        deps.tool_catalog.invalidate()
     schema = (await request(reader, writer, "settings.schema"))["result"]
     changed = await request(reader, writer, "settings.set", {
         "expected_revision": schema["revision"],

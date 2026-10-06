@@ -48,8 +48,8 @@ def main() -> None:
         raise ValueError('Pinned Electron executable digest mismatch; provision the reviewed version')
     for name in ['LICENSE', 'LICENSES.chromium.html']:
         shutil.copyfile(electron / name, legal / ('Electron-' + name))
-    # AppImage normalizes group/world write permissions. Make the common input
-    # read-only for ordinary users before sealing, so both formats agree.
+    # Extraction may mask group/world write permissions. Normalize these early
+    # inputs; after-pack canonicalizes builder-created resources before sealing.
     for directory in [runtime, legal]:
         for path in [directory, *directory.rglob('*')]:
             if path.is_symlink():

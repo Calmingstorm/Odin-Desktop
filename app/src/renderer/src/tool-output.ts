@@ -29,7 +29,14 @@ export interface OutputView {
 /** Adds one page: its text, and each binary attachment as a file. */
 export function appendPage(view: OutputView, tool: string, page: ToolOutputPage): void {
   view.text += page.text
-  for (const attachment of page.attachments ?? []) view.files.push(outputFile(tool, attachment, view.files.length))
+  // ToolDetailsStore returns the bundle's binary refs on every text page.
+  // Those are the same files, not new copies of them.
+  const known = new Set(view.files.map((file) => file.ref))
+  for (const attachment of page.attachments ?? []) {
+    if (known.has(attachment.ref)) continue
+    view.files.push(outputFile(tool, attachment, view.files.length))
+    known.add(attachment.ref)
+  }
   view.next = page.next_cursor ?? null
   view.eof = page.eof
 }

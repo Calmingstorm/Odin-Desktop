@@ -102,6 +102,8 @@ class ManagementService:
         from ..config.apply_registry import spec_for
         from ..context.loader import ContextLoader
         from ..health.checker import check_all
+        from ..health.subsystem_guard import SubsystemGuard
+        from ..llm.codex_quota_check import CodexQuotaCheckService
         from ..llm.system_prompt import register_user_presets
         from ..permissions.host_access import HostAccessManager
         from ..tools.builtin_policy import BUILTIN_TOOL_NAMES, BuiltinToolPolicy
@@ -110,16 +112,20 @@ class ManagementService:
         from .codex_accounts import CodexAccountsService
         from .computer_binding import ComputerBindingService
         from .hosts import HostsService
-        from .integrations import IntegrationsService
+        from .integrations import IntegrationsService, ProfileOutboundWebhookDispatcher
         from .knowledge import KnowledgeService
+        from .learned_context import LearnedContextService
         from .mcp import MCPService
         from .model_settings import ModelSettingsService
+        from .observability import ObservabilityService
+        from .openrouter_admin import OpenRouterAdminService
         from .providers import ProviderOwner
         from .records import RecordsService
         from .runtime import RuntimeService
         from .skills import SkillsService
         from .state import StateService
         from .tool_catalog import DesktopToolCatalog
+        from .trajectories import TrajectoriesService
         from .workspace_diagnostics import WorkspaceDiagnostics
 
         settings = settings or getattr(core, "settings", None)
@@ -142,6 +148,15 @@ class ManagementService:
                 email_config=settings.config.email, profile_paths=core.paths,
             )
             executor._command_shell_config = lambda: settings.config.tools.command_shell
+            degradation = settings.config.graceful_degradation
+            subsystem_guard = SubsystemGuard(
+                degraded_threshold=degradation.degraded_threshold,
+                unavailable_threshold=degradation.unavailable_threshold,
+            )
+            for name in ("llm_codex", "llm_ollama", "llm_compat", "codex", "ssh",
+                         "knowledge", "browser"):
+                subsystem_guard.register(name)
+            executor.subsystem_guard = subsystem_guard
             executor._host_access = HostAccessManager(
                 path=core.paths.config_dir / "host-preferences.json",
                 available_hosts_provider=executor.host_registry.active_aliases,
@@ -149,7 +164,16 @@ class ManagementService:
             )
             codex = CodexAccountsService(settings)
             providers = ProviderOwner(settings, codex, executor=executor)
+        subsystem_guard = executor.subsystem_guard
         codex.providers = providers
+        # Resolve the current serving generation on every check. A saved or
+        # retired account pool must never acquire quota refresh authority.
+        def quota_pool():
+            if not settings.config.openai_codex.enabled:
+                return None
+            return getattr(providers.codex_client, "auth", None)
+
+        quota_check = CodexQuotaCheckService(quota_pool)
         for method in providers.METHODS:
             settings.owners[method] = providers
 
@@ -303,8 +327,18 @@ class ManagementService:
 
         settings.owners["runtime.reload"] = ReloadOwner()
         state = StateService(core.paths, core.authority.owner_id, memory=executor, lists=executor)
-        knowledge = KnowledgeService(
-            core.paths, store=getattr(deps, "knowledge_store", None))
+        runtime_context = getattr(deps, "runtime_context", None)
+        knowledge_store = getattr(deps, "knowledge_store", None)
+        if knowledge_store is not None:
+            from ..knowledge.importer import BulkImporter
+
+            knowledge = KnowledgeService(
+                core.paths, store=knowledge_store,
+                importer=BulkImporter(knowledge_store,
+                                      embedder=getattr(deps, "embedder", None)),
+            )
+        else:
+            knowledge = KnowledgeService(core.paths)
         observed = SimpleNamespace(config=settings.config, llm_gateway=providers,
                                    tool_executor=executor, knowledge_store=None,
                                    skill_manager=skills, mcp_manager=mcp.manager)
@@ -312,6 +346,12 @@ class ManagementService:
 
         async def health():
             observed.config = settings.config
+            observed.knowledge_store = knowledge._store
+            # Sample the current composed owner on every read. A compose-time
+            # boolean would remain healthy after request/store/core shutdown.
+            observed.delivery_readiness = getattr(core, "delivery_readiness", False)
+            observed.delivery_readiness_reason = getattr(
+                core, "delivery_readiness_reason", "delivery_not_composed")
             result = check_all(observed)
             result["workspace"] = await diagnostics.snapshot()
             result["browser"] = browser.status()
@@ -319,23 +359,73 @@ class ManagementService:
             return result
 
         records = RecordsService(core.paths, health=health, settings=settings,
-                                 get_audit_path=lambda: settings.config.tools.audit_log_path)
+                                 get_audit_path=lambda: settings.config.tools.audit_log_path,
+                                 audit_getter=lambda: getattr(deps, "audit", None))
         context = (deps.context_loader if deps is not None
                    else ContextLoader(settings.config.context.directory))
-        runtime = RuntimeService(core, settings, llm=providers, context=context, skills=skills)
+        runtime = RuntimeService(core, settings, llm=providers, context=context,
+                                 skills=skills,
+                                 usage=getattr(runtime_context, "usage_rollup", None))
         models = ModelSettingsService(settings, executor=executor, provider=providers)
-        integrations = IntegrationsService(settings)
+        outbound = (deps.outbound_webhook_dispatcher if deps is not None else
+                    ProfileOutboundWebhookDispatcher(lambda: settings.config,
+                                                     secrets=settings.secrets))
+        integrations = IntegrationsService(settings, dispatcher=outbound,
+                                           owns_dispatcher=deps is None)
+        learned = LearnedContextService(
+            core.paths, reflector_getter=lambda: getattr(providers, "reflector", None),
+            learning_getter=lambda: settings.config.learning,
+        )
+        trajectories = TrajectoriesService(
+            core.paths, get_directory=lambda: settings.config.tools.trajectory_path,
+            saver_getter=lambda: getattr(getattr(deps, "turn_recorder", None),
+                                         "_trajectory_saver", None),
+        )
+        observations = ObservabilityService(
+            executor=executor, gateway=providers, config=lambda: settings.config,
+            model_breakers=providers.model_breakers, graph=lambda: manager,
+        )
+        def usage_source():
+            from .runtime import _ProfileUsageReader
+
+            return runtime.usage or _ProfileUsageReader(settings.config.usage.directory)
+
+        observations.usage_getter = usage_source
+        openrouter = OpenRouterAdminService(settings, provider=providers, usage=usage_source)
         manager = cls(core, services=[settings, codex, hosts, state, knowledge,
-                                     records, runtime, models, integrations, skills, mcp, computer],
+                                     records, runtime, models, integrations,
+                                     learned, trajectories, observations, openrouter,
+                                     skills, mcp, computer],
                       identity_key=_binding_key(core.paths))
         manager.lifecycle_services = (*manager.services, browser)
         manager.settings, manager.executor, manager.providers = settings, executor, providers
         manager.runtime, manager.hosts, manager.codex = runtime, hosts, codex
+        manager.integrations = integrations
+        manager.records, manager.knowledge = records, knowledge
+        manager.learned, manager.trajectories = learned, trajectories
+        manager.observations, manager.openrouter = observations, openrouter
+        manager.subsystem_guard = subsystem_guard
+        manager.codex_quota_check = quota_check
         manager.skills, manager.mcp = skills, mcp
         manager.browser, manager.computer = browser, computer
         manager.tool_catalog, manager.workspace_diagnostics = catalog, diagnostics
         manager._engine_owned = deps is not None
         return manager
+
+    async def start_background(self) -> None:
+        """Start retained profile observers only after core runtime admission."""
+        quota_check = getattr(self, "codex_quota_check", None)
+        if quota_check is not None:
+            await quota_check.start()
+
+    async def stop_background(self) -> None:
+        """Settle observers before the request engine retires provider owners."""
+        if getattr(self, "_background_stopped", False):
+            return
+        quota_check = getattr(self, "codex_quota_check", None)
+        if quota_check is not None:
+            await quota_check.close()
+        self._background_stopped = True
 
     def identity_params(self, params: Any) -> dict:
         """Bind exact semantics without storing write-only secrets in receipts.
@@ -502,6 +592,7 @@ class ManagementService:
             return response_error("internal", "Management outcome is unknown", "outcome_unknown")
 
     async def close(self) -> None:
+        await self.stop_background()
         from .resource_cleanup import ResourceCleanupError, close_existing_execution_owners
 
         # Retained barriers keep ambiguous native owners and independently prove

@@ -69,15 +69,14 @@ describe('served settings/management through actual Broker and isolated reposito
     expect(hosts.hosts).toEqual([expect.objectContaining({ alias: 'localhost', address: '127.0.0.1', active: true,
       targetable: true, trust_state: 'local' })])
     const memory = result<Record<string, { keys: string[]; count: number }>>(await broker.request('memory.list'))
-    expect(Object.keys(memory)).toEqual(['global', expect.stringMatching(/^user_[0-9a-f-]{36}$/)])
-    expect(Object.values(memory)).toEqual([{ keys: [], count: 0 }, { keys: [], count: 0 }])
-    const personalScope = Object.keys(memory)[1]
-    expect(result(await broker.request('memory.get', { scope: personalScope }))).toEqual({ scope: personalScope, entries: {} })
+    expect(memory).toEqual({ global: { keys: [], count: 0 } })
+    expect(result(await broker.request('memory.get', { scope: 'global' }))).toEqual({ scope: 'global', entries: {} })
+    refused(await broker.request('memory.get', { scope: 'absent_scope' }), 'not_found')
     expect(result(await broker.request('lists.list'))).toEqual({ items: [] })
     expect(result(await broker.request('knowledge.list'))).toEqual([])
     expect(result(await broker.request('audit.query'))).toEqual([])
     expect(result(await broker.request('logs.search'))).toEqual({ entries: [], count: 0 })
-    expect(result(await broker.request('turn_state.list'))).toMatchObject({ schema_version: 1, availability: 'not_enabled', data: {} })
+    expect(result(await broker.request('turn_state.list'))).toMatchObject({ schema_version: 1, availability: 'available', data: {} })
     expect(result(await broker.request('usage.get', { period: '7d' }))).toMatchObject({ period: '7d', tokens: { value: null, kind: 'unknown' },
       context: { used: { value: null, kind: 'unknown' }, budget: { value: null, kind: 'unknown' } }, quota: [] })
     expect(result(await broker.request('audit.verify'))).toMatchObject({ valid: false, verified: 0, availability: 'not_enabled' })
@@ -87,10 +86,13 @@ describe('served settings/management through actual Broker and isolated reposito
     refused(await broker.request('usage.get', { period: 'invalid' }), 'bad_request')
     expect(result(await broker.request('conversations.list'))).toMatchObject({ items: [], watermark: expect.any(String) })
     expect(result(await broker.request('skills.list'))).toEqual([])
+    expect(result(await broker.request('work.list'))).toEqual({ items: [] })
+    expect(result(await broker.request('schedules.list'))).toEqual([])
+    expect(result(await broker.request('schedules.history'))).toEqual([])
     expect(result(await broker.request('mcp.list'))).toMatchObject({ server_count: 0, started: true })
     expect(result(await broker.request('computer.status'))).toMatchObject({ readiness: {
       foreground_available: false, input_supported: false, dispatch: 'none' } })
-    for (const method of ['turns.create', 'schedules.list', 'skills.test', 'loops.list', 'agents.list', 'shell.execute']) {
+    for (const method of ['turns.create', 'loops.list', 'agents.list', 'shell.execute']) {
       expect(SERVED_CAPABILITIES).not.toContain(method)
       refused(await broker.request(method), 'capability_unavailable')
     }
@@ -215,7 +217,14 @@ describe('served settings/management through actual Broker and isolated reposito
     expect(result(await broker.request('personality.get'))).toMatchObject({ preset: 'odin', user_presets: [] })
     const inventory = result<{ tools: { name: string; state: string }[] }>(await broker.request('tools.list'))
     expect(inventory.tools.length).toBeGreaterThan(10)
-    expect(inventory.tools.find((tool) => tool.name === 'browser_read_page')?.state).toBe('unavailable')
+    // D17 restores the pinned fresh-install enabled browser. This is its wired
+    // retry seam, not proof of a qualified Chromium launch in this source tree.
+    expect(field(await schema(broker), 'browser.enabled').desired).toBe(true)
+    expect(inventory.tools.find((tool) => tool.name === 'browser_read_page')?.state).toBe('available')
+    result(await broker.request('tools.set_enabled', { name: 'browser_read_page', enabled: false }))
+    expect(result<{ tools: unknown[] }>(await broker.request('tools.list')).tools).toContainEqual(expect.objectContaining({ name: 'browser_read_page', enabled: false, state: 'disabled' }))
+    result(await broker.request('tools.set_enabled', { name: 'browser_read_page', enabled: true }))
+    expect(result<{ tools: unknown[] }>(await broker.request('tools.list')).tools).toContainEqual(expect.objectContaining({ name: 'browser_read_page', enabled: true, state: 'available' }))
     result(await broker.request('tools.set_enabled', { name: 'run_command', enabled: false }))
     expect(result<{ tools: unknown[] }>(await broker.request('tools.list')).tools).toContainEqual(expect.objectContaining({ name: 'run_command', enabled: false, state: 'disabled' }))
     const rev = (await schema(broker)).revision
@@ -229,7 +238,10 @@ describe('served settings/management through actual Broker and isolated reposito
     result(await broker.request('memory.set', { scope: 'global', key: 'contract', value: 'disposable profile note' }))
     expect(result(await broker.request('memory.get', { scope: 'global', key: 'contract' }))).toEqual({ scope: 'global', key: 'contract', value: 'disposable profile note' })
     expect(result(await broker.request('memory.list'))).toMatchObject({ global: { keys: ['contract'], count: 1 } })
-    refused(await broker.request('memory.get', { scope: 'user_someone_else', key: 'contract' }), 'forbidden')
+    refused(await broker.request('memory.get', { scope: 'user_someone_else', key: 'contract' }), 'not_found')
+    result(await broker.request('memory.set', { scope: 'imported_scope', key: 'retained', value: 'single-owner scope' }))
+    expect(result(await broker.request('memory.get', { scope: 'imported_scope', key: 'retained' }))).toEqual({ scope: 'imported_scope', key: 'retained', value: 'single-owner scope' })
+    result(await broker.request('memory.delete', { scope: 'imported_scope', key: 'retained' }))
     result(await broker.request('memory.bulk_delete', { entries: [{ scope: 'global', key: 'contract' }] }))
     refused(await broker.request('memory.get', { scope: 'global', key: 'contract' }), 'not_found')
     result(await broker.request('memory.set', { scope: 'global', key: 'delete-me', value: 'temporary' }))
@@ -273,6 +285,8 @@ describe('served settings/management through actual Broker and isolated reposito
 
   test('records query/search the retained profile corpus and never call unsigned audit data verified', async () => {
     const broker = await connect()
+    // This is the real unavailable vault, not the in-memory signing fixture.
+    expect((await schema(broker)).status.keyring_error).toMatch(/unavailable|locked/i)
     expect(await core!.parentEOF()).toEqual({ code: 0, signal: null })
     broker.close()
     const rows = [
@@ -284,6 +298,7 @@ describe('served settings/management through actual Broker and isolated reposito
     writeFileSync(join(core!.paths.dataDir, 'audit.jsonl'), rows.map((row) => JSON.stringify(row)).join('\n') + '\n', { mode: 0o600 })
     await core!.start()
     const restarted = (await core!.connect()).broker
+    expect((await schema(restarted)).status.keyring_error).toMatch(/unavailable|locked/i)
     expect(result(await restarted.request('audit.query', { tool: 'read_file', host: 'localhost', q: 'beta' }))).toEqual([rows[1]])
     expect(result(await restarted.request('logs.search', { level: 'error', q: 'beta' }))).toEqual({ entries: [rows[1]], count: 1 })
     expect(result(await restarted.request('audit.verify'))).toMatchObject({ valid: false, verified: 0, availability: 'not_enabled' })
@@ -355,6 +370,6 @@ describe('served settings/management through actual Broker and isolated reposito
     }
     result(await broker.request('codex.accounts.remove', { index: 0 }))
     expect(result(await broker.request('codex.accounts.list'))).toEqual({ configured: false, accounts: [] })
-    refused(await broker.request('schedules.list'), 'capability_unavailable')
+    expect(result(await broker.request('schedules.list'))).toEqual([])
   })
 })

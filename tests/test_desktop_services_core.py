@@ -43,9 +43,11 @@ async def connected(tmp_path, monkeypatch):
 async def test_service_readiness_and_integrated_delivery_are_honest(connected):
     service, reader, writer, welcome = connected
     capabilities = set(welcome["capabilities"])
-    assert {"skills.save", "mcp.save", "computer.status", "computer.activation.set"} <= capabilities
+    assert {"skills.save", "skills.test", "mcp.save", "computer.status",
+            "computer.activation.set"} <= capabilities
     assert "submission.send" in capabilities
-    assert not {"skills.test", "computer_act", "schedules.list"} & capabilities
+    assert "schedules.list" in capabilities
+    assert "computer_act" not in capabilities
     assert (await request(reader, writer, "skills.list"))["result"] == []
     mcp = await request(reader, writer, "mcp.status")
     assert mcp["ok"] and mcp["result"]["server_count"] == 0
@@ -54,9 +56,14 @@ async def test_service_readiness_and_integrated_delivery_are_honest(connected):
     assert not computer["result"]["readiness"]["input_supported"]
     health = (await request(reader, writer, "health.get"))["result"]
     assert health["workspace"]["local_only"] is True
-    assert health["browser"]["state"] == "disabled"
+    # D17 restores enabled fresh-install browser settings. This source-tree
+    # profile has no qualifying bundle: the retry seam is not native readiness.
+    assert service.settings.config.browser.enabled is True
+    assert health["browser"]["state"] == "unavailable"
+    assert health["browser"]["ready"] is False
+    assert health["browser"]["retry_available"] is True
     assert not health["computer"]["native_qualified"]
-    assert service.management.executor._browser_manager is None
+    assert service.management.executor._browser_manager is service.management.browser
     assert service.management.executor is service.engine.deps.tool_executor
     assert service.management.skills.skill_manager is service.engine.deps.skill_manager
     assert service.management.tool_catalog is service.engine.deps.tool_catalog
@@ -82,11 +89,22 @@ async def test_skill_save_publication_receipt_reload_and_revocation(connected):
     assert await request(reader, writer, "skills.save", {
         "name": "sample", "code": code}, command_id) == saved
     assert (await request(reader, writer, "runtime.reload", {"scope": "skills"}))["ok"]
+    test_id = str(uuid.uuid4())
+    tested = await request(reader, writer, "skills.test", {"name": "sample"}, test_id)
+    assert tested["ok"] and tested["result"] == {"result": "fixture", "is_error": False}
+    assert await request(reader, writer, "skills.test", {"name": "sample"}, test_id) == tested
+    assert (await request(reader, writer, "skills.get", {"name": "sample"}))["result"][
+        "total_executions"] == 1
     assert (await request(reader, writer, "skills.set_enabled", {
         "name": "sample", "enabled": False}))["ok"]
     assert "sample" not in {tool["name"] for tool in manager.tool_catalog.merged_definitions()}
-    assert (await request(reader, writer, "skills.test", {"name": "sample"}))["error"][
-        "code"] == "capability_unavailable"
+    disabled = await request(reader, writer, "skills.test", {"name": "sample"})
+    assert disabled["ok"] and disabled["result"]["is_error"] is True
+    assert disabled["result"]["result"].startswith("Skill 'sample' is disabled.")
+    assert (await request(reader, writer, "skills.get", {"name": "sample"}))["result"][
+        "total_executions"] == 1
+    unknown = await request(reader, writer, "skills.test", {"name": "unknown"})
+    assert unknown["error"]["code"] == "not_found"
 
 
 async def test_computer_activation_transaction_is_not_native_qualification(connected):
@@ -107,6 +125,7 @@ async def test_parent_loss_cancels_service_qualification_before_publication(tmp_
     paths, socket_path, token_file = profile(tmp_path)
     read_fd, write_fd = os.pipe()
     entered, cleaned = asyncio.Event(), asyncio.Event()
+    background_calls = []
 
     async def suspended():
         entered.set()
@@ -118,7 +137,15 @@ async def test_parent_loss_cancels_service_qualification_before_publication(tmp_
     async def close():
         pass
 
-    manager = SimpleNamespace(start=suspended, close=close, methods={})
+    async def start_background():
+        background_calls.append("start")
+
+    async def stop_background():
+        background_calls.append("stop")
+
+    manager = SimpleNamespace(start=suspended, close=close, methods={},
+                              start_background=start_background,
+                              stop_background=stop_background)
     monkeypatch.setattr(ManagementService, "compose", lambda *args, **kwargs: manager)
     core = CoreService(paths, socket_path, token_file)
     startup = asyncio.create_task(core.start(read_fd))
@@ -130,11 +157,13 @@ async def test_parent_loss_cancels_service_qualification_before_publication(tmp_
             await asyncio.wait_for(startup, 2)
         assert cleaned.is_set() and core.server is None
         assert not socket_path.exists()
+        assert background_calls == []
     finally:
         await core.close()
         os.close(read_fd)
         if write_fd is not None:
             os.close(write_fd)
+    assert background_calls == ["stop"]
 
 
 async def test_failed_close_does_not_strand_other_transport_owners():

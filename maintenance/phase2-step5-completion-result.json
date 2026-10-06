@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "artifact": "Phase 2 step 5 completion qualification result",
+  "pull_request": "https://github.com/Calmingstorm/Odin-Desktop/pull/40",
+  "execution_head": "60ed7fdf8a4ce5f5389806eade506ee4f444bc48",
+  "accepted_main": "0b7d596f7e870d06699722f151c4d9837c5433f1",
+  "final_commit_scope": "Documentation and result only, executable implementation remains identical to execution_head",
+  "checkout": {
+    "path": "/home/odin/desktop-step5-qualification/final-384af75b",
+    "initial_clone_head": "384af75bbea41f939ea624a91580ae4f448dd52d",
+    "pre_gate_fast_forward": "Only app/test/real-core-contract.test.ts capability-count assertion, 140 to independently counted 139",
+    "parent_mode": "2775",
+    "checkout_mode": "2775",
+    "dirty_at_execution": false,
+    "dirty_after_execution": false,
+    "dependencies": ["uv sync --locked --extra dev", "npm ci"],
+    "isolation": "Required PID/mount namespaces and throwaway HOME/XDG; graphical tests use Xvfb/private bus; no active workstation display or live profile"
+  },
+  "full_qualification": {
+    "command": ".venv/bin/python scripts/run-qualified-tests.py",
+    "exit_code": 0,
+    "groups": 30,
+    "failed_groups": [],
+    "passed_executions": 15267,
+    "count_semantics": "Sum of passing executions across 30 groups, not distinct original-case count",
+    "junit_tests": 15269,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 2,
+    "existing_plan_deselections": 7,
+    "new_skips_or_exclusions": 0,
+    "completion_group": {"name": "phase2-step5-profile-management", "passed": 1169, "failed": 0, "skipped": 0},
+    "skip_details": [
+      {"case": "tests.test_hyprland_pinta_wire_timing_r32::test_five_vertex_650ms_wire_timing", "reason": "set ODIN_HYPRLAND_INPUT_TEST_BINARY to run native wire tests"},
+      {"case": "tests.test_desktop_shared_tools.Test_test_browser_automation_EnsureConnected::test_playwright_not_installed_raises", "reason": "playwright is installed; cannot test missing-import path"}
+    ]
+  },
+  "app_gates": {
+    "check": {"passed": 782, "test_files": 82, "typecheck": "pass", "build": "pass"},
+    "fixture_smoke": "pass",
+    "real_core_contracts": {"passed": 24, "failed": 0},
+    "onboarding": {"passed": 6, "failed": 0},
+    "real_core_smoke": {"result": "pass", "screen_checkpoints": 39},
+    "accessibility": {"passed": 15, "failed": 0, "scope": "Chromium AX/renderer, not native Orca or AT-SPI qualification"},
+    "lifecycle_and_notifications": {"passed": 19, "failed": 0, "skipped": 0, "retries": 0, "fixture_notification_service": true}
+  },
+  "static_gates": {
+    "inventory_errors": [],
+    "inventory_gate": "byte-drift-clean-review-pending",
+    "new_lint_findings": [],
+    "suite_map_valid": true,
+    "pip_check": "No broken requirements found",
+    "git_diff_check": "pass"
+  },
+  "restored_original_suites": [
+    "tests/test_action_diffs.py",
+    "tests/test_campaign_audit_observability.py",
+    "tests/test_audit_tail_v412.py",
+    "tests/test_log_search.py",
+    "tests/test_web_campaign_streams.py",
+    "tests/test_campaign_websocket_coverage.py",
+    "tests/test_knowledge_dedup.py",
+    "tests/test_knowledge_versions.py",
+    "tests/test_learning_disabled_crud.py",
+    "tests/test_web_api_knowledge_mem.py",
+    "tests/test_web_api_observability.py",
+    "tests/test_recovery.py",
+    "tests/test_campaign_prefix_measurement.py",
+    "tests/test_web_api_turn_state.py",
+    "tests/test_connection_pools.py",
+    "tests/test_campaign_openrouter_coverage.py",
+    "tests/test_openrouter_admin_boundaries.py",
+    "tests/test_web_api_new_endpoints.py",
+    "tests/test_trajectories.py",
+    "tests/test_webui_selected_trace_filters.py",
+    "tests/test_codex_account_mutation_regressions.py"
+  ],
+  "original_suite_proof": "All 21 original filenames retained unchanged and restored as whole source-hash/corpus-bound adapters; original assertions, signatures, decorators and parameter data remain pinned. Named-method and real authenticated Broker tests prove production-owner composition separately.",
+  "logs_sha256": {
+    "final60-full-qualification.log": "b696bd09242ddece85439936fa53c459b3b863f06a7d793b34aa9a608e471f00",
+    "final60-app-check.log": "bf9d4adb9b3fa49efd732d486760287d6edddcd1edc152fcf3e37d4d1b6339e1",
+    "final60-fixture-smoke.log": "cdc8e0ae4764e813f3abfbfffa706b36aee914b763634046a0ab964724e23e49",
+    "final60-real-core.log": "c587fc00555fab2ef5d15aa4407f782758a88c3baa7ebdb2fa71108b49233953",
+    "final60-real-smoke.log": "754c744ea9503356a2e9f6e9fdcdfd7d02de0e7a900b97fc328731b631624c98",
+    "final60-a11y.log": "c5278d9a07bbd389afdb3c3afff0421963736b11f4db96b5bfab36d0cd31ee4f",
+    "final60-lifecycle-driver.log": "ddc118453bb79b0e3f1bacb796ca035b47cc264fdd42a0796d6f92393de193ae",
+    "final60-lifecycle/qualification.json": "f27a2ddef48cb81a54254928a2cb3d41ff87c61d4618a49cebd23dda9e6ed255",
+    ".test-state/qualification-result.json": "29db1670e9a7a15757dfc8be1dcb31c3ab96ebadc5fd50a40a5d5988c033bd1e"
+  },
+  "evidence_root": "/home/odin/desktop-step5-evidence",
+  "build_artifacts_sha256": {
+    "app/out/main/index.js": "d552eb77535575ca22e56c6534049e40e7880c43f76aaa4e2df20e5b3bafb0ff",
+    "app/out/preload/index.js": "2c1bcaa141baa3ceec787ef2855fc7e44f4a7528cce02b989c59a8fcff4c5f9e",
+    "app/package-lock.json": "02344b20456608e8dab9f5cc8d1fc42bf4de5645dae50b647bf34257762db659",
+    "uv.lock": "8f4d8db85bc9b87ce6eda02959968adff41f327e1debacf019ecbf808dae8d85",
+    "app/out/renderer/assets/index-DcsSiO5q.js": "5b5707f4784486be971a6fd07a44db33b467a74fb261cc53a6c576857890f507",
+    "app/out/renderer/assets/style-k9DaQfTG.css": "419d846f745ecf3466781ed0aa5f6f8a635b7358411e665832f27590852752a9",
+    "app/out/renderer/index.html": "5487106a4a336512ac291789de70d844816a282f6b231c17c9f61202b3c7d0f2"
+  },
+  "earlier_failure_evidence": [
+    "release-full-qualification.log: pre-lifecycle head ab406bb7, two real-core listener-start failures, completion group 1169 passed; not a clean full run",
+    "release-real-core.log: pre-lifecycle head ab406bb7, one real-core socket-start timeout, 22 passed; not a clean Broker run",
+    "Other targeted/merge failures preserved under evidence_root; superseded by final same-head gates, not erased"
+  ],
+  "limitations": [
+    "Independent semantic/lineage review remains pending; restored enrollment is not approval",
+    "Legacy tier/WebSocket assertions execute sealed historical fixtures, not Desktop production tiers or sockets",
+    "Native D11 tray/login/compositor, installed-package paths and live OAuth/provider readiness remain outside this request",
+    "Large complete tail records can require proportionate memory; same-inode truncate/regrow past the prior offset is not detectable from inode/size alone",
+    "Frozen mock/API warnings remain visible",
+    "Existing npm lock graph reported 11 vulnerabilities, 10 high and 1 critical; no unrelated dependency upgrade performed"
+  ],
+  "live_services_modified": false,
+  "active_desktop_modified": false,
+  "deployed": false,
+  "merged": false
+}

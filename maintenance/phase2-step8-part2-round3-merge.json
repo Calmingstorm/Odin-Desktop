@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "reviewer": "Claude, review of #34, round 3",
+  "main": "ddd054fe399fef46dd64b6e8ec95b2676af8f09f",
+  "merge_helper_sha256": "e1119a281d4ca320f17b69587510dcb61c48ee8713abafd5f4b82382e685bb89",
+  "concurrent_entries": [
+    {
+      "path": "src/desktop/core.py",
+      "tests": [
+        "tests/test_desktop_auto_resume.py",
+        "tests/test_desktop_control_core.py",
+        "tests/test_desktop_conversation_core.py",
+        "tests/test_desktop_core_durability.py",
+        "tests/test_desktop_core_entry.py",
+        "tests/test_desktop_core_lifecycle.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_provider_round3.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_resume_no_ledger.py",
+        "tests/test_desktop_resume_trigger.py",
+        "tests/test_desktop_review_quota_lifecycle.py"
+      ],
+      "ours_after_sha256": "5d08bc22231809f47fd6930d468b4f0c139977c80c38424e40e2c459e1ab3eab",
+      "main_after_sha256": "d255b8216d9b626f4e570c5a5dba9e82b5c394b067a203e4c4ba373eeb28e7d1",
+      "merged_sha256": "085a86dcc09ef7a898ed4237cf6e2fb0d190c6f8e6a84c52d5a2b6a3c5e6b123"
+    },
+    {
+      "path": "src/desktop/integrations.py",
+      "tests": [
+        "tests/test_desktop_integrations.py",
+        "tests/test_desktop_phase2_review_integrations.py",
+        "tests/test_desktop_secret_domain_threads.py"
+      ],
+      "ours_after_sha256": "94f5413b2c3443ee0faef90ad50491f9f004e4f0df0f81f4898715c7758b55a4",
+      "main_after_sha256": "92e9e77a18c3d2bb685a7d705b44043cea5c581e6e1250f4c151f97bab1f6563",
+      "merged_sha256": "f231e450d62fb10ed9aa6463712ca5612a886dbd499855880d38158b5466d56e"
+    },
+    {
+      "path": "src/desktop/management.py",
+      "tests": [
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_management.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_review_provider_quota.py",
+        "tests/test_desktop_review_quota_lifecycle.py",
+        "tests/test_desktop_secret_domain_threads.py"
+      ],
+      "ours_after_sha256": "10e08bcbaf74c96dd83998cf2de2bf0f85488f7ea4e120c3439fec1bef775b10",
+      "main_after_sha256": "3a5b1f9c2b92f3866804cf81d8dfafc5bd254dc46372eee829bccaf3f7f4880c",
+      "merged_sha256": "3ccc601ddffd020f7db6c64e69cb759e5478563027f81fd71b80d0a847d1f808"
+    },
+    {
+      "path": "src/desktop/model_settings.py",
+      "tests": [
+        "app/test/real-core-settings.test.ts",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
+        "tests/test_desktop_providers.py",
+        "tests/test_desktop_secret_domain_threads.py"
+      ],
+      "ours_after_sha256": "9fb744062baaa5a8d38c6f9f853fc1d1f723041423f556438178578230e290a2",
+      "main_after_sha256": "03691fb2ed04cd2b4ad2a2e892397af481038ae064219dc7ade78a3199b744d3",
+      "merged_sha256": "03691fb2ed04cd2b4ad2a2e892397af481038ae064219dc7ade78a3199b744d3"
+    },
+    {
+      "path": "src/desktop/providers.py",
+      "tests": [
+        "tests/test_desktop_codex_accounts.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
+        "tests/test_desktop_phase2_review_llm.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_provider_round3.py",
+        "tests/test_desktop_providers.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_requests.py",
+        "tests/test_desktop_review_provider_policy_reload.py",
+        "tests/test_desktop_review_quota_lifecycle.py",
+        "tests/test_desktop_secret_domain_threads.py"
+      ],
+      "ours_after_sha256": "0ecef62c96858728086da9e97bada26b903a0226f932ad00b70ef16a5f0b1f22",
+      "main_after_sha256": "6ddcf5b3268016ffddcb2412bcdfc422cd3bc1fead1da896edb79e2594013cec",
+      "merged_sha256": "be667cacbe4cbd8a66a6440b6d0924e0fa2afd011a41e821cfcc4f25b2709bc8"
+    },
+    {
+      "path": "src/desktop/runtime.py",
+      "tests": [
+        "tests/test_desktop_core_lifecycle.py",
+        "tests/test_desktop_first_run.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_runtime.py"
+      ],
+      "ours_after_sha256": "b0f1a577b0300a7b12e0e21f82746e92a029f80a805cc0ed3f3ad38f0b03755f",
+      "main_after_sha256": "1827a69c5047064162af5ee2a5a5823beab39a7db5b8c86bcc311cb9f1464073",
+      "merged_sha256": "c0d5e635e15c3bfdb1cf9ec17d173af52eb1c3223fb5f28d8902437533872f4a"
+    },
+    {
+      "path": "src/desktop/services.py",
+      "tests": [
+        "tests/desktop_adapters/test_phase2_runner_characterization.py",
+        "tests/test_desktop_core_durability.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_persisted_outputs.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_request_failures.py",
+        "tests/test_desktop_review_quota_lifecycle.py"
+      ],
+      "ours_after_sha256": "b0768fdff8fc6d876f23fa31c1d6514cd6b7091a75442b2486298c3db6d4cf4b",
+      "main_after_sha256": "7c10131a469315156207c37e8c5c6a1bf07c2c84a3c6187e01f113547acce345",
+      "merged_sha256": "c8123bc755459e42113d52481a394d01836bf6e1eb2be6166c5a8265a22f0363"
+    },
+    {
+      "path": "src/desktop/settings.py",
+      "tests": [
+        "app/test/real-core-settings.test.ts",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
+        "tests/test_desktop_providers.py",
+        "tests/test_desktop_review_audit_authority.py",
+        "tests/test_desktop_review_provider_image.py",
+        "tests/test_desktop_review_provider_image_inherited.py",
+        "tests/test_desktop_secret_domain_threads.py",
+        "tests/test_desktop_settings.py"
+      ],
+      "ours_after_sha256": "74089442562f58b07a4d86d369ae66f74e6241661be678e5d18a40ec2fd0260d",
+      "main_after_sha256": "b142040bc7a5c935f4c8e804d47fe9b7da7d0f13caa81f32928984a4441c55ac",
+      "merged_sha256": "5f7a13466cba02ec17c7d9408f61cea4b5667d82819e310f6231317f2015e292"
+    },
+    {
+      "path": "tests/test_desktop_model_settings.py",
+      "tests": [
+        "app/test/real-core-settings.test.ts",
+        "tests/test_desktop_model_settings.py"
+      ],
+      "ours_after_sha256": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d",
+      "main_after_sha256": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d",
+      "merged_sha256": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d"
+    }
+  ],
+  "execution_note": "Ledger recording is exact-byte provenance, not passing tests or approval."
+}

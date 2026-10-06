@@ -2,9 +2,9 @@
 
 The LLM constructs a list of steps upfront, the user approves once, and the task
 runs in the background with task-owned progress and result projections.
-Admission and durable conversation delivery are Phase 2 gates, not an emulated
-transport. Native admission remains gated; the internal runner retains neutral
-workflow behavior without claiming durable delivery or crash resumption.
+Native admission supplies sealed request authority and an injected durable
+publisher. Without a publisher the internal runner only renders task-owned
+projections; it cannot claim delivery or crash resumption.
 """
 
 from __future__ import annotations
@@ -109,6 +109,7 @@ class BackgroundTask:
     progress_text: str = ""
     summary_text: str = ""
     followup_text: str = ""
+    publish: Callable | None = field(default=None, repr=False)
     _cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
     _asyncio_task: asyncio.Task | None = field(default=None, repr=False)
 
@@ -159,8 +160,8 @@ async def run_background_task(
 ) -> None:
     """Internal workflow runner, not a public admission or durable delivery API.
 
-    The native entry point is Phase 2 gated. These projections keep neutral
-    orchestration testable; they are not success receipts for publication.
+    Rendering remains harmless without an injected publisher. The native entry
+    point admits a sealed request and supplies a durable publication callback.
     """
 
     # Prepare task-owned initial progress, without publishing a message.
@@ -768,7 +769,7 @@ async def _send_progress(
     # When finished, show ALL steps; while running, show last 3
     # Use the effective (possibly overridden) status: task.status is kept
     # 'running' during finalization so the follow-up stays cancellable, but the
-    # final projection must still show all results. Artifact publication is Phase 2.
+    # final projection must still show all results.
     is_finished = status in ("completed", "failed", "cancelled")
     show_results = task.results if is_finished else task.results[-3:]
     if show_results:
@@ -781,6 +782,8 @@ async def _send_progress(
     text = "\n".join(lines)
 
     task.progress_text = scrub_output_secrets(text)
+    if task.publish is not None:
+        await task.publish("progress", task.progress_text)
     return task.progress_text
 
 
@@ -819,6 +822,8 @@ async def _send_summary(task: BackgroundTask, status_override: str | None = None
     text = "\n".join(lines)
 
     task.summary_text = scrub_output_secrets(text)
+    if task.publish is not None:
+        await task.publish("summary", task.summary_text)
 
 
 async def _send_conversational_followup(
@@ -865,6 +870,8 @@ async def _send_conversational_followup(
         response = scrub_output_secrets(response.strip())
         if response:
             task.followup_text = response
+            if task.publish is not None:
+                await task.publish("followup", task.followup_text)
     except Exception as e:
         log.warning("Failed to generate conversational follow-up for task %s: %s", task.task_id, e)
         from ..llm.errors import LLMIncompleteResponseError
@@ -873,6 +880,8 @@ async def _send_conversational_followup(
             partial = scrub_output_secrets(e.partial_text)
             notice = "[Provider marked this response incomplete.]"
             task.followup_text = partial + "\n\n" + notice
+            if task.publish is not None:
+                await task.publish("followup", task.followup_text)
 
 
 def create_task_id() -> str:

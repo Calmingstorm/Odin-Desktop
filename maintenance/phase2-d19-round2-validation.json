@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "reviewed_head": "c5b7d23682879e0f6ac69fc324595471ae1ba0cb",
+  "source_baseline": "16e35e8f370661a2baf8e7030a27919b3e658b3b",
+  "isolation": "restricted PID/mount namespace, ordinary UID 1003, sanitized HOME/XDG, no display or live profile",
+  "counts": {
+    "removed_by_restored_behaviour": 4,
+    "pending_restoration": 28,
+    "pending_unassigned": 5,
+    "internal_unreachable_guard": 10,
+    "proposed_behavioural": 8,
+    "proposed_mechanical": 0,
+    "total": 50
+  },
+  "gate_tests_passed": 76,
+  "gate_statement_coverage": {"covered": 237, "statements": 243, "percent": 97.53086419753086},
+  "guard_tests_passed": 15,
+  "existing_composed_tests_passed": 32,
+  "short_fixture_tests_passed": 38,
+  "full_qualification_run": false,
+  "model_facing_source_changed": false,
+  "approval_table_changed": false,
+  "limitations": [
+    "No assigned legacy guard was invoked in the tested composed flows; this is not global proof for arbitrary legacy callers.",
+    "Background coverage is real pre-dispatch admission refusal only; successful composed background execution awaits PR #37.",
+    "Row006 is dead behind row005, not restored agent admission.",
+    "Aaron has not approved the eight behavioural proposals; Phase 2 exit remains open.",
+    "An initial incremental coverage invocation collected no data; corrected directory-based coverage produced the final gate metric.",
+    "An initial original-code spy targeted contextlib's shared wrapper and falsely failed; inspect.unwrap binds the actual guarded generator in the passing final run."
+  ],
+  "artifacts": [
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round2-20261006/gate-final.log", "bytes": 1542, "sha256": "71dc1697396afd1371cbf50de3bb13d265a52943100bbf05d3522c277860e990"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round2-20261006/gate-final-coverage.json", "bytes": 53117, "sha256": "e8277def76fb59a004a25ab011d40ef7c70a529e101294badf4cf22537a8cb14"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round2-20261006/guard-and-composed-final-corrected.log", "bytes": 173, "sha256": "dfcd3014be1d85f025c3022147bd067f4bca6ab07e9d6625b6fe4ababb7a93a9"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round2-20261006/short-fixtures.log", "bytes": 161, "sha256": "9400d4b6d7f7ab162d171e73c35ab67ca74458537a2dec36f5ca266cb048cce9"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round2-20261006/d19-final-report.json", "bytes": 291, "sha256": "bffdfb91954cdbdfba9793fbad8cc673302d0cec0d6ef810fbdbb488ad03bcfe"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round2-20261006/lint-final.json", "bytes": 52, "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round2-20261006/phase2-plan-final.json", "bytes": 972, "sha256": "ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48"}
+  ]
+}

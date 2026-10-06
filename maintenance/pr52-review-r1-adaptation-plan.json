@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "work_order": "/home/odin/reviews/desktop-pr52-review.md",
+  "rows": [
+    {
+      "path": "scripts/maintenance/phase2_part5.py",
+      "reason": "Accept the eight explicitly reviewed operator-document retirements only with scoped decision and surviving behavior coverage",
+      "contract": "Retired prose selectors never claim passing restoration; missing coverage, decisions and unsafe paths fail closed",
+      "invariant": "No original definition, source bytes, frozen collection alias or whole-suite historical counts change",
+      "tests": ["tests/test_desktop_step8_part5_accounting.py", "tests/test_desktop_step8_part5_removed.py"]
+    },
+    {
+      "path": "tests/test_desktop_step8_part5_accounting.py",
+      "reason": "Pin reviewed 140/69/65/0 dispositions and work-item handoffs; mutation-test the behavior condition",
+      "contract": "All 274 inherited definitions stay accounted and review state is not inferred from passing tests",
+      "invariant": "Independent implementation review remains pending",
+      "tests": ["tests/test_desktop_step8_part5_accounting.py", "tests/test_desktop_step8_part5_removed.py"]
+    },
+    {
+      "path": "tests/test_desktop_step8_part5_removed.py",
+      "reason": "Fill concrete surviving behavior coverage without doc wording tests or live qualification",
+      "contract": "Exercise real schema/registry, bounded isolated IPC, composed chat batch caps and retained cycle kernel with explicit readiness limitations",
+      "invariant": "Never bypass autonomous wiring gates; no service, active desktop or external tool effects",
+      "tests": ["tests/test_desktop_step8_part5_accounting.py", "tests/test_desktop_step8_part5_removed.py"]
+    }
+  ]
+}

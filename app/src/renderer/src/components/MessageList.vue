@@ -21,6 +21,38 @@ const steers = computed(() =>
   running.value && state.activeId ? steersFor(state.activeId, running.value.request_id, running.value.generation) : []
 )
 const stopping = computed(() => Boolean(running.value && stopPending(running.value.request_id, running.value.generation)))
+/** A failure or stop need not produce an assistant reply. Its tool receipts must remain inspectable. */
+const terminalTools = computed(() => {
+  const v = view.value
+  if (!v) return []
+  const withReply = new Set(v.messages.filter((m) => m.role === 'assistant').map((m) => m.request_id))
+  return Object.entries(v.tools).filter(([id, entries]) =>
+    entries.length && id !== v.running?.request_id && !v.queued.some((q) => q.request_id === id) && !withReply.has(id)
+  )
+})
+/** Keep settled Stop/Steer receipts visible even when the running task card disappears. */
+const controlReceipts = computed(() => {
+  const v = view.value
+  if (!v) return []
+  const receipts = new Map(Object.values(v.controls).map((c) => [c.control_command_id, c]))
+  for (const local of state.controls.filter((c) => c.conversation_id === state.activeId)) {
+    if (!receipts.has(local.control_command_id)) receipts.set(local.control_command_id, local)
+  }
+  return [...receipts.values()].filter((c) =>
+    c.kind === 'stop' || c.request_id !== v.running?.request_id || c.generation !== v.running?.generation
+  ).slice(-20)
+})
+
+const STOP_TEXT: Record<string, string> = {
+  sending: 'sending…',
+  'awaiting-receipt': 'sent, waiting for confirmation',
+  unknown: 'outcome unknown; it will not be sent again',
+  requested: 'requested; waiting for the task to stop',
+  confirmed: 'confirmed by Odin',
+  not_running: 'not used: the task was not running',
+  stale_binding: 'not used: the request binding changed',
+  'not-delivered': 'not delivered'
+}
 const announcement = ref('')
 const historyPaging = ref(false)
 const olderUsed = ref(false)
@@ -187,6 +219,7 @@ async function older(): Promise<void> {
         :key="m.id"
         :message="m"
         :conversation-id="jump.conversationId"
+        :tools="m.request_id ? view.tools[m.request_id] : undefined"
         :highlight="m.id === state.highlightId"
       />
       <p v-if="jump.hasAfter" class="jump-edge">Later messages aren't shown here.</p>
@@ -237,6 +270,15 @@ async function older(): Promise<void> {
         </div>
       </div>
       <p v-if="outcomeLine" class="outcome">{{ outcomeLine }}</p>
+      <ul v-if="controlReceipts.length" class="steers control-receipts" aria-label="Control receipts">
+        <li v-for="c in controlReceipts" :key="c.control_command_id" class="steer">
+          <span class="steer-text">{{ c.kind === 'stop' ? 'Stop' : 'Steer' }}</span>
+          <span class="steer-state">{{ (c.kind === 'stop' ? STOP_TEXT : STEER_TEXT)[c.status] ?? c.status }}</span>
+        </li>
+      </ul>
+      <div v-for="[requestId, entries] in terminalTools" :key="requestId" class="terminal-tools">
+        <ToolActivity :entries="entries" :request-id="requestId" />
+      </div>
       <ResumeBanner v-if="state.activeId" :conversation-id="state.activeId" />
       <p v-for="(line, index) in unresolvedLines" :key="index" class="outcome unresolved">{{ line }}</p>
     </template>

@@ -33,9 +33,10 @@ def test_final_frozen_full_tree_assertions_and_parameters_unchanged(suite):
 
 
 @pytest.mark.parametrize("unknown", ["sesions", "web_ui", "discord", "web"])
-def test_unknown_or_stripped_config_rejects_before_profile_write(tmp_path, monkeypatch, unknown):
+def test_unknown_or_stripped_config_drops_before_profile_migrations(tmp_path, monkeypatch, unknown):
     import src.config.migrations as migrations
     import src.config.schema as schema
+    from src.desktop.authority import OwnerAuthority
     from src.desktop.paths import ProfilePaths
 
     paths = ProfilePaths.from_xdg(environ={
@@ -43,19 +44,19 @@ def test_unknown_or_stripped_config_rejects_before_profile_write(tmp_path, monke
         "XDG_DATA_HOME": str(tmp_path / "data"),
         "XDG_CACHE_HOME": str(tmp_path / "cache"),
     }, home=tmp_path)
-    paths.config_file.parent.mkdir(parents=True)
+    OwnerAuthority(paths)
     text = f"{unknown}: {{}}\nopenai_codex: {{model: gpt-5.5}}\n"
     paths.config_file.write_text(text)
     monkeypatch.setattr(schema, "runtime_profile_paths", lambda: paths)
+    monkeypatch.setattr("src.runtime_paths.runtime_profile_paths", lambda: paths)
     reached = []
     for name in ("apply_legacy_ceiling_migration", "apply_image_defaults_migration",
                  "apply_compatible_timeout_migration"):
         monkeypatch.setattr(migrations, name, lambda *a: reached.append(a))
-    with pytest.raises(SystemExit, match="unsupported top-level"):
-        load_config(paths.config_file)
+    assert unknown not in load_config(paths.config_file).model_dump()
     assert paths.config_file.read_text() == text
-    assert reached == []
-    assert not paths.data_dir.exists()
+    assert len(reached) == 3
+    assert all(unknown not in args[0] for args in reached)
 
 
 def test_known_desktop_config_sections_load_without_unknown_warning(tmp_path, caplog):

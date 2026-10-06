@@ -225,7 +225,52 @@ def _profile(env):
     return config.parent / 'default-cleanup-state.json', data / 'resource-cleanup.json'
 
 
-def main(argv=None):
+def _appimage_sandbox_refusal(sysctl_root=Path('/proc/sys')):
+    """Conservative policy check, not a probe of effective per-process permission.
+
+    The Python argument is a unit-test seam only. Production has no environment
+    variable or command-line switch to substitute sysctls or bypass this check.
+    """
+    checks = (
+        ('kernel/apparmor_restrict_unprivileged_userns', lambda value: value != 0),
+        ('kernel/unprivileged_userns_clone', lambda value: value != 1),
+        ('user/max_user_namespaces', lambda value: value <= 0),
+    )
+    for relative, restricted in checks:
+        try:
+            value = int((sysctl_root / relative).read_text().strip())
+        except FileNotFoundError:
+            # Optional sysctls are absent on kernels without these policies.
+            continue
+        except (OSError, ValueError):
+            return f'Cannot verify the user-namespace policy ({relative}).'
+        if restricted(value):
+            return f'The user-namespace policy is restricted ({relative}={value}).'
+    return None
+
+
+def _show_appimage_refusal(reason, *, dialog=Path('/usr/bin/zenity')):
+    message = (
+        'Odin Desktop AppImage cannot start safely on this system.\n'
+        f'{reason}\n'
+        'Install the Odin Desktop .deb package instead. The AppImage preflight '
+        'conservatively refuses restricted user namespaces, even if a local '
+        'exception might allow them. Electron was not started.\n'
+        'Do not disable the Chromium sandbox or weaken system security settings.'
+    )
+    print(message, file=sys.stderr, flush=True)
+    # A terminal still receives the complete failure if no desktop/dialog exists.
+    # Never launch Electron just to display its own startup failure.
+    if (os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY')) and dialog.is_file():
+        try:
+            subprocess.run([str(dialog), '--error', '--title=Odin Desktop cannot start',
+                            '--text=' + message, '--no-markup', '--width=520',
+                            '--timeout=15'], check=False, timeout=20)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+
+def main(argv=None, *, sysctl_root=Path('/proc/sys')):
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['exec', 'hold'])
     parser.add_argument('--kind', choices=['deb', 'appimage'], required=True)
@@ -243,6 +288,11 @@ def main(argv=None):
         if args.action == 'exec':
             if not command:
                 raise OwnershipError('No executable was specified')
+            if args.kind == 'appimage':
+                reason = _appimage_sandbox_refusal(sysctl_root)
+                if reason is not None:
+                    _show_appimage_refusal(reason)
+                    return 78
             paths = ownership_paths(args.kind)
             fd = _open(paths)
             try:

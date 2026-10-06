@@ -66357,20 +66357,20 @@
       "executable": "tests/test_desktop_profile_upgrade.py::test_placeholders_are_not_shipped_literal_evidence"
     },
     {
-      "original": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[discord]",
-      "executable": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[discord]"
+      "original": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[discord]",
+      "executable": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[discord]"
     },
     {
-      "original": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[permissions]",
-      "executable": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[permissions]"
+      "original": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[permissions]",
+      "executable": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[permissions]"
     },
     {
-      "original": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[web]",
-      "executable": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[web]"
+      "original": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[web]",
+      "executable": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[web]"
     },
     {
-      "original": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[unknown]",
-      "executable": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[unknown]"
+      "original": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[unknown]",
+      "executable": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[unknown]"
     },
     {
       "original": "tests/test_desktop_profile_upgrade.py::test_external_supplied_config_is_runtime_only",
@@ -72998,5 +72998,13 @@
     "tests/test_tool_timeouts.py::TestToolTimeoutsAPI::test_set_invalid_default_rejected",
     "tests/test_tool_timeouts.py::TestToolTimeoutsAPI::test_set_non_dict_overrides_rejected",
     "tests/test_tool_timeouts.py::TestToolTimeoutsAPI::test_list_tools_includes_timeout"
-  ]
+  ],
+  "phase2_step8_part6": {
+    "dispositions": "maintenance/phase2-step8-part6-cases.json",
+    "collection": "maintenance/phase2-step8-part6-collection.json",
+    "collection_sha256": "b40794edee22b8fac844e219b3e6995100efdd9a89ebedb7bb1adb0342dd23a8",
+    "functions": 83,
+    "expanded_cases": 108,
+    "independent_review": "pending"
+  }
 }

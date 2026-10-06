@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -27,6 +28,9 @@ def load_runner():
 def configure_runner(tmp_path, monkeypatch):
     runner = load_runner()
     monkeypatch.setattr(runner, "ROOT", tmp_path)
+    # Pytest's tmp_path is itself under /tmp; model a host /tmp elsewhere.
+    monkeypatch.setattr(runner, "PRIVATE_TMP", tmp_path / "host-tmp")
+    monkeypatch.delenv("ODIN_TEST_SCRATCH", raising=False)
     monkeypatch.setattr(runner, "os", SimpleNamespace(
         getuid=lambda: 1234, geteuid=lambda: 1234,
         getgid=lambda: 5678, getegid=lambda: 5678,
@@ -78,8 +82,8 @@ def test_runner_namespaces_and_cleans_ambient_environment(tmp_path, monkeypatch)
     )
     assert runner.main() == 0
     command = captured[0]
-    assert command[:4] == ["sudo", "-n", runner.ISOLATION_HELPER, "env"]
-    assert command[4:6] == [
+    assert command[:5] == ["sudo", "-n", runner.ISOLATION_HELPER, "--private-tmp", "env"]
+    assert command[5:7] == [
         "-i",
         f"PATH={tmp_path / '.venv/bin'}:/usr/bin:/bin",
     ]
@@ -200,6 +204,24 @@ def test_long_selection_keeps_proc_cmdline_small_without_dropping_arguments(tmp_
     monkeypatch.setattr(runner, "run_namespace", execute)
     assert runner.main() == 0
     assert not captured[0].exists()
+
+
+def test_long_selection_keeps_plugin_preloads_outside_response_file(tmp_path, monkeypatch):
+    runner = configure_runner(tmp_path, monkeypatch)
+    selections = [f"tests/test_fixture_{index}.py" for index in range(700)]
+    arguments = [*selections, "-p", "scripts.qualification_once", "-pother.plugin",
+                 "--collect-only", "--qualification-once-state=fixture.json"]
+    probe_results(runner, monkeypatch, [0])
+
+    def execute(command):
+        assert command[-4:-1] == ["-p", "scripts.qualification_once", "-pother.plugin"]
+        assert Path(command[-1].removeprefix("@")).read_text().splitlines() == [
+            *selections, "--collect-only", "--qualification-once-state=fixture.json",
+        ]
+        return 0
+
+    monkeypatch.setattr(runner, "run_namespace", execute)
+    assert runner.main(arguments) == 0
 
 
 @pytest.mark.parametrize("changed", [
@@ -408,8 +430,34 @@ def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():
     ]
     assert "run-qualified-tests.py" not in light_commands
     assert "scripts/maintenance/phase2_plan.py" in light_commands
-    assert "scripts/run-phase1-tests.py tests/test_desktop_phase2_plan.py" in full_commands
-    assert "scripts/run-qualified-tests.py" in full_commands
+    assert "scripts/run-phase1-tests.py tests/test_desktop_phase2_plan.py" not in full_commands
+    assert "run-qualified-tests.py" not in full_commands
+    # Whole classified groups run once across duration-balanced parallel shards.
+    qualification = workflow["jobs"]["qualification"]
+    assert qualification["runs-on"] == ["self-hosted", "odin-desktop-ci"]
+    assert qualification["strategy"] == {"fail-fast": False, "matrix": {"shard": [1, 2, 3, 4, 5]}}
+    shard_steps = [step for step in qualification["steps"]
+                   if "run-qualified-tests.py" in step.get("run", "")]
+    assert [step["run"] for step in shard_steps] == [
+        '.venv/bin/python scripts/run-qualified-tests.py --shard "$QUALIFICATION_SHARD/5"']
+    # The matrix value reaches the shell only through the environment.
+    assert shard_steps[0]["env"] == {"QUALIFICATION_SHARD": "${{ matrix.shard }}"}
+    namespace_commands = [line for step in full["steps"]
+                          for line in step.get("run", "").splitlines()
+                          if line.startswith(".venv/bin/python scripts/run-phase1-tests.py")]
+    assert len(namespace_commands) == 2
+    assert namespace_commands[0] == (
+        ".venv/bin/python scripts/run-phase1-tests.py --additional-desktop-boundaries")
+    lab_files = namespace_commands[1].split()[2:]
+    assert lab_files and all(path.startswith("tests/") for path in lab_files)
+    assert len(lab_files) == len(set(lab_files))
+    assert not any(Path(path).name.startswith("test_desktop_") for path in lab_files)
+    pass_now = next(step for step in full["steps"] if step.get("id") == "pass-now")
+    assert "continue-on-error" not in pass_now
+    for script in ("run-lab-fixture-tests.py",):
+        step = next(step for step in full["steps"] if script in step.get("run", ""))
+        assert step["if"] == "${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}"
+        assert "continue-on-error" not in step
     assert workflow["concurrency"]["cancel-in-progress"] is True
     assert "github.event.pull_request.number || github.ref" in workflow["concurrency"]["group"]
 def test_default_selection_runs_full_adapter_instead_of_obsolete_original(tmp_path, monkeypatch):
@@ -417,6 +465,7 @@ def test_default_selection_runs_full_adapter_instead_of_obsolete_original(tmp_pa
 
     runner = load_runner()
     monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner, "PRIVATE_TMP", tmp_path / "host-tmp")
     monkeypatch.setattr(runner.sys, "argv", ["runner"])
     (tmp_path / "maintenance").mkdir()
     (tmp_path / "tests").mkdir()
@@ -437,3 +486,115 @@ def test_default_selection_runs_full_adapter_instead_of_obsolete_original(tmp_pa
     assert "tests/test_direct_helper.py" in command
     assert adapter in command
     assert command.count(adapter) == 1
+
+
+def test_additional_flag_keeps_namespace_supervisor_and_receipt(tmp_path, monkeypatch):
+    import json
+
+    runner = load_runner()
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner, "PRIVATE_TMP", tmp_path / "host-tmp")
+    (tmp_path / "maintenance").mkdir()
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/test_plan.py").touch()
+    (tmp_path / "tests/test_desktop_extra.py").touch()
+    (tmp_path / "maintenance/qualification-plan.json").write_text(json.dumps({
+        "groups": [{"name": "plan", "reason": "reviewed", "files": ["tests/test_plan.py"]}],
+    }))
+    captured = []
+    probe_results(runner, monkeypatch, [0])
+    monkeypatch.setattr(runner, "run_namespace", lambda command: captured.append(command) or 0)
+    assert runner.main(["--additional-desktop-boundaries"]) == 0
+    assert len(captured) == 1
+    assert runner.NAMESPACE_SUPERVISOR in captured[0]
+    assert "tests/test_desktop_extra.py" in captured[0]
+    assert "tests/test_plan.py" not in captured[0]
+    assert "--junitxml=.test-state/additional-desktop-boundaries.xml" in captured[0]
+
+
+@pytest.mark.parametrize("arguments", [
+    ["tests/test_other.py"], ["-k", "other"], ["--maxfail=1"],
+    ["--additional-desktop-boundaries"],
+])
+def test_additional_flag_refuses_selection_overrides_before_launch(
+    tmp_path, monkeypatch, arguments,
+):
+    runner = load_runner()
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner, "run_namespace", lambda command: pytest.fail("must not launch"))
+    with pytest.raises(SystemExit, match="accepts only"):
+        runner.main(["--additional-desktop-boundaries", *arguments])
+
+
+def test_scratch_hidden_by_the_helpers_private_tmp_is_refused(tmp_path, monkeypatch):
+    runner = configure_runner(tmp_path, monkeypatch)
+    runner.os.getuid, runner.os.geteuid = os.getuid, os.geteuid
+    monkeypatch.setattr(runner, "PRIVATE_TMP", tmp_path / "host-tmp")
+    monkeypatch.setenv("ODIN_TEST_SCRATCH", str(tmp_path / "host-tmp" / "scratch"))
+    monkeypatch.setattr(runner.sys, "argv", ["runner", "tests/test_neutral.py"])
+    probe_results(runner, monkeypatch, [0])
+    monkeypatch.setattr(runner, "run_namespace",
+                        lambda cmd: pytest.fail("must refuse before launch"))
+    with pytest.raises(SystemExit, match="private /tmp hides"):
+        runner.main()
+
+
+def test_checkout_hidden_by_the_helpers_private_tmp_is_refused(tmp_path, monkeypatch):
+    runner = configure_runner(tmp_path, monkeypatch)
+    monkeypatch.setattr(runner, "PRIVATE_TMP", tmp_path)
+    monkeypatch.setattr(runner.sys, "argv", ["runner", "tests/test_neutral.py"])
+    probe_results(runner, monkeypatch, [0])
+    monkeypatch.setattr(runner, "run_namespace",
+                        lambda cmd: pytest.fail("must refuse before launch"))
+    with pytest.raises(SystemExit, match="Use a checkout outside /tmp"):
+        runner.main()
+
+
+def test_ci_scratch_root_moves_isolated_state_to_private_tmpfs(tmp_path, monkeypatch):
+    runner = configure_runner(tmp_path, monkeypatch)
+    # The scratch root is owned by the real test user.
+    runner.os.getuid, runner.os.geteuid = os.getuid, os.geteuid
+    shm = tmp_path / "shm"
+    monkeypatch.setenv("ODIN_TEST_SCRATCH", str(shm))
+    monkeypatch.setattr(runner.sys, "argv", ["runner", "tests/test_neutral.py"])
+    probe_results(runner, monkeypatch, [0])
+    captured = []
+    monkeypatch.setattr(runner, "run_namespace", lambda cmd: captured.append(cmd) or 0)
+    assert runner.main() == 0
+    command = captured[0]
+    home = Path(next(arg.removeprefix("HOME=") for arg in command if arg.startswith("HOME=")))
+    assert home.parent.parent == shm and home.parent.name.startswith("isolation-")
+    assert not any(arg.startswith("TMPDIR=") for arg in command)  # socket path lengths unchanged
+    assert stat.S_IMODE(shm.stat().st_mode) == 0o700
+    assert not home.parent.exists()
+
+
+def test_default_scratch_stays_in_test_state_without_tmpdir(tmp_path, monkeypatch):
+    runner = configure_runner(tmp_path, monkeypatch)
+    monkeypatch.setattr(runner.sys, "argv", ["runner", "tests/test_neutral.py"])
+    probe_results(runner, monkeypatch, [0])
+    captured = []
+    monkeypatch.setattr(runner, "run_namespace", lambda cmd: captured.append(cmd) or 0)
+    assert runner.main() == 0
+    assert not any(arg.startswith("TMPDIR=") for arg in captured[0])
+
+
+@pytest.mark.parametrize("kind", ["relative", "shared", "symlink"])
+def test_ci_scratch_root_must_be_absolute_private_and_owned(tmp_path, monkeypatch, kind):
+    runner = configure_runner(tmp_path, monkeypatch)
+    runner.os.getuid, runner.os.geteuid = os.getuid, os.geteuid
+    target = tmp_path / "shared"
+    target.mkdir()
+    target.chmod(0o755)
+    value = {"relative": "relative/scratch", "shared": str(target)}.get(kind)
+    if kind == "symlink":
+        target.chmod(0o700)
+        link = tmp_path / "link"
+        link.symlink_to(target, target_is_directory=True)
+        value = str(link)
+    monkeypatch.setenv("ODIN_TEST_SCRATCH", value)
+    monkeypatch.setattr(runner.sys, "argv", ["runner", "tests/test_neutral.py"])
+    probe_results(runner, monkeypatch, [0])
+    monkeypatch.setattr(runner, "run_namespace", lambda cmd: 0)
+    with pytest.raises(SystemExit, match="ODIN_TEST_SCRATCH"):
+        runner.main()

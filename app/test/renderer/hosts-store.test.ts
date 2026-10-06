@@ -1,10 +1,15 @@
 // The host enrollment steps, driven through a fake bridge in the shape of Odin's /api/hosts routes.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HostList, Result } from '../../src/shared/api'
+import type { HostList, HostRow, Result } from '../../src/shared/api'
 
 type Hosts = typeof import('../../src/renderer/src/stores/hosts')
 
 const SCANNED = 'SHA256:' + 'B'.repeat(43)
+const legacy: HostRow = {
+  alias: 'old', host_id: 'old-id', address: '10.0.0.8', ssh_user: 'deploy', os: 'linux', port: 2222,
+  description: 'Existing host', enabled: false, active: false, targetable: false,
+  trust_mode: 'legacy', trust_state: 'legacy_unverified', last_test: null, diagnostic: null, draining: false, generation: 1
+}
 let hosts: Hosts
 let calls: Array<[string, Record<string, unknown>]>
 let testAnswer: Result<{ candidate_token: string; tested: boolean; last_test: unknown; error?: string }>
@@ -23,6 +28,10 @@ beforeEach(async () => {
     odin: {
       hostsList: async () => ok(list),
       hostsPublicKey: async () => ok({ public_key: 'ssh-ed25519 AAAA', fingerprint: 'SHA256:k', authorized_keys_command: 'echo', permissions: '', effective_key_path: 'k', desired_key_path: 'k', restart_pending: false }),
+      hostsImportLegacy: async (params: Record<string, unknown>) => {
+        record('import', params)
+        return ok({ candidate_token: 'import-candidate', alias: params.alias, host_id: 'old-id', fingerprints: [SCANNED], trust_mode: 'pinned', tested: false })
+      },
       hostsPrepare: async (params: Record<string, unknown>) => {
         record('prepare', params)
         return ok({ candidate_token: `tok-${calls.length}`, alias: params.alias, host_id: 'h', fingerprints: [SCANNED], trust_mode: params.trust_mode, tested: false })
@@ -107,6 +116,89 @@ describe('deleting a host', () => {
     expect(calls.map(([name]) => name)).toEqual(['references'])
     references = []
     expect(await hosts.deleteHost('build_box')).toBe('deleted')
+  })
+})
+
+describe('legacy trusted-key enrollment', () => {
+  const odin = () => (window as unknown as { odin: Record<string, unknown> }).odin
+  const imported = { candidate_token: 'import-candidate', alias: 'old', host_id: 'old-id', fingerprints: [SCANNED], trust_mode: 'pinned', tested: false }
+
+  it('imports only the alias, preserves disabled intent, and requires test before commit', async () => {
+    expect(await hosts.importLegacy(legacy)).toBe(true)
+    expect(calls).toEqual([['import', { alias: 'old' }]])
+    expect(hosts.hosts.enrollment).toMatchObject({ editing: true, step: 4, token: 'import-candidate', observed: [SCANNED], expected: SCANNED, tested: false, test: null,
+      form: { alias: 'old', address: '10.0.0.8', port: 2222, ssh_user: 'deploy', enabled: false, trust_mode: 'pinned' } })
+    expect(await hosts.activate()).toBe(false)
+    await hosts.testConnection()
+    expect(hosts.hosts.enrollment?.step).toBe(5)
+    await hosts.activate()
+    expect(calls.map(([name]) => name)).toEqual(['import', 'test', 'commit'])
+  })
+
+  it('does not import local or non-legacy hosts', async () => {
+    expect(await hosts.importLegacy({ ...legacy, address: 'localhost' })).toBe(false)
+    expect(await hosts.importLegacy({ ...legacy, trust_mode: 'pinned' })).toBe(false)
+    expect(calls).toEqual([])
+  })
+
+  it('invalidates an imported candidate on Back and reprepares only as pinned trust, never legacy', async () => {
+    await hosts.importLegacy(legacy)
+    hosts.goTo(3)
+    expect(hosts.hosts.enrollment).toMatchObject({ token: '', tested: false, form: { trust_mode: 'pinned' } })
+    expect(await hosts.activate()).toBe(false)
+    await hosts.scan()
+    expect(calls.at(-1)).toEqual(['prepare', expect.objectContaining({ alias: 'old', trust_mode: 'pinned', enabled: false, expected_fingerprints: [SCANNED] })])
+    expect(calls.map(([name]) => name)).not.toContain('commit')
+  })
+
+  it('keeps a failed connection candidate untested and refuses activation', async () => {
+    await hosts.importLegacy(legacy)
+    testAnswer = ok({ candidate_token: 'import-candidate', tested: false, last_test: { ok: false }, error: 'host key changed' })
+    await hosts.testConnection()
+    expect(hosts.hosts.enrollment).toMatchObject({ step: 4, tested: false, note: 'host key changed' })
+    expect(await hosts.activate()).toBe(false)
+    expect(calls.map(([name]) => name)).toEqual(['import', 'test'])
+  })
+
+  it('holds an unknown import under its command and adopts its late candidate without execution', async () => {
+    odin().hostsImportLegacy = async (params: Record<string, unknown>) => {
+      calls.push(['import', params])
+      return { ok: false, error: { code: 'no_receipt', message: 'No receipt yet.', disposition: 'outcome_unknown', command_id: 'cmd-import' } }
+    }
+    expect(await hosts.importLegacy(legacy)).toBe(false)
+    expect(await hosts.importLegacy(legacy)).toBe(false)
+    expect(calls).toEqual([['import', { alias: 'old' }]])
+    expect(hosts.hosts.enrollment).toBeNull()
+    const { management } = await import('../../src/renderer/src/stores/management')
+    expect(management.busy['host:old']).toBe(true)
+    const store = await import('../../src/renderer/src/store')
+    store.applyReceipt({ id: 'cmd-import', settled: ok(imported) })
+    expect(management.busy['host:old']).toBe(false)
+    expect(hosts.hosts.enrollment).toMatchObject({ step: 4, token: 'import-candidate', tested: false })
+    expect(calls.map(([name]) => name)).toEqual(['import'])
+  })
+
+  it('does not let a delayed import overwrite a newer wizard', async () => {
+    let land!: (answer: unknown) => void
+    odin().hostsImportLegacy = () => new Promise((resolve) => { land = resolve })
+    const pending = hosts.importLegacy(legacy)
+    hosts.beginAdd()
+    hosts.hosts.enrollment!.form.alias = 'new-draft'
+    land(ok(imported))
+    await pending
+    expect(hosts.hosts.enrollment).toMatchObject({ step: 1, token: '', form: { alias: 'new-draft' } })
+  })
+
+  it('keeps a denied import out of enrollment and handles capability refusal honestly', async () => {
+    odin().hostsImportLegacy = async () => ({ ok: false, error: { code: 'bad_request', message: 'no matching legacy known_hosts entry was found' } })
+    expect(await hosts.importLegacy(legacy)).toBe(false)
+    expect(hosts.hosts.enrollment).toBeNull()
+    const { management } = await import('../../src/renderer/src/stores/management')
+    expect(management.notes['host:old']).toContain('no matching legacy')
+    odin().hostsImportLegacy = async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'not served' } })
+    expect(await hosts.importLegacy(legacy)).toBe(false)
+    expect(hosts.hosts.unavailable).toBe(true)
+    expect(hosts.hosts.list).toBeNull()
   })
 })
 

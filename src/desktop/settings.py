@@ -30,7 +30,7 @@ from ..config.persistence import (
     _load_document,
     _patch_config_paths,
 )
-from ..config.schema import Config
+from ..config.schema import Config, _ignore_unknown_config_keys
 from .management import MethodError
 from .provisioning import fresh_config
 from .secrets import SecretStoreError, secret_call
@@ -134,7 +134,7 @@ class SettingsService:
         if config is None:
             document, _ = _load_document(paths.config_file)
             values = fresh_config(paths).model_dump(mode="json")
-            self._merge(values, dict(document))
+            self._merge(values, _ignore_unknown_config_keys(dict(document)))
             config = Config.model_validate(values, context={"startup": True})
         self.config = config if isinstance(config, Config) else Config.model_validate(config)
         self._boot = self.config.model_dump(mode="json")
@@ -143,6 +143,20 @@ class SettingsService:
         self._keyring_checked = False
         self._keyring_error = None
         self._transaction_active = False
+        self.ingress = None
+        self._change_subscribers = set()
+
+    def subscribe_changes(self, callback):
+        self._change_subscribers.add(callback)
+        return lambda: self._change_subscribers.discard(callback)
+
+    def _notify_changes(self):
+        for callback in tuple(self._change_subscribers):
+            try:
+                callback()
+            except Exception:
+                # An invalidation subscriber cannot undo adopted settings.
+                pass
 
     @staticmethod
     def _merge(base, updates):
@@ -161,9 +175,13 @@ class SettingsService:
                         stored = self.secrets.get(path)
                         if stored is not None:
                             _put(values, tuple(path.split(".")), stored)
+                        elif path.startswith("webhook.triggers.") and path.endswith(".secret"):
+                            # Imported plaintext is never an ingress credential.
+                            _put(values, tuple(path.split(".")), "")
             except SecretStoreError:
                 self._keyring_error = "Profile keyring is unavailable or locked"
                 self._keyring_checked = True
+                self._notify_changes()
                 return False
             hydrated = Config.model_validate(values, context={"startup": True})
             # Preserve composed config/email/tool references. Publish only
@@ -192,7 +210,18 @@ class SettingsService:
 
             publish(self.config, hydrated)
             self._keyring_checked, self._keyring_error = True, None
+            self._notify_changes()
             return True
+
+    def audit_signing_key(self):
+        """Resolve one profile audit authority without a settings read side effect.
+
+        Readers and writers must consult the same keyring binding after restart.
+        A locked keyring raises rather than silently interpreting signed history
+        as unsigned. Hydrating an unrelated settings schema is never required.
+        """
+        stored = self.secrets.get("audit.hmac_key")
+        return self.config.audit.hmac_key if stored is None else stored
 
     def _image_metadata(self):
         return read_image_model_metadata(self.paths.config_file, self.config)
@@ -369,9 +398,16 @@ class SettingsService:
             resolved = _get(result, path)
             if resolved is _MISSING and value is not DELETE_CONFIG_PATH:
                 raise _error(f"{'.'.join(path)}: no such setting")
-            normalized.append(
-                (path, DELETE_CONFIG_PATH if value is DELETE_CONFIG_PATH else resolved)
-            )
+            if (value is not DELETE_CONFIG_PATH and isinstance(resolved, dict)
+                    and path in {("image",), ("image", "openai")}):
+                # Forms submit defaults along with pins. Leaf persistence lets
+                # the image writer retain absence for followed model defaults.
+                normalized.extend((tuple(leaf.split(".")), item)
+                                  for leaf, item in flatten(resolved, ".".join(path)))
+            else:
+                normalized.append(
+                    (path, DELETE_CONFIG_PATH if value is DELETE_CONFIG_PATH else resolved)
+                )
         return desired, normalized
 
     def _validate_route_values(self, method, candidate, changes):
@@ -395,6 +431,11 @@ class SettingsService:
                     raise _error("ollama.timeout: must be between 10 and 3600") from None
                 candidate["ollama"]["timeout"] = value
         if method == "providers.codex.set":
+            if ("openai_codex.reasoning_effort" in paths
+                    and candidate["openai_codex"]["reasoning_effort"] not in {
+                        "none", "low", "medium", "high", "xhigh", "max",
+                    }):
+                raise _error("openai_codex.reasoning_effort: invalid reasoning effort")
             for name in ("request_timeout_seconds", "stream_stall_timeout_seconds"):
                 if f"openai_codex.{name}" in paths and isinstance(
                     candidate["openai_codex"][name], bool
@@ -434,6 +475,7 @@ class SettingsService:
                         leaf
                     ).apply_mode == "live_apply":
                         self._applied[leaf] = REDACTED if is_secret(leaf) and value else value
+        self._notify_changes()
 
     def confirm_applied(self, changes):
         """A section owner calls this only after its actual adoption succeeds."""
@@ -657,18 +699,24 @@ class SettingsService:
             self._transaction_active = True
             try:
                 if method in {"secrets.set", "secrets.clear"}:
-                    return await self._secret(method, params)
-                if method == "models.image.intent":
-                    return self._image_intent(params)
-                if set(params) != {"expected_revision", "changes"} or not isinstance(
-                    params["expected_revision"], str
-                ):
-                    raise _error("expected_revision and changes are required")
-                return await self._save_async(
-                    self._normalize_changes(params["changes"]), method, params["expected_revision"]
-                )
+                    result = await self._secret(method, params)
+                elif method == "models.image.intent":
+                    result = self._image_intent(params)
+                else:
+                    if set(params) != {"expected_revision", "changes"} or not isinstance(
+                        params["expected_revision"], str
+                    ):
+                        raise _error("expected_revision and changes are required")
+                    result = await self._save_async(
+                        self._normalize_changes(params["changes"]), method,
+                        params["expected_revision"]
+                    )
             finally:
                 self._transaction_active = False
+                self._notify_changes()
+            if self.ingress is not None:
+                await self.ingress.sync()
+            return result
 
     async def unlock_prompt(self, params):
         """No settings lock is held while an owner's native prompt is pending."""
@@ -702,7 +750,7 @@ class SettingsService:
                 document, _ = _load_document(self.paths.config_file)
                 try:
                     values = fresh_config(self.paths).model_dump(mode="json")
-                    self._merge(values, dict(document))
+                    self._merge(values, _ignore_unknown_config_keys(dict(document)))
                     desired = Config.model_validate(values, context={"startup": True})
                     values = desired.model_dump(mode="json")
                     for path, value in flatten(values):
@@ -710,6 +758,8 @@ class SettingsService:
                             stored = await secret_call(self.secrets.get, path)
                             if stored is not None:
                                 _put(values, tuple(path.split(".")), stored)
+                            elif path.startswith("webhook.triggers.") and path.endswith(".secret"):
+                                _put(values, tuple(path.split(".")), "")
                     desired = Config.model_validate(values)
                 except Exception:
                     raise _error(
@@ -737,5 +787,9 @@ class SettingsService:
                     raise
                 finally:
                     self._transaction_active = False
+                    self._notify_changes()
                 self._publish(desired, changes, hook is not None)
+                self._transaction_active = False
+                if self.ingress is not None:
+                    await self.ingress.sync()
                 return {"revision": self.revision, "fields": self.get_fields()}

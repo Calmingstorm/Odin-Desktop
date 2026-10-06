@@ -1,0 +1,4 @@
+{"native_event_collector": "ready", "path": "/var/tmp/odq-orca-892545f8fdd94e0c86aa8c7bd78aaae3/evidence/native-dialog-events.jsonl"}
+{"native_source_rejected": "AT-SPI peer is not the installed Electron or exact native portal backend: pid=1031 uid=1001 exe='/usr/bin/plasmashell'", "peer": ":1.13", "path": "/org/a11y/atspi/accessible/2147483662", "event": "object:state-changed:inactive", "signature": "siiv(so)"}
+{"native_source_rejected": "AT-SPI peer is not the installed Electron or exact native portal backend: pid=1031 uid=1001 exe='/usr/bin/plasmashell'", "peer": ":1.13", "path": "/org/a11y/atspi/accessible/2147483662", "event": "window:activate", "signature": "siiv(so)"}
+{"native_source_rejected": "AT-SPI peer is not the installed Electron or exact native portal backend: pid=1031 uid=1001 exe='/usr/bin/plasmashell'", "peer": ":1.13", "path": "/org/a11y/atspi/accessible/2147483662", "event": "object:state-changed:active", "signature": "siiv(so)"}

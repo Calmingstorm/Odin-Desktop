@@ -1,6 +1,7 @@
 """Capability refusal is cheap; served command identities survive retention."""
 import asyncio
 import os
+import re
 import uuid
 
 import pytest
@@ -12,10 +13,7 @@ from tests.test_desktop_core_lifecycle import connect, profile, receive, request
 # Conversation/search, results, controls and management reads are now served. Keep only methods
 # unavailable in the composed core, not either branch's pre-composition list.
 UNAVAILABLE = (
-    "work.list",
     "unknown.method",
-    "reports.page",
-    "skills.test", "schedules.list", "schedules.history", "schedules.validate_cron",
 )
 
 
@@ -43,6 +41,69 @@ async def test_unavailable_method_never_reserves_even_invalid_or_quiescing(tmp_p
             "SELECT count(*) FROM command_receipts").fetchone()[0] == 0
         assert not any(sql.startswith(("BEGIN", "INSERT", "UPDATE", "DELETE"))
                        for sql in statements)
+    finally:
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
+        await service.close()
+        os.close(read_fd)
+        os.close(write_fd)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,valid,invalid,error", [
+    ("work.list", {}, {"kind": "unknown"}, "bad_request"),
+    ("reports.page", {"report_id": "stored", "page": 1},
+     {"report_id": "stored", "page": 0}, "bad_request"),
+    ("schedules.list", {}, [], "bad_request"),
+    ("schedules.history", {}, {"limit": 0}, "bad_request"),
+    ("schedules.validate_cron", {"expression": "0 9 * * *"}, [], "bad_request"),
+    ("turn_state.list", {}, {"limit": 0}, "invalid_params"),
+])
+async def test_served_reads_never_reserve_even_invalid_or_quiescing(
+        tmp_path, method, valid, invalid, error):
+    paths, socket_path, token_file = profile(tmp_path)
+    read_fd, write_fd = os.pipe()
+    service = core.CoreService(paths, socket_path, token_file)
+    writer = None
+    try:
+        await service.start(read_fd)
+        # A retained legacy page is enough to prove reading serves stored text,
+        # without admitting a producer or fabricating a live run binding.
+        with service.store.transaction() as db:
+            db.execute("INSERT INTO desktop_reports VALUES (?,?,?,?,?,?,?)",
+                       ("stored", service.authority.owner_id, "conversation", "request",
+                        '["saved page"]', "run_command", "[]"))
+        reader, writer, _ = await connect(socket_path)
+        command_id = str(uuid.uuid4())
+        statements = []
+        service.store.connection.set_trace_callback(statements.append)
+        first = await request(reader, writer, method, valid, command_id)
+        assert first["ok"] is True
+        if method == "reports.page":
+            assert first["result"] == {"page": 1, "pages": 1, "text": "saved page"}
+        elif method == "schedules.validate_cron":
+            assert first["result"]["valid"] is True
+            assert len(first["result"]["next_runs"]) == 5
+        await send(writer, {"t": "req", "id": command_id, "method": method,
+                            "params": invalid})
+        assert (await receive(reader))["error"]["code"] == error
+        # A read ID is reusable across read methods, not bound to its first body.
+        assert (await request(reader, writer, "status.get", {}, command_id))["ok"]
+        service.lifetime.request_stop("test")
+        assert (await request(reader, writer, method, valid, command_id))["ok"]
+        assert service.store.connection.execute(
+            "SELECT count(*) FROM command_receipts").fetchone()[0] == 0
+        assert not any(re.search(
+            r"\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+command_receipts\b", sql, re.I)
+            for sql in statements)
+        # Existing durable command identities still take precedence over reads.
+        service.commands.execute(command_id, "runtime.shutdown", {},
+                                 lambda: response_error("bad_request", "Missing reason"))
+        conflict = await request(reader, writer, method, valid, command_id)
+        assert conflict["error"]["code"] == "id_conflict"
+        assert service.store.connection.execute(
+            "SELECT count(*) FROM command_receipts").fetchone()[0] == 1
     finally:
         if writer is not None:
             writer.close()

@@ -1,0 +1,31 @@
+{
+  "request": "desktop-pr34-merge-main3",
+  "qualified_execution_commit": "fe42ea1e81810c32e31efa163f312de34f86c78c",
+  "parents": ["5135016c3352c665813845d94441c78aa1f8caa3", "da2d3d4adbc7864ed78ffb972e3792f8557fbcb2"],
+  "merge_not_rebase": true,
+  "ledger": {"union_entries": 401, "both_changed": 23, "recorded": 92, "cited_test_hash_refreshes": 41, "inventory_errors": 0},
+  "accounting": {"population": 326, "restored": 28, "retired": 42, "deferred": 256},
+  "gates": {
+    "python_short": {"passed": 354, "failed": 0, "errors": 0, "skipped": 0},
+    "core_transport": {"passed": 628, "failed": 0, "errors": 0, "skipped": 0},
+    "profile_management_restored": {"passed": 1077, "failed": 0, "errors": 0, "skipped": 0},
+    "step6a": {"passed": 173, "failed": 0, "errors": 0, "skipped": 0},
+    "app_check": {"passed": 760, "typecheck": true, "build": true},
+    "real_core": {"passed": 22},
+    "onboarding": {"passed": 6},
+    "real_core_smoke": {"passed": true, "screen_checkpoints": 40, "capabilities": 121},
+    "lint_new_findings": 0,
+    "suite_map_valid": true,
+    "ownership_plan_passed": true
+  },
+  "full_classified_qualification_repeated": false,
+  "native_desktop_qualification_claimed": false,
+  "artifact_manifest": "maintenance/phase2-step8-part2-main3-artifacts.json",
+  "artifact_manifest_sha256": "ba6f427582be7f06234acb3a306e31468d7c964a5cdd635629fb106daf21e152",
+  "warnings": ["closed-event-loop subprocess destructor", "two inherited Any collection warnings", "npm dependency/deprecation warnings"],
+  "test_identity": {"user": "odin", "uid": 1003, "gid": 1003, "pid_mount_isolated": true},
+  "root_free_gib_observed_minimum": 118,
+  "deploy": false,
+  "active_desktop_operations": false,
+  "pr_merged": false
+}
