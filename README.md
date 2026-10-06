@@ -48,6 +48,11 @@ Inspected **2026-10-06**. Main source: `0b7d596f7e870d06699722f151c4d9837c5433f1
 Behavior from the following open review branches is labeled **pending: #N** in the relevant guide sections.
 A pending section is not shipped behavior or proof that its PR will be approved unchanged.
 
+Before final validation, this branch incorporated main `288ce7b4bec4774885dde6c0d76aa38fff4f7744`
+(#25 isolation/CI and #41 portable packaging-test changes). The delta was inspected: it changes test launchers,
+CI, waits and packaging-test portability, not the user-facing behavior described at the earlier main watermark.
+Local source links resolve in that integrated tree; pending source links remain pinned as listed below.
+
 | Pending PR | Inspected head | Sections affected |
 |---|---|---|
 | [#28](https://github.com/Calmingstorm/Odin-Desktop/pull/28) | `2d91071a692a646b6d8c466daa5711a37cd8c93f` | Skills/MCP/browser/computer services and recovery limits |

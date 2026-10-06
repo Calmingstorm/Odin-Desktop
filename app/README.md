@@ -54,8 +54,10 @@ P4.1's packaged resolver selects the bundled interpreter with isolated flags and
 A missing runtime/manifest fails visibly rather than silently selecting a developer environment.
 This source integration does not establish final package/native acceptance or full P3.1 completion.
 
-Real-core gates require Linux, Node 22, `xvfb-run` (smoke), `sudo -n unshare --pid --fork --mount-proc`, `setpriv`
-and a Python 3.12 environment containing the engine dependencies from the repository's `pyproject.toml`/`uv.lock`.
+Real-core gates require Linux, Node 22, `xvfb-run` (smoke), a working reviewed restricted isolation helper
+or full-sudo `sudo -n unshare --pid --fork --mount-proc` path, `setpriv`, and a Python 3.12 environment
+containing the engine dependencies from the repository's `pyproject.toml`/`uv.lock`. The launcher probes both
+authorized paths and refuses unisolated execution; see [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 Provision a repository `.venv` with `uv sync --frozen`, or explicitly set `ODIN_DESKTOP_ENGINE_PYTHON` to a suitable
 environment. Imports are checked against **this checkout's real source**, not another installed core.
 
