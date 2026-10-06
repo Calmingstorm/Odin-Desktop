@@ -45,7 +45,12 @@ async def test_service_readiness_and_integrated_delivery_are_honest(connected):
     capabilities = set(welcome["capabilities"])
     assert {"skills.save", "mcp.save", "computer.status", "computer.activation.set"} <= capabilities
     assert "submission.send" in capabilities
-    assert not {"skills.test", "computer_act", "schedules.list"} & capabilities
+    assert not {"skills.test", "computer_act"} & capabilities
+    # The integrated background owner now really serves schedule management;
+    # publication remains distinct from skill execution/native input authority.
+    assert "schedules.list" in capabilities
+    schedules = await request(reader, writer, "schedules.list")
+    assert schedules["ok"] and schedules["result"] == []
     assert (await request(reader, writer, "skills.list"))["result"] == []
     mcp = await request(reader, writer, "mcp.status")
     assert mcp["ok"] and mcp["result"]["server_count"] == 0
