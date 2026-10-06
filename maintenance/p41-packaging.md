@@ -2,11 +2,11 @@
 
 ## Review round 1 changes and open Ubuntu gate
 
-PR #24 is rebased onto `main@cbda9ba3`, including #19's validated development
+PR #24 is rebased onto `main@caa871cd`, including #19's validated development
 override/visible launch failure and #21's selected-profile runtime management.
 Packaged resolution retains the immutable absolute interpreter, isolated flags
 and no development fallback, #29's accessibility app and #26's inherited-suite
-qualification corrections. PR #22 is still open at this rebase watermark;
+qualification corrections and #27's real-core settings slice. PR #22 is still open at this rebase watermark;
 its additional `analyze_pdf` readiness check remains with that lane.
 
 **Aaron's Decision F:** PyMuPDF/MuPDF is not distributed in either candidate.
@@ -33,7 +33,7 @@ The gate stays open until actual default-setting VM execution passes.
 
 ### Revised candidate identity and final gates
 
-Shipped-byte build source: `cc76db0f8286e38192dbb200a87912ecd6af7457`.
+Shipped-byte build source: `63b78a8b95eb1b370318f0e23a81c1685d05f7da`.
 Fresh checkout: `/home/odin/desktop-pr24-r1-fresh`; candidates remain local in
 its `.packaging-candidates/` directory. Subsequent changes preserve original
 test corpus, record exact deltas and correct qualification isolation only;
@@ -41,15 +41,16 @@ they do not change shipped bytes and therefore require no further rebuild.
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| `odin-desktop-0.1.0-candidate-amd64.deb` | 341673184 | `6cf1f69ec4487d1242158b537f1f794a737634d82cfc7d8b3f5b1d08c1884379` |
-| `odin-desktop-0.1.0-candidate-x86_64.AppImage` | 489579075 | `437f826be0ab725c70c95084058baebee1c581a1f14c1b4b61dc491eb0e1ed98` |
+| `odin-desktop-0.1.0-candidate-amd64.deb` | 341628054 | `de3a7a78ce10d8f9ba572458eacca85823600433f2bd4e664907f461b5b5a650` |
+| `odin-desktop-0.1.0-candidate-x86_64.AppImage` | 489579074 | `70c39066e564e60b98322bc51e8abb9e1e2e9b95639ae01b0ebbe352a7d62779` |
 
 All three extracted/installed resource trees have **8,469 inventoried files/links,
-975,343,784 bytes**, with identical manifest SHA-256
-`f322e680b1b03f27d88265753f95fc10fe5c4f9c4c702ecf1ab3d1da0a506477`.
+975,355,412 bytes**, with identical manifest SHA-256
+`98bd8492fa843abfad20e0d3718db9becb8edd46e896942f32d1ce34eb1e3b97`.
 
 - Fresh `npm ci --ignore-scripts`, pinned Electron provisioning and
-  `npm run check`: **582 tests**, typecheck and production build passed.
+  `npm run check`: **611 tests**, typecheck and production build passed,
+  repeated at `7291e8f6a60058d399f4b4a2d7300229492f7010`.
 - `npm run test:packaging`: **39 behavior tests passed**, including real namespace
   identity and first-start `ssh-keygen`. An initial sanitized PATH omitted uv;
   rerunning with the existing build uv supplied removes that skip.
@@ -58,8 +59,8 @@ All three extracted/installed resource trees have **8,469 inventoried files/link
   process concurrency, shared failure, retry, all three call sites and unchanged
   offered tool wording. A separate real pinned-wheel proof executes every PDF
   call site with network disconnected and private user state.
-- Full inherited-corpus qualification at `317e354e`: **all 30 groups passed,
-  14,041 passing executions, zero failures/errors and two existing skips**.
+- Full inherited-corpus qualification at `7291e8f6`: **all 30 groups passed,
+  14,047 passing executions, zero failures/errors and two existing skips**.
   The review's 29 groups became 30 after #21; #26 added inherited process cases.
   No original test bytes/assertions/hashes were changed to manufacture a pass.
   The obsolete hide-PDF case is explicitly replaced under Decision F, not passed.
@@ -76,11 +77,17 @@ All three extracted/installed resource trees have **8,469 inventoried files/link
 - Private bwrap/Xvfb/DBus development-fixture smoke passed; packaged GUI ignored
   the poisoned development override. No sandbox-disabling flags were used.
 
-Final package evidence: `/home/odin/desktop-p41-evidence/review1-fixed-full-candidates/`
-and `review1-fixed-full-qualification.log`. Final package report SHA-256:
-`3f0f965a597af91af8c73b53c8d5c7d42905ed901a994c40f0b2408b8fd6d07c`.
-Fresh app/focused/full-suite logs
-use the `review1-final-*` prefix; fixture proof is `review1-development-fixture-smoke.*`.
+Final package evidence: `/home/odin/desktop-p41-evidence/review1-final-rebase-candidates/`
+and `review1-final-rebase-qualification.log`. Final package report SHA-256:
+`6df4bf7114ed65af1f8f4b337a178e909372ce4c7a9e7d04463cd44488250dc3`.
+Fresh app/packaging gate logs are `review1-final-rebase-7291-*`;
+focused/full-suite log is `review1-rebased-final-full-focused.log`. Fixture proof
+is `review1-final-rebase-fixture-smoke-private-glxoff.log` and its PNG.
+Cleanup receipt: `review1-final-rebase-cleanup.log`; no residual owned processes,
+mounts or profiles, and no host Desktop package install. Later commits change
+only test import formatting, pending evidence digests and documentation, so the
+build source remains shipped-byte identical. Earlier revised candidate identities
+remain in historical local logs; #27's shipped changes required the final rebuild.
 Failed provisional logs remain: missing development pip was installed into the
 private venv; obsolete Desktop PDF assertions were updated while frozen inherited
 tests were restored. The first rebuilt candidate run exposed a harness omission:
