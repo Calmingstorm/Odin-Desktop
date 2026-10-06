@@ -379,7 +379,11 @@ async def launch(paths, socket_path, token_file, root):
 
 
 async def wait_connected(process, socket_path):
-    for _ in range(300):
+    # Match the real-core app harness's bounded cold-start allowance. Count
+    # monotonic elapsed time, not nominal sleep iterations on a loaded runner.
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 25
+    while loop.time() < deadline:
         if process.returncode is not None:
             stdout, stderr = await process.communicate()
             pytest.fail(f"core exited {process.returncode}: {stdout!r} {stderr!r}")
