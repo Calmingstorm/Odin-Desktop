@@ -2854,19 +2854,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. GitHub source authentication, event parsing/routing, scheduler trigger matching and config are retained inbound integration contracts. Adapt HTTP endpoint assertions to explicit ingress, not Phase3 management UI.",
-      "inherited_sha256": "b35ba5e742419b25a2d04d9ffac2fa539db75c0817e9553fe2e2d03015cecf3c",
       "path": "tests/test_github_webhook.py",
-      "qualification_group": "phase2-webhook-ingress",
-      "reason": "GitHub source authentication, event parsing/routing, scheduler trigger matching and config are retained inbound integration contracts. Adapt HTTP endpoint assertions to explicit ingress, not Phase3 management UI.",
-      "status": "deferred",
       "step": 7,
+      "reason": "GitHub source authentication, event parsing/routing, scheduler trigger matching and config are retained inbound integration contracts. Adapt HTTP endpoint assertions to explicit ingress, not Phase3 management UI.",
       "surfaces": [
         "webhook source authentication",
         "event parsing",
         "trigger matching",
         "ingress configuration"
-      ]
+      ],
+      "qualification_group": "phase2-webhook-ingress",
+      "inherited_sha256": "b35ba5e742419b25a2d04d9ffac2fa539db75c0817e9553fe2e2d03015cecf3c",
+      "status": "deferred",
+      "blocked_on": "Step 7 executes 19 exactly selected original functions through tests/test_desktop_webhook_adapters.py against genuine temporary ingress/scheduler/transcript owners. Source/assertion/parameter seals and explicit remaining cases are recorded in docs/work/phase-2-step7-inherited-adapters.md. This is partial execution, not whole-suite restoration: global legacy channel/config and remaining callback setup assertions stay pending exact disposition/review."
     },
     {
       "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. GitLab source authentication, normalization/routing, scheduler trigger matching and configuration require explicit step7 ingress with unchanged acceptance assertions.",

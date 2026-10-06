@@ -12,8 +12,8 @@ GENERATOR = "scripts/maintenance/fresh_profile_parity.py"
 TEST = "tests/test_desktop_fresh_profile_parity.py"
 CITATIONS = ("docs/design/00-brief.md", "docs/design/prompt-changes.md")
 BASELINE_OBSERVATION_SHA256 = "73649ce984d9d1564d54a38010af2d98124911779d708acfca0adced90df73e8"
-DESKTOP_OBSERVATION_SHA256 = "27534e3a9ffae55cc7483be8f8849cf8e031a65bb1b5c724a059ce2c249d49ae"
-DELTA_SHA256 = "6e733d8107e285a9dc0d033322232258c0200d3839bf8d616eaea891e3ed42c9"
+DESKTOP_OBSERVATION_SHA256 = "fd705fd055b4af81c3bdee0a775dea89828de1fe3864ed9bd5de1fa4fae7936c"
+DELTA_SHA256 = "76035be1e5267c2bc2ae6e51a02a478b98da2fb556ee46fe1a6f93068723b1b0"
 ABSENT = {"absent": True}
 
 
@@ -78,6 +78,12 @@ def approval_for(path):
     if path.removeprefix("settings.") in relocated:
         return {"kind": "D-decision", "status": "approved",
                 "reference": "docs/design/00-brief.md; decision D5 row (independent fresh state)"}
+    ingress = {"settings.webhook.bind_address", "settings.webhook.port",
+               "settings.webhook.secret", "settings.webhook.triggers"}
+    if path in ingress:
+        return {"kind": "D-decision", "status": "approved",
+                "reference": ("docs/design/00-brief.md; decision D10 row (opt-in LAN/tailnet "
+                              "listener with per-trigger secrets)")}
     renames = {"settings.webhook.channel_id", "settings.webhook.gitea_channel_id",
                "settings.webhook.github_channel_id", "settings.webhook.gitlab_channel_id",
                "settings.webhook.conversation_id", "settings.webhook.gitea_conversation_id",
@@ -159,7 +165,8 @@ def expand_deltas(rows):
             raise ValueError("delta row needs exact path, values and citation")
         path, old, new, citation = row
         approval = approval_for(path)
-        expected = ("D5" if "decision D5" in approval["reference"] else
+        expected = ("D10" if "decision D10" in approval["reference"] else
+                    "D5" if "decision D5" in approval["reference"] else
                     "D17" if "decision D17" in approval["reference"] else
                     "removed surface" if approval["kind"] == "removed surface" else
                     "prompt-changes C" if approval["kind"] == "prompt-changes" else "unknown")

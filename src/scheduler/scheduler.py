@@ -187,6 +187,7 @@ class Scheduler:
         self._active_execution_nonces: set[str] = set()
         self._lock = asyncio.Lock()
         self._wake = asyncio.Event()
+        self._change_subscribers = set()
         # Schedule ids currently executing — prevents the same schedule from
         # double-firing when a manual run_now overlaps a tick, a duplicate
         # webhook arrives, or (defensively) two scheduler loops tick at once.
@@ -194,9 +195,6 @@ class Scheduler:
         # Execution history
         _hist_path = history_path or str(self.data_path.parent / "schedule_history.jsonl")
         self.history = ScheduleHistory(_hist_path)
-        # Startup reconciliation is inert. Flush its history before publishing
-        # recovered definitions or admitting another execution.
-        self._interrupted_history: list[dict] = []
         self._http_session: aiohttp.ClientSession | None = None
         self._load()
         self._degrade_removed_trigger_sources()
@@ -229,14 +227,20 @@ class Scheduler:
             schedule["last_run_binding"] = schedule.pop("run_binding", None)
             schedule.pop("retry_at", None)
             schedule["retry_count"] = 0
-            self._interrupted_history.append({
+            pending = schedule.get("_interrupted_run_history", [])
+            if isinstance(pending, dict):  # Compatibility with the scalar outbox.
+                pending = [pending]
+            # A durable outbox in the definition: publication records it in
+            # history and retires it, and keeps it if history storage fails.
+            schedule["_interrupted_run_history"] = [*pending, {
                 "schedule_id": schedule["id"],
                 "description": schedule.get("description", ""),
                 "action": schedule.get("action", ""),
-                "status": "unknown", "duration_ms": 0,
-                "run_binding": copy.deepcopy(schedule["last_run_binding"]),
+                "status": "unknown",
+                "duration_ms": 0,
                 "error": f"Run started at {started!r}; completion was never recorded",
-            })
+                "run_binding": copy.deepcopy(schedule["last_run_binding"]),
+            }]
             if not schedule.get("one_time"):
                 # Never retry the interrupted attempt or catch up its effects.
                 # Keep a future slot unchanged; consume stale slots on the same
@@ -259,19 +263,6 @@ class Scheduler:
             "run again. Check what it did, then set a new run_at to re-arm it",
         )
         return True
-
-    async def _record_interrupted_history(self) -> None:
-        while self._interrupted_history:
-            entry = self._interrupted_history[0]
-            # Reopening an uncommitted start marker must not duplicate history.
-            binding = entry.get("run_binding")
-            records = await self.history.query(entry["schedule_id"], limit=200)
-            if not binding or not any(
-                record.get("status") == "unknown" and record.get("run_binding") == binding
-                for record in records
-            ):
-                await self.history.record(**entry)
-            self._interrupted_history.pop(0)
 
     def _bind_desktop_run(self, current: dict, schedule: dict) -> None:
         if not self.desktop_recovery:
@@ -299,7 +290,9 @@ class Scheduler:
                     schedule["run_started_at"] = started
                     return
 
-    async def _admit_reserved_execution(self, schedule: dict) -> bool:
+    async def _admit_reserved_execution(
+        self, schedule: dict, admission=None, run_started=None,
+    ) -> bool:
         """Fence queued work against acknowledged CRUD before effects start.
 
         A manual run can override an existing pause, but a new pause changes
@@ -314,12 +307,16 @@ class Scheduler:
                     return False
                 if current.get("paused") and not schedule.get("paused"):
                     return False
+                if admission is not None and not await admission(current):
+                    return False
                 if self._tracks_run_start(schedule):
                     started = datetime.now(UTC).isoformat()
                     current["run_started_at"] = started
                     self._bind_desktop_run(current, schedule)
                     await self._publish(candidate)
                     schedule["run_started_at"] = started
+                if run_started is not None:
+                    await run_started(schedule)
                 return True
             return False
 
@@ -408,10 +405,35 @@ class Scheduler:
             os.fsync(f.fileno())
         os.replace(tmp, self.data_path)
 
+    def subscribe_changes(self, callback):
+        """Bounded invalidation only; subscribers must not acquire scheduler locks."""
+        self._change_subscribers.add(callback)
+        return lambda: self._change_subscribers.discard(callback)
+
     async def _publish(self, candidate: list[dict]) -> None:
         """Caller holds _lock; persist detached state before making it visible."""
-        await self._record_interrupted_history()
         candidate = copy.deepcopy(candidate)
+        for schedule in candidate:
+            pending = schedule.get("_interrupted_run_history")
+            if pending is None:
+                continue
+            # History precedes retiring the start marker. A crash between the
+            # two writes recovers the same binding, without duplicating its
+            # unknown entry. If history storage fails, retain the outbox in the
+            # durable definition so a later publication can finish it.
+            if isinstance(pending, dict):  # Old stores used a single entry.
+                pending = [pending]
+            remaining = []
+            for entry in pending:
+                try:
+                    await self.history.record_interrupted(entry)
+                except Exception:
+                    log.exception("Failed to persist interrupted history for %s", schedule["id"])
+                    remaining.append(entry)
+            if remaining:
+                schedule["_interrupted_run_history"] = remaining
+            else:
+                schedule.pop("_interrupted_run_history", None)
         writer = copy.copy(self)
         writer._schedules = candidate
         write = asyncio.create_task(asyncio.to_thread(writer._save))
@@ -425,6 +447,11 @@ class Scheduler:
                 cancelled = True
         write.result()  # A failed write must never publish the candidate.
         self._schedules = candidate
+        for callback in tuple(self._change_subscribers):
+            try:
+                callback()
+            except Exception:
+                log.exception("Schedule change subscriber failed")
         if cancelled:
             raise asyncio.CancelledError
 
@@ -955,7 +982,8 @@ class Scheduler:
                 return False
         return True
 
-    async def fire_triggers(self, source: str, event_data: dict) -> int:
+    async def fire_triggers(self, source: str, event_data: dict, *, schedule_id=None,
+                            admission=None, run_started=None) -> int:
         """Check all trigger-based schedules against an incoming webhook event.
 
         Returns the number of triggers that fired.
@@ -970,6 +998,8 @@ class Scheduler:
             now = datetime.now(UTC)
             candidate = copy.deepcopy(self._schedules)
             for schedule in candidate:
+                if schedule_id is not None and schedule.get("id") != schedule_id:
+                    continue
                 if schedule.get("paused"):
                     continue
                 trigger = schedule.get("trigger")
@@ -1006,7 +1036,8 @@ class Scheduler:
         executed = 0
         for schedule, reservation, epoch in matched:
             try:
-                if await self._execute_and_record(schedule, reservation, epoch):
+                if await self._execute_and_record(schedule, reservation, epoch,
+                                                  admission=admission, run_started=run_started):
                     executed += 1
             except ScheduleConnectionUnavailableError:
                 continue
@@ -1361,6 +1392,15 @@ class Scheduler:
                     raise ValueError("Schedule no longer exists")
                 self._check_desktop_binding(current, expected_binding)
             before = len(self._schedules)
+            current = next((s for s in self._schedules if s["id"] == schedule_id), None)
+            if current is not None and current.get("_interrupted_run_history"):
+                pending = current["_interrupted_run_history"]
+                if isinstance(pending, dict):
+                    pending = [pending]
+                # Retire definitions only after all unknown-run evidence is
+                # durable. Failure leaves the unchanged definition/outbox.
+                for entry in pending:
+                    await self.history.record_interrupted(entry)
             candidate = [s for s in self._schedules if s["id"] != schedule_id]
             if len(candidate) < before:
                 await self._publish(candidate)
@@ -1462,7 +1502,7 @@ class Scheduler:
 
     async def _execute_and_record(
         self, schedule: dict, reservation: str | None = None,
-        admitted_epoch: int | None = None,
+        admitted_epoch: int | None = None, *, admission=None, run_started=None,
     ) -> bool:
         """Execute the schedule callback and record the result in history.
 
@@ -1511,7 +1551,7 @@ class Scheduler:
                     await self._restore_unstarted_reservation(schedule, reservation)
                     raise ScheduleConnectionUnavailableError(snapshot)
             if reservation is not None:
-                if not await self._admit_reserved_execution(schedule):
+                if not await self._admit_reserved_execution(schedule, admission, run_started):
                     await self._restore_unstarted_reservation(schedule, reservation)
                     return False
             elif self._tracks_run_start(schedule):
@@ -1798,7 +1838,10 @@ class Scheduler:
         to_fire: list[tuple[dict, str, int | None]] = []
 
         async with self._lock:
-            await self._record_interrupted_history()
+            # Unknown-run evidence reaches history at the next tick even when no
+            # definition write is pending; publication retires it durably.
+            if any(s.get("_interrupted_run_history") for s in self._schedules):
+                await self._publish(self._schedules)
             availability = self._connection_availability()
             now = datetime.now(UTC)
             now_naive = now.replace(tzinfo=None)

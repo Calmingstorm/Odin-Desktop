@@ -217,6 +217,7 @@ class CoreService:
         self.config_provider = config_provider
         self.runtime_provider = runtime_provider
         self.settings = None
+        self.webhooks = None
         self.engine = None
         self.requests = None
         self.controls = None
@@ -405,6 +406,14 @@ class CoreService:
         await self.schedules.recover()
         await self.delivery.recover()
         self.management = ManagementService.compose(self, settings=settings)
+        from .webhooks import WebhookIngress
+        self.webhooks = WebhookIngress(settings, self.engine.deps.scheduler,
+            self.store, self.transcript, owner_id=self.authority.owner_id,
+            admitting=lambda: self.lifetime.admitting and self.phase == "ready",
+            permissions=self.permissions)
+        self.schedules.ingress = self.webhooks
+        settings.ingress = self.webhooks
+        await self.webhooks.recover()
         # Compose-time test injection shares this same settings owner. All
         # hydration and startup vault reads remain off the event loop.
         await secret_call(settings.hydrate_secrets)
@@ -440,6 +449,7 @@ class CoreService:
         finally:
             self.permissions.reset_request_owner(schedule_token)
         await self.requests.after_commit()
+        await self.webhooks.start()
 
     def _bind_background_services(self):
         from ..discord.scheduled_events import ScheduledEventHandlers, ScheduledEventsDeps
@@ -925,6 +935,8 @@ class CoreService:
         self.lifetime.request_stop("startup_failed")
         self.lifetime.close()
         try:
+            if self.webhooks is not None:
+                await self.webhooks.close()
             if self._receipt_pruner is not None:
                 self._receipt_pruner.cancel()
                 try:

@@ -237,6 +237,16 @@ class RuntimeService:
                     except Exception:
                         facts["providers"][name] = "unknown"
         limits = getattr(self.core, "limits", None) or {}
+        summary = render_status(facts)
+        ingress = getattr(self.core, "webhooks", None)
+        if ingress is not None:
+            state = ingress.status()
+            address = state['address']
+            location = f" at {address[0]}:{address[1]}" if address else ""
+            line = (f"Webhook ingress: {state['reason']}{location} "
+                    f"({state['eligible_schedules']} eligible schedules; "
+                    f"{state['unknown_deliveries']} unknown deliveries, never replayed)")
+            summary = [*summary, line] if isinstance(summary, list) else summary + "\n" + line
         return scrub_diagnostic({
             "phase": self.core.phase,
             "core_instance_id": getattr(getattr(self.core, "authority", None), "runtime_id", None),
@@ -248,7 +258,7 @@ class RuntimeService:
                           for name, health in facts["providers"].items()],
             "limits": {name: limits.get(name) for name in
                        ("chunk_bytes", "attachment_bytes", "attachments_per_turn")},
-            "summary": render_status(facts),
+            "summary": summary,
             "first_run": self._first_run(),
             "resource_cleanup": (self.core.resource_cleanup.public()
                                  if getattr(self.core, "resource_cleanup", None) else None),

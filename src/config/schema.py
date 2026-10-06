@@ -1301,10 +1301,47 @@ class LLMProviderConfig(BaseModel):
         return ref.render()
 
 
-class WebhookConfig(BaseModel):
-    """Opt-in authenticated event listener; it has no conversational destination."""
-    enabled: bool = False
+class WebhookTriggerConfig(BaseModel):
+    """One keyring credential bound to one schedule, never a global secret."""
+    model_config = ConfigDict(extra="forbid")
+    source: Literal["generic", "github", "gitea"]
     secret: str = ""
+
+
+class WebhookConfig(BaseModel):
+    """D10 opt-in delivery-only listener, configured through profile settings."""
+    enabled: bool = False
+    bind_address: str = ""
+    port: int = Field(default=8081, ge=0, le=65535)
+    triggers: dict[str, WebhookTriggerConfig] = Field(default_factory=dict)
+
+    @field_validator("bind_address")
+    @classmethod
+    def _numeric_local_address(cls, value):
+        if not value:
+            return value
+        import ipaddress
+        address = ipaddress.ip_address(value)
+        if address.version == 4:
+            allowed = any(address in ipaddress.ip_network(network) for network in
+                          ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10"))
+        else:
+            allowed = address in ipaddress.ip_network("fc00::/7")
+        if address.is_unspecified or not (address.is_loopback or address.is_link_local or allowed):
+            raise ValueError(
+                "webhook bind must be an explicit numeric LAN, tailnet or loopback address")
+        return str(address)
+
+    @field_validator("triggers")
+    @classmethod
+    def _trigger_ids(cls, value):
+        import re
+        if any(not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", key) for key in value):
+            raise ValueError("invalid webhook schedule identity")
+        secrets = [row.secret for row in value.values() if row.secret]
+        if len(secrets) != len(set(secrets)):
+            raise ValueError("each webhook trigger requires a distinct secret")
+        return value
 
 
 class LearningConfig(BaseModel):
