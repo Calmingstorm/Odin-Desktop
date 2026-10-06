@@ -236,7 +236,7 @@ function run(): void {
     win.focus()
   }
 
-  const settings = (): Settings => ({ autostart: isAutostartEnabled(), notifications: notificationSettings })
+  const settings = (): Settings => ({ autostart: isAutostartEnabled(undefined, launchCommand()), notifications: notificationSettings })
 
   let exiting: Promise<void> | null = null
   const exitOdin = (code = 0): Promise<void> => {
@@ -395,7 +395,8 @@ function run(): void {
 /** The command the autostart entry runs: the AppImage, the packaged binary, or Electron plus this app in development. */
 function launchCommand(): string[] {
   if (process.env.APPIMAGE) return [process.env.APPIMAGE]
-  if (app.isPackaged) return [process.execPath]
+  // Use the stable lease-bearing launcher, not the raw Electron payload.
+  if (app.isPackaged) return [join(process.resourcesPath, '..', 'odin-desktop')]
   return [process.execPath, app.getAppPath()]
 }
 

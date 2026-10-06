@@ -36,7 +36,8 @@ class SharedOwnershipIntegration(unittest.TestCase):
             'processOutcome': 'exited', 'unsaved': False, 'unreceipted': 0},
             'warning': None, 'archived': []}))
         self.core.write_text(json.dumps({'version': 1, 'state': 'complete',
-            'resources': {'computer': {'state': 'not_started'}}, 'previous_unknown': None}))
+            'resources': {'computer': {'state': 'not_started'},
+                          'processes': {'state': 'released'}}, 'previous_unknown': None}))
 
     def lease(self, role='app'):
         return ownership.acquire_lifetime(self.paths, role, self.app, self.core)
