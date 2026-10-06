@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-import json
+import importlib.util
 import os
 import pwd
 import signal
@@ -33,7 +33,11 @@ def terminate(signum, frame):
     raise SystemExit(128 + signum)
 signal.signal(signal.SIGINT, terminate)
 signal.signal(signal.SIGTERM, terminate)
-child = subprocess.Popen(sys.argv[4:])
+# Keep the command below a namespace-local runner, not PID 2 itself. Frozen
+# protocol tests intentionally use PID 2 as a forged recovery-owner identity.
+# The wrapper has no authority and init still reaps all orphan descendants.
+child = subprocess.Popen([sys.executable, '-c',
+    'import subprocess, sys; raise SystemExit(subprocess.call(sys.argv[1:]))', *sys.argv[4:]])
 while True:
     pid, status = os.wait()
     if pid == child.pid:
@@ -127,29 +131,23 @@ def _run_namespace(command: list[str], *, timeout: int | None = None, quiet: boo
                 signal.signal(sig, handler)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     if sys.version_info[:2] != (3, 12):
         raise SystemExit("Use the repository Python 3.12 environment")
     state = ROOT / ".test-state"
     state.mkdir(mode=0o700, exist_ok=True)
-    arguments = sys.argv[1:]
+    arguments = list(sys.argv[1:] if argv is None else argv)
     if not any(not argument.startswith("-") for argument in arguments):
-        plan = json.loads((ROOT / "maintenance/test-plan.json").read_text())
-        # A qualified frozen adapter executes the complete inherited corpus.
-        # Do not also select its obsolete, unadapted setup as a duplicate.
-        mapping_path = ROOT / "maintenance/phase2-suite-map.json"
-        mapping = json.loads(mapping_path.read_text()) if mapping_path.exists() else {}
-        adapted = {row["path"] for row in mapping.get("entries", [])
-                   if row.get("status") == "restored"
-                   and row.get("restoration", {}).get("mode") == "frozen-adapter"}
-        selected = [path for path in plan["safe_pass_now"] if path not in adapted]
-        if not selected:
-            raise SystemExit("Refusing an unclassified full-suite invocation")
-        arguments.extend(selected)
-        arguments.extend(
-            str(path.relative_to(ROOT))
-            for path in sorted((ROOT / "tests").glob("test_desktop_*.py"))
+        spec = importlib.util.spec_from_file_location(
+            "phase1_default_selection", Path(__file__).with_name("phase1-default-selection.py")
         )
+        if spec is None or spec.loader is None:
+            raise SystemExit("Refusing an unclassified full-suite invocation")
+        selection = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(selection)
+        # Run each group in this supervisor process, so cancellation reaches
+        # run_namespace's exact owned group rather than orphaning an extra launcher.
+        return selection.run_default(ROOT, arguments, execute=lambda command: main(command[2:]))
     if not any(not argument.startswith("-") for argument in arguments):
         raise SystemExit("Refusing an unclassified full-suite invocation")
     with tempfile.TemporaryDirectory(prefix="isolation-", dir=state) as scratch:
@@ -171,6 +169,16 @@ def main() -> int:
         # so GitHub can also identify children after an abrupt launcher death.
         if tracking := os.environ.get("RUNNER_TRACKING_ID"):
             environment["RUNNER_TRACKING_ID"] = tracking
+        # Native process-identity guards bound cmdline reads to 16 KiB. The
+        # complete classified corpus must not exceed that bound just because
+        # pytest receives hundreds of explicit selectors. Pytest >=8.2 expands
+        # one UTF-8 response-file argument per line without changing selection.
+        if sum(len(os.fsencode(argument)) + 1 for argument in arguments) > 8192:
+            if any("\n" in argument or "\r" in argument for argument in arguments):
+                raise SystemExit("Refusing newline-containing response-file arguments")
+            response = home / "pytest-arguments.txt"
+            response.write_text("\n".join(arguments) + "\n", encoding="utf-8")
+            arguments = [f"@{response}"]
         # env -i excludes credentials, display/socket paths and live config overrides.
         command = [
             *namespace_command(environment),

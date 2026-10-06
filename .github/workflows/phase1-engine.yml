@@ -15,6 +15,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Require the runner's cached Python 3.12
         id: cached-python
         shell: bash
@@ -57,6 +59,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Require the runner's cached Python 3.12
         id: cached-python
         shell: bash

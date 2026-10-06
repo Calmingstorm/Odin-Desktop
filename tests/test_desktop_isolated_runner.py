@@ -32,6 +32,7 @@ def configure_runner(tmp_path, monkeypatch):
         getgid=lambda: 5678, getegid=lambda: 5678,
         readlink=lambda path: "pid:[host]",
         environ=os.environ,
+        fsencode=os.fsencode,
     ))
     monkeypatch.setattr(runner.pwd, "getpwuid", lambda uid: SimpleNamespace(pw_name="testowner"))
     return runner
@@ -181,6 +182,26 @@ def test_failed_suite_is_not_retried_through_sudo(tmp_path, monkeypatch):
     assert not list((tmp_path / ".test-state").iterdir())
 
 
+def test_long_selection_keeps_proc_cmdline_small_without_dropping_arguments(tmp_path, monkeypatch):
+    runner = configure_runner(tmp_path, monkeypatch)
+    arguments = [f"tests/test_fixture_{index}.py" for index in range(700)]
+    monkeypatch.setattr(runner.sys, "argv", ["runner", *arguments])
+    probe_results(runner, monkeypatch, [0])
+    captured = []
+
+    def execute(command):
+        response = Path(command[-1].removeprefix("@"))
+        assert command[-1].startswith("@")
+        assert response.read_text().splitlines() == arguments
+        captured.append(response)
+        assert sum(len(os.fsencode(arg)) + 1 for arg in command) < 16384
+        return 0
+
+    monkeypatch.setattr(runner, "run_namespace", execute)
+    assert runner.main() == 0
+    assert not captured[0].exists()
+
+
 @pytest.mark.parametrize("changed", [
     {}, {"getuid": 0}, {"getuid": 4321}, {"geteuid": 0},
     {"getgid": 8765}, {"getegid": 0}, {"getpid": 2},
@@ -210,7 +231,7 @@ def test_supervisor_verifies_namespace_proc_and_non_root_identity(monkeypatch, c
     fake_signal = SimpleNamespace(SIGINT=2, SIGTERM=15, signal=lambda *args: None)
     fake_sys = SimpleNamespace(argv=[
         "supervisor", state["requested_uid"], "5678", "pid:[host]", "pytest", "selection",
-    ])
+    ], executable="fixture-python")
     with monkeypatch.context() as context:
         context.setitem(sys.modules, "os", fake_os)
         context.setitem(sys.modules, "subprocess", fake_subprocess)
@@ -220,7 +241,9 @@ def test_supervisor_verifies_namespace_proc_and_non_root_identity(monkeypatch, c
             exec(runner.NAMESPACE_SUPERVISOR, {})
     if not changed:
         assert error.value.code == 7
-        assert calls == [["pytest", "selection"]]
+        assert calls == [["fixture-python", "-c",
+                          "import subprocess, sys; raise SystemExit(subprocess.call(sys.argv[1:]))",
+                          "pytest", "selection"]]
     else:
         assert "not verified" in str(error.value)
         assert not calls
@@ -314,7 +337,7 @@ def test_runner_refuses_an_empty_unclassified_selection(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, "ROOT", tmp_path)
     monkeypatch.setattr(runner.sys, "argv", ["runner"])
     (tmp_path / "maintenance").mkdir()
-    (tmp_path / "maintenance/test-plan.json").write_text('{"safe_pass_now": []}')
+    (tmp_path / "maintenance/qualification-plan.json").write_text('{"groups": []}')
     monkeypatch.setattr(
         runner.subprocess, "call", lambda *args, **kwargs: pytest.fail("must not execute")
     )
@@ -384,12 +407,10 @@ def test_default_selection_runs_full_adapter_instead_of_obsolete_original(tmp_pa
     (tmp_path / "tests").mkdir()
     adapter = "tests/test_desktop_frozen_process.py"
     (tmp_path / adapter).write_text("def test_entire_corpus(): pass\n")
-    (tmp_path / "maintenance/test-plan.json").write_text(json.dumps({
-        "safe_pass_now": ["tests/test_original_process.py", "tests/test_direct_helper.py"],
-    }))
-    (tmp_path / "maintenance/phase2-suite-map.json").write_text(json.dumps({
-        "entries": [{"path": "tests/test_original_process.py", "status": "restored",
-                     "restoration": {"mode": "frozen-adapter", "selectors": [adapter]}}],
+    (tmp_path / "tests/test_direct_helper.py").write_text("def test_helper(): pass\n")
+    (tmp_path / "maintenance/qualification-plan.json").write_text(json.dumps({
+        "groups": [{"name": "faithful-process", "reason": "Qualified complete frozen corpus",
+                    "files": [adapter, "tests/test_direct_helper.py"]}],
     }))
     captured = []
     probe_results(runner, monkeypatch, [0])
