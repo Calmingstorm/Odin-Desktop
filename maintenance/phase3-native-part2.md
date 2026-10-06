@@ -21,7 +21,8 @@ native pass. Their limitations remain below.
 - Source real-core helper: two cases pass (autostart API enable/disable and
   close retains exact process identities); two native tray cases fail.
 - Notification-fixture attempt fails before readiness: the guest source archive
-  omitted `app/fixture-core/fixture_core.py`. No OS acceptance, appearance or
+  omitted `app/fixture-core/fixture_core.py`, a setup bug rather than notification
+  evidence. No OS acceptance, appearance or
   click-through is claimed, and the failed attempt is retained.
 - Actual packaged native Start at login checkbox is accepted. It writes
   `/opt/Odin/odin-desktop --hidden`. A real guest display-manager restart creates
@@ -106,3 +107,22 @@ guest execution is partial evidence, not a waiver of their failed gates.
 
 Fresh source/build and package gates are recorded separately as they finish.
 P3.3 is not closed by partial native rows or source fixture results.
+
+## Offline finishing corrections, not new native qualification
+
+The finishing pass started no VM and reran no native or package attempt. It fixes
+the capture path escape by resolving and checking the existing parent/destination;
+accepts confirmed Wayland with an actual owned socket without requiring X DISPLAY;
+and adds kernel SO_PEERCRED UID validation, a 4096-byte request bound, an absolute
+five-second read deadline and an explicit collector operation allowlist. Collector
+socket permissions, VM/UID/marker, PID isolation and Electron sandbox requirements
+remain enforced. Production runtime code and owner policy are unchanged.
+
+Offline behavior regressions pass: 29 Python cases in the project isolated
+Python 3.12 runner and 16 safe Node source-helper cases. They do not prove a
+corrected native session, tray activation, notification, wake or package launch.
+The original Cinnamon fixture setup failure, KDE DISPLAY refusal and all other
+native failures above remain retained. **The 15-cell disposition is unchanged:
+1 observed pass, 2 partial, 4 failed, 8 blocked/unqualified. P3.3 remains OPEN.**
+Fresh finishing source gates and SHA-256 evidence pointers are in
+`phase3-native-part2-build-gates.md` and `phase3-native-part2-offline-artifacts.json`.

@@ -17,7 +17,9 @@ reflink-copied to a child-owned cache, never modified in place.
 
 ## Candidate identities
 
-Both files reside under that build checkout's `.packaging-candidates/`:
+Both files now reside under the lane root's `candidates/`, relocated unchanged
+before deleting the inactive build checkout. Candidate SHA-256s were reverified;
+the external manifest and pointers reflect this location.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -53,7 +55,8 @@ This is build identity, not successful extracted-manifest verification.
   separately from its erroneous initial environment run with ten setup errors.
 - Final parent engine lint classification with the build checkout's locked Ruff
   passes (zero new/seven inherited). Separate broad lint of the new native helper
-  files reports 20 import-order/line-length findings; not fixed or concealed.
+  files initially reported 20 import-order/line-length findings. The offline
+  finishing correction fixes these; the original failing log remains retained.
 
 ## Failed gates retained, no rerun or waiver
 
@@ -96,3 +99,34 @@ XML/logs remain outside Git in the lane evidence root. The compact build artifac
 manifest pointer is `phase3-native-part2-build-artifacts.json`; parent native artifacts
 remain separately inventoried. No raw artifact over 100KB was added to Git.
 These candidates remain local and unreleased. No tag, release, upload or merge.
+
+## Offline finishing gates, separate from earlier native/build attempts
+
+Used a new request-owned real directory under `/home/odin`, not a storage symlink
+or a relaxation of the immutable ownership guard. Python 3.12 and dev dependencies
+use the project lock. No full corpus retry, VM startup, package repair, host
+desktop/service operation or `/opt/odin` change was performed.
+
+- Isolated project Python helper selection: **29 passed**. Real filesystem capture
+  escapes, real socketpair/kernel peer credentials, oversized/invalid frames,
+  foreign UID refusal, operation allowlist and absolute read deadline are tested.
+- Safe source-only Node helper selection: **16 passed**. Confirmed Wayland without
+  DISPLAY succeeds; malformed/foreign session, unsafe/missing/non-socket/symlink
+  or foreign-owned Wayland and invalid X11 transports refuse.
+- `npm run check`: **78 files / 747 cases passed**, typecheck and source build pass.
+- Fresh isolated real-core contract: **22 passed**; isolated onboarding: **6 passed**.
+  The first copied-venv attempt failed its import preflight before any test started
+  because its editable package still pointed at the build checkout. `uv sync
+  --locked --extra dev` installed this fresh checkout's editable package; the
+  corrected-setup source run passed. Both logs are retained, not a native rerun.
+- Isolated Xvfb fixture smoke: passed, exit 0. Its Fontconfig warning is retained.
+  This is source fixture readiness, not successful native notification evidence.
+- Broad helper Ruff: zero findings. Native guest source Node syntax: passed.
+- Supported inventory recording regenerates exact-byte records and current test
+  digests with review pending; final source byte-drift report has zero errors.
+
+All original failed package gates and unfinished full-corpus failures remain
+unaffected. Native matrix remains 1 pass / 2 partial / 4 failed / 8 blocked.
+Large artifacts and complete finishing logs stay external under the lane root's
+`offline-finish/`; the small `phase3-native-part2-offline-artifacts.json` records
+code/test/log SHA-256 values. This draft is not release or qualification approval.

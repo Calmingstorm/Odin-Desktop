@@ -5,16 +5,31 @@ Run as guest root through Incus. Graphics and bus belong to the actual odq
 login; commands drop to odq. Optional PID isolation is a real unshare, not a
 claimed namespace. This development helper is not installed in candidates.
 """
+
 from __future__ import annotations
 
 import argparse
 import importlib.util
 import json
 import os
-from pathlib import Path
 import pwd
 import subprocess
 import sys
+from pathlib import Path
+
+
+def capture_target(value: str, root: Path = Path("/home/odq/qualification")) -> Path:
+    """Validate existing parent and resolved destination before invoking capture."""
+    allowed = root.resolve(strict=True)
+    if allowed != root.absolute() or not allowed.is_dir():
+        raise RuntimeError("Qualification capture root must be a real directory")
+    target = Path(value).absolute()
+    parent = target.parent.resolve(strict=True)
+    resolved = target.resolve(strict=False)
+    if (not parent.is_relative_to(allowed) or not resolved.is_relative_to(allowed)
+            or resolved == allowed or target.is_symlink() or not parent.is_dir()):
+        raise RuntimeError("Capture must stay in the guest qualification directory")
+    return resolved
 
 
 def main() -> int:
@@ -32,7 +47,8 @@ def main() -> int:
         raise RuntimeError("Guest name does not match the selected lab desktop")
     marker = Path("/etc/odin-desktop-qualification")
     if marker.is_symlink() or marker.stat().st_uid != 0 or marker.stat().st_mode & 0o022:
-        raise RuntimeError("Qualification marker must be root-owned and not writable by the guest user")
+        raise RuntimeError(
+            "Qualification marker must be root-owned and not writable by the guest user")
     if marker.read_text() != "odin-desktop-qualification-v1\n":
         raise RuntimeError("Wrong qualification marker")
     spec = importlib.util.spec_from_file_location("odq_smoke", Path(__file__).with_name("smoke.py"))
@@ -50,7 +66,8 @@ def main() -> int:
         home = Path(args.home).resolve(strict=True)
         allowed = Path("/home/odq/qualification").resolve(strict=True)
         temporary = home.parent == Path("/tmp") and home.name.startswith("odrc-")
-        if (not home.is_relative_to(allowed) and not temporary) or home.stat().st_uid != account.pw_uid:
+        if ((not home.is_relative_to(allowed) and not temporary)
+                or home.stat().st_uid != account.pw_uid):
             raise RuntimeError("Override HOME must be an odq-owned qualification directory")
         env["HOME"] = str(home)
         env["XDG_CONFIG_HOME"] = str(home / ".config")
@@ -59,9 +76,7 @@ def main() -> int:
     if argv and argv[0] == "--":
         argv = argv[1:]
     if args.capture:
-        target = Path(args.capture).absolute()
-        if not target.is_relative_to(Path("/home/odq/qualification")):
-            raise RuntimeError("Capture must stay in the guest qualification directory")
+        target = capture_target(args.capture)
         argv = ["/usr/local/lib/odq/capture", str(target)]
     if not argv:
         print(json.dumps({"session": info, "environment": env, "uid": account.pw_uid,

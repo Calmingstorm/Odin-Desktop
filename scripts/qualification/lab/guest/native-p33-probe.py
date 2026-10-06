@@ -1,15 +1,62 @@
 #!/usr/bin/env python3
 """VM guest-only AT-SPI collector, outside app PID namespace. No fake services."""
+
 import argparse
 import json
 import os
-from pathlib import Path
 import pwd
 import re
 import socket
 import stat
+import struct
 import subprocess
 import time
+from pathlib import Path
+
+MAX_REQUEST_BYTES = 4096
+READ_TIMEOUT_SECONDS = 5
+OPERATIONS = frozenset({"stop", "inspect", "tray-menu", "tray-action", "notification-click"})
+
+
+def read_request(connection, uid, timeout=READ_TIMEOUT_SECONDS):
+    """One bounded newline frame, accepted only from the guest collector UID."""
+    _, peer_uid, _ = struct.unpack(
+        "3i", connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i")))
+    if peer_uid != uid:
+        raise RuntimeError("Foreign collector peer UID refused")
+    deadline = time.monotonic() + timeout
+    data = bytearray()
+    while b"\n" not in data:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Collector request deadline exceeded")
+        connection.settimeout(remaining)
+        chunk = connection.recv(min(4096, MAX_REQUEST_BYTES + 1 - len(data)))
+        if not chunk:
+            raise RuntimeError("Incomplete collector frame")
+        data.extend(chunk)
+        if len(data) > MAX_REQUEST_BYTES:
+            raise RuntimeError("Oversized collector frame")
+    frame, trailing = bytes(data).split(b"\n", 1)
+    if trailing:
+        raise RuntimeError("Multiple collector frames refused")
+    request = json.loads(frame)
+    if not isinstance(request, dict) or request.get("operation") not in OPERATIONS:
+        raise RuntimeError("Unknown collector operation")
+    return request
+
+
+def handle_request(connection, uid, dispatch):
+    try:
+        result = {"ok": True, "result": dispatch(read_request(connection, uid))}
+    except Exception as exc:
+        result = {"ok": False, "error": str(exc)}
+    connection.settimeout(READ_TIMEOUT_SECONDS)
+    try:
+        connection.sendall((json.dumps(result) + "\n").encode())
+    except OSError:
+        pass  # A disconnected/refused peer must not terminate the collector.
+    return result
 
 
 def guard():
@@ -43,7 +90,8 @@ def guard():
             raise RuntimeError("Guest Wayland socket missing")
     elif os.environ.get("XDG_SESSION_TYPE") != "x11" or not display:
         raise RuntimeError("Requires native guest X11 or Wayland")
-    if display and not stat.S_ISSOCK(Path(f"/tmp/.X11-unix/X{display[1:].split('.')[0]}").stat().st_mode):
+    if display and not stat.S_ISSOCK(
+            Path(f"/tmp/.X11-unix/X{display[1:].split('.')[0]}").stat().st_mode):
         raise RuntimeError("Guest local X11 socket missing")
     return account
 
@@ -70,19 +118,22 @@ def main():
         raise RuntimeError("Socket occupant refused")
     import dbus
     import dbus.mainloop.glib
-    from gi.repository import GLib
     import pyatspi
+    from gi.repository import GLib
+
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SessionBus()
-    api = dbus.Interface(bus.get_object("org.freedesktop.DBus", "/org/freedesktop/DBus"), "org.freedesktop.DBus")
+    api = dbus.Interface(
+        bus.get_object("org.freedesktop.DBus", "/org/freedesktop/DBus"), "org.freedesktop.DBus")
     owner = str(api.GetNameOwner("org.freedesktop.Notifications"))
     owner_identity = identity(int(api.GetConnectionUnixProcessID(owner)))
     if owner_identity["uid"] != account.pw_uid:
         raise RuntimeError("Notification daemon has foreign UID")
     signals = []
     observed_menu = {}
-    bus.add_signal_receiver(lambda nid, action: signals.append({"id": int(nid), "action": str(action)}),
-                            signal_name="ActionInvoked", dbus_interface="org.freedesktop.Notifications", bus_name=owner)
+    bus.add_signal_receiver(
+        lambda nid, action: signals.append({"id": int(nid), "action": str(action)}),
+        signal_name="ActionInvoked", dbus_interface="org.freedesktop.Notifications", bus_name=owner)
     context = GLib.MainContext.default()
 
     def pump():
@@ -147,7 +198,9 @@ def main():
             for name in ("org.freedesktop.Notifications", "org.kde.StatusNotifierWatcher"):
                 if api.NameHasOwner(name):
                     current = str(api.GetNameOwner(name))
-                    owners[name] = {"owner": current, "process": identity(int(api.GetConnectionUnixProcessID(current)))}
+                    owners[name] = {
+                        "owner": current,
+                        "process": identity(int(api.GetConnectionUnixProcessID(current)))}
             applications = []
             desktop = pyatspi.Registry.getDesktop(0)
             for i in range(min(desktop.childCount, 100)):
@@ -156,11 +209,13 @@ def main():
                 except Exception:
                     pass
             return {"owners": owners, "applications": applications, "actions": list(signals),
-                    "collector": identity(os.getpid()), "session_type": os.environ["XDG_SESSION_TYPE"]}
+                    "collector": identity(os.getpid()),
+                    "session_type": os.environ["XDG_SESSION_TYPE"]}
         if operation == "tray-menu":
-            obj, _ = find(lambda obj: "odin" in (obj.name + " " + obj.description).lower()
-                          and obj.getRoleName() not in ("application", "frame", "menu item", "label")
-                          and "odin" not in obj.getApplication().name.lower())
+            obj, _ = find(
+                lambda obj: "odin" in (obj.name + " " + obj.description).lower()
+                and obj.getRoleName() not in ("application", "frame", "menu item", "label")
+                and "odin" not in obj.getApplication().name.lower())
             info = describe(obj)
             for i, name in enumerate(info["actions"]):
                 if "menu" in name.lower():
@@ -175,10 +230,12 @@ def main():
                 box = obj.queryComponent().getExtents(pyatspi.DESKTOP_COORDS)
                 if box.width < 1 or box.height < 1 or box.x < 0 or box.y < 0:
                     raise RuntimeError("Tray has no observed screen rectangle")
-                pyatspi.Registry.generateMouseEvent(box.x + box.width // 2, box.y + box.height // 2, "b3c")
+                pyatspi.Registry.generateMouseEvent(
+                    box.x + box.width // 2, box.y + box.height // 2, "b3c")
                 result = {"target": info, "process": process, "transport": "AT-SPI X11 right-click",
                           "rectangle": [box.x, box.y, box.width, box.height]}
-            opened, _ = find(lambda obj: obj.name == "Open Odin" and obj.getRoleName() == "menu item")
+            opened, _ = find(
+                lambda obj: obj.name == "Open Odin" and obj.getRoleName() == "menu item")
             result["appeared"] = describe(opened)
             observed_menu.update(identity(result["appeared"]["pid"]))
             return result
@@ -199,7 +256,8 @@ def main():
                 raise RuntimeError("Requires qualification notification marker")
             obj, parents = find(lambda obj: text in obj.name or text in obj.description)
             appeared = describe(obj)
-            if appeared["pid"] != owner_identity["pid"] or identity(appeared["pid"])["start_ticks"] != owner_identity["start_ticks"]:
+            if (appeared["pid"] != owner_identity["pid"]
+                    or identity(appeared["pid"])["start_ticks"] != owner_identity["start_ticks"]):
                 raise RuntimeError("Notification accessible not owned by real daemon")
             for candidate in [obj, *parents[:4]]:
                 info = describe(candidate)
@@ -226,18 +284,7 @@ def main():
             except TimeoutError:
                 continue
             with connection:
-                connection.settimeout(5)
-                data = bytearray()
-                while b"\n" not in data and len(data) <= 4096:
-                    chunk = connection.recv(4096)
-                    if not chunk:
-                        break
-                    data.extend(chunk)
-                try:
-                    result = {"ok": True, "result": dispatch(json.loads(data))}
-                except Exception as exc:
-                    result = {"ok": False, "error": str(exc)}
-                connection.sendall((json.dumps(result) + "\n").encode())
+                result = handle_request(connection, account.pw_uid, dispatch)
                 if result.get("ok") and result.get("result", {}).get("stopped"):
                     break
     finally:

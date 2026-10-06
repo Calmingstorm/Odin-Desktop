@@ -1,10 +1,11 @@
 // Native VM source qualification only. Never a packaged debug capability.
 import { _electron, expect } from '@playwright/test'
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readlinkSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { createConnection } from 'node:net'
 import { randomUUID } from 'node:crypto'
+import { requireNativeDisplay } from './native-p33-display.mjs'
 
 const repository = resolve(import.meta.dirname, '../..')
 const options = Object.fromEntries(process.argv.slice(2).map((arg) => {
@@ -20,9 +21,11 @@ const root = process.env.ODIN_REAL_CORE_ROOT
 if (!root?.startsWith('/tmp/odrc-') || process.env.HOME !== root || statSync(root).uid !== process.getuid()
   || resolve(root) !== root || readlinkSafe(root) || (statSync(root).mode & 0o077)
   || !process.env.ODIN_REAL_CORE_OUTER_PID_NS
-  || readlinkSync('/proc/self/ns/pid') === process.env.ODIN_REAL_CORE_OUTER_PID_NS
-  || !/^:\d+$/.test(process.env.DISPLAY ?? '')) throw new Error('Real guest PID isolation and source seam prerequisites missing')
-if (dirname(resolve(options.socket)) !== root || !statSync(options.socket).isSocket()) throw new Error('Collector socket not in owned run root')
+  || readlinkSync('/proc/self/ns/pid') === process.env.ODIN_REAL_CORE_OUTER_PID_NS) throw new Error('Real guest PID isolation and source seam prerequisites missing')
+requireNativeDisplay(process.env, process.getuid())
+const collector = lstatSync(options.socket)
+if (dirname(resolve(options.socket)) !== root || !collector.isSocket()
+  || collector.uid !== process.getuid() || (collector.mode & 0o077)) throw new Error('Collector socket not in owned run root')
 if (!resolve(options.out).startsWith(`${root}/`)) throw new Error('Evidence output must be inside owned run root')
 if (!existsSync(join(repository, 'app/out/main/index.js'))) throw new Error('Build source app; no packaged fallback')
 
