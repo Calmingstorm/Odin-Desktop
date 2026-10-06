@@ -1,0 +1,233 @@
+{
+  "app_counts": {
+    "npm_check_files": 87,
+    "npm_check_tests": 835,
+    "real_core_contract_tests": 28,
+    "real_core_onboarding_tests": 6
+  },
+  "first_merge_sha": "22217b7ec5466eb58ee19303043a42e2e329752d",
+  "fixtures_counts": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "tests": 38
+  },
+  "gates": [
+    {
+      "command": [
+        "/home/odin/desktop-pr35-main3-reqcb82eaf7/.venv/bin/python",
+        "scripts/maintenance/inventory.py",
+        "report"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/inventory.log",
+      "name": "inventory",
+      "seconds": 0.632,
+      "sha256": "ca14cf5a40a52ce81460fa856822f6834c0002e12e048344ec87a3facce2b481"
+    },
+    {
+      "command": [
+        "/home/odin/desktop-pr35-main3-reqcb82eaf7/.venv/bin/python",
+        "scripts/maintenance/lint_gate.py"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/lint.log",
+      "name": "lint",
+      "seconds": 0.117,
+      "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"
+    },
+    {
+      "command": [
+        "/home/odin/desktop-pr35-main3-reqcb82eaf7/.venv/bin/python",
+        "scripts/maintenance/phase2_plan.py"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/phase2-plan.log",
+      "name": "phase2-plan",
+      "seconds": 0.063,
+      "sha256": "ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48"
+    },
+    {
+      "command": [
+        "/home/odin/desktop-pr35-main3-reqcb82eaf7/.venv/bin/python",
+        "scripts/maintenance/d19.py",
+        "report"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/d19.log",
+      "name": "d19",
+      "seconds": 33.811,
+      "sha256": "b4f9cfd35fb58dda79b299e6d8215c8bbe1e6af1825bba485102185828e9399b"
+    },
+    {
+      "command": [
+        "/home/odin/desktop-pr35-main3-reqcb82eaf7/.venv/bin/python",
+        "scripts/maintenance/phase2_closure.py",
+        "report"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/closure.log",
+      "name": "closure",
+      "seconds": 35.035,
+      "sha256": "8f650ad84be2d9c484a8fe3cd20f486ba661a1a7bc83988e0402828e38792bed"
+    },
+    {
+      "command": [
+        "/home/odin/desktop-pr35-main3-reqcb82eaf7/.venv/bin/python",
+        "scripts/maintenance/fresh_profile_parity.py",
+        "report"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/fresh-profile.log",
+      "name": "fresh-profile",
+      "seconds": 0.043,
+      "sha256": "477ba1f15285acd202817cbf3e0a17faf7494c9eb71ad11f5a3af261083c4b02"
+    },
+    {
+      "command": [
+        "/home/odin/desktop-pr35-main3-reqcb82eaf7/.venv/bin/python",
+        "scripts/maintenance/phase2_suites.py",
+        "check"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/phase2-suites.log",
+      "name": "phase2-suites",
+      "seconds": 0.88,
+      "sha256": "43b1a9ddd4f9d43c1c380a6318905550575273b58903ca8bbad291434a1ac718"
+    },
+    {
+      "command": [
+        "/home/odin/desktop-pr35-main3-reqcb82eaf7/.venv/bin/python",
+        "-m",
+        "pip",
+        "check"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/pip-check.log",
+      "name": "pip-check",
+      "seconds": 0.418,
+      "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+    },
+    {
+      "command": [
+        "/home/odin/desktop-pr35-main3-reqcb82eaf7/.venv/bin/python",
+        "scripts/run-phase1-tests.py",
+        "tests/test_lab_cinnamon.py",
+        "tests/test_lab_gnome.py",
+        "-rs",
+        "--junitxml=/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/fixtures.xml"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/fixtures.log",
+      "name": "fixtures",
+      "seconds": 8.419,
+      "sha256": "1986ed672186473f5a7cd3fa8196b44e1ff1113aaeacb73140b4db85ae79b390"
+    },
+    {
+      "command": [
+        "/home/odin/desktop-pr35-main3-reqcb82eaf7/.venv/bin/python",
+        "scripts/run-phase1-tests.py",
+        "tests/test_channel_history_recency.py",
+        "tests/test_channel_logger_edge_regressions.py",
+        "tests/test_compatible_output_reserve.py",
+        "tests/test_computer_native_vision_r5.py",
+        "tests/test_computer_privacy_r5.py",
+        "tests/test_delivery_turn_observation.py",
+        "tests/test_desktop_attachment_knowledge.py",
+        "tests/test_desktop_attachments.py",
+        "tests/test_desktop_phase2_suite_map.py",
+        "tests/test_desktop_pr35_round2_dispositions.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_request_failures.py",
+        "tests/test_desktop_requests.py",
+        "tests/test_desktop_step8_controls_corpus.py",
+        "tests/test_desktop_step8_conversations_corpus.py",
+        "tests/test_desktop_step8_heartbeat_corpus.py",
+        "tests/test_desktop_step8_intake_corpus.py",
+        "tests/test_desktop_step8_review2_parity_exact.py",
+        "tests/test_desktop_step8_review_cli_exact.py",
+        "tests/test_desktop_step8_review_codex.py",
+        "tests/test_desktop_step8_review_delivery.py",
+        "tests/test_desktop_step8_review_dispatch.py",
+        "tests/test_desktop_step8_review_helpers.py",
+        "tests/test_desktop_step8_review_resume_exact.py",
+        "tests/test_desktop_step8_review_search_attachments_corpus.py",
+        "tests/test_desktop_step8_review_steer_resume.py",
+        "tests/test_desktop_step8_review_steering.py",
+        "tests/test_desktop_step8_runner_corpus.py",
+        "tests/test_desktop_step8_wait_corpus.py",
+        "-rs",
+        "--junitxml=/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/restored-request-attachment.xml"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/restored-request-attachment.log",
+      "name": "restored-request-attachment",
+      "seconds": 375.98,
+      "sha256": "c8c9821ac383febd9e49a2b31d462846fdfc8c954e2fdf863da0dfdc551f129d"
+    },
+    {
+      "command": [
+        "npm",
+        "ci",
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7/app",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/npm-ci.log",
+      "name": "npm-ci",
+      "seconds": 4.577,
+      "sha256": "caa5f364aba270bd1468c95ab91b33a603b7dbd0baee8d8df66a1b8814a435f7"
+    },
+    {
+      "command": [
+        "npm",
+        "run",
+        "check"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7/app",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/npm-check.log",
+      "name": "npm-check",
+      "seconds": 22.748,
+      "sha256": "04cfe7aaaeaf3a46eb6c0fdb6ce0cdbe14064bf59a8d5cd32c06cd61f2391f9b"
+    },
+    {
+      "command": [
+        "npm",
+        "run",
+        "test:real-core"
+      ],
+      "cwd": "/home/odin/desktop-pr35-main3-reqcb82eaf7/app",
+      "exit": 0,
+      "log": "/mnt/storage/odin-desktop-evidence/pr35-main3-reqcb82eaf7/latest-main/real-core.log",
+      "name": "real-core",
+      "seconds": 196.589,
+      "sha256": "0abe7e123a89d327a609d3192606f05695bf3df677380f881b808ea70fdef45b"
+    }
+  ],
+  "limits": "Requested targeted gates, not full classified or native product qualification. Final documentation/provenance-only commit comes after tested source.",
+  "main_sha": "b276b0b34c44c553ed1aa9042e716bf06395694f",
+  "merge_base_sha": "f597c1af3e6b3796d7f6753d4d3b455be2f57b3c",
+  "original_head": "58549927e1ae86a565d9992591b81d6ecc756fdf",
+  "rerun_reason": "Main advanced from 189bb77 to b276b0b after first passing source, not failure laundering.",
+  "restored-request-attachment_counts": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "tests": 1297
+  },
+  "tested_sha": "85f5fca72ddb51b04a6fce68f4cbc298f1d9f315",
+  "uid": 1003
+}

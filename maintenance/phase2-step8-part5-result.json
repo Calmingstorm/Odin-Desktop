@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "artifact": "Phase 2 step 8 part 5 result, not whole-product acceptance",
+  "tested_source_commit": "55ffdbf01e78fcf7bcbc38a358917299b3448305",
+  "main_watermark": "2e310bc07fdcbb88258d1e1b1b1a8ca0b4b0cac0",
+  "case_dispositions": {
+    "suites": 16,
+    "original_definitions": 274,
+    "restored": 140,
+    "retired": 59,
+    "named_handoffs": 65,
+    "proposed_decisions": 10
+  },
+  "focused": {"passed": 274, "failures": 0, "errors": 0, "seconds": 98.76},
+  "fresh_full_qualification": {
+    "runs": 1,
+    "groups": 30,
+    "passed_executions": 14671,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 3,
+    "failed_groups": [],
+    "skip_reasons": [
+      "Native Hyprland wire test requires ODIN_HYPRLAND_INPUT_TEST_BINARY",
+      "Playwright missing-import path unavailable because dependency is installed",
+      "Previous package candidate resources required for actual upgrade proof"
+    ]
+  },
+  "fresh_app_check": {"files": 79, "passed": 753, "typecheck": "passed", "build": "passed"},
+  "fresh_short_gates": {
+    "drift_errors": 0,
+    "new_lint_findings": 0,
+    "phase2_ownership_checker": "passed",
+    "phase2_suite_and_case_checker": "passed",
+    "lab_ruff": "passed",
+    "isolated_cinnamon_gnome_fixtures": {"passed": 38, "failures": 0, "errors": 0}
+  },
+  "warnings": [
+    "Inherited hostile teardown probes emit unawaited-coroutine and pending-task warnings at process exit",
+    "Inherited process containment emits one unraisable subprocess transport finalizer warning after loop close"
+  ],
+  "evidence_manifest": "maintenance/phase2-step8-part5-artifacts.json",
+  "independent_review": "pending",
+  "acceptance": "No unresolved handoff or proposed case is counted as restored; no release or full parity claim",
+  "scope": "No live install/service or active-desktop changes; no merge, publishing or attribution trailers"
+}

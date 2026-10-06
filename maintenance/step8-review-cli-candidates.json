@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "status": "product-implemented-suite-restoration-deferred-case-disposition-required",
+  "review": "Claude, review of #35, group B: build authenticated optional prompt CLI first; does not authorize CLI case retirement",
+  "baseline_path": "tests/test_campaign_cli_coverage.py",
+  "baseline_sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b",
+  "adapter_path": "tests/desktop_adapters/step8_review_cli.py",
+  "adapter_sha256": "4fb07777775d56437fa477e236c45246e47064874419db6cb0f6d288cd3c4faa",
+  "executable_path": "tests/test_desktop_step8_review_cli.py",
+  "executable_sha256": "84fe0817db2f66bc5c40de14e6f93e8671206f7dde10ceae4c00c50d5e523f9e",
+  "production": [
+    {"path": "src/cli.py", "sha256": "cd9e5e59688fe0c9431fcc55e83d9620d9e7f40675959b759e072ea4f9bdf0eb"},
+    {"path": "src/desktop/local_client.py", "sha256": "14fbd5eef13a632e4c311017235a65fbd780990979975a8b600953d0d4f0a5e6"},
+    {"path": "src/desktop/requests.py", "sha256": "75b12bf09cbb5bbd47389fb58e6d6700d51ae8f66d4af4dc89dfed27fd3774c1", "authorization": "Parent explicitly authorized exact accepted resume generation receipt; terminal settlement recency needed to expose resumed old request in bounded recent20."}
+  ],
+  "corpus": {
+    "original_test_functions": 5,
+    "original_parameterized_executions": 9,
+    "assertions_including_helpers": 15,
+    "assertions_sha256": "ce89be0834a03f04484af200f264281ef08965163613e99470d3185bedd231d8",
+    "original_ast_sha256": "dac359fa4d48eb9ccacd46ca93837ac12fbae328d22705ddaec9466472583dae",
+    "adapted_ast_sha256": "18d2b3e4cc140aad1aabd80882d2c16fe549d68fb76887cf9c4c03786ecce7f2",
+    "assertions_unchanged": true,
+    "decorators_unchanged": true,
+    "signatures_unchanged": true,
+    "parameter_matrix_unchanged": true,
+    "complete_ast_reverse_replay": true,
+    "retained_original_executions": 6,
+    "proposed_retired_original_executions": 3,
+    "retirements": [],
+    "case_associations": [
+      {
+        "baseline_selector": "tests/test_campaign_cli_coverage.py::test_empty_prompt_prints_help_without_transport",
+        "executable_selector": "tests/test_desktop_step8_review_cli.py::test_step8_review_cli_empty_prompt_prints_help_without_transport",
+        "signature_sha256": "95f01b7ebeb8d4179a6abfabaa12f2ab9e1869cacf399e5b6ccc4acc25186196",
+        "decorators_sha256": "9bae367b2ee10488063232058320d01a8cfa480c28d9f4fa41c2f99bd00dd1be",
+        "assertions_sha256": "54adf42a886f60ca7f829beba013c038b86ad81e77cd3bab55b31eafa32a6cbb",
+        "result": "passed-two-original-parameterized-executions"
+      },
+      {
+        "baseline_selector": "tests/test_campaign_cli_coverage.py::test_unreadable_prompt_path_does_not_prevent_normal_prose",
+        "executable_selector": "tests/test_desktop_step8_review_cli.py::test_step8_review_cli_unreadable_prompt_path_does_not_prevent_normal_prose",
+        "signature_sha256": "48d7b70d2081aab6236846f0dbdb5a2e2ee525ff0e92b916277483282b97cbd2",
+        "decorators_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "assertions_sha256": "53f5d0a770c2c9ccaca1b4d7cced70f299ba23bc77cf9ebd0b5a2e79b7aea604",
+        "result": "passed"
+      },
+      {
+        "baseline_selector": "tests/test_campaign_cli_coverage.py::test_python_client_refuses_legacy_daemon_arguments_before_network",
+        "executable_selector": "tests/test_desktop_step8_review_cli.py::test_step8_review_cli_python_client_refuses_legacy_daemon_arguments_before_network",
+        "signature_sha256": "aa7f6026e028e55e3dde210d3c94e4ca0de2b930bc457f79e9a9d738a72313e6",
+        "decorators_sha256": "41f473e704c235a07eaa9000a0ef32144c9d0263538aaf6858c67a12ece6f671",
+        "assertions_sha256": "d3055b877d12df01c1f5925e686b517b3d360e12afef129dddd3cb5bea95b742",
+        "result": "passed-three-original-parameterized-executions"
+      }
+    ]
+  },
+  "proposed_case_retirements": [
+    {
+      "case": "test_piped_prompt_and_environment_build_real_authenticated_request",
+      "reviewer": "Pending explicit CLI case-level approval",
+      "reason": "Retired case: HTTP URL/header/request-data construction; desktop prompt uses authenticated local IPC.",
+      "source_path": "tests/test_campaign_cli_coverage.py",
+      "source_sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b",
+      "signature_sha256": "b3e171180adb8aa2be9af63d28a6491e4aff8ae6188be6de89ee44725bd5d84a",
+      "decorators_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "assertions_sha256": "d55f0a407c6c5c2259315c88b838b1ebb0af13175ab08631d1e61370c519c2d2",
+      "unmapped_exact_assertions": ["request.full_url == 'http://example.invalid/api/execute'", "request.get_header('Authorization') == 'Bearer test-credential'", "json.loads(request.data) == {'prompt': 'diagnose the test service'}"],
+      "retained_behavior_replacements": ["tests/test_desktop_step8_review_cli.py::test_cli_actual_ipc_prompt_owner_and_guarded_reply", "tests/test_desktop_step8_review_cli.py::test_cli_auth_failure_no_submission_or_secret_output", "tests/test_desktop_step8_review_cli.py::test_cli_timeout_does_not_cancel_or_retry_work"]
+    },
+    {
+      "case": "test_transport_failure_is_nonzero_even_in_json_mode",
+      "reviewer": "Pending explicit CLI case-level approval",
+      "reason": "Retired case: HTTP transport error handling; desktop prompt uses authenticated local IPC.",
+      "source_path": "tests/test_campaign_cli_coverage.py",
+      "source_sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b",
+      "signature_sha256": "72446f8a0d7287cc83cfbb6ea9f02890a6f2f676893aec7286e3852aef57e162",
+      "decorators_sha256": "6c03bf1559f31058e8fbf93987ab0d13f6b7c6934f163e03a556895857a2b2b3",
+      "assertions_sha256": "f6b0dd96ad920699a39895b036c727788f03eb0f9a248a3e29c6821ff76931a6",
+      "unmapped_surface": "Original urllib URLError and HTTPError parametrization targets cli.urllib.request.urlopen and requires Connection/API error stderr with empty JSON stdout. There is no urllib transport; new JSON failure output is intentionally structured and prose failure remains stderr.",
+      "retained_behavior_replacements": ["tests/test_desktop_step8_review_cli.py::test_cli_connection_failure_nonzero_and_output", "tests/test_desktop_step8_review_cli.py::test_cli_auth_failure_no_submission_or_secret_output", "tests/test_desktop_step8_review_cli.py::test_cli_failed_guarded_reply_is_nonzero"]
+    }
+  ],
+  "adaptations": {
+    "setup_hunks": [
+      {"line": 19, "column": 4, "before_ast_sha256": "b4f4214a88955ad6c5c1e0a0676005a5a1315a13bb1fc0e4e46f2ed891dd1b1f", "replacement": "monkeypatch.setattr(cli.local_client.LocalClient, 'connect', transport)", "purpose": "No-transport assertion spies on actual authenticated local connect rather than removed urllib."},
+      {"line": 70, "column": 4, "before_ast_sha256": "650953cd53bc04a1878232f1c8766f9de6e889aed0c47cbd944db257068e3c98", "replacement": "monkeypatch.setattr(cli.local_client.LocalClient, 'connect', network)", "purpose": "Legacy daemon refusal before actual local transport; unchanged assertion and original parametrization."}
+    ],
+    "export": "Candidate-local exact register_module excluded projection, rebases using shared unchanged discovery function; every original module/test/parameter/assertion AST remains compiled and preserved. Not yet admissible as restored corpus because exclusions are proposals, not approved.",
+    "product": "Profile socket and secure token only; existing SO_PEERCRED, uid, mode, symlink and protocol handshake checks unchanged. conversations.create, conversation.snapshot, submission.send and messages.list genuine IPC methods; no HTTP routes, aliases, environment-token facade or autonomous server.",
+    "reply": "Only committed assistant messages for admitted request, newly committed IDs after pre-admission snapshot, and authoritative accepted resume generation receipt (new ordinary request generation1). Refused/unknown submissions never poll prior work. Snapshot pagination walks messages.list when reply is outside last100. Completed work missing publication bounded by timeout, never empty success. RequestService terminal recent20 now orders settled-at, not original creation, so old resumed completion appears.",
+    "timeout": "Covers connect, admission and reply wait. Returns known conversation/request/generation on timeout; no stop, retry, or cancellation RPC. Disconnected admitted worker remains durable and finishes exactly once.",
+    "integration_boundary": "Actual disposable IpcServer and token with genuine profile owner, CommandJournal, RequestService.handle_async, worker-owned sealed request, durable transcript/delivery guards and ledger. Engine response is deterministic fixture; no real LLM/desktop/service/live profile."
+  },
+  "results": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py -p tests.test_desktop_engine_services tests/test_desktop_resume.py tests/test_desktop_step8_review_cli.py tests/test_desktop_requests.py tests/test_desktop_ipc.py --tb=short",
+    "isolation": "run-phase1-tests.py actual mount/PID namespace, env -i, non-root odin, temporary HOME/XDG and disposable sockets/profile roots",
+    "latest_process_pid": 620770,
+    "latest_process_output_generation": "54a7cdd458f98a94c17fde2492e7daad",
+    "exit_code": 0,
+    "collected": 152,
+    "passed": 152,
+    "deselected": 0,
+    "failed": 0,
+    "duration_seconds": 31.71,
+    "cli_tests": 26,
+    "retained_original_executions": 6,
+    "integration_and_integrity_executions": 20,
+    "resume_receipt_regression": "Genuine socket/token owner and full retained engine suspend,25later admitted requests, resumed old request generation2 guarded answer passed (PID594262:1 passed6.64s), included latest148pass run.",
+    "selection_limitation": "Resolved: registering tests.test_desktop_engine_services as pytest plugin (-p) exposes genuine graph fixture across modules. All four existing integrated_real_suspension parameters pass in latest152pass run without deselection or source edits. Partial inherited corpus exports moved to tests/diagnostics/test_step8_review_cli_corpus.py per parent; supplemental desktop wrapper now20 real IPC/integrity cases. Final revalidation includes diagnostics explicitly, not qualification by implication.",
+    "ruff": "All checks passed for both owned source files, adapter and executable test file",
+    "covered": ["piped/argument prompts with timeout12, canonical owner and guarded durable prose/JSON reply", "deadline nonzero without cancelled/retried durable work", "wrong token/profile and unsafe token/socket fail before submission, scrubbed outputs", "actual missing socket nonzero JSON/prose", "diagnostic status preserved and explicit existing conversation", "failed guarded reply nonzero", "reply pagination beyond110 later messages", "completed-without-publication timeout", "refused preserved resume cannot return earlier guarded reply", "exact frozen corpus/reverse replay and rejected byte/hunk/collateral drift"],
+    "previous_runs": [
+      {"pid": 543515, "passed": 25, "duration_seconds": 7.11, "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_cli.py --tb=short"},
+      {"pid": 518431, "passed": 79, "duration_seconds": 3.73, "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_ipc.py tests/test_desktop_final_distribution.py::test_no_current_release_tag_consumer_or_autonomous_engine_script"}
+    ]
+  },
+  "limitations": [
+    "Whole inherited CLI suite NOT restored or qualified: original HTTP-only cases require explicit reviewed disposition or exact assertion-preserving mapping; no approval inferred from review group B.",
+    "No generic failure/authentication/pipe behavior discarded: real IPC replacements cover them, but replacements do not make old HTTP assertions executable.",
+    "Snapshot terminal history bounded to20 recent settlements; >20 newer settled requests between completion and poll can evict this request before observation. Client fails bounded by timeout rather than inventing reply/outcome. Original old-suspended-request generation inference defect fixed via authoritative accepted resume receipt and settlement ordering; real IPC full engine suspend then25later requests then resumed generation2 succeeds.",
+    "Transcript excludes prior message IDs to prevent reused request resume generations returning old replies; no original assertions changed. Genuine resumed generation receipt, old recent20 eviction, and refused resume integration proven; full runtime auto-resume separately owned.",
+    "No real model or installed app smoke test, live profile/service changes, full qualification gate, shared map/ledger edits, commit/push/deploy. Parent owns final gate and review dispositions."
+  ],
+  "qualification": "Authenticated prompt product implemented and targeted tests pass; CLI corpus restoration remains deferred pending explicit case-level review of proposed HTTP-only retirements. Do not count as restored."
+}

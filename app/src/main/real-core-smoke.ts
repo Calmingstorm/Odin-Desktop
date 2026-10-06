@@ -1,14 +1,16 @@
 // Development-only assertions, invoked exclusively by the isolated smoke runner.
 // Exercise the named preload bridge and rendered app, not a second mock client.
 import { strict as assert } from 'node:assert'
-import { writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type { BrowserWindow } from 'electron'
 import type { Broker } from './broker'
 import type { ConversationSnapshot } from '../shared/api'
 
 const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-// Reviewed conversation/request and management surface; never derive expectations from welcome.
+// Reviewed conversation/request, management and background surface; never derive expectations from welcome.
 export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
   'artifacts.read', 'tool.detail', 'tool.output',
@@ -17,15 +19,39 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'conversation.snapshot', 'search.query', 'messages.around',
   'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'secrets.unlock', 'models.image.intent',
   'providers.codex.set', 'providers.auxiliary.set', 'providers.ollama.set', 'providers.compat.set',
-  'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label', 'codex.login.begin', 'codex.login.poll',
+  'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label', 'codex.accounts.refresh', 'codex.login.begin', 'codex.login.poll',
   'hosts.list', 'hosts.settings', 'hosts.prepare', 'hosts.test', 'hosts.commit', 'hosts.set_enabled', 'hosts.references', 'hosts.delete', 'hosts.public_key', 'hosts.force_revoke',
   'memory.list', 'memory.get', 'memory.set', 'memory.delete', 'memory.bulk_delete', 'lists.list', 'lists.get', 'lists.delete',
   'knowledge.list', 'knowledge.search', 'knowledge.ingest', 'knowledge.reingest', 'knowledge.delete', 'knowledge.versions', 'knowledge.restore', 'knowledge.import',
+  'knowledge.chunks', 'knowledge.duplicates', 'knowledge.merge', 'knowledge.version', 'knowledge.diff',
+  'learned.list', 'learned.update', 'learned.delete',
   'audit.query', 'audit.verify', 'health.get', 'logs.search', 'turn_state.list', 'usage.get', 'runtime.reload',
+  'audit.diffs', 'audit.failures', 'audit.tail', 'logs.stats', 'logs.tail',
+  'trajectories.list', 'trajectories.read', 'trajectories.search', 'trajectories.message',
+  'observability.stats', 'observability.tools', 'observability.risk', 'observability.risk_recent',
+  'observability.governor', 'observability.audit_risk', 'observability.freshness',
+  'observability.freshness_recent', 'observability.bulkheads', 'observability.compression',
+  'observability.validation', 'observability.affordances', 'observability.context',
+  'observability.usage', 'observability.usage_totals', 'observability.subsystems',
+  'recovery.stats', 'recovery.recent', 'capacity.snapshot', 'turn_state.snapshot',
+  'pools.ssh', 'pools.http', 'pools.close',
+  'openrouter.catalogue', 'openrouter.endpoints', 'openrouter.select',
+  'providers.compat.diagnostic', 'models.status', 'models.provider.get', 'models.provider.set',
   'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover', 'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
   'control.stop', 'control.steer', 'control.resume',
-  'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete', 'webhooks.outbound.test', 'integrations.email.get'
+  'work.list', 'work.control', 'reports.page',
+  'schedules.list', 'schedules.save', 'schedules.delete', 'schedules.run',
+  'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron',
+  'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete', 'webhooks.outbound.test', 'integrations.email.get',
+  'skills.list', 'skills.get', 'skills.validate', 'skills.save', 'skills.delete', 'skills.test',
+  'skills.set_enabled', 'skills.config.get', 'skills.config.set',
+  'mcp.list', 'mcp.status', 'mcp.tools', 'mcp.save', 'mcp.set_enabled', 'mcp.delete',
+  'mcp.reconnect', 'mcp.refresh_tools', 'mcp.set_global_enabled', 'mcp.set_limits',
+  'computer.status', 'computer.activation.set', 'computer.stop', 'computer.pause',
+  'computer.cancel', 'computer.close', 'computer.reconcile', 'computer.operator_reconcile',
+  'computer.release_owned_input', 'computer.acknowledge_legacy_recovery',
+  'computer.reconcile_hyprland_owner'
 ].sort()]
 export type RealCoreStatus = { phase: string; version: string; core_instance_id: string; capabilities: string[];
   model: { main: string | null; effort: string | null; provider: string | null };
@@ -47,11 +73,26 @@ export function assertFreshManagementStatus(status: RealCoreStatus): void {
 }
 
 export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: string): Promise<void> {
+  const seededWorkProof = process.env.ODIN_SMOKE_WORK_PROOF === '1'
+  const phase = seededWorkProof ? 'seeded work proof' : 'production entry / fresh real profile'
   const deadline = Date.now() + 30_000
   while (broker.linkState !== 'ready' || win.webContents.isLoading()) {
     assert(Date.now() < deadline, 'real-core smoke timed out waiting for the app and handshake')
     await pause(100)
   }
+  const proofPath = join(process.env.HOME!, 'work-proof.json')
+  if (seededWorkProof) {
+    while (!existsSync(proofPath)) {
+      assert(Date.now() < deadline, 'seeded work proof bootstrap did not settle')
+      await pause(100)
+    }
+  } else {
+    assert(!existsSync(proofPath), 'production entry must not import the seeded work proof')
+  }
+  const proof = seededWorkProof ? JSON.parse(readFileSync(proofPath, 'utf8')) as { conversation_id: string; report_id: string; recovery_id: string } : undefined
+  const counts = (): unknown => Object.fromEntries(['background', 'report'].map(name =>
+    [name, readFileSync(join(process.env.HOME!, `${name}-effects`), 'utf8').trim().split('\n').length]))
+  const beforePaging = seededWorkProof ? counts() : undefined
   const result = await broker.request('status.get')
   assert(result.ok, 'real status.get must succeed')
   const status = result.result as RealCoreStatus
@@ -59,19 +100,31 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(status.core_instance_id, broker.coreInstanceId)
   assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? '0.1.0.dev1')
   for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
+    'conversations.list', 'conversations.create', 'messages.list', 'conversation.snapshot', 'search.query',
+    'submission.send', 'control.stop', 'control.steer', 'control.resume',
     'tools.list', 'tools.timeouts.get', 'personality.get', 'hosts.list', 'hosts.public_key',
-    'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get']) {
+    'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get',
+    'conversations.list', 'conversations.create', 'conversation.snapshot', 'search.query', 'submission.send',
+    'control.stop', 'control.steer', 'control.resume', 'attachments.begin', 'attachments.chunk',
+    'attachments.commit', 'attachments.cancel', 'audit.diffs', 'audit.failures', 'audit.tail', 'logs.stats',
+    'logs.tail', 'knowledge.chunks', 'knowledge.duplicates', 'knowledge.version', 'knowledge.diff',
+    'learned.list', 'observability.stats', 'observability.risk', 'openrouter.catalogue', 'trajectories.list',
+    'skills.list', 'skills.save', 'skills.validate', 'skills.test', 'mcp.status', 'mcp.save', 'mcp.tools', 'computer.status', 'computer.reconcile',
+    'work.list', 'work.control', 'reports.page', 'schedules.list', 'schedules.run', 'schedules.history']) {
     assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
   }
 
-  // Later-slice reads are genuine core refusals, not empty successful lists.
-  for (const method of ['work.list', 'skills.list', 'mcp.list', 'mcp.status', 'schedules.list', 'computer.status']) {
+  // Raw dispatch aliases and foreground input remain genuine refusals. Served
+  // work management does not grant arbitrary RPC execution or native input.
+  for (const method of ['turns.create',
+    'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
+    assert(!status.capabilities.includes(method), `${method} must not be advertised as served`)
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
 
   const reads: Record<string, unknown> = {}
-  for (const method of ['settings.schema', 'usage.get', 'personality.get', 'tools.list', 'tools.timeouts.get', 'hosts.list', 'memory.list', 'lists.list', 'knowledge.list', 'health.get', 'audit.query', 'logs.search', 'turn_state.list']) {
+  for (const method of ['settings.schema', 'usage.get', 'personality.get', 'tools.list', 'tools.timeouts.get', 'hosts.list', 'memory.list', 'lists.list', 'knowledge.list', 'health.get', 'audit.query', 'logs.search', 'turn_state.list', 'skills.list', 'mcp.list', 'mcp.status', 'computer.status', 'work.list', 'schedules.list', 'schedules.history']) {
     const answer = await broker.request(method)
     assert(answer.ok, `${method} management read must succeed`)
     reads[method] = answer.result
@@ -80,9 +133,39 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert(!accounts.ok && accounts.error.code === 'keyring_unavailable', 'isolated profile must honestly report missing system keyring, not invent accounts')
   reads['codex.accounts.list'] = accounts
   assert.deepEqual(reads['lists.list'], { items: [] })
-  assert.deepEqual(reads['audit.query'], [])
-  assert.deepEqual(reads['logs.search'], { entries: [], count: 0 })
-  assert.equal((reads['turn_state.list'] as { availability: string }).availability, 'not_enabled')
+  if (!seededWorkProof) assert.deepEqual(reads['work.list'], { items: [] })
+  if (!seededWorkProof) {
+    // The seeded pass deliberately holds D12 schedules and their history.
+    assert.deepEqual(reads['schedules.list'], [])
+    assert.deepEqual(reads['schedules.history'], [])
+  }
+  assert.deepEqual(reads['skills.list'], [], 'fresh skills list is a served array, not an items wrapper')
+  for (const method of ['mcp.list', 'mcp.status']) {
+    const mcp = reads[method] as { servers: unknown[]; server_count: number; configured_servers: string[];
+      configured_server_count: number; connected_count: number; published_tool_count: number; started: boolean; closed: boolean }
+    assert.deepEqual(mcp.servers, [])
+    assert.deepEqual(mcp.configured_servers, [])
+    assert.equal(mcp.server_count, 0)
+    assert.equal(mcp.configured_server_count, 0)
+    assert.equal(mcp.connected_count, 0)
+    assert.equal(mcp.published_tool_count, 0)
+    assert.equal(mcp.started, true)
+    assert.equal(mcp.closed, false)
+  }
+  const computer = reads['computer.status'] as { session: unknown; readiness: {
+    management_available: boolean; foreground_available: boolean; native_qualified: boolean; input_supported: boolean; dispatch: string } }
+  assert.equal(computer.session, null)
+  assert.equal(computer.readiness.management_available, true)
+  assert.equal(computer.readiness.foreground_available, false)
+  assert.equal(computer.readiness.native_qualified, false)
+  assert.equal(computer.readiness.input_supported, false)
+  assert.equal(computer.readiness.dispatch, 'none')
+  assert(!('input_dispatch' in computer), 'management status must not grant an input dispatch binding')
+  if (!seededWorkProof) {
+    assert.deepEqual(reads['audit.query'], [])
+    assert.deepEqual(reads['logs.search'], { entries: [], count: 0 })
+  }
+  assert.equal((reads['turn_state.list'] as { availability: string }).availability, 'available')
   assert.deepEqual((reads['usage.get'] as { tokens: unknown }).tokens, { value: null, kind: 'unknown' })
   assert((reads['settings.schema'] as { fields: unknown[] }).fields.length > 0, 'real management schema must contain fields')
 
@@ -95,6 +178,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   }
   const text = (selector: string): Promise<string> => run(`document.querySelector(${JSON.stringify(selector)})?.innerText ?? ''`)
   const count = (selector: string): Promise<number> => run(`document.querySelectorAll(${JSON.stringify(selector)}).length`)
+  // Message bodies are committed DOM content. Off-screen messages use content-visibility,
+  // which innerText omits until rendered, so message checks read textContent.
+  const content = (selector: string): Promise<string> => run(`(document.querySelector(${JSON.stringify(selector)})?.textContent ?? '').replace(/\\s+/g, ' ').trim()`)
   const click = async (selector: string): Promise<void> => {
     assert(await run(`Boolean(document.querySelector(${JSON.stringify(selector)}))`), `missing UI control ${selector}`)
     await run(`document.querySelector(${JSON.stringify(selector)}).click()`)
@@ -110,6 +196,15 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     }
   }
   const screens: Array<{ screen: string; text: string }> = []
+  if (seededWorkProof) {
+    // Every captured screen carries its provenance, not just the console log.
+    await run(`(() => {
+      const label = document.createElement('div');
+      label.textContent = 'seeded work proof | agent/process rows: metadata seeds, not execution qualification';
+      label.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:2147483647;background:#221b00;color:#fff;padding:4px;font-size:12px;pointer-events:none';
+      document.body.append(label);
+    })()`)
+  }
   const unavailable = /not (?:yet )?available|unavailable|not served|later (?:step|slice)/i
   const recordUnavailable = async (screen: string, selector: string): Promise<void> => {
     await until(async () => unavailable.test(await text(selector)), screen)
@@ -123,11 +218,22 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   screens.push({ screen: 'Status', text: await text('.status') })
   // The renderer creates Chat only after a successful empty list, then loads
   // an authoritative snapshot. A missing provider does not unserve chat.
-  await until(async () => (await count('.conv-row')) === 1 && (await text('.message-scroll')).includes('Ask Odin anything.') &&
+  await until(async () => (await count('.conv-row')) === 1 && (await content('.message-scroll')).includes(seededWorkProof ? 'Harmless catch-up notice' : 'Ask Odin anything.') &&
     await run<boolean>('document.querySelector(".composer textarea")?.disabled === false'), 'real first conversation and snapshot')
   assert.equal(await text('.conv.active .conv-title'), 'Chat')
-  assert.equal(await count('.sidebar-notice'), 0, 'served conversations must not show an unavailable notice')
-  assert.equal(await count('.msg'), 0, 'fresh real conversation must not seed fixture messages')
+  assert.equal(await count('.sidebar-notice'), 0, 'served conversations must not claim unavailable')
+  if (seededWorkProof) {
+    assert((await count('.msg')) > 0, 'real background publication must appear in the transcript')
+    assert(/Due:.*late by.*Omitted slots:/s.test(await content('.message-scroll')), 'real D12 reminder must show catch-up provenance')
+    await until(async () => (await text('.report-body')).includes('produced once'), 'stored real report first page')
+    await click('.report-nav button:nth-of-type(2)')
+    await until(async () => (await text('.report-body')).includes('no rerun'), 'stored real report second page')
+    assert.deepEqual(counts(), beforePaging, 'report paging must not execute the external tool again')
+    screens.push({ screen: 'Stored report paging and D12 catch-up notice', text: await content('.message-scroll') })
+    writeFileSync(out.replace(/\.png$/i, '') + '-report.png', (await win.webContents.capturePage()).toPNG())
+  } else {
+    assert.equal(await count('.msg'), 0, 'fresh real conversation must not seed fixture messages')
+  }
   assert(await run('document.querySelector(".composer button[type=submit]")?.disabled === true'), 'empty composer must not send')
   assert(await run(`document.querySelector(${JSON.stringify('button[aria-label="Attach files"]')})?.disabled === false`), 'served chat must offer attachments')
   const initial = await broker.request('conversations.list')
@@ -149,6 +255,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   const emptySnapshot = await broker.request('conversation.snapshot', { conversation_id: conversationId })
   assert(emptySnapshot.ok, 'new conversation snapshot must be served')
   assert.deepEqual((emptySnapshot.result as { messages: { items: unknown[] } }).messages.items, [])
+  const emptyMessages = await broker.request('messages.list', { conversation_id: conversationId, limit: 100 })
+  assert(emptyMessages.ok, 'real empty transcript must succeed')
+  assert.deepEqual((emptyMessages.result as { items: unknown[] }).items, [])
   screens.push({ screen: 'Conversation sidebar', text: await text('nav[aria-label="Conversations"]') })
 
   // Slash commands remain useful without a provider. Exercise the actual command
@@ -182,11 +291,40 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   })()`)
   await until(async () => (await text('.search-panel .search-note')).includes('No matches.'), 'served empty conversation search')
   assert.equal(await count('#conversation-search-error'), 0, 'served search must not claim capability refusal')
-  screens.push({ screen: 'Search', text: await text('.search-panel') })
   assert.equal(await run('document.querySelectorAll(".search-hits li").length'), 0)
+  const searched = await broker.request('search.query', { query: 'smoke query' })
+  assert(searched.ok, 'real search must succeed')
+  assert.deepEqual((searched.result as { hits: unknown[] }).hits, [])
+  assert.equal((searched.result as { next_cursor: string | null }).next_cursor, null)
+  screens.push({ screen: 'Search', text: await text('.search-panel') })
   await click('.work-toggle')
-  await recordUnavailable('Work', '.work-panel')
-  assert.equal(await run('document.querySelectorAll(".work-item").length'), 0)
+  let receipt: unknown
+  if (seededWorkProof) {
+    await until(async () => (await text('.work-panel')).includes('Harmless completed task') &&
+      (await text('.work-panel')).includes('Resource release is not confirmed'), 'real Work detail and honest unknown release')
+    const work = await broker.request('work.list')
+    assert(work.ok)
+    const workItems = (work.result as { items: Array<Record<string, unknown>> }).items
+    assert.deepEqual(new Set(workItems.map(i => i.kind)), new Set(['agent', 'task', 'workflow', 'loop', 'process', 'schedule']))
+    const cancellable = workItems.find(i => i.title === 'Harmless cancellable task')!
+    const controlParams = Object.fromEntries(['kind', 'id', 'manager_generation', 'run_id', 'generation', 'conversation_id'].map(k => [k, cancellable[k]]))
+    Object.assign(controlParams, { action: 'cancel', control_command_id: randomUUID() })
+    const controlReceipt = await run<{ ok: boolean; result?: { disposition: string } }>(`window.odin.workControl(${JSON.stringify(controlParams)})`)
+    receipt = controlReceipt
+    assert(controlReceipt.ok)
+    assert.equal(controlReceipt.result!.disposition, 'done')
+    assert.deepEqual(await run(`window.odin.workControl(${JSON.stringify(controlParams)})`), controlReceipt, 'named bridge must return journaled receipt without repeating cancellation')
+    await click('button[aria-label="Refresh work"]')
+    await until(async () => (await text('.work-panel')).includes('cancelled'), 'settled actual task after journaled cancellation')
+    screens.push({ screen: 'Work all kinds (agent/process metadata seeds), settled task and journaled receipt', text: await text('.work-panel') })
+  } else {
+    const work = await broker.request('work.list')
+    assert(work.ok, 'fresh work list must be served')
+    assert.deepEqual((work.result as { items: unknown[] }).items, [], 'fresh profile must not invent work rows')
+    await until(async () => (await text('.work-panel')).includes('No work'), 'fresh empty Work')
+    assert.equal(await count('.work-item'), 0)
+    screens.push({ screen: 'Fresh empty Work', text: await text('.work-panel') })
+  }
   writeFileSync(out, (await win.webContents.capturePage()).toPNG())
 
   await click('button[title="Settings (Ctrl+,)"]')
@@ -194,20 +332,18 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   await until(async () => (await count('.settings-group .schema-form')) > 0, 'real settings schema before enumerating all sections')
   const sections = await run<string[]>('Array.from(document.querySelectorAll(".settings-nav-item"), b => b.innerText)')
   assert.deepEqual(sections, ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust', 'Scheduled and running work', 'State', 'Records', 'Other'])
-  // Check unserved owners separately from read-backed management panels.
+  // Check unserved work owners separately from the wired Step 6A read panels.
   const servicePanels: Record<string, string[]> = {
-    Skills: ['section[aria-label="Skills"]'],
-    'MCP servers': ['section[aria-label="MCP servers"]'],
-    'Scheduled and running work': ['section[aria-label="Schedules"]', 'section[aria-label="Running work"]'],
-    Records: ['section[aria-label="Computer use"]']
   }
   const servedPanels: Record<string, Array<[string, RegExp]>> = {
     'Models and providers': [['.codex-accounts', /keyring.*(?:locked|unavailable)/i]],
     Personality: [['section[aria-label="Personality"]', /preset|personality/i]],
     Tools: [['section[aria-label="Built-in tools"]', /run_command/], ['section[aria-label="Tool timeouts"]', /Default|seconds/i]],
+    Skills: [['section[aria-label="Skills"]', /New skill/]],
+    'MCP servers': [['section[aria-label="MCP"]', /1 of 1 servers connected.*1 tools offered/s], ['section[aria-label="MCP servers"]', /Add server/]],
     'Hosts and trust': [['section[aria-label="Hosts"]', /localhost/]],
     State: [['section[aria-label="Memory"]', /0 entries/], ['section[aria-label="Named lists"]', /No lists\./], ['section[aria-label="Knowledge"]', /Knowledge/]],
-    Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /not measured: Odin doesn't know this value/], ['section[aria-label="Audit"]', /Nothing recorded\./], ['section[aria-label="Logs"]', /No entries\./], ['section[aria-label="Turn state"]', /Turn state is off\./]]
+    Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /not measured: Odin doesn't know this value/], ['section[aria-label="Computer use"]', /Refresh/]]
   }
   const observations = await run<Record<string, { ok: boolean; result?: unknown; error?: { code: string; message: string } }>>(`(async () => ({
     settings: await window.odin.settingsSchema(), hosts: await window.odin.hostsList({}),
@@ -216,11 +352,23 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     memory: await window.odin.memoryList({}), lists: await window.odin.listsList({}),
     knowledge: await window.odin.knowledgeList({}), audit: await window.odin.auditQuery({}),
     logs: await window.odin.logsSearch({ level: 'all' }), turns: await window.odin.turnStateList({}),
-    usage: await window.odin.usage('7d'), accounts: await window.odin.codexAccounts()
+    usage: await window.odin.usage('7d'), accounts: await window.odin.codexAccounts(),
+    conversations: await window.odin.listConversations(), search: await window.odin.search({ query: 'smoke query' }),
+    snapshot: await window.odin.snapshotConversation({ conversation_id: ${JSON.stringify(conversationId)} }),
+    diffs: await window.odin.auditDiffs({}), failures: await window.odin.auditFailures({}),
+    logStats: await window.odin.logsStats({}), auditTail: await window.odin.auditTail({ lines: 20 }),
+    logTail: await window.odin.logsTail({ lines: 20 }), duplicates: await window.odin.knowledgeDuplicates({}),
+    learned: await window.odin.learnedList({}), stats: await window.odin.observabilityStats({}),
+    risk: await window.odin.observabilityRisk({}), trajectories: await window.odin.trajectoriesList({}),
+    openrouter: await window.odin.openrouterCatalogue({}),
+    skills: await window.odin.skillsList({}), mcp: await window.odin.mcpStatus({}),
+    computer: await window.odin.computerStatus({})
   }))()`)
   for (const [name, answer] of Object.entries(observations)) {
     if (name === 'accounts') {
       assert(answer.ok || answer.error?.code === 'keyring_unavailable', 'accounts must report empty accounts or distinct keyring failure')
+    } else if (name === 'openrouter') {
+      assert(!answer.ok && answer.error?.code === 'not_found' && /not recognized/i.test(answer.error.message), 'fresh unconfigured OpenRouter must report not-recognized, not fake catalogue data')
     } else assert(answer.ok, `named bridge ${name} failed: ${JSON.stringify(answer.error)}`)
   }
   const hostData = observations.hosts!.result as { hosts: Array<{ alias: string; trust_state: string }>; default_host: string }
@@ -228,9 +376,84 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(hostData.hosts[0]!.alias, 'localhost')
   assert.equal(hostData.hosts[0]!.trust_state, 'local')
   assert.equal(hostData.default_host, 'localhost')
-  assert.deepEqual(observations.audit!.result, [], 'fresh audit must have no invented tool records')
-  assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [])
-  assert.equal((observations.turns!.result as { availability: string }).availability, 'not_enabled')
+  if (seededWorkProof) {
+    assert(Array.isArray(observations.audit!.result), 'audit must report actual local schedule/task records')
+    assert(Array.isArray((observations.logs!.result as { entries: unknown[] }).entries), 'logs must read actual engine records')
+  } else {
+    assert.deepEqual(observations.audit!.result, [], 'fresh audit must have no invented tool records')
+    assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [], 'fresh logs must have no invented entries')
+  }
+  assert.deepEqual(observations.skills!.result, reads['skills.list'])
+  assert.deepEqual(observations.mcp!.result, reads['mcp.status'])
+  assert.deepEqual(observations.computer!.result, reads['computer.status'])
+  assert.equal((observations.turns!.result as { availability: string }).availability, 'available')
+  if (!seededWorkProof) {
+    assert.deepEqual(observations.duplicates!.result, { exact: [], near: [] }, 'fresh knowledge must have no invented duplicates')
+    assert.deepEqual((observations.learned!.result as { entries: unknown[] }).entries, [])
+    assert.deepEqual((observations.diffs!.result as { entries: unknown[] }).entries, [])
+    assert.deepEqual((observations.trajectories!.result as { files: string[] }).files, [])
+    assert.deepEqual((observations.search!.result as { hits: unknown[] }).hits, [])
+    assert.equal((observations.conversations!.result as { items: unknown[] }).items.length, 2, 'only first Chat and explicitly created New chat may exist')
+    for (const key of ['auditTail', 'logTail']) {
+      const tail = observations[key]!.result as { lines: unknown[]; cursor: string; availability: string }
+      assert.deepEqual(tail.lines, [], 'fresh records tails must not invent activity')
+      assert.equal(typeof tail.cursor, 'string')
+      assert(['available', 'missing'].includes(tail.availability), 'tail must distinguish an empty source from a missing file')
+    }
+    const noSubmission = observations.snapshot!.result as { messages: { items: unknown[] }; running: unknown; queued: unknown[]; recent: unknown[]; unresolved: unknown[] }
+    assert.deepEqual(noSubmission.messages.items, [], 'local slash reports must not submit provider messages')
+    assert.equal(noSubmission.running, null)
+    assert.deepEqual(noSubmission.queued, [])
+    assert.deepEqual(noSubmission.recent, [])
+    assert.deepEqual(noSubmission.unresolved, [])
+  }
+  // All operations cross the named preload bridge. The fixture is local stdio,
+  // implements initialize/tools-list, and has no account or network listener.
+  const invoke = <T = unknown>(name: string, params: unknown = {}): Promise<T> =>
+    run(`window.odin[${JSON.stringify(name)}](${JSON.stringify(params)})`)
+  type Answer = { ok: boolean; result?: unknown; error?: { code: string; message: string } }
+  const observedService = async (name: string, params: unknown = {}): Promise<unknown> => {
+    const answer = await invoke<Answer>(name, params)
+    assert(answer.ok, `${name}: ${JSON.stringify(answer.error)}`)
+    observations[name] = answer
+    return answer.result
+  }
+  const skillCode = readFileSync(process.env.ODIN_SMOKE_SKILL_FIXTURE!, 'utf8')
+  const validation = await observedService('skillsValidate', { code: skillCode }) as { valid: boolean }
+  assert(validation.valid, 'harmless constant must validate')
+  await observedService('skillsSave', { name: 'slice4_constant', code: skillCode, create: true })
+  const skill = await observedService('skillsGet', { name: 'slice4_constant' }) as { code: string }
+  assert.equal(skill.code, skillCode)
+  type SkillRow = { name: string; total_executions: number }
+  const initialSkills = await observedService('skillsList') as SkillRow[]
+  assert.equal(initialSkills.find((row) => row.name === 'slice4_constant')?.total_executions, 0)
+  const tested = await observedService('skillsTest', { name: 'slice4_constant' }) as { result: string; is_error: boolean }
+  assert.deepEqual(tested, { result: 'harmless constant', is_error: false }, 'named bridge must execute the harmless skill with empty input')
+  const testedSkills = await observedService('skillsList') as SkillRow[]
+  assert.equal(testedSkills.find((row) => row.name === 'slice4_constant')?.total_executions, 1, 'bridge Test must count a genuine execution')
+  type McpStatus = { revision: string; server_count: number; servers: Array<{ name: string; state: string; published_count: number }> }
+  const mcpMutation = async (name: string, params: Record<string, unknown>): Promise<void> => {
+    const before = await observedService('mcpStatus') as McpStatus
+    await observedService(name, { ...params, expected_revision: before.revision })
+  }
+  await mcpMutation('mcpSave', { name: 'slice4_local', transport: 'stdio', command: process.env.ODIN_DESKTOP_ENGINE_PYTHON, args: ['-B', process.env.ODIN_SMOKE_MCP_FIXTURE] })
+  await mcpMutation('mcpSetGlobalEnabled', { enabled: true })
+  await until(async () => (await observedService('mcpStatus') as McpStatus).servers.some((row) => row.name === 'slice4_local' && row.state === 'connected'), 'real stdio MCP handshake')
+  const tools = await observedService('mcpTools', { name: 'slice4_local' }) as { tools: unknown[] }
+  assert.equal(tools.tools.length, 1, 'real discovery must publish the constant tool')
+  assert(JSON.stringify(tools.tools).includes('constant'))
+  await mcpMutation('mcpRefreshTools', { name: 'slice4_local' })
+  // Saving a server adds exact server-local settings fields. Compare rendered
+  // paths with a fresh authoritative schema, never the pre-mutation snapshot.
+  reads['settings.schema'] = await observedService('settingsSchema')
+  const sliceComputer = await observedService('computerStatus') as { session: unknown; readiness: { input_supported: boolean; native_qualified: boolean } }
+  assert.equal(sliceComputer.session, null)
+  assert.equal(sliceComputer.readiness.input_supported, false)
+  assert.equal(sliceComputer.readiness.native_qualified, false)
+  const health = await observedService('healthGet') as { browser: { state: string; ready: boolean; retry_available: boolean } }
+  // D17 fresh settings enable the browser; no bundle is qualified in this
+  // source-tree profile. Preserve the unavailable retry seam, not native success.
+  assert.deepEqual({ state: health.browser.state, ready: health.browser.ready, retry_available: health.browser.retry_available }, { state: 'unavailable', ready: false, retry_available: true })
   for (let i = 0; i < sections.length; i++) {
     await click(`.settings-nav-item:nth-of-type(${i + 2})`)
     if (sections[i] === 'Models and providers') {
@@ -239,6 +462,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert(!/not (?:yet )?available|not served/i.test(await text('.codex-accounts')), 'served account management must not remain capability-unavailable')
       assert.equal(await run('document.querySelectorAll(".account").length'), 0, 'real session must not display fixture accounts')
       await until(async () => (await run<number>('document.querySelectorAll(".schema-form").length')) > 0, 'real provider settings')
+      await until(async () => /OpenRouter endpoint not recognized/i.test(await text('section[aria-label="OpenRouter models"]')), 'honest unconfigured OpenRouter panel')
+      assert.equal(await count('section[aria-label="OpenRouter models"] li'), 0, 'unconfigured OpenRouter must not invent models')
     }
     if (sections[i] === 'Personality') {
       await until(async () => await run<boolean>('Boolean(document.querySelector("section[aria-label=Personality] select"))'), 'real personality settings')
@@ -246,6 +471,49 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     if (sections[i] === 'Tools') {
       await until(async () => (await count('section[aria-label="Built-in tools"] .manage-row')) > 0, 'real built-in tools')
       assert((await text('section[aria-label="Tool timeouts"]')).includes('Timeouts'))
+      const tools = (observations.tools!.result as { tools: Array<{ name: string; cost?: string | null; risk?: string | null }> }).tools
+      const rows = await run<string[]>('Array.from(document.querySelectorAll("section[aria-label=\\"Built-in tools\\"] .manage-row"), row => row.innerText)')
+      for (const tool of tools) {
+        assert(rows.some((row) => row.includes(tool.name) && row.includes(`Cost: ${tool.cost ?? 'not reported'}. Risk: ${tool.risk ?? 'not reported'}.`)), `${tool.name} must render its reported cost and risk without invented measurements`)
+      }
+      await until(async () => /unavailable/i.test(await text('section[aria-label="Browser runtime"]')), 'real unqualified browser state')
+    }
+    if (sections[i] === 'Skills') {
+      await until(async () => (await text('section[aria-label="Skills"]')).includes('slice4_constant'), 'real skill card')
+      assert(!(await text('section[aria-label="Skills"]')).includes('Test is unavailable in this core.'), 'a capable core must not show Test unavailable')
+      assert((await text('section[aria-label="Skills"] .manage-count')).includes('1 runs'), 'the card must show the bridge execution')
+      await click('button[aria-label="Open slice4_constant"]')
+      await until(async () => await run<boolean>('Boolean(document.querySelector(".skill-editor"))'), 'real skill editor')
+      const testButton = '.skill-editor button[aria-label="Test slice4_constant"]'
+      assert.equal(await run(`document.querySelector(${JSON.stringify(testButton)}).disabled`), false)
+      await click(testButton)
+      await until(async () => (await text('.skill-editor .manage-json')) === 'harmless constant', 'real rendered Test result')
+      await until(async () => (await text('section[aria-label="Skills"] .manage-count')).includes('2 runs'), 'rendered execution count after UI Test')
+      const afterUiTest = await observedService('skillsList') as SkillRow[]
+      const runs = afterUiTest.find((row) => row.name === 'slice4_constant')?.total_executions
+      assert.equal(runs, 2, 'one named-bridge Test and one UI Test must produce exactly two executions')
+      assert.equal(await run('document.querySelector(".skill-editor .manage-json").classList.contains("warn")'), false)
+      process.stdout.write(`real-core-smoke: skills.test result=${JSON.stringify(tested.result)} is_error=${tested.is_error} rendered=${JSON.stringify(await text('.skill-editor .manage-json'))} runs=${runs}\n`)
+    }
+    if (sections[i] === 'MCP servers') {
+      await until(async () => (await text('section[aria-label="MCP servers"]')).includes('slice4_local'), 'real MCP row')
+      assert((await text('section[aria-label="MCP servers"]')).includes('connected'), 'MCP UI must show real handshake state')
+      await click('button[aria-label="Tools for slice4_local"]')
+      await until(async () => (await text('.mcp-tools')).includes('constant'), 'rendered real MCP tools disclosure')
+    }
+    if (sections[i] === 'Scheduled and running work') {
+      if (seededWorkProof) {
+        await until(async () => (await text('section[aria-label="Schedules"]')).includes('D12 manual recovery check') &&
+          (await text('section[aria-label="Schedules"]')).includes('Recovery required'), 'real D12 recovery-required schedule')
+        assert((await text('section[aria-label="Schedules"]')).includes('No effects were replayed'), 'D12 must render actual recovery reason')
+      } else {
+        const schedules = await broker.request('schedules.list')
+        assert(schedules.ok, 'fresh schedules list must be served')
+        assert.deepEqual(schedules.result, [], 'fresh profile must not invent schedules')
+        await until(async () => (await text('section[aria-label="Schedules"]')).includes('No schedules yet.'), 'real empty schedules')
+        await until(async () => (await text('section[aria-label="Running work"]')).includes('Nothing is running.'), 'real empty running work')
+        assert.equal(await count('section[aria-label="Running work"] .work-item'), 0)
+      }
     }
     if (sections[i] === 'Hosts and trust') {
       await until(async () => (await text('section[aria-label=Hosts]')).includes('localhost'), 'real localhost row')
@@ -260,7 +528,14 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     for (const [selector, expected] of servedPanels[sections[i]!] ?? []) {
       await until(async () => expected.test(await text(selector)), `served ${sections[i]} / ${selector}`)
       assert(!/Service is not available yet|Loading…|Searching…/.test(await text(selector)), `${selector} must settle its served read`)
-      assert.equal(await run(`document.querySelectorAll(${JSON.stringify(selector + ' .capability-unavailable')}).length`), 0, `${selector} must not claim its served capability unavailable`)
+      if (selector === 'section[aria-label="Computer use"]') {
+        // Served management and unqualified native input are separate claims.
+        await until(async () => (await count(selector + ' .capability-unavailable')) === 1, 'computer use foreground refusal')
+        assert.match(await text(selector + ' .capability-unavailable'), /Foreground computer use is unavailable.*Native input is not qualified or supported.*Dispatch: none/s)
+        assert.equal(await run(`document.querySelector(${JSON.stringify('button[aria-label="Refresh computer use"]')})?.disabled`), false)
+      } else {
+        assert.equal(await count(selector + ' .capability-unavailable'), 0, `${selector} must not claim its served capability unavailable`)
+      }
       screens.push({ screen: `Settings / ${sections[i]} / ${selector}`, text: await text(selector) })
     }
     if (sections[i] === 'State') {
@@ -271,12 +546,48 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       screens.push({ screen: 'Settings / State / Context reload', text: await text('section[aria-label="Context"]') })
       assert(!(await text('.settings-body')).includes('Loading'))
       assert((await text('section[aria-label="Named lists"]')).includes('No lists.'))
+      await until(async () => (await count('pre[aria-label="Learned context JSON"]')) === 1, 'real learned context read')
+      assert.deepEqual(JSON.parse(await text('pre[aria-label="Learned context JSON"]')), observations.learned!.result)
+      await click('form[aria-label="Find knowledge duplicates"] button')
+      await until(async () => (await count('pre[aria-label="Knowledge duplicates JSON"]')) === 1, 'real knowledge duplicates read')
+      assert.deepEqual(JSON.parse(await text('pre[aria-label="Knowledge duplicates JSON"]')), observations.duplicates!.result)
     }
     if (sections[i] === 'Records') {
+      if (seededWorkProof) {
+        await until(async () => !(await text('section[aria-label=Audit]')).includes('Loading'), 'seeded work proof audit')
+        await until(async () => !(await text('section[aria-label=Logs]')).includes('Loading'), 'seeded work proof logs')
+      } else {
+        await until(async () => (await text('section[aria-label=Audit]')).includes('Nothing recorded.'), 'real empty audit')
+        await until(async () => (await text('section[aria-label=Logs]')).includes('No entries.'), 'real empty logs')
+      }
+      await until(async () => (await text('section[aria-label="Turn state"]')).includes('Preserved work') &&
+        !(await text('section[aria-label="Turn state"]')).includes('Loading'), 'real turn-state availability')
       assert((await text('section[aria-label="Health"]')).includes('host(s) configured'), 'real health must observe profile hosts')
+      for (const [label, key] of [['Audit diffs', 'diffs'], ['Audit failures', 'failures'], ['Log statistics', 'logStats']] as const) {
+        const selector = `section[aria-label="${label}"]`
+        await click(`${selector} button`)
+        await until(async () => (await text(selector)).includes('Last successful read shown below.'), `real ${label} panel read`)
+        assert.deepEqual(JSON.parse(await text(`${selector} pre`)), observations[key]!.result, `${label} must render the actual core record`)
+      }
+      await click('section[aria-label="Runtime statistics"] button')
+      await until(async () => (await count('section[aria-label="Runtime statistics"] pre')) > 0, 'real runtime statistics panel read')
+      const stats = JSON.parse(await text('section[aria-label="Runtime statistics"] pre')) as { risk: unknown }
+      assert.deepEqual(stats.risk, observations.risk!.result, 'runtime statistics must render the actual risk summary')
+      await until(async () => /no .*session|no .*task/i.test(await text('section[aria-label="Computer use"]')), 'real absent computer session')
+      assert(/unqualified|not qualified|qualification/i.test(await text('section[aria-label="Computer use"]')), 'computer input must remain explicitly unqualified')
+      // Slice 4 reads the real envelope. No absent-session recovery/input action
+      // may be invented while the retained management Refresh remains offered.
+      assert.equal(await count('section[aria-label="Computer use"] .manage-name, section[aria-label="Computer use"] .manage-actions'), 0, 'fresh computer management must not invent a session or recovery action')
+    }
+    if (sections[i] === 'Skills' || sections[i] === 'MCP servers') {
+      assert.equal(await count('.settings-body .manage-row'), 1, 'Step 6A management must show exactly its saved real-core fixture, not renderer-seeded rows')
+      assert.equal(await count('.settings-body .warn'), 0, 'served Step 6A reads must not present a renderer fault')
     }
     assert.equal(await run('document.querySelectorAll(".settings-body [role=alert]").length'), 0, `${sections[i]} must not present capability refusal as a fault`)
-    assert.equal(await run('document.querySelectorAll(".settings-body .work-item, .settings-body .account").length'), 0, `${sections[i]} must not display fixture accounts/work`)
+    // Seeded Work is real 6B work in its own section; accounts are never served in this isolated profile.
+    const fixtureRows = seededWorkProof && sections[i] === 'Scheduled and running work'
+      ? '.settings-body .account' : '.settings-body .work-item, .settings-body .account'
+    assert.equal(await run(`document.querySelectorAll(${JSON.stringify(fixtureRows)}).length`), 0, `${sections[i]} must not display fixture accounts/work`)
     const renderedPaths = await run<string[]>('Array.from(document.querySelectorAll(".settings-body .field-path"), e => e.textContent)')
     const fields = (reads['settings.schema'] as { fields: Array<{ path: string }> }).fields
     for (const path of renderedPaths) assert(fields.some((field) => field.path === path), `rendered field ${path} must belong to the served schema`)
@@ -289,6 +600,20 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     writeFileSync(out.replace(/\.png$/i, '') + `-settings-${i + 1}.png`, (await win.webContents.capturePage()).toPNG())
   }
   writeFileSync(out.replace(/\.png$/i, '') + '-settings.png', (await win.webContents.capturePage()).toPNG())
+  await observedService('skillsDelete', { name: 'slice4_constant' })
+  await mcpMutation('mcpSetGlobalEnabled', { enabled: false })
+  await mcpMutation('mcpDelete', { name: 'slice4_local' })
+  // Served controls fence a missing request without invoking desktop input or a provider.
+  for (const method of ['control.stop', 'control.steer', 'control.resume']) {
+    const controlled = await broker.request(method, {
+      control_command_id: `smoke-${method}`, conversation_id: conversationId,
+      request_id: 'r_missing_smoke', generation: 1,
+      ...(method === 'control.steer' ? { text: 'smoke steering' } : {})
+    })
+    assert.deepEqual(controlled, { ok: true, result: method === 'control.resume'
+      ? { disposition: 'rejected', reason: 'stale_binding' } : { disposition: 'stale_binding' } },
+    `${method} must serve its concrete request-binding disposition`)
+  }
   // Keep provider failure after the fresh management/empty-log checkpoints:
   // executing a real request legitimately records its failure in core logs.
   await click('.settings-nav .back')
@@ -299,10 +624,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   })()`)
   await until(async () => await run<boolean>('document.querySelector(".composer button[type=submit]")?.disabled === false'), 'served composer ready to submit')
   await click('.composer button[type=submit]')
-  await until(async () => (await text('.message-scroll .msg.notice .body')).includes('No LLM provider available. Please try again later.') &&
-    (await text('.message-scroll .outcome')).includes('The task failed.') && (await count('.working, .msg.pending')) === 0, 'actual unavailable-provider task outcome')
+  await until(async () => (await content('.message-scroll .msg.notice .body')).includes('No LLM provider available. Please try again later.') &&
+    (await content('.message-scroll .outcome')).includes('The task failed.') && (await count('.working, .msg.pending')) === 0, 'actual unavailable-provider task outcome')
   assert.equal(await count('.message-scroll .msg.user'), 1, 'submission must commit exactly one user message')
-  assert.equal(await text('.message-scroll .msg.user .body'), submissionText)
+  await until(async () => (await content('.message-scroll .msg.user .body')) === submissionText, 'committed user message text')
   assert.equal(await count('.message-scroll .msg.assistant'), 0, 'missing provider must not invent an assistant reply')
   assert(await run('document.querySelector(".composer textarea").value === ""'), 'accepted submission clears its draft')
   const failed = await broker.request('conversation.snapshot', { conversation_id: conversationId })
@@ -315,6 +640,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     { role: 'notice', text: 'No LLM provider available. Please try again later.' }
   ])
   assert.equal(failedSnapshot.recent.length, 1)
+  assert.match(failedSnapshot.recent[0]!.request_id, /^r_[a-f0-9]+$/)
+  assert.match(failedSnapshot.messages.items[0]!.id, /^m_[a-f0-9]+$/)
+  assert.equal(failedSnapshot.messages.items[0]!.request_id, failedSnapshot.recent[0]!.request_id,
+    'the committed user message must belong to the actual admitted request')
   assert.equal(failedSnapshot.recent[0]!.outcome, 'failed')
   assert.equal(failedSnapshot.recent[0]!.unknown_effects, 0)
   assert.deepEqual(failedSnapshot.unresolved, [])
@@ -332,11 +661,14 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(await count('#conversation-search-error'), 0)
   assert((await text('.search-hits .hit-snippet')).includes(submissionText))
   await click('.search-hits .hit')
-  await until(async () => (await text('.message-scroll .msg.highlight .body')) === submissionText, 'real search hit navigation')
+  await until(async () => (await content('.message-scroll .msg.highlight .body')) === submissionText, 'real search hit navigation')
   screens.push({ screen: 'Search / committed transcript', text: await text('.search-panel') })
   writeFileSync(out.replace(/\.png$/i, '') + '-chat.png', (await win.webContents.capturePage()).toPNG())
   assert.equal(broker.linkState, 'ready')
-  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, reads, observations, screens }, null, 2) + '\n')
-  process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ link: broker.linkState, status, screens: screens.map(({ screen }) => screen), observations: Object.fromEntries(Object.entries(observations).map(([name, answer]) => [name, answer.ok ? 'observed' : answer.error?.code])) })}\n`)
-  process.stdout.write(`real-core-smoke: ok link=ready version=${status.version} screens=${screens.length}\n`)
+  if (seededWorkProof) assert.deepEqual(counts(), beforePaging, 'all report reads and UI navigation must not rerun a check')
+  const labelledScreens = screens.map(screen => ({ ...screen, screen: `${phase} / ${screen.screen}` }))
+  const evidence = { phase, qualification: seededWorkProof ? 'agent/process rows are metadata seeds, not execution qualification' : 'unmodified production entry on a fresh real profile', link: broker.linkState, status, reads, observations, proof, receipt, toolCounts: seededWorkProof ? counts() : undefined, screens: labelledScreens }
+  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify(evidence, null, 2) + '\n')
+  process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ phase, link: broker.linkState, status, screens: labelledScreens.map(({ screen }) => screen), observations: Object.fromEntries(Object.entries(observations).map(([name, answer]) => [name, answer.ok ? 'observed' : answer.error?.code])) })}\n`)
+  process.stdout.write(`real-core-smoke: ok phase=${phase} link=ready version=${status.version} screens=${screens.length}\n`)
 }

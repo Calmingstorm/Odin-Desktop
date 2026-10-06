@@ -2,10 +2,11 @@
 // controls Odin offers for each one now. The list is the authority: a work.updated event patches the state at once,
 // then the list is fetched again for the new controls and detail.
 import { reactive } from 'vue'
-import type { CoreEvent, Result, WorkAction, WorkItem, WorkKind } from '../../../shared/api'
+import type { CoreEvent, Result, WorkAction, WorkControlParams, WorkControlReceipt, WorkItem, WorkKind } from '../../../shared/api'
 import { isUnknownOutcome, onCoreEvent, onLateReceipt, onReady } from '../store'
 import { busy } from './locks'
 import { isUnavailable, resultMessage } from '../capability'
+import { workStartedMillis } from '../work-format'
 
 export const work = reactive({
   open: false,
@@ -23,11 +24,11 @@ export const work = reactive({
 })
 
 /** An item's identity: its kind and id together, since items of different kinds may share an id. */
-export function workKey(item: Pick<WorkItem, 'kind' | 'id'>): string {
-  return `${item.kind}:${item.id}`
+export function workKey(item: Pick<WorkItem, 'kind' | 'id' | 'manager_id'>): string {
+  return `${item.kind}:${item.kind === 'schedule' ? item.manager_id ?? item.id : item.id}`
 }
 
-const ACTIVE = new Set(['running', 'starting', 'stopping'])
+const ACTIVE = new Set(['admitted', 'running', 'starting', 'stopping'])
 
 export const GROUPS: Array<{ kind: WorkKind; label: string }> = [
   { kind: 'agent', label: 'Agents' },
@@ -44,7 +45,8 @@ const ACTION_LABELS: Record<WorkAction, string> = {
   restart: 'Restart',
   pause: 'Pause',
   resume: 'Resume',
-  run_now: 'Run now'
+  run_now: 'Run now',
+  steer: 'Steer'
 }
 
 const DISPOSITIONS: Record<string, string> = {
@@ -72,7 +74,7 @@ export function grouped(): Array<{ kind: WorkKind; label: string; items: WorkIte
     ...group,
     items: work.items
       .filter((item) => item.kind === group.kind)
-      .sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || (b.started_at ?? '').localeCompare(a.started_at ?? ''))
+      .sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || workStartedMillis(b.started_at) - workStartedMillis(a.started_at))
   })).filter((group) => group.items.length > 0)
 }
 
@@ -111,12 +113,22 @@ export function applyWorkEvent(event: CoreEvent): void {
   if (event.type !== 'work.updated') return
   const p = event.payload
   const item = work.items.find((i) => i.id === String(p.id) && i.kind === p.kind)
-  if (item) item.state = String(p.state)
+  if (item) {
+    if (typeof p.state === 'string') item.state = p.state
+    if (Array.isArray(p.actions)) item.actions = p.actions as WorkAction[]
+    if (typeof p.detail === 'string' || (p.detail && typeof p.detail === 'object' && !Array.isArray(p.detail))) item.detail = p.detail as WorkItem['detail']
+    if (p.settlement && typeof p.settlement === 'object') item.settlement = p.settlement as WorkItem['settlement']
+  }
   reloadSoon()
 }
 
-function answerNote(action: WorkAction, result: Result<{ disposition: string }>): string {
-  return result.ok ? `${actionLabel(action)}: ${DISPOSITIONS[result.result.disposition] ?? result.result.disposition}` : resultMessage(result, 'Work controls')
+function answerNote(action: WorkAction, result: Result<WorkControlReceipt>): string {
+  if (!result.ok) return resultMessage(result, 'Work controls')
+  const receipt = result.result
+  if (action === 'steer' && receipt.disposition === 'queued') {
+    return `Steer: queued${receipt.sequence === undefined ? '' : ` (sequence ${receipt.sequence})`}. Queued is not consumed.`
+  }
+  return `${actionLabel(action)}: ${DISPOSITIONS[receipt.disposition] ?? receipt.disposition}${receipt.reason ? ` (${receipt.reason})` : ''}`
 }
 
 /** Controls with no answer yet, by command id. Each stays under its first command until its receipt settles it. */
@@ -126,20 +138,30 @@ const uncertain = new Map<string, { key: string; action: WorkAction }>()
  * Sends one control. The note says what the core answered; the list then shows the result. With no answer, the item
  * takes no other control until the original command's receipt arrives, so nothing runs twice under two commands.
  */
-export async function controlWork(item: WorkItem, action: WorkAction): Promise<void> {
+export async function controlWork(item: WorkItem, action: WorkAction, text?: string): Promise<boolean> {
   const key = workKey(item)
-  if (work.busy[key]) return
+  if (work.busy[key] || !item.actions.includes(action)) return false
+  if (action === 'steer' && (item.kind !== 'agent' || !text)) return false
   work.busy[key] = true
   const commandId = crypto.randomUUID()
-  const result = await window.odin.workControl({ control_command_id: commandId, kind: item.kind, id: item.id, action })
+  const params: WorkControlParams = { control_command_id: commandId, kind: item.kind, id: item.id, action }
+  // Echo only bindings the core actually listed, preserving fixture compatibility. Never invent a generation.
+  if (item.manager_generation !== undefined) params.manager_generation = item.manager_generation
+  if (item.run_id !== undefined) params.run_id = item.run_id
+  if (item.generation !== undefined) params.generation = item.generation
+  if (item.conversation_id !== undefined) params.conversation_id = item.conversation_id
+  if (item.kind === 'schedule' && typeof item.detail !== 'string' && typeof item.detail.revision === 'number') params.revision = item.detail.revision
+  if (action === 'steer') params.text = text
+  const result = await window.odin.workControl(params)
   if (!result.ok && isUnknownOutcome(result.error)) {
     uncertain.set(commandId, { key, action })
     work.notes[key] = `${actionLabel(action)}: waiting for Odin to confirm. It is never sent twice.`
-    return
+    return false
   }
   work.busy[key] = false
   work.notes[key] = answerNote(action, result)
   await loadWork()
+  return result.ok && ['queued', 'requested', 'done'].includes(result.result.disposition)
 }
 
 onLateReceipt((receipt) => {
@@ -147,7 +169,7 @@ onLateReceipt((receipt) => {
   if (!pending || (!receipt.settled.ok && isUnknownOutcome(receipt.settled.error))) return
   uncertain.delete(receipt.id)
   work.busy[pending.key] = false
-  work.notes[pending.key] = answerNote(pending.action, receipt.settled as Result<{ disposition: string }>)
+  work.notes[pending.key] = answerNote(pending.action, receipt.settled as Result<WorkControlReceipt>)
   void loadWork()
 })
 

@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "evidence_root": "/mnt/storage/odin-desktop-evidence/pr59-packaging-direction-req9133",
+  "candidate_source_commit": "d57b76cbe60877be13f71cc787c265793db6d76f",
+  "qualification_gate": "pass",
+  "qualification_errors": [],
+  "artifacts": [
+    {"path": "exact-original-diagnostic.json", "sha256": "f3e65e46898ee21a6b9b96d0fc0b9e76b379050c338521caf6377f8ec54e2b66"},
+    {"path": "original-appimage-modes.log", "sha256": "c623e096fb7e7c83c71d2ef4721ebb9bf2e46e63fe8958dcd5efeae6d308ecc9"},
+    {"path": "inventory-record-scope.log", "sha256": "dd0b751341fb86d951704255393dfe754dda9560d6790aea0383b6405118c349"},
+    {"path": "packaging-tests-final.log", "sha256": "266ec4f06810b277102636424821a940183c65d229d034ac654e44e0a3dcfee4"},
+    {"path": "inventory-final.json", "sha256": "97688617b70321b47493ed13c075d7f13b191eedb1c3ce19935eb237f85c84fd"},
+    {"path": "fresh-build.log", "sha256": "d65dcb7ee8e070081ba33b0e9537e3fcc1165c2350541d871c5dca3db1439634"},
+    {"path": "candidate-sha256.txt", "sha256": "3a40d8fd38bbf012a04420febe022cc1f4475f72961c1f4bd5b88a0a1809e93b"},
+    {"path": "qualification.log", "sha256": "c78b0d217e8c2df78f421cc6e9afd084a6f0211504a61255a01dc849a1548d6b"},
+    {"path": "qualification/qualification.json", "sha256": "ae8c6b2a0379f984667fefa0363c7677dca12ef905c7e6cdd1e290792f55d9c1"},
+    {"path": "qualification/deb-install.log", "sha256": "188b27134bf50a69d2d67197181370b81084e1e4d5825827f0b6f46f244251ab"},
+    {"path": "qualification/appimage-extracted-core.json", "sha256": "8156c6e599af612f94a568c0a2c67e4059403035090709e50187764528fcef3d"},
+    {"path": "qualification/appimage-extracted-gui.json", "sha256": "3dffdca1611cce0f99e0d109e8dc5c0cef450fd7504d96d326327d5c0a6043ed"},
+    {"path": "qualification/appimage-extracted-gui.png", "sha256": "7833f2faba853c2d720c5ca47ad564bbf42b2feee2ab734fff615eb15f0a3a96"},
+    {"path": "qualification/deb-extracted-core.json", "sha256": "f41a050781abd17a78685fd8bda5f1b43dd4c4b74b1eb35b63067e145f1b4c4d"},
+    {"path": "qualification/deb-extracted-gui.json", "sha256": "f6be366888bafa53bc2300969652cee786da759e2980250f8b2fcaa35254abe2"},
+    {"path": "qualification/deb-extracted-gui.png", "sha256": "1378d9968b7b41c9787466b363439019b8cc713d20545c6d2a4a0ed40220eb2d"},
+    {"path": "qualification/deb-installed-core.json", "sha256": "a4e6beecf0b71ada5db306cfdeb60067fea3835050611b3c5752275acec69620"},
+    {"path": "qualification/deb-installed-gui.json", "sha256": "35877e0c395b1c9bf469fe564cbae4e65c7e4b71ebab4a3d03f7df374aa4c6d1"},
+    {"path": "qualification/deb-installed-gui.png", "sha256": "d554325f909a458c96649a8e4af501542590e0592cea1889d03c5b75d8b2a352"},
+    {"path": "candidates/odin-desktop-0.1.0-candidate-amd64.deb", "bytes": 341813278, "sha256": "62529a3f86f40e558b7126f09c2602ace16f8a94f561bbd1623867bdab0e08a9"},
+    {"path": "candidates/odin-desktop-0.1.0-candidate-x86_64.AppImage", "bytes": 489722465, "sha256": "14e219f350341adbe202eac31903b86e10fa8df99f5fd98adde9baad24d19f3d"}
+  ]
+}

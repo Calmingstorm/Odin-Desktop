@@ -52,7 +52,8 @@ class ProfileOutboundWebhookDispatcher(OutboundWebhookDispatcher):
     """Retained delivery with live profile targets and one shutdown owner.
 
     Construction is inert: no keyring read, transport, background task or ingress.
-    Target qualification is atomic and repeated only when desired rows change.
+    Target qualification is atomic. Credentialed and legacy-unmarked rows are
+    requalified so locking or unlocking the vault never requires a config edit.
     """
 
     def __init__(self, get_config, *, secrets=None):
@@ -60,6 +61,7 @@ class ProfileOutboundWebhookDispatcher(OutboundWebhookDispatcher):
         self._get_config = get_config
         self._secrets = secrets
         self._adopted_rows = None
+        self._skipped_targets = []
         # Shared by qualification and management transactions, never acquired
         # on an async delivery path. Workers may not publish stale signing keys
         # across a concurrent save/rollback on this same retained owner.
@@ -79,24 +81,47 @@ class ProfileOutboundWebhookDispatcher(OutboundWebhookDispatcher):
             raise MethodError("unavailable", "outbound webhook owner is closed")
         config = deepcopy(self._get_config().outbound_webhooks)
         rows = [row.model_dump() for row in config.targets]
-        if rows != self._adopted_rows:
+        if rows != self._adopted_rows or any(
+            row.signing_key_stored is not False or row.private_url_stored is not False
+            for row in config.targets
+        ):
             candidate = OutboundWebhookDispatcher()
+            skipped = []
             for index, row in enumerate(config.targets):
                 if row.secret or urlparse(row.url).username is not None:
                     raise MethodError(
                         "unavailable", "outbound webhook secrets require keyring storage")
                 ident = _runtime_id(row, index)
+                secret = ""
+                private_url = None
                 try:
-                    secret = self._secrets.get(_secret_name(ident)) if self._secrets else ""
-                    private_url = (self._secrets.get(_url_secret_name(ident))
-                                   if self._secrets else None)
+                    if self._secrets is None and (
+                        row.signing_key_stored is not False or row.private_url_stored is not False
+                    ):
+                        raise ValueError("profile keyring is unavailable")
+                    if row.signing_key_stored is not False:
+                        secret = self._secrets.get(_secret_name(ident)) if self._secrets else None
+                        if row.signing_key_stored and not secret:
+                            raise ValueError("stored signing key is missing")
+                    if row.private_url_stored is not False:
+                        private_url = (self._secrets.get(_url_secret_name(ident))
+                                       if self._secrets else None)
+                        if row.private_url_stored and not private_url:
+                            raise ValueError("stored private URL is missing")
+                        if private_url and _public_url(private_url) != row.url:
+                            raise ValueError("stored private URL is missing or stale")
+                    secret = secret or ""
                 except Exception:
-                    raise MethodError(
-                        "unavailable", "outbound webhook keyring is unavailable") from None
+                    # Do not expose backend exception text or downgrade a signed
+                    # or authenticated target to an unsigned/public delivery.
+                    skipped.append({"id": ident, "name": row.name, "url": row.url,
+                                    "reason": "outbound webhook keyring credentials "
+                                              "are unavailable"})
+                    continue
                 try:
-                    candidate.register(**row.model_dump(exclude={"id", "secret", "url"}),
-                        url=(private_url if private_url and _public_url(private_url) == row.url
-                             else row.url), webhook_id=ident, secret=secret or "")
+                    candidate.register(**row.model_dump(exclude={
+                        "id", "secret", "url", "signing_key_stored", "private_url_stored"}),
+                        url=private_url or row.url, webhook_id=ident, secret=secret)
                 except ValueError:
                     continue
             # Config replacement/in-place edits can occur while the vault is
@@ -105,15 +130,22 @@ class ProfileOutboundWebhookDispatcher(OutboundWebhookDispatcher):
                 return None
             if self._closed:
                 raise MethodError("unavailable", "outbound webhook owner is closed")
-            self._webhooks = candidate._webhooks
+            self._webhooks = {
+                ident: self._webhooks[ident] if self._webhooks.get(ident) == target else target
+                for ident, target in candidate._webhooks.items()
+            }
             self._adopted_rows = deepcopy(rows)
+            self._skipped_targets = skipped
         self._scrub = config.scrub_secrets
         self._rate_limit_seconds = max(0.0, config.rate_limit_seconds)
         return config
 
     def get_status(self):
         self._sync()
-        return super().get_status()
+        status = super().get_status()
+        if self._skipped_targets:
+            status["skipped_webhooks"] = deepcopy(self._skipped_targets)
+        return status
 
     async def dispatch(self, event_type, data, **kwargs):
         if self._closed:
@@ -135,6 +167,10 @@ class ProfileOutboundWebhookDispatcher(OutboundWebhookDispatcher):
             await secret_call(self._sync)
             if self._closed:
                 raise MethodError("unavailable", "outbound webhook owner is closed")
+            skipped = next((row for row in self._skipped_targets
+                            if row["id"] == webhook_id), None)
+            if skipped:
+                raise MethodError("unavailable", skipped["reason"])
             return await super().send_test_event(webhook_id)
         finally:
             self._deliveries.discard(task)
@@ -170,33 +206,9 @@ class IntegrationsService:
             if callable(sync):
                 sync()
             return self.dispatcher
-        config = self.settings.config.outbound_webhooks
-        owner = OutboundWebhookDispatcher(
-            scrub_secrets=config.scrub_secrets,
-            rate_limit_seconds=config.rate_limit_seconds,
-        )
-        for index, row in enumerate(config.targets):
-            if row.secret or urlparse(row.url).username is not None:
-                # Never silently adopt imported plaintext signing credentials.
-                raise MethodError("unavailable", "outbound webhook secrets require keyring storage")
-            try:
-                secret = self.settings.secrets.get(_secret_name(_runtime_id(row, index))) or ""
-                private_url = self.settings.secrets.get(_url_secret_name(_runtime_id(row, index)))
-            except Exception:
-                raise MethodError(
-                    "unavailable", "outbound webhook keyring is unavailable",
-                ) from None
-            try:
-                owner.register(
-                    **row.model_dump(exclude={"id", "secret", "url"}),
-                    url=(private_url if private_url and _public_url(private_url) == row.url
-                         else row.url),
-                    webhook_id=_runtime_id(row, index), secret=secret,
-                )
-            except ValueError:
-                # As upstream boot does, retain invalid configured rows on disk
-                # without claiming they were adopted by the running dispatcher.
-                continue
+        owner = ProfileOutboundWebhookDispatcher(
+            lambda: self.settings.config, secrets=self.settings.secrets)
+        owner._sync()
         self.dispatcher = owner
         return owner
 
@@ -273,15 +285,24 @@ class IntegrationsService:
             target = candidate.get(old_id)
             updated = row.model_dump()
             if target is not None:
-                updated = {field: getattr(target, field) for field in updated}
+                updated = {field: getattr(target, field) for field in updated
+                           if field not in {"signing_key_stored", "private_url_stored"}}
                 # Never serialize the live signing key.
                 updated["secret"] = ""
+                updated["signing_key_stored"] = bool(target.secret)
+                updated["private_url_stored"] = urlparse(target.url).username is not None
                 if not row.id and _public_url(target.url) == row.url:
                     updated["id"] = ""
                 updated["url"] = _public_url(target.url)
             new_id = updated["id"] or uuid.uuid5(
                 uuid.NAMESPACE_URL, f"outbound-webhook:{len(rows)}:{updated['url']}"
             ).hex[:12]
+            if target is None and new_id != old_id and (
+                row.signing_key_stored is not False or row.private_url_stored is not False
+            ):
+                # A skipped target still owns vault entries under its old ID.
+                # Preserve that binding when another id-less row is removed.
+                updated["id"] = new_id = old_id
             if target is not None:
                 target.id = new_id
                 remapped[new_id] = target
@@ -298,7 +319,9 @@ class IntegrationsService:
             if old_id not in configured_ids:
                 rows.append({field: getattr(target, field) for field in (
                     "id", "created_at", *_FIELDS,
-                )} | {"secret": "", "url": _public_url(target.url)})
+                )} | {"secret": "", "url": _public_url(target.url),
+                      "signing_key_stored": bool(target.secret),
+                      "private_url_stored": urlparse(target.url).username is not None})
                 remapped[target.id] = target
                 moves[old_id] = target.id
         return rows, remapped, moves
@@ -350,14 +373,26 @@ class IntegrationsService:
             original_rows, candidate, ident=ident, deleted=deleting,
         )
         previous_targets = deepcopy(dispatcher._webhooks)
-        desired_secrets = {_secret_name(key): target.secret for key, target in targets.items()}
-        desired_secrets.update({
-            _url_secret_name(key): target.url if urlparse(target.url).username is not None else ""
-            for key, target in targets.items()
-        })
+        stored_keys = set()
+        for index, row in enumerate(original_rows):
+            old_id = _runtime_id(row, index)
+            if row.signing_key_stored is not False:
+                stored_keys.add(_secret_name(old_id))
+            if row.private_url_stored is not False:
+                stored_keys.add(_url_secret_name(old_id))
+        desired_secrets = {}
+        for key, target in targets.items():
+            for vault_key, value in (
+                (_secret_name(key), target.secret),
+                (_url_secret_name(key),
+                 target.url if urlparse(target.url).username is not None else ""),
+            ):
+                if value or vault_key in stored_keys:
+                    desired_secrets[vault_key] = value
         for old_id in previous_targets:
-            desired_secrets.setdefault(_secret_name(old_id), "")
-            desired_secrets.setdefault(_url_secret_name(old_id), "")
+            for vault_key in (_secret_name(old_id), _url_secret_name(old_id)):
+                if vault_key in stored_keys:
+                    desired_secrets.setdefault(vault_key, "")
         previous_secrets = {}
         changed_secrets = []
         persisted = False

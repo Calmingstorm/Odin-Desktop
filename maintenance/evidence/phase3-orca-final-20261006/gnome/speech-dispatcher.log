@@ -1,0 +1,15 @@
+[Tue Oct  6 07:16:58 2026 : 312572] speechd: Speech Dispatcher 0.12.0-rc2 starting
+[Tue Oct  6 07:16:58 2026 : 312711] speechd:  Configuration has been read from "/var/tmp/odq-orca-c6848e72d7164f5089a8be8f439f1d34/speech/speechd.conf"
+[Tue Oct  6 07:16:58 2026 : 312755] speechd:  Initializing output module dummy with binary /usr/lib/speech-dispatcher-modules/sd_dummy and configuration (null)
+[Tue Oct  6 07:16:58 2026 : 312763] speechd:   Output module is logging to file /var/tmp/odq-orca-c6848e72d7164f5089a8be8f439f1d34/speech/dummy.log
+[Tue Oct  6 07:16:58 2026 : 313158] speechd:  Module dummy loaded.
+[Tue Oct  6 07:16:58 2026 : 314097] speechd:  Module dummy started successfully with message: 
+---------------
+Everything ok so far.
+---------------
+
+[Tue Oct  6 07:16:58 2026 : 314274] speechd:  Error: Module reported error in request from speechd (code 3xx): 300-Opening sound device failed. Reason: server audio is not supported. 
+300 MODULE ERROR
+.
+[Tue Oct  6 07:16:58 2026 : 316355] speechd: LINE here:|200-dummy	en	none|
+[Tue Oct  6 07:16:58 2026 : 316369] speechd: LINE here:|200 OK VOICE LIST SENT|

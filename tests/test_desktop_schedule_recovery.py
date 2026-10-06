@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import aiohttp
 import pytest
 
 from src.desktop.authority import OwnerAuthority
@@ -158,7 +159,7 @@ async def test_reserved_run_keeps_destination_during_edit(graph):
 
 
 @pytest.mark.asyncio
-async def test_retained_router_no_replay_on_delivery_failure(graph):
+async def test_retained_router_delivery_failure_honors_live_retry(graph):
     from src.discord.scheduled_events import ScheduledEventHandlers, ScheduledEventsDeps
     from src.tools import ToolResult
     scheduler, _, owner, cid = graph
@@ -173,7 +174,7 @@ async def test_retained_router_no_replay_on_delivery_failure(graph):
     dispatch = AsyncMock(
         return_value=ToolResult(output="recorded", ok=True, tool_name="run_command")
     )
-    publish = AsyncMock(side_effect=RuntimeError("delivery unavailable"))
+    publish = AsyncMock(side_effect=[RuntimeError("delivery unavailable"), None])
     deps = ScheduledEventsDeps(get_config=lambda: None,
         tool_executor=SimpleNamespace(check_permission=lambda *args: None),
         audit=SimpleNamespace(log_event=AsyncMock()), llm_gateway=None,
@@ -182,8 +183,56 @@ async def test_retained_router_no_replay_on_delivery_failure(graph):
     scheduler._callback = ScheduledEventHandlers(deps)._on_scheduled_task
     await scheduler.run_now(item["id"])
     dispatch.assert_awaited_once()
-    assert scheduler.list_all()[0]["settlement"] == "unknown"
+    assert scheduler.list_all()[0]["settlement"] == "failure"
+    assert "retry_at" in scheduler.list_all()[0]
+    async with scheduler._lock:
+        records = scheduler.list_all()
+        records[0]["retry_at"] = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
+        await scheduler._publish(records)
+    await scheduler._tick()
+    assert dispatch.await_count == 2 and publish.await_count == 2
+    assert scheduler.list_all()[0]["settlement"] == "success"
     assert "retry_at" not in scheduler.list_all()[0]
+
+
+@pytest.mark.asyncio
+async def test_reminder_delivery_failure_retries_once_with_backoff(graph, monkeypatch):
+    import src.scheduler.scheduler as scheduler_module
+    from src.discord.scheduled_events import ScheduledEventHandlers, ScheduledEventsDeps
+    scheduler, _, owner, cid = graph
+    now = datetime.now(UTC)
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now if tz else now.replace(tzinfo=None)
+    monkeypatch.setattr(scheduler_module, "datetime", Clock)
+    item = await add(graph, cron="0 * * * *", max_retries=2, retry_backoff_seconds=5)
+    @asynccontextmanager
+    async def admission(schedule):
+        scheduler.assert_run_binding(schedule)
+        yield SimpleNamespace(owner_id=owner.owner_id, conversation_id=cid)
+    publish = AsyncMock(side_effect=[RuntimeError("delivery unavailable"), None])
+    handler = ScheduledEventHandlers(ScheduledEventsDeps(get_config=lambda: None,
+        tool_executor=SimpleNamespace(check_permission=lambda *args: None),
+        audit=SimpleNamespace(log_event=AsyncMock()), llm_gateway=None,
+        tool_loop=None, agent_task_tools=None, admit_schedule=admission,
+        publish_notice=publish))
+    scheduler._callback = handler._on_scheduled_task
+    await scheduler.run_now(item["id"])
+    current = scheduler.list_all()[0]
+    assert current["settlement"] == "failure" and current["retry_count"] == 1
+    assert datetime.fromisoformat(current["retry_at"]) == now + timedelta(seconds=5)
+    now += timedelta(seconds=4)
+    await scheduler._tick()
+    assert publish.await_count == 1
+    now += timedelta(seconds=1)
+    await scheduler._tick()
+    assert publish.await_count == 2
+    current = scheduler.list_all()[0]
+    assert current["settlement"] == "success" and current["retry_count"] == 0
+    assert "retry_at" not in current and not current.get("paused")
+    history = await scheduler.history.query(item["id"])
+    assert [entry["status"] for entry in history] == ["success", "failure"]
 
 
 @pytest.mark.asyncio
@@ -226,6 +275,9 @@ async def test_boot_missed_due_and_cancellation_reconciliation(graph):
     history = await recovery.invoke("schedules.history", {"id": item["id"]}, owner=owner)
     assert len(history) == 1 and history[0]["status"] == "unknown"
     assert history[0]["run_binding"] == persisted_binding
+    again._callback = AsyncMock()
+    await again._tick()
+    again._callback.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -629,14 +681,165 @@ async def test_interrupted_dedup_uses_all_binding_and_start_evidence(graph):
 
 
 @pytest.mark.asyncio
-async def test_webhook_timeout_does_not_retry(graph):
+@pytest.mark.parametrize("failure", [aiohttp.ClientConnectionError, TimeoutError])
+@pytest.mark.parametrize("max_retries", [0, 2])
+async def test_webhook_live_failures_honor_retries_and_backoff(
+    graph, monkeypatch, failure, max_retries,
+):
+    import src.scheduler.scheduler as scheduler_module
     scheduler, _, _, _ = graph
-    item = await add(graph, "webhook", webhook_config={"url": "https://example.com"}, max_retries=3)
-    scheduler._execute_webhook = AsyncMock(side_effect=TimeoutError("unknown reply"))
+    now = datetime.now(UTC)
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now if tz else now.replace(tzinfo=None)
+    monkeypatch.setattr(scheduler_module, "datetime", Clock)
+    item = await add(graph, "webhook", cron="0 * * * *",
+                     webhook_config={"url": "https://example.com"},
+                     max_retries=max_retries, retry_backoff_seconds=3)
+    scheduler._execute_webhook = AsyncMock(side_effect=failure("connection unavailable"))
     await scheduler.run_now(item["id"])
-    assert scheduler.list_all()[0]["settlement"] == "unknown"
+    for attempt in range(max_retries):
+        current = scheduler.list_all()[0]
+        assert current["settlement"] == "failure"
+        assert not current.get("paused") and "inert_reason" not in current
+        delay = 3 * 2 ** attempt
+        assert datetime.fromisoformat(current["retry_at"]) == now + timedelta(seconds=delay)
+        assert current["retry_count"] == attempt + 1
+        now += timedelta(seconds=delay - 1)
+        await scheduler._tick()
+        assert scheduler._execute_webhook.await_count == attempt + 1
+        now += timedelta(seconds=1)
+        await scheduler._tick()
+        assert scheduler._execute_webhook.await_count == attempt + 2
+    assert scheduler.list_all()[0]["settlement"] == "failure"
     assert "retry_at" not in scheduler.list_all()[0]
-    scheduler._execute_webhook.assert_awaited_once()
+    assert scheduler._execute_webhook.await_count == 1 + max_retries
+    history = await scheduler.history.query(item["id"])
+    assert len(history) == 1 + max_retries
+    assert all(entry["status"] == "failure" for entry in history)
+    assert len({entry["run_binding"]["run_id"] for entry in history}) == len(history)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action,payload", [
+    ("reminder", {}),
+    ("check", {"tool_name": "run_command", "tool_input": {"command": "example"}}),
+    ("webhook", {"webhook_config": {"url": "https://example.com"}}),
+])
+@pytest.mark.parametrize("stale_slot", [False, True])
+async def test_interrupted_recurring_run_keeps_cadence_without_replay(
+    graph, monkeypatch, action, payload, stale_slot,
+):
+    import src.scheduler.scheduler as scheduler_module
+    scheduler, service, _, _ = graph
+    item = await add(graph, action, **payload)
+    execution = copy.deepcopy(item)
+    await scheduler._mark_run_started(execution)
+    binding = copy.deepcopy(execution["run_binding"])
+    async with scheduler._lock:
+        records = scheduler.list_all()
+        records[0]["retry_at"] = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+        records[0]["retry_count"] = 1
+        if stale_slot:
+            records[0]["next_run"] = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+        await scheduler._publish(records)
+    restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    current = restarted.list_all()[0]
+    assert current["settlement"] == "unknown" and current["last_run_binding"] == binding
+    assert not current.get("paused") and "inert_reason" not in current
+    assert "retry_at" not in current and current["retry_count"] == 0
+    assert "recovery_required" not in current and "missed_run" not in current
+    assert datetime.fromisoformat(current["next_run"]) > datetime.now(UTC)
+    if not stale_slot:
+        assert current["next_run"] == item["next_run"]
+    next_slot = datetime.fromisoformat(current["next_run"])
+    recovered = ScheduleService(restarted, authority=service.authority,
+                                conversations=service.conversations)
+    await recovered.recover()
+    restarted._callback = AsyncMock()
+    restarted._execute_webhook = AsyncMock(return_value={"status_code": 200})
+    await restarted._tick()
+    restarted._callback.assert_not_awaited()
+    restarted._execute_webhook.assert_not_awaited()
+    history = await restarted.history.query(item["id"], status="unknown")
+    assert len(history) == 1 and history[0]["run_binding"] == binding
+    another = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    await another._tick()
+    assert len(await another.history.query(item["id"], status="unknown")) == 1
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return next_slot if tz else next_slot.replace(tzinfo=None)
+    monkeypatch.setattr(scheduler_module, "datetime", Clock)
+    await restarted._tick()
+    assert restarted._callback.await_count + restarted._execute_webhook.await_count == 1
+    current = restarted.list_all()[0]
+    assert current["settlement"] == "success"
+    assert current["last_run_binding"]["run_id"] != binding["run_id"]
+    assert datetime.fromisoformat(current["next_run"]) > next_slot
+
+
+@pytest.mark.asyncio
+async def test_interrupted_one_time_nonreplay_safe_uses_exact_odin_reason(graph):
+    scheduler, service, owner, cid = graph
+    item = await service.invoke("schedules.save", {
+        "description": "One time action", "action": "check", "channel_id": cid,
+        "tool_name": "run_command", "tool_input": {"command": "example"},
+        "run_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+    }, owner=owner)
+    execution = copy.deepcopy(item)
+    await scheduler._mark_run_started(execution)
+    restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    current = restarted.list_all()[0]
+    assert current["paused"] and current["settlement"] == "unknown"
+    assert current["inert_reason"] == (
+        f"One-time schedule started at {execution['run_started_at']!r} "
+        "but its completion was never recorded "
+        "(Odin stopped or could not save the result); it may have partly run, so it was not "
+        "run again. Check what it did, then set a new run_at to re-arm it"
+    )
+    restarted._callback = AsyncMock()
+    await restarted._tick()
+    restarted._callback.assert_not_awaited()
+    with pytest.raises(ValueError, match="One-time schedule started at"):
+        await restarted.run_now(item["id"])
+    history = await restarted.history.query(item["id"], status="unknown")
+    assert len(history) == 1 and history[0]["run_binding"] == execution["run_binding"]
+
+
+@pytest.mark.asyncio
+async def test_reopened_unpublished_interrupt_does_not_duplicate_history(graph):
+    scheduler, _, _, _ = graph
+    item = await add(graph)
+    execution = copy.deepcopy(item)
+    await scheduler._mark_run_started(execution)
+    for _ in range(2):
+        restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+        await restarted._tick()  # future cadence: no definition write or effect
+    history = await restarted.history.query(item["id"], status="unknown")
+    assert len(history) == 1 and history[0]["run_binding"] == execution["run_binding"]
+
+
+@pytest.mark.asyncio
+async def test_interrupted_trigger_remains_active_for_next_new_event(graph):
+    scheduler, service, _, _ = graph
+    item = await add(graph, "webhook", cron=None,
+                     trigger={"source": "generic", "event": "push"},
+                     webhook_config={"url": "https://example.com"})
+    execution = copy.deepcopy(item)
+    await scheduler._mark_run_started(execution)
+    restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    recovered = ScheduleService(restarted, authority=service.authority,
+                                conversations=service.conversations)
+    await recovered.recover()
+    assert not restarted.list_all()[0].get("paused")
+    restarted._execute_webhook = AsyncMock(return_value={"status_code": 200})
+    await restarted._tick()
+    restarted._execute_webhook.assert_not_awaited()
+    await restarted.fire_triggers("generic", {"event": "push"})
+    restarted._execute_webhook.assert_awaited_once()
+    assert restarted.list_all()[0]["settlement"] == "success"
 
 
 @pytest.mark.asyncio

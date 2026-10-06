@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import { statSync } from 'node:fs'
+import { statSync, writeFileSync } from 'node:fs'
+import { createServer, type Server } from 'node:http'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import type { ConversationSnapshot, CoreEvent } from '../src/shared/api'
 import { PROTOCOL, type Settled, type Welcome } from '../src/main/broker'
+import { AttachmentManager } from '../src/main/attachments'
 import { assertIsolated, onceEvent, RealCoreHarness, waitFor, SERVED_CAPABILITIES } from './real-core-harness'
 import { assertFreshManagementStatus, realCoreCapabilities, type RealCoreStatus } from '../src/main/real-core-smoke'
 
@@ -11,7 +14,7 @@ assertIsolated()
 
 const capabilities = SERVED_CAPABILITIES
 function successful<T>(answer: Settled): T {
-  expect(answer.ok).toBe(true)
+  expect(answer.ok, JSON.stringify(answer)).toBe(true)
   if (!answer.ok) throw new Error(`Expected a real-core receipt, got ${answer.error.code}`)
   return answer.result as T
 }
@@ -23,15 +26,20 @@ type Subscription = { event_high: string; reset_required: boolean }
 
 describe('actual app Broker ↔ repository real core', () => {
   let core: RealCoreHarness
+  let provider: Server | undefined
   beforeEach(async () => {
     core = new RealCoreHarness()
     await core.start()
   })
-  afterEach(async () => { await core?.dispose() })
+  afterEach(async () => {
+    await core?.dispose()
+    if (provider) await new Promise<void>((resolve, reject) => provider!.close((error) => error ? reject(error) : resolve()))
+    provider = undefined
+  })
 
   test('authenticates the handshake, reads real status and replays events after a cursor', async () => {
     expect(realCoreCapabilities).toEqual(SERVED_CAPABILITIES)
-    expect(realCoreCapabilities).toHaveLength(91)
+    expect(realCoreCapabilities).toHaveLength(179)
     expect(new Set(realCoreCapabilities).size).toBe(realCoreCapabilities.length)
     const { broker, welcome } = await core.connect()
     expect(welcome).toMatchObject({
@@ -52,14 +60,23 @@ describe('actual app Broker ↔ repository real core', () => {
     // A configured model label is not provider readiness. No client is available on a fresh profile.
     expect(status).toMatchObject({ model: { main: expect.any(String), provider: 'codex' },
       providers: expect.arrayContaining([{ name: 'codex', health: 'unavailable' }]) })
+    expect(status.summary).toContain('Agents active: 0')
+    expect(status.summary).toContain('Loops active: 0')
 
     const events: CoreEvent[] = []
     broker.on('event', (event: CoreEvent) => events.push(event))
     const subscribed = successful<Subscription>(await broker.request('events.subscribe', { after: '0' }))
     expect(subscribed).toEqual({ event_high: welcome.event_high, reset_required: false })
     await waitFor(() => events.length === 1, 'startup event replay')
+    // The durable startup observation precedes the current read. Uptime in
+    // the human summary is expected to advance; every stable field still
+    // matches, and the next connection must replay the exact stored event.
+    const { summary: currentSummary, ...stableStatus } = status as Status & { summary: string }
     expect(events[0]).toMatchObject({ t: 'evt', seq: 1, cursor: '1', type: 'runtime.status',
-      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: { ...status, summary: expect.any(String) } })
+      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: stableStatus })
+    const startupSummary = (events[0]!.payload as { summary: string }).summary
+    const withoutUptime = (value: string): string => value.replace(/· up \d+s/, '· up <seconds>')
+    expect(withoutUptime(startupSummary)).toBe(withoutUptime(currentSummary))
     expect(events[0]!.at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/)
     expect(Date.parse(events[0]!.at)).not.toBeNaN()
     expect(broker.cursor).toBe('1')
@@ -120,18 +137,88 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(core.running).toBe(true)
   })
 
-  test('fresh reads and unserved capabilities do not reserve command IDs', async () => {
+  test('fresh work/report/schedule reads do not reserve IDs; real schedule execution and report reads never replay effects', async () => {
     const { broker, welcome } = await core.connect()
     const id = randomUUID()
     expect(successful<Status>(await broker.request('status.get', {}, id)).core_instance_id).toBe(welcome.core.instance_id)
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '0' }, id)).reset_required).toBe(false)
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '999999' }, id)).reset_required).toBe(true)
     expect(successful<{ items: unknown[] }>(await broker.request('conversations.list', {}, id)).items).toEqual([])
-    refused(await broker.request('work.list', {}, id), 'capability_unavailable')
-    refused(await broker.request('schedules.list', {}, id), 'capability_unavailable')
+    expect(successful<unknown[]>(await broker.request('skills.list', {}, id))).toEqual([])
+    for (const method of ['mcp.list', 'mcp.status']) {
+      expect(successful(await broker.request(method, {}, id))).toMatchObject({
+        servers: [], server_count: 0, configured_servers: [], configured_server_count: 0,
+        connected_count: 0, published_tool_count: 0, started: true, closed: false
+      })
+    }
+    const computer = successful(await broker.request('computer.status', {}, id))
+    expect(computer).toMatchObject({ session: null, readiness: {
+      management_available: true, foreground_available: false, native_qualified: false,
+      input_supported: false, dispatch: 'none'
+    } })
+    expect(computer).not.toHaveProperty('input_dispatch')
+    expect(successful(await broker.request('work.list', {}, id))).toEqual({ items: [] })
+    expect(successful(await broker.request('schedules.list', {}, id))).toEqual([])
+    expect(successful(await broker.request('schedules.history', {}, id))).toEqual([])
+    expect(successful(await broker.request('schedules.validate_cron', { expression: 'invalid' }, id)))
+      .toEqual({ valid: false, next_runs: [] })
+    const cron = successful<{ valid: boolean; next_runs: string[] }>(await broker.request('schedules.validate_cron', { expression: '0 0 1 1 *' }, id))
+    expect(cron.valid).toBe(true)
+    expect(cron.next_runs).toHaveLength(5)
+    expect(cron.next_runs.every((instant) => Date.parse(instant) > Date.now())).toBe(true)
+    refused(await broker.request('reports.page', { report_id: 'absent-report', page: 1 }, id), 'not_found')
+    for (const method of ['turns.create',
+      'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
+      expect(capabilities).not.toContain(method)
+      refused(await broker.request(method, {}, id), 'capability_unavailable')
+    }
     expect(successful<{ fields: unknown[] }>(await broker.request('settings.schema', {}, id)).fields.length).toBeGreaterThan(0)
     refused(await broker.request('codex.accounts.list', {}, id), 'keyring_unavailable')
     expect(successful<{ tokens: unknown }>(await broker.request('usage.get', {}, id)).tokens).toEqual({ value: null, kind: 'unknown' })
+    // Execute only a disposable namespace-local printf, with no provider, network,
+    // real credentials, graphical input or changes to workstation services.
+    const { conversation } = successful<{ conversation: { id: string } }>(await broker.request('conversations.create', { title: 'Isolated scheduled report' }))
+    const output = JSON.stringify({ format: 'paginated_embed_v1', pages: [
+      { title: 'Retained first page', description: 'Only one execution' },
+      { title: 'Retained second page', description: 'Reading is not execution' }
+    ] })
+    const saved = successful<{ id: string }>(await broker.request('schedules.save', {
+      description: 'Disposable report check', action: 'check', channel_id: conversation.id,
+      cron: '0 0 1 1 *', cron_timezone: 'UTC', tool_name: 'run_command',
+      tool_input: { command: `printf '%s' '${output}'`, host: 'localhost' }, report_format: 'paginated_embed_v1'
+    }))
+    type Work = { id: string; kind: string; conversation_id: string; actions: string[]; detail: { revision: number } }
+    const work = successful<{ items: Work[] }>(await broker.request('work.list', { kind: 'schedule' }, id)).items
+    expect(work).toHaveLength(1)
+    expect(work[0]).toMatchObject({ kind: 'schedule', conversation_id: conversation.id, state: 'scheduled',
+      actions: expect.arrayContaining(['pause', 'cancel', 'run_now']) })
+    const control = { control_command_id: randomUUID(), kind: 'schedule', id: work[0]!.id, action: 'run_now', revision: work[0]!.detail.revision }
+    expect(successful(await broker.request('work.control', { ...control, control_command_id: randomUUID(), revision: -1 })))
+      .toMatchObject({ disposition: 'not_available' })
+    expect(successful(await broker.request('schedules.history', { id: saved.id }, id))).toEqual([])
+    const ran = await broker.request('work.control', control)
+    expect(successful(ran)).toMatchObject({ disposition: 'done', schedule: { status: 'success', schedule_id: saved.id } })
+    expect(await broker.request('work.control', control)).toEqual(ran)
+    refused(await broker.request('work.control', { ...control, action: 'cancel' }), 'id_conflict')
+    const history = successful<Array<{ status: string }>>(await broker.request('schedules.history', { id: saved.id }, id))
+    expect(history).toHaveLength(1)
+    expect(history[0]).toMatchObject({ status: 'success' })
+    const snapshot = successful<ConversationSnapshot>(await broker.request('conversation.snapshot', { conversation_id: conversation.id }, id))
+    const reports = snapshot.messages.items.flatMap((message) => message.artifacts ?? []).filter((artifact) => artifact.kind === 'report')
+    expect(reports).toHaveLength(1)
+    const pageParams = { report_id: reports[0]!.ref, page: 2 }
+    const page = successful(await broker.request('reports.page', pageParams, id))
+    expect(page).toMatchObject({ page: 2, pages: 2, text: expect.stringContaining('Retained second page') })
+    expect(successful(await broker.request('reports.page', pageParams, id))).toEqual(page)
+    refused(await broker.request('reports.page', { ...pageParams, page: 3 }, id), 'bad_request')
+    expect(successful(await broker.request('schedules.history', { id: saved.id }, id))).toEqual(history)
+    expect(successful(await broker.request('schedules.list', {}, id))).toEqual([
+      expect.objectContaining({ id: saved.id, channel_id: conversation.id, action: 'check' })
+    ])
+    successful(await broker.request('schedules.delete', { id: saved.id }))
+    expect(successful(await broker.request('schedules.list', {}, id))).toEqual([])
+    // Reports remain readable after definition deletion; no schedule can run again.
+    expect(successful(await broker.request('reports.page', pageParams, id))).toEqual(page)
     expect(await broker.request('runtime.shutdown', { reason: 'read ID is still available' }, id)).toEqual({
       ok: true, result: { disposition: 'accepted' }
     })
@@ -218,6 +305,85 @@ describe('actual app Broker ↔ repository real core', () => {
       .toContainEqual({ name: 'codex', health: 'unavailable' })
   })
 
+  test('real uploaded attachment with add_to_knowledge commits an assistant reply and completes the request', async () => {
+    expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
+    core = new RealCoreHarness({ memoryKeyring: true })
+    await core.start()
+
+    // Only the external model boundary is synthetic. This remains the actual repository core,
+    // with the app Broker and AttachmentManager performing the real upload and submission.
+    const modelInputs: string[] = []
+    provider = createServer(async (request, response) => {
+      if (request.method !== 'POST' || request.url !== '/api/chat') {
+        response.statusCode = 404
+        response.end()
+        return
+      }
+      const chunks: Buffer[] = []
+      for await (const chunk of request) chunks.push(Buffer.from(chunk))
+      const payload = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+        tools?: unknown[]; messages: { role: string; content: string }[] }
+      if (payload.tools) modelInputs.push(payload.messages.filter((message) => message.role === 'user')
+        .map((message) => message.content).join('\n'))
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(JSON.stringify({ model: 'contract-model', done: true, done_reason: 'stop',
+        message: { role: 'assistant', content: payload.tools ? 'I reviewed the uploaded note.' : 'COMPLETE' },
+        prompt_eval_count: 12, eval_count: 10 }))
+    })
+    await new Promise<void>((resolve) => provider!.listen(0, '127.0.0.1', resolve))
+    const address = provider.address()
+    if (!address || typeof address === 'string') throw new Error('Missing deterministic provider port')
+
+    const { broker } = await core.connect()
+    const schema = successful<{ revision: string }>(await broker.request('settings.schema'))
+    successful(await broker.request('providers.ollama.set', { expected_revision: schema.revision,
+      changes: [{ path: 'ollama.model', value: 'contract-model' },
+        { path: 'ollama.base_url', value: `http://127.0.0.1:${address.port}` },
+        { path: 'ollama.enabled', value: true }] }))
+    const configured = successful<{ revision: string }>(await broker.request('settings.schema'))
+    successful(await broker.request('models.main.set', { model: 'ollama:contract-model',
+      expected_revision: configured.revision }))
+
+    const created = successful<{ conversation: { id: string } }>(await broker.request(
+      'conversations.create', { title: 'uploaded attachment knowledge contract' }, randomUUID()))
+    const file = join(core.root, 'real-upload.txt')
+    writeFileSync(file, 'A deterministic note uploaded through the real attachment manager.\n')
+    const manager = new AttachmentManager(broker, () => ({ attachment_bytes: 50 * 1024 * 1024, chunk_bytes: 512 * 1024 }))
+    const staged = await manager.stagePath(file)
+    expect(staged.ok).toBe(true)
+    if (!staged.ok) throw new Error(`Could not stage attachment: ${staged.error.code}`)
+    const uploaded = await manager.upload(staged.result.id, created.conversation.id)
+    expect(uploaded.ok).toBe(true)
+    if (!uploaded.ok) throw new Error(`Could not upload attachment: ${uploaded.error.code}`)
+
+    const events: CoreEvent[] = []
+    broker.on('event', (event: CoreEvent) => events.push(event))
+    successful(await broker.subscribe())
+    const submission = { client_submission_id: randomUUID(), conversation_id: created.conversation.id,
+      text: 'Review this note.', attachments: [{ ref: uploaded.result.ref, add_to_knowledge: true }] }
+    const accepted = successful<{ disposition: string; request_id: string; message_id: string }>(await broker.request(
+      'submission.send', submission, randomUUID()))
+    expect(accepted).toMatchObject({ disposition: 'accepted', request_id: expect.stringMatching(/^r_/),
+      message_id: expect.stringMatching(/^m_/) })
+    await waitFor(() => events.some((event) => event.type === 'request.completed' &&
+      event.payload.request_id === accepted.request_id), 'real attachment request completion')
+
+    const snapshot = successful<ConversationSnapshot>(await broker.request('conversation.snapshot', {
+      conversation_id: created.conversation.id }))
+    expect(snapshot).toMatchObject({ running: null, queued: [], unresolved: [], recent: [
+      { request_id: accepted.request_id, generation: 1, outcome: 'completed', unknown_effects: 0 }
+    ] })
+    expect(snapshot.messages.items.map(({ role, text, request_id }) => ({ role, text, request_id }))).toEqual([
+      { role: 'user', text: submission.text, request_id: accepted.request_id },
+      { role: 'assistant', text: 'I reviewed the uploaded note.', request_id: accepted.request_id }
+    ])
+    expect(snapshot.messages.items[0]).toMatchObject({ id: accepted.message_id,
+      attachments: [{ ref: uploaded.result.ref, name: 'real-upload.txt', mime: 'text/plain' }] })
+    expect(events.some((event) => event.type === 'request.failed' && event.payload.request_id === accepted.request_id)).toBe(false)
+    expect(modelInputs).toContainEqual(expect.stringContaining(
+      '**Attached file: real-upload.txt**\n```\nA deterministic note uploaded through the real attachment manager.\n\n```\n[File read for current task. User requested knowledge ingestion; use ingest_document if appropriate.]'))
+  })
+
   test('closing the parent stdin pipe exits orderly and releases the profile for a successor', async () => {
     const { broker, welcome } = await core.connect()
     expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
@@ -256,7 +422,8 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
     await waitFor(() => events.length === 1, 'old incarnation quiescing event')
     expect(broker.cursor).toBe('2')
-    const changed = onceEvent<string>(broker, 'core-changed')
+    // Observe the 25s cold-start harness plus the unchanged 5s handshake under load; never repeat startup.
+    const changed = onceEvent<string>(broker, 'core-changed', 35_000)
     await core.start()
     const newInstance = await changed
     expect(newInstance).not.toBe(welcome.core.instance_id)
@@ -283,7 +450,8 @@ describe('actual app Broker ↔ repository real core', () => {
     const id = randomUUID()
     successful(await broker.request('status.get', {}, id))
     expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
-    const next = onceEvent<string>(broker, 'core-changed')
+    // This event wait starts before cold startup too; bound observation above its startup/handshake budgets.
+    const next = onceEvent<string>(broker, 'core-changed', 35_000)
     await core.start()
     const nextInstance = await next
     expect(successful<Status>(await broker.request('status.get', {}, id)).core_instance_id).toBe(nextInstance)

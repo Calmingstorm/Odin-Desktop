@@ -1,0 +1,300 @@
+{
+  "version": 1,
+  "status": "restored-with-one-case-level-removed-identity-retirement",
+  "review": "/home/odin/reviews/desktop-pr35-review.md",
+  "review_disposition": "Claude, review of #35: adapt session search and attachments; approved safe zip-slip fixture substitution",
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "adapter": {
+    "path": "tests/desktop_adapters/step8_review_search_attachments.py",
+    "sha256": "10c7255ea31630feb967d7075b1afee421b147faa60a675772eca8f5a0afbd97"
+  },
+  "wrapper": {
+    "path": "tests/test_desktop_step8_review_search_attachments_corpus.py",
+    "sha256": "bdf1a497b66c0c0b782d367c275c31121d2cc29f79970925b8d69dbd4be2405f"
+  },
+  "selector_rule": {
+    "baseline": "{suite_path}::{case_id}",
+    "executable": "tests/test_desktop_step8_review_search_attachments_corpus.py::Test_{suite_stem}_{class_name_without_Test}::{method_name}",
+    "selection": "104 retained original cases executed; one explicit removed API-identity retirement; no skips, xfails or weakened assertions. Complete original AST and corpus verified before executable retirement."
+  },
+  "suites": [
+    {
+      "path": "tests/test_session_search.py",
+      "stem": "test_session_search",
+      "source_sha256": "38aa1cce39048336ef77697cade3d9d6f964e294fa8b9daed24a50600ab0c292",
+      "case_count": 54,
+      "assertion_count": 93,
+      "corpus_sha256": "62817792ad18d6876c5203579ff604941496845483a2d7f1ea32c668b452fd45",
+      "original_ast_sha256": "cb5c5e62c0e08aaddbb5ea64d918474f17fd7a30b5e8a26c58f9ff3d58f606f6",
+      "adapted_ast_sha256": "0e263cda50f96c0710265a76a9a7281b1f57406e78588db8dd31ddad6b1b3953",
+      "case_ids": [
+        "TestSearchHistoryBasic::test_empty_sessions_returns_empty",
+        "TestSearchHistoryBasic::test_finds_matching_message_content",
+        "TestSearchHistoryBasic::test_finds_matching_summary",
+        "TestSearchHistoryBasic::test_respects_limit",
+        "TestSearchHistoryBasic::test_returns_user_id_in_results",
+        "TestSearchHistoryChannelFilter::test_filter_by_channel_id",
+        "TestSearchHistoryChannelFilter::test_channel_filter_no_match",
+        "TestSearchHistoryChannelFilter::test_channel_filter_on_summary",
+        "TestSearchHistoryUserFilter::test_filter_by_user_id",
+        "TestSearchHistoryUserFilter::test_user_filter_skips_assistant",
+        "TestSearchHistoryUserFilter::test_user_filter_no_match",
+        "TestSearchHistoryTimeFilter::test_after_filter",
+        "TestSearchHistoryTimeFilter::test_before_filter",
+        "TestSearchHistoryTimeFilter::test_after_and_before_combined",
+        "TestSearchHistoryTimeFilter::test_time_filter_on_summary",
+        "TestSearchHistoryTimeFilter::test_time_filter_on_summary_passes",
+        "TestSearchHistoryCombinedFilters::test_channel_and_user",
+        "TestSearchHistoryCombinedFilters::test_all_filters",
+        "TestSearchArchivesFiltered::test_archive_channel_filter",
+        "TestSearchArchivesFiltered::test_archive_user_filter",
+        "TestSearchArchivesFiltered::test_archive_time_after_filter",
+        "TestSearchArchivesFiltered::test_archive_time_before_filter",
+        "TestSearchArchivesFiltered::test_archive_returns_user_id",
+        "TestSearchArchivesFiltered::test_archive_summary_time_filter",
+        "TestSearchArchivesFiltered::test_archive_summary_passes_time_filter",
+        "TestSearchHistoryArchiveIntegration::test_search_includes_archives",
+        "TestSearchHistoryArchiveIntegration::test_archive_respects_channel_filter",
+        "TestSearchHistoryArchiveIntegration::test_archive_respects_user_filter",
+        "TestFTSSearchSessionsChannelFilter::test_unfiltered_returns_all",
+        "TestFTSSearchSessionsChannelFilter::test_filtered_by_channel",
+        "TestFTSSearchSessionsChannelFilter::test_filter_no_match",
+        "TestFTSSearchSessionsChannelFilter::test_returns_snippet_markers",
+        "TestSearchHistoryHybridFiltering::test_hybrid_results_filtered_by_channel",
+        "TestSearchHistoryHybridFiltering::test_hybrid_results_filtered_by_time",
+        "TestSearchHistoryHybridFiltering::test_channel_log_results_filtered_by_channel",
+        "TestSearchHistoryHybridFiltering::test_channel_log_fts_called_with_channel_id",
+        "TestSessionSearchAPI::test_missing_query_returns_400",
+        "TestSessionSearchAPI::test_empty_query_returns_400",
+        "TestSessionSearchAPI::test_basic_search_returns_results",
+        "TestSessionSearchAPI::test_search_with_channel_filter",
+        "TestSessionSearchAPI::test_search_with_user_filter",
+        "TestSessionSearchAPI::test_search_with_time_filters",
+        "TestSessionSearchAPI::test_limit_parameter",
+        "TestSessionSearchAPI::test_limit_capped_at_50",
+        "TestSessionSearchAPI::test_invalid_time_params_ignored",
+        "TestSessionSearchAPI::test_response_structure",
+        "TestSearchEdgeCases::test_case_insensitive_search",
+        "TestSearchEdgeCases::test_empty_message_content",
+        "TestSearchEdgeCases::test_content_truncated_to_500",
+        "TestSearchEdgeCases::test_multiple_channels_mixed",
+        "TestSearchEdgeCases::test_search_backward_compat_no_filters",
+        "TestSearchEdgeCases::test_archive_no_archive_dir",
+        "TestSearchEdgeCases::test_summary_without_provenance_filtered_by_user_id",
+        "TestSearchEdgeCases::test_search_history_deduplication"
+      ],
+      "adaptation_hunks": [
+        {
+          "line": 17,
+          "symbol": "<module>",
+          "before_ast_sha256": "a4c9ffaa0ad4b0d5f73d26288eb4909a6de85c114195ec40be4767111b566dfd",
+          "after_ast_sha256": "4d14a2beb2db8e9198b11a8cac4e02ccba93e02a298b325b26d3cff72b1661ac",
+          "after_source": "from tests.desktop_adapters.step8_review_search_attachments import SearchClient as TestClient, SearchServer as TestServer",
+          "reason": "Replace obsolete HTTP transport client/server with wire projection onto real TranscriptSearch.handle(search.query). No HTTP route implemented."
+        },
+        {
+          "line": 498,
+          "symbol": "_make_bot",
+          "before_ast_sha256": "8084b96af3bb7b2108b646f367ec931d4db85a2e652f9a12bf2d9853b39d767b",
+          "after_ast_sha256": "1c7d9a0b266600a3687f30194d617e9ff8387f019e2b920f82361ab650036e4b",
+          "after_source": "def _make_bot(tmp_path):\n    return DesktopSearchFixture(tmp_path)",
+          "reason": "Replace mock bot authority with actual OwnerAuthority/PermissionManager and durable RequestService admission. User labels in original seed records do not impersonate authority."
+        },
+        {
+          "line": 510,
+          "symbol": "_make_app",
+          "before_ast_sha256": "db6f23231b534fcc9e88747ac8f437fe11d2bf8122d8e85a3f6ef608bc9b1e48",
+          "after_ast_sha256": "cd656c0a4cdeff20d703ba3fd8bb969414fbd362258d0d703a370fa67e06a8f5",
+          "after_source": "def _make_app(bot):\n    return bot",
+          "reason": "Remove nonexistent src.web.api composition; return actual durable desktop test graph."
+        }
+      ],
+      "result": {"passed_original_cases": 53, "failed_original_cases": 0, "retired_original_cases": 1, "restoration_qualified": true}
+    },
+    {
+      "path": "tests/test_attachments.py",
+      "stem": "test_attachments",
+      "source_sha256": "fd45c95e1c4ea5c2d0bca39bf8809b1912194695523973ebf0d8370bc58743f6",
+      "case_count": 51,
+      "assertion_count": 75,
+      "corpus_sha256": "36604805d46052ead84848ec31d0210d89ec2224eff1c9c868b33d8fb858d110",
+      "original_ast_sha256": "61906046f71388c0c87e74bfaabf4f03a288c76a81afa35da87ca3332b836575",
+      "adapted_ast_sha256": "55f8eac2e1c6a4cac1016da4ab0a1416684b4722ac09f266390b5c25688ff4c2",
+      "case_ids": [
+        "TestIntentClassifier::test_ingest_keyword",
+        "TestIntentClassifier::test_add_to_knowledge",
+        "TestIntentClassifier::test_remember_this",
+        "TestIntentClassifier::test_debug_keyword",
+        "TestIntentClassifier::test_here_are_logs",
+        "TestIntentClassifier::test_review_keyword",
+        "TestIntentClassifier::test_neutral_message",
+        "TestIntentClassifier::test_assistant_asked_for_file",
+        "TestSafeFilename::test_normal",
+        "TestSafeFilename::test_spaces",
+        "TestSafeFilename::test_path_traversal",
+        "TestSafeFilename::test_long_name",
+        "TestPreviewText::test_short_text_unchanged",
+        "TestPreviewText::test_log_head_tail",
+        "TestPreviewText::test_txt_truncation",
+        "TestAttachmentProcessor::test_small_text_inlined_no_ingestion",
+        "TestAttachmentProcessor::test_md_no_ingestion_hint",
+        "TestAttachmentProcessor::test_log_head_tail_preview",
+        "TestAttachmentProcessor::test_zip_saved_and_listed",
+        "TestAttachmentProcessor::test_zip_path_traversal_blocked",
+        "TestAttachmentProcessor::test_binary_saved_to_workspace",
+        "TestAttachmentProcessor::test_image_produces_vision_block",
+        "TestAttachmentProcessor::test_ingest_intent_produces_marker_not_auto_ingest",
+        "TestAttachmentProcessor::test_filename_sanitized_in_workspace",
+        "TestWorkspaceCleanup::test_cleanup_old_dirs",
+        "TestWorkspaceCleanup::test_cleanup_missing_dir",
+        "TestPureHelpers::test_detect_image_type",
+        "TestPureHelpers::test_get_ext_and_archive",
+        "TestPureHelpers::test_is_text_file",
+        "TestPureHelpers::test_infer_intent_default",
+        "TestImageHandler::test_size_limit",
+        "TestImageHandler::test_jpg_alias",
+        "TestImageHandler::test_read_failure",
+        "TestPdfHandler::test_size_limit",
+        "TestPdfHandler::test_success_with_fake_fitz",
+        "TestPdfHandler::test_failure",
+        "TestTextAndBinaryFailures::test_text_read_failure",
+        "TestTextAndBinaryFailures::test_binary_read_failure",
+        "TestArchiveExtended::test_archive_size_limit",
+        "TestArchiveExtended::test_tar_extract",
+        "TestArchiveExtended::test_corrupt_archive_fails",
+        "TestArchiveExtended::test_extract_zip_too_many_files",
+        "TestArchiveExtended::test_extract_zip_too_large",
+        "TestArchiveExtended::test_preview_archive_files",
+        "TestArchiveExtended::test_preview_skips_large_and_empty",
+        "TestArchiveExtended::test_extract_tar_too_many_files",
+        "TestArchiveExtended::test_extract_tar_unsafe_entry_blocked",
+        "TestArchiveExtended::test_extract_tar_too_large",
+        "TestArchiveExtended::test_preview_stops_at_total_cap",
+        "TestProcessPdfDispatch::test_pdf_routed_through_process",
+        "TestCleanupEdges::test_skips_non_directories"
+      ],
+      "adaptation_hunks": [
+        {
+          "line": 149,
+          "symbol": "TestAttachmentProcessor.test_zip_path_traversal_blocked",
+          "before_ast_sha256": "7907974429eb4882fb60a2e21090f0ccd3f7f766d4ac0ea423d058e4ea735925",
+          "after_ast_sha256": "99f9600fe801b37a15adad0eac74e176015b053e82a7957e5517e12577a78fb8",
+          "after_source": "zf.writestr(\"../../escape.txt\", \"pwned\")",
+          "reason": "Claude-approved safe zip-slip member substitution; same traversal rejection property."
+        },
+        {
+          "line": 151,
+          "symbol": "TestAttachmentProcessor.test_zip_path_traversal_blocked",
+          "before_ast_sha256": "b9f4f63829147d494ae45062321c940e38f2294d9ea6800082b94e4c484465f3",
+          "after_ast_sha256": "166e7cbc97a892b148136586a3656c254a71a69ce6d228a15f77f2d01ab6af14",
+          "after_source": "proc = AttachmentProcessor(temp_dir=str(tmp_path / \"nested\" / \"sandbox\" / \"workspace\"))",
+          "reason": "Actual extraction root is nested/sandbox/workspace/ch1/msg1/evil.zip.extracted; naive ../../escape.txt resolves to nested/sandbox/workspace/ch1/escape.txt inside tmp_path."
+        }
+      ],
+      "containment_proof": {
+        "selector": "tests/test_desktop_step8_review_search_attachments_corpus.py::test_review_safe_zip_fixture_preserves_original_containment_property",
+        "checks": ["naive traversal destination inside tmp_path", "naive destination outside extraction", "real _extract_zip returns false and BLOCKED", "no traversal destination created", "complete tmp_path regular-file inventory unchanged"],
+        "result": "passed"
+      },
+      "result": {"passed_original_cases": 51, "failed_original_cases": 0, "restoration_qualified": true}
+    }
+  ],
+  "proofs": {
+    "source_hash_verification": "frozen_source verifies archive SHA256 plus retained original byte equality; pinned_tree verifies each suite SHA256",
+    "corpus_equality": "all 105 original signatures/decorators/parameterizations and 168 assertions identical in adapted AST before one explicitly recorded executable retirement",
+    "full_ast_reverse_replay": "each exact setup replacement restored; complete original AST equality checked before execution",
+    "mutation_guards": "hash drift, setup-location drift, unadmitted suite, assertion, signature, decorator, parameterization and non-assertion behavior drift all rejected",
+    "owner": "actual temporary OwnerAuthority authenticated from non-root effective UID, actual PermissionManager request context, actual RequestService admission; no fabricated OwnerContext or __new__ runner",
+    "transport": "q/query, channel_id/conversation_id aliases, numeric wire conversion and output projection. Parent-approved legacy HTTP limit clamping to 50 at transport boundary; actual desktop strict limit validation preserved. No adapter-side search/filter/sorting. Invalid legacy time strings omitted, matching original HTTP convention. Delegation and actual 50-result cap verified."
+  },
+  "case_level_retirements": [{
+    "case": "TestSessionSearchAPI.test_search_with_user_filter",
+    "reviewer": "Claude, review of #35",
+    "reason": "Removed API identity surface: REST selects Bob from Alice/Bob messages; desktop one canonical installation owner, no multi-user participant/API identity metadata; fabricating seed identities as authority does not preserve meaning; copied engine user-provenance cases remain restored.",
+    "source_path": "tests/test_session_search.py",
+    "source_sha256": "38aa1cce39048336ef77697cade3d9d6f964e294fa8b9daed24a50600ab0c292"
+  }],
+  "resolved_original_failures": [
+    {
+      "case": "tests/test_session_search.py::TestSessionSearchAPI::test_search_with_user_filter",
+      "executable_selector": "tests/test_desktop_step8_review_search_attachments_corpus.py::Test_test_session_search_SessionSearchAPI::test_search_with_user_filter",
+      "observed": "search.query ignores user_id and returns both admitted messages, count 2 instead of 1",
+      "disposition": "case-level removed multi-user API-identity retirement, complete original AST/corpus remains verified before executable exclusion"
+    },
+    {
+      "case": "tests/test_session_search.py::TestSessionSearchAPI::test_search_with_time_filters",
+      "executable_selector": "tests/test_desktop_step8_review_search_attachments_corpus.py::Test_test_session_search_SessionSearchAPI::test_search_with_time_filters",
+      "observed": "search.query ignores after/before and returns count 2 instead of 1 for after filter",
+      "disposition": "parent-authorized src/desktop/search.py production change: inclusive numeric after/before timestamp filters before pagination, optional genuine role filter, strict validation; original case and new behavioral/validation tests pass"
+    },
+    {
+      "case": "tests/test_session_search.py::TestSessionSearchAPI::test_limit_capped_at_50",
+      "executable_selector": "tests/test_desktop_step8_review_search_attachments_corpus.py::Test_test_session_search_SessionSearchAPI::test_limit_capped_at_50",
+      "observed": "search.query rejects 100 as bad_request; original API expected clamping and success",
+      "disposition": "parent-authorized legacy HTTP limit clamp to 50 only at wire translation boundary; product remains strict. Original case plus actual 55-hit/50-result cap and strict IPC51/100 rejection tests pass"
+    }
+  ],
+  "historical_pre_fix_results": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_search_attachments_corpus.py",
+    "process_pid": 508060,
+    "output_cursor": "847982b989712d84689d2457352ae758:0",
+    "passed": 116,
+    "failed": 3,
+    "additional_wrapper_proof_cases": 14,
+    "seconds": 7.01,
+    "exit_code": 1,
+    "isolation": "runner sudo unshare --mount --pid --fork --mount-proc --kill-child; sudo -u odin env -i; private HOME/XDG; no DISPLAY/session variables; explicit targeted selection"
+  },
+  "attachments_and_proofs_targeted_result": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_search_attachments_corpus.py -k 'not Test_test_session_search'",
+    "passed": 65,
+    "deselected": 54,
+    "seconds": 6.34,
+    "exit_code": 0,
+    "process_pid": 516858,
+    "output_cursor": "74be30b858fc34d27054a1fb024e6b8a:0",
+    "meaning": "All 51 inherited attachment cases plus all 14 independent provenance/owner/containment/delegation proofs passed. The 54 search cases were explicitly unselected for this separate run, not removed from the adapter."
+  },
+  "candidate_record_verification": {
+    "result": "passed",
+    "checks": ["archive SHA256", "adapter and wrapper SHA256", "all 105 baseline/executable selector associations", "168 original assertions", "all five exact before/after adaptation hunks", "corpus SHA256 values", "original/adapted AST SHA256 values", "full AST reverse replay", "parent phase2_suites._full_adapter accepts both search and attachment declarations with exact retirement pins"]
+  },
+  "source_delta_for_parent_ledger": {
+    "path": "src/desktop/search.py",
+    "ownership": "desktop-native module, not a copied upstream Odin module",
+    "before_sha256": "6f1bfa35ce824b4971c3e3d9f34b7b8bd8e6d9954b3d56cc5e2b20f3a866c5d1",
+    "after_sha256": "e8cab1418b5260305328d4aa34ea981bc264067ec251716852fc77033c944b02",
+    "description": "Parent-authorized retained search timestamp/role filters: finite numeric inclusive after/before and validated user/assistant/notice role, filter before pagination; unknown extra keys and strict desktop IPC limit contract preserved.",
+    "copied_engine_deltas": [],
+    "note": "No copied Odin module changed by this task; parent may record native Desktop delta. Shared ledger intentionally not edited."
+  },
+  "production_source_hashes_at_test": {
+    "src/desktop/search.py": "e8cab1418b5260305328d4aa34ea981bc264067ec251716852fc77033c944b02",
+    "src/desktop/requests.py": "fe47d2cbac46ece28d03cad5bad7a9772ff7fc9969d8687731f0bcb85358c411",
+    "src/discord/attachments.py": "b527d67f9fc295fe54a27a0246a0db8b6a7c9273a48ce6fc7da23442ef85d318",
+    "src/sessions/manager.py": "e9409e37787e6a10deb3348f429f6801dbc8817cf5eea0871de3dd590ab909ac"
+  },
+  "limitations": [
+    "104 retained inherited cases and all 25 independent proofs pass; one original multi-user API-identity case explicitly retired.",
+    "44 engine SessionManager/FullTextIndex cases retain actual copied engine targets; 10 former REST API cases are projected onto actual durable desktop search.query. Passing copied-engine tests do not imply missing desktop filters exist.",
+    "Single-owner admission deliberately does not preserve fictional multi-user seed identity as authority.",
+    "Invalid legacy time strings are omitted at transport boundary; genuine product timestamps use finite int/float values and invalid types fail closed. Unknown unrecognized params retain existing behavior.",
+    "Parent-authorized src/desktop/search.py production change only; no original-test edits, shared maps, qualification files, ledger changes, scripts, other adapter edits, full qualification, live installs/state/services or native desktop operations made by this task.",
+    "All changes left uncommitted; integration and final dispositions belong to parent."
+  ],
+  "results": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_search_attachments_corpus.py tests/test_desktop_conversation_search.py tests/test_desktop_core_search.py",
+    "process_pid": 560016,
+    "output_cursor": "393bd96ef6cd619c2412f4f0bd56ef21:0",
+    "passed": 185,
+    "failed": 0,
+    "retained_inherited_cases": 104,
+    "retired_inherited_cases": 1,
+    "additional_wrapper_proof_cases": 25,
+    "existing_desktop_search_regressions": 56,
+    "seconds": 19.69,
+    "exit_code": 0,
+    "isolation": "runner sudo unshare --mount --pid --fork --mount-proc --kill-child; sudo -u odin env -i; private HOME/XDG; no DISPLAY/session variables; explicit targeted selection"
+  }
+}

@@ -4,7 +4,7 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, chmodSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 const appDir = resolve(import.meta.dirname, '..')
 const root = mkdtempSync(join(tmpdir(), 'odin-smoke-'))
@@ -15,7 +15,7 @@ const out = process.env.ODIN_SMOKE_OUT || join(root, 'smoke.png')
 
 // Do not inherit workstation credentials, desktop/session endpoints or arbitrary
 // Node/Electron flags. This gate supplies its own private bus and X server.
-const env = { PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8' }
+const env = { PATH: `${dirname(process.execPath)}:/usr/local/bin:/usr/bin:/bin`, LANG: 'C.UTF-8' }
 if (process.env.ODIN_SMOKE_MESSAGE) env.ODIN_SMOKE_MESSAGE = process.env.ODIN_SMOKE_MESSAGE
 Object.assign(env, {
   HOME: root,
