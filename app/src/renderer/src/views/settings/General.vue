@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { NotificationChange } from '../../../../shared/api'
+import ReleaseNotice from '../../components/ReleaseNotice.vue'
 import { setAutostart, state } from '../../store'
 
 // The app's own settings, kept by the app rather than the core: startup and desktop notifications (D13).
@@ -20,6 +21,7 @@ function quiet(key: 'start' | 'end', event: Event): void {
 </script>
 
 <template>
+  <ReleaseNotice />
   <section class="panel app-settings" aria-label="This app">
     <header class="panel-head">
       <h3>This app</h3>

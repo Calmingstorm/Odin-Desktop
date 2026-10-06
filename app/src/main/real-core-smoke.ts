@@ -67,6 +67,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(status.core_instance_id, broker.coreInstanceId)
   assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? '0.1.0.dev1')
   for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
+    'conversations.list', 'conversations.create', 'messages.list', 'conversation.snapshot', 'search.query',
+    'submission.send', 'control.stop', 'control.steer', 'control.resume',
     'tools.list', 'tools.timeouts.get', 'personality.get', 'hosts.list', 'hosts.public_key',
     'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get',
     'skills.list', 'mcp.list', 'mcp.status', 'computer.status']) {
@@ -77,6 +79,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   // management being served does not grant skill execution or native input.
   for (const method of ['work.list', 'schedules.list', 'turns.create', 'skills.test',
     'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
+    assert(!status.capabilities.includes(method), `${method} must not be advertised as served`)
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
@@ -182,6 +185,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   const emptySnapshot = await broker.request('conversation.snapshot', { conversation_id: conversationId })
   assert(emptySnapshot.ok, 'new conversation snapshot must be served')
   assert.deepEqual((emptySnapshot.result as { messages: { items: unknown[] } }).messages.items, [])
+  const emptyMessages = await broker.request('messages.list', { conversation_id: conversationId, limit: 100 })
+  assert(emptyMessages.ok, 'real empty transcript must succeed')
+  assert.deepEqual((emptyMessages.result as { items: unknown[] }).items, [])
   screens.push({ screen: 'Conversation sidebar', text: await text('nav[aria-label="Conversations"]') })
 
   // Slash commands remain useful without a provider. Exercise the actual command
@@ -215,8 +221,12 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   })()`)
   await until(async () => (await text('.search-panel .search-note')).includes('No matches.'), 'served empty conversation search')
   assert.equal(await count('#conversation-search-error'), 0, 'served search must not claim capability refusal')
-  screens.push({ screen: 'Search', text: await text('.search-panel') })
   assert.equal(await run('document.querySelectorAll(".search-hits li").length'), 0)
+  const searched = await broker.request('search.query', { query: 'smoke query' })
+  assert(searched.ok, 'real search must succeed')
+  assert.deepEqual((searched.result as { hits: unknown[] }).hits, [])
+  assert.equal((searched.result as { next_cursor: string | null }).next_cursor, null)
+  screens.push({ screen: 'Search', text: await text('.search-panel') })
   await click('.work-toggle')
   await recordUnavailable('Work', '.work-panel')
   assert.equal(await run('document.querySelectorAll(".work-item").length'), 0)
@@ -334,6 +344,17 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     writeFileSync(out.replace(/\.png$/i, '') + `-settings-${i + 1}.png`, (await win.webContents.capturePage()).toPNG())
   }
   writeFileSync(out.replace(/\.png$/i, '') + '-settings.png', (await win.webContents.capturePage()).toPNG())
+  // Served controls fence a missing request without invoking desktop input or a provider.
+  for (const method of ['control.stop', 'control.steer', 'control.resume']) {
+    const controlled = await broker.request(method, {
+      control_command_id: `smoke-${method}`, conversation_id: conversationId,
+      request_id: 'r_missing_smoke', generation: 1,
+      ...(method === 'control.steer' ? { text: 'smoke steering' } : {})
+    })
+    assert.deepEqual(controlled, { ok: true, result: method === 'control.resume'
+      ? { disposition: 'rejected', reason: 'stale_binding' } : { disposition: 'stale_binding' } },
+    `${method} must serve its concrete request-binding disposition`)
+  }
   // Keep provider failure after the fresh management/empty-log checkpoints:
   // executing a real request legitimately records its failure in core logs.
   await click('.settings-nav .back')
@@ -360,6 +381,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     { role: 'notice', text: 'No LLM provider available. Please try again later.' }
   ])
   assert.equal(failedSnapshot.recent.length, 1)
+  assert.match(failedSnapshot.recent[0]!.request_id, /^r_[a-f0-9]+$/)
+  assert.match(failedSnapshot.messages.items[0]!.id, /^m_[a-f0-9]+$/)
+  assert.equal(failedSnapshot.messages.items[0]!.request_id, failedSnapshot.recent[0]!.request_id,
+    'the committed user message must belong to the actual admitted request')
   assert.equal(failedSnapshot.recent[0]!.outcome, 'failed')
   assert.equal(failedSnapshot.recent[0]!.unknown_effects, 0)
   assert.deepEqual(failedSnapshot.unresolved, [])
