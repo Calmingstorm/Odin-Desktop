@@ -1187,6 +1187,16 @@
         "tests/test_desktop_shared_outbound.py",
         "tests/test_desktop_core_lifecycle.py"
       ]
+    },
+    {
+      "path": "tests/test_desktop_engine_services.py",
+      "reason": "Merge accepted lifecycle cleanup fixture with 6B explicitly shared outbound owner field.",
+      "contract": "Harmless graph contains outbound_webhook_dispatcher=None, matching real deps when owner not started; provider failure test keeps successful original-owner receipts and truthful unknown.",
+      "invariant": "Production cleanup still requires real shared owner, no swallowing provider or resource failures.",
+      "tests": [
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_shared_outbound.py"
+      ]
     }
   ]
 }

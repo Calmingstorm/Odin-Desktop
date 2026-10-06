@@ -4,9 +4,15 @@
   "authoritative_for": "tests/test_web_api_agents_loops.py completion; historical lane6 schedule web work-projection reports superseded for this suite only",
   "source_sha256": "5a11f1688a846b9a521c16e85d9fdb8ce9c9820f03636d10d81b8a102bafbaeb",
   "source_bytes_preserved": true,
-  "selection": {"test_web_api_agents_loops": null},
+  "selection": {
+    "test_web_api_agents_loops": null
+  },
   "exclusions": {},
-  "case_partition": {"restored": 62, "retired": 0, "deferred": 0},
+  "case_partition": {
+    "restored": 62,
+    "retired": 0,
+    "deferred": 0
+  },
   "expanded_original_cases": 64,
   "review": "Claude, review of step 8 part 4: no blanket HTTP/auth/transport retirement. All original cases restored; zero retirements.",
   "production_corrections": {
@@ -86,10 +92,10 @@
     "src/desktop/settings.py": "5998e2350539f989a02877711836e3e484ab95b73a69d06ed7a7cdd7302c5ca8",
     "src/desktop/work_loops.py": "353cb5edcef905f67ef2929c2f0befd4d9dc668eac2a108cc7398c21e9c32399",
     "src/desktop/work_policy.py": "83ad85d863b1dd4df5de55fb718c062214864930f3ddc5f6c347f7f7f3fae196",
-    "tests/desktop_adapters/lane6_work_projection_finish.py": "8d6cf75c8d63823a939638c47eed701a0c1d37961896f259421ca32b9a6a2a1f",
+    "tests/desktop_adapters/lane6_work_projection_finish.py": "e924aa6bad5396695697e85a00f824ee5419a2998989b155765238d8bb028255",
     "tests/desktop_adapters/lane6_work_loop_bridge.py": "1724ddb1421a8a62b27f8216caad82c189ced6a84a80be8047b7bd644e77733c",
     "tests/desktop_adapters/lane6_work_policy_bridge.py": "165a76ff6404676fe9a8ac2be0122c0ef266ec28c98f188f604dd5f68a09eefc",
-    "tests/test_desktop_lane6_work_projection_finish.py": "8206a436f2c7cbbfffa055e33d8ed6dda093ce5e3dc28d2071a9472bc6763875"
+    "tests/test_desktop_lane6_work_projection_finish.py": "b1f8774837454d61ba7b177c5fd4fa99323164da72fbe4b76791f36aad2c5cf4"
   },
   "test_result": {
     "state": "passed",
@@ -97,10 +103,11 @@
     "failed": 0,
     "xfailed": 0,
     "skipped": 0,
-    "elapsed_seconds": 53.10,
+    "elapsed_seconds": 53.1,
     "previous_combined": "90 passed, 2 deselected in 37.00s; deselected only two stale metadata guards now corrected",
     "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_work_projection_finish.py tests/test_desktop_work.py --tb=short",
     "ruff": "All checks passed",
-    "isolation": "Required scripts/run-phase1-tests.py PID/mount namespace and private env/XDG/HOME; no live services/desktop"
+    "isolation": "Required scripts/run-phase1-tests.py PID/mount namespace and private env/XDG/HOME; no live services/desktop",
+    "parent_correction": "All retained source tests passed in parent328-case integration run. Metadata pin guard exposed post-probe static-only changes; regenerate these explicit named artifact hashes, then rerun full fresh qualification. Earlier failed guard remains recorded."
   }
 }

@@ -240,6 +240,7 @@ def cleanup_engine(*, computer=None, registry=None):
         tool_executor=SimpleNamespace(_process_registry=registry),
         native_tools=SimpleNamespace(owners={"computer": computer} if computer else {}),
         browser_manager=None, llm_gateway=SimpleNamespace(close=AsyncMock()),
+        outbound_webhook_dispatcher=None,
         sessions=SimpleNamespace(save=Mock()), turn_store=SimpleNamespace(close=Mock()),
     )
     return EngineServices(deps, None)
