@@ -310,7 +310,9 @@ class WorkService:
     async def control_native(self, message, kind, manager_id, action, *, text=None):
         """Native controls share ControlService command journal, never bypass it."""
         self.requests.assert_bound_request(message)
-        listing = self.list({"kind": kind, "conversation_id": message.conversation_id})
+        # Work belongs to the profile owner, not the conversation issuing this
+        # control. Resolve globally, then journal the target's original binding.
+        listing = self.list({"kind": kind})
         records = [r for r in listing.get("items", []) if r["manager_id"] == str(manager_id)
                    and r["owner_id"] == message.owner_id and action in r["actions"]]
         if len(records) != 1 or self.controls is None:

@@ -14,7 +14,6 @@ from tests.test_desktop_core_lifecycle import connect, profile, receive, request
 # unavailable in the composed core, not either branch's pre-composition list.
 UNAVAILABLE = (
     "unknown.method",
-    "skills.test",
 )
 
 

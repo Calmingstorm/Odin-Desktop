@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "artifact": "Step8 closure req04650fd0 key retained evidence manifest",
+  "root": "/mnt/storage/odin-desktop-evidence/step8-closure-req04650fd0/",
+  "execution_commit": "357a870a575d2c46908affd13df97f0504d37a97",
+  "qualification": {"groups":31,"tests":14758,"passed":14755,"failures":0,"errors":0,"skipped":3,"single_clean_full_invocation":true,"unique_case_claim":false},
+  "artifacts": [
+    {"name":"qualification-final-summary.json","bytes":11540,"sha256":"8c91c841cab54e3986edb35822326e1e5172fd4a65b4a1318800b5bf30f0dd01","contains":"All 31 JUnit paths, counts and SHA-256 values"},
+    {"name":"full-final-corrected.log","bytes":25613,"sha256":"dae4bd105cb4f77ebf7d013720edbf777e09954c5e1ecba68c02070227cc4f95"},
+    {"name":"app-final-main.log","bytes":25779,"sha256":"add4bf4dbdeb32b4231986ddcc6075da763f9ad710a8b3a83ee2cdcc87967695","contains":"829 app passes, typecheck/build, first merged Broker obsolete-default failure"},
+    {"name":"app-final-main-corrected.log","bytes":7271,"sha256":"d5edd8c5b1ccd7d8e04fc56cd03107a720a3048696733f0a29d0ba10da6fd893","contains":"28 actual Broker/core and 6 onboarding passes"},
+    {"name":"closure-merged-final.json","bytes":518,"sha256":"cda0dbde1bbee96f88396938ce344f179b2d5912dad32db80356354fea78b7fc"},
+    {"name":"drift-merged-final.json","bytes":88313,"sha256":"fa223e7bd43f3c0d994a64e8e5727772fc3ad4c0d672507c24b36c5489f40154"},
+    {"name":"lint-merged-final.json","bytes":52,"sha256":"9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"},
+    {"name":"plan-merged-final.json","bytes":972,"sha256":"ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48"},
+    {"name":"ledger-merge-generated.json","bytes":14311581,"sha256":"d1e15f8ab37da5bdda7d18133889b8b75c10a36d8d09f6addf68812504034647","contains":"Initial exact path-union candidate; retained failed merge application evidence, not final ledger"}
+  ],
+  "earlier_failed_receipts": ["qualification-prior-tree/","qualification-merged-main-first/","full-qualified.log","full-qualified-complete.log","full-final-main.log"],
+  "limits": "Local isolated qualification only. Not Phase2 exit, native acceptance, publication or independent review. Current report still blocks 312 suites and missing D19 bridge inventory."
+}

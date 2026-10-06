@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "artifact": "Complete six-case turn durability heartbeat restoration candidate; parent owns map integration and final full qualification",
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "qualification_group": "phase2-step3-restored-corpus",
+  "safety": {
+    "full_original_six_cases_read": true,
+    "actual_RequestService_admit_turn_and_TurnDurability_admit_read": true,
+    "actual_task_binding_drain_and_engine_admission_read": true,
+    "original_bytes_modified": false,
+    "raw_lease_construction": false,
+    "fake_enabled_handle": false,
+    "fake_owner_or_authority_bypass": false,
+    "heartbeat_methods_or_timers_changed_by_adapter": false,
+    "desktop_used": false,
+    "services_modified": false,
+    "opt_used": false,
+    "isolation": "USER=odin, repository Python 3.12 venv, scripts/run-phase1-tests.py explicit safe selector, mount/PID namespace, env-i throwaway HOME/XDG, no display/DBus/credentials",
+    "test_command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_heartbeat_corpus.py --junitxml=.test-state/step8-heartbeat-targeted.xml"
+  },
+  "validation": {
+    "passed": 13,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "inherited_cases": 6,
+    "loader_and_authentic_admission_safeguards": 7,
+    "elapsed_seconds": 4.74,
+    "ruff_check": "All checks passed for both owned Python files",
+    "static_full_adapter": true,
+    "log": ".test-state/step8-heartbeat-targeted.log",
+    "log_sha256": "335cff8e2b9772571fc0ceaa9b707d929eab578c35b76e5baaf931827aebfc59",
+    "junit": ".test-state/step8-heartbeat-targeted.xml",
+    "junit_sha256": "74aa9e69de222f02dbc44518d5bacbbb20f799925868c9243e57b1caedcb8bd2",
+    "initial_attempt": "All six inherited cases passed. One extra guard failed because FakeMessage() defaults to empty text, correctly refused by real RequestService.submit. Fixed guard input to hello and changed fixture to asynccontextmanager for same-context guaranteed teardown on exceptions. Focused reruns passed. Parent requested strict cleanup error accounting: first strict check exposed two expected closed-ledger JournalStorageError wrappers; added explicit closed-connection proof and healthy actual journal read before accepting only those wrappers. Final strict beat/request cleanup run: 13 passed in 4.74s, 0 errors. No other suites run."
+  },
+  "entries": [
+    {
+      "path": "tests/test_turn_durability_heartbeat.py",
+      "inherited_sha256": "e7595d33ed5660a9055e372a36bc98606df1b61f5c6f8aa8153cb727f440a04c",
+      "candidate_status": "restorable",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_heartbeat_corpus.py",
+      "group": "phase2-step3-restored-corpus",
+      "adapter_module": "tests.desktop_adapters.step8_heartbeat",
+      "prefix": "step8_heartbeat",
+      "adaptations": [
+        "Exactly two expression AST substitutions: line 45 helper enabled admission and line 155 closed-store refusal replace obsolete TurnDurability.admit call with request_admit, retaining store argument, FakeMsg transport content, prompt/tools/session arguments. No assertions, signatures, decorators, parameters or case bodies otherwise change.",
+        "Authentic temporary_owner provisions private ProfilePaths, OwnerAuthority and PermissionManager for actual non-root peer UID; the original make_store object is passed unchanged as engine.deps.turn_store, including TTL and deliberate store-death cases. No replacement fake store.",
+        "Real JournalStore, PublicationEventJournal, ConversationStore, TranscriptStore and DurableDelivery back RequestService.submit. Genuine after_commit, _drain and _execute authenticate owner, allocate persisted request, transition queued to running, fetch sealed EngineRequest and bind actual task.",
+        "AdmissionObservation is a lower-operation engine seam, not a replacement permission gate. It invokes unchanged EngineServices._admit_turn, hence real _assert_request followed by real RequestService.admit_turn, which alone obtains store.admit_turn_sync lease, writes ledger_generation, constructs handle and starts production heartbeat.",
+        "Observation task waits on a fixture Event while original parent cases inspect returned genuine handle and heartbeat task. Adapter neither settles before assertions nor changes production timers. Original _fast_beats fixture and original clock/heartbeat instrumentation remain exactly inherited.",
+        "Closed original store follows actual request service availability check: real handle.enabled False, blocked admission_error, no heartbeat task and no ledger_generation, with authentic submitted/running request preserved until teardown.",
+        "Teardown stops production beat after assertions and rethrows unexpected beat failures. Actual request cancellation results are checked, not blanket suppressed: cancellation or absent-ledger TurnStateUnavailableError are expected; closed-connection errors are accepted only after explicit closed-ledger proof. JournalStorageError wraps known SQLite closed-ledger projection inside JournalStore.transaction; accepted only for proven closed ledger plus successful live journal SELECT. Authority and other ledger errors rethrow. No fake repair or ledger replacement is performed. Journals and original store are closed, temporary profile released. Final stricter-cleanup run: 13 pass, 0 errors, 4.74s.",
+        "frozen_source checks archive digest, unique regular member and retained byte equality. Literal source SHA, full CORPUS_SELECTIONS null and exclusions {}, exact expression hunk hashes, entire assertion/signature/decorator/parameter corpus equality and independent full AST reverse replay gate compile/exec/register_module/load(globals())."
+      ],
+      "transformations": [
+        {
+          "symbol": "admit",
+          "line": 45,
+          "column": 19,
+          "kind": "expression",
+          "before_sha256": "30ffb29be8a68a455b7162d5d0360bb153a23b8495217c1b20fc6ae40078f39b",
+          "after_sha256": "1581b2a3a2b562034a0b0a8d419c847fc5de0e472f68ab2f9451e84aeda98cab",
+          "after_source": "request_admit(store, message=FakeMsg(), system_prompt='s', tools=[], session_snapshot=None)"
+        },
+        {
+          "symbol": "test_wired_store_that_died_refuses_admission",
+          "line": 155,
+          "column": 19,
+          "kind": "expression",
+          "before_sha256": "30ffb29be8a68a455b7162d5d0360bb153a23b8495217c1b20fc6ae40078f39b",
+          "after_sha256": "1581b2a3a2b562034a0b0a8d419c847fc5de0e472f68ab2f9451e84aeda98cab",
+          "after_source": "request_admit(store, message=FakeMsg(), system_prompt='s', tools=[], session_snapshot=None)"
+        }
+      ],
+      "blocker": null,
+      "counts": {
+        "static_test_definitions": 6,
+        "static_assertions": 10,
+        "passed": 6,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "adapter_hashes": [
+        {"path": "tests/desktop_adapters/step8_heartbeat.py", "sha256": "e6411eba041bcab2a16b829f7caebd721fa8b4bad64b9c0ce5091911d0d40b2d"},
+        {"path": "tests/test_desktop_step8_heartbeat_corpus.py", "sha256": "4e61b66042aea8f5f6529335c8a49d6f97c6e4028ea02284f8e4b12b65d0d10e"}
+      ],
+      "logs": [".test-state/step8-heartbeat-targeted.log", ".test-state/step8-heartbeat-targeted.xml"]
+    }
+  ],
+  "safeguards": [
+    "Complete six-case / ten-assertion original corpus with no exclusions",
+    "Changed source bytes rejected",
+    "Wrong, duplicate and assertion-targeting setup hunks rejected",
+    "Collateral AST mutation rejected by full reverse replay",
+    "Helper refuses absence of authentic temporary owner",
+    "Real lease/store identity, conversation key, persisted owner and generation; engine gate rejects fake message, borrowed same sealed request and separately fetched sealed request outside admitted task",
+    "Closed supplied store is not replaced and actual admission remains disabled and blocked"
+  ]
+}

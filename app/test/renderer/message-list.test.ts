@@ -8,7 +8,11 @@ vi.mock('../../src/renderer/src/components/Message.vue', async () => {
   return { default: { props: ['message'], render: (self: { message: Message }) => h('article', self.message.text) } }
 })
 vi.mock('../../src/renderer/src/components/ResumeBanner.vue', () => ({ default: { render: () => null } }))
-vi.mock('../../src/renderer/src/components/ToolActivity.vue', () => ({ default: { render: () => null } }))
+vi.mock('../../src/renderer/src/components/ToolActivity.vue', async () => {
+  const { h } = await import('vue')
+  return { default: { props: ['entries', 'requestId'], render: (self: { entries: unknown[]; requestId: string }) =>
+    h('aside', { 'data-request': self.requestId }, `${self.entries.length} receipts`) } }
+})
 
 type Store = typeof import('../../src/renderer/src/store')
 
@@ -103,6 +107,28 @@ async function searchHit(conversationId: string): Promise<void> {
 }
 
 describe('scrolling to the latest messages', () => {
+  it('keeps confirmed Stop and consumed Steer receipts after their run ends', async () => {
+    const view = store.state.views.c1!
+    view.controls.stop = { control_command_id: 'stop', kind: 'stop', request_id: 'ended', generation: 1, status: 'confirmed' }
+    view.controls.steer = { control_command_id: 'steer', kind: 'steer', request_id: 'ended', generation: 1, status: 'consumed' }
+    await flush()
+    expect(mounted.root.textContent()).toContain('confirmed by Odin')
+    expect(mounted.root.textContent()).toContain('Odin has read it')
+  })
+  it('keeps tool receipts after failure without inventing an assistant reply', async () => {
+    const view = store.state.views.c1!
+    view.running = { request_id: 'failed-task', generation: 1, started_at: '2026-10-05T00:00:00Z' }
+    view.tools['failed-task'] = [{ invocation_id: 'actual-call', tool: 'run_command', summary: 'run_command', outcome: 'failure' }]
+    await flush()
+    expect(mounted.root.findAll((h) => h.tag === 'aside' && h.props['data-request'] === 'failed-task')).toHaveLength(1)
+    store.applyEvent({ seq: 2, cursor: '2', type: 'request.failed', entity: { kind: 'request', id: 'failed-task' },
+      at: '2026-10-05T00:00:00Z', payload: { conversation_id: 'c1', request_id: 'failed-task', generation: 1, unknown_effects: 0 } })
+    await flush()
+    expect(mounted.root.findAll((h) => h.tag === 'aside' && h.props['data-request'] === 'failed-task')).toHaveLength(1)
+    expect(view.messages.some((m) => m.request_id === 'failed-task' && m.role === 'assistant')).toBe(false)
+    expect(mounted.root.textContent()).toContain('The task failed.')
+    await settle()
+  })
   it('follows the end while it moves, and stops once it holds still', async () => {
     await settle()
     await store.openLatest('c1')

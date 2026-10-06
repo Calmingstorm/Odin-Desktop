@@ -1,0 +1,5 @@
+self-hosted-runner:
+  labels:
+    - odin-desktop-ci
+    - odin-desktop-ci-light
+    - odin-desktop-short

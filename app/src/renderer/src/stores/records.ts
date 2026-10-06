@@ -1,7 +1,7 @@
 // The Records section: what Odin did and how he is, in the shapes of Odin's /api/audit, /api/usage,
 // /api/health/components, /api/logs, /api/turn-state and /api/computer routes. Read-only, except computer-use cleanup.
 import { reactive } from 'vue'
-import type { AuditEntry, AuditVerify, ComputerStatus, HealthReport, LogEntry, Result, TurnStateReport, UsageResult } from '../../../shared/api'
+import type { AuditEntry, AuditVerify, ComputerStatus, ComputerSession, DesktopComputerStatus, LegacyComputerStatus, HealthReport, LogEntry, Result, TurnStateReport, UsageResult } from '../../../shared/api'
 import { isUnavailable, resultMessage } from '../capability'
 import { act, management } from './management'
 
@@ -152,11 +152,53 @@ const RECOVERY_REASONS: Record<string, string> = {
 
 export const reasonText = (reason: string): string => RECOVERY_REASONS[reason] ?? reason.replace(/_/g, ' ')
 
+/** The real management envelope is not the fixture's foreground availability. */
+export function isDesktopComputer(status: ComputerStatus): status is DesktopComputerStatus {
+  return 'session' in status && 'readiness' in status
+}
+
+export function computerSession(status: ComputerStatus | null): ComputerSession | LegacyComputerStatus | null {
+  if (!status) return null
+  return isDesktopComputer(status) ? status.session : status
+}
+
+export function legacyComputer(status: ComputerStatus | null): LegacyComputerStatus | null {
+  return status && !isDesktopComputer(status) ? status : null
+}
+
+export function computerReadiness(status: ComputerStatus | null): DesktopComputerStatus['readiness'] | null {
+  return status && isDesktopComputer(status) ? status.readiness : null
+}
+
+export function computerGeneration(status: ComputerStatus): number | undefined {
+  if (isDesktopComputer(status)) return status.session?.generation
+  return status.session_generation ?? status.generation
+}
+
+/** Runtime absence or local-resource cleanup is never receiver input-release proof. */
+export function computerReleaseUncertain(session: ComputerSession | LegacyComputerStatus): boolean {
+  const cleanup = 'cleanup' in session ? session.cleanup : null
+  return session.recovery?.unknown_release === true || session.recovery?.receiver_release_verified === false ||
+    session.recovery?.released === false || cleanup?.unknown_release === true ||
+    cleanup?.receiver_release_verified === false || cleanup?.released === false
+}
+
 /**
  * What reconciling did, from Odin's own record. Odin answers success for an acknowledgment, a cleanup still unknown
  * and a verified one alike, so only the recovery it records says which.
  */
 export function reconcileOutcome(status: ComputerStatus): string {
+  if (isDesktopComputer(status)) {
+    const session = status.session
+    if (!session) return 'No session reported. No input-release or cleanup verdict was recorded.'
+    const recovery = session.recovery
+    const uncertain = computerReleaseUncertain(session)
+    if (!uncertain && recovery?.status === 'absence_verified' && recovery.complete === true) {
+      return 'Reconciled: Odin verified the recorded runtime is absent. This does not qualify foreground or native input.'
+    }
+    const why = recovery ? reasonText(recovery.reason) : 'Odin recorded no recovery'
+    return `Reconciliation recorded: ${why}. Input release and cleanup remain unverified; the session is ${session.state}.`
+  }
   const recovery = status.recovery
   if (recovery?.status === 'absence_verified') return 'Released: Odin verified nothing of the session remains.'
   if (recovery?.status === 'operator_acknowledged_unverified') return 'Acknowledged: Odin closed the session on your word. Its cleanup stays unverified.'
@@ -164,29 +206,39 @@ export function reconcileOutcome(status: ComputerStatus): string {
   return `Not released: ${why}. The session ${status.state === 'quarantined' ? 'stays quarantined' : `is ${status.state}`}.`
 }
 
-/** Odin's headless release-all, bound to the session's own generation: you say you've checked the computer. */
+/** Real-core reconciliation inspects recorded recovery; only the legacy fixture uses human attestation. */
 export async function reconcileComputer(status: ComputerStatus): Promise<boolean> {
   if (records.unavailable.computer) return false
-  const generation = status.session_generation ?? status.generation ?? 0
+  const session = computerSession(status)
+  const generation = computerGeneration(status)
+  if (!session?.session_id || !generation) return false
+  const real = isDesktopComputer(status)
+  if (real && !status.readiness.management_available) return false
   return act(
-    `computer:${status.session_id}`,
+    `computer:${session.session_id}`,
     async () => {
       const result = await window.odin.computerReconcile({
-        session_id: status.session_id,
+        session_id: session.session_id,
         generation,
-        acknowledgment: `ACKNOWLEDGE UNVERIFIED CLEANUP ${status.session_id}`
+        ...(!real ? { acknowledgment: `ACKNOWLEDGE UNVERIFIED CLEANUP ${session.session_id}` } : {})
       })
-      if (!result.ok && isUnavailable(result.error)) {
+      if (!real && !result.ok && isUnavailable(result.error)) {
         answered('computer', result)
         return { ...result, error: { ...result.error, message: resultMessage(result, features.computer) } }
       }
       return result
     },
     (answer) => {
+      // Earlier reads must not roll back a received reconciliation (including a late command receipt).
+      ++latestComputer
       records.computer = answer
+      records.loaded.computer = true
+      records.unavailable.computer = false
+      delete records.errors.computer
       return reconcileOutcome(answer)
     },
-    loadComputer
+    // Refusal of an action does not invalidate the preceding status or its readiness.
+    real ? undefined : loadComputer
   )
 }
 

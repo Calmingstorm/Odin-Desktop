@@ -112,14 +112,18 @@ class ManagementService:
         from .hosts import HostsService
         from .integrations import IntegrationsService, ProfileOutboundWebhookDispatcher
         from .knowledge import KnowledgeService
+        from .learned_context import LearnedContextService
         from .mcp import MCPService
         from .model_settings import ModelSettingsService
+        from .observability import ObservabilityService
+        from .openrouter_admin import OpenRouterAdminService
         from .providers import ProviderOwner
         from .records import RecordsService
         from .runtime import RuntimeService
         from .skills import SkillsService
         from .state import StateService
         from .tool_catalog import DesktopToolCatalog
+        from .trajectories import TrajectoriesService
         from .workspace_diagnostics import WorkspaceDiagnostics
 
         settings = settings or getattr(core, "settings", None)
@@ -303,7 +307,18 @@ class ManagementService:
 
         settings.owners["runtime.reload"] = ReloadOwner()
         state = StateService(core.paths, core.authority.owner_id, memory=executor, lists=executor)
-        knowledge = KnowledgeService(core.paths)
+        runtime_context = getattr(deps, "runtime_context", None)
+        knowledge_store = getattr(deps, "knowledge_store", None)
+        if knowledge_store is not None:
+            from ..knowledge.importer import BulkImporter
+
+            knowledge = KnowledgeService(
+                core.paths, store=knowledge_store,
+                importer=BulkImporter(knowledge_store,
+                                      embedder=getattr(deps, "embedder", None)),
+            )
+        else:
+            knowledge = KnowledgeService(core.paths)
         observed = SimpleNamespace(config=settings.config, llm_gateway=providers,
                                    tool_executor=executor, knowledge_store=None,
                                    skill_manager=skills, mcp_manager=mcp.manager)
@@ -311,6 +326,12 @@ class ManagementService:
 
         async def health():
             observed.config = settings.config
+            observed.knowledge_store = knowledge._store
+            # Sample the current composed owner on every read. A compose-time
+            # boolean would remain healthy after request/store/core shutdown.
+            observed.delivery_readiness = getattr(core, "delivery_readiness", False)
+            observed.delivery_readiness_reason = getattr(
+                core, "delivery_readiness_reason", "delivery_not_composed")
             result = check_all(observed)
             result["workspace"] = await diagnostics.snapshot()
             result["browser"] = browser.status()
@@ -318,26 +339,54 @@ class ManagementService:
             return result
 
         records = RecordsService(core.paths, health=health, settings=settings,
-                                 get_audit_path=lambda: settings.config.tools.audit_log_path)
+                                 get_audit_path=lambda: settings.config.tools.audit_log_path,
+                                 audit_getter=lambda: getattr(deps, "audit", None))
         context = (deps.context_loader if deps is not None
                    else ContextLoader(settings.config.context.directory))
-        runtime = RuntimeService(core, settings, llm=providers, context=context, skills=skills)
+        runtime = RuntimeService(core, settings, llm=providers, context=context,
+                                 skills=skills,
+                                 usage=getattr(runtime_context, "usage_rollup", None))
         models = ModelSettingsService(settings, executor=executor, provider=providers)
         outbound = (deps.outbound_webhook_dispatcher if deps is not None else
                     ProfileOutboundWebhookDispatcher(lambda: settings.config,
                                                      secrets=settings.secrets))
         integrations = IntegrationsService(settings, dispatcher=outbound,
                                            owns_dispatcher=deps is None)
+        learned = LearnedContextService(
+            core.paths, reflector_getter=lambda: getattr(providers, "reflector", None),
+            learning_getter=lambda: settings.config.learning,
+        )
+        trajectories = TrajectoriesService(
+            core.paths, get_directory=lambda: settings.config.tools.trajectory_path,
+            saver_getter=lambda: getattr(getattr(deps, "turn_recorder", None),
+                                         "_trajectory_saver", None),
+        )
+        observations = ObservabilityService(
+            executor=executor, gateway=providers, config=lambda: settings.config,
+            model_breakers=providers.model_breakers, graph=lambda: manager,
+        )
+        def usage_source():
+            from .runtime import _ProfileUsageReader
+
+            return runtime.usage or _ProfileUsageReader(settings.config.usage.directory)
+
+        observations.usage_getter = usage_source
+        openrouter = OpenRouterAdminService(settings, provider=providers, usage=usage_source)
         manager = cls(core, services=[settings, codex, hosts, state, knowledge,
-                                     records, runtime, models, integrations, skills, mcp, computer],
+                                     records, runtime, models, integrations,
+                                     learned, trajectories, observations, openrouter,
+                                     skills, mcp, computer],
                       identity_key=_binding_key(core.paths))
         manager.lifecycle_services = (*manager.services, browser)
         manager.settings, manager.executor, manager.providers = settings, executor, providers
         manager.runtime, manager.hosts, manager.codex = runtime, hosts, codex
+        manager.integrations = integrations
+        manager.records, manager.knowledge = records, knowledge
+        manager.learned, manager.trajectories = learned, trajectories
+        manager.observations, manager.openrouter = observations, openrouter
         manager.skills, manager.mcp = skills, mcp
         manager.browser, manager.computer = browser, computer
         manager.tool_catalog, manager.workspace_diagnostics = catalog, diagnostics
-        manager.integrations = integrations
         manager._engine_owned = deps is not None
         return manager
 

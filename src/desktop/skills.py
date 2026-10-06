@@ -11,12 +11,14 @@ import hashlib
 import json
 
 from ..async_utils import to_thread_settled
+from ..llm.secret_scrubber import scrub_output_secrets
 from ..storage_redaction import _deep_scrub_strings
-from ..tools.skill_manager import SKILL_NAME_PATTERN, SkillManager
+from ..tools.runtime_delivery import execution_delivery_scope
+from ..tools.skill_manager import MAX_SKILL_OUTPUT_CHARS, SKILL_NAME_PATTERN, SkillManager
 from .management import MethodError
 
 METHODS = frozenset({
-    "skills.list", "skills.get", "skills.save", "skills.validate",
+    "skills.list", "skills.get", "skills.save", "skills.validate", "skills.test",
     "skills.set_enabled", "skills.delete", "skills.config.get", "skills.config.set",
 })
 READ_METHODS = frozenset({"skills.list", "skills.get", "skills.config.get"})
@@ -174,8 +176,6 @@ class SkillsService:
         return code
 
     async def handle(self, method, params):
-        if method == "skills.test":
-            raise MethodError("capability_unavailable", "skill request delivery is not wired")
         if method not in METHODS:
             raise MethodError("not_found", "unknown skills method")
         if type(params) is not dict:
@@ -193,6 +193,32 @@ class SkillsService:
                                   "rejected" if method in READ_METHODS
                                   else "outcome_unknown") from None
 
+    @staticmethod
+    def _test_output(result):
+        # Strip delivery subclasses: their scrubber bypass is only valid for
+        # already-authorized retained envelopes, not arbitrary skill returns.
+        text = scrub_output_secrets(str(result))
+        if len(text) > MAX_SKILL_OUTPUT_CHARS:
+            marker = f"\n... [truncated at {MAX_SKILL_OUTPUT_CHARS} chars]"
+            text = text[:MAX_SKILL_OUTPUT_CHARS - len(marker)] + marker
+        return text
+
+    async def _test(self, manager, name):
+        if not manager.has_skill(name):
+            raise MethodError("not_found", "skill not found")
+        try:
+            # Authentication is inherited from transport, never reconstructed
+            # from an ID or params. Like chat, capture task-local execution;
+            # retain the caller's tool/live resolver constraints and the real
+            # owner's live HostAccessManager. A management test has no chat
+            # destination, so do not fabricate conversation delivery authority.
+            with execution_delivery_scope(self.owner_id, ""):
+                result = await manager.execute(name, {}, requester_id=self.owner_id)
+            is_error = result.startswith("Skill error:") or result.startswith("Skill '")
+            return {"result": self._test_output(result), "is_error": is_error}
+        except Exception as error:
+            return {"result": self._test_output(error), "is_error": True}
+
     async def _handle(self, method, params):
         manager = self.skill_manager
         if method == "skills.list":
@@ -200,6 +226,8 @@ class SkillsService:
         if method == "skills.validate":
             return _deep_scrub_strings(manager.validate_skill_code(self._code(params)))
         name = self._name(params)
+        if method == "skills.test":
+            return await self._test(manager, name)
         if method == "skills.save":
             code = self._code(params)
             existing = manager.has_skill(name)

@@ -89,6 +89,29 @@ async def cleanup(core, writer, read_fd, write_fd):
 
 
 @pytest.mark.asyncio
+async def test_composed_computer_uses_management_controller_and_single_private_store(tmp_path):
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, Provider())
+    try:
+        management = core.management.computer
+        foreground = core.computer_foreground
+        if management.readiness()["management_available"]:
+            assert foreground is management._integration
+            assert foreground.controller is management.controller
+            assert foreground.requests is core.requests
+            assert core.requests.computer_foreground is foreground
+            assert core.engine.deps.native_owners["computer"] is foreground
+            assert core.engine.deps.native_tools.owners["computer"] is foreground
+            assert not foreground.published_available
+        else:
+            assert foreground is None
+            assert core.computer_unavailable_reason == management.readiness()["reason"]
+        status = await request(reader, writer, "computer.status")
+        assert status["ok"], status
+    finally:
+        await cleanup(core, writer, rfd, wfd)
+
+
+@pytest.mark.asyncio
 async def test_real_core_native_task_uses_retained_dispatch_and_stored_destination(tmp_path):
     provider = ToolProvider("delegate_task", {"description": "Read temporary memory", "steps": [
         {"tool_name": "memory_manage", "tool_input": {"action": "list"}}]})

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "source_commit": "469438e96d096f7f428bb7208a146cbe2c49d7d7",
+  "baseline_main": "16e35e8f370661a2baf8e7030a27919b3e658b3b",
+  "isolation": "Existing restricted PID/mount namespace launcher, sanitized HOME/XDG and ordinary odin UID 1003; no active desktop or live profile",
+  "closure_gate": {
+    "tests_passed": 46,
+    "statement_coverage_percent": 97,
+    "source_rows": 50,
+    "removed_by_restored_behaviour": 4,
+    "pending_restoration": 29,
+    "proposed_mechanical": 0,
+    "proposed_behavioural": 17
+  },
+  "composed_engine_tests_passed": 32,
+  "existing_focused_integration_tests_passed": 165,
+  "classified_qualification": {
+    "groups": 31,
+    "failed_groups": [],
+    "passing_executions": 14704,
+    "skipped": 3,
+    "failures": 0,
+    "errors": 0,
+    "exit_code": 0
+  },
+  "raw_artifacts": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/d19-closure-20261006/full-qualified.log",
+      "bytes": 26057,
+      "sha256": "bb6659bfc2c2017d96e1fb04c7052774c97e660c09cf628cf1927c2ba2658017"
+    }
+  ],
+  "limitations": [
+    "Proposed dispositions are not approvals and Phase 2 exit is not closed.",
+    "The source has 50 section-4 rows, not the requested 52; all 50 are recorded without invented rows.",
+    "Static source scan does not prove composed runtime behaviour.",
+    "Missing-dependency pip I/O is stubbed at the subprocess boundary; installed-package metadata and admitted manager/execution paths are real.",
+    "Classified qualification is not native desktop, packaging or final acceptance E2E.",
+    "Hosted full CI is separate and was still pending when these local results were recorded."
+  ]
+}

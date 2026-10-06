@@ -1,0 +1,170 @@
+{
+  "version": 1,
+  "review": "Claude, review of #35",
+  "adapter": "tests/desktop_adapters/step8_review_helpers.py",
+  "adapter_sha256": "45d5e1e99816c2817e1cd7863d8b1b4ef74265798f52d403fe4bd89b03e52b37",
+  "executable": "tests/test_desktop_step8_review_helpers.py",
+  "executable_sha256": "32bad83c65d554e68eab3f9290775ded2d3600a6191e462b0baf235d14090e7c",
+  "selector_mapping": "For each retained Class.method, executable selector is tests/test_desktop_step8_review_helpers.py::Test_review_<source filename stem>_<Class with Test prefix removed>::method. Original selector is source_path::Class::method. No parameter decorators are changed.",
+  "run": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_helpers.py --junitxml=.test-state/step8-review-helpers.xml",
+    "isolation": "PID/mount namespace, clean environment, non-root odin, temporary private profiles only",
+    "result": "2 failed, 38 passed in 8.53s",
+    "collected": 40,
+    "inherited": 30,
+    "guards": 10,
+    "skipped": 0,
+    "errors": 0,
+    "exit_code": 1,
+    "junit": ".test-state/step8-review-helpers.xml",
+    "junit_sha256": "bda87f92c2c178c78dc1f0e0a3320b4f7cede7613d83d22b05a41a64ef761684"
+  },
+  "suites": [
+    {
+      "source_path": "tests/characterization/test_executor_dispatch_parity.py",
+      "source_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
+      "corpus_sha256": "f48f365dfb657b680a39c5ccedbe59083107902892c2169609a7b4e8cdee5eca",
+      "assertions_sha256": "b5c7df4eb392f07b2938b13f83cead2524447209bab4d3314f51584724a66153",
+      "signatures_and_decorators_sha256": "6140f3e6e53a6c326bd380b67310dee65ce94b69738f0f24a20625efb371ea64",
+      "status": "blocked-candidate",
+      "inherited_cases": 22,
+      "admitted_cases": 21,
+      "passed": 19,
+      "failed": 2,
+      "retirements": [
+        {
+          "case": "TestMiddlewarePins.test_rbac_denial_shape_and_metrics",
+          "reviewer": "Claude, review of #35",
+          "reason": "Guest-tier RBAC is removed by Desktop D17; Claude, review of #35 retires only this guest denial/metrics case.",
+          "source_path": "tests/characterization/test_executor_dispatch_parity.py",
+          "source_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29"
+        }
+      ],
+      "retained_selectors": [
+        "TestDispatchPartition.test_partition_is_exact",
+        "TestDispatchPartition.test_every_executor_tool_resolves_a_handler",
+        "TestDispatchPartition.test_no_orphan_handlers_and_no_leftover_delegates",
+        "TestDispatchPartition.test_stateful_attr_inventory",
+        "TestDispatchTable.test_table_keys_match_executor_routed",
+        "TestDispatchTable.test_every_owner_key_bound",
+        "TestDispatchTable.test_table_resolution_identical_to_legacy_getattr",
+        "TestDispatchTable.test_dynamic_handle_spelling_banned_outside_resolver",
+        "TestDispatchTable.test_retired_fallback_unknown_entry_returns_none",
+        "TestDispatchTable.test_instance_override_beats_domain_owner",
+        "TestDispatchTable.test_domain_state_identity",
+        "TestDispatchTable.test_table_resolves_instance_patch",
+        "TestUnknownTool.test_unknown_tool_result_shape",
+        "TestUnknownTool.test_unknown_tool_bypasses_middleware",
+        "TestPatchSeam.test_instance_patch_governs_execution",
+        "TestPatchSeam.test_memory_manage_receives_user_id_kwarg",
+        "TestMiddlewarePins.test_timeout_shape_no_retry",
+        "TestMiddlewarePins.test_exception_shape",
+        "TestMiddlewarePins.test_tuple_exit_code_propagation",
+        "TestMiddlewarePins.test_error_prefix_classification",
+        "TestMiddlewarePins.test_contextvar_isolation_concurrent"
+      ],
+      "failed_selectors": [
+        {
+          "case": "TestPatchSeam.test_memory_manage_receives_user_id_kwarg",
+          "observed": "Explicit u-42 is denied by real canonical-owner gate. Handler never called; seen[user_id] raises KeyError.",
+          "parent_need": "Exact assertion requires noncanonical u-42. Cannot substitute canonical UUID in assertion, fake authority, or grant foreign identity. Needs reviewed fixture/assertion decision, not permission relaxation."
+        },
+        {
+          "case": "TestMiddlewarePins.test_contextvar_isolation_concurrent",
+          "observed": "Explicit alice/bob callers denied by canonical-owner gate. Original uid=alice/bob assertions fail.",
+          "parent_need": "Two identities have no owner-authority equivalent in one Desktop profile. Preserve task isolation through authorized fixture/assertion changes or request a case disposition. Do not disable owner gate."
+        }
+      ],
+      "setup": "Exact _executor factory return line75 replaced with desktop_executor. Actual RequestService.submit/after_commit worker owns sealed request binding and authentic owner context. Canonical ToolExecutor.execute body unchanged.",
+      "limitations": [
+        "Callback engine does not exercise LLM/ToolLoopRunner and uses no turn ledger. This is executor middleware characterization through real request admission, not durable runner proof.",
+        "Original RFC partition remains a static historical documentation/table contract, not a claim removed Discord tools are available.",
+        "Both retained failing identity cases remain collected without skip/xfail. Suite is not restored."
+      ]
+    },
+    {
+      "source_path": "tests/test_tool_loop_helpers.py",
+      "source_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782",
+      "corpus_sha256": "c8c868b0b1b558a32e6dbb636fac8552daaf44f339537a29a32b26c170a459ba",
+      "assertions_sha256": "bd778c0964d053a7c7fecdf180c942d7b9861db1d1742eb5af160ca555d0eb36",
+      "signatures_and_decorators_sha256": "bcf568e6c1f551197f562fa26387fac72e5c94c35126744e52b587baf3617e0f",
+      "status": "restored-candidate",
+      "inherited_cases": 11,
+      "admitted_cases": 9,
+      "passed": 9,
+      "failed": 0,
+      "retirements": [
+        {
+          "case": "TestBuildRequestPreamble.test_no_history_bot_turn_keeps_bot_origin_note",
+          "reviewer": "Claude, review of #35",
+          "reason": "Multi-bot origin handling (from_another_bot=True) is removed by Desktop; Claude, review of #35 retires only bot-origin cases.",
+          "source_path": "tests/test_tool_loop_helpers.py",
+          "source_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782"
+        },
+        {
+          "case": "TestBuildRequestPreamble.test_bot_message_block",
+          "reviewer": "Claude, review of #35",
+          "reason": "Multi-bot origin handling (from_another_bot=True) is removed by Desktop; Claude, review of #35 retires only bot-origin cases.",
+          "source_path": "tests/test_tool_loop_helpers.py",
+          "source_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782"
+        }
+      ],
+      "retained_selectors": [
+        "TestComputeRequestId.test_matches_sha256_prefix",
+        "TestComputeRequestId.test_non_string_coerced",
+        "TestComputeRequestId.test_is_eight_chars",
+        "TestCurrentRequestTime.test_format_utc",
+        "TestBuildRequestPreamble.test_no_history_returns_thin_preamble",
+        "TestBuildRequestPreamble.test_with_history_includes_all_sections",
+        "TestBuildRequestPreamble.test_topic_change_parameter_removed",
+        "TestBuildRequestPreamble.test_default_has_no_extra_block",
+        "TestBehaviorPreservedByRefactor.test_all_combinations_match_reference"
+      ],
+      "mixed_case": {
+        "case": "TestBehaviorPreservedByRefactor.test_all_combinations_match_reference",
+        "retired_branch": "from_another_bot=True, for each has_history value",
+        "preserved_branches": "has_history=True/False with from_another_bot=False",
+        "reason": "Claude, review of #35 retires bot-origin branches only. Mixed test is retained, not retired.",
+        "setup_hunk": "Exact tuple line170 column36 changed from (True, False) to (False,). Equality assertion and failure message unchanged. Full AST reverse replay restores tuple.",
+        "canonical_helper": "False compatibility keyword removed before real pure preamble helper. True rejected. Neither reference implementation nor production output changed."
+      },
+      "branch_retirements": [{
+        "case": "TestBehaviorPreservedByRefactor.test_all_combinations_match_reference",
+        "reviewer": "Claude, review of #35",
+        "reason": "Multi-bot origin handling (from_another_bot=True) is removed by Desktop; Claude, review of #35 retires only bot-origin cases.",
+        "source_path": "tests/test_tool_loop_helpers.py",
+        "source_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782",
+        "line": 170,
+        "column": 36,
+        "node_sha256": "dca8f82ad2c13093e18831c63d876733f70de16f7f9f34083e01bc131bb8218e",
+        "before_source": "(True, False)",
+        "after_source": "(False,)"
+      }],
+      "limitations": [
+        "Pure hash/time/preamble helpers need no request admission; hold no execution authority.",
+        "Shared accounting/maps/ledgers remain parent-owned. This candidate is not qualification bookkeeping."
+      ]
+    }
+  ],
+  "provenance": {
+    "frozen_archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+    "checks": [
+      "Frozen original bytes match archive and pinned source SHA256",
+      "Setup allowlist checks complete node hashes and exact line/column; duplicate and altered hunks rejected",
+      "Assertions, signatures, decorators and parameter-expression ASTs unchanged",
+      "Reverse replay reproduces entire original AST",
+      "Exclusions affect pytest registration only, retaining complete original/adapted ASTs",
+      "Changed-byte/assertion/allowlist/duplicate/collateral-AST negative tests pass",
+      "Foreign-owner denial and handler nonexecution negative test passes"
+    ]
+  },
+  "codex_candidate": "maintenance/step8-review-codex-candidates.json",
+  "production_correction": {
+    "path": "src/tools/executor.py",
+    "authorization": "Parent explicitly expanded ownership for real unknown-tool ordering/classification correction.",
+    "change": "Actual manager.is_owner authentication first, reserved/native and tool scope gates next, unknown handler resolution before check_permission and readiness middleware. Existing known-tool readiness, permission and execution guards remain intact.",
+    "result": "Both original unknown-tool assertions now pass unchanged. Added foreign caller, patched middleware, reserved native-name and revoked tool-scope regression passes.",
+    "scope": "Development file only, not deployed and no service/native/live state touched."
+  },
+  "ownership": "New helper adapter/tests/candidate JSON plus parent-authorized src/tools/executor.py correction. No original tests, shared scripts/maps/qualification, services or live state changed. Left uncommitted."
+}

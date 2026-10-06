@@ -171,7 +171,7 @@ async def test_idless_duplicate_url_reindex_preserves_rows_keys_and_rejected_con
     settings = service.settings
     settings.config.outbound_webhooks.targets = [
         OutboundWebhookTarget(name="first", url="http://127.0.0.1/hook"),
-        OutboundWebhookTarget(name="second", url="http://127.0.0.1/hook"),
+        OutboundWebhookTarget(name="second", url="http://127.0.0.1/hook", signing_key_stored=True),
         OutboundWebhookTarget(name="invalid", url="file:///safe"),
     ]
     ids = [
@@ -324,6 +324,7 @@ async def test_url_auth_is_keyring_only_without_stricter_source_rejection(servic
     assert saved_url == "https://example.invalid/hook"
     assert "temporary-password" not in service.settings.path.read_text()
     assert service.settings.secrets.get(_url_secret_name(row["id"])) is not None
+    assert service.settings.config.outbound_webhooks.targets[0].private_url_stored is True
     restored = IntegrationsService(service.settings)
     await restored.handle("webhooks.outbound.list", {})
     assert restored.dispatcher.get(row["id"]).url.startswith("https://user:temporary-password@")
@@ -367,5 +368,93 @@ async def test_real_settings_and_profile_keyring_adapter_roundtrip(tmp_path):
     listed = await restored.handle("webhooks.outbound.list", {})
     assert listed["webhooks"][0]["id"] == row["id"]
     assert listed["webhooks"][0]["has_secret"] is True
+    assert fresh_settings.config.outbound_webhooks.targets[0].signing_key_stored is True
     await restored.handle("webhooks.outbound.delete", {"id": row["id"]})
     assert not backend.values
+
+
+async def test_standalone_owner_locked_keyring_skips_only_marked_targets(service):
+    public = await create(service, name="public")
+    signed = await create(service, name="signed", secret="fixture-key")
+    private = await create(service, name="private",
+                           url="https://user:fixture-pass@example.invalid/private")
+    rows = service.settings.config.outbound_webhooks.targets
+    assert [(row.signing_key_stored, row.private_url_stored) for row in rows] == [
+        (False, False), (True, False), (False, True)]
+    service.settings.secrets.fail = True
+    # Exercise the independent IntegrationsService._owner construction path.
+    restored = IntegrationsService(service.settings)
+    listed = await restored.handle("webhooks.outbound.list", {})
+    assert [row["id"] for row in listed["webhooks"]] == [public["id"]]
+    assert {row["id"] for row in listed["skipped_webhooks"]} == {
+        signed["id"], private["id"]}
+    assert all("keyring" in row["reason"] for row in listed["skipped_webhooks"])
+    assert "fixture-key" not in json.dumps(listed)
+    assert "fixture-pass" not in json.dumps(listed)
+    with pytest.raises(MethodError, match="keyring"):
+        await restored.handle("webhooks.outbound.test", {"id": signed["id"]})
+    service.settings.secrets.fail = False
+    listed = await restored.handle("webhooks.outbound.list", {})
+    assert len(listed["webhooks"]) == 3 and "skipped_webhooks" not in listed
+    await restored.close()
+
+
+async def test_public_target_never_reads_locked_keyring_even_during_crud(service, monkeypatch):
+    reads = []
+
+    def locked(key):
+        reads.append(key)
+        raise RuntimeError("private backend details")
+
+    monkeypatch.setattr(service.settings.secrets, "get", locked)
+    public = await create(service)
+    assert (await service.handle("webhooks.outbound.list", {}))["webhook_count"] == 1
+    await service.handle("webhooks.outbound.save", {"id": public["id"], "name": "edited"})
+    await service.handle("webhooks.outbound.delete", {"id": public["id"]})
+    assert reads == []
+
+
+async def test_legacy_unmarked_vault_credentials_are_never_silently_dropped(service):
+    row = OutboundWebhookTarget(id="legacy", name="legacy", url="https://example.invalid/old")
+    assert row.signing_key_stored is None and row.private_url_stored is None
+    service.settings.config.outbound_webhooks.targets = [row]
+    service.settings.secrets.set(_secret_name("legacy"), "fixture-legacy-key")
+    service.settings.secrets.set(_url_secret_name("legacy"),
+                                "https://user:fixture-pass@example.invalid/old")
+    service.settings.secrets.fail = True
+    listed = await service.handle("webhooks.outbound.list", {})
+    assert listed["webhooks"] == [] and listed["skipped_webhooks"][0]["id"] == "legacy"
+    service.settings.secrets.fail = False
+    listed = await service.handle("webhooks.outbound.list", {})
+    assert listed["webhooks"][0]["has_secret"]
+    assert service.dispatcher.get("legacy").url.startswith("https://user:")
+    await service.handle("webhooks.outbound.save", {"id": "legacy", "name": "marked"})
+    persisted = service.settings.config.outbound_webhooks.targets[0]
+    assert persisted.signing_key_stored is True and persisted.private_url_stored is True
+
+
+async def test_editing_public_target_keeps_locked_target_markers_and_vault(service):
+    public = await create(service, name="public")
+    signed = await create(service, name="signed", secret="fixture-key")
+    original_vault = dict(service.settings.secrets.values)
+    service.settings.secrets.fail = True
+    await service.handle("webhooks.outbound.save", {"id": public["id"], "name": "edited"})
+    assert service.settings.secrets.values == original_vault
+    rows = service.settings.config.outbound_webhooks.targets
+    assert rows[1].id == signed["id"] and rows[1].signing_key_stored is True
+    assert (await service.handle("webhooks.outbound.list", {}))["skipped_webhooks"]
+    service.settings.secrets.fail = False
+    assert (await service.handle("webhooks.outbound.list", {}))["webhook_count"] == 2
+
+
+@pytest.mark.parametrize("kind", ["signing", "private_url"])
+async def test_missing_marked_credentials_do_not_downgrade_to_public(service, kind):
+    params = ({"secret": "fixture-key"} if kind == "signing" else
+              {"url": "https://user:fixture-pass@example.invalid/private"})
+    target = await create(service, **params)
+    key = _secret_name(target["id"]) if kind == "signing" else _url_secret_name(target["id"])
+    service.settings.secrets.clear(key)
+    listed = await service.handle("webhooks.outbound.list", {})
+    assert listed["webhooks"] == []
+    assert listed["skipped_webhooks"][0]["id"] == target["id"]
+    assert "keyring" in listed["skipped_webhooks"][0]["reason"]

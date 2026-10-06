@@ -455,6 +455,12 @@ class RequestService:
             # the accepted work is a resumed generation, not a fresh request.
             if result["disposition"] == "admitted":
                 result["disposition"] = "accepted"
+                # Optional clients must bind the newly admitted resume, not
+                # infer a generation from bounded conversation history.
+                current = self.get_request(row["request_id"])
+                if current is None:
+                    raise ConversationError("not_found", "Resumed request is no longer present")
+                result["generation"] = current["generation"]
             with self.store.transaction() as db:
                 db.execute("UPDATE desktop_submissions SET response=? WHERE client_submission_id=?",
                            (canonical_json(result), sid))
@@ -479,6 +485,9 @@ class RequestService:
                      "at": row["ended_at"]} for row in rows
                     if row["state"] in ("completed", "failed", "cancelled",
                                         "interrupted", "suspended")]
+        # Resuming an old request settles a new generation now. Bounded recent
+        # history must order settlements, not the request's original creation.
+        terminal.sort(key=lambda item: (item["at"] or "", item["request_id"]))
         controls = []
         tables = {row[0] for row in self.store.connection.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")}
