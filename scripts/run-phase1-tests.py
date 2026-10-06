@@ -133,7 +133,11 @@ def _run_namespace(command: list[str], *, timeout: int | None = None, quiet: boo
 
 
 def _scratch_root() -> Path | None:
-    """An optional private scratch parent (CI uses tmpfs), never a shared directory."""
+    """An optional private HOME/XDG scratch parent (CI uses tmpfs), never a shared directory.
+
+    TMPDIR is deliberately untouched: the isolation helper already gives each
+    namespace a private RAM-backed /tmp, and longer temp paths break socket limits.
+    """
     value = os.environ.get("ODIN_TEST_SCRATCH")
     if not value:
         return None
@@ -189,10 +193,6 @@ def main(argv: list[str] | None = None) -> int:
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         }
-        if scratch_root != state:
-            # CI points the private scratch root at tmpfs, so fsync-heavy suites
-            # running in parallel do not queue on one disk.
-            environment["TMPDIR"] = str(scratch_root)
         # This is a cleanup tag, not an authentication credential. Preserve it
         # so GitHub can also identify children after an abrupt launcher death.
         if tracking := os.environ.get("RUNNER_TRACKING_ID"):

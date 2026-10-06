@@ -522,7 +522,7 @@ def test_additional_flag_refuses_selection_overrides_before_launch(
         runner.main(["--additional-desktop-boundaries", *arguments])
 
 
-def test_ci_scratch_root_moves_isolated_state_and_tmpdir_to_private_tmpfs(tmp_path, monkeypatch):
+def test_ci_scratch_root_moves_isolated_state_to_private_tmpfs(tmp_path, monkeypatch):
     runner = configure_runner(tmp_path, monkeypatch)
     # The scratch root is owned by the real test user.
     runner.os.getuid, runner.os.geteuid = os.getuid, os.geteuid
@@ -536,7 +536,7 @@ def test_ci_scratch_root_moves_isolated_state_and_tmpdir_to_private_tmpfs(tmp_pa
     command = captured[0]
     home = Path(next(arg.removeprefix("HOME=") for arg in command if arg.startswith("HOME=")))
     assert home.parent.parent == shm and home.parent.name.startswith("isolation-")
-    assert f"TMPDIR={shm}" in command
+    assert not any(arg.startswith("TMPDIR=") for arg in command)  # socket path lengths unchanged
     assert stat.S_IMODE(shm.stat().st_mode) == 0o700
     assert not home.parent.exists()
 
