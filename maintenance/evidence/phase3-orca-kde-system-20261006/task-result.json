@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "kind": "focused-system-comparison-not-qualification",
+  "source_head": "e67f8fd7b4035e5b641b7b6ce044200e9d593c7c",
+  "guest": "odq-kde",
+  "session": "KDE/Wayland",
+  "invocation": "direct org.freedesktop.portal.FileChooser.OpenFile",
+  "odin_or_electron_launched": false,
+  "chooser_requests": 1,
+  "observation_seconds": 8,
+  "visible_chooser_inspected": true,
+  "raw_registry_nodes": {"before": 685, "open": 688, "after_close": 686},
+  "registry_node_call_errors": 0,
+  "registry_truncated": false,
+  "portal_application_or_dialog_in_registry": false,
+  "backend_present_on_accessibility_bus": true,
+  "backend_selected_state_event_observed": true,
+  "opening_speech_records": 0,
+  "orca_startup_and_desktop_baseline_speech": true,
+  "judgment": "Reproduces independently of Odin/Electron; supports a KDE guest/system-side registration/accessibility limitation",
+  "acceptance": "KDE 6/7 unchanged; Aaron decision required",
+  "limitations": [
+    "Single sample; no KWrite or keyboard traversal test",
+    "Initial unique-peer mapper failed; exact incarnation reconciled after close",
+    "Direct accessible-root/cache queries only after close; while-open object callability not established",
+    "No universal KDE or precise Qt/plugin cause claim"
+  ],
+  "cleanup": {
+    "request_closed": true,
+    "owned_children_and_descendants_exited": true,
+    "cgroup_empty_and_removed": true,
+    "orca_exit_code": -9,
+    "cgroup_kill_escalation": false,
+    "guest_scratch_and_transport_removed": true,
+    "guest_manager_flags_restored": true,
+    "uinput_permission_changes": false,
+    "guest_state": "STOPPED",
+    "active_incus_vms": 0,
+    "validation": "2/2 passed"
+  }
+}

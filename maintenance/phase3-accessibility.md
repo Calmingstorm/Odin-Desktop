@@ -105,6 +105,32 @@ alone cannot satisfy a speech assertion. The guest fixture uses part 1's
 adversarial core, including its unpublished/rejected draft sentinel. No real
 credential is entered or copied into a guest.
 
+### PR #50 review: independent KDE chooser comparison
+
+One direct `org.freedesktop.portal.FileChooser.OpenFile` request opened the
+same `Attach files` portal chooser without Odin/Electron. The original native
+screenshot was inspected. Unfiltered registry traversal completed without
+errors or truncation: **685 nodes before, 688 open, 686 after close**. No portal
+application/dialog was registered; the matching title belonged only to
+plasmashell's task button. Orca's startup/desktop baseline spoke, but the
+eight-second opening observation had **zero speech records**.
+
+The backend was present on the accessibility bus and emitted a selected-state
+event. This is not simply our eligible-source filter rejecting a dialog, and
+it is not proof that every individual object was uncallable while open. Exact
+backend identity was reconciled after close; post-close root/cache queries
+are explicitly not while-open evidence. Both Qt accessibility flags and the
+same graphical/accessibility bus were verified. Full provenance, limitations,
+cleanup and artifact hashes are in
+`maintenance/evidence/phase3-orca-kde-system-20261006/`.
+
+**Disposition:** reproduced independently of Odin/Electron, supporting a KDE
+guest/system-side registration/accessibility limitation, not an app-specific
+portal invocation defect. Precise cause and universal KDE behavior remain
+unproved. KDE **6/7** is unchanged; acceptance is Aaron's decision. No matrix
+rerun, waiver, alternate toolkit or task-button substitution. KDE was
+gracefully stopped and all lab VMs were confirmed stopped.
+
 ### Rootless lab-test repair (review P3)
 
 The eight KDE `user_config` cases previously invoked nested `sudo -n env -i`.
