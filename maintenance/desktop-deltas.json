@@ -3536,12 +3536,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Profile-owned management composition preserves one shared executor and qualified lifetime owners while health.get reads browser status.",
+      "contract": "Catalog availability describes wired retry seam; browser health reports actual connection/qualification and disabled/closed runtimes remain unavailable. Reserve before effect, atomically finalize receipt/validated event, replay without callbacks and bypass reservations for reads. Stored hmac-v1 prefixes select keyed comparison; untagged receipts retain raw-parameter comparison without rewriting or reexecuting effects. Management mutations govern actual request execution, persisted settings seed restart, and no management event advances live cursors over pending workers.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "No duplicate owners, no generic renderer RPC, and no foreground/native input or browser qualification from catalog availability.",
+      "invariant": "No unqualified browser context handed to a request, false native qualification, foreground grant or replay. Crash/cancel outcomes stay unknown, never exactly-once proof/readmission; request-shaped hash envelopes cannot impersonate keyed bindings. No passthrough, plaintext journal params or payload event paths. Retain ToolLoopRunner, readiness/authority guards, injected runtime seams, durable receipts and capability union; no second runtime graph. Slice4 adds only read-only retry observation.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -3554,7 +3554,7 @@
         }
       ],
       "path": "src/desktop/management.py",
-      "reason": "Refresh shared composition evidence digest after browser status observation tests gain retry_available assertions; management source remains the reviewed PR28 merge bytes.",
+      "reason": "Merge main request/delivery/control ownership with qualified step-6A services. Keep enabled browser lazy qualify-before-use handler reachable after failed startup instead of withdrawing the only retry route. Compose retained owners and async admission outside SQLite awaits; tag private durable profile HMAC identities hmac-v1 and retain legacy step-one receipt comparisons. PR21 review-1 evidence refresh: Admission/HMAC/receipt behavior is unchanged; keyring read refusal creates no mutation receipt and restart key identity uses the same graph. Merge integration: compose management on retained request runtime settings, executor, provider gateway, host registry and context owners; publish pending worker and settings frames in journal order. Slice4 refreshes named browser evidence digest only; management source remains PR28 merge bytes.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -3564,15 +3564,23 @@
       "test_sha256": {
         "tests/test_desktop_browser_runtime.py": "ee333b28583d99fa57e9f9832c6ccf108352bb3f3c502f6829d9c05800cf2b58",
         "tests/test_desktop_computer_binding.py": "1d71352acda8a45541b3c8bbc34ea5a2963ecaa11d1c6de295b651faf2cdff75",
+        "tests/test_desktop_engine_services.py": "e4fc986b05ea695d727b8ea46a92e664b1f5a54b14aab75c51f1931040dbbe5c",
+        "tests/test_desktop_management.py": "ddb1ef0e30e312da1902b7ac6637f22ab20fb8ceb5214742d277249cf563b7c7",
         "tests/test_desktop_management_core.py": "ebe1586fd55a4994f82022330acf967b77559b4ace3e78862cba2f2bc2dc60d9",
         "tests/test_desktop_mcp.py": "252a0ed845125427fe81b93a4ccd1fe632f5fef57ad20b9084a450f9f659c434",
+        "tests/test_desktop_receipt_retention.py": "3b16786af54fd7880cc7ab0d3bd40eece8adac3ea5f5472c5a1b1f337dc94d8c",
+        "tests/test_desktop_request_core.py": "c1d81b3dce86f0266f3f39801185162f6bae90807c21db0216731c0e7d5ee0aa",
         "tests/test_desktop_services_core.py": "68aa5a7e78fa447556e511df5b4f221d5e631098bd3882c2b7f5a4044a1f14b2"
       },
       "tests": [
         "tests/test_desktop_browser_runtime.py",
         "tests/test_desktop_computer_binding.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_management.py",
         "tests/test_desktop_management_core.py",
         "tests/test_desktop_mcp.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_request_core.py",
         "tests/test_desktop_services_core.py"
       ]
     },
