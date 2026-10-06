@@ -65,7 +65,9 @@ PR35_ROUND2_CASE_REASONS = {
     },
     "tests/test_chat_steering_parity.py": {
         "test_unsteered_native_batch_protocol_permissions_and_resume_parity":
-        "Removed tier-denial prose surface; one canonical owner",
+        "Tier-denial prose removed: both fresh and run-resumed-rebind goldens "
+        "require Permission denied: blocked for the canonical owner; desktop "
+        "has no per-tool tier ACL. Retire this case, not individual assertions.",
     },
 }
 # Deliberately separate from #26: neither review grants blanket retirement.
@@ -156,6 +158,8 @@ PR35_CASE_REASONS = {
     },
 }
 PR35_CASE_SOURCE_SHA256 = {
+    "tests/test_codex_replay_matrix.py":
+        "eed93185f30efd619bafbfb1fd0f2d7bcac1eda96879b50214cfc1f8f5585256",
     "tests/test_campaign_cli_coverage.py":
         "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b",
     "tests/test_chat_steering_parity.py":
@@ -355,8 +359,39 @@ def _reviewed_exclusion_expression(node: ast.expr) -> bool:
     return False
 
 
+def _parameter_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
+    """Exactly five reviewed Codex matrix rows, both original replay paths."""
+    if value == {}:
+        return True
+    expected = {
+        "test_emitted_replayed_matrix": [
+            "builtin-add_reaction", "builtin-create_poll", "builtin-purge_messages",
+            "builtin-read_channel", "builtin-set_permission",
+        ],
+    }
+    if (path != "tests/test_codex_replay_matrix.py" or value != expected
+            or inherited_hash != PR35_CASE_SOURCE_SHA256[path]):
+        return False
+    source = _regular(root, path).read_bytes()
+    if _digest(source) != inherited_hash:
+        return False
+    tree = ast.parse(source)
+    matrix = [node for node in tree.body if isinstance(node, ast.Assign)
+              and any(isinstance(target, ast.Name) and target.id == "BUILTIN_INPUTS"
+                      for target in node.targets)]
+    if (len(matrix) != 1 or _digest(ast.dump(matrix[0], include_attributes=False).encode())
+            != "96af24f8e2b4f7d499fa0c8c7f0b8fa77600552871bc1109b85169e8ae736c43"):
+        return False
+    names = {ast.literal_eval(key) for key in matrix[0].value.keys}
+    retired_names = {
+        label.removeprefix("builtin-") for label in expected["test_emitted_replayed_matrix"]
+    }
+    return retired_names <= names
+
+
 def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
-                  case_retirements=None, branch_retirements=None) -> bool:
+                  case_retirements=None, branch_retirements=None,
+                  parameter_retirements=None) -> bool:
     """Fail-closed static full-export association for frozen corpus loaders.
 
     A literal admission alone is insufficient: the reachable loader must read
@@ -372,6 +407,10 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
     if not _branch_retirements(root, path, inherited_hash, reviewed_branches):
         return False
     declared_branches = None
+    reviewed_parameters = {} if parameter_retirements is None else parameter_retirements
+    if not _parameter_retirements(root, path, inherited_hash, reviewed_parameters):
+        return False
+    declared_parameters = None
     exclusion_export = False
     admitted = False
     pinned = False
@@ -391,7 +430,8 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
                     value = ast.literal_eval(node.value)
                 except (ValueError, TypeError):
                     if any(isinstance(target, ast.Name) and target.id in {
-                        "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS", "CORPUS_BRANCH_RETIREMENTS"}
+                        "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS", "CORPUS_BRANCH_RETIREMENTS",
+                        "PARAMETER_RETIREMENTS"}
                            for target in node.targets):
                         return False
                     continue
@@ -431,6 +471,17 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             if (not _path(source_path) or key != PurePosixPath(source_path).stem
                     or not _branch_retirements(root, source_path, sha, dispositions)):
                 return False
+        parameters = constants.get("PARAMETER_RETIREMENTS", {})
+        if not isinstance(parameters, dict):
+            return False
+        for key, dispositions in parameters.items():
+            source_path = f"tests/{key}.py"
+            if (key != "test_codex_replay_matrix" or not dispositions
+                    or not _parameter_retirements(root, source_path,
+                                                  PR35_CASE_SOURCE_SHA256[source_path],
+                                                  dispositions)
+                    or constants.get("REVIEW_AUTHORITY") != PR35_ROUND2_REVIEWER):
+                return False
         for key in matching_keys:
             current = exclusions.get(key, [])
             if declared is not None and declared != current:
@@ -440,7 +491,11 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             if declared_branches is not None and declared_branches != current_branches:
                 return False
             declared_branches = current_branches
-        if (constants.get("SOURCE_PATH") == path
+            current_parameters = parameters.get(key, {})
+            if declared_parameters is not None and declared_parameters != current_parameters:
+                return False
+            declared_parameters = current_parameters
+        if ((constants.get("SOURCE_PATH") == path or constants.get("PATH") == path)
                 and constants.get("SOURCE_SHA256") == inherited_hash):
             pinned = True
         suites = constants.get("SUITES", {})
@@ -456,14 +511,15 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             if isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
                 target = node.target
                 if isinstance(target, ast.Name) and target.id in {
-                    "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS", "CORPUS_BRANCH_RETIREMENTS"}:
+                    "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS", "CORPUS_BRANCH_RETIREMENTS",
+                    "PARAMETER_RETIREMENTS"}:
                     return False
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name) \
                             and target.value.id in {
                                 "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS",
-                                "CORPUS_BRANCH_RETIREMENTS"}:
+                                "CORPUS_BRANCH_RETIREMENTS", "PARAMETER_RETIREMENTS"}:
                         return False
             if isinstance(node, ast.Call):
                 name = (node.func.id if isinstance(node.func, ast.Name)
@@ -486,7 +542,7 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
                 if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
                     if node.func.value.id in {
                             "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS",
-                            "CORPUS_BRANCH_RETIREMENTS"} \
+                            "CORPUS_BRANCH_RETIREMENTS", "PARAMETER_RETIREMENTS"} \
                             and node.func.attr not in {"get", "items"}:
                         return False
             if isinstance(node, (ast.If, ast.Assert)):
@@ -504,10 +560,19 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
                 hash_calls = [n for n in ast.walk(condition) if isinstance(n, ast.Call)
                               and isinstance(n.func, ast.Attribute)
                               and n.func.attr in {"sha256", "hexdigest"}]
+                digest_calls = [n for n in ast.walk(condition) if isinstance(n, ast.Call)
+                                and isinstance(n.func, ast.Name) and n.func.id == "digest"]
+                exact_digest = ast.parse(
+                    "def digest(data):\n    return hashlib.sha256(data).hexdigest()\n").body[0]
+                if digest_calls and any(
+                        isinstance(n, ast.FunctionDef) and ast.dump(n) == ast.dump(exact_digest)
+                        for n in tree.body):
+                    hash_calls.extend(digest_calls)
                 hash_guard |= bool(hash_calls and guards and correct_operator)
     return (admitted and pinned and frozen and export and corpus_guard and hash_guard
             and compile_frozen and invokes_loader and declared == reviewed
             and declared_branches == reviewed_branches
+            and declared_parameters == reviewed_parameters
             and (not reviewed or exclusion_export))
 
 
@@ -756,6 +821,7 @@ def _check(root: Path) -> tuple[list[str], dict]:
         mode = restoration.get("mode")
         case_retirements = restoration.get("case_retirements", [])
         branch_retirements = restoration.get("branch_retirements", [])
+        parameter_retirements = restoration.get("parameter_retirements", {})
         try:
             valid_cases = _case_retirements(root, path, row.get("inherited_sha256", ""),
                                            case_retirements)
@@ -766,6 +832,10 @@ def _check(root: Path) -> tuple[list[str], dict]:
             valid_branches = False
         if not valid_cases or (case_retirements and mode != "frozen-adapter"):
             errors.append(f"mapping: invalid reviewed case retirements: {path}")
+        if (not _parameter_retirements(root, path, row.get("inherited_sha256", ""),
+                                      parameter_retirements)
+                or (parameter_retirements and mode != "frozen-adapter")):
+            errors.append(f"mapping: invalid reviewed parameter retirements: {path}")
         if not valid_branches or (branch_retirements and mode != "frozen-adapter"):
             errors.append(f"mapping: invalid reviewed branch retirements: {path}")
         selectors = _strings(restoration.get("selectors"), f"restoration {path} selectors", errors)
@@ -787,7 +857,7 @@ def _check(root: Path) -> tuple[list[str], dict]:
                     )
                 if mode == "frozen-adapter" and not _full_adapter(
                     root, selector, path, row.get("inherited_sha256", ""), case_retirements,
-                    branch_retirements
+                    branch_retirements, parameter_retirements
                 ):
                     errors.append(
                         f"mapping: adapter lacks immutable full-suite corpus association: {path}"

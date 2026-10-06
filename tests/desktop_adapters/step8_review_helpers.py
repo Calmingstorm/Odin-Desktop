@@ -233,7 +233,9 @@ def register_module(namespace, module, *, prefix=None, excluded=()):
     exposed = ModuleType(module.__name__ + "_exposed")
     exposed.__dict__.update(module.__dict__)
     excluded = set(excluded)
-    for cls_name in {case.split(".")[0] for case in excluded}:
+    for name in {case for case in excluded if "." not in case}:
+        del exposed.__dict__[name]
+    for cls_name in {case.split(".")[0] for case in excluded if "." in case}:
         cls = getattr(module, cls_name)
         attrs = {key: value for key, value in vars(cls).items()
                  if key not in {"__dict__", "__weakref__"}

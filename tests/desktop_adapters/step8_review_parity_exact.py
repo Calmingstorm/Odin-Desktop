@@ -14,8 +14,9 @@ import inspect
 import sys
 from types import ModuleType
 
-from scripts.maintenance.fixture_corpus import corpus, dump, frozen_source, register_module
+from scripts.maintenance.fixture_corpus import corpus, dump, frozen_source
 from tests.desktop_adapters import step8_review_steering as admitted
+from tests.desktop_adapters.step8_review_helpers import register_module
 
 SOURCE_PATH = "tests/test_chat_steering_parity.py"
 SOURCE_SHA256 = "48cf45bcceed1be223a2cf8428af0a9eff3e57b695b1d147a3e6fe7a843233ec"
@@ -350,11 +351,7 @@ def load(namespace):
     module.__dict__.update(real_permission=real_permission, admitted_run=admitted_run)
     sys.modules[module.__name__] = module
     exec(compile(tree, SOURCE_PATH, "exec"), module.__dict__)
-    excluded = [item["case"] for item in CORPUS_EXCLUSIONS["test_chat_steering_parity"]]
-    if excluded != ["test_unsteered_native_batch_protocol_permissions_and_resume_parity"]:
-        raise ValueError("parity exact exclusion allowlist changed")
-    exported = ModuleType(module.__name__ + "_export")
-    exported.__dict__.update({key: value for key, value in module.__dict__.items()
-                              if key not in excluded})
-    register_module(namespace, exported, prefix="review_parity_exact")
+    stem = "test_chat_steering_parity"
+    register_module(namespace, module, prefix="review_parity_exact",
+                    excluded=[item["case"] for item in CORPUS_EXCLUSIONS.get(stem, ())])
     return original, tree

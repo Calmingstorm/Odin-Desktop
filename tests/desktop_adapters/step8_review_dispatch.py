@@ -26,7 +26,8 @@ CORPUS_EXCLUSIONS = {
         {
             "case": "TestMiddlewarePins.test_rbac_denial_shape_and_metrics",
             "reviewer": "Claude, review of #35",
-            "reason": "Guest-tier RBAC is removed by Desktop D17; Claude, review of #35 retires only this guest denial/metrics case.",
+            "reason": "Guest-tier RBAC is removed by Desktop D17; Claude, review of #35 "
+                      "retires only this guest denial/metrics case.",
             "source_path": "tests/characterization/test_executor_dispatch_parity.py",
             "source_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
         },

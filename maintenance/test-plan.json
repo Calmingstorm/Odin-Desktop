@@ -6,19 +6,23 @@
     "tracked_test_paths": 869,
     "archive": "maintenance/odin-v4.13.0.tar.gz"
   },
-  "execution_status": "PR35 review1 continued: assigned47=21restored21retired5deferred; all869 original hashes326 population preserved. Full gate v1 failed, v2 source qualification recorded separately.",
+  "execution_status": "PR35 round2: assigned47=25restored21retired1deferred; global326=34restored26retired266deferred. Unique retained originals704 plus2 added Codex executions. All869 inherited hashes immutable. Current full qualification parent-owned pending; review1 evidence unchanged.",
   "qualification_plan": "maintenance/qualification-plan.json",
   "phase2_suite_map": "maintenance/phase2-suite-map.json",
   "phase2_restored": [
+    "tests/characterization/test_executor_dispatch_parity.py",
     "tests/test_attachments.py",
     "tests/test_bounded_process_wait.py",
+    "tests/test_campaign_cli_coverage.py",
     "tests/test_campaign_execution_risk.py",
     "tests/test_channel_cursor_campaign.py",
     "tests/test_channel_history_recency.py",
     "tests/test_channel_logger_edge_regressions.py",
     "tests/test_channel_state_recent_action_failure.py",
+    "tests/test_chat_steering_parity.py",
     "tests/test_chat_steering_resume.py",
     "tests/test_chat_steering_runtime.py",
+    "tests/test_codex_replay_matrix.py",
     "tests/test_command_shell_framing.py",
     "tests/test_compatible_output_reserve.py",
     "tests/test_computer_audit_output_r21.py",
@@ -54,13 +58,13 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 270,
+    "phase2": 266,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "safe_pass_now": 387,
+    "safe_pass_now": 391,
     "safety_manual_gated": 100,
     "retired": 26,
-    "phase2_restored": 30
+    "phase2_restored": 34
   },
   "entries": [
     {
@@ -233,8 +237,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Round2 retained dispatch corpus through authentic owner admission; exact foreign-caller and prior guest-tier case retirements only.",
       "phase2_seams": [
         "src/discord/client.py"
       ]
@@ -2836,8 +2840,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/cli.py: local IPC control. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Round2 retained six original CLI executions through authenticated local IPC; exact HTTP-only case retirements, all retained assertions unchanged.",
       "phase2_seams": [
         "src/cli.py"
       ]
@@ -4952,8 +4956,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Round2 exact one-to-one identity projection only; retained golden event order, guard decisions and delivery remain exact, one tier-prose case retired.",
       "phase2_seams": [
         "src/discord/channel_state.py",
         "src/discord/tool_loop.py",
@@ -5442,8 +5446,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Round2 real63-name catalog, exact five removed tool rows and added read_conversation row; unchanged equality and other assertions on both replay paths.",
       "phase2_seams": [
         "src/discord/tool_loop.py"
       ]
@@ -36455,7 +36459,6 @@
     "tests/characterization/test_api_route_parity.py",
     "tests/characterization/test_autonomous_loop.py",
     "tests/characterization/test_chat_tool_loop.py",
-    "tests/characterization/test_executor_dispatch_parity.py",
     "tests/characterization/test_facade_contract.py",
     "tests/characterization/test_native_skill_dispatch_pins.py",
     "tests/characterization/test_p1_carve_semantics.py",
@@ -36492,7 +36495,6 @@
     "tests/test_campaign_agent_routes_coverage.py",
     "tests/test_campaign_audit_observability.py",
     "tests/test_campaign_authorization_persistence.py",
-    "tests/test_campaign_cli_coverage.py",
     "tests/test_campaign_diagnostic_privacy.py",
     "tests/test_campaign_discord_digest.py",
     "tests/test_campaign_discord_final_coverage.py",
@@ -36514,11 +36516,9 @@
     "tests/test_cancelled_persistence_settles.py",
     "tests/test_catalog_campaign.py",
     "tests/test_chat_loop_recovery.py",
-    "tests/test_chat_steering_parity.py",
     "tests/test_codex_account_mutation_regressions.py",
     "tests/test_codex_quota_check.py",
     "tests/test_codex_replay_boundaries.py",
-    "tests/test_codex_replay_matrix.py",
     "tests/test_command_shell_callers.py",
     "tests/test_command_shell_round2.py",
     "tests/test_command_shell_scope.py",
@@ -36796,6 +36796,7 @@
     "tests/supervised_shell_double.py"
   ],
   "safe_pass_now": [
+    "tests/characterization/test_executor_dispatch_parity.py",
     "tests/computer/test_hyprland_backend.py",
     "tests/test_adaptive_compaction.py",
     "tests/test_agent_cascade_retention.py",
@@ -36821,6 +36822,7 @@
     "tests/test_browser_automation.py",
     "tests/test_campaign_audit_durability.py",
     "tests/test_campaign_backend_environment_final_coverage.py",
+    "tests/test_campaign_cli_coverage.py",
     "tests/test_campaign_close_backend_capture_coverage.py",
     "tests/test_campaign_close_backend_focus_coverage.py",
     "tests/test_campaign_close_backend_recovery_coverage.py",
@@ -36854,6 +36856,7 @@
     "tests/test_channel_history_recency.py",
     "tests/test_channel_logger_edge_regressions.py",
     "tests/test_channel_state_recent_action_failure.py",
+    "tests/test_chat_steering_parity.py",
     "tests/test_chat_steering_resume.py",
     "tests/test_chat_steering_runtime.py",
     "tests/test_circuit_breaker.py",
@@ -36864,6 +36867,7 @@
     "tests/test_codex_limit_aware.py",
     "tests/test_codex_quota.py",
     "tests/test_codex_reliability.py",
+    "tests/test_codex_replay_matrix.py",
     "tests/test_codex_spark_retirement.py",
     "tests/test_command_authority.py",
     "tests/test_command_shell_framing.py",
