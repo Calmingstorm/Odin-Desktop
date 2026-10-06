@@ -101,6 +101,41 @@ def test_delivery_idempotence_and_conflict(graph):
     assert transcript.list(cid)["items"] == [message]
 
 
+def test_execution_lineage_survives_reload_repeat_resets_and_cascades_delete(graph, tmp_path):
+    store, _, conversations, transcript, cid = graph
+    transcript.commit(cid, "user", "original", request_id="preserved")
+    with store.transaction() as db:
+        db.execute("INSERT INTO desktop_request_context VALUES ('preserved',?,0)", (cid,))
+    conversations.reset_context(cid, conversations.get(cid)["rev"])
+    first_epoch = conversations._row(cid)["context_position"]
+    transcript.commit(cid, "user", "between", request_id="between")
+    with store.transaction() as db:
+        db.execute("INSERT INTO desktop_request_context VALUES ('between',?,?)", (cid, first_epoch))
+    conversations.reset_context(cid, conversations.get(cid)["rev"])
+    old_output = transcript.commit(cid, "assistant", "resumed late", request_id="preserved")
+    transcript.commit(cid, "assistant", "between late", request_id="between")
+    transcript.commit(cid, "user", "fresh")
+    assert [item["text"] for item in transcript.model_context(cid)] == ["fresh"]
+    # A historical child at the late-output anchor uses the reset at that
+    # anchor, not the lineage of the output it happens to be anchored to.
+    child = conversations.create(parent_id=cid, from_message_id=old_output["id"])
+    assert transcript.model_context(child["conversation"]["id"]) == []
+    store.close()
+    reopened = JournalStore(tmp_path / "journal.sqlite3", "test-profile")
+    try:
+        events = EventJournal(reopened)
+        restored_conversations = ConversationStore(reopened, events)
+        restored = TranscriptStore(reopened, events, restored_conversations)
+        assert [item["text"] for item in restored.model_context(cid)] == ["fresh"]
+        assert "resumed late" in str(restored.list(cid))
+        restored_conversations.delete(cid, restored_conversations.get(cid)["rev"])
+        assert reopened.connection.execute(
+            "SELECT COUNT(*) FROM desktop_request_context WHERE conversation_id=?", (cid,)
+        ).fetchone()[0] == 0
+    finally:
+        reopened.close()
+
+
 def test_failed_message_event_rolls_back_transcript_and_revision(graph, monkeypatch):
     _, events, conversations, transcript, cid = graph
     original, high = conversations.get(cid), events.high
