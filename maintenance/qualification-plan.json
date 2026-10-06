@@ -36,6 +36,13 @@
     "retired_server_distribution_contract": "Old server CLI/remote API client and build-deb release workflow removed D3/D5/D6; original bytes preserved. Hostile release tag literals additionally prohibited even mocked.",
     "still_required_neutral_exact_case_mapping_blocker": "Remove specific tier/WebUI/server assertions only, never neutral redaction/validator/reset/import/governor/host safety corpus. Actual disposable profile/model/import roots, instance allowed_urls, static catalogue, genuine owner and mocked provider fixtures are minimal alternatives. D5 forbids prior-install import, not normal Desktop runtime/loader upgrades, document ingestion or explicit profile-scoped helpers."
   },
+  "decision_f_pdf_catalog_disposition": {
+    "original": "tests/test_tool_catalog_dependency_gate.py::test_missing_pdf_dependency_is_hidden_with_actionable_log",
+    "source_sha256": "f7db630da366641f110d4f433398747dbd6a24f8bdf3be31acb936abacdd0311",
+    "disposition": "obsolete-contract-replaced-pending-independent-review",
+    "reason": "Aaron Decision F requires PDF offered with a verified automatic first-use download, not hidden when the optional module is absent. Original source assertions and hash remain frozen; no old-contract pass is claimed.",
+    "replacement": "tests/test_desktop_pdf_catalog.py::test_missing_pdf_dependency_is_offered_with_unchanged_description"
+  },
   "failure_accounting": {
     "ordinary_upgrade_rule": "D5 startup/import waivers superseded by profile-upgrade-triage.json. Normal established owner profile upgrades retained.",
     "population": ".test-state/inherited-bounded.xml all259 failures across49 original files",
@@ -1481,6 +1488,8 @@
         "tests/test_desktop_strip_root.py",
         "tests/test_desktop_strip_web.py",
         "tests/test_desktop_test_plan.py",
+        "tests/test_pdf_resources.py",
+        "tests/test_desktop_pdf_catalog.py",
         "tests/test_desktop_transcript.py"
       ],
       "name": "desktop-boundary-tests",

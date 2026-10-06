@@ -12,7 +12,6 @@ the live object.
 
 from __future__ import annotations
 
-import importlib.util
 from collections.abc import Callable
 
 from ..odin_log import get_logger
@@ -163,14 +162,7 @@ class ToolCatalog:
 
         if not image_tool_available(config):
             hidden.add("generate_image")
-        # Required bundled dependencies still need a structural readiness check.
-        # Importability is not proof the native library or packaged assets load.
-        if importlib.util.find_spec("fitz") is None:
-            hidden.add("analyze_pdf")
-            log.info(
-                "analyze_pdf hidden from the tool catalog: required bundled "
-                "PyMuPDF is unavailable; repair the desktop installation."
-            )
+        # PDF is always offered: its optional dependency resolves on first use.
         return hidden
 
     def invalidate(self) -> None:
