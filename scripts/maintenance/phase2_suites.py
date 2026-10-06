@@ -1152,7 +1152,16 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
 
 def _evaluate(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
     try:
-        return _check(root, documents)
+        errors, report = _check(root, documents)
+        if (root / "maintenance/phase2-step8-part6-cases.json").exists():
+            import sys
+            if str(ROOT) not in sys.path:
+                sys.path.insert(0, str(ROOT))
+            from scripts.maintenance.phase2_part6 import validate as validate_part6
+            case_errors, counts = validate_part6(root)
+            errors.extend(case_errors)
+            report["step8_part6_cases"] = counts
+        return errors, report
     except (OSError, ValueError, TypeError, KeyError, AttributeError, SyntaxError,
             subprocess.SubprocessError) as exc:
         return [f"malformed accounting input: {exc}"], {}

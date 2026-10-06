@@ -72934,5 +72934,13 @@
     "tests/test_tool_timeouts.py::TestToolTimeoutsAPI::test_set_invalid_default_rejected",
     "tests/test_tool_timeouts.py::TestToolTimeoutsAPI::test_set_non_dict_overrides_rejected",
     "tests/test_tool_timeouts.py::TestToolTimeoutsAPI::test_list_tools_includes_timeout"
-  ]
+  ],
+  "phase2_step8_part6": {
+    "dispositions": "maintenance/phase2-step8-part6-cases.json",
+    "collection": "maintenance/phase2-step8-part6-collection.json",
+    "collection_sha256": "b40794edee22b8fac844e219b3e6995100efdd9a89ebedb7bb1adb0342dd23a8",
+    "functions": 83,
+    "expanded_cases": 108,
+    "independent_review": "pending"
+  }
 }

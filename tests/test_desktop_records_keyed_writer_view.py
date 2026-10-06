@@ -31,7 +31,8 @@ async def test_keyed_view_snapshot_waits_for_the_writers_append(tmp_path):
     rows = await asyncio.wait_for(pending, timeout=5)
     try:
         assert rows[0]["size"] == len(b'{"timestamp":"settled"}\n')
-        assert verify_segment(rows[0]["handle"], rows[0]["size"], b"profile-key")["reason"] != "invalid_json"
+        result = verify_segment(rows[0]["handle"], rows[0]["size"], b"profile-key")
+        assert result["reason"] != "invalid_json"
     finally:
         for row in rows:
             if row["handle"] is not None:

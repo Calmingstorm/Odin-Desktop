@@ -3304,7 +3304,7 @@
       "qualification_group": "phase2-webhook-reference",
       "inherited_sha256": "56fc36128326f6f016f2876c16e8eb476a597b6bfeb819b67a5ba83067c94b67",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Generator parity, offline/no-I/O behavior, authorization metadata and route inventory span retained settings/work and webhook services. Rebind generated reference to named Desktop protocol/service inventory and explicitly disposition retired231-route REST/social/RBAC assertions; this is not merely app UI and cannot be blanket Phase3. Ingress inventory is last."
+      "blocked_on": "Exact final part6 per-case dispositions and named blockers: maintenance/phase2-step8-part6-cases.json; mixed suite remains deferred, no whole-suite restoration, independent review pending. Mixed removed REST handler ownership inventory with retained purpose/source-link introspection provenance; Desktop protocol/service generator projection missing, not a blanket documentation retirement. Mixed removed local-admin route gate introspection with retained missing/first-doc-line and no-handler-execution behavior; exact split/projection missing. Mixed retained webhook ingress inventory with removed health HTTP/UI/WebSocket registration/order; all seven frozen parameter rows retained pending exact split/projection. Retained committed generator drift invariant; legacy generator imports removed REST implementation, Desktop reference inventory projection missing. Retained missing/stale drift check and write semantics; generator module cannot import removed web API, standalone generator projection missing. Retained offline CLI check outside repo/no Git; legacy generator imports removed web API, Desktop reference generator missing. Retained offline/no-I/O generator invariant mixed with removed 231 REST count; no silent 231-to-Desktop data substitution."
     },
     {
       "path": "tests/test_generation_duration_contract.py",
@@ -3335,7 +3335,7 @@
       "qualification_group": "phase2-webhook-ingress",
       "inherited_sha256": "b35ba5e742419b25a2d04d9ffac2fa539db75c0817e9553fe2e2d03015cecf3c",
       "status": "deferred",
-      "blocked_on": "Step 7 executes 19 exactly selected original functions through tests/test_desktop_webhook_adapters.py against genuine temporary ingress/scheduler/transcript owners. Source/assertion/parameter seals and explicit remaining cases are recorded in docs/work/phase-2-step7-inherited-adapters.md. This is partial execution, not whole-suite restoration: global legacy channel/config and remaining callback setup assertions stay pending exact disposition/review."
+      "blocked_on": "Exact final part6 per-case dispositions and named blockers: maintenance/phase2-step8-part6-cases.json; mixed suite remains deferred, no whole-suite restoration, independent review pending. GitHub schedule-specific callback observation adapter missing; mutable global callback cannot fabricate durable dispatch equivalence. Step 7 executes 19 exactly selected original functions through tests/test_desktop_webhook_adapters.py against genuine temporary ingress/scheduler/transcript owners. Source/assertion/parameter seals and explicit remaining cases are recorded in docs/work/phase-2-step7-inherited-adapters.md. This is partial execution, not whole-suite restoration: global legacy channel/config and remaining callback setup assertions stay pending exact disposition/review."
     },
     {
       "path": "tests/test_gitlab_webhook.py",
@@ -3350,7 +3350,7 @@
       "qualification_group": "phase2-webhook-ingress",
       "inherited_sha256": "69af5dbd480853daecad94389462663e7a6be8780d479549ef11b4b311446350",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. GitLab source authentication, normalization/routing, scheduler trigger matching and configuration require explicit step7 ingress with unchanged acceptance assertions."
+      "blocked_on": "Exact final part6 per-case dispositions and named blockers: maintenance/phase2-step8-part6-cases.json; mixed suite remains deferred, no whole-suite restoration, independent review pending. GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
     },
     {
       "path": "tests/test_graceful_shutdown.py",
@@ -4667,7 +4667,7 @@
       "qualification_group": "phase2-webhook-ingress",
       "inherited_sha256": "d2156fd1089ae5064cbbf50849324f0664159847043a292671a2d401ab4fa8b0",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Preserves inert removed monitoring configuration, schedule trigger catalogue exclusions, component health, and absence of Grafana webhook ingress. Adapt removed HTTP presentation to runtime health plus the explicitly configured webhook receiver; ingress exclusion is the last required surface."
+      "blocked_on": "Exact final part6 per-case dispositions and named blockers: maintenance/phase2-step8-part6-cases.json; mixed suite remains deferred, no whole-suite restoration, independent review pending. Mixed migration: removed Grafana settings inertness and retained webhook enabled neighbor require exact projection; channel_id is removed but whole migration case cannot retire. Mixed removed metrics/Grafana HTTP routes and retained healthy readiness component require exact runtime-health/ingress exclusion projection; HTTP response spelling alone cannot retire component health. Retained schedule catalogue/skill exclusions mixed with removed HTTP AUTH_PUBLIC_PREFIXES; exact unchanged catalogue projection missing."
     },
     {
       "path": "tests/test_native_scheduling.py",
@@ -5768,7 +5768,7 @@
       "qualification_group": "phase2-webhook-ingress",
       "inherited_sha256": "bc37ab85b43c9348118f4ff8c1163f4ef49b559b90c077d96f671ec08477605b",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Mixed assertions cover webhook authentication, setup/configuration and concurrent knowledge persistence. Receiver authentication is the latest retained domain; retain other original cases under their earlier owners without restoring old management HTTP."
+      "blocked_on": "Exact final part6 per-case dispositions and named blockers: maintenance/phase2-step8-part6-cases.json; mixed suite remains deferred, no whole-suite restoration, independent review pending. Frozen literal secret '[REDACTED]' differs from asserted 'correct-secret'; no substitution permitted. Also legacy HealthServer verifier has no exact per-trigger projection. Frozen relative ToolsConfig default differs from Desktop profile-owned absolute path default; retained config obligation needs reviewed profile projection, no expected-value rewrite. Retained generic shared-token fail-close/empty-header semantics need exact per-trigger verifier projection; do not retire authentication with legacy HealthServer."
     },
     {
       "path": "tests/test_self_update_campaign_rollback.py",
