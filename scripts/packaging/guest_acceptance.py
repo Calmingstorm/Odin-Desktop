@@ -373,6 +373,12 @@ def main():
         assert not (INSTALL / "resources/app.asar").exists()
         other.check()
         report["cases"]["removal_preserves_user_state_and_alongside"] = "pass"
+        # Export lane can later mount this exact real dpkg-installed tree in
+        # private graphics without installing anything on the workstation.
+        run(["dpkg", "--install", str(INPUTS / "candidate.deb")], timeout=300)
+        other.check()
+        report["cases"]["final_export_install"] = (
+            "actual installed candidate ready for isolated GUI proof")
         report["gate"] = "pass"
     finally:
         other.close()

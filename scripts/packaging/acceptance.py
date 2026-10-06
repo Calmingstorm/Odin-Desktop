@@ -142,7 +142,7 @@ class Container:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("prepare", "run", "cleanup", "status"))
+    parser.add_argument("action", choices=("prepare", "run", "export", "cleanup", "status"))
     parser.add_argument("--deb", type=Path)
     parser.add_argument("--previous-deb", type=Path)
     parser.add_argument("--appimage", type=Path)
@@ -159,6 +159,16 @@ def main():
             report["state"] = api.check()["status"]
         elif args.action == "cleanup":
             report["cleanup"] = api.cleanup()
+        elif args.action == "export":
+            status = api.exec("dpkg-query", "-W", "-f=${Status}", "odin-desktop", capture=True)
+            if status != "install ok installed":
+                raise AcceptanceError("Export requires actual installed candidate")
+            api.exec("tar", "-C", "/", "-cf", "/p42-evidence/installed-root.tar",
+                     "opt/Odin", "var/lib/dpkg/status", timeout=300)
+            api.api.run("file", "pull", NAME + "/p42-evidence/installed-root.tar",
+                        str(args.output / "installed-root.tar"))
+            report["export"] = {"dpkg_status": status,
+                                "archive_sha256": digest(args.output / "installed-root.tar")}
         else:
             if not args.deb or not args.previous_deb or not args.appimage:
                 parser.error("run requires --deb, --previous-deb and --appimage")
