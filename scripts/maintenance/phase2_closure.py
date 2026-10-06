@@ -57,7 +57,8 @@ def summarize(mapping, suite_check, wording, wording_check, parity_check):
             errors.append(f"{label}: unavailable checker result")
         else:
             errors.extend(f"{label}: {error}" for error in check["errors"])
-    open_suites = [row for row in rows if row.get("status") not in FINAL_SUITE_STATUSES]
+    open_suites = [row for row in rows if not isinstance(row.get("status"), str)
+                   or row["status"] not in FINAL_SUITE_STATUSES]
     for row in open_suites:
         blockers.append({"kind": "suite", "id": row.get("path", "<invalid>"),
                          "status": row.get("status", "missing"),
@@ -70,8 +71,8 @@ def summarize(mapping, suite_check, wording, wording_check, parity_check):
     if wording is None:
         blockers.append({"kind": "D19_inventory", "id": D19, "status": "missing",
                          "reason": "Bridge lane closure inventory has not landed"})
-    open_wording = [row for row in wording_rows
-                    if row.get("status") not in FINAL_D19_STATUSES]
+    open_wording = [row for row in wording_rows if not isinstance(row.get("status"), str)
+                    or row["status"] not in FINAL_D19_STATUSES]
     for row in open_wording:
         blockers.append({"kind": "D19", "id": row.get("id", "<invalid>"),
                          "status": row.get("status", "missing"),

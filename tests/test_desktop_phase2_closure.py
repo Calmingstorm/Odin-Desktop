@@ -94,3 +94,51 @@ def test_enforcement_is_not_part_of_this_change():
     with pytest.raises(SystemExit) as exc:
         closure.main(["enforce"])
     assert exc.value.code == 2
+
+
+@pytest.mark.parametrize("status", [{"fake": "restored"}, ["restored"]])
+def test_malformed_unhashable_status_is_open_not_a_report_crash(status):
+    result = check({"entries": [{"path": "tests/a.py", "status": status}]},
+                   {"rows": [{"id": "D19-001", "status": status}]})
+    assert not result["ready"]
+    assert result["suites"]["without_final_disposition"] == 1
+    assert result["D19"]["open"] == 1
+
+
+def test_report_runs_each_checker_against_temporary_data(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    (tmp_path / "maintenance").mkdir()
+    (tmp_path / closure.SUITES).write_text(json.dumps({"entries": [
+        {"path": "tests/a.py", "status": "restored"}]}))
+    (tmp_path / closure.D19).write_text(json.dumps({"rows": [
+        {"id": "D19-001", "status": "removed_by_restored_behaviour"}]}))
+    seen = []
+
+    def suite_check(root):
+        seen.append(("suites", root))
+        return [], {}
+
+    def source(root):
+        seen.append(("D19", root))
+        return ["exact source row"], ["source scan"]
+
+    def validate(wording, rows, findings, root):
+        assert wording["rows"][0]["id"] == "D19-001"
+        assert rows == ["exact source row"] and findings == ["source scan"]
+        return {"errors": ["restoration source drift"]}
+
+    def parity(root):
+        seen.append(("parity", root))
+        return {"valid": True, "errors": []}
+
+    tools = {"phase2_suites": SimpleNamespace(_evaluate=suite_check),
+             "d19": SimpleNamespace(load_source=source, validate=validate),
+             "fresh_profile_parity": SimpleNamespace(check=parity)}
+    monkeypatch.setattr(closure, "_tool", tools.__getitem__)
+    result = closure.report(tmp_path)
+    assert seen == [("suites", tmp_path), ("D19", tmp_path), ("parity", tmp_path)]
+    assert result["D19"]["open"] == 0
+    assert result["suites"]["without_final_disposition"] == 0
+    assert not result["ready"]  # final labels cannot override stale source evidence
+    assert result["errors"] == ["D19: restoration source drift"]
