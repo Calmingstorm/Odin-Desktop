@@ -153,6 +153,7 @@ class CoreService:
         self.lifetime.watch_parent(stdin_fd)
         self.lifetime.watch_signals()
         await self.server.start()
+        await self.management.start_background()
         self.phase = "ready"
         async with self._serial:
             self.commands.prune(time.time() - RECEIPT_RETENTION)

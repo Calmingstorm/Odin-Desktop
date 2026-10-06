@@ -84,6 +84,7 @@ class ManagementService:
         from ..context.loader import ContextLoader
         from ..health.checker import check_all
         from ..health.subsystem_guard import SubsystemGuard
+        from ..llm.codex_quota_check import CodexQuotaCheckService
         from ..llm.system_prompt import register_user_presets
         from ..permissions.host_access import HostAccessManager
         from ..tools.builtin_policy import BuiltinToolPolicy
@@ -131,6 +132,14 @@ class ManagementService:
         codex = CodexAccountsService(settings)
         providers = ProviderOwner(settings, codex, executor=executor)
         codex.providers = providers
+        # Resolve the current serving generation on every check. A saved or
+        # retired account pool must never acquire quota refresh authority.
+        def quota_pool():
+            if not settings.config.openai_codex.enabled:
+                return None
+            return getattr(providers.codex_client, "auth", None)
+
+        quota_check = CodexQuotaCheckService(quota_pool)
         for method in providers.METHODS:
             settings.owners[method] = providers
 
@@ -233,7 +242,14 @@ class ManagementService:
         manager.settings, manager.executor, manager.providers = settings, executor, providers
         manager.runtime, manager.hosts, manager.codex = runtime, hosts, codex
         manager.subsystem_guard = subsystem_guard
+        manager.codex_quota_check = quota_check
         return manager
+
+    async def start_background(self) -> None:
+        """Start retained profile observers only after core runtime admission."""
+        quota_check = getattr(self, "codex_quota_check", None)
+        if quota_check is not None:
+            await quota_check.start()
 
     def identity_params(self, params: Any) -> dict:
         """Bind exact semantics without storing write-only secrets in receipts.
@@ -346,6 +362,9 @@ class ManagementService:
             return response_error("internal", "Management outcome is unknown", "outcome_unknown")
 
     async def close(self) -> None:
+        quota_check = getattr(self, "codex_quota_check", None)
+        if quota_check is not None:
+            await quota_check.close()
         for service in reversed(self.services):
             close = getattr(service, "close", None)
             if close is not None:

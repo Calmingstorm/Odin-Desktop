@@ -13,6 +13,8 @@ from copy import deepcopy
 from typing import Any
 from urllib.parse import urlparse
 
+from ..config.persistence import _load_document
+from ..config.schema import OutboundWebhookTarget
 from ..notifications.outbound_webhooks import OutboundWebhookDispatcher
 from .management import MethodError
 
@@ -134,6 +136,34 @@ class IntegrationsService:
         if not updating:
             if len(params.get("name", "")) > 100:
                 raise MethodError("bad_request", "name exceeds maximum length of 100")
+        if isinstance(params.get("url"), str) and len(params["url"]) > 2048:
+            raise MethodError("bad_request", "url exceeds maximum length (2048 chars)")
+
+    def _saved_rows(self):
+        """Read desired state, not rejected/stale boot state, before whole-list edits.
+
+        Revision checks and SettingsService's commit check fence concurrent saves.
+        Never adopt a saved rejected row here; it remains desired state only.
+        """
+        if not hasattr(self.settings, "paths"):
+            # In-memory settings owners have no separate durable document.
+            return deepcopy(self.settings.config.outbound_webhooks.targets)
+        try:
+            document, _ = _load_document(self.settings.paths.config_file)
+            section = document.get("outbound_webhooks", {})
+            if not isinstance(section, dict):
+                raise ValueError("invalid outbound webhook section")
+            if "targets" not in section:
+                return deepcopy(self.settings.config.outbound_webhooks.targets)
+            values = section["targets"]
+            if not isinstance(values, list):
+                raise ValueError("invalid outbound webhook targets")
+            rows = [OutboundWebhookTarget.model_validate(value) for value in values]
+            if any(row.secret or urlparse(row.url).username is not None for row in rows):
+                raise ValueError("saved credentials require keyring storage")
+            return rows
+        except Exception:
+            raise MethodError("unavailable", "could not read outbound webhook targets") from None
 
     def _desired_rows(self, original, candidate, *, ident, deleted):
         """Preserve rejected rows and upstream id-less index/URL identities."""
@@ -184,8 +214,12 @@ class IntegrationsService:
         dispatcher._webhooks = targets
 
     def _mutate(self, dispatcher, method, params):
-        expected = params.get("expected_revision", self.settings.revision)
-        if expected is not None and expected != self.settings.revision:
+        try:
+            revision = self.settings.revision
+        except Exception:
+            raise MethodError("unavailable", "could not read outbound webhook targets") from None
+        expected = params.get("expected_revision", revision)
+        if expected is not None and expected != revision:
             raise MethodError("stale_binding", "settings revision changed", "stale_binding")
         deleting = method == "webhooks.outbound.delete"
         updating = "id" in params
@@ -214,7 +248,7 @@ class IntegrationsService:
             raise MethodError("bad_request", "invalid webhook configuration") from None
         if result is None or result is False:
             raise MethodError("not_found", "webhook not found")
-        original_rows = deepcopy(self.settings.config.outbound_webhooks.targets)
+        original_rows = self._saved_rows()
         rows, targets, moves = self._desired_rows(
             original_rows, candidate, ident=ident, deleted=deleting,
         )

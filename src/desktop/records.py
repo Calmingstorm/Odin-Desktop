@@ -127,6 +127,9 @@ class RecordsService:
             path = Path(config.tools.audit_log_path) if config is not None else (
                 self.paths.data_dir / "audit.jsonl")
         hmac_key = config.audit.hmac_key if config is not None else ""
+        resolve_key = getattr(self._settings, "audit_signing_key", None)
+        if callable(resolve_key):
+            hmac_key = resolve_key()
         binding = (path, hmac_key)
         if binding != self._audit_binding:
             self._audit_reader = _AuditReader(path, hmac_key)

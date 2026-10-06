@@ -48,6 +48,55 @@ RETIREMENT_REASONS = {
         "and step 1's tests prove its handshake authenticates before any method runs."),
 }
 WORK_ORDER = "docs/work/phase-2-desktop-engine.md"
+REVIEW34_REVIEWER = "Claude, review of #34"
+# This is a separate authority, not an extension of #26's five dispositions.
+# Exact path/reason pairs are the admission policy; no caller-supplied reason
+# or reviewer string can retire another inherited surface.
+REVIEW34_RETIREMENT_GROUPS = {
+    ("Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; "
+     "these surfaces were removed by design from Desktop."): (
+        "test_auth_config_integration_review", "test_auth_entry_preservation",
+        "test_auth_snapshot_compatibility", "test_auth_snapshot_routes",
+        "test_campaign_a_coverage_boundaries", "test_campaign_authorization_persistence",
+        "test_campaign_private_persistence", "test_campaign_startup_auth",
+        "test_pr356_static_recovery_identity", "test_pr356_storage_compatibility",
+        "test_pr356_tokenless_upgrade", "test_startup_auth_middleware_review",
+        "test_web_api_security_helpers_coverage", "test_web_api_security_routes",
+        "test_web_campaign_policy_races", "test_web_campaign_truth",
+        "test_web_persisted_sessions", "test_web_api_codex_admin",
+    ),
+    ("Retired: the HTTP management listener and its bind or consent policy; "
+     "Desktop has no management listener."): (
+        "test_bootstrap_bind_policy", "test_bootstrap_runtime_bind",
+        "test_health_shutdown", "test_listener_consent",
+    ),
+    ("Retired: Discord configuration, setup and diagnostics; "
+     "these surfaces were removed by design from Desktop."): (
+        "test_config", "test_config_campaign_v410", "test_onboarding_campaign",
+        "test_onboarding_partial_publication", "test_setup_helpers",
+        "test_startup_diagnostics", "test_startup_onboarding_context",
+    ),
+    "Retired: credential files with .bak copies; Desktop replaces these files with the keyring.": (
+        "test_listener_credential_provenance", "test_independent_credential_review",
+    ),
+    "Retired: the WebSocket; Desktop uses its authenticated IPC transport instead.": (
+        "test_web_websocket", "test_websocket_bootstrap_auth", "test_websocket_handler",
+    ),
+    "Retired: per-user host preferences, removed by D17.": (
+        "test_host_access_removal_audit_v412",
+    ),
+    ("Retired: Desktop never imports an old Odin config, "
+     "so there is no legacy timeout to migrate."): (
+        "test_compatible_timeout_migration",
+    ),
+}
+REVIEW34_RETIREMENT_REASONS = {
+    f"tests/{stem}.py": reason
+    for reason, stems in REVIEW34_RETIREMENT_GROUPS.items() for stem in stems
+}
+REVIEW34_RETIRABLE_SUITES = frozenset(REVIEW34_RETIREMENT_REASONS)
+if len(REVIEW34_RETIRABLE_SUITES) != 36 or REVIEW34_RETIRABLE_SUITES & RETIRABLE_SUITES:
+    raise RuntimeError("review #34 must admit exactly 36 new, disjoint retirements")
 KINDS = ("excluded", "phase2", "retained_adaptation_gated", "retained_support",
          "safe_pass_now", "safety_manual_gated", "retired")
 MAP_PATH = "maintenance/phase2-suite-map.json"
@@ -144,6 +193,12 @@ def _adapter_modules(root: Path, selector: str) -> list[ast.Module]:
                 candidate = name.replace(".", "/") + ".py"
                 if candidate.startswith("tests/") and (root / candidate).is_file():
                     todo.append(candidate)
+            # Follow a named import of a test-local submodule, too.
+            if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                for alias in node.names:
+                    candidate = (node.module + "." + alias.name).replace(".", "/") + ".py"
+                    if candidate.startswith("tests/") and (root / candidate).is_file():
+                        todo.append(candidate)
     return trees
 
 
@@ -181,7 +236,12 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                 return False
             admitted = True
         exclusions = constants.get("CORPUS_EXCLUSIONS", {})
-        if not isinstance(exclusions, dict) or any(exclusions.values()):
+        # An unrelated partial corpus in a shared loader cannot cut this suite.
+        # Its own literal full admission and empty exclusions remain mandatory.
+        if (not isinstance(exclusions, dict) or exclusions.get(stem)
+                or any(exclusions.values()) and not isinstance(selections, dict)
+                or any(value and (key not in selections or selections[key] is None)
+                       for key, value in exclusions.items())):
             return False
         if (constants.get("SOURCE_PATH") == path
                 and constants.get("SOURCE_SHA256") == inherited_hash):
@@ -432,10 +492,17 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
         if status == "retired":
             mapped_retired.add(path)
             retirement = row.get("retirement", {})
-            if (path not in RETIRABLE_SUITES or type(step) is not int or step != 1
+            legacy = path in RETIRABLE_SUITES
+            approved_reason = (RETIREMENT_REASONS if legacy else
+                               REVIEW34_RETIREMENT_REASONS).get(path)
+            approved_reviewer = RETIREMENT_REVIEWER if legacy else REVIEW34_REVIEWER
+            approved_step = 1 if legacy else 5
+            if (approved_reason is None or type(step) is not int or step != approved_step
                     or not isinstance(retirement, dict)
-                    or retirement.get("reviewer") != RETIREMENT_REVIEWER
-                    or retirement.get("reason") != RETIREMENT_REASONS.get(path)):
+                    or retirement != {"reviewer": approved_reviewer,
+                                      "reason": approved_reason}
+                    or row.get("reason") != approved_reason
+                    or entries.get(path, {}).get("reason") != approved_reason):
                 errors.append(f"mapping: retired suite needs exact reviewed disposition: {path}")
             if path not in retired_paths or path not in classified["retired"]:
                 errors.append(f"mapping: retired suite must be retired in test-plan: {path}")

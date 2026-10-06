@@ -350,6 +350,8 @@ class ProviderOwner(LLMGateway):
             raise
 
     def prepare_settings(self, candidate, changes):
+        from ..config.apply_registry import flatten, spec_for
+
         paths = [".".join(path) if not isinstance(path, str) else path for path, _ in changes]
         targets = set()
         for prefix, name in (
@@ -357,9 +359,14 @@ class ProviderOwner(LLMGateway):
             ("ollama.", "ollama"),
             ("openai_compatible.", "compat"),
         ):
+            live_paths = []
+            for path, (_, value) in zip(paths, changes):
+                leaves = list(flatten(value, path)) if isinstance(value, dict) else [(path, value)]
+                live_paths.extend(leaf for leaf, _ in leaves
+                                  if name != "codex" or spec_for(leaf).apply_mode == "live_apply")
             if any(
                 path.startswith(prefix) and not path.startswith("openai_codex.auxiliary")
-                for path in paths
+                for path in live_paths
             ):
                 targets.add(name)
         overrides = {
@@ -367,6 +374,14 @@ class ProviderOwner(LLMGateway):
             for path, (_, value) in zip(paths, changes)
             if path in {"ollama.api_key", "openai_compatible.api_key"}
         }
+        if not targets and not any(path.startswith("openai_codex.auxiliary") for path in paths):
+            # Agent policies and boot-bound settings are not transport changes.
+            # Preserve the adopted graph while invalidating actual consumers.
+            return _ProviderChange(
+                self, candidate.model_copy(deep=True), self._generation,
+                {name: getattr(self, attr) for name, attr in _ATTRS.items()},
+                self.auxiliary_llm_client,
+            )
         return self._prepare_graph(
             candidate.model_copy(deep=True),
             targets,

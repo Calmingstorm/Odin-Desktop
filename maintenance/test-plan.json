@@ -6,17 +6,22 @@
     "tracked_test_paths": 869,
     "archive": "maintenance/odin-v4.13.0.tar.gz"
   },
-  "execution_status": "Historical eligibility, not whole-product acceptance. All 326 original suites remain with original hashes across deferred, restored and five reviewer-retired dispositions. Step8 part2 records all85 runtime decisions; complete suites only, no partial passing claim.",
+  "execution_status": "Historical eligibility, not runtime qualification or product acceptance. PR34 records 36 new reviewer retirements separately from #26's immutable five; Group B and mixed log/LLM suites await the step 5 completion PR. Only complete frozen suites count.",
   "qualification_plan": "maintenance/qualification-plan.json",
   "phase2_suite_map": "maintenance/phase2-suite-map.json",
   "phase2_restored": [
+    "tests/test_audit_signing.py",
+    "tests/test_campaign_agent_routes_coverage.py",
     "tests/test_campaign_execution_risk.py",
+    "tests/test_campaign_provider_reload_coverage.py",
     "tests/test_cancelled_persistence_settles.py",
     "tests/test_channel_state_recent_action_failure.py",
+    "tests/test_codex_quota_check.py",
     "tests/test_computer_audit_output_r21.py",
     "tests/test_computer_checkpoint_privacy_r5.py",
     "tests/test_computer_frame_boundary.py",
     "tests/test_connection_lifecycle_d1.py",
+    "tests/test_hosts_api.py",
     "tests/test_knowledge_ingest_outcomes.py",
     "tests/test_knowledge_snapshot_campaign.py",
     "tests/test_local_supervisor_wrapper_r10.py",
@@ -28,7 +33,9 @@
     "tests/test_search_small_delivery_budget.py",
     "tests/test_subsystem_guard.py",
     "tests/test_tool_failure_visibility.py",
-    "tests/test_turn_recorder_webhook_campaign.py"
+    "tests/test_turn_recorder_webhook_campaign.py",
+    "tests/test_web_api_integrations_validation_coverage.py",
+    "tests/test_webhook_campaign.py"
   ],
   "methodology": {
     "imports": "AST Import/ImportFrom relative resolution, package initializers, cross-test helper closure. Deduplicated pinned source import closure below. Literal src patch references also recorded. No source imported.",
@@ -43,12 +50,12 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 302,
+    "phase2": 259,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "safe_pass_now": 376,
+    "safe_pass_now": 383,
     "safety_manual_gated": 100,
-    "retired": 5
+    "retired": 41
   },
   "entries": [
     {
@@ -1920,8 +1927,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole frozen corpus, unchanged assertions; real records audit verdict including valid=false maps to 409.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py"
@@ -1982,8 +1989,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/scheduled_events.py: Desktop owner/intake/control/durable delivery adapter: scheduled_events; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/restart.py: app-supervised relaunch; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/agents_loops.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/config_admin.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/discord_identity.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/onboarding.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/discord/scheduled_events.py",
         "src/discord/tool_loop.py",
@@ -1999,7 +2006,11 @@
         "src/web/computer_binding.py",
         "src/web/onboarding.py",
         "src/web/websocket.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_auth_entry_preservation.py",
@@ -2023,14 +2034,18 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/permissions/token_manager.py",
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/security.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_auth_snapshot_compatibility.py",
@@ -2051,13 +2066,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/security.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_auth_snapshot_routes.py",
@@ -2085,8 +2104,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/health/server.py",
         "src/permissions/token_manager.py",
@@ -2094,7 +2113,11 @@
         "src/web/api/__init__.py",
         "src/web/api/security.py",
         "src/web/websocket.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_auxiliary_llm.py",
@@ -2268,12 +2291,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/bootstrap_policy.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: the HTTP management listener and its bind or consent policy; Desktop has no management listener.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/bootstrap_policy.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: the HTTP management listener and its bind or consent policy; Desktop has no management listener."
+      }
     },
     {
       "path": "tests/test_bootstrap_runtime_bind.py",
@@ -2301,14 +2328,18 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/onboarding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: the HTTP management listener and its bind or consent policy; Desktop has no management listener.",
       "phase2_seams": [
         "src/health/server.py",
         "src/permissions/token_manager.py",
         "src/web/__init__.py",
         "src/web/onboarding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: the HTTP management listener and its bind or consent policy; Desktop has no management listener."
+      }
     },
     {
       "path": "tests/test_bounded_process_wait.py",
@@ -2547,15 +2578,19 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/delivery.py: Desktop owner/intake/control/durable delivery adapter: delivery; src/discord/turn_resume.py: Desktop owner/intake/control/durable delivery adapter: turn_resume; src/setup_wizard.py: native onboarding; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api_common.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/discord/delivery.py",
         "src/discord/turn_resume.py",
         "src/setup_wizard.py",
         "src/web/__init__.py",
         "src/web/api_common.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_campaign_a_validation.py",
@@ -2631,8 +2666,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/agents_loops.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Approved bad-input projection from real Desktop protocol_error; malformed JSON refused before policy persistence.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
@@ -2757,11 +2792,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/permissions/token_manager.py: IPC provenance replaces bearer identity. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/permissions/token_manager.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_campaign_backend_environment_final_coverage.py",
@@ -3827,12 +3866,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/setup_wizard.py: native onboarding. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/permissions/token_manager.py",
         "src/setup_wizard.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_campaign_process_final_coverage.py",
@@ -4017,8 +4060,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/llm_admin.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Actual qualification rejection/internal_error carrier and observed durable rollback, no expected business result fake",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
@@ -4280,12 +4323,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/startup.py: install/IPC probes; src/permissions/token_manager.py: IPC provenance replaces bearer identity. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/health/startup.py",
         "src/permissions/token_manager.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_campaign_startup_health.py",
@@ -5279,8 +5326,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Complete frozen inherited corpus on actual Desktop owners",
       "phase2_seams": [
         "src/discord/client.py"
       ]
@@ -5896,13 +5943,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/llm_admin.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Desktop never imports an old Odin config, so there is no legacy timeout to migrate.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/llm_admin.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: Desktop never imports an old Odin config, so there is no legacy timeout to migrate."
+      }
     },
     {
       "path": "tests/test_computer_accessibility_status_r19.py",
@@ -12166,11 +12217,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/setup_wizard.py: native onboarding. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/setup_wizard.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_config_campaign_v410.py",
@@ -12218,8 +12273,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/restart.py: app-supervised relaunch; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/agents_loops.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/config_admin.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/discord_identity.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/hosts.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/llm_admin.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/onboarding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/health/server.py",
         "src/restart.py",
@@ -12231,7 +12286,11 @@
         "src/web/api/hosts.py",
         "src/web/api/llm_admin.py",
         "src/web/onboarding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_config_ceiling_migration.py",
@@ -14385,13 +14444,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: the HTTP management listener and its bind or consent policy; Desktop has no management listener.",
       "phase2_seams": [
         "src/health/server.py",
         "src/web/__init__.py",
         "src/web/websocket.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: the HTTP management listener and its bind or consent policy; Desktop has no management listener."
+      }
     },
     {
       "path": "tests/test_history_replay.py",
@@ -14465,14 +14528,18 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: per-user host preferences, removed by D17.",
       "phase2_seams": [
         "src/health/server.py",
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/security.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: per-user host preferences, removed by D17."
+      }
     },
     {
       "path": "tests/test_hosts_api.py",
@@ -14498,8 +14565,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/hosts.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Complete frozen inherited corpus on actual Desktop owners",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
@@ -17379,13 +17446,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/codex_admin.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: credential files with .bak copies; Desktop replaces these files with the keyring.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/codex_admin.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: credential files with .bak copies; Desktop replaces these files with the keyring."
+      }
     },
     {
       "path": "tests/test_independent_governor_review.py",
@@ -18172,8 +18243,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/config_admin.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/bootstrap_policy.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/onboarding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: the HTTP management listener and its bind or consent policy; Desktop has no management listener.",
       "phase2_seams": [
         "src/health/server.py",
         "src/permissions/token_manager.py",
@@ -18182,7 +18253,11 @@
         "src/web/api/config_admin.py",
         "src/web/bootstrap_policy.py",
         "src/web/onboarding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: the HTTP management listener and its bind or consent policy; Desktop has no management listener."
+      }
     },
     {
       "path": "tests/test_listener_credential_provenance.py",
@@ -18211,8 +18286,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/config_admin.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/bootstrap_policy.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/onboarding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: credential files with .bak copies; Desktop replaces these files with the keyring.",
       "phase2_seams": [
         "src/health/server.py",
         "src/permissions/token_manager.py",
@@ -18222,7 +18297,11 @@
         "src/web/api/security.py",
         "src/web/bootstrap_policy.py",
         "src/web/onboarding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: credential files with .bak copies; Desktop replaces these files with the keyring."
+      }
     },
     {
       "path": "tests/test_llm_errors.py",
@@ -19880,14 +19959,18 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/config_admin.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/onboarding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/config_admin.py",
         "src/web/onboarding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_onboarding_durable_binding_restart.py",
@@ -20029,12 +20112,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/onboarding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/onboarding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_openai_codex_client.py",
@@ -20740,8 +20827,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/health/server.py",
         "src/permissions/token_manager.py",
@@ -20749,7 +20836,11 @@
         "src/web/api/__init__.py",
         "src/web/api/security.py",
         "src/web/websocket.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_pr356_storage_compatibility.py",
@@ -20773,11 +20864,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/health/server.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_pr356_tokenless_upgrade.py",
@@ -20803,13 +20898,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/onboarding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/health/server.py",
         "src/web/__init__.py",
         "src/web/onboarding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_pr635_round1.py",
@@ -23701,11 +23800,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/setup_wizard.py: native onboarding. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/setup_wizard.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_skill_context.py",
@@ -24075,8 +24178,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/health/server.py",
         "src/permissions/token_manager.py",
@@ -24084,7 +24187,11 @@
         "src/web/api/__init__.py",
         "src/web/api/security.py",
         "src/web/websocket.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_startup_diagnostics.py",
@@ -24106,11 +24213,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/startup.py: install/IPC probes. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/health/startup.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_startup_onboarding_context.py",
@@ -24137,11 +24248,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/__main__.py: app-supervised startup/lifecycle. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/__main__.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: Discord configuration, setup and diagnostics; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_state_handlers.py",
@@ -25602,13 +25717,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/codex_admin.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/codex_admin.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_web_api_config_admin.py",
@@ -25721,8 +25840,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/integrations.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole frozen corpus, unchanged assertions; real Desktop integration validation refusals.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
@@ -25915,13 +26034,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/security.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_web_api_security_routes.py",
@@ -25948,14 +26071,18 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/permissions/token_manager.py",
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/security.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_web_api_self_update.py",
@@ -26188,14 +26315,18 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/scheduled_events.py: Desktop owner/intake/control/durable delivery adapter: scheduled_events; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/discord/scheduled_events.py",
         "src/discord/tool_loop.py",
         "src/health/server.py",
         "src/permissions/token_manager.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_web_campaign_streams.py",
@@ -26250,13 +26381,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/discord/scheduled_events.py: Desktop owner/intake/control/durable delivery adapter: scheduled_events; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/health/server.py: authenticated IPC readiness/ingress. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/discord/scheduled_events.py",
         "src/discord/tool_loop.py",
         "src/health/server.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_web_chat.py",
@@ -26316,8 +26451,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/authentication.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/session_store.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop.",
       "phase2_seams": [
         "src/health/server.py",
         "src/permissions/token_manager.py",
@@ -26327,7 +26462,11 @@
         "src/web/authentication.py",
         "src/web/session_store.py",
         "src/web/websocket.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; these surfaces were removed by design from Desktop."
+      }
     },
     {
       "path": "tests/test_web_security_reliability.py",
@@ -26503,13 +26642,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: the WebSocket; Desktop uses its authenticated IPC transport instead.",
       "phase2_seams": [
         "src/health/server.py",
         "src/web/__init__.py",
         "src/web/websocket.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: the WebSocket; Desktop uses its authenticated IPC transport instead."
+      }
     },
     {
       "path": "tests/test_webauth_campaign_regressions.py",
@@ -26588,8 +26731,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/integrations.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Whole frozen corpus, unchanged assertions; real Desktop CRUD owner and real loopback delivery. Saved desired rejected URL bug and legacy absent-id persistence fidelity bug fixed and verified.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
@@ -26666,12 +26809,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: the WebSocket; Desktop uses its authenticated IPC transport instead.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/websocket.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: the WebSocket; Desktop uses its authenticated IPC transport instead."
+      }
     },
     {
       "path": "tests/test_websocket_handler.py",
@@ -26693,12 +26840,16 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "Retired: the WebSocket; Desktop uses its authenticated IPC transport instead.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/websocket.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34",
+        "reason": "Retired: the WebSocket; Desktop uses its authenticated IPC transport instead."
+      }
     },
     {
       "path": "tests/test_websocket_production_stack.py",
@@ -36384,24 +36535,14 @@
     "tests/test_agent_wait_budget.py",
     "tests/test_agents_tasks_provider_paths.py",
     "tests/test_attachments.py",
-    "tests/test_audit_signing.py",
     "tests/test_audit_tail_v412.py",
-    "tests/test_auth_config_integration_review.py",
-    "tests/test_auth_entry_preservation.py",
-    "tests/test_auth_snapshot_compatibility.py",
-    "tests/test_auth_snapshot_routes.py",
     "tests/test_background_task_cancel.py",
     "tests/test_background_task_failure_visibility.py",
-    "tests/test_bootstrap_bind_policy.py",
-    "tests/test_bootstrap_runtime_bind.py",
     "tests/test_bounded_process_wait.py",
     "tests/test_branch_freshness.py",
     "tests/test_browser_wait_timeout.py",
-    "tests/test_campaign_a_coverage_boundaries.py",
-    "tests/test_campaign_agent_routes_coverage.py",
     "tests/test_campaign_attachment_intake_coverage.py",
     "tests/test_campaign_audit_observability.py",
-    "tests/test_campaign_authorization_persistence.py",
     "tests/test_campaign_cli_coverage.py",
     "tests/test_campaign_diagnostic_privacy.py",
     "tests/test_campaign_discord_attachments.py",
@@ -36416,11 +36557,8 @@
     "tests/test_campaign_loops.py",
     "tests/test_campaign_openrouter_coverage.py",
     "tests/test_campaign_prefix_measurement.py",
-    "tests/test_campaign_private_persistence.py",
-    "tests/test_campaign_provider_reload_coverage.py",
     "tests/test_campaign_reasoning_contracts.py",
     "tests/test_campaign_scheduler_workflows.py",
-    "tests/test_campaign_startup_auth.py",
     "tests/test_campaign_startup_health.py",
     "tests/test_campaign_web_final_coverage.py",
     "tests/test_campaign_websocket_coverage.py",
@@ -36438,7 +36576,6 @@
     "tests/test_chat_steering_resume.py",
     "tests/test_chat_steering_runtime.py",
     "tests/test_codex_account_mutation_regressions.py",
-    "tests/test_codex_quota_check.py",
     "tests/test_codex_replay_boundaries.py",
     "tests/test_codex_replay_matrix.py",
     "tests/test_command_shell_callers.py",
@@ -36446,7 +36583,6 @@
     "tests/test_command_shell_round2.py",
     "tests/test_command_shell_scope.py",
     "tests/test_compatible_output_reserve.py",
-    "tests/test_compatible_timeout_migration.py",
     "tests/test_computer_admission_http_r8.py",
     "tests/test_computer_api.py",
     "tests/test_computer_api_recovery_r18.py",
@@ -36493,8 +36629,6 @@
     "tests/test_computer_wayland_config_r8.py",
     "tests/test_computer_web_binding_r5.py",
     "tests/test_computer_x11_focus_controller.py",
-    "tests/test_config.py",
-    "tests/test_config_campaign_v410.py",
     "tests/test_config_liveness_wiring.py",
     "tests/test_connection_pools.py",
     "tests/test_context_budget_activation.py",
@@ -36518,9 +36652,6 @@
     "tests/test_health_checker.py",
     "tests/test_health_checker_paths.py",
     "tests/test_health_endpoints.py",
-    "tests/test_health_shutdown.py",
-    "tests/test_host_access_removal_audit_v412.py",
-    "tests/test_hosts_api.py",
     "tests/test_hosts_consumer_edges.py",
     "tests/test_hosts_web_edges.py",
     "tests/test_hyprland_clean_interruption_continuity.py",
@@ -36532,7 +36663,6 @@
     "tests/test_hyprland_release_outcomes_regression.py",
     "tests/test_image_default_update_paths.py",
     "tests/test_image_model_config_api.py",
-    "tests/test_independent_credential_review.py",
     "tests/test_intake_pipeline.py",
     "tests/test_internals_bindings_contract.py",
     "tests/test_knowledge_dedup.py",
@@ -36540,8 +36670,6 @@
     "tests/test_learning_disabled_crud.py",
     "tests/test_learning_runtime_switch.py",
     "tests/test_learning_transport_switch.py",
-    "tests/test_listener_consent.py",
-    "tests/test_listener_credential_provenance.py",
     "tests/test_local_workspace.py",
     "tests/test_log_search.py",
     "tests/test_main_exit_codes.py",
@@ -36563,20 +36691,15 @@
     "tests/test_native_monitoring_removal.py",
     "tests/test_native_scheduling.py",
     "tests/test_nested_agents.py",
-    "tests/test_onboarding_campaign.py",
     "tests/test_onboarding_durable_binding_restart.py",
     "tests/test_onboarding_full_parity_campaign.py",
     "tests/test_onboarding_journey_campaign.py",
-    "tests/test_onboarding_partial_publication.py",
     "tests/test_openrouter_admin_boundaries.py",
     "tests/test_output_executor_fences.py",
     "tests/test_output_streamer.py",
     "tests/test_pr341_b10_channel_consistency.py",
     "tests/test_pr341_b7_channel_reconciliation.py",
     "tests/test_pr341_b8_turn_totals.py",
-    "tests/test_pr356_static_recovery_identity.py",
-    "tests/test_pr356_storage_compatibility.py",
-    "tests/test_pr356_tokenless_upgrade.py",
     "tests/test_pr635_round1.py",
     "tests/test_predictive_presend.py",
     "tests/test_preserved_reasoning_accounting.py",
@@ -36608,11 +36731,7 @@
     "tests/test_self_update_campaign_rollback.py",
     "tests/test_session_search.py",
     "tests/test_sessions_review_regressions.py",
-    "tests/test_setup_helpers.py",
     "tests/test_smoke_run_bot.py",
-    "tests/test_startup_auth_middleware_review.py",
-    "tests/test_startup_diagnostics.py",
-    "tests/test_startup_onboarding_context.py",
     "tests/test_stop_command.py",
     "tests/test_tool_catalog_dependency_gate.py",
     "tests/test_tool_lifecycle_correlation.py",
@@ -36626,35 +36745,24 @@
     "tests/test_ui_effort_mirror.py",
     "tests/test_wait_stuck_integration.py",
     "tests/test_web_api_agents_loops.py",
-    "tests/test_web_api_codex_admin.py",
     "tests/test_web_api_config_admin.py",
     "tests/test_web_api_integrations.py",
-    "tests/test_web_api_integrations_validation_coverage.py",
     "tests/test_web_api_knowledge_mem.py",
     "tests/test_web_api_llm_admin.py",
     "tests/test_web_api_new_endpoints.py",
     "tests/test_web_api_observability.py",
     "tests/test_web_api_schedules.py",
-    "tests/test_web_api_security_helpers_coverage.py",
-    "tests/test_web_api_security_routes.py",
     "tests/test_web_api_self_update.py",
     "tests/test_web_api_sessions_chat.py",
     "tests/test_web_api_skills_and_observability.py",
     "tests/test_web_api_turn_state.py",
     "tests/test_web_campaign_authorization.py",
-    "tests/test_web_campaign_policy_races.py",
     "tests/test_web_campaign_streams.py",
-    "tests/test_web_campaign_truth.py",
     "tests/test_web_chat.py",
-    "tests/test_web_persisted_sessions.py",
     "tests/test_web_security_reliability.py",
     "tests/test_web_skill_identity_v412.py",
     "tests/test_web_skills_v413.py",
-    "tests/test_web_websocket.py",
     "tests/test_webauth_campaign_regressions.py",
-    "tests/test_webhook_campaign.py",
-    "tests/test_websocket_bootstrap_auth.py",
-    "tests/test_websocket_handler.py",
     "tests/test_webui_selected_trace_filters.py",
     "tests/test_window_observer.py",
     "tests/test_write_invariant_integration.py"
@@ -36749,10 +36857,12 @@
     "tests/test_audit_persist_concurrency.py",
     "tests/test_audit_reverse_reader.py",
     "tests/test_audit_rotation_integrity_snapshot_coverage.py",
+    "tests/test_audit_signing.py",
     "tests/test_auxiliary_llm.py",
     "tests/test_backoff.py",
     "tests/test_binary_host_read.py",
     "tests/test_browser_automation.py",
+    "tests/test_campaign_agent_routes_coverage.py",
     "tests/test_campaign_audit_durability.py",
     "tests/test_campaign_backend_environment_final_coverage.py",
     "tests/test_campaign_close_backend_capture_coverage.py",
@@ -36776,6 +36886,7 @@
     "tests/test_campaign_process_patch.py",
     "tests/test_campaign_process_ssh.py",
     "tests/test_campaign_prompt_accounting.py",
+    "tests/test_campaign_provider_reload_coverage.py",
     "tests/test_campaign_remote_supervisor_proof.py",
     "tests/test_campaign_resource_sessions.py",
     "tests/test_campaign_scheduler_admission.py",
@@ -36793,6 +36904,7 @@
     "tests/test_codex_credential_writes.py",
     "tests/test_codex_limit_aware.py",
     "tests/test_codex_quota.py",
+    "tests/test_codex_quota_check.py",
     "tests/test_codex_reliability.py",
     "tests/test_codex_spark_retirement.py",
     "tests/test_command_authority.py",
@@ -36930,6 +37042,7 @@
     "tests/test_handlers_files_docs.py",
     "tests/test_handlers_state_lists.py",
     "tests/test_history_replay.py",
+    "tests/test_hosts_api.py",
     "tests/test_hosts_executor_leases.py",
     "tests/test_hybrid_search.py",
     "tests/test_hyprland_absence_backend.py",
@@ -37105,12 +37218,13 @@
     "tests/test_usage_rollup_migration.py",
     "tests/test_vector_archive_failure_boundaries.py",
     "tests/test_wait_for_agents_deadlines.py",
+    "tests/test_web_api_integrations_validation_coverage.py",
     "tests/test_web_tools.py",
+    "tests/test_webhook_campaign.py",
     "tests/test_webhook_persistence.py",
     "tests/test_webhook_text.py"
   ],
   "safety_manual_gated": [
-    "tests/test_hyprland_input_loss_campaign.py",
     "tests/test_attached_apps_r6_harness.py",
     "tests/test_campaign_a_validation.py",
     "tests/test_campaign_governor_skills.py",
@@ -37170,6 +37284,7 @@
     "tests/test_hyprland_durable_recovery_journal.py",
     "tests/test_hyprland_harness_exit_r48.py",
     "tests/test_hyprland_input_held_r38.py",
+    "tests/test_hyprland_input_loss_campaign.py",
     "tests/test_hyprland_input_wire_r32.py",
     "tests/test_hyprland_inventory_blockers.py",
     "tests/test_hyprland_original_resource_absence.py",
@@ -37224,17 +37339,89 @@
     }
   ],
   "retired": [
+    "tests/test_auth_config_integration_review.py",
+    "tests/test_auth_entry_preservation.py",
+    "tests/test_auth_snapshot_compatibility.py",
+    "tests/test_auth_snapshot_routes.py",
+    "tests/test_bootstrap_bind_policy.py",
+    "tests/test_bootstrap_runtime_bind.py",
+    "tests/test_campaign_a_coverage_boundaries.py",
+    "tests/test_campaign_authorization_persistence.py",
+    "tests/test_campaign_private_persistence.py",
+    "tests/test_campaign_startup_auth.py",
     "tests/test_client.py",
     "tests/test_command_reconciliation.py",
+    "tests/test_compatible_timeout_migration.py",
+    "tests/test_config.py",
+    "tests/test_config_campaign_v410.py",
     "tests/test_gateway_transition_regressions.py",
+    "tests/test_health_shutdown.py",
+    "tests/test_host_access_removal_audit_v412.py",
+    "tests/test_independent_credential_review.py",
+    "tests/test_listener_consent.py",
+    "tests/test_listener_credential_provenance.py",
+    "tests/test_onboarding_campaign.py",
+    "tests/test_onboarding_partial_publication.py",
+    "tests/test_pr356_static_recovery_identity.py",
+    "tests/test_pr356_storage_compatibility.py",
+    "tests/test_pr356_tokenless_upgrade.py",
     "tests/test_rate_limiter.py",
+    "tests/test_setup_helpers.py",
+    "tests/test_startup_auth_middleware_review.py",
+    "tests/test_startup_diagnostics.py",
+    "tests/test_startup_onboarding_context.py",
+    "tests/test_web_api_codex_admin.py",
+    "tests/test_web_api_security_helpers_coverage.py",
+    "tests/test_web_api_security_routes.py",
+    "tests/test_web_campaign_policy_races.py",
+    "tests/test_web_campaign_truth.py",
+    "tests/test_web_persisted_sessions.py",
+    "tests/test_web_websocket.py",
+    "tests/test_websocket_bootstrap_auth.py",
+    "tests/test_websocket_handler.py",
     "tests/test_websocket_production_stack.py"
   ],
   "phase2_retired": [
+    "tests/test_auth_config_integration_review.py",
+    "tests/test_auth_entry_preservation.py",
+    "tests/test_auth_snapshot_compatibility.py",
+    "tests/test_auth_snapshot_routes.py",
+    "tests/test_bootstrap_bind_policy.py",
+    "tests/test_bootstrap_runtime_bind.py",
+    "tests/test_campaign_a_coverage_boundaries.py",
+    "tests/test_campaign_authorization_persistence.py",
+    "tests/test_campaign_private_persistence.py",
+    "tests/test_campaign_startup_auth.py",
     "tests/test_client.py",
     "tests/test_command_reconciliation.py",
+    "tests/test_compatible_timeout_migration.py",
+    "tests/test_config.py",
+    "tests/test_config_campaign_v410.py",
     "tests/test_gateway_transition_regressions.py",
+    "tests/test_health_shutdown.py",
+    "tests/test_host_access_removal_audit_v412.py",
+    "tests/test_independent_credential_review.py",
+    "tests/test_listener_consent.py",
+    "tests/test_listener_credential_provenance.py",
+    "tests/test_onboarding_campaign.py",
+    "tests/test_onboarding_partial_publication.py",
+    "tests/test_pr356_static_recovery_identity.py",
+    "tests/test_pr356_storage_compatibility.py",
+    "tests/test_pr356_tokenless_upgrade.py",
     "tests/test_rate_limiter.py",
+    "tests/test_setup_helpers.py",
+    "tests/test_startup_auth_middleware_review.py",
+    "tests/test_startup_diagnostics.py",
+    "tests/test_startup_onboarding_context.py",
+    "tests/test_web_api_codex_admin.py",
+    "tests/test_web_api_security_helpers_coverage.py",
+    "tests/test_web_api_security_routes.py",
+    "tests/test_web_campaign_policy_races.py",
+    "tests/test_web_campaign_truth.py",
+    "tests/test_web_persisted_sessions.py",
+    "tests/test_web_websocket.py",
+    "tests/test_websocket_bootstrap_auth.py",
+    "tests/test_websocket_handler.py",
     "tests/test_websocket_production_stack.py"
   ]
 }
