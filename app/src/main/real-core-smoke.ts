@@ -4,11 +4,17 @@ import { strict as assert } from 'node:assert'
 import { writeFileSync } from 'node:fs'
 import type { BrowserWindow } from 'electron'
 import type { Broker } from './broker'
+import type { ConversationSnapshot } from '../shared/api'
 
 const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-// Reviewed named management surface; never derive expected capabilities from welcome.
-export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.shutdown', ...[
+// Reviewed conversation/request and management surface; never derive expectations from welcome.
+export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
+  'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
+  'artifacts.read', 'tool.detail', 'tool.output',
+  'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
+  'conversations.reset_context', 'conversations.mark_read', 'messages.list',
+  'conversation.snapshot', 'search.query', 'messages.around',
   'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'models.image.intent',
   'providers.codex.set', 'providers.auxiliary.set', 'providers.ollama.set', 'providers.compat.set',
   'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label', 'codex.login.begin', 'codex.login.poll',
@@ -33,7 +39,7 @@ export function assertFreshManagementStatus(status: RealCoreStatus): void {
   assert.deepEqual(status.providers, [
     { name: 'codex', health: 'unavailable' }, { name: 'ollama', health: 'disabled' }, { name: 'compat', health: 'disabled' }
   ])
-  assert.deepEqual(status.limits, { chunk_bytes: 512 * 1024, attachment_bytes: 25 * 1024 * 1024, attachments_per_turn: 10 })
+  assert.deepEqual(status.limits, { chunk_bytes: 512 * 1024, attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10 })
   assert.match(status.summary, /Codex: unavailable/)
 }
 
@@ -56,7 +62,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   }
 
   // Later-slice reads are genuine core refusals, not empty successful lists.
-  for (const method of ['conversations.list', 'conversations.create', 'submission.send', 'search.query', 'work.list', 'skills.list', 'mcp.list', 'mcp.status', 'schedules.list', 'computer.status']) {
+  for (const method of ['work.list', 'skills.list', 'mcp.list', 'mcp.status', 'schedules.list', 'computer.status']) {
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
@@ -112,21 +118,37 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
 
   await until(async () => (await text('.status')).includes(status.version), 'real core status bar')
   screens.push({ screen: 'Status', text: await text('.status') })
-  await recordUnavailable('Chat and conversations', '.main')
-  await recordUnavailable('Conversation sidebar', 'nav[aria-label="Conversations"]')
-  const sidebarInset = await run<number>(`(() => {
-    const nav = document.querySelector('nav[aria-label="Conversations"]').getBoundingClientRect();
-    return document.querySelector('.sidebar-notice').getBoundingClientRect().left - nav.left;
-  })()`)
-  assert(sidebarInset >= 12, 'conversation unavailable notice must retain the sidebar inset')
-  assert.equal(await run('document.querySelectorAll(".conv-row").length'), 0, 'real session must never seed fixture conversations')
-  assert(await run('document.querySelector(".composer button[type=submit]")?.disabled === true'), 'unavailable chat must not offer a sendable composer')
-  assert(await run(`document.querySelector(${JSON.stringify('button[aria-label="Attach files"]')})?.disabled === true`), 'unavailable chat must not offer attachments')
+  // The renderer creates Chat only after a successful empty list, then loads
+  // an authoritative snapshot. A missing provider does not unserve chat.
+  await until(async () => (await count('.conv-row')) === 1 && (await text('.message-scroll')).includes('Ask Odin anything.') &&
+    await run<boolean>('document.querySelector(".composer textarea")?.disabled === false'), 'real first conversation and snapshot')
+  assert.equal(await text('.conv.active .conv-title'), 'Chat')
+  assert.equal(await count('.sidebar-notice'), 0, 'served conversations must not show an unavailable notice')
+  assert.equal(await count('.msg'), 0, 'fresh real conversation must not seed fixture messages')
+  assert(await run('document.querySelector(".composer button[type=submit]")?.disabled === true'), 'empty composer must not send')
+  assert(await run(`document.querySelector(${JSON.stringify('button[aria-label="Attach files"]')})?.disabled === false`), 'served chat must offer attachments')
+  const initial = await broker.request('conversations.list')
+  assert(initial.ok, 'real conversation list must succeed')
+  const initialItems = (initial.result as { items: Array<{ id: string; title: string }> }).items
+  assert.equal(initialItems.length, 1, 'first Chat must be persisted by the core, not a fixture row')
+  assert.equal(initialItems[0]!.title, 'Chat')
+  screens.push({ screen: 'Chat and conversations', text: await text('.main') })
   await click('button[aria-label="New conversation"]')
-  await until(async () => unavailable.test(await text('.composer .notice:last-child')), 'new conversation refusal')
-  assert.equal(await run('document.querySelectorAll(".conv-row").length'), 0, 'refused creation must not invent a conversation')
+  await until(async () => (await count('.conv-row')) === 2 && (await text('.conv.active .conv-title')) === 'New chat' &&
+    (await text('.message-scroll')).includes('Ask Odin anything.') &&
+    await run<boolean>('document.querySelector(".composer textarea")?.disabled === false'), 'real new conversation and snapshot')
+  const created = await broker.request('conversations.list')
+  assert(created.ok, 'created conversations must be readable from the real core')
+  const createdItems = (created.result as { items: Array<{ id: string; title: string }> }).items
+  assert.equal(createdItems.length, 2)
+  const conversationId = createdItems.find((item) => item.title === 'New chat')!.id
+  assert.notEqual(conversationId, initialItems[0]!.id)
+  const emptySnapshot = await broker.request('conversation.snapshot', { conversation_id: conversationId })
+  assert(emptySnapshot.ok, 'new conversation snapshot must be served')
+  assert.deepEqual((emptySnapshot.result as { messages: { items: unknown[] } }).messages.items, [])
+  screens.push({ screen: 'Conversation sidebar', text: await text('nav[aria-label="Conversations"]') })
 
-  // Slash commands remain useful without chat. Exercise the actual command
+  // Slash commands remain useful without a provider. Exercise the actual command
   // palette and bridge; /status and /usage use real step-five observations,
   // with served usage remaining unknown when history is missing.
   for (const command of ['/status', '/usage']) {
@@ -155,7 +177,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     input.value = 'smoke query'; input.dispatchEvent(new Event('input', { bubbles: true }));
     document.querySelector('.search-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
   })()`)
-  await recordUnavailable('Search', '.search-panel')
+  await until(async () => (await text('.search-panel .search-note')).includes('No matches.'), 'served empty conversation search')
+  assert.equal(await count('#conversation-search-error'), 0, 'served search must not claim capability refusal')
+  screens.push({ screen: 'Search', text: await text('.search-panel') })
   assert.equal(await run('document.querySelectorAll(".search-hits li").length'), 0)
   await click('.work-toggle')
   await recordUnavailable('Work', '.work-panel')
@@ -262,6 +286,52 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     writeFileSync(out.replace(/\.png$/i, '') + `-settings-${i + 1}.png`, (await win.webContents.capturePage()).toPNG())
   }
   writeFileSync(out.replace(/\.png$/i, '') + '-settings.png', (await win.webContents.capturePage()).toPNG())
+  // Keep provider failure after the fresh management/empty-log checkpoints:
+  // executing a real request legitimately records its failure in core logs.
+  await click('.settings-nav .back')
+  const submissionText = 'real-core smoke unavailable provider check'
+  await run(`(() => {
+    const input = document.querySelector('.composer textarea');
+    input.value = ${JSON.stringify(submissionText)}; input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`)
+  await until(async () => await run<boolean>('document.querySelector(".composer button[type=submit]")?.disabled === false'), 'served composer ready to submit')
+  await click('.composer button[type=submit]')
+  await until(async () => (await text('.message-scroll .msg.notice .body')).includes('No LLM provider available. Please try again later.') &&
+    (await text('.message-scroll .outcome')).includes('The task failed.') && (await count('.working, .msg.pending')) === 0, 'actual unavailable-provider task outcome')
+  assert.equal(await count('.message-scroll .msg.user'), 1, 'submission must commit exactly one user message')
+  assert.equal(await text('.message-scroll .msg.user .body'), submissionText)
+  assert.equal(await count('.message-scroll .msg.assistant'), 0, 'missing provider must not invent an assistant reply')
+  assert(await run('document.querySelector(".composer textarea").value === ""'), 'accepted submission clears its draft')
+  const failed = await broker.request('conversation.snapshot', { conversation_id: conversationId })
+  assert(failed.ok, 'failed request remains readable through its real snapshot')
+  const failedSnapshot = failed.result as ConversationSnapshot
+  assert.equal(failedSnapshot.running, null)
+  assert.deepEqual(failedSnapshot.queued, [])
+  assert.deepEqual(failedSnapshot.messages.items.map(({ role, text }) => ({ role, text })), [
+    { role: 'user', text: submissionText },
+    { role: 'notice', text: 'No LLM provider available. Please try again later.' }
+  ])
+  assert.equal(failedSnapshot.recent.length, 1)
+  assert.equal(failedSnapshot.recent[0]!.outcome, 'failed')
+  assert.equal(failedSnapshot.recent[0]!.unknown_effects, 0)
+  assert.deepEqual(failedSnapshot.unresolved, [])
+  reads['conversation.snapshot'] = failedSnapshot
+  screens.push({ screen: 'Chat / unavailable provider', text: await text('.main') })
+
+  // Search is backed by the committed transcript, including navigation to a hit.
+  assert(await run('Boolean(document.querySelector(".search-panel"))'), 'search panel remains open across settings')
+  await run(`(() => {
+    const input = document.querySelector('.search-form input');
+    input.value = ${JSON.stringify(submissionText)}; input.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('.search-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  })()`)
+  await until(async () => (await text('.search-panel .search-note')).includes('1 results.') && (await count('.search-hits li')) === 1, 'real committed transcript search hit')
+  assert.equal(await count('#conversation-search-error'), 0)
+  assert((await text('.search-hits .hit-snippet')).includes(submissionText))
+  await click('.search-hits .hit')
+  await until(async () => (await text('.message-scroll .msg.highlight .body')) === submissionText, 'real search hit navigation')
+  screens.push({ screen: 'Search / committed transcript', text: await text('.search-panel') })
+  writeFileSync(out.replace(/\.png$/i, '') + '-chat.png', (await win.webContents.capturePage()).toPNG())
   assert.equal(broker.linkState, 'ready')
   writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, reads, observations, screens }, null, 2) + '\n')
   process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ link: broker.linkState, status, screens: screens.map(({ screen }) => screen), observations: Object.fromEntries(Object.entries(observations).map(([name, answer]) => [name, answer.ok ? 'observed' : answer.error?.code])) })}\n`)

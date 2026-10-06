@@ -9,7 +9,12 @@ import { ensureProfileDirs, ensureToken, profilePaths, type ProfilePaths } from 
 const repository = resolve(__dirname, '../..')
 
 // The published named contract, not an arbitrary renderer RPC surface. Step 6 is absent.
-export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', ...[
+export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
+  'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
+  'artifacts.read', 'tool.detail', 'tool.output',
+  'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
+  'conversations.reset_context', 'conversations.mark_read', 'messages.list',
+  'conversation.snapshot', 'search.query', 'messages.around',
   'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'models.image.intent',
   'providers.codex.set', 'providers.auxiliary.set', 'providers.ollama.set', 'providers.compat.set',
   'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label',

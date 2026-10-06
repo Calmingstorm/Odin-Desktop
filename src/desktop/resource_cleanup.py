@@ -5,8 +5,10 @@ for teardown nor treats PID exit as descendant/native-resource cleanup.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import sqlite3
+from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -70,11 +72,38 @@ class ResourceCleanupJournal:
 
 
 async def close_existing_execution_owners(core, management) -> dict:
-    """Reuse Odin's cleanup APIs without creating owners or broad process kills."""
+    """Reuse the engine's original barriers, never retry them to improve evidence."""
+    engine = getattr(core, "engine", None)
+    if engine is not None:
+        retained = getattr(engine, "execution_cleanup_results", None)
+        resources = deepcopy(retained) if retained is not None else {
+            name: {"state": "unknown", "reason": "engine_cleanup_not_complete"}
+            for name in ("computer", "processes")
+        }
+        outcome = getattr(engine, "cleanup_outcome", None)
+        resources["engine"] = deepcopy(outcome) if outcome is not None else {
+            "state": "unknown", "reason": "engine_cleanup_not_complete",
+        }
+        if getattr(core, "_engine_cleanup_failed", False):
+            resources["engine"]["state"] = "unknown"
+        return resources
     executor = getattr(management, "executor", None)
     registry = getattr(executor, "_process_registry", None)
-    computer = getattr(core, "computer", None) or getattr(management, "computer", None)
-    resources = {}
+    computer = getattr(core, "computer", None)
+    if computer is None:
+        computer = getattr(management, "computer", None)
+    return await close_execution_owners(computer=computer, registry=registry)
+
+
+async def close_execution_owners(*, computer, registry, resources=None) -> dict:
+    """Observe these exact existing owners after their producers settle.
+
+    The caller retains the first result. Native readback stays read-only and
+    attached to the original durable store across its owner's close barrier.
+    """
+    resources = {} if resources is None else resources
+    resources.update({name: {"state": "unknown", "reason": "cleanup_not_complete"}
+                      for name in ("computer", "processes")})
     for name, owner, method in (
         ("computer", computer, "close"), ("processes", registry, "shutdown"),
     ):
@@ -100,6 +129,9 @@ async def close_existing_execution_owners(core, management) -> dict:
                     native_reader = None
         try:
             await getattr(owner, method)()
+        except asyncio.CancelledError:
+            resources[name] = {"state": "unknown", "error_type": "CancelledError"}
+            raise
         except Exception as error:
             # Cancellation is not release. Retain the owner and persist only an
             # inert type name, never exception text/user content or credentials.

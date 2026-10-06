@@ -39,9 +39,24 @@ if os.environ.get("ODIN_APP_EXECUTION_SOURCE_BASELINE") == "1":
     )
     namespace = {"__name__": "src.desktop.measured_baseline", "__package__": "src.desktop"}
     exec(compile(source, "1d75c5e8:src/desktop/management.py", "exec"), namespace)
+    # The historical management API predates shared engine/settings ownership.
+    # Measure its exact historical composition too, not an incompatible hybrid
+    # with today's request-enabled core (which now supplies settings=).
+    core_source = subprocess.check_output(
+        ["git", "show", "1d75c5e805c62e1e7c2883e5dfd0f56141cb07a5:src/desktop/core.py"],
+        cwd=Path(__file__).resolve().parents[2],
+    )
+    core_namespace = {"__name__": "src.desktop.measured_baseline_core",
+                      "__package__": "src.desktop"}
+    exec(compile(core_source, "1d75c5e8:src/desktop/core.py", "exec"), core_namespace)
+    core_namespace["ManagementService"] = namespace["ManagementService"]
+    import src.desktop.core as core_module
+
+    core_module.CoreService = core_namespace["CoreService"]
     original_compose = namespace["ManagementService"].compose.__func__
     record("exact_committed_baseline", source_commit="1d75c5e805c62e1e7c2883e5dfd0f56141cb07a5",
-           sha256=hashlib.sha256(source).hexdigest())
+           sha256=hashlib.sha256(source).hexdigest(),
+           core_sha256=hashlib.sha256(core_source).hexdigest())
 else:
     original_compose = ManagementService.compose.__func__
 
@@ -104,4 +119,6 @@ def compose(cls, core, **kwargs):
 
 
 ManagementService.compose = classmethod(compose)
+if os.environ.get("ODIN_APP_EXECUTION_SOURCE_BASELINE") == "1":
+    namespace["ManagementService"].compose = classmethod(compose)
 entry.main()

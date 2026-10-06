@@ -78,7 +78,25 @@ class ManagementService:
             self.read_methods.update(service.READ_METHODS)
 
     @classmethod
-    def compose(cls, core, *, secret_backend=None):
+    def profile_settings(cls, core, *, secret_backend=None, config=None):
+        """One persisted profile owner, optionally seeded by the test config seam."""
+        from .provisioning import ensure_profile
+        from .secrets import ProfileSecretStore
+        from .settings import SettingsService
+
+        provisioned = ensure_profile(core.paths, authority=core.authority)
+        if core.authority.durability_degraded:
+            raise JournalStorageError()
+        settings = SettingsService(
+            core.paths, ProfileSecretStore(core.paths, backend=secret_backend),
+            config=config if config is not None else provisioned)
+        # Locked keyrings do not block standalone management/login startup.
+        # Config consumers follow this owner's pointer after later hydration.
+        settings.hydrate_secrets()
+        return settings
+
+    @classmethod
+    def compose(cls, core, *, secret_backend=None, settings=None):
         """Compose retained domain owners without starting HTTP or a desktop."""
         from ..config.apply_registry import spec_for
         from ..context.loader import ContextLoader
@@ -93,31 +111,38 @@ class ManagementService:
         from .knowledge import KnowledgeService
         from .model_settings import ModelSettingsService
         from .providers import ProviderOwner
-        from .provisioning import ensure_profile
         from .records import RecordsService
         from .runtime import RuntimeService
-        from .secrets import ProfileSecretStore
-        from .settings import SettingsService
         from .state import StateService
 
-        config = ensure_profile(core.paths, authority=core.authority)
-        if core.authority.durability_degraded:
-            raise JournalStorageError()
-        secrets = ProfileSecretStore(core.paths, backend=secret_backend)
-        settings = SettingsService(core.paths, secrets, config=config)
-        executor = ToolExecutor(
-            config=settings.config.tools, memory_path=str(core.paths.data_dir / "memory.json"),
-            permission_manager=core.permissions, app_config=settings.config,
-            email_config=settings.config.email, profile_paths=core.paths,
-        )
-        executor._command_shell_config = lambda: settings.config.tools.command_shell
-        executor._host_access = HostAccessManager(
-            path=core.paths.config_dir / "host-preferences.json",
-            available_hosts_provider=executor.host_registry.active_aliases,
-            permission_manager=core.permissions,
-        )
-        codex = CodexAccountsService(settings)
-        providers = ProviderOwner(settings, codex, executor=executor)
+        settings = settings or getattr(core, "settings", None)
+        if settings is None:
+            settings = cls.profile_settings(core, secret_backend=secret_backend)
+        elif secret_backend is not None:
+            # Retain the compose-time isolated keyring injection seam without
+            # constructing a second settings owner beside the request engine.
+            settings.secrets._backend = secret_backend
+            settings.hydrate_secrets()
+        engine = getattr(core, "engine", None)
+        deps = engine.deps if engine is not None else None
+        if deps is not None:
+            executor = deps.tool_executor
+            providers = deps.llm_gateway
+            codex = providers.codex_accounts
+        else:
+            executor = ToolExecutor(
+                config=settings.config.tools, memory_path=str(core.paths.data_dir / "memory.json"),
+                permission_manager=core.permissions, app_config=settings.config,
+                email_config=settings.config.email, profile_paths=core.paths,
+            )
+            executor._command_shell_config = lambda: settings.config.tools.command_shell
+            executor._host_access = HostAccessManager(
+                path=core.paths.config_dir / "host-preferences.json",
+                available_hosts_provider=executor.host_registry.active_aliases,
+                permission_manager=core.permissions,
+            )
+            codex = CodexAccountsService(settings)
+            providers = ProviderOwner(settings, codex, executor=executor)
         codex.providers = providers
         for method in providers.METHODS:
             settings.owners[method] = providers
@@ -142,7 +167,9 @@ class ManagementService:
             return True
 
         settings.owners["settings.set"] = apply_generic
-        hosts = HostsService(settings, executor=executor)
+        hosts = HostsService(settings, executor=executor,
+                             registry=deps.host_registry if deps is not None else None,
+                             scheduler=deps.scheduler if deps is not None else None)
 
         def tool_readiness():
             ready = {name: True for name in EXECUTOR_HANDLERS}
@@ -153,7 +180,8 @@ class ManagementService:
                     ready[name] = settings.config.email.enabled
             return ready
 
-        executor.set_builtin_policy(BuiltinToolPolicy(lambda: settings.config, tool_readiness))
+        if deps is None:
+            executor.set_builtin_policy(BuiltinToolPolicy(lambda: settings.config, tool_readiness))
 
         class ReloadOwner:
             def prepare_settings(self, desired, changes):
@@ -211,8 +239,10 @@ class ManagementService:
 
         records = RecordsService(core.paths, health=health, settings=settings,
                                  get_audit_path=lambda: settings.config.tools.audit_log_path)
-        context = ContextLoader(settings.config.context.directory)
-        runtime = RuntimeService(core, settings, llm=providers, context=context)
+        context = (deps.context_loader if deps is not None
+                   else ContextLoader(settings.config.context.directory))
+        runtime = RuntimeService(core, settings, llm=providers, context=context,
+                                 skills=deps.skill_manager if deps is not None else None)
         models = ModelSettingsService(settings, executor=executor, provider=providers)
         integrations = IntegrationsService(settings)
         manager = cls(core, services=[settings, codex, hosts, state, knowledge,
@@ -220,6 +250,7 @@ class ManagementService:
                       identity_key=_binding_key(core.paths))
         manager.settings, manager.executor, manager.providers = settings, executor, providers
         manager.runtime, manager.hosts, manager.codex = runtime, hosts, codex
+        manager._engine_owned = deps is not None
         return manager
 
     def identity_params(self, params: Any) -> dict:
@@ -319,7 +350,14 @@ class ManagementService:
                     (canonical_json(answer), time.time(), int(unknown), command_id),
                 )
             if event is not None:
-                await self.core._publish(event)
+                flush = getattr(self.core, "_flush_publications", None)
+                if flush is None:
+                    await self.core._publish(event)
+                else:
+                    # Request workers can commit while management awaits an effect.
+                    # Publish the entire pending prefix before advancing a subscriber
+                    # cursor past it with the newer settings frame.
+                    await flush()
             return json.loads(canonical_json(answer))
         except (ValueError, TypeError, RecursionError):
             if admitted:
@@ -338,6 +376,16 @@ class ManagementService:
         # Retained barriers keep ambiguous native owners and independently prove
         # whole process sessions before releasing their transports.
         resources = await close_existing_execution_owners(self.core, self)
+        engine = getattr(self.core, "engine", None)
+        if engine is not None and not getattr(engine, "producers_quiesced", False):
+            # Never close shared services beneath unresolved engine producers.
+            resources["services"] = {"state": "unknown", "reason": "producers_not_quiesced"}
+            journal = getattr(self.core, "resource_cleanup", None)
+            if journal is not None:
+                journal.finish(resources)
+            from .resource_cleanup import ResourceCleanupError
+
+            raise ResourceCleanupError("Runtime producers are still settling")
         failed = False
         for service in reversed(self.services):
             close = getattr(service, "close", None)
@@ -349,14 +397,14 @@ class ManagementService:
                 except Exception:
                     failed = True
         providers = getattr(self, "providers", None)
-        if providers is not None:
+        if providers is not None and not getattr(self, "_engine_owned", False):
             try:
                 await providers.close()
             except Exception:
                 failed = True
         executor = getattr(self, "executor", None)
         pool = getattr(executor, "ssh_pool", None)
-        if pool is not None:
+        if pool is not None and not getattr(self, "_engine_owned", False):
             close = getattr(pool, "close", None)
             if close is not None:
                 try:

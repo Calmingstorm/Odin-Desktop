@@ -10,6 +10,7 @@ import pytest
 from src.desktop.resource_cleanup import (
     ResourceCleanupError,
     ResourceCleanupJournal,
+    close_execution_owners,
     close_existing_execution_owners,
 )
 
@@ -131,3 +132,67 @@ async def test_owner_cancellation_propagates_and_running_marker_stays_unknown(tm
     with pytest.raises(asyncio.CancelledError):
         await close_existing_execution_owners(SimpleNamespace(computer=owner), SimpleNamespace())
     assert ResourceCleanupJournal(journal.path).public()["reconciliation_required"] is True
+
+
+@pytest.mark.asyncio
+async def test_engine_bridge_never_retries_original_unknown_owner_receipt(tmp_path):
+    registry = SimpleNamespace(shutdown=AsyncMock())
+    computer = SimpleNamespace(close=AsyncMock())
+    retained = {"computer": {"state": "released"},
+                "processes": {"state": "unknown", "error_type": "ProcessCleanupError"}}
+    engine = SimpleNamespace(execution_cleanup_results=retained, cleanup_outcome={
+        "state": "unknown", "failures": [
+            {"stage": "execution_owners", "error_type": "ResourceCleanupError"}]})
+    core = SimpleNamespace(engine=engine, computer=computer)
+    management = SimpleNamespace(executor=SimpleNamespace(_process_registry=registry))
+    journal = ResourceCleanupJournal(tmp_path / "receipt.json")
+    for _ in range(2):
+        resources = await close_existing_execution_owners(core, management)
+        with pytest.raises(ResourceCleanupError):
+            journal.finish(resources)
+        resources["processes"]["state"] = "released"
+    registry.shutdown.assert_not_called()
+    computer.close.assert_not_called()
+    assert retained["processes"]["state"] == "unknown"
+    saved = json.loads(journal.path.read_text())
+    assert saved["resources"]["processes"]["error_type"] == "ProcessCleanupError"
+    assert saved["resources"]["engine"]["failures"][0]["stage"] == "execution_owners"
+
+
+@pytest.mark.asyncio
+async def test_engine_bridge_before_barriers_reports_unknown_not_absent():
+    registry = SimpleNamespace(shutdown=AsyncMock())
+    core = SimpleNamespace(engine=SimpleNamespace(execution_cleanup_results=None))
+    result = await close_existing_execution_owners(
+        core, SimpleNamespace(executor=SimpleNamespace(_process_registry=registry)),
+    )
+    assert set(result) == {"computer", "processes", "engine"}
+    assert all(row["state"] == "unknown" for row in result.values())
+    registry.shutdown.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_core_engine_failure_flag_cannot_be_overwritten_by_clean_barriers():
+    core = SimpleNamespace(_engine_cleanup_failed=True, engine=SimpleNamespace(
+        execution_cleanup_results={"computer": {"state": "not_started"},
+                                   "processes": {"state": "released"}},
+        cleanup_outcome={"state": "released"},
+    ))
+    result = await close_existing_execution_owners(core, None)
+    assert result["engine"]["state"] == "unknown"
+    assert core.engine.cleanup_outcome["state"] == "released"
+
+
+@pytest.mark.asyncio
+async def test_partial_owner_barrier_results_survive_cancellation():
+    import asyncio
+
+    retained = {}
+    computer = SimpleNamespace(close=AsyncMock())
+    registry = SimpleNamespace(shutdown=AsyncMock(side_effect=asyncio.CancelledError()))
+    with pytest.raises(asyncio.CancelledError):
+        await close_execution_owners(computer=computer, registry=registry, resources=retained)
+    assert retained["computer"]["state"] == "released"
+    assert retained["processes"] == {"state": "unknown", "error_type": "CancelledError"}
+    computer.close.assert_awaited_once()
+    registry.shutdown.assert_awaited_once()
