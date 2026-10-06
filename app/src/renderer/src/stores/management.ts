@@ -3,6 +3,7 @@
 import { reactive } from 'vue'
 import type {
   McpSave,
+  McpMutationOutcome,
   McpStatus,
   McpTool,
   Result,
@@ -31,6 +32,7 @@ export const management = reactive({
   skillConfig: {} as Record<string, unknown>,
   validation: null as SkillValidation | null,
   testResult: null as { result: string; is_error: boolean } | null,
+  skillTestUnavailable: false,
   mcp: null as McpStatus | null,
   mcpTools: {} as Record<string, McpTool[] | undefined>,
   /** What the last action on each thing did, by key: `tool:<name>`, `skill:<name>`, `mcp:<name>` or a section. */
@@ -95,25 +97,25 @@ function readResult(resource: Resource, result: Result<unknown>): boolean {
 }
 
 /** Commands that never answered, by ID: each keeps its thing busy until its late receipt settles it. */
-const uncertain = new Map<string, { key: string; done: (answer: unknown) => string; refresh?: () => Promise<void> }>()
+const uncertain = new Map<string, { key: string; done: (answer: unknown) => string; refresh?: () => Promise<void>; localRefusal?: boolean }>()
 
 /**
  * Runs one action at a time per key, notes what the core said, then refreshes what it changed. A command with no
  * answer keeps its key busy, and is never sent again under a new ID; its late receipt settles it as an answer would.
  */
-export async function act<T>(key: string, run: () => Promise<Result<T>>, done: (answer: T) => string, refresh?: () => Promise<void>): Promise<boolean> {
+export async function act<T>(key: string, run: () => Promise<Result<T>>, done: (answer: T) => string, refresh?: () => Promise<void>, localRefusal = false): Promise<boolean> {
   const resource = resourceFor(key)
   if (resource && management.unavailable[resource]) return false
   if (management.busy[key]) return false
   management.busy[key] = true
   const result = await run()
   if (!result.ok && isUnknownOutcome(result.error) && result.error.command_id) {
-    uncertain.set(result.error.command_id, { key, done: done as (answer: unknown) => string, refresh })
+    uncertain.set(result.error.command_id, { key, done: done as (answer: unknown) => string, refresh, localRefusal })
     management.notes[key] = "Waiting for Odin to confirm. It's never sent twice."
     return false
   }
   management.busy[key] = false
-  if (!result.ok && isUnavailable(result.error) && resource) {
+  if (!result.ok && isUnavailable(result.error) && resource && !localRefusal) {
     refuse(resource)
     return false
   }
@@ -128,7 +130,10 @@ onLateReceipt((receipt) => {
   uncertain.delete(receipt.id)
   management.busy[pending.key] = false
   const resource = resourceFor(pending.key)
-  if (!receipt.settled.ok && isUnavailable(receipt.settled.error) && resource) {
+  if (!receipt.settled.ok && isUnavailable(receipt.settled.error) && pending.localRefusal && resource === 'skills') {
+    management.skillTestUnavailable = true
+  }
+  if (!receipt.settled.ok && isUnavailable(receipt.settled.error) && resource && !pending.localRefusal) {
     refuse(resource)
     return
   }
@@ -197,8 +202,12 @@ let skillsRead = 0
 
 export async function loadSkills(): Promise<void> {
   const mine = ++skillsRead
-  const result = await window.odin.skillsList({})
+  const [result, core] = await Promise.all([
+    window.odin.skillsList({}),
+    typeof window.odin.status === 'function' ? window.odin.status() : Promise.resolve(null)
+  ])
   if (mine !== skillsRead) return
+  if (core?.ok) management.skillTestUnavailable = !core.result.capabilities.includes('skills.test')
   if (readResult('skills', result) && result.ok) management.skills = result.result
 }
 
@@ -297,10 +306,15 @@ export async function saveSkill(): Promise<boolean> {
 
 export async function testSkill(name: string): Promise<void> {
   management.testResult = null
-  await act(`skill:${name}`, () => window.odin.skillsTest({ name }), (answer) => {
+  if (management.skillTestUnavailable) return
+  await act(`skill:${name}`, async () => {
+    const answer = await window.odin.skillsTest({ name })
+    if (!answer.ok && isUnavailable(answer.error)) management.skillTestUnavailable = true
+    return answer
+  }, (answer) => {
     management.testResult = answer
     return answer.is_error ? 'The test run failed.' : 'Ran with empty input.'
-  }, loadSkills)
+  }, loadSkills, true)
 }
 
 export async function setSkillEnabled(name: string, enabled: boolean): Promise<void> {
@@ -336,6 +350,10 @@ let mcpToolsEpoch = 0
 
 function showMcp(sent: number, status: McpStatus): void {
   if (sent < mcpShown) return
+  if (management.mcp?.revision !== status.revision || management.mcp?.enabled !== status.enabled) {
+    mcpToolsEpoch += 1
+    management.mcpTools = {}
+  }
   mcpShown = sent
   management.mcp = status
   management.unavailable.mcp = false
@@ -353,24 +371,56 @@ function mcpOutcome(answer: { state: string; last_error: string }): string {
   return answer.last_error ? `${answer.state}: ${answer.last_error}` : `Now ${answer.state}.`
 }
 
+/** Bind the currently shown status. Stale bindings are read back, never replayed. */
+function mcpBound<T extends object>(change: T): T & { expected_revision?: string } {
+  const revision = management.mcp?.revision
+  return revision === undefined ? change : { ...change, expected_revision: revision }
+}
+
+/** The fixture uses an editor-only create flag; real MCP is an upsert and rejects it. */
+export function mcpSaveParams(change: McpSave): McpSave {
+  if (management.mcp?.revision === undefined) return change
+  const { create: _create, ...params } = change
+  return mcpBound(params)
+}
+
+function adoptMcpOutcome(sent: number, name: string, answer: McpMutationOutcome): string {
+  if (!('servers' in answer)) return mcpOutcome(answer)
+  showMcp(sent, answer)
+  if (sent >= mcpShown) {
+    mcpToolsEpoch += 1
+    management.mcpTools = {}
+  }
+  const server = answer.servers.find((row) => row.name === name)
+  return server ? mcpOutcome(server) : 'Removed.'
+}
+
+function mcpAction(name: string, run: () => Promise<Result<McpMutationOutcome>>, removed = false): Promise<boolean> {
+  const sent = ++mcpSent
+  let refresh = true
+  return act(`mcp:${name}`, run, (answer) => {
+    refresh = !('servers' in answer)
+    const note = adoptMcpOutcome(sent, name, answer)
+    return removed ? 'Removed.' : note
+  }, async () => { if (refresh) await loadMcp() }, true)
+}
+
 /** Odin's per-server switch answers the whole status: show it, and say how the server is now. */
 export function setMcpEnabled(name: string, enabled: boolean): Promise<boolean> {
-  const sent = ++mcpSent
-  return act(`mcp:${name}`, () => window.odin.mcpSetEnabled({ name, enabled }), (status) => {
-    showMcp(sent, status)
-    const server = status.servers.find((s) => s.name === name)
-    return server ? mcpOutcome(server) : 'Saved.'
-  })
+  return mcpAction(name, () => window.odin.mcpSetEnabled(mcpBound({ name, enabled })))
 }
-export const reconnectMcp = (name: string): Promise<boolean> =>
-  act(`mcp:${name}`, () => window.odin.mcpReconnect({ name }), mcpOutcome, loadMcp)
-export const refreshMcpTools = (name: string): Promise<boolean> =>
-  act(`mcp:${name}`, () => window.odin.mcpRefreshTools({ name }), mcpOutcome, loadMcp)
-export const deleteMcp = (name: string): Promise<boolean> =>
-  act(`mcp:${name}`, () => window.odin.mcpDelete({ name }), () => 'Removed.', loadMcp)
+export const reconnectMcp = (name: string): Promise<boolean> => {
+  return mcpAction(name, () => window.odin.mcpReconnect(mcpBound({ name })))
+}
+export const refreshMcpTools = (name: string): Promise<boolean> => {
+  return mcpAction(name, () => window.odin.mcpRefreshTools(mcpBound({ name })))
+}
+export const deleteMcp = (name: string): Promise<boolean> => {
+  return mcpAction(name, () => window.odin.mcpDelete(mcpBound({ name })), true)
+}
 
 export async function saveMcp(change: McpSave): Promise<boolean> {
-  return act(`mcp:${change.name}`, () => window.odin.mcpSave(change), mcpOutcome, loadMcp)
+  return mcpAction(change.name, () => window.odin.mcpSave(mcpSaveParams(change)))
 }
 
 export async function loadMcpTools(name: string): Promise<void> {
@@ -379,7 +429,8 @@ export async function loadMcpTools(name: string): Promise<void> {
   const result = await window.odin.mcpTools({ name })
   if (epoch !== mcpToolsEpoch) return
   if (!result.ok && isUnavailable(result.error)) {
-    refuse('mcp')
+    delete management.mcpTools[name]
+    management.notes[`mcp:${name}`] = result.error.message
     return
   }
   if (result.ok) management.mcpTools[name] = result.result.tools
@@ -388,18 +439,29 @@ export async function loadMcpTools(name: string): Promise<void> {
 
 /** Odin's global switch answers only what it saved, so the status is read again for the servers and their tools. */
 export async function setMcpGlobal(enabled: boolean): Promise<void> {
+  const sent = ++mcpSent
+  let refresh = true
   await act(
     'mcp',
-    () => window.odin.mcpSetGlobalEnabled({ enabled }),
-    (answer) => (answer.enabled ? `MCP is on: ${answer.connected_count} servers connected.` : 'MCP is off: no server runs and no MCP tool is offered.'),
-    loadMcp
+    () => window.odin.mcpSetGlobalEnabled(mcpBound({ enabled })),
+    (answer) => {
+      if ('servers' in answer) {
+        showMcp(sent, answer)
+        refresh = false
+      }
+      return answer.enabled ? `MCP is on: ${answer.connected_count} servers connected.` : 'MCP is off: no server runs and no MCP tool is offered.'
+    },
+    async () => { if (refresh) await loadMcp() },
+    true
   )
 }
 
 export async function setMcpLimits(limits: { max_published_tools_per_server?: number; max_published_tools_global?: number }): Promise<void> {
   const sent = ++mcpSent
-  await act('mcp-limits', () => window.odin.mcpSetLimits(limits), (status) => {
+  let refresh = true
+  await act('mcp-limits', () => window.odin.mcpSetLimits(mcpBound(limits)), (status) => {
     showMcp(sent, status)
+    refresh = false
     return 'Saved.'
-  })
+  }, async () => { if (refresh) await loadMcp() }, true)
 }

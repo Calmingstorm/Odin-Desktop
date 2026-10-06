@@ -3,9 +3,12 @@
 The desktop app: tray lifecycle (D3), the chat window, and the main-process broker that talks to Odin's core over
 the protocol in [`../docs/design/protocol.md`](../docs/design/protocol.md). P3.1 slice 2 connects settings and
 management to the real Phase 2 step-five core: provider/model configuration, device-code accounts, tools/timeouts,
-personality, hosts/trust, memory/lists/knowledge, records and profile runtime observations. Services not yet composed,
-including conversations/execution and step-six skills/MCP/background work/computer use, remain explicitly
-unavailable. Real-core sessions never substitute fixture rows or invented successful reads.
+personality, hosts/trust, memory/lists/knowledge, records and profile runtime observations. P3.1 slice 4 connects
+the existing Skills, MCP and Tools screens to step 6A's retained service owners, reads browser qualification and
+next-use retry separately, and exposes computer management status and exact-generation recovery. Skills test
+execution, background work/schedules and foreground/native computer input remain plainly unavailable where the
+core does not serve them. Main's conversation/request services are preserved; the separate chat slice owns its
+full app integration. Real-core sessions never substitute fixture rows or invented successful reads.
 
 ## Build and test
 
@@ -54,7 +57,11 @@ there; it never uses the active desktop or the user's profile. Missing Python, d
 support or required tools fail with an explanation. There are no silent skips or unisolated fallbacks.
 
 `test:real-core` exercises the actual Broker, profile persistence, revisions/receipt identity, model adoption,
-management writes, knowledge versions, record filtering and write-only credentials. Device authentication uses
+management writes, knowledge versions, record filtering and write-only credentials. Slice 4 adds skill CRUD and
+validation, failed-module cards, a harmless local stdio MCP fixture, publication/enable/reconnect transitions,
+settings revision conflicts without replay, server-local keyring failures, and browser/computer truthfulness.
+`skills.test` is deliberately unadvertised; its refusal is checked, never represented as executed Python.
+Device authentication uses
 an isolated localhost auth service and an ephemeral injected keyring, never a production account. These tests
 do not qualify native Secret Service unlock behavior or successful model generation.
 
@@ -62,8 +69,12 @@ do not qualify native Secret Service unlock behavior or successful model generat
 chat/search/work and every settings section's own service loads, and checks on-demand context reload. A fresh core
 shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge and audit/log
 records, unknown usage and disabled turn-state storage. Health reports absent runtime owners honestly; missing
-keyring access is a distinct failure with Retry, not an empty account success. Skills, MCP, scheduling and computer
-use remain unavailable. The gate exits through normal `runtime.shutdown` and parent-EOF cleanup. Evidence paths
+keyring access is a distinct failure with Retry, not an empty account success. The slice 4 smoke saves, validates
+and reads a harmless constant skill through the named bridge, verifies Test remains unavailable, adds a local
+stdio MCP fixture and renders its discovered tools. Browser health distinguishes missing bundle/readiness from
+next-use retry; computer status says no session and no qualified foreground/native input. No remote MCP service
+or real account is used. Scheduling remains unavailable. The gate exits through normal `runtime.shutdown` and
+parent-EOF cleanup. Evidence paths
 and a compact result are printed as JSON. Set
 `ODIN_SMOKE_OUT` to retain screenshots of chat and every settings section plus a JSON evidence file alongside the
 named checkpoint; the default screenshots, evidence and profiles are discarded.
@@ -84,8 +95,9 @@ The fixture lane covers chat, native attachment selection/cancel, copying and sa
 paging/copy, conversation menus/children, Stop/Steer/Queue/Resume, work controls, all settings sections, validation,
 password/code privacy, delayed history/search, command suggestions, retained output and 200/400 percent reflow.
 The real-core lane covers keyboard status/usage reports and all eleven Settings sections with axe and Chromium
-AX audits: step five supplies actual settings/management data, while chat and uncomposed step-six services retain
-explicit unavailable views. Fresh usage is unknown with history not enabled, not a missing `usage.get` service.
+AX audits: step five supplies actual settings/management data and step 6A supplies Skills/MCP and browser/computer
+management observations. Uncomposed services retain explicit unavailable views. Fresh usage is unknown with history
+not enabled, not a missing `usage.get` service.
 Neither a fixture pass nor a Chromium AX dump proves Orca/AT-SPI speech or Wayland qualification.
 
 Reports, full Chromium AX dumps, axe violations **and incomplete checks**, sandbox/cleanup receipts and screenshots

@@ -53,8 +53,12 @@ describe('actual app Broker ↔ repository real core', () => {
     const subscribed = successful<Subscription>(await broker.request('events.subscribe', { after: '0' }))
     expect(subscribed).toEqual({ event_high: welcome.event_high, reset_required: false })
     await waitFor(() => events.length === 1, 'startup event replay')
+    // Startup is historical; status.get is a fresh read. Their uptime summaries
+    // may legitimately cross a second boundary while the durable payload agrees.
     expect(events[0]).toMatchObject({ t: 'evt', seq: 1, cursor: '1', type: 'runtime.status',
-      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: status })
+      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: {
+        ...status, summary: expect.stringMatching(/^\*\*Odin v0\.1\.0\.dev1\*\* · up \d+s\nProvider:/)
+      } })
     expect(events[0]!.at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/)
     expect(Date.parse(events[0]!.at)).not.toBeNaN()
     expect(broker.cursor).toBe('1')
