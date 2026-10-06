@@ -640,6 +640,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
                      "disable_skill", "install_skill", "list_skills", "skill_status",
                      "invoke_skill"):
             ready[name] = (engine.requests is not None and skills is not None
+                           and dispatcher.skills.skill_manager is skills
                            and dispatcher.skills.handles(name))
         ready["export_skill"] = False  # durable exported-artifact owner not wired
         for definition in skills.get_tool_definitions():
