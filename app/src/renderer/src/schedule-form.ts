@@ -9,8 +9,11 @@ export interface ScheduleForm {
   action: ScheduleAction
   /** The conversation it reports to. */
   channel_id: string
-  /** A trigger only shows for an existing schedule that has one, and leaves its timing as it is. */
+  /** Inbound webhook matching is independent of the outgoing webhook action. */
   timing: 'cron' | 'once' | 'trigger'
+  trigger_source: '' | 'generic' | 'github' | 'gitea' | 'gitlab'
+  trigger_event: string
+  trigger_repo: string
   cron: string
   /** Empty: the core's own time zone. */
   cron_timezone: string
@@ -56,6 +59,9 @@ export function blankForm(): ScheduleForm {
     action: 'reminder',
     channel_id: '',
     timing: 'cron',
+    trigger_source: '',
+    trigger_event: '',
+    trigger_repo: '',
     cron: '',
     cron_timezone: '',
     run_at: '',
@@ -91,6 +97,9 @@ export function formFor(row: ScheduleRow, zone: Zone = SYSTEM_ZONE): ScheduleFor
     action: row.action,
     channel_id: row.channel_id ?? '',
     timing: row.cron ? 'cron' : row.trigger && !row.run_at ? 'trigger' : 'once',
+    trigger_source: row.trigger?.source ?? '',
+    trigger_event: row.trigger?.event ?? '',
+    trigger_repo: row.trigger?.repo ?? '',
     cron: row.cron ?? '',
     cron_timezone: row.cron ? (row.timezone ?? '') : '',
     run_at: runAt,
@@ -150,6 +159,14 @@ function fieldsOf(form: ScheduleForm, zone: Zone): Fields | string {
       fields.run_at = chosen.iso
     } else {
       fields.run_at = time.iso
+    }
+  } else if (form.timing === 'trigger') {
+    if (!form.trigger_source && !form.trigger_event && !form.trigger_repo) return 'Trigger must have at least one condition: source, event or repository.'
+    // Keep unspecified matching unspecified. Null/absent are equivalent to the scheduler.
+    fields.trigger = {
+      ...(form.trigger_source ? { source: form.trigger_source } : {}),
+      ...(form.trigger_event ? { event: form.trigger_event } : {}),
+      ...(form.trigger_repo ? { repo: form.trigger_repo } : {})
     }
   }
 
@@ -219,7 +236,7 @@ function fieldsOf(form: ScheduleForm, zone: Zone): Fields | string {
   return fields
 }
 
-const TIMING = ['cron', 'cron_timezone', 'run_at']
+const TIMING = ['cron', 'cron_timezone', 'run_at', 'trigger']
 
 /** What clears a field Odin keeps when it is emptied: no message, no tool input, a plain text report. */
 const CLEARED: Fields = { message: '', tool_input: {}, report_format: '' }
