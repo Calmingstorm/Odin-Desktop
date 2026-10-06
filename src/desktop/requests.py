@@ -651,7 +651,10 @@ class RequestService:
                                      message.generation,
                                      message.owner_id, message.message_id)
             guarded = self.delivery.guarded_reply(context, text)
-            await self.delivery.send_reply(context, text, guarded=guarded)
+            if outcome == "suspended":
+                await self.delivery.send_reply(context, text, guarded=guarded, consume_staged=False)
+            else:
+                await self.delivery.send_reply(context, text, guarded=guarded)
             await self.engine.record_result(message, result)
         except asyncio.CancelledError:
             self._finish(message, "interrupted")

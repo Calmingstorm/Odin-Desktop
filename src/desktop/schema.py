@@ -27,6 +27,8 @@ DOMAIN_COLUMNS.update({
                                 "payload", "event_seq", "state", "created_at", "delivered_at"},
     "desktop_notifications": {"dedupe_key", "conversation_id", "request_id", "payload",
                               "outcome", "created_at", "acked_at"},
+    "desktop_staged_files": {"ordinal", "conversation_id", "request_id", "generation",
+                             "owner", "data", "name", "mime", "kind", "tool", "hosts"},
     "desktop_uploads": {"upload_id", "client_attachment_id", "conversation_id", "binding",
                         "name", "mime", "size", "received", "state", "sha256", "ref", "expires_at"},
     "desktop_upload_chunks": {"upload_id", "offset", "data"},
