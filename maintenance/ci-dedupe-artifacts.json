@@ -1,10 +1,20 @@
 {
   "schema_version": 1,
   "run": "ci-dedupe-req3c08",
-  "tested_code_head": "a2091cf1c89573772871a5718902beacc9220111",
+  "tested_code_head": "2239dce0ad265fec31070b429364b2bfe48bf832",
   "dependency_head": "7e70bd1e6c90b3a3a527469a57a3d58eb7281bcc",
-  "main_watermark": "da2d3d4adbc7864ed78ffb972e3792f8557fbcb2",
+  "main_watermark": "f29ffc34900d3d0b4020740cadcc3baa033f668b",
   "artifacts": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/post52-main-proof/artifact-manifest.json",
+      "sha256": "0dfb36ccf96505dd719fd8799121882dc2b039fd21b2945d9f6428b82201bc69",
+      "description": "148 final integrated-main artifacts, paths, byte counts and SHA256 digests"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/post52-main-proof/collection/ci-differential.json",
+      "sha256": "f1e4467a7eac45b2fb4cedc01424842986f122dae2eab5f564dc67d7a6fbf771",
+      "description": "Final current-main requested union and full schedule equality, zero duplicates"
+    },
     {
       "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/post52-proof/artifact-manifest.json",
       "sha256": "cad89b06e18f39f3125563f080e1a67e5a1161fa4d28c5b83b3b02eb4a721a17",

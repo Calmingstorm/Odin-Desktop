@@ -1,7 +1,7 @@
 # CI qualification deduplication
 
-PR #60. Latest tested code head: `a2091cf1c89573772871a5718902beacc9220111`.
-Main watermark: `da2d3d4adbc7864ed78ffb972e3792f8557fbcb2`, integrated by
+PR #60. Latest tested code head: `2239dce0ad265fec31070b429364b2bfe48bf832`.
+Main watermark: `f29ffc34900d3d0b4020740cadcc3baa033f668b`, integrated by
 two-parent merge, not rebase. This final evidence commit changes no code.
 
 ## Dependency and scope
@@ -23,9 +23,12 @@ JUnit receipt remains; extras now have their own receipt too.
 
 The separately invoked Phase 2 checker was already in Desktop extras. The mocked
 Desktop lab orchestration suite was likewise in extras and the fixture container.
-Both additional replays are removed. The six test_lab suites still execute in
-their non-root, no-network disposable container. Their actual execution was
-validated, not moved to the host. CI short-gate fixture selections are unchanged;
+Both additional replays are removed. Current main migrated its fixed fixture
+wrapper from Docker to the repository PID launcher and bounded fixture user
+namespaces. That reviewed migration is preserved, including its explicit
+capability skips. Main's newly added lab-contract step also repeated the Desktop
+fixture-wrapper tests; those now run only as extras. Actual fixture and lab
+contract execution was validated. CI short-gate fixture selections are unchanged;
 exact-once is within each job, not across separate CI jobs.
 
 The long-selection response-file path previously hid explicit `-p` loads from
@@ -46,19 +49,18 @@ additions cannot disguise a scheduling difference.
 
 | Scope | Before occurrences | After occurrences | Unique before | Unique after |
 |---|---:|---:|---:|---:|
-| Requested pass-now union qualification | 30,110 | 15,174 | 15,174 | 15,174 |
-| Whole full-suites Python schedule | 30,366 | 15,292 | 15,292 | 15,292 |
+| Requested pass-now union qualification | 30,098 | 15,162 | 15,162 | 15,162 |
+| Whole full-suites Python schedule | 30,692 | 15,606 | 15,606 | 15,606 |
 
 Requested union: removed `[]`, added `[]`.
 Whole Python schedule: removed `[]`, added `[]`, after duplicates `{}`.
-Before duplicate occurrences: 15,074. After: zero.
+Before duplicate occurrences: 15,086. After: zero.
 
-After step counts: extras 292, qualification 14,882, standalone checker zero,
-container fixtures 118. All 31 qualification groups retain a receipt.
-Fixture *collection* used the PID boundary since collection executes no fixture;
-fixture *execution* used the unchanged dedicated Docker isolation.
+After step counts: extras 280, qualification 14,882, standalone checker zero,
+fixed fixtures 163, additional lab contracts 281. All 31 qualification groups
+retain a receipt. Collection and execution use main's current PID boundaries.
 
-The post-#52 differential exited zero after approximately 700 seconds locally
+The final post-#52/current-main differential exited zero after 855.274 seconds locally
 for both schedules combined. That is collection proof time, **not measured CI
 job time**. No before/after CI wall-time claim is made. Initial draft CI was
 intentionally skipped; review-ready CI is not substituted for local proof.
@@ -66,12 +68,14 @@ intentionally skipped; review-ready CI is not substituted for local proof.
 ## Execution gates
 
 - Combined scheduling/runner/part5 accounting and original-case adapters:
-  437 passed, 129.97 seconds. Async teardown warnings were emitted after the
+  425 passed, 135.78 seconds. Async teardown warnings were emitted after the
   passing part5 projection run; they are retained, not presented as clean stderr.
-- Actual merged extras-only invocation: 292 passed, 50.44 seconds.
-- Combined app `npm run check`: 753 passed, typecheck and build passed.
-- Actual six-suite disposable fixture container: 118 passed, 2.91 seconds.
-- Container and image cleanup verified for this invocation's exact generated IDs.
+- Actual merged extras-only invocation: 280 passed, 34.44 seconds.
+- Combined app `npm run check`: 764 passed, typecheck and build passed.
+- Actual current-main fixed fixture wrapper: 159 passed, four capability skips,
+  11.10 seconds. The four skips require two distinct subordinate UID/GID maps;
+  the unchanged restricted helper's no-new-privileges boundary denies that map.
+- Actual additional lab contracts: 281 passed, 7.11 seconds.
 - `inventory.py record` used for every changed ledgered path and named-test
   digest refresh. Final `inventory.py report`: zero errors, review pending.
 - Lint gate: zero new findings, seven inherited findings.
@@ -90,6 +94,7 @@ gates are complete. Full-suite runtime is not inferred from collection.
 Raw evidence is outside Git at
 `/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/`.
 Post-#52 raw receipts and exact manifest are under `post52-proof/` there.
+Final current-main integrated receipts and manifest are under `post52-main-proof/`.
 The external manifest lists every artifact with its exact path, bytes and SHA256.
 Small committed index: `maintenance/ci-dedupe-artifacts.json`.
 This lane's fresh clone is removed after push. No other lane's checkout, cache,
