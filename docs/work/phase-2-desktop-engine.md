@@ -40,7 +40,8 @@ and nothing runs on an active desktop.
 6. **Background work.** Agents, loops, schedules with D12's missed-run policy, background tasks, skills (delivery and
    dependency installation), MCP startup, computer-use admission, and the browser with bundled Chromium.
 7. **Webhook triggers** (D10, [`core-contracts.md`](../design/core-contracts.md) section 8).
-8. **Closure.** The roadmap's Phase 2 exit criteria: all 326 deferred suites back (adapted, never dropped), every
+8. **Closure.** The roadmap's Phase 2 exit criteria: all 326 deferred suites finally dispositioned (restored,
+   retired or named deferrals under decision 3; never dropped), every
    section-4 wording row dispositioned, fresh-profile host parity proven at runtime, and the core-contract gate
    scenarios passing headless. Maintenance accounting updated.
 
@@ -255,10 +256,12 @@ installer execution or native packaging qualification.
 settings/lifecycle; `maintenance/{test-plan,case-accounting,qualification-plan,desktop-deltas,manifest,
 safety-manifest}.json`, wording/disposition table, exact adapters in `tests/desktop_adapters/`, safe gate tooling.
 
-- All **326 deferred suites** return with reviewed Desktop execution/adapter mappings and original assertions/
-  case data/budgets, never dropped or relabeled as passing. Restore named turn-loop/agent/recovery/helper/Codex
-  replay suites. Prohibited inputs require reviewed safe adapters/pure cases, not prohibited commands even mocked.
-  Native/manual requirements stay distinct and honest.
+- Each of the **326 deferred suites** ends Phase 2 with a final disposition, never dropped or relabeled as
+  passing. Restored suites carry reviewed Desktop execution/adapter mappings and original assertions/case data/
+  budgets. Retired suites carry their recorded authority. Under Aaron's decision 3 (2026-10-06) the rest are named
+  deferrals: status `deferred` with a concrete `blocked_on`. That includes the named turn-loop/agent/recovery/
+  helper/Codex replay suites not yet restored. Prohibited inputs require reviewed safe adapters/pure cases, not
+  prohibited commands even mocked. Native/manual requirements stay distinct and honest.
 - Every section-4 **NONE** wording row is removed by restored behavior or explicitly dispositioned under D19:
   mechanical swaps to Claude, behavior/instruction changes to Aaron. Include unavailable/not-implemented/readiness
   gates, attachment suffix/image URLs, skill dependencies and resume empty-read handling. No blanket approval.
