@@ -8,7 +8,8 @@ module.exports = async (context) => {
   renameSync(executable, `${executable}.bin`)
   copyFileSync(join(__dirname, 'ownership.py'), join(context.appOutDir, 'resources', 'ownership.py'))
   writeFileSync(executable, '#!/bin/sh\nset -eu\n' +
-    'ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\n' +
+    'SELF=$(readlink -f -- "$0")\n' +
+    'ROOT=$(CDPATH= cd -- "$(dirname -- "$SELF")" && pwd)\n' +
     'KIND=appimage\n[ "$ROOT" != /opt/Odin ] || KIND=deb\n' +
     'exec "$ROOT/resources/runtime/python/bin/python3" -I -B ' +
     '"$ROOT/resources/ownership.py" exec --kind "$KIND" -- "$ROOT/odin-desktop.bin" "$@"\n')
