@@ -1,5 +1,13 @@
 # PR #35 review round 1
 
+**Final continuation:** exact resume-admission suite is now restored after a real
+terminal-calibration fix. Current assigned47 counts are21 restored,21 retired,
+five deferred. The explicitly required second full frozen-checkout gate passed
+33/33 groups,15,315 executions,zero failures/errors,two skips at
+`dccab93860bac97d2b4206857302b5599db8ebde`. See the continuation document and final
+result receipt. The earlier sections below preserve the first attempt and its
+actual failed evidence, not current final counts or a retroactive green verdict.
+
 ## Requested artifact and dispositions
 
 This is an update of PR #35 on `phase-2/restore-steps2-4`. GitHub retargeted it to

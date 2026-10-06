@@ -74,3 +74,25 @@ receipt and tested SHA are separate from the first failed run.
 
 No upstream Odin edit, deploy, service restart, active desktop or native backend
 operation. All new byte adaptations remain pending independent PR review.
+
+## Final observed qualification
+
+Second fresh-checkout full gate completed at frozen source
+`dccab93860bac97d2b4206857302b5599db8ebde`: **33/33 groups passed,
+15,315 passing executions, zero failures/errors, two skips**. All post-gate
+capability/CLI corrections and the new terminal-calibration fix are included in
+that source. Fresh locked dependencies, pip check, exact-byte ledger, suite map
+and Ruff gates passed; Ruff has seven inherited findings and zero new.
+
+Restoration groups: step2=202, step3=284, step4=188 executions. There are387 unique
+retained inherited parameter executions across21 restored assigned suites;
+supplemental guards and repeated vision executions are not additional originals.
+Eight new exact resume-case retirements join the four earlier definitions, while
+whole-suite retired count remains21. Retirements are never passing evidence.
+
+The first failed review1 full run, and its ten failures, remain in the separate
+receipt. The second run validates corrected source, not a retroactive green
+label. `phase2-step8-part3-review1-final-result.json` records every JUnit/log hash,
+tested source identity, current five deferrals and both invocation counts.
+After this gate only evidence/documentation changes are allowed in the final
+head. Main remains pinned at`0b7d596f` throughout this last full invocation.
