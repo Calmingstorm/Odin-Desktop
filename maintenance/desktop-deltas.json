@@ -1584,7 +1584,7 @@
       ]
     },
     {
-      "after_sha256": "cf228dd6813ce811bc231eb6b7eaf752b273c4941c299186331ad42cf39968bb",
+      "after_sha256": "e5c235848d58812b0d763206b2d4dce6bc655afb665b990f8ae9dd07eebeebf9",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "99d54dd7bc81835ed32adeff4ad1deec49542488308b48fb8201b62f5d2cf814",
@@ -1627,6 +1627,12 @@
           "new_base64": "",
           "old_base64": "ICAgICJ3ZWIiOiBTZWN0aW9uU3BlYygKICAgICAgICAicmVzdGFydCIsCiAgICAgICAgIk1hbmFnZW1lbnQgQVBJIGxpc3RlbmVyLCBhdXRoZW50aWNhdGlvbiwgYW5kIHNlc3Npb25zLiIsCiAgICAgICAgcmVzdGFydF9yZWFzb249IlRoZSBtYW5hZ2VtZW50IGxpc3RlbmVyIGJpbmRzIGl0cyBzb2NrZXQgYW5kIGF1dGggYXQgc3RhcnR1cC4iLAogICAgKSwK",
           "start": 9579
+        },
+        {
+          "end": 14596,
+          "new_base64": "ICAgICJ3ZWJob29rLnRyaWdnZXJzIjogIlBlci1zY2hlZHVsZSBpbmJvdW5kIHNvdXJjZXMgYW5kIGluZGVwZW5kZW50IHByb2ZpbGUgY3JlZGVudGlhbHMuIiwK",
+          "old_base64": "",
+          "start": 14596
         },
         {
           "end": 15358,

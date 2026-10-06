@@ -335,6 +335,7 @@ GROUP_DESCRIPTIONS: dict[str, str] = {
         "OpenRouter provider pinning, route filters, and derived model profiles."
     ),
     "outbound_webhooks.targets": "Where lifecycle events are delivered.",
+    "webhook.triggers": "Per-schedule inbound sources and independent profile credentials.",
     "personality.user_presets": "Saved custom identity presets.",
     "tools.branch_freshness": "Warn when work starts from a stale git branch.",
     "tools.bulkhead": "Concurrency ceilings per execution kind, so one busy "
