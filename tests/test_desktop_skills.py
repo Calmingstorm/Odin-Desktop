@@ -15,8 +15,22 @@ from src.desktop.management import MethodError
 from src.desktop.paths import ProfilePaths
 from src.desktop.secrets import ProfileSecretStore
 from src.desktop.skills import SkillsService
+from src.permissions.host_access import HostAccessManager
 from src.permissions.manager import PermissionManager
-from src.tools.skill_manager import SkillManager, _install_packages, resolve_dependencies
+from src.tools.executor import ToolExecutor
+from src.tools.output_authorization import (
+    request_host_authorizer,
+    request_scope_authorizer,
+    request_tool_scope,
+)
+from src.tools.output_delivery import delivery_scope
+from src.tools.result_capture import capture_active
+from src.tools.skill_manager import (
+    MAX_SKILL_OUTPUT_CHARS,
+    SkillManager,
+    _install_packages,
+    resolve_dependencies,
+)
 
 
 def code(name="demo", *, schema=None, dependencies=None, config=None, body="return 'ok'"):
@@ -168,17 +182,177 @@ async def test_config_keyring_failure_no_plaintext_fallback(graph):
         PermissionManager.reset_request_owner(token)
 
 
-async def test_test_delivery_seam_does_not_run_skill(graph):
-    assert "skills.test" not in graph.service.METHODS
+async def test_test_runs_real_skill_with_empty_input_and_owner_scope(graph):
+    assert "skills.test" in graph.service.METHODS
+    assert "skills.test" not in graph.service.READ_METHODS
+    executor = ToolExecutor.__new__(ToolExecutor)
+    executor.config = graph.settings.config.tools
+    executor._permission_manager = graph.service.permissions
+    live_hosts = ["isolated-fixture"]
+    executor._host_access = HostAccessManager(
+        path=graph.settings.paths.config_dir / "host-preferences.json",
+        available_hosts_provider=lambda: live_hosts,
+        permission_manager=graph.service.permissions,
+    )
+    graph.service.executor = executor
+    await graph.service.start()
+    token = owner(graph)
+    allowed = {"demo"}
+    live_tools = {"demo"}
+
+    def resolver():
+        return live_tools
+
+    def host_resolver():
+        return ["isolated-fixture"]
+
+    tool_token = request_tool_scope.set(allowed)
+    resolver_token = request_scope_authorizer.set(resolver)
+    host_token = request_host_authorizer.set(host_resolver)
+    delivery_token = delivery_scope.set(("prior-owner", "prior-channel"))
+    try:
+        body = (
+            "import json\n"
+            "    from src.tools.output_authorization import request_host_authorizer\n"
+            "    from src.tools.output_delivery import delivery_scope\n"
+            "    from src.tools.result_capture import capture_active\n"
+            "    nested = await context.execute_tool('read_file', {'host': 'isolated-fixture', "
+            "'path': '/harmless-fixture'})\n"
+            "    return json.dumps({'input': inp, 'owner': context._requester_id, "
+            "'hosts': context.get_hosts(), 'host_scope': request_host_authorizer.get()(), "
+            "'delivery': delivery_scope.get(), 'capture': capture_active(), 'nested': nested})"
+        )
+        await graph.service.handle("skills.save", {"name": "demo", "code": code(body=body)})
+        tested = await graph.service.handle("skills.test", {
+            "name": "demo", "input": {"ignored": True}, "requester_id": "foreign",
+            "owner_id": "foreign", "allowed_tools": ["read_file"], "allowed_hosts": ["foreign"],
+        })
+        assert tested["is_error"] is False
+        assert json.loads(tested["result"]) == {
+            "input": {}, "owner": graph.authority.owner_id,
+            "hosts": ["isolated-fixture"], "host_scope": ["isolated-fixture"],
+            "delivery": [graph.authority.owner_id, ""], "capture": True,
+            "nested": "Permission denied: tool scope revoked or unavailable.",
+        }
+        assert delivery_scope.get() == ("prior-owner", "prior-channel")
+        assert not capture_active()
+        assert request_tool_scope.get() is allowed
+        assert request_scope_authorizer.get() is resolver
+        assert request_host_authorizer.get() is host_resolver
+        live_hosts.clear()
+        assert json.loads((await graph.service.handle("skills.test", {"name": "demo"}))[
+            "result"])["hosts"] == []
+        live_tools.clear()
+        assert allowed == {"demo"}
+        denied = await graph.service.handle("skills.test", {"name": "demo"})
+        assert denied == {
+            "result": "Permission denied: selected skill scope revoked or unavailable.",
+            "is_error": False,  # Retained Odin's exact prefix rule.
+        }
+        assert graph.service.skill_manager._skills["demo"].total_executions == 2
+    finally:
+        delivery_scope.reset(delivery_token)
+        request_host_authorizer.reset(host_token)
+        request_scope_authorizer.reset(resolver_token)
+        request_tool_scope.reset(tool_token)
+        PermissionManager.reset_request_owner(token)
+
+
+async def test_test_requires_real_owner_and_preserves_disabled_unknown_semantics(graph):
     await graph.service.start()
     token = owner(graph)
     try:
         await graph.service.handle("skills.save", {"name": "demo", "code": code()})
-        with pytest.raises(MethodError) as refusal:
-            await graph.service.handle("skills.test", {"name": "demo"})
-        assert refusal.value.code == "capability_unavailable"
+        assert await graph.service.handle("skills.test", {"name": "demo"}) == {
+            "result": "ok", "is_error": False}
+        await graph.service.handle("skills.set_enabled", {"name": "demo", "enabled": False})
+        disabled = await graph.service.handle("skills.test", {"name": "demo"})
+        assert disabled == {
+            "result": "Skill 'demo' is disabled. Use enable_skill to re-activate it.",
+            "is_error": True,
+        }
+        assert graph.service.skill_manager._skills["demo"].total_executions == 1
+        with pytest.raises(MethodError) as unknown:
+            await graph.service.handle("skills.test", {"name": "missing"})
+        assert unknown.value.code == "not_found"
+    finally:
+        PermissionManager.reset_request_owner(token)
+    with pytest.raises(MethodError) as denied:
+        await graph.service.handle("skills.test", {
+            "name": "demo", "owner_id": graph.authority.owner_id, "authenticated": True,
+        })
+    assert denied.value.code == "permission_denied"
+    assert graph.service.skill_manager._skills["demo"].total_executions == 1
+
+
+@pytest.mark.parametrize("body,is_error", [
+    ("return 'harmless api_key=test-only-placeholder'", False),
+    ("raise RuntimeError('api_key=test-only-placeholder')", True),
+    ("from src.tools.output_delivery import DeliveredOutput\n"
+     "    return DeliveredOutput('api_key=test-only-placeholder')", False),
+    ("return 'Skill error: api_key=test-only-placeholder'", True),
+    ("return \"Skill 'demo' reports a failure\"", True),
+    ("return 'x' * 100000 + ' api_key=test-only-placeholder'", False),
+])
+async def test_test_scrubs_and_bounds_real_skill_output(graph, body, is_error):
+    await graph.service.start()
+    token = owner(graph)
+    try:
+        await graph.service.handle("skills.save", {"name": "demo", "code": code(body=body)})
+        result = await graph.service.handle("skills.test", {"name": "demo"})
+        assert result["is_error"] is is_error
+        assert "test-only-placeholder" not in result["result"]
+        assert "Traceback" not in result["result"]
+        assert len(result["result"]) <= MAX_SKILL_OUTPUT_CHARS
+        if "100000" in body:
+            assert result["result"].endswith(f"[truncated at {MAX_SKILL_OUTPUT_CHARS} chars]")
+        elif "api_key" in body:
+            assert "[REDACTED]" in result["result"]
+    finally:
+        PermissionManager.reset_request_owner(token)
+
+
+async def test_test_sanitizes_manager_exception_and_restores_scope(graph, monkeypatch):
+    await graph.service.start()
+    token = owner(graph)
+    delivery_token = delivery_scope.set(("prior-owner", "prior-channel"))
+    try:
+        await graph.service.handle("skills.save", {"name": "demo", "code": code()})
+
+        def failure(_name):
+            raise RuntimeError("api_key=test-only-placeholder " + "x" * 100000)
+
+        monkeypatch.setattr(graph.service.skill_manager, "get_skill_config", failure)
+        result = await graph.service.handle("skills.test", {"name": "demo"})
+        assert result["is_error"] is True
+        assert result["result"].startswith("[REDACTED]")
+        assert "test-only-placeholder" not in result["result"]
+        assert "Traceback" not in result["result"]
+        assert len(result["result"]) == MAX_SKILL_OUTPUT_CHARS
+        assert delivery_scope.get() == ("prior-owner", "prior-channel")
+        assert not capture_active()
         assert graph.service.skill_manager._skills["demo"].total_executions == 0
     finally:
+        delivery_scope.reset(delivery_token)
+        PermissionManager.reset_request_owner(token)
+
+
+async def test_test_cancellation_is_not_converted_to_error_result(graph):
+    await graph.service.start()
+    token = owner(graph)
+    delivery_token = delivery_scope.set(("prior-owner", "prior-channel"))
+    try:
+        await graph.service.handle("skills.save", {"name": "demo", "code": code(
+            body="import asyncio\n    raise asyncio.CancelledError()")})
+        with pytest.raises(asyncio.CancelledError):
+            await graph.service.handle("skills.test", {"name": "demo"})
+        assert delivery_scope.get() == ("prior-owner", "prior-channel")
+        assert not capture_active()
+        assert graph.service.skill_manager._skills["demo"].total_executions == 1
+        # No wedged service lock after cancellation; no execution retry.
+        assert len(await graph.service.handle("skills.list", {})) == 1
+    finally:
+        delivery_scope.reset(delivery_token)
         PermissionManager.reset_request_owner(token)
 
 

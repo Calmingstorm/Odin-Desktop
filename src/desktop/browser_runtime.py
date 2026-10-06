@@ -156,7 +156,8 @@ class BrowserRuntime:
         state = self._state
         if state == "ready" and not self.readiness():
             state = "unavailable"
-        return {"state": state, "ready": self.readiness(), "reason": self._reason}
+        return {"state": state, "ready": self.readiness(), "reason": self._reason,
+                "retry_available": self.available()}
 
     def available(self) -> bool:
         """A wired retry seam, not a claim that a browser has qualified."""

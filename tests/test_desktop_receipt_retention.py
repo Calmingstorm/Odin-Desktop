@@ -15,7 +15,7 @@ UNAVAILABLE = (
     "work.list",
     "unknown.method",
     "reports.page",
-    "skills.test", "schedules.list", "schedules.history", "schedules.validate_cron",
+    "schedules.list", "schedules.history", "schedules.validate_cron",
 )
 
 
