@@ -77,3 +77,35 @@ def test_wayland_foreign_path_refused(guest):
     os.environ.update(XDG_SESSION_TYPE="wayland", WAYLAND_DISPLAY="/tmp/host-wayland")
     with pytest.raises(RuntimeError):
         MODULE.guard()
+
+
+def session_module():
+    spec = importlib.util.spec_from_file_location(
+        "native_session", ROOT / "scripts/qualification/lab/guest/native-session.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_session_launcher_nonroot_and_nonvm_refuse():
+    module = session_module()
+    with patch.object(module.sys, "argv", ["native-session", "cinnamon"]), \
+            patch.object(module.os, "geteuid", return_value=1001), pytest.raises(RuntimeError, match="guest root"):
+        module.main()
+    with patch.object(module.sys, "argv", ["native-session", "cinnamon"]), \
+            patch.object(module.os, "geteuid", return_value=0), \
+            patch.object(module.subprocess, "check_output", return_value="none\n"), \
+            pytest.raises(RuntimeError, match="real lab VM"):
+        module.main()
+
+
+def test_session_launcher_wrong_guest_refuses_before_command():
+    module = session_module()
+    with patch.object(module.sys, "argv", ["native-session", "cinnamon", "--", "harmless"]), \
+            patch.object(module.os, "geteuid", return_value=0), \
+            patch.object(module.subprocess, "check_output", return_value="kvm\n"), \
+            patch.object(Path, "read_text", return_value="workstation\n"), \
+            patch.object(module.subprocess, "call") as called, \
+            pytest.raises(RuntimeError, match="Guest name"):
+        module.main()
+    called.assert_not_called()
