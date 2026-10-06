@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "artifact": "Phase 2 step 8 part 5 exact case-disposition index",
+  "state": "implementation-and-independent-review-pending",
+  "collection_evidence": {
+    "path": "maintenance/phase2-step8-part5-collection.json",
+    "sha256": "924ab642017963cd0881ef4584d7417398f8351cbd71574fbe58351eaa856e4d"
+  },
+  "fragments": [
+    {
+      "path": "maintenance/phase2-step8-part5-app-cases.json",
+      "sha256": "3d8dff16d1eef75546efb52be62f5c8da6f70f750ff883b882806c3dcdc88a57"
+    },
+    {
+      "path": "maintenance/phase2-step8-part5-engine-cases.json",
+      "sha256": "d284392c0ce647f4342114ad765e0288a0ac6d45fbdffedb6dd7aaa4eec340dc"
+    },
+    {
+      "path": "maintenance/phase2-step8-part5-removed-cases.json",
+      "sha256": "4dbb1da5dc2754b6eac4f98819679583029bd3dd1e4e21bfc1b9084ba80e71ba"
+    }
+  ]
+}

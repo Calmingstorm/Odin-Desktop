@@ -1,0 +1,282 @@
+{
+  "schema_version": 1,
+  "artifact": "Phase 2 step8 part5 removed and mixed suite case accounting",
+  "state": "pending-independent-review",
+  "scope": "All 37 original test definitions in four inherited suites; parametrized variants inherit their definition's disposition.",
+  "rules": {
+    "citation": "Claude, review of step 8 part 5",
+    "wording_assertions": "CONTRIBUTING.md prohibits human-written document wording assertions. That prohibition is not approval to retire neutral semantics; proposed cases require Claude's decision.",
+    "selectors": "Only restored selectors count as restoration. Supplemental selectors and intended counterparts are not claimed as frozen or approved restoration.",
+    "suite_status": "Mixed suites remain deferred until the case-level mapping is accepted. No original suite is edited or run by this lane."
+  },
+  "suites": [
+    {
+      "path": "tests/test_docs_campaign_contracts.py",
+      "inherited_sha256": "9a50f5eadaaa824fa224fcc55313c09ae995f7e7633eac50f529be6df859ee25",
+      "cases": [
+        {
+          "case": "test_route_inventory_claim_is_registry_backed_not_a_stale_literal",
+          "line": 8, "disposition": "retired", "category": "web-ui-only",
+          "reason": "Assertions pin the old README's REST route count and web route characterization source wording. The desktop exposes local protocol methods, not that web route inventory.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "test_static_tools_and_packaged_handoffs_use_authoritative_inventory_contracts",
+          "line": 15, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
+          "reason": "Mixed tool-registry and old nfpm handoff/prose assertions. Old server package handoffs are removed, but neutral inventory and core-tool semantics are not. Do not treat a broad desktop catalog test as preserving these exact assertions.",
+          "counterpart": "Desktop merged tool catalog and P4.1 package handoff inventory; supplemental behavior coverage only",
+          "blocker": "Claude must decide replacement scope or retirement of wording-only assertions; no approved retirement for neutral static-tool inventory."
+        },
+        {
+          "case": "test_retired_model_documentation_matches_migration_and_successor",
+          "line": 39, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
+          "reason": "Model migration remains relevant. Original exact assertions also require configuration-guide prose, prohibited by CONTRIBUTING. No frozen restoration or retirement approval is claimed.",
+          "counterpart": "Profile loader retained model-default migration; model_defaults.RETIRED_MODEL_SUCCESSOR",
+          "blocker": "Claude decision on prose-case replacement with concrete selected-profile model migration assertions."
+        },
+        {
+          "case": "test_documented_codex_effort_limits_match_authoritative_defaults",
+          "line": 50, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
+          "reason": "Input budgets and unsupported effort defaults survive. Exact guide-wording checks cannot be restored under CONTRIBUTING, and a generic effort UI smoke is not exact case coverage.",
+          "counterpart": "Desktop models.schema and retained CODEX_MODEL_INPUT_BUDGETS/CODEX_MODEL_UNSUPPORTED_EFFORTS",
+          "blocker": "Claude decision on concrete assertions for the inherited numeric budget and unsupported effort semantics."
+        },
+        {
+          "case": "test_websocket_auth_docs_describe_supported_carriers_and_reject_query_tokens",
+          "line": 60, "disposition": "retired", "category": "web-ui-only",
+          "reason": "Entire case is about the old web websocket bearer subprotocol, HTTP Authorization carrier and /api/ws query-token documentation/source wording. Desktop socket authentication is a different carrier, not this web contract.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "test_setup_restart_docs_distinguish_update_from_wizard",
+          "line": 72, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
+          "reason": "Old update re-exec surface is removed but onboarding must remain non-reexec. Original guide/onboarding source-string checks are prohibited human-doc wording assertions, not exact behavioral coverage.",
+          "counterpart": "Desktop profile onboarding via settings; first_run projection and runtime provider adoption",
+          "supplemental_selectors": ["tests/test_desktop_first_run.py::test_commit_default_without_credentials_stays_fresh"],
+          "blocker": "Claude decision on case replacement; supplemental first-run projection does not prove all original source/doc claims."
+        },
+        {
+          "case": "test_hyprland_operator_guide_covers_bounded_managed_first_use",
+          "line": 79, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
+          "reason": "Native managed first use is not a removed surface. All inherited assertions inspect a human operator guide. CONTRIBUTING prohibits that style but does not approve removal of bounded activation semantics.",
+          "counterpart": "Retained native computer inventory/session managed activation, only hard-isolated graphical qualification",
+          "blocker": "Claude decision identifying concrete bounded first-use counterpart or approved retirement. No active-desktop qualification attempted."
+        },
+        {
+          "case": "test_provider_overview_includes_generic_compatible_lane",
+          "line": 86, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
+          "reason": "Compatible provider support remains. README/guide vendor-name assertions are wording-only; a compatible-provider probe does not preserve the original documentation claims.",
+          "counterpart": "Desktop ProviderOwner compatible qualification and OpenAICompatibleConfig",
+          "supplemental_selectors": ["tests/test_desktop_providers.py::test_compatible_qualifies_retained_client_before_publication"],
+          "blocker": "Claude decision on documentation-case replacement; neutral compatible provider behavior is retained, not retired."
+        },
+        {
+          "case": "test_tool_iteration_explanation_distinguishes_batch_and_cycle_budget",
+          "line": 98, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
+          "reason": "Tool-cycle and autonomous-loop budgets remain relevant. Guide wording and tool-loop source identifiers are not behavioral proof and cannot be reproduced as a restored doc test.",
+          "counterpart": "Retained ToolLoopRunner.run_autonomous and per-cycle configured iteration limits",
+          "blocker": "Claude decision for a concrete multi-tool batch versus cycle-budget counterpart or approved retirement."
+        },
+        {
+          "case": "test_docs_do_not_claim_removed_native_grafana_or_prometheus_features",
+          "line": 107, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
+          "reason": "Negative claims in README/scheduling docs are wording-only. Their historical feature removal is not itself approval to retire this documentation case under the listed removed surfaces.",
+          "counterpart": "No exact behavioral counterpart for absence of documentation wording",
+          "blocker": "Claude decision required; do not invent an approved retirement category."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_image_default_update_paths.py",
+      "inherited_sha256": "e44a6a252aca3557d6a8b075405d960c7b023b9e55b1082c12ed9995fdadfbd2",
+      "cases": [
+        {
+          "case": "test_real_self_update_preserves_then_loader_migrates",
+          "line": 123, "parameter_variants": 5,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Exact case drives git updater apply, release merge, byte preservation and restart. D decision C removes in-app apply. The separable neutral image migration portion remains covered by selected-profile adapters; those are supplemental, not restoration of updater assertions.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": [],
+          "supplemental_selectors": ["tests/test_desktop_shared_config.py::test_image_defaults_core__independent_byte_preserving_matrix"]
+        },
+        {
+          "case": "test_real_self_update_failed_tag_restores_operator_bytes",
+          "line": 153, "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Failed release-tag apply and git rollback are removed by D decision C notice-only. Generic profile persistence failure coverage is not an updater replacement.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "test_webui_setup_persists_following_defaults",
+          "line": 171, "disposition": "restored", "mode": "desktop-counterpart",
+          "reason": "Neutral onboarding image-default persistence is exercised through real profile provisioning, SettingsService save and selected-profile load_config twice. Default image/outer leaves remain absent, effective defaults follow, browser choice survives and loader bytes remain stable. Web-only Discord token/.env publication and HTTP response assertions have no desktop equivalent; no frozen-copy claim is made.",
+          "counterpart": "src.desktop.provisioning.ensure_profile, SettingsService.save_changes, selected-profile load_config and image intent metadata",
+          "selectors": ["tests/test_desktop_step8_part5_removed.py::test_onboarding_image_follow_defaults_persist_without_pinning"],
+          "removed_assertions": ["HTTP setup response shape", "DISCORD_TOKEN YAML placeholder", "web .env publication"],
+          "limitations": "Does not qualify renderer onboarding or live provider adoption; the inherited case did not assert serving readiness."
+        },
+        {
+          "case": "test_package_without_git_refuses_self_update",
+          "line": 211, "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "The inherited test refuses entry to /api/update/apply in a non-git package. D decision C removes that apply endpoint rather than retaining git-install detection or apt error wording.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        }
+      ]
+    },
+    {
+      "path": "tests/test_self_update_campaign_rollback.py",
+      "inherited_sha256": "c50ef29e75fa07de0226384f21c600b77ba4282bf414713adb370088f1d678ba",
+      "cases": [
+        {
+          "case": "test_update_exceptions_restore_bytes_even_if_rollback_fails",
+          "line": 17, "parameter_variants": 24,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "All 4 stages x 3 rollback outcomes x 2 failure kinds apply and roll back an in-app source update. D decision C notice-only removes every exact variant.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "test_rollback_reports_operator_restore_error_without_restart",
+          "line": 80, "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Error reporting for restoring operator bytes during updater git rollback is removed with in-app apply/rollback under D decision C.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "test_update_requires_rollback_ref_before_first_mutation",
+          "line": 119, "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Git rollback-ref preflight exists solely for removed in-app update mutation; notice checking never captures or restores repository refs.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "test_repo_root_fallback_when_install_markers_are_absent",
+          "line": 153, "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "The _repo_root fallback derives an updater git working directory from self_update.__file__. Packaged desktop resource ownership is not an updater checkout root and does not need this exact fallback.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "test_successful_update_only_requests_fake_cleanup_and_fake_restart",
+          "line": 160, "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Successful update removes __pycache__, restores operator config and schedules updater restart. These are old apply side effects, removed by D decision C notice-only.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        }
+      ]
+    },
+    {
+      "path": "tests/test_web_api_self_update.py",
+      "inherited_sha256": "5e95b3f2489488329ff921106648edc2940b768fd651a08a8c75bbdafb57fe5f",
+      "cases": [
+        {
+          "case": "TestCheckUpdate.test_gh_failure_502", "line": 57,
+          "disposition": "deferred", "selectors": [], "owner": "Claude, P4.3 notice-only update channel, pending PR39",
+          "reason": "Notice-check failure remains meaningful even though web HTTP 502 and gh subprocess carrier are replaced. It is not apply/rollback and cannot be retired under D decision C.",
+          "counterpart": "P4.3 notice-check failure result consumed by desktop update notice",
+          "blocker": "No desktop notice checker/service or update UI exists in current tree; app lane confirms none planned here. Implement explicit failed check result without any apply path."
+        },
+        {
+          "case": "TestCheckUpdate.test_update_available", "line": 63,
+          "disposition": "deferred", "selectors": [], "owner": "Claude, P4.3 notice-only update channel, pending PR39",
+          "reason": "Latest version, update-available and changelog are exactly notice-only semantics, not removed apply behavior.",
+          "counterpart": "P4.3 desktop notice-check latest/update_available/changelog projection",
+          "blocker": "No desktop notice checker/service or update UI currently exists. Must test actual release metadata projection and no mutation before declaring restoration."
+        },
+        {
+          "case": "TestCheckUpdate.test_exception_502", "line": 71,
+          "disposition": "deferred", "selectors": [], "owner": "Claude, P4.3 notice-only update channel, pending PR39",
+          "reason": "A notice checker must expose failed observation after its release provider raises. HTTP 502 is a replaced carrier, not permission to retire neutral check failure semantics.",
+          "counterpart": "P4.3 desktop notice-check exception-to-error boundary",
+          "blocker": "No current notice checker boundary to inject an exception into. Requires Claude-owned checker and concrete failure-shaping test."
+        },
+        {
+          "case": "TestApplyUpdate.test_invalid_version_format", "line": 78,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Input validation for removed /api/update/apply; D decision C notice-only has no caller-selected apply version.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestApplyUpdate.test_resolve_latest_failure", "line": 86,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Latest resolution inside the apply endpoint is removed. Separate notice-check failure cases above remain deferred, not retired.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestApplyUpdate.test_dirty_worktree_409", "line": 93,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Dirty git-worktree refusal guards source checkout mutation for removed in-app apply, not desktop notice-only checking.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestApplyUpdate.test_step_failure_rolls_back", "line": 107,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Git fast-forward failure and rollback response are removed in-app update behavior under D decision C.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestApplyUpdate.test_success_schedules_restart", "line": 126,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Successful apply arms a delayed SIGTERM/re-exec restart. D decision C removes updater apply; this is not neutral desktop relaunch or shutdown quiescence coverage.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestApplyUpdate.test_refuses_when_the_workspace_cannot_be_provisioned", "line": 161,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Preflight guards an updater re-exec that bypasses systemd StateDirectory setup. Removed apply no longer provisions a server workspace; desktop workspace provisioning remains separately retained.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": [],
+          "supplemental_selectors": ["tests/test_desktop_provisioning.py::test_explicit_profile_independent_paths_and_alongside_sentinel"]
+        },
+        {
+          "case": "TestApplyUpdate.test_refuses_a_blank_live_workspace_before_touching_the_repo", "line": 187,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Blank workspace check asserts refusal before updater repository merge. Removed apply cannot enter that preflight. Neutral command-workspace fail-closed behavior is not retired by this disposition.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestApplyUpdate.test_unexpected_exception_500", "line": 224,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Exception shaping during updater git mutation is removed; it is not the neutral check exception boundary retained above.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestApplyUpdate.test_bad_json_defaults_to_latest", "line": 239,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Malformed apply JSON defaults to latest apply target. D decision C removes the mutation endpoint, including fallback request parsing.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestNonGitInstall.test_non_git_checkout_409_before_any_resolution", "line": 251,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Install-type refusal prevents removed updater git mutation. Notice-only desktop does not enter an apply endpoint regardless of checkout type.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestNonGitInstall.test_git_binary_missing_entirely_409", "line": 274,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Git-binary refusal belongs to removed source self-update apply, not desktop notice-only release checking.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestNonGitInstall.test_rev_parse_false_output_409", "line": 281,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Git worktree output validation exclusively guards removed updater apply.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestStopAllLoops.test_stop_all", "line": 296,
+          "disposition": "deferred", "selectors": [], "owner": "Odin, Phase2 step6A PR28 runtime readiness integration; Claude, P3.1 Work UI and P3.3 shutdown",
+          "reason": "Stop-all is neutral loop-control semantics, not update behavior. Supplemental test proves composed AgentTaskTools delegates exactly all and returns the retained owner's result. Real native dispatch is currently unavailable under desktop readiness; no runnable stop-all management IPC exists.",
+          "counterpart": "Composed desktop engine.deps.loop_manager and AgentTaskTools._handle_stop_loop; future admitted stop-all work-control",
+          "supplemental_selectors": ["tests/test_desktop_step8_part5_removed.py::test_stop_all_retained_owner_semantics_supplemental", "tests/test_desktop_step8_part5_removed.py::test_stop_all_retained_owner_waits_for_synthetic_task_settlement"],
+          "blocker": "Restore safe owner-authenticated stop-all admission/readiness or app IPC with cancellation/quiescence before claiming desktop restoration. LoopManager.start_loop currently returns unavailable before task creation. The inherited scheduler stop-all test consequently times out waiting for startup; synthetic settlement evidence does not qualify admission. This lane does not change feature readiness or protocol."
+        },
+        {
+          "case": "TestRepoRootAndMetadataHygiene.test_repo_root_contains_pyproject", "line": 311,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Original probes self_update._repo_root to correct updater reinstall base. D decision C removes that updater root; packaged desktop metadata has a different owner and is not the same contract.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        },
+        {
+          "case": "TestRepoRootAndMetadataHygiene.test_apply_pip_installs_repo_root_and_clears_egg_info", "line": 320,
+          "disposition": "retired", "category": "self-update-apply-rollback",
+          "reason": "Updater pip reinstall, egg-info deletion and successful apply are all removed source-update side effects under notice-only D decision C.",
+          "citation": "Claude, review of step 8 part 5", "counterpart": null, "selectors": []
+        }
+      ]
+    }
+  ]
+}
