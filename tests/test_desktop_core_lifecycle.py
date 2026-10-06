@@ -86,9 +86,10 @@ async def send(writer, message):
     await writer.drain()
 
 
-async def receive(reader):
-    header = await asyncio.wait_for(reader.readexactly(4), 3)
-    return json.loads(await asyncio.wait_for(reader.readexactly(struct.unpack(">I", header)[0]), 3))
+async def receive(reader, *, timeout=3):
+    header = await asyncio.wait_for(reader.readexactly(4), timeout)
+    return json.loads(await asyncio.wait_for(
+        reader.readexactly(struct.unpack(">I", header)[0]), timeout))
 
 
 async def connect(socket_path, *, token="ab" * 32):
@@ -101,10 +102,15 @@ async def connect(socket_path, *, token="ab" * 32):
     return reader, writer, await receive(reader)
 
 
-async def request(reader, writer, method, params=None, command_id=None):
+async def request(reader, writer, method, params=None, command_id=None, *, timeout=None):
     command_id = command_id or str(uuid.uuid4())
     await send(writer, {"t": "req", "id": command_id, "method": method, "params": params or {}})
-    result = await receive(reader)
+    # Real first submission constructs the executor/catalog lazily. This is a
+    # correctness fixture, not a 3-second latency SLA on a shared CI machine.
+    # Other RPC waits keep their historical bound; no request is retried.
+    if timeout is None:
+        timeout = 15 if method == "submission.send" else 3
+    result = await receive(reader, timeout=timeout)
     assert result["t"] == "res"
     assert result["id"] == command_id
     return result
@@ -384,7 +390,11 @@ async def launch(paths, socket_path, token_file, root):
 
 
 async def wait_connected(process, socket_path):
-    for _ in range(300):
+    # Match the real-core app harness's bounded cold-start allowance. Count
+    # monotonic elapsed time, not nominal sleep iterations on a loaded runner.
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 25
+    while loop.time() < deadline:
         if process.returncode is not None:
             stdout, stderr = await process.communicate()
             pytest.fail(f"core exited {process.returncode}: {stdout!r} {stderr!r}")
