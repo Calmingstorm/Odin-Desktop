@@ -361,7 +361,8 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
     await waitFor(() => events.length === 1, 'old incarnation quiescing event')
     expect(broker.cursor).toBe('2')
-    const changed = onceEvent<string>(broker, 'core-changed')
+    // Observe the 25s cold-start harness plus the unchanged 5s handshake under load; never repeat startup.
+    const changed = onceEvent<string>(broker, 'core-changed', 35_000)
     await core.start()
     const newInstance = await changed
     expect(newInstance).not.toBe(welcome.core.instance_id)
@@ -388,7 +389,8 @@ describe('actual app Broker ↔ repository real core', () => {
     const id = randomUUID()
     successful(await broker.request('status.get', {}, id))
     expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
-    const next = onceEvent<string>(broker, 'core-changed')
+    // This event wait starts before cold startup too; bound observation above its startup/handshake budgets.
+    const next = onceEvent<string>(broker, 'core-changed', 35_000)
     await core.start()
     const nextInstance = await next
     expect(successful<Status>(await broker.request('status.get', {}, id)).core_instance_id).toBe(nextInstance)
