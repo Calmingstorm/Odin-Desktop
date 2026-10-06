@@ -17,6 +17,7 @@ from src.desktop.management import MethodError
 from src.desktop.paths import ProfilePaths
 from src.desktop.secrets import ProfileSecretStore
 from src.desktop.settings import SettingsService
+from tests.test_desktop_first_run import make_runtime
 from tests.test_desktop_settings import MemoryKeyring
 
 
@@ -101,3 +102,24 @@ def test_settings_save_never_reintroduces_dropped_unknown_key(profile):
     with pytest.raises(MethodError):
         service.save_changes([(("new_typo",), {})])
     assert profile.config_file.read_text() == before
+
+
+@pytest.mark.asyncio
+async def test_settings_reload_tolerates_unknown_key_on_disk(profile, caplog):
+    profile.config_file.write_text("timezone: UTC\n")
+    service = SettingsService(profile, ProfileSecretStore(profile, backend=MemoryKeyring()))
+    service.owners["runtime.reload"] = lambda candidate, previous, changes: True
+    profile.config_file.write_text("sesions: {}\ntimezone: America/New_York\n")
+    with caplog.at_level(logging.WARNING, logger="odin.config"):
+        result = await service.reload()
+    field = next(f for f in result["fields"] if f["path"] == "timezone")
+    assert field["desired"] == "America/New_York"
+    assert "Ignoring unknown config key(s): sesions" in caplog.text
+
+
+def test_first_run_projection_ignores_unknown_key_on_disk(tmp_path):
+    runtime = make_runtime(tmp_path)
+    before = runtime.status()["first_run"]
+    path = runtime.settings.paths.config_file
+    path.write_text("sesions: {}\n" + path.read_text())
+    assert runtime.status()["first_run"] == before

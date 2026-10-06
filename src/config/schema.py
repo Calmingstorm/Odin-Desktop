@@ -1991,7 +1991,9 @@ def load_config(path: str | Path | None = None) -> Config:
 
     migrate_retired_codex_selections(data)
     try:
-        cfg = Config.model_validate(data, context={"startup": True})
+        # Migrations reload the file, restoring extras already warned about
+        # above; the strict model must still see only known sections.
+        cfg = Config.model_validate(_known_config_data(data), context={"startup": True})
     except Exception as exc:
         raise SystemExit(
             f"Config validation failed: {exc}\n"
@@ -2015,6 +2017,11 @@ _KNOWN_REMOVED_TOP_LEVEL_CONFIG_KEYS = frozenset(
 def _ignore_unknown_config_keys(data: dict) -> dict:
     """Warn and drop file-only extras, retaining retired-section refusals."""
     _warn_unknown_config_keys(data)
+    return _known_config_data(data)
+
+
+def _known_config_data(data: dict) -> dict:
+    """Drop file-only extras without warning again, keeping retired sections."""
     known = set(Config.model_fields)
     known.update(f.alias for f in Config.model_fields.values() if f.alias)
     return {k: v for k, v in data.items()
