@@ -139,8 +139,8 @@ Exported installed-root archive SHA-256:
 
 ### Full qualification disposition
 
-One full fresh qualification ran all **31 then-configured groups**. Every
-execution except one passed. The failure was the suite-accounting check's
+One full fresh qualification ran all **31 then-configured groups**:
+**14,443 passed, one failed, zero errors, three skips**. The failure was the suite-accounting check's
 required exact historical/main named-group set: adding a 31st group was not
 allowed. The three package suites were moved into the existing Desktop boundary
 group, preserving all historical group names/selectors. No assertion was

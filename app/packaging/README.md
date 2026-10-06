@@ -110,5 +110,15 @@ this packaging change does not assert that downloading resolves every licensing
 question. Other distributed third-party notice closure remains a release gate.
 
 No tag, GitHub Release, asset upload, update service or publishing workflow is
-created. Candidates stay local. Ownership/upgrades and along-side installation
-are P4.2; final supervised owner acceptance and release handoff are P4.6.
+created. Candidates stay local. P4.2 ownership/upgrades and alongside evidence
+are recorded in [`maintenance/phase4-packaging.md`](../../maintenance/phase4-packaging.md).
+The `.deb` now uses explicit self-contained preinst/postinst/prerm/postrm hooks
+with `python3-minimal` predependency. They fence replacement without starting
+or signalling any application/service and preserve all user state. The shared
+lease-bearing launcher and independent app/core lifetimes remain active through
+authoritative cleanup. AppImage replacement is explicitly user-managed and
+offline; see [`APPIMAGE-REPLACEMENT.md`](APPIMAGE-REPLACEMENT.md). No app apply
+path exists. Legacy unguarded P4.1 direct upgrade is refused; its isolated
+offline transition is qualified separately, not mislabeled a normal upgrade.
+Native/FUSE/restricted-Ubuntu gates and final supervised owner acceptance/release
+handoff remain open for P4.5/P4.6.
