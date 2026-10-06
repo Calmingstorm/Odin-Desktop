@@ -92,8 +92,8 @@ async def send(writer, message):
     await writer.drain()
 
 
-async def receive(reader):
-    async with asyncio.timeout(CORE_RECEIPT_WAIT_SECONDS):
+async def receive(reader, *, timeout=None):
+    async with asyncio.timeout(CORE_RECEIPT_WAIT_SECONDS if timeout is None else timeout):
         header = await reader.readexactly(4)
         return json.loads(await reader.readexactly(struct.unpack(">I", header)[0]))
 
@@ -108,10 +108,10 @@ async def connect(socket_path, *, token="ab" * 32):
     return reader, writer, await receive(reader)
 
 
-async def request(reader, writer, method, params=None, command_id=None):
+async def request(reader, writer, method, params=None, command_id=None, *, timeout=None):
     command_id = command_id or str(uuid.uuid4())
     await send(writer, {"t": "req", "id": command_id, "method": method, "params": params or {}})
-    result = await receive(reader)
+    result = await (receive(reader) if timeout is None else receive(reader, timeout=timeout))
     assert result["t"] == "res"
     assert result["id"] == command_id
     return result
