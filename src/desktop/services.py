@@ -634,6 +634,28 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             ready[name] = getattr(engine.deps, "background_work_ready", False)
         for name in ("search_knowledge", "ingest_document", "bulk_ingest_knowledge", "list_knowledge", "delete_knowledge"):
             ready[name] = knowledge is not None and bool(get_config().search.enabled)
+        # Native dispatch and result retention must see the same real owners.
+        # A catalog name alone never makes an absent handler ready.
+        for name in ("create_skill", "edit_skill", "delete_skill", "enable_skill",
+                     "disable_skill", "install_skill", "list_skills", "skill_status",
+                     "invoke_skill"):
+            ready[name] = (engine.requests is not None and skills is not None
+                           and dispatcher.skills.handles(name))
+        ready["export_skill"] = False  # durable exported-artifact owner not wired
+        for definition in skills.get_tool_definitions():
+            name = definition.get("name")
+            if isinstance(name, str):
+                ready[name] = (engine.requests is not None and skills.has_skill(name)
+                               and dispatcher.skills.handles(name))
+        media = owners.get("media")
+        ready["analyze_image"] = (engine.requests is not None
+            and callable(getattr(media, "_handle_analyze_image", None))
+            and gateway.active_client is not None)
+        if mcp is not None:
+            for definition in mcp.get_tool_definitions():
+                name = definition.get("name")
+                if isinstance(name, str):
+                    ready[name] = mcp.has_tool(name)
         extra = getattr(runtime, "native_readiness", None)
         if extra is not None:
             supplied = extra() if callable(extra) else extra

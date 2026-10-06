@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "suite": "tests/characterization/test_chat_tool_loop.py",
+  "adapter": "tests/desktop_adapters/lane6_agents_write_chat_chat.py",
+  "test_file": "tests/test_desktop_lane6_agents_write_chat_chat.py",
+  "source_sha256": "26ddac3a5df6fd9128e4cf18a0afd7f41590232f6389c803abbb953bf3aa6608",
+  "corpus_sha256": "76c08be68b5ca6c22d407ebd6854ae72e58fd201fdc683fb850e909dc28988a7",
+  "whole_suite": true,
+  "assertions_signatures_decorators_parameters": "unchanged; full corpus equality checked before case retirement",
+  "counts": {
+    "original_functions": 40,
+    "original_parameterized_cases": 44,
+    "restored_functions": 38,
+    "restored_parameterized_cases": 42,
+    "retired_functions": 2,
+    "retired_parameterized_cases": 2,
+    "deferred_functions": 0,
+    "proposed_functions": 0,
+    "supplementary_cases": 6,
+    "passed": 48
+  },
+  "restored": [
+    "TestBasicFlows.test_plain_text_reply_no_tools",
+    "TestBasicFlows.test_single_tool_then_final",
+    "TestBasicFlows.test_no_history_message_shape",
+    "TestBasicFlows.test_with_history_preamble_before_last_user",
+    "TestBasicFlows.test_tool_iteration_message_shape",
+    "TestBasicFlows.test_parallel_tools_single_result_message",
+    "TestBasicFlows.test_executor_routed_tool_dispatch",
+    "TestToolFailurePaths.test_failed_tool_marks_recent_actions_error",
+    "TestToolFailurePaths.test_ok_false_result_gets_error_prefix",
+    "TestToolFailurePaths.test_ok_false_with_existing_error_prefix_not_double_wrapped",
+    "TestToolFailurePaths.test_parse_error_call_is_not_executed",
+    "TestToolFailurePaths.test_llm_api_error_returns_error_tuple",
+    "TestToolFailurePaths.test_llm_error_text_and_trajectory_sanitized",
+    "TestToolFailurePaths.test_circuit_open_waits_and_retries",
+    "TestToolFailurePaths.test_unclassified_error_after_breaker_retry_is_error",
+    "TestGuardCascade.test_guard_fires_once_then_accepts",
+    "TestGuardCascade.test_guards_do_not_fire_after_tools_used",
+    "TestGuardCascade.test_cascade_order_fabrication_before_hedging",
+    "TestGuardCascade.test_premature_failure_fires_only_with_tools",
+    "TestCompletionClassifier.test_incomplete_injects_continuation_with_reason",
+    "TestCompletionClassifier.test_classifier_not_called_without_tools",
+    "TestCompletionClassifier.test_continuation_budget_is_three",
+    "TestCompletionClassifier.test_start_loop_short_circuits_classifier",
+    "TestCompletionClassifier.test_parse_classifier_response_variants",
+    "TestValidationEnforcement.test_mutation_injects_auto_validate_then_forces_continuation",
+    "TestValidationEnforcement.test_validate_action_call_clears_requirement",
+    "TestLoopTermination.test_stuck_loop_warns_then_terminates",
+    "TestLoopTermination.test_stop_during_llm_call_preempts_tool_execution",
+    "TestLoopTermination.test_stop_kills_only_agents_linked_to_this_turn",
+    "TestLoopTermination.test_stop_preempts_inflight_effect_free_tool",
+    "TestLoopTermination.test_completed_observation_wins_simultaneous_stop_race",
+    "TestLoopTermination.test_stop_does_not_preempt_inflight_effect_capable_tool",
+    "TestLoopTermination.test_stop_during_tool_execution_reports_tools_used",
+    "TestLoopTermination.test_iteration_cap_exit_is_error",
+    "TestLoopTermination.test_normal_exit_clears_active_request",
+    "TestToolSurfaceAndSkills.test_skill_handoff_returns_handoff_flag",
+    "TestToolSurfaceAndSkills.test_skill_crud_rebuilds_system_prompt_mid_loop",
+    "TestToolSurfaceAndSkills.test_analyze_image_block_injected_for_next_iteration"
+  ],
+  "case_map": {
+    "source_prefix": "tests/characterization/test_chat_tool_loop.py::",
+    "target_prefix": "tests/test_desktop_lane6_agents_write_chat_chat.py::",
+    "mapping": "Every restored dotted Class.test above maps to Class::test with identical function object registered by load/register_module; parameter IDs preserved",
+    "runtime_map": "tests.desktop_adapters.lane6_agents_write_chat_chat.CASE_MAP"
+  },
+  "retired": {
+    "TestToolFailurePaths.test_rbac_denial_returned_without_execution": {
+      "reason": "Removed multi-user tier denial and literal tier-too-low assertion",
+      "reviewer": "Claude, review of step 8 part 4"
+    },
+    "TestToolSurfaceAndSkills.test_api_token_allowed_tools_scope_filters": {
+      "reason": "Removed bearer/API-token tool scope mutates message.allowed_tools",
+      "reviewer": "Claude, review of step 8 part 4"
+    }
+  },
+  "proposed": {},
+  "deferred": {},
+  "supplements": [
+    "test_lane6_agents_write_chat_chat_source_identity_is_observation_only",
+    "test_lane6_agents_write_chat_chat_shared_canonical_graph",
+    "test_lane6_agents_write_chat_chat_partition",
+    "test_lane6_agents_write_chat_chat_stop_during_generation",
+    "test_lane6_agents_write_chat_chat_stop_kills_real_turn_agents",
+    "test_lane6_agents_write_chat_chat_persisted_redelivery"
+  ],
+  "setup_edits": [
+    {"line": 28, "operation": "canonical_owner_factory"},
+    {"line": 60, "operation": "bound_real_request_runner"},
+    {"line": 568, "operation": "canonical_cancel_destination"},
+    {"line": 605, "operation": "canonical_cancel_destination"},
+    {"line": 624, "operation": "canonical_request_to_source_identity_observer"},
+    {"line": 619, "operation": "canonical_cancel_destination"},
+    {"line": 648, "operation": "canonical_cancel_destination"},
+    {"line": 675, "operation": "canonical_cancel_destination"},
+    {"line": 691, "operation": "canonical_cancel_destination"}
+  ],
+  "canonical_graph": {
+    "engine": "build_engine_services with actual FakeLLM codex provider seam and real TurnStateStore",
+    "shared_journal": "RequestService, WorkService, ConversationStore, TranscriptStore, PublicationEventJournal share one JournalStore",
+    "request": "RequestService._register_background workflow UUID and fetched sealed EngineRequest; authenticated owner fixture; background_execution(settle=False)",
+    "redelivery": "Fetch same persisted request UUID; real TurnState admission refuses second execution; no synthetic admission, resets, or copied algorithms",
+    "native_readiness": "Injected canonical runtime native_readiness reflects actual inherited handler seams create_skill/analyze_image and has_skill(myskill); dispatcher.handles filters absent capabilities",
+    "author": "Frozen executor user_id assertion compares sealed msg.author.id to actual authenticated owner"
+    ,"source_identity": "Only two explicit source-id fixtures keep original FakeMessage observation values; run_loop maps the exact input object to a persisted sealed EngineRequest. A MutableMapping aliases source channel cancellation observations to the canonical owner's actual Event, without granting authority. The inherited injected MagicMock kill observer validates the actual request UUID and bound owner before recording source id. Real manager cancellation remains separately supplemented."
+  },
+  "source_fixes": [],
+  "validation": {
+    "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_agents_write_chat_chat.py --tb=short",
+    "pid_namespace": true,
+    "result": "Combined write/chat: 77 passed, 1 warning in 105.49s; chat contributes 48 cases",
+    "combined_junit": "/tmp/lane6-write-chat-complete.xml",
+    "warning": "Inherited synchronous parse_classifier_response_variants covered by module asyncio mark; unchanged function/decorators",
+    "ruff_command": ".venv/bin/ruff check tests/desktop_adapters/lane6_agents_write_chat_chat.py tests/test_desktop_lane6_agents_write_chat_chat.py",
+    "ruff_result": "All checks passed"
+  },
+  "boundaries": "Only own three new files modified by apply_patch; no frozen source edits, staging, commits, live install or active desktop actions"
+}

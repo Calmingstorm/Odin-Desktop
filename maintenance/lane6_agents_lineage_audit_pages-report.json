@@ -1,0 +1,26 @@
+{
+  "suites": [
+    {"path": "tests/test_agent_audit_parity.py", "status": "restored", "selector": "tests/test_desktop_lane6_agents_lineage_audit_pages.py", "blocked_on": null, "retained_case_functions": 21, "retained_pytest_items": 42},
+    {"path": "tests/test_agent_result_pages.py", "status": "restored", "selector": "tests/test_desktop_lane6_agents_lineage_audit_pages.py", "blocked_on": null, "retained_case_functions": 4, "retained_pytest_items": 4, "supplement": "test_lane6_agents_lineage_byte_complete_restart_and_owner"}
+  ],
+  "retired_cases": [
+    {"original": "test_agent_result_pages.test_byte_complete_dispatch_pages_after_eviction_and_restart", "reason": "Removed administrator tier bypass; byte-complete paging, persistence restart/eviction, owner and destination denial, bounded wait output preserved by explicit supplement", "reviewer": "Claude, review of step 8 part 4", "source_sha256": "9b8600e3d5a9a60c7085b2a19347c8bbe8a3869f2f8126b01a64255337963406"}
+  ],
+  "deferred_cases": [],
+  "proposals": [],
+  "substitutions": [],
+  "lineage": {
+    "adapter": "tests/desktop_adapters/lane6_agents_lineage_audit_pages.py",
+    "selector": "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+    "source_hashes": {"tests/test_agent_audit_parity.py": "24209634cb1e6bce8e0075f69fd0b2987f35b83c21d55c703c8ffb1b44222e0b", "tests/test_agent_result_pages.py": "6e011660579a0ecf6bdd125bc0565bba6ec50e4df67b79d9e41ea94236c77c6e"},
+    "corpus": "Full adapted tree corpus equality verified before export; removed case filtered only after compilation",
+    "owners": "build_engine_services AgentManager, ToolLoopRunner, native owner; RequestService sealed background admission, WorkService generation registration, owner_fixture authentication",
+    "test_command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_agents_lineage_audit_pages.py --tb=short",
+    "passed": 49,
+    "failed": 0,
+    "supplement_items": 3
+  },
+  "changed_files": ["tests/desktop_adapters/lane6_agents_lineage_audit_pages.py", "tests/test_desktop_lane6_agents_lineage_audit_pages.py", "maintenance/lane6_agents_lineage_audit_pages-report.json"],
+  "production_changes": [],
+  "commits": []
+}

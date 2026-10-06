@@ -1,0 +1,19 @@
+{
+ "version":1,
+ "branch":"lane6/step8-part4-agents",
+ "base_sha":"22aeaaa3a7eed20d0412fc3e07b1d693c3b820d6",
+ "reports":["maintenance/lane6_agents_lineage_retained-report.json","maintenance/lane6_agents_lineage_transcript-report.json","maintenance/lane6_agents_lineage_audit_pages-report.json"],
+ "suites":[
+  {"path":"tests/test_agent_audit_parity.py","status":"restored","selector":"tests/test_desktop_lane6_agents_lineage_audit_pages.py","blocked_on":null},
+  {"path":"tests/test_agent_result_pages.py","status":"restored","selector":"tests/test_desktop_lane6_agents_lineage_audit_pages.py","blocked_on":null},
+  {"path":"tests/test_agent_trajectory.py","status":"restored","selector":"tests/test_desktop_lane6_agents_lineage_retained.py","blocked_on":null},
+  {"path":"tests/test_agent_transcript_contract.py","status":"restored","selector":"tests/test_desktop_lane6_agents_lineage_transcript.py","blocked_on":null},
+  {"path":"tests/test_tool_lifecycle_correlation.py","status":"restored","selector":"tests/test_desktop_lane6_agents_lineage_retained.py","blocked_on":null},
+  {"path":"tests/test_tool_loop_provenance.py","status":"restored","selector":"tests/test_desktop_lane6_agents_lineage_retained.py","blocked_on":null},
+  {"path":"tests/test_trajectory_completeness.py","status":"restored","selector":"tests/test_desktop_lane6_agents_lineage_transcript.py","blocked_on":null}
+ ],
+ "retired_count":16,"deferred_count":0,"proposals":[],"substitutions":[],
+ "lineage":{"baseline":"cd7530906e9cfa10a0fa900247d7ce2a8bb33e25","archive_sha256":"845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0","whole_suite":true,"assertion_signature_decorator_parameter_corpus_preserved":true},
+ "validation":{"retained_initial_passed":105,"lifecycle_recovery_passed":29,"transcript_passed":61,"audit_pages_passed":49,"combined_process_pid":1510690,"combined_junit":"/tmp/lane6_agents_final_recovery.xml"},
+ "production_edits":[],"shared_accounting_edits":[],"blockers":[]
+}

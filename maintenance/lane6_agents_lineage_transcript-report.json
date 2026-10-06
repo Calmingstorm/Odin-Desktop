@@ -1,0 +1,67 @@
+{
+  "suites": [
+    {
+      "path": "tests/test_agent_transcript_contract.py",
+      "status": "restored",
+      "selector": "tests/test_desktop_lane6_agents_lineage_transcript.py -k agent_transcript_contract",
+      "selectors": ["tests/test_desktop_lane6_agents_lineage_transcript.py"],
+      "case_definitions": 12,
+      "expanded_cases": 25,
+      "blocked_on": null
+    },
+    {
+      "path": "tests/test_trajectory_completeness.py",
+      "status": "restored",
+      "selector": "tests/test_desktop_lane6_agents_lineage_transcript.py -k trajectory_completeness",
+      "selectors": ["tests/test_desktop_lane6_agents_lineage_transcript.py"],
+      "case_definitions": 27,
+      "expanded_cases": 34,
+      "blocked_on": null
+    }
+  ],
+  "retired_cases": [],
+  "deferred_cases": [],
+  "proposals": [],
+  "substitutions": [],
+  "lineage": {
+    "tests/test_agent_transcript_contract.py": {
+      "source_sha256": "2f0980cf7385abab6fdb4d35efaca2198c2bbe1d3e35b0c5a7bc7943067fc7d0",
+      "corpus_sha256": "400529002394524d6fc353ffa9a0173dc0f66438def8604e955ea9b1d7f09ff8",
+      "assertions": 47,
+      "whole_suite": true
+    },
+    "tests/test_trajectory_completeness.py": {
+      "source_sha256": "5de597c2ea6e15ea22cdcb8fa582f24ac19dfb4650505c38d3b00d063f2e203d",
+      "corpus_sha256": "ea0f187699e0d991e47747212917aca8999734d244887349ad2a4afd2e8025e2",
+      "assertions": 68,
+      "whole_suite": true
+    }
+  },
+  "validation": {
+    "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_agents_lineage_transcript.py --tb=short",
+    "passed": 61,
+    "inherited_expanded_cases": 59,
+    "supplements": 2,
+    "seconds": 29.32,
+    "process_pid": 1441094,
+    "exit_code": 0,
+    "isolated_pid_runner": true
+  },
+  "owner_binding": {
+    "composition": "src.desktop.services.build_engine_services",
+    "owners": ["AgentManager", "ToolLoopRunner", "TurnRecorder", "RequestService", "WorkService"],
+    "authority": "tests.desktop_adapters.tools_cases.owner_fixture authenticates the real local UID",
+    "supplement": "test_lane6_agents_lineage_canonical_bridge_identity_and_real_spawn verifies a real agent spawn, durable WorkService binding, RequestService settlement and saved agent trajectory",
+    "loop_stamp": "TestLoopManagerStamp retained in full: real LoopManager.start_admitted_loop with sealed RequestService admission, WorkService registration, background_execution and DurableDelivery. The inherited send_stamps container observes correlation at durable publication; channel.send is never invoked and supplies no authority.",
+    "capture_boundary": "Loop tool-output capture verifies the true admitted owner before preserving the inherited display-only caller label 42. No identity substitution reaches production authorization. Provider and output/capture seams remain hermetic."
+  },
+  "changed_files": [
+    "tests/desktop_adapters/lane6_agents_lineage_transcript.py",
+    "tests/test_desktop_lane6_agents_lineage_transcript.py",
+    "maintenance/lane6_agents_lineage_transcript-report.json"
+  ],
+  "blockers": [],
+  "production_edits": [],
+  "shared_accounting_edits": [],
+  "commits": []
+}

@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "assigned_suites": ["tests/test_write_invariant_integration.py", "tests/characterization/test_chat_tool_loop.py"],
+  "adapters": ["tests/desktop_adapters/lane6_agents_write_chat_write.py", "tests/desktop_adapters/lane6_agents_write_chat_chat.py"],
+  "exports": ["tests/test_desktop_lane6_agents_write_chat_write.py", "tests/test_desktop_lane6_agents_write_chat_chat.py"],
+  "SUITES": {
+    "test_write_invariant_integration": "b17a926b79afcc342e4f5fdf4b48094336057a02c5d26c517c9fedc4df8af708",
+    "test_chat_tool_loop": "26ddac3a5df6fd9128e4cf18a0afd7f41590232f6389c803abbb953bf3aa6608"
+  },
+  "CORPUS_SELECTIONS": {"test_write_invariant_integration": null, "test_chat_tool_loop": null},
+  "CORPUS_EXCLUSIONS": {"test_chat_tool_loop": [
+    "TestToolFailurePaths.test_rbac_denial_returned_without_execution",
+    "TestToolSurfaceAndSkills.test_api_token_allowed_tools_scope_filters"
+  ]},
+  "whole_hash_and_corpus_bound": true,
+  "assertions_signatures_decorators_parameters": "unchanged; full original corpus equality checked before export partition",
+  "register_module_and_load": "Actual callable functions in both adapter modules; imported by each export module and used to register original function objects",
+  "counts": {
+    "assigned_suites": 2, "original_functions": 68, "original_expanded_cases": 72,
+    "restored_functions": 66, "restored_expanded_cases": 70,
+    "retired_cases": 2, "proposed_identity_only_cases": 0, "deferred_cases": 0,
+    "supplement_cases": 7, "passed": 77
+  },
+  "suites": {
+    "tests/test_write_invariant_integration.py": {
+      "source_sha256": "b17a926b79afcc342e4f5fdf4b48094336057a02c5d26c517c9fedc4df8af708",
+      "corpus_sha256": "65abd606e29e57ecb6d8430bcf3390bd276468649490db41342ea70b91bd6e7a",
+      "restored": [
+        "TestHappyPath.test_completed_turn_settles_and_compacts",
+        "TestHappyPath.test_intents_are_durable_and_running_before_execution",
+        "TestSuspension.test_capacity_exhaustion_suspends_with_preserved_work",
+        "TestSuspension.test_consumed_guard_flag_is_durable_in_suspension",
+        "TestSuspension.test_suspension_persistence_failure_reports_plain_error",
+        "TestTerminalStates.test_cancelled_turn_is_terminal_cancelled",
+        "TestTerminalStates.test_tool_timeout_settles_outcome_unknown",
+        "TestTerminalStates.test_llm_error_turn_is_terminal_failed",
+        "TestFailClosed.test_mid_turn_durability_death_halts_the_turn",
+        "TestFailClosed.test_outer_timeout_settle_failure_halts_before_next_generation",
+        "TestFailClosed.test_outer_timeout_settle_success_still_continues",
+        "TestCancellationBranches.test_stop_before_first_iteration_is_terminal_cancelled",
+        "TestCancellationBranches.test_stop_during_recovery_wait_is_graceful",
+        "TestCancellationBranches.test_cancelled_mixed_batch_settles_without_unknown",
+        "TestCancellationBranches.test_stop_waiter_wakes_only_after_terminal_cancel_commit",
+        "TestCancellationBranches.test_stop_preempted_observation_is_definitely_failed",
+        "TestCancellationBranches.test_failed_terminal_cancel_does_not_publish_stop_success",
+        "TestCancellationBranches.test_task_cancel_with_failing_settle_still_propagates",
+        "TestCancellationBranches.test_escape_settle_failure_keeps_original_error",
+        "TestSuspendFallback.test_failed_suspension_reports_plain_error_never_false_claims",
+        "TestMalformedBatch.test_duplicate_call_ids_bounce_without_execution",
+        "TestHousekeepingSweep.test_ttl_sweep_runs_and_swallows_failures",
+        "TestRedeliveryRefusal.test_redelivered_message_never_reruns_effects",
+        "TestRedeliveryRefusal.test_suspended_identity_redelivery_points_at_resume",
+        "TestLeaseHeartbeats.test_long_tool_outlives_the_lease_ttl",
+        "TestAdmissionFailClosed.test_runtime_admission_failure_refuses_execution",
+        "TestAdmissionFailClosed.test_store_unavailable_disposition_also_refuses",
+        "TestAdmissionFailClosed.test_feature_off_still_runs_legacy"
+      ],
+      "retired": {}, "deferred": {}, "proposed": {},
+      "supplements": ["test_lane6_agents_write_chat_write_canonical_graph_and_redelivery"],
+      "runtime_evidence": "tests.desktop_adapters.lane6_agents_write_chat_write.EVIDENCE",
+      "runtime_case_map": "tests.desktop_adapters.lane6_agents_write_chat_write.CASE_MAP"
+    },
+    "tests/characterization/test_chat_tool_loop.py": {
+      "source_sha256": "26ddac3a5df6fd9128e4cf18a0afd7f41590232f6389c803abbb953bf3aa6608",
+      "corpus_sha256": "76c08be68b5ca6c22d407ebd6854ae72e58fd201fdc683fb850e909dc28988a7",
+      "exact_case_partition_report": "maintenance/lane6-agents-write-chat-chat-report.json",
+      "restored_functions": 38, "restored_expanded_cases": 42, "retired_cases": 2,
+      "proposed_identity_only_cases": 0, "deferred_cases": 0, "supplement_cases": 6,
+      "runtime_evidence": "tests.desktop_adapters.lane6_agents_write_chat_chat.EVIDENCE",
+      "runtime_case_map": "tests.desktop_adapters.lane6_agents_write_chat_chat.CASE_MAP"
+    }
+  },
+  "retired": {
+    "TestToolFailurePaths.test_rbac_denial_returned_without_execution": {
+      "reason": "Removed multi-user tier denial and literal tier-too-low assertion",
+      "reviewer": "Claude, review of step 8 part 4"
+    },
+    "TestToolSurfaceAndSkills.test_api_token_allowed_tools_scope_filters": {
+      "reason": "Removed bearer/API-token allowed_tools scope",
+      "reviewer": "Claude, review of step 8 part 4"
+    }
+  },
+  "proposed": {},
+  "deferred": {},
+  "canonical_owners": {
+    "authority": "Persisted OwnerAuthority authenticated by owner_fixture",
+    "shared_store": "One JournalStore per graph shared by RequestService, WorkService, ConversationStore, TranscriptStore, PublicationEventJournal and DurableDelivery",
+    "engine": "build_engine_services with real ToolLoopRunner, native owners and scripted FakeLLM provider seam",
+    "turn_ledger": "Real TurnStateStore owned by engine.deps and injected into RequestService.admit_turn",
+    "stable_redelivery": "Fetch same persisted sealed request UUID; background_execution(settle=False); actual retained TurnStateStore refusal. No state reset, synthetic admission or copied algorithms",
+    "work": "WorkService real manager references; native agents bound to real RequestService and WorkService",
+    "split_lifecycle": "Actual background_execution held through _prepare_chat_turn/_run_with_guards; no guard bypass",
+    "source_identity_observation": "Two previously proposed cases now restored unchanged. Original source FakeMessage identities are observations only; canonical sealed EngineRequest UUID owns execution. Source-channel alias reads actual canonical cancellation Event. Inherited injected kill observer verifies canonical bound UUID before recording source id; real manager cancellation independently tested."
+  },
+  "production_fixes": [{
+    "path": "src/desktop/requests.py", "symbol": "RequestService.admit_turn",
+    "reason": "Inherited runtime_admission_failure_refuses_execution exposed uncaught sqlite3.OperationalError. Exception returns existing blocked admission_error handle without provider generation or external execution; BaseException cancellation propagates."
+  }],
+  "bounded_harness_waits": [{
+    "path": "tests/test_write_invariant_integration.py",
+    "case": "TestFailClosed.test_outer_timeout_settle_failure_halts_before_next_generation",
+    "line": 283, "before_seconds": 0.2, "after_seconds": 2.0,
+    "reason": "Combined machine load consumed .2s in real before_tool threaded commit before executor started. Bounded test-only timeout changed, assertions unchanged, production deadlines unchanged, no retry."
+  }],
+  "validation": {
+    "runner": ".venv/bin/python scripts/run-phase1-tests.py", "pid_namespace": true,
+    "combined": {"passed": 77, "warnings": 1, "seconds": 105.49, "junit": "/tmp/lane6-write-chat-complete.xml"},
+    "identity_restoration_targeted": {"passed": 3, "deselected": 44, "seconds": 6.07},
+    "request_regression": {
+      "suites": ["tests/test_desktop_request_core.py", "tests/test_desktop_request_failures.py", "tests/test_desktop_background_requests.py", "tests/test_desktop_requests.py"],
+      "passed": 30, "seconds": 48.84, "junit": "/tmp/lane6-write-request-regression.xml"
+    },
+    "ruff": "All checks passed for own four Python files and src/desktop/requests.py",
+    "warning": "Inherited synchronous parse_classifier_response_variants receives module asyncio mark; frozen decorators unchanged"
+  },
+  "qualification_notes": [
+    "Do not also select lane6_agents_tasks_chat duplicate characterization exports. Parent owns aggregation and final suite qualification.",
+    "Both formerly proposed identity-only cases now export original exact assertions; zero proposed or deferred cases."
+  ],
+  "boundaries": {"frozen_source_edits": false, "guard_weakening": false, "harmful_data_authored": false, "live_service_or_desktop_actions": false, "staged": false, "committed": false}
+}

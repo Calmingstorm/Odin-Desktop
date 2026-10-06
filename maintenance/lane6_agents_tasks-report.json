@@ -1,0 +1,178 @@
+{
+  "batch": "lane6_agents_tasks",
+  "branch": "lane6/step8-part4-agents",
+  "suites": [
+    {
+      "path": "tests/test_agents_tasks_provider_paths.py",
+      "status": "restored",
+      "selector": "tests/test_desktop_lane6_agents_tasks_provider.py",
+      "blocked_on": null,
+      "source_sha256": "28fc3d89c78cb86d5138eeee1f74bb8b4229dfd188f60f1e9d464380237f89a2",
+      "corpus_sha256": "55ca8fb36dcdbbcde41a4889d0eb0f3126395023086665e405f097fad5a445fc",
+      "case_functions": 9,
+      "restored_collected_cases": 15,
+      "supplement_cases": 2,
+      "assertions": 23,
+      "whole_suite": true,
+      "adapter": "tests/desktop_adapters/lane6_agents_tasks.py",
+      "setup_edits": [
+        {"line": 116, "operation": "object.__new__ setup to actual native service owner"},
+        {"line": 154, "operation": "object.__new__ setup to actual native service owner"},
+        {"line": 225, "operation": "object.__new__ setup to actual native service owner"}
+      ]
+    },
+    {
+      "path": "tests/test_wait_stuck_integration.py",
+      "status": "restored",
+      "selector": "tests/test_desktop_lane6_agents_tasks_wait.py",
+      "blocked_on": null,
+      "source_sha256": "437d3ef88266cab7e4988ccedae19b72887411f7384e029dd155e152814e3a59",
+      "corpus_sha256": "1903149639a189adcf1cc222b74e3f92d64a7da2ede950a469d8bbe1b6f0c2f4",
+      "case_functions": 11,
+      "restored_collected_cases": 11,
+      "supplement_cases": 0,
+      "assertions": 40,
+      "whole_suite": true,
+      "adapter": "tests/desktop_adapters/lane6_agents_tasks.py",
+      "setup_edits": [
+        {"line": 17, "operation": "make_bot and message input bridge to canonical service graph"},
+        {"line": 49, "operation": "run_loop binds real RequestService background identity and execution"}
+      ]
+    },
+    {
+      "path": "tests/test_background_task_cancel.py",
+      "status": "restored",
+      "selector": "tests/test_desktop_lane6_agents_tasks_cancel.py",
+      "blocked_on": null,
+      "adapter": "tests/desktop_adapters/lane6_agents_tasks_recovery.py",
+      "whole_suite": true,
+      "restored_collected_cases": 11,
+      "supplement_cases": 0,
+      "setup_edits": [
+        {"line": 17, "operation": "canonical task factory, sealed background execution, durable transcript receipts"},
+        {"line": 22, "operation": "legacy call shape backed by retained native WorkService/ControlService and committed receipts"},
+        {"line": 48, "operation": "external executor stub inherits authenticated real executor output retention"},
+        {"line": 56, "operation": "blocking external executor stub inherits authenticated real executor output retention"},
+        {"line": 181, "operation": "cleanup fault executor inherits authenticated real executor output retention"}
+      ],
+      "case_functions": 11,
+      "source_sha256": "e5addb75a7446519d799c6a6087f7142749e0496f1c6ef4e48b1012ab4528aec",
+      "corpus_sha256": "17d42efcc12a836a1495684a6a7fd4cf674d8e8fff0c8f0676ae22fd7e834819"
+    },
+    {
+      "path": "tests/test_background_task_failure_visibility.py",
+      "status": "deferred",
+      "selector": null,
+      "blocked_on": "Confirmed hard identity contract conflict: src/desktop/authority.py OwnerAuthority._validate lines152-154 rejects every owner_id that is not a canonical UUID, including frozen requester4242. A persisted fixture installation cannot authenticate that exact identity without weakening the production guard. Frozen permission-call and executor-call assertions require literal4242. Cancellation setup/publication is now implemented and qualified, not a blocker. This suite needs reviewer approval for identity assertion substitution or the non-UUID identity contract; neither applied.",
+      "case_functions": 17,
+      "source_sha256": "30720be2e4e3b64bbc7e97d8932d7e5e328ae43c055670da3897fcf92addcd78",
+      "corpus_sha256": "42c91ca115a6a1472a0e7cd58df6b352492d3e70399b681f2d92396698afebd2"
+    },
+    {
+      "path": "tests/test_native_agents_tasks.py",
+      "status": "deferred",
+      "selector": null,
+      "blocked_on": "Confirmed hard identity contract conflict: exact permission-call assertions require owner7; OwnerAuthority._validate requires a canonical UUID in persisted fixture installation records. This cannot authenticate owner7 without guard weakening. Native setup also includes mocked return values and fixed turn4242 observations requiring careful real-manager wraps setup; those alone are NOT accepted blockers. Whole exact suite remains unqualified pending approved non-UUID identity assertion substitution. No manager replaced and no guard weakened.",
+      "case_functions": 90,
+      "source_sha256": "f42a7364881ee0fc07afb7953a94fe517c2008222815a0d779a0e1de2ceadc92",
+      "corpus_sha256": "91c1b6a08a7fc0a9268935b8a7a68e16908aa1339c6d4f09a22f237407eb8575"
+    },
+    {
+      "path": "tests/test_write_invariant_integration.py",
+      "status": "incomplete",
+      "selector": null,
+      "blocked_on": null,
+      "incomplete_reason": "Not completed within urgent recovery window. Shared-store graph/redelivery setup still required. This is unfinished work, not an accepted concrete blocker or a qualified deferral.",
+      "case_functions": 28,
+      "source_sha256": "b17a926b79afcc342e4f5fdf4b48094336057a02c5d26c517c9fedc4df8af708",
+      "corpus_sha256": "65abd606e29e57ecb6d8430bcf3390bd276468649490db41342ea70b91bd6e7a"
+    },
+    {
+      "path": "tests/characterization/test_chat_tool_loop.py",
+      "status": "incomplete",
+      "selector": null,
+      "blocked_on": null,
+      "incomplete_reason": "Not completed within urgent recovery window. Exact state/history/stop setup and case-level removed-surface inventory remain unfinished. This is not a concrete blocker or qualified deferral, and no sampling restoration is claimed.",
+      "case_functions": 40,
+      "source_sha256": "26ddac3a5df6fd9128e4cf18a0afd7f41590232f6389c803abbb953bf3aa6608",
+      "corpus_sha256": "76c08be68b5ca6c22d407ebd6854ae72e58fd201fdc683fb850e909dc28988a7"
+    }
+  ],
+  "deferred_case_examples": [
+    {
+      "original": "tests/test_background_task_failure_visibility.py::TestStructuredFailureVisibility::test_nested_invoke_skill_permission_is_checked_for_selected_skill",
+      "reason": "OwnerAuthority._validate requires canonical UUIDs in persisted identity records. Exact requester4242 cannot be installed and authenticated. Requires reviewer approval, not more setup code."
+    },
+    {
+      "original": "tests/test_native_agents_tasks.py::TestListCancelTasks::test_cancel",
+      "reason": "Non-UUID owner7 exact permission assertions in this whole suite cannot use an authenticated persisted fixture installation. Cancel call/publication setup alone is now solved in the restored cancellation suite."
+    },
+    {
+      "original": "tests/test_native_agents_tasks.py::test_spawn_agent_links_triggering_message_turn",
+      "reason": "Real-manager wraps can observe call_args and are not a blocker. Native whole suite remains blocked on exact owner7 permission identity versus canonical UUID installation validation. Fixed turn4242 setup is unfinished, not claimed impossible."
+    },
+    {
+      "original": "tests/test_write_invariant_integration.py::TestRedeliveryRefusal::test_redelivered_message_never_reruns_effects",
+      "reason": "Whole-suite canonical store graph must preserve original message-to-durable-request identity across redelivery, not generate a fresh admission each run."
+    },
+    {
+      "original": "tests/test_write_invariant_integration.py::TestCancellationBranches::test_failed_terminal_cancel_does_not_publish_stop_success",
+      "reason": "Direct runner ledger injection and FakeMessage.channel identity state access need a shared canonical RequestService/engine ledger setup while preserving exact failure assertions."
+    },
+    {
+      "original": "tests/characterization/test_chat_tool_loop.py::TestBasicFlows::test_with_history_preamble_before_last_user",
+      "reason": "Canonical engine session intake adds a history read-only fence; frozen direct runner history setup needs exact bound-request bridge rather than rewritten message-shape assertions."
+    },
+    {
+      "original": "tests/characterization/test_chat_tool_loop.py::TestToolSurfaceAndSkills::test_api_token_allowed_tools_scope_filters",
+      "reason": "Removed bearer allowed_tools surface eligible for case-level retirement only after whole adapter partition inventory. No retirement claimed in this report."
+    }
+  ],
+  "retired_cases": [],
+  "proposals": [
+    {
+      "original": "tests/test_background_task_failure_visibility.py::TestStructuredFailureVisibility::test_nested_invoke_skill_permission_is_checked_for_selected_skill",
+      "reason": "Fixed requester_id4242 observer assertion conflicts with canonical authenticated owner. Propose separately reviewed setup and assertion owner-ID substitution, not applied.",
+      "status": "approval-required"
+    },
+    {
+      "original": "tests/test_native_agents_tasks.py::test_spawn_agent_links_triggering_message_turn",
+      "line": 1410,
+      "reason": "Exact native permission assertions require non-UUID owner7, rejected by persisted OwnerAuthority installation validation. Request reviewer approval for identity-only assertion substitution; real-manager wraps and turn identity setup do not themselves justify a deferral.",
+      "status": "approval-required"
+    }
+  ],
+  "substitutions": [],
+  "lineage": {
+    "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+    "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+    "worktree_head": "22aeaaa3",
+    "verification": "frozen_source verifies archive and retained exact bytes; adapter pins source hashes and complete corpus hashes, then compares original/adapted corpus before execution",
+    "owners": ["build_engine_services", "AgentTaskTools", "AgentManager", "ToolLoopRunner", "RequestService", "WorkService", "ControlService", "DurableDelivery"],
+    "fixture": "tests.desktop_adapters.test_phase2_runner_characterization.graph",
+    "transport_cleanup": "retained scripted FakeLLM.drain_and_close bound to its close method, engine cleanup guard unchanged"
+  },
+  "validation": {
+    "selectors": ["tests/test_desktop_lane6_agents_tasks_provider.py", "tests/test_desktop_lane6_agents_tasks_wait.py", "tests/test_desktop_lane6_agents_tasks_cancel.py"],
+    "runner": ".venv/bin/python scripts/run-phase1-tests.py",
+    "pid_isolation": true,
+    "passed": 39,
+    "failed": 0,
+    "inherited_passed": 37,
+    "supplement_passed": 2,
+    "seconds": 53.01,
+    "final_cancel_only": {"passed": 11, "failed": 0, "seconds": 21.86, "note": "After final canonical register_module and inherited isolated-cwd fixture export."},
+    "combined_agents": {"passed": 501, "failed": 0, "deselected": 6, "warnings": 1, "seconds": 330.10, "junit": "/tmp/lane6_agents_recovery_complete.xml"},
+    "production_edits": false,
+    "shared_accounting_edits": false,
+    "committed": false
+  },
+  "changed_files": [
+    "tests/desktop_adapters/lane6_agents_tasks_recovery.py",
+    "tests/test_desktop_lane6_agents_tasks_cancel.py",
+    "tests/desktop_adapters/lane6_agents_tasks.py",
+    "tests/test_desktop_lane6_agents_tasks_provider.py",
+    "tests/test_desktop_lane6_agents_tasks_wait.py",
+    "maintenance/lane6_agents_tasks-report.json"
+  ]
+}

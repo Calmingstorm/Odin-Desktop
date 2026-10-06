@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "batch": "lane6_agents_core",
+  "changed_files": [
+    "tests/desktop_adapters/lane6_agents_core.py",
+    "tests/test_desktop_lane6_agents_core.py",
+    "maintenance/lane6_agents_core-report.json"
+  ],
+  "suites": [
+    {"path": "tests/test_agent_auto_dynamic.py", "status": "restored", "selector": "tests/test_desktop_lane6_agents_core.py", "selectors": ["tests/test_desktop_lane6_agents_core.py -k lane6_agents_core_test_agent_auto_dynamic"], "blocked_on": null, "retained_functions": 33, "restored_cases": 42, "retired_cases": 0},
+    {"path": "tests/test_agent_completion_classifier.py", "status": "restored", "selector": "tests/test_desktop_lane6_agents_core.py", "selectors": ["tests/test_desktop_lane6_agents_core.py -k lane6_agents_core_test_agent_completion_classifier"], "blocked_on": null, "retained_functions": 22, "restored_cases": 29, "retired_cases": 1},
+    {"path": "tests/test_agent_model_admission.py", "status": "restored", "selector": "tests/test_desktop_lane6_agents_core.py", "selectors": ["tests/test_desktop_lane6_agents_core.py"], "blocked_on": null, "retained_functions": 10, "restored_cases": 19, "deferred_cases": 0},
+    {"path": "tests/test_agent_parent_activity.py", "status": "restored", "selector": "tests/test_desktop_lane6_agents_core.py", "selectors": ["tests/test_desktop_lane6_agents_core.py -k lane6_agents_core_test_agent_parent_activity"], "blocked_on": null, "retained_functions": 11, "restored_cases": 17, "retired_cases": 0},
+    {"path": "tests/test_agent_repetition.py", "status": "restored", "selector": "tests/test_desktop_lane6_agents_core.py", "selectors": ["tests/test_desktop_lane6_agents_core.py -k lane6_agents_core_test_agent_repetition"], "blocked_on": null, "retained_functions": 5, "restored_cases": 5, "retired_cases": 0},
+    {"path": "tests/test_agent_stream_progress.py", "status": "restored", "selector": "tests/test_desktop_lane6_agents_core.py", "selectors": ["tests/test_desktop_lane6_agents_core.py -k lane6_agents_core_test_agent_stream_progress"], "blocked_on": null, "retained_functions": 7, "restored_cases": 8, "retired_cases": 0},
+    {"path": "tests/test_agent_wait_budget.py", "status": "restored", "selector": "tests/test_desktop_lane6_agents_core.py", "selectors": ["tests/test_desktop_lane6_agents_core.py -k lane6_agents_core_test_agent_wait_budget"], "blocked_on": null, "retained_functions": 8, "restored_cases": 11, "retired_cases": 0},
+    {"path": "tests/test_nested_agents.py", "status": "restored", "selector": "tests/test_desktop_lane6_agents_core.py", "selectors": ["tests/test_desktop_lane6_agents_core.py -k lane6_agents_core_test_nested_agents"], "blocked_on": null, "retained_functions": 84, "restored_cases": 84, "retired_cases": 1}
+  ],
+  "retired_cases": [
+    {"original": "tests/test_agent_completion_classifier.py::test_iteration_cap_failure_visible_to_wait_results_and_agents_api", "source_sha256": "c73d509c079d20da613b9e4be74343a1457de09e493a9598aa70727a8f7d71d2", "reason": "Inseparable mixed failed-wait and removed HTTP agents list/detail listener assertion corpus. Failed wait/result visibility preserved by test_lane6_agents_core_failed_wait_visibility_supplement, not counted as frozen restoration.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/test_nested_agents.py::TestRestApi::test_list_agents_includes_depth", "source_sha256": "456360eb249056add8aec170277b0f0d30247552c1bfcdf127a827c9c0566554", "reason": "Removed setup_api HTTP listener contract; other TestRestApi cases use real manager algorithms without listener and remain exported.", "reviewer": "Claude, review of step 8 part 4"}
+  ],
+  "proposals": [],
+  "substitutions": [],
+  "exact_test_selectors": {
+    "all_eight_whole_suites_and_supplements": "tests/test_desktop_lane6_agents_core.py",
+    "model_admission": [
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_test_agent_model_admission_auto_omission_cannot_inherit_or_spoof_schedule",
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_test_agent_model_admission_axis_matrix",
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_test_agent_model_admission_auto_rejects_explicit_unlisted_model",
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_test_agent_model_admission_trusted_schedule_resolves_eligible_model_and_consumes_authority",
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_test_agent_model_admission_forged_schedule_cannot_raise_iteration_cap",
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_test_agent_model_admission_no_candidates_hides_spawn_without_startup_failure",
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_test_agent_model_admission_allowlisted_disabled_providers_are_not_candidates",
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_test_agent_model_admission_empty_allowlist_keeps_default_auto_candidates",
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_test_agent_model_admission_real_scheduler_dispatch_sets_and_resets_trusted_context",
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_test_agent_model_admission_allowlist_drift_rejected_before_generation"
+    ],
+    "supplements": [
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_failed_wait_visibility_supplement",
+      "tests/test_desktop_lane6_agents_core.py::test_lane6_agents_core_model_admission_spy_preserves_real_owner"
+    ],
+    "complete_case_map": "tests.desktop_adapters.lane6_agents_core.lane6_agents_core_cases: each value prefixed with tests/test_desktop_lane6_agents_core.py:: is an exact pytest selector, including original nested class qualifiers"
+  },
+  "blockers": [],
+  "lineage": {
+    "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+    "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+    "binding": "SUITES exact byte SHA-256 plus pinned lane6_agents_core_corpus_hashes; frozen_source verifies archive and retained bytes. corpus(adapted)==corpus(original) for the complete frozen tree, before exact retired export exclusions. No assertion/signature/decorator/parameter changes.",
+    "owner": "tools_cases.owner_fixture authentic OwnerAuthority and PermissionManager; build_engine_services owns retained AgentManager/completion classifier/native AgentTaskTools; RequestService and WorkService share that manager. Owner requester setup uses actual authenticated owner.",
+    "observation_seams": "Inherited provider/callback mocks and envelope wait snapshots retained as external observations, never replacement manager/run-agent/render/guard algorithms. Native _tools is bridged to the real composed native owner. Model admission spawn spy wraps actual retained manager.spawn, creates real AgentInfo/work registry and RequestService admission. Mock-only return_value and registry-reset assignments removed from setup. Model/scheduler call wrappers enter real background_execution in the executing test task. Scheduled helper uses retained ScheduledEventHandlers with real Phase2 admitted context, not synthetic channel messages.",
+    "setup_changes": ["Canonical manager import factory", "Canonical native _tools setup fixture", "Authentic owner agent fixture/requester keyword", "Removed inert Config.discord setup keyword", "Desktop composition instead of obsolete OdinBot composition fixture", "Real static documentation catalog instead of unavailable-tool filtered catalog", "Model admission actual manager spawn spy with unchanged call_args/assert_not_called assertions", "Remove mock-only spawn.return_value and _agents registry-reset setup", "Sealed model root request and actual task background_execution", "Retained ScheduledEventHandlers through admitted dispatch helper", "Replace inherited schedule actor setup constant with authenticated owner ID"],
+    "production_edits": false,
+    "shared_accounting_edits": false,
+    "committed": false
+  },
+  "verification": {
+    "command": "sudo -n -u odin env USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_agents_core.py --tb=short",
+    "pid_namespace_runner": true,
+    "result": "217 passed in 105.69s",
+    "frozen_restored_cases": 215,
+    "supplement_cases": 2,
+    "frozen_retired_cases": 2,
+    "frozen_deferred_cases": 0,
+    "initial_probe": "Initial model admission durable setup failures resolved via real canonical manager spy, RequestService background execution, and retained scheduled owner bridge. Targeted model run 20 passed including identity supplement; final all-eight-suite run 217 passed."
+  }
+}

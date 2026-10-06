@@ -651,13 +651,20 @@ class RequestService:
             return handle
         def digest(text):
             return hashlib.sha256(text.encode("utf-8")).hexdigest()
-        lease, disposition = await asyncio.to_thread(
-            store.admit_turn_sync, message.turn_key, guild_id=None, user_id=message.owner_id,
-            content_digest=compute_content_digest(message.content), code_version="0.1.0.dev1",
-            prompt_policy_hash=digest(system_prompt),
-            tool_catalog_hash=digest(",".join(sorted(
-                tool.get("name", "") for tool in (tools or [])))),
-            session_snapshot=session_snapshot)
+        try:
+            lease, disposition = await asyncio.to_thread(
+                store.admit_turn_sync, message.turn_key, guild_id=None, user_id=message.owner_id,
+                content_digest=compute_content_digest(message.content), code_version="0.1.0.dev1",
+                prompt_policy_hash=digest(system_prompt),
+                tool_catalog_hash=digest(",".join(sorted(
+                    tool.get("name", "") for tool in (tools or [])))),
+                session_snapshot=session_snapshot)
+        except Exception:
+            # A runtime ledger failure cannot grant a new uncheckpointed run.
+            # Preserve the admission-error handle so the retained runner emits
+            # its refusal without provider generation or external execution.
+            # CancelledError is a BaseException and still propagates unchanged.
+            return handle
         if lease is None:
             handle.blocked = ("admission_error" if disposition == "store_unavailable"
                               else disposition)
