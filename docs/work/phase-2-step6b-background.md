@@ -6,6 +6,8 @@ and the final reset/resume regression `fa41c5212194e64df9493e49a0846b973005de21`
 The controls PR merged and its branch was deleted during final qualification,
 so the review PR targets `main`. The landed controls and packaging snapshot
 `5ba8d6dfcacce9eff823af2596290bc417897e0e` was subsequently merged as well.
+Onboarding main `ddd054fe` then landed during that gate and was also merged,
+preserving prompt-free background keyring access and its explicit owner Retry.
 Part A and runtime management remain separate lanes. This implements no webhook
 ingress, native desktop qualification, packaging, or Phase 2 closure claim.
 
@@ -82,6 +84,7 @@ management and restored-suite accounting, it was merged without rewriting
 history and qualified again from a fresh checkout. The final result and exact
 source identity are recorded in the accompanying review response.
 The controls/profile-management snapshot passed all 30 groups (14,514 passed,
-2 skipped). The final main integration is separately qualified; neither previous
+2 skipped). Packaging-main integration passed all 30 groups (14,530 passed,
+2 skipped). Final onboarding-main integration is separately qualified; no previous
 run substitutes for that gate.
 No live service, `/opt/odin`, active desktop or destructive test command was used.

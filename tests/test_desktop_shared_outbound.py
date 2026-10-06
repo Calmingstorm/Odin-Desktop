@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -256,3 +257,228 @@ async def test_locked_keyring_refuses_new_rows_without_partial_adoption(graph):
     assert owner.get(ident) is original
     assert owner.get("new") is None
     assert len(transport.requests) == 1
+
+
+class WorkerKeyring(TemporaryKeyring):
+    """Real profile store adapter, but no native vault, prompt or network."""
+
+    def __init__(self):
+        super().__init__()
+        self.loop_thread = threading.get_ident()
+        self.calls = []
+        self.entered = threading.Event()
+        self.release = threading.Event()
+        self.release.set()
+
+    def check(self, operation, name):
+        assert threading.get_ident() != self.loop_thread
+        with pytest.raises(RuntimeError):
+            asyncio.get_running_loop()
+        assert threading.current_thread().daemon
+        self.calls.append((operation, name))
+        self.entered.set()
+        assert self.release.wait(5), "fixture worker was not released"
+
+    def get_password(self, service, name):
+        self.check("get", name)
+        return super().get_password(service, name)
+
+    def set_password(self, service, name, value):
+        self.check("set", name)
+        return super().set_password(service, name, value)
+
+    def delete_password(self, service, name):
+        self.check("clear", name)
+        return super().delete_password(service, name)
+
+
+async def wait_worker(backend):
+    for _ in range(500):
+        if backend.entered.is_set():
+            return
+        await asyncio.sleep(.001)
+    pytest.fail("keyring worker did not enter while loop remained responsive")
+
+
+async def test_shared_dispatcher_management_and_delivery_keyring_workers(graph):
+    owner = graph.engine.deps.outbound_webhook_dispatcher
+    backend = WorkerKeyring()
+    graph.settings.secrets._backend = backend
+    transport = Transport()
+    owner._session = transport
+    saved = await graph.management.invoke("webhooks.outbound.save", {
+        "name": "worker", "url": "https://example.invalid/worker",
+        "secret": "worker-fixture-signing", "events": ["all"],
+    })
+    assert saved["ok"], saved
+    ident = saved["result"]["id"]
+    listed = await graph.management.invoke("webhooks.outbound.list", {})
+    assert listed["ok"] and listed["result"]["webhooks"][0]["has_secret"]
+    assert (await owner.dispatch("health", {}))[0].success
+    # Force fresh target hydration on each actual async path.
+    graph.settings.config.outbound_webhooks.targets[0].name = "test-worker"
+    tested = await graph.management.invoke("webhooks.outbound.test", {"id": ident})
+    assert tested["ok"] and tested["result"]["success"], tested
+    graph.settings.config.outbound_webhooks.targets[0].name = "send-worker"
+    assert (await owner.send_test_event(ident)).success
+    assert len(transport.requests) == 3
+    for _, request in transport.requests:
+        assert request["headers"]["X-Webhook-Signature"] == "sha256=" + sign_payload(
+            request["data"], "worker-fixture-signing")
+    changed = await graph.management.invoke("webhooks.outbound.save", {
+        "id": ident, "secret": "changed-fixture-signing",
+    })
+    assert changed["ok"], changed
+    deleted = await graph.management.invoke("webhooks.outbound.delete", {"id": ident})
+    assert deleted["ok"], deleted
+    assert {operation for operation, _ in backend.calls} == {"get", "set", "clear"}
+    assert not backend.values
+    assert graph.management.integrations.dispatcher is owner
+    assert graph.engine.deps.turn_recorder._outbound_webhook_dispatcher is owner
+
+
+@pytest.mark.parametrize("operation", ["dispatch", "test", "list"])
+async def test_shared_live_config_keyring_wait_keeps_loop_responsive(graph, operation):
+    owner = graph.engine.deps.outbound_webhook_dispatcher
+    transport = Transport()
+    owner._session = transport
+    saved = await graph.management.invoke("webhooks.outbound.save", {
+        "name": "existing", "url": "https://example.invalid/existing", "events": ["all"],
+    })
+    assert saved["ok"], saved
+    ident = saved["result"]["id"]
+    await owner.dispatch("health", {})
+    previous = owner.get(ident)
+    backend = WorkerKeyring()
+    graph.settings.secrets._backend = backend
+    graph.settings.config.outbound_webhooks.targets[0].url = "https://example.invalid/slow"
+    backend.release.clear()
+    if operation == "dispatch":
+        pending = asyncio.create_task(owner.dispatch("health", {}))
+    elif operation == "test":
+        pending = asyncio.create_task(owner.send_test_event(ident))
+    else:
+        pending = asyncio.create_task(graph.management.invoke("webhooks.outbound.list", {}))
+    try:
+        await wait_worker(backend)
+        # Tick while the native-style wait remains blocked, then change desired
+        # config mid-qualification. No candidate may leak through early.
+        await asyncio.sleep(.02)
+        assert not pending.done() and owner.get(ident) is previous
+        assert len(transport.requests) == 1
+        graph.settings.save_changes([(("outbound_webhooks", "targets"), [
+            graph.settings.config.outbound_webhooks.targets[0].model_dump()
+            | {"url": "https://example.invalid/latest"}
+        ])], method="webhooks.outbound.save")
+    finally:
+        backend.release.set()
+    result = await asyncio.wait_for(pending, 2)
+    if operation == "list":
+        assert result["ok"], result
+        assert result["result"]["webhooks"][0]["url"] == "https://example.invalid/latest"
+        assert len(transport.requests) == 1
+    else:
+        assert (result[0] if operation == "dispatch" else result).success
+        assert transport.requests[-1][0] == "https://example.invalid/latest"
+    assert owner.get(ident).url == "https://example.invalid/latest"
+    assert graph.management.integrations.dispatcher is owner
+
+
+async def test_shared_save_serializes_with_blocked_target_qualification(graph):
+    owner = graph.engine.deps.outbound_webhook_dispatcher
+    transport = Transport()
+    owner._session = transport
+    backend = WorkerKeyring()
+    graph.settings.secrets._backend = backend
+    saved = await graph.management.invoke("webhooks.outbound.save", {
+        "url": "https://example.invalid/old", "secret": "old-fixture-signing",
+        "events": ["all"],
+    })
+    assert saved["ok"], saved
+    ident = saved["result"]["id"]
+    await owner.dispatch("health", {})
+    original = owner.get(ident)
+    graph.settings.config.outbound_webhooks.targets[0].name = "rehydrate"
+    backend.entered.clear()
+    backend.release.clear()
+    delivery = asyncio.create_task(owner.dispatch("health", {}))
+    mutation = None
+    try:
+        await wait_worker(backend)
+        mutation = asyncio.create_task(graph.management.invoke("webhooks.outbound.save", {
+            "id": ident, "url": "https://example.invalid/new",
+            "secret": "new-fixture-signing",
+        }))
+        await asyncio.sleep(.02)
+        assert not mutation.done() and not delivery.done()
+        assert owner.get(ident) is original
+    finally:
+        backend.release.set()
+    assert (await asyncio.wait_for(delivery, 2))[0].success
+    assert (await asyncio.wait_for(mutation, 2))["ok"]
+    assert (await owner.dispatch("health", {}))[0].success
+    _, request = transport.requests[-1]
+    assert transport.requests[-1][0] == "https://example.invalid/new"
+    assert request["headers"]["X-Webhook-Signature"] == "sha256=" + sign_payload(
+        request["data"], "new-fixture-signing")
+    assert graph.management.integrations.dispatcher is owner
+
+
+async def test_shared_cancelled_save_settles_before_waiting_delivery_adopts(graph):
+    owner = graph.engine.deps.outbound_webhook_dispatcher
+    transport = Transport()
+    owner._session = transport
+
+    class PausedWriteKeyring(WorkerKeyring):
+        def __init__(self):
+            super().__init__()
+            self.pause_write = False
+            self.write_entered = threading.Event()
+            self.write_release = threading.Event()
+
+        def set_password(self, service, name, value):
+            if self.pause_write:
+                self.write_entered.set()
+                assert self.write_release.wait(5)
+            return super().set_password(service, name, value)
+
+    backend = PausedWriteKeyring()
+    graph.settings.secrets._backend = backend
+    saved = await graph.management.invoke("webhooks.outbound.save", {
+        "url": "https://example.invalid/before", "secret": "before-fixture-signing",
+        "events": ["all"],
+    })
+    assert saved["ok"], saved
+    ident = saved["result"]["id"]
+    await owner.dispatch("health", {})
+    original = owner.get(ident)
+    backend.pause_write = True
+    service = graph.management.integrations
+    mutation = asyncio.create_task(service.handle("webhooks.outbound.save", {
+        "id": ident, "url": "https://example.invalid/after",
+        "secret": "after-fixture-signing",
+    }))
+    delivery = None
+    try:
+        for _ in range(500):
+            if backend.write_entered.is_set():
+                break
+            await asyncio.sleep(.001)
+        assert backend.write_entered.is_set()
+        mutation.cancel()
+        delivery = asyncio.create_task(owner.dispatch("health", {}))
+        await asyncio.sleep(.02)
+        assert not mutation.done() and not delivery.done()
+        assert service._lock.locked()
+        assert owner.get(ident) is original
+        assert len(transport.requests) == 1
+    finally:
+        backend.write_release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await mutation
+    assert (await asyncio.wait_for(delivery, 2))[0].success
+    assert transport.requests[-1][0] == "https://example.invalid/after"
+    request = transport.requests[-1][1]
+    assert request["headers"]["X-Webhook-Signature"] == "sha256=" + sign_payload(
+        request["data"], "after-fixture-signing")
+    assert graph.management.integrations.dispatcher is owner

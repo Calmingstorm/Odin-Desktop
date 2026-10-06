@@ -8,13 +8,16 @@ the profile keyring; dispatcher adoption follows durable configuration writes.
 from __future__ import annotations
 
 import asyncio
+import threading
 import uuid
+from contextlib import nullcontext
 from copy import deepcopy
 from typing import Any
 from urllib.parse import urlparse
 
 from ..notifications.outbound_webhooks import OutboundWebhookDispatcher
 from .management import MethodError
+from .secrets import secret_call
 
 METHODS = frozenset({
     "webhooks.outbound.list", "webhooks.outbound.save", "webhooks.outbound.delete",
@@ -57,13 +60,24 @@ class ProfileOutboundWebhookDispatcher(OutboundWebhookDispatcher):
         self._get_config = get_config
         self._secrets = secrets
         self._adopted_rows = None
+        # Shared by qualification and management transactions, never acquired
+        # on an async delivery path. Workers may not publish stale signing keys
+        # across a concurrent save/rollback on this same retained owner.
+        self._target_lock = threading.RLock()
         self._closed = False
         self._deliveries = set()
 
     def _sync(self):
+        with self._target_lock:
+            while True:
+                config = self._sync_locked()
+                if config is not None:
+                    return config
+
+    def _sync_locked(self):
         if self._closed:
             raise MethodError("unavailable", "outbound webhook owner is closed")
-        config = self._get_config().outbound_webhooks
+        config = deepcopy(self._get_config().outbound_webhooks)
         rows = [row.model_dump() for row in config.targets]
         if rows != self._adopted_rows:
             candidate = OutboundWebhookDispatcher()
@@ -85,6 +99,12 @@ class ProfileOutboundWebhookDispatcher(OutboundWebhookDispatcher):
                              else row.url), webhook_id=ident, secret=secret or "")
                 except ValueError:
                     continue
+            # Config replacement/in-place edits can occur while the vault is
+            # answering. Qualify a fresh snapshot instead of publishing old rows.
+            if self._get_config().outbound_webhooks != config:
+                return None
+            if self._closed:
+                raise MethodError("unavailable", "outbound webhook owner is closed")
             self._webhooks = candidate._webhooks
             self._adopted_rows = deepcopy(rows)
         self._scrub = config.scrub_secrets
@@ -98,20 +118,23 @@ class ProfileOutboundWebhookDispatcher(OutboundWebhookDispatcher):
     async def dispatch(self, event_type, data, **kwargs):
         if self._closed:
             return []
-        if not self._sync().enabled:
-            return []
         task = asyncio.current_task()
         self._deliveries.add(task)
         try:
+            config = await secret_call(self._sync)
+            if self._closed or not config.enabled:
+                return []
             return await super().dispatch(event_type, data, **kwargs)
         finally:
             self._deliveries.discard(task)
 
     async def send_test_event(self, webhook_id):
-        self._sync()
         task = asyncio.current_task()
         self._deliveries.add(task)
         try:
+            await secret_call(self._sync)
+            if self._closed:
+                raise MethodError("unavailable", "outbound webhook owner is closed")
             return await super().send_test_event(webhook_id)
         finally:
             self._deliveries.discard(task)
@@ -200,16 +223,19 @@ class IntegrationsService:
                          if key != "password"},
             }
         async with self._lock:
-            dispatcher = self._owner()
+            dispatcher = await secret_call(self._owner)
             if method == "webhooks.outbound.list":
-                return dispatcher.get_status()
+                return await secret_call(dispatcher.get_status)
             if method == "webhooks.outbound.test":
                 ident = self._identifier(params)
                 result = await dispatcher.send_test_event(ident)
                 if result is None:
                     raise MethodError("not_found", "webhook not found")
                 return result.to_dict()
-            return self._mutate(dispatcher, method, params)
+            # Keep keyring writes, config persistence, adoption and rollback in
+            # one settled worker transaction. Cancellation cannot release the
+            # service gate with an unfinished signing-key write behind it.
+            return await secret_call(self._mutate, dispatcher, method, params)
 
     @staticmethod
     def _identifier(params):
@@ -282,6 +308,13 @@ class IntegrationsService:
         dispatcher._webhooks = targets
 
     def _mutate(self, dispatcher, method, params):
+        with getattr(dispatcher, "_target_lock", nullcontext()):
+            sync = getattr(dispatcher, "_sync", None)
+            if callable(sync):
+                sync()
+            return self._mutate_locked(dispatcher, method, params)
+
+    def _mutate_locked(self, dispatcher, method, params):
         expected = params.get("expected_revision", self.settings.revision)
         if expected is not None and expected != self.settings.revision:
             raise MethodError("stale_binding", "settings revision changed", "stale_binding")

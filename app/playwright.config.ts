@@ -2,6 +2,8 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './test/e2e',
+  // Onboarding uses Vitest's separate owned runner; Playwright must not import that suite.
+  testMatch: 'accessibility.spec.ts',
   workers: 1,
   fullyParallel: false,
   timeout: 90_000,
