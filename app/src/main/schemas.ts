@@ -4,6 +4,9 @@ import type { CoreError, ManagementMethod } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
+// Neither notice action accepts a repository, URL, transport, credentials or an update command.
+export const releaseNoticeSchema = z.object({}).strict()
+
 /** Fixed safe strings only; strip extra provider/credential data at the main boundary. */
 export const firstRunStatusSchema = z.object({
   state: z.enum(['fresh', 'incomplete', 'saved', 'effective-ready', 'degraded']),

@@ -3,6 +3,14 @@
 
 export type CorePhase = 'starting' | 'ready' | 'degraded' | 'quiescing'
 
+export interface ReleaseNotice {
+  state: 'cannot-check-private' | 'offline' | 'rate-limited' | 'unavailable' | 'malformed' | 'no-release' |
+    'invalid-current-version' | 'equal' | 'older' | 'newer'
+  currentVersion: string
+  latestVersion?: string
+  releaseUrl?: string
+}
+
 /** Core-authoritative provisioning. Saving a field or signing in is not readiness. */
 export interface FirstRunStatus {
   state: 'fresh' | 'incomplete' | 'saved' | 'effective-ready' | 'degraded'
@@ -267,6 +275,8 @@ export interface CleanupWarning {
 }
 
 export interface AppState {
+  /** Desktop product version, not the engine/protocol version. */
+  appVersion?: string
   link: LinkState
   coreInstanceId: string | null
   /** True when the window was opened on a desktop where no tray could be found. */
@@ -1110,6 +1120,8 @@ export interface ControlTarget {
 
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
 export interface OdinApi extends ManagementApi, SettingsShapedApi {
+  checkReleases(): Promise<Result<ReleaseNotice>>
+  openRelease(): Promise<Result<{ opened: true }>>
   status(): Promise<Result<CoreStatus>>
   listConversations(): Promise<Result<{ items: ConversationListItem[]; watermark: string }>>
   createConversation(params: {
@@ -1214,6 +1226,8 @@ export interface LateReceipt {
 }
 
 export const IPC = {
+  checkReleases: 'odin:check-releases',
+  openRelease: 'odin:open-release',
   status: 'odin:status',
   listConversations: 'odin:conversations:list',
   createConversation: 'odin:conversations:create',
