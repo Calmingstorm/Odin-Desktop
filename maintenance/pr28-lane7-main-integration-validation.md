@@ -80,11 +80,38 @@ qualification evidence. The correct named 303-case group subsequently passed.
 
 ## Fresh qualification
 
-Pending the sole full qualification from a new copied-interpreter locked Python
-3.12 checkout under a mode-0775 parent. Results will be appended only after the
-runner finishes. All engine tests use isolated PID/mount namespaces, disposable
-HOME/XDG and no live session/credentials. App native lifecycle tests use their
-existing isolated runner/Xvfb, never the active desktop.
+The sole full qualification completed against merge commit
+`f185b5e2e4b5f64756a07b97ce2d0ceb258d2f2f` in
+`/home/odin/desktop-pr28-main-lane7-20261006/qualification-parent/final`.
+Fresh parent and checkout were verified mode 0775. Python 3.12.3 copied-interpreter
+venv populated solely by `uv sync --locked --extra dev --link-mode copy`.
+
+- **31/31 groups passed; 14,610 passed, two skipped, zero failures/errors.**
+- Final core transport: 567 passed. Profile management: 303 passed. Step 6A:
+  172 passed. Inherited mock-coroutine and subprocess-loop-close warnings remain
+  recorded, not excluded.
+- Fresh post-run drift: no errors, 335 pending independent-review entries.
+  Fresh lint: no new findings, seven inherited.
+- Raw stream: `evidence/fresh-full-qualification.log`; per-group XML and runner
+  result: fresh checkout `.test-state/qualification-0.xml` through `-30.xml`
+  and `qualification-result.json`.
+- The final validation-record commit changes only this Markdown, not the
+  qualified executable, tests, dependency lock, plan or ledger bytes.
+
+All engine tests use isolated PID/mount namespaces, disposable HOME/XDG and no
+live session/credentials. App native lifecycle tests use their existing isolated
+runner/Xvfb, never the active desktop.
+
+## Main movement after qualification
+
+Main advanced during the gate to
+`0b7d596f7e870d06699722f151c4d9837c5433f1` by merging PR32. This integration
+qualifies the explicitly requested `ddd054fe` pin containing PR24 and PR30;
+it does not claim PR32 was tested here. A read-only `git merge-tree --write-tree`
+probe against that newer main reports conflicts in `src/desktop/management.py`
+and the delta ledger. Therefore this branch must not be represented as current-
+main merge-ready. No second full qualification or unqualified follow-on merge
+was performed.
 
 No attribution trailers, PR merge, deployment, live service/data change, native
 keyring prompt acceptance, actual MCP endpoint or bundled-browser execution.
