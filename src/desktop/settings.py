@@ -30,7 +30,7 @@ from ..config.persistence import (
     _load_document,
     _patch_config_paths,
 )
-from ..config.schema import Config
+from ..config.schema import Config, _ignore_unknown_config_keys
 from .management import MethodError
 from .provisioning import fresh_config
 from .secrets import SecretStoreError, secret_call
@@ -134,7 +134,7 @@ class SettingsService:
         if config is None:
             document, _ = _load_document(paths.config_file)
             values = fresh_config(paths).model_dump(mode="json")
-            self._merge(values, dict(document))
+            self._merge(values, _ignore_unknown_config_keys(dict(document)))
             config = Config.model_validate(values, context={"startup": True})
         self.config = config if isinstance(config, Config) else Config.model_validate(config)
         self._boot = self.config.model_dump(mode="json")
@@ -642,7 +642,9 @@ class SettingsService:
             }
 
     async def handle(self, method, params):
-        if method not in self.METHODS:
+        # Activation is advertised by the computer owner, not twice by the
+        # settings service. Its existing transaction format still owns writes.
+        if method not in self.METHODS and method != "computer.activation.set":
             raise _error("Unknown settings method", "method_not_found")
         if not isinstance(params, dict):
             raise _error("params must be an object")
@@ -700,7 +702,7 @@ class SettingsService:
                 document, _ = _load_document(self.paths.config_file)
                 try:
                     values = fresh_config(self.paths).model_dump(mode="json")
-                    self._merge(values, dict(document))
+                    self._merge(values, _ignore_unknown_config_keys(dict(document)))
                     desired = Config.model_validate(values, context={"startup": True})
                     values = desired.model_dump(mode="json")
                     for path, value in flatten(values):

@@ -1,5 +1,5 @@
 // Start at login (R2) via an XDG autostart entry. The app starts minimized to the tray, and the app starts Odin.
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
@@ -12,6 +12,7 @@ export function autostartPath(env: Env = process.env): string {
 
 /** Quotes one Exec argument per the Desktop Entry spec (reserved characters inside double quotes, `%` doubled). */
 export function quoteExecArg(arg: string): string {
+  if (/[\0\r\n]/.test(arg)) throw new Error('invalid autostart argument')
   const percentEscaped = arg.replace(/%/g, '%%')
   if (!/[\s"'\\><~|&;$*?#()`]/.test(percentEscaped)) return percentEscaped
   return `"${percentEscaped.replace(/(["`$\\])/g, '\\$1')}"`
@@ -32,8 +33,20 @@ export function autostartEntry(command: readonly string[]): string {
   ].join('\n')
 }
 
-export function isAutostartEnabled(path: string = autostartPath()): boolean {
-  return existsSync(path)
+export type AutostartStatus = 'disabled' | 'enabled' | 'stale'
+
+/** Relocation is not permission to silently rewrite a login launcher. Explicit enable repairs it. */
+export function autostartStatus(command: readonly string[], path: string = autostartPath()): AutostartStatus {
+  try {
+    return readFileSync(path, 'utf8') === autostartEntry(command) ? 'enabled' : 'stale'
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 'disabled'
+    throw error
+  }
+}
+
+export function isAutostartEnabled(path: string = autostartPath(), command?: readonly string[]): boolean {
+  return command ? autostartStatus(command, path) === 'enabled' : existsSync(path)
 }
 
 export function setAutostart(enabled: boolean, command: readonly string[], path: string = autostartPath()): boolean {
@@ -43,5 +56,5 @@ export function setAutostart(enabled: boolean, command: readonly string[], path:
   } else if (existsSync(path)) {
     unlinkSync(path)
   }
-  return isAutostartEnabled(path)
+  return isAutostartEnabled(path, command)
 }

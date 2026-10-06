@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "review": "Claude, review of #35, round 2",
+  "disposition_item": 3,
+  "status": "restored_targeted_candidate",
+  "qualified": false,
+  "qualification_scope": "Retained inherited suite passed targeted isolated execution; shared maintenance accounting and full qualification remain parent-owned.",
+  "suite": "tests/test_chat_steering_parity.py",
+  "source_sha256": "48cf45bcceed1be223a2cf8428af0a9eff3e57b695b1d147a3e6fe7a843233ec",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "adapter": "tests/desktop_adapters/step8_review_parity_exact.py",
+  "adapter_sha256": "16677617ab060d20fc0e2df7f4d38a12d80942f8c2dfa6430bf89ee6c3c2ef23",
+  "wrapper": "tests/test_desktop_step8_review2_parity_exact.py",
+  "wrapper_sha256": "7db705c549b76d0e32bdd39fd13390b1acd3635039dee6cbc098d566f014e766",
+  "supersedes": "maintenance/step8-review-parity-alternative-candidates.json (historical diagnostic record left unchanged)",
+  "wrapper_change": "Located prior attempts at tests/diagnostic_step8_review_parity_exact.py, not the suggested characterization path. Renamed only the owned export to test_desktop_step8_review2_parity_exact.py for ordinary adapter discovery.",
+  "counts": {
+    "original_case_functions": 4,
+    "original_parameter_executions": 7,
+    "original_unique_assertions": 45,
+    "retained_case_functions": 3,
+    "retained_parameter_executions": 5,
+    "retained_unique_assertions": 28,
+    "retained_assertion_executions": 46,
+    "retired_case_functions": 1,
+    "retired_parameter_executions": 2,
+    "retired_unique_assertions": 17,
+    "passed_inherited_executions": 5,
+    "passed_adapter_guard_executions": 13,
+    "targeted_total_passed": 18
+  },
+  "retained_cases": [
+    {
+      "case": "test_unsteered_chat_runtime_trace_return_and_guard_parity",
+      "parameters": ["normal", "nonzero-loop-index", "error"],
+      "assertions": 9,
+      "original_whole_node_ast_sha256": "626abeeab501038f20584831054398f0277e8f497e474775890d20c25b2393de"
+    },
+    {
+      "case": "test_unsteered_tool_checkpoint_trace_matches_pre_steer_runtime",
+      "parameters": [],
+      "assertions": 14,
+      "original_whole_node_ast_sha256": "6bf65f2a4410763d8e96a5f2915d5609b83e8f9cfb6b4cc6d256b358c01f463c"
+    },
+    {
+      "case": "test_unsteered_guard_checkpoint_trace_matches_pre_steer_runtime",
+      "parameters": [],
+      "assertions": 5,
+      "original_whole_node_ast_sha256": "33aef8db16e6dc42a7151090e56f9025ee633ee4947f9124085a9a809465053a"
+    }
+  ],
+  "retired_cases": [
+    {
+      "case": "test_unsteered_native_batch_protocol_permissions_and_resume_parity",
+      "parameters": ["fresh", "run-resumed-rebind"],
+      "reviewer": "Claude, review of #35, round 2",
+      "reason": "Tier-denial prose removed: both fresh and run-resumed-rebind goldens require Permission denied: blocked for the canonical owner; desktop has no per-tool tier ACL. Retire this case, not individual assertions.",
+      "source_path": "tests/test_chat_steering_parity.py",
+      "source_sha256": "48cf45bcceed1be223a2cf8428af0a9eff3e57b695b1d147a3e6fe7a843233ec",
+      "original_whole_node_ast_sha256": "5705a579e52b17b67972ab8d0ac2454ddf017ca5e91bffd78e9b1ef7ffc9d9a6",
+      "golden_lines": [438, 462, 490, 491]
+    }
+  ],
+  "second_requester_retirements": [],
+  "approved_identity_projection": {
+    "reviewer": "Claude, review of #35, round 2",
+    "location": "Adapter returned observation only, after actual admitted execution and settlement",
+    "owner": "One allocated real owner maps onto requester-1 only in permission event actor, generation owner, permission owner, native dispatch author/user and inbox requester fields",
+    "request": "One allocated real request maps onto request-1 only in request bindings and active request values",
+    "invariant": "Foreign owner/request and colliding identities raise ValueError. No recursive string replacement. All result prose, tool inputs, messages, checkpoints, event positions/order, guard decisions, delivery values and other data remain exact.",
+    "assertion_changes": [],
+    "golden_changes": [],
+    "signature_decorator_parameter_changes": []
+  },
+  "exact_setup_hunks": [
+    {
+      "line": 147,
+      "column": 4,
+      "before_ast_sha256": "402276aab6ab74518a15b379054b9426b8fe64e023874d0ea6fc208187d96e25",
+      "after_ast_sha256": "d0c8b5a219b62a5c19f0858422d9e99b61caa810bfa5a8537e1d9a34ff47702c",
+      "replacement": "runner = module._fixture_runner",
+      "contract": "Use the actual composed admitted worker runner, never __new__."
+    },
+    {
+      "line": 218,
+      "column": 4,
+      "before_ast_sha256": "0dbbada9a655e613d1df2c2c4e5e8ff4169b15998675db4d13965d4ec80170a0",
+      "after_ast_sha256": "6d7b053c264234314afeca605e9c0a2da723c4fa8777f5a5f6fb147580d2e018",
+      "replacement": "async def dispatch(name, tool_input, *, message, user_id, skill_file_delivery):\n    runner._parity_dispatches.append((name, deepcopy(tool_input), message.author.id, user_id, skill_file_delivery))\n    events.append(f\"dispatch:{name}:{tool_input['path']}\")\n    return await module.native_dispatch(name, tool_input, message=message, user_id=user_id, skill_file_delivery=skill_file_delivery)",
+      "contract": "Observe identical dispatch inputs then execute the real native dispatcher and disposable file read; do not manufacture effect output or readiness."
+    },
+    {
+      "line": 254,
+      "column": 4,
+      "before_ast_sha256": "543be3790f48c215e774c09a39060ffc8e952d55515f6661b2bf98139e117634",
+      "after_ast_sha256": "cb28e5e15c2b9e7c6384ac9403bfeb36c3cc7abc627d3cd97dc34936d944f607",
+      "replacement": "runner._channel_state = runner._channel_state",
+      "contract": "Preserve actual request registry and cancellation ownership."
+    },
+    {
+      "line": 262,
+      "column": 4,
+      "before_ast_sha256": "07db6669e9477776676e881726c8f7121605f88655185ac1cb49a0a041dbe439",
+      "after_ast_sha256": "bdbe96ceb0802c9a0d4d7124d96108b8154574a28bb3efa4737db353fe5856e9",
+      "replacement": "runner._tool_executor = real_permission(runner, events)",
+      "contract": "Forward every actual executor permission gate unchanged. Historical permission trace observes loop RBAC boundary only; new output-retention checks execute and are independently recorded/verified, never hidden from authority."
+    },
+    {
+      "line": 276,
+      "column": 0,
+      "before_ast_sha256": "88d4bd5dd5b6829395ee43d82fa919a7d6b2d2da4fcaca92e585e3f4c94d42fc",
+      "after_ast_sha256": "d0ec09713f4d72aab82258b513117a83e4ac5c5b3692d555f110cc0c0cbf1d1d",
+      "replacement": "async def _run(module, scenario, *, iteration=0, cap=3, resumed=False, initial_messages=None):\n    return await admitted_run(module, scenario, iteration=iteration, cap=cap, resumed=resumed, initial_messages=initial_messages)",
+      "contract": "RequestService submit/after_commit worker, actual sealed request, preparation and durable lease replace obsolete synthetic owner/message construction."
+    }
+  ],
+  "preservation_guards": [
+    "frozen_source verifies both archive hash and exact retained original bytes",
+    "exact line/column/whole-node digests and explicit setup-hunk allowlist",
+    "corpus(original) equals corpus(adapted), including every original assertion, signature, decorator and parameter",
+    "reverse every setup hunk and compare the entire original AST",
+    "export all inherited cases except one literal case-level reviewed exclusion",
+    "projection tests preserve arbitrary owner/request-looking strings in messages/results/inputs/checkpoints and reject every foreign identity position",
+    "real read owner/output fences fail for unauthenticated golden requester and missing disposable file"
+  ],
+  "real_execution_proof": [
+    "Nonroot temporary_owner authenticates actual local UID using OwnerAuthority/PermissionManager",
+    "Actual composed runner and RequestService worker/task assertions, assert_request before core execution",
+    "Actual preparation and durable lease generation, real durability writes and terminal ledger checks",
+    "Register concrete NativeRead owner/handler through native.register; actual readiness closure verifies private fixture file exists with mode 0600",
+    "Logical /tmp/x is bound only to disposable profile file; exact read bytes b'read:/tmp/x' supply native output",
+    "Production dispatcher, production executor output policy and deliver_output remain unchanged; real retention probe succeeds",
+    "Tool case verifies one actual native read and two real output-retention permission observations after the loop RBAC observation",
+    "Readiness revocation and owner rejection tests prove fail-closed behavior without replay"
+  ],
+  "limitations": [
+    "Scripted provider, guard, classifier, budget/compression, status, audit and trajectory collaborators remain historical characterization seams, not live E2E services",
+    "No live host /tmp/x is read; this is a concrete disposable native read handler, not the production read_file tool implementation",
+    "Retained suite does not include the retired tier-denial batch's resume execution; no separate resume qualification claim",
+    "Shared plans/maps/ledgers/checkers and full qualification are intentionally untouched and parent-owned"
+  ],
+  "targeted_receipts": [
+    {
+      "command": "uv sync --locked --extra dev --python 3.12",
+      "result": "Resolved 99 packages; installed 95 packages into this worktree's own .venv",
+      "exit_code": 0
+    },
+    {
+      "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review2_parity_exact.py --tb=short",
+      "result": "17 passed in 6.39s",
+      "exit_code": 0,
+      "process_pid": 1369389,
+      "log_path": "/tmp/pr35-round2-parity-first.log",
+      "scope": "Initial export plus normalization guards; before additional fail-closed native-read guard"
+    },
+    {
+      "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review2_parity_exact.py --tb=short -v",
+      "result": "18 passed in 10.85s",
+      "exit_code": 0,
+      "process_pid": 1376130,
+      "log_path": "/tmp/pr35-round2-parity-final.log",
+      "log_sha256": "c2b47202e1bbcc2175ea18aaf61228a2959efc97080c77ef35614913c6984bea",
+      "isolation": "unshare --mount --pid --fork --mount-proc --kill-child; nonroot USER=odin; env -i; disposable HOME/XDG directories; no DISPLAY/session bus/live configuration",
+      "inherited_passed": 5,
+      "guard_passed": 13
+    },
+    {
+      "command": ".venv/bin/ruff check tests/desktop_adapters/step8_review_parity_exact.py tests/test_desktop_step8_review2_parity_exact.py",
+      "result": "All checks passed",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check",
+      "result": "No whitespace errors",
+      "exit_code": 0
+    }
+  ],
+  "blockers": [],
+  "pending_parent_integration": ["Shared accounting and checker update", "Final fresh-checkout full qualification"],
+  "production_changes": [],
+  "original_source_archive_changes": [],
+  "shared_maintenance_changes": [],
+  "operational_changes": [],
+  "full_gate_run": false,
+  "live_service_desktop_tests": false,
+  "push_rebase": false
+}

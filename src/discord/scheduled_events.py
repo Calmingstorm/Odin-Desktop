@@ -55,13 +55,10 @@ async def _publish_notice(conversation_id: str, text: str) -> None:
         handler, message = active
         if message.conversation_id != conversation_id:
             raise NonRetryableScheduleError("Foreign scheduled destination")
-        try:
-            await handler._publish_notice(message, text)
-            return
-        except Exception as exc:
-            raise NonRetryableScheduleError(
-                "Scheduled output delivery failed; recover delivery without replaying effects"
-            ) from exc
+        # Live delivery failures retain the owner's configured retry policy.
+        # Interrupted-run recovery, not publication, owns the no-replay rule.
+        await handler._publish_notice(message, text)
+        return
     raise NonRetryableScheduleError(
         "Conversation publication is unavailable until Phase 2; do not replay the producer."
     )

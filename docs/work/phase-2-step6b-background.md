@@ -44,8 +44,10 @@ ingress, native desktop qualification, packaging, or Phase 2 closure claim.
 Overdue reminders produce one bounded notice with due time, lateness and omitted
 slot count. Slot counting is bounded. Missed action recovery is manual; workflow
 automatic catch-up is bounded at zero. Interrupted or uncertain external effects
-never replay automatically. Existing timezone, paused-one-time and known retry
-rules remain. The scheduler task uses sealed installation authority and can post
+never replay automatically after restart. Recurring schedules retain their normal
+cadence, recording interrupted runs as unknown; one-time non-replay-safe runs stay
+quarantined. Live failures honor owner-configured retry policy. Existing timezone
+and paused-one-time rules remain. The scheduler task uses sealed installation authority and can post
 to durable conversations without a connected app window. Exit runs nothing.
 
 `ComputerForegroundBinding` composes the existing controller and private store

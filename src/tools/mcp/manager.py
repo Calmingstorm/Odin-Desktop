@@ -275,6 +275,8 @@ class MCPManager:
         on_catalog_changed: Any | None = None,
         max_published_tools_per_server_provider: Callable[[], int] | None = None,
         max_published_tools_global_provider: Callable[[], int] | None = None,
+        connection_factory: Callable[..., MCPServerConnection] | None = None,
+        reserved_names_provider: Callable[[], set[str]] | None = None,
     ) -> None:
         # Production providers follow the live config root, not the boot object.
         # Standalone managers use schema defaults, never a second protocol cap.
@@ -290,6 +292,10 @@ class MCPManager:
             else lambda: defaults.max_published_tools_global
         )
         self._servers: dict[str, _ServerRuntime] = {}
+        # Injection seam for isolated qualification. Production keeps the exact
+        # retained client/transport containment and wire bounds by default.
+        self._connection_factory = connection_factory
+        self._reserved_names_provider = reserved_names_provider or (lambda: set())
         self._global_enabled = False
         self._generation = 0
         # _lock guards short, await-free desired/publication mutations. The
@@ -1093,7 +1099,7 @@ class MCPManager:
                 return False
             runtime.state = STATE_CONNECTING
             config = runtime.config
-            connection = MCPServerConnection(
+            connection = (self._connection_factory or MCPServerConnection)(
                 name,
                 config.get("transport", "stdio"),
                 command=config.get("command", ""),
@@ -1219,9 +1225,10 @@ class MCPManager:
                 return True
             published: dict[str, ToolRecord] = {}
             collision = False
+            reserved = self._reserved_names_provider()
             for record in candidates:
                 published_name = make_published_name(name, record.name)
-                if published_name in published or any(
+                if published_name in reserved or published_name in published or any(
                     published_name in r.published for n, r in self._servers.items() if n != name
                 ):
                     collision = True

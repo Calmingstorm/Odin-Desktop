@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 from ..config.apply_registry import flatten, is_secret
 from ..config.persistence import _load_document
-from ..config.schema import Config
+from ..config.schema import Config, _known_config_data
 from ..discord.slash_commands import (
     USAGE_RANGES,
     collect_status,
@@ -117,7 +117,7 @@ class RuntimeService:
             defaults = fresh_config(paths)
             document, _ = _load_document(paths.config_file)
             values = defaults.model_dump(mode="json")
-            self.settings._merge(values, dict(document))
+            self.settings._merge(values, _known_config_data(dict(document)))
             saved = Config.model_validate(values, context={"startup": True})
             desired = parse_model_ref(self.config.llm_provider.model, allow_auto=False)
             section_name = {"codex": "openai_codex", "ollama": "ollama",
@@ -250,6 +250,8 @@ class RuntimeService:
                        ("chunk_bytes", "attachment_bytes", "attachments_per_turn")},
             "summary": render_status(facts),
             "first_run": self._first_run(),
+            "resource_cleanup": (self.core.resource_cleanup.public()
+                                 if getattr(self.core, "resource_cleanup", None) else None),
         })
 
     def _quota(self):

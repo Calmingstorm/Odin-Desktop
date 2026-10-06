@@ -72,7 +72,8 @@ async def test_schema_write_event_and_stale_binding_over_transport(connected):
     params = {"expected_revision": schema["revision"],
               "changes": [{"path": "logging.level", "value": "DEBUG"}]}
     command_id = str(uuid.uuid4())
-    first = await request(reader, writer, "settings.set", params, command_id)
+    # Bound one real settings receipt under load; this IPC path has no product RPC deadline.
+    first = await request(reader, writer, "settings.set", params, command_id, timeout=15)
     assert first["ok"], first
     assert await request(reader, writer, "settings.set", params, command_id) == first
     stale = await request(reader, writer, "settings.set", params)

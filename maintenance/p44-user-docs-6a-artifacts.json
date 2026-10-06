@@ -1,0 +1,53 @@
+{
+  "schema": "odin_desktop_documentation_artifacts_v1",
+  "request": "req-f0f2fcbc",
+  "source_main": "da2d3d4adbc7864ed78ffb972e3792f8557fbcb2",
+  "final_base": "28642294d4f3dc079e525d5e9f2df16adeb756be",
+  "short_gate_execution_head": "a46f9c7e5e7a699b9a5d13d39402626910436ea4",
+  "evidence_root": "/mnt/storage/odin-desktop-evidence/docs6a-reqf0f2",
+  "artifacts": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/docs6a-reqf0f2/dependencies.log",
+      "sha256": "af1659f7160ecf03b2e7ba4bc76a487ff8dcd59ca42e716e37702dfc2fb3cc2e"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/docs6a-reqf0f2/short-gates.log",
+      "sha256": "e1c2eacdee7d0ac708b5a9b7c65af3bd256ec6c39ade2e1aa0b81bbb227f9e9c"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/docs6a-reqf0f2/short-gates-initial.log",
+      "sha256": "c88ec4c159a53d28d1b56dbfdc44782fd291830210f034a2b9ec7ae906da3810"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/docs6a-reqf0f2/management-boundaries.log",
+      "sha256": "d93806691f9a03772e869ec2a8d632aacba747e1373a0023e3c93dd452ea4907"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/docs6a-reqf0f2/check-management-boundaries.py",
+      "sha256": "24ad0796022dfbdc7f72a5310c58998d5ff4c0bfde7d0939e9224b66b170a1c0"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/docs6a-reqf0f2/check-links.py",
+      "sha256": "4d1d53a1d5301d2c8758d5760793ac0f0a2d4ef25e28bab4c843104d280edce5"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/docs6a-reqf0f2/links.json",
+      "sha256": "b9acbd4719d6782b600ee1f9119773d760725c64b5731ec4fe2b9e2d4d870ab7"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/docs6a-reqf0f2/link-check.log",
+      "sha256": "4be5da8c85bb9c68264477129744a70748639d4ff7a4a306a2fa4481726a76b2"
+    }
+  ],
+  "qualification": {
+    "inventory_errors": 0,
+    "new_lint_findings": 0,
+    "inherited_lint_findings": 7,
+    "planned_ownership_checker": "pass",
+    "isolated_short_fixture_tests_passed": 38,
+    "generated_tool_reference": "current",
+    "management_parameter_probe": "pass; no controller or input",
+    "link_check": {"files": 13, "links": 216, "errors": 0},
+    "native_or_full_suite_qualification": "not run or claimed"
+  }
+}

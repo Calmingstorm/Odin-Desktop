@@ -1,0 +1,14 @@
+[
+  "05:58:36.444358 - SPEECH OUTPUT: 'Task completed.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:37.087035 - SPEECH OUTPUT: 'leaving form.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:37.088968 - SPEECH OUTPUT: 'region Conversation history' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:37.090994 - SPEECH OUTPUT: 'Odin message at 05:58 AM article' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:37.092807 - SPEECH OUTPUT: 'Show in folder: notes.txt push button.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:37.103955 - SPEECH OUTPUT: 'Browse mode' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:37.865622 - SPEECH OUTPUT: 'Save as… notes.txt push button.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:38.745633 - SPEECH OUTPUT: 'Saving notes.txt…' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:39.052522 - SPEECH OUTPUT: 'Save file dialog' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:39.054119 - SPEECH OUTPUT: 'Name text.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:39.055763 - SPEECH OUTPUT: 'notes.txt.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "05:58:39.057845 - SPEECH OUTPUT: 'opens popup' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}"
+]

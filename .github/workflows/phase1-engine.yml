@@ -1,37 +1,137 @@
 name: Phase 1 engine boundaries
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
-  engine:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
+  short-gates:
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    name: short-gates (${{ matrix.lane }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: light
+            labels: [self-hosted, odin-desktop-ci-light]
+          - lane: desktop
+            labels: [self-hosted, odin-desktop-short]
+    runs-on: ${{ matrix.labels }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The merged accounting gates read pinned historical Git objects.
+          fetch-depth: 0
+      - name: Require the runner's cached Python 3.12
+        id: cached-python
+        shell: bash
+        run: |
+          versions=()
+          for marker in "$RUNNER_TOOL_CACHE"/Python/3.12.*/x64.complete; do
+            version="$(basename "$(dirname "$marker")")"
+            if [[ "$version" =~ ^3\.12\.[0-9]+$ && -f "$marker" && -x "${marker%.complete}/bin/python" ]]; then
+              versions+=("$version")
+            fi
+          done
+          if [[ "${#versions[@]}" == 0 ]]; then
+            echo "::error::Provision Python 3.12 in this runner's tool cache; CI will not download it."
+            exit 1
+          fi
+          version="$(printf '%s\n' "${versions[@]}" | sort -V | tail -n 1)"
+          actual="$("$RUNNER_TOOL_CACHE/Python/$version/x64/bin/python" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
+          [[ "$actual" == "$version" ]] || { echo "::error::Cached Python version mismatch"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ steps.cached-python.outputs.version }}
+          architecture: x64
       - name: Repository-only locked environment
         run: |
-          # Fake-peer identity tests pin the real test interpreter. Hosted
-          # toolcache binaries can be group-writable, which the unchanged
-          # executable trust guard correctly refuses. A repository-owned 0755
-          # copy is an explicit trusted fixture, not a relaxed production check.
+          # Preserve the executable trust fixture on persistent runners too.
           python -m venv --copies .venv
-          .venv/bin/python -m pip install uv==0.12.23
-          .venv/bin/uv sync --locked --extra dev --active
+          # deadsnakes tool-cache entries need the locked backend in this venv;
+          # their interpreter layout cannot load uv's temporary build backend.
+          .venv/bin/python -m pip install uv==0.12.23 setuptools==84.0.0 wheel==0.48.0
+          .venv/bin/uv sync --locked --extra dev --active --no-build-isolation-package odin-desktop-engine
       - name: Offline lineage and safety drift
         run: .venv/bin/python scripts/maintenance/inventory.py report
       - name: No new lint findings
         run: .venv/bin/python scripts/maintenance/lint_gate.py
-      - name: Qualification lab orchestration (offline, no host daemon)
+      - name: Phase 2 planned ownership checker
+        run: .venv/bin/python scripts/maintenance/phase2_plan.py
+      - name: D19 exact wording disposition inventory
+        run: .venv/bin/python scripts/maintenance/d19.py report
+      - name: Phase 2 closure inventory (report only)
+        run: .venv/bin/python scripts/maintenance/phase2_closure.py report
+      - name: Hermetic Cinnamon and GNOME fixtures (no graphical session)
+        run: .venv/bin/python scripts/run-phase1-tests.py tests/test_lab_cinnamon.py tests/test_lab_gnome.py -rs
+  full-suites:
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    runs-on: [self-hosted, odin-desktop-ci]
+    # Plan groups run once with their original JUnit receipts; the additional
+    # Desktop step covers only files outside that plan. Keep main's existing bound.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require the runner's cached Python 3.12
+        id: cached-python
+        shell: bash
         run: |
-          .venv/bin/ruff check scripts/qualification/lab tests/test_desktop_qualification_lab.py tests/test_lab_*.py
-          .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_qualification_lab.py tests/test_lab_cinnamon.py tests/test_lab_common.py tests/test_lab_gnome.py tests/test_lab_kde.py tests/test_lab_hyprland.py tests/test_lab_guest_smoke.py
-      - name: Phase 2 planned ownership and checker behaviour
+          versions=()
+          for marker in "$RUNNER_TOOL_CACHE"/Python/3.12.*/x64.complete; do
+            version="$(basename "$(dirname "$marker")")"
+            if [[ "$version" =~ ^3\.12\.[0-9]+$ && -f "$marker" && -x "${marker%.complete}/bin/python" ]]; then
+              versions+=("$version")
+            fi
+          done
+          if [[ "${#versions[@]}" == 0 ]]; then
+            echo "::error::Provision Python 3.12 in this runner's tool cache; CI will not download it."
+            exit 1
+          fi
+          version="$(printf '%s\n' "${versions[@]}" | sort -V | tail -n 1)"
+          actual="$("$RUNNER_TOOL_CACHE/Python/$version/x64/bin/python" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
+          [[ "$actual" == "$version" ]] || { echo "::error::Cached Python version mismatch"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ steps.cached-python.outputs.version }}
+          architecture: x64
+      - name: Repository-only locked environment
         run: |
-          .venv/bin/python scripts/maintenance/phase2_plan.py
-          .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_phase2_plan.py
-      - name: Explicit pass-now suites in a PID namespace
+          # Fake-peer identity tests pin the real test interpreter. Runner
+          # toolcache binaries can be group-writable, which the unchanged
+          # executable trust guard correctly refuses. A repository-owned 0755
+          # copy is an explicit trusted fixture, not a relaxed production check.
+          python -m venv --copies .venv
+          .venv/bin/python -m pip install uv==0.12.23 setuptools==84.0.0 wheel==0.48.0
+          .venv/bin/uv sync --locked --extra dev --active --no-build-isolation-package odin-desktop-engine
+      - name: App launcher unit and real-core contracts (no graphical session)
+        working-directory: app
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test -- test/isolation-launcher.test.ts
+          npm run test:real-core
+      - name: Additional Desktop boundaries in a PID namespace
+        id: pass-now
+        run: .venv/bin/python scripts/run-phase1-tests.py --additional-desktop-boundaries
+      - name: Full classified qualification in PID namespaces
+        if: ${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}
         run: .venv/bin/python scripts/run-qualified-tests.py
+      - name: Qualification lab orchestration (offline, no host daemon)
+        if: ${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}
+        run: |
+          .venv/bin/ruff check scripts/qualification/lab scripts/run-lab-fixture-tests.py app/test/e2e/orca-guest.py tests/test_desktop_lab_fixture_runner.py tests/test_desktop_qualification_lab.py tests/test_lab_*.py tests/test_orca_guest_tasks.py tests/test_native_dialog_events.py tests/test_orca_native_input.py tests/test_kde_portal_preparation.py
+          .venv/bin/python scripts/run-phase1-tests.py tests/test_lab_orca.py tests/test_lab_orca_guest.py tests/test_lab_orca_cleanup.py tests/test_orca_guest_tasks.py tests/test_native_dialog_events.py tests/test_lab_focused_probe.py tests/test_orca_native_input.py tests/test_kde_portal_preparation.py tests/test_lab_orca_ci.py
+          # Fixed offline corpus uses fresh fixture user namespaces; unsupported
+          # mappings skip explicitly. Never relax the unchanged PID helper's NNP.
+          .venv/bin/python scripts/run-lab-fixture-tests.py

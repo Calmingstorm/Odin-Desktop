@@ -96,4 +96,19 @@ def test_no_removed_third_party_transport_or_moderation_imports():
 def test_dependency_lock_excludes_removed_distributions():
     lock = tomllib.loads((ROOT / "uv.lock").read_text())
     names = {package["name"] for package in lock["package"]}
-    assert not names.intersection({"discord-py", "discord.py", "sqlalchemy", "asyncpg"})
+    assert not names.intersection({"sqlalchemy", "asyncpg"})
+    packages = {package["name"]: package for package in lock["package"]}
+    project = packages["odin-desktop-engine"]
+    runtime, pending = set(), [dependency["name"] for dependency in project["dependencies"]]
+    while pending:
+        name = pending.pop()
+        if name in runtime:
+            continue
+        runtime.add(name)
+        pending.extend(dependency["name"] for dependency in packages[name].get("dependencies", []))
+    assert not runtime.intersection({"discord-py", "discord.py", "sqlalchemy", "asyncpg"})
+    # The original pinned executor needs its unchanged Discord imports only
+    # inside the fresh-install parity test. It must not enter a shipped runtime.
+    dev = {dependency["name"] for dependency in project["optional-dependencies"]["dev"]}
+    assert "discord-py" in dev
+    assert packages["discord-py"]["version"] == "2.7.1"

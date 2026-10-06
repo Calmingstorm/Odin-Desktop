@@ -19,8 +19,11 @@ import type { AttachmentManager } from './attachments'
 import type { ArtifactStore } from './artifacts'
 import type { Broker, Settled } from './broker'
 import type { DraftStore } from './drafts'
+import type { ReleaseNoticeService } from './release-notice'
 import {
+  acknowledgeCleanupSchema,
   artifactActionSchema,
+  releaseNoticeSchema,
   toolDetailSchema,
   toolOutputSchema,
   workControlSchema,
@@ -68,7 +71,10 @@ import { DeviceLoginBoundary } from './device-login'
 import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-policy'
 
 export interface IpcDeps {
+  releases: ReleaseNoticeService
   broker: Broker
+  /** Exit quiesces local app writes as well as core requests before persistence. */
+  admitting?: () => boolean
   windowId: () => number | null
   /** The window's top frame; requests from any other frame are refused. */
   mainFrame: () => FrameIdentity | null
@@ -87,6 +93,8 @@ export interface IpcDeps {
   setNotifications: (change: NotificationChange) => Settings
   setConversationMuted: (conversationId: string, muted: boolean) => Settings
   appState: () => AppState
+  /** Archives only this notice token; resource quarantine and reconciliation remain unchanged. */
+  acknowledgeCleanup?: (id: string) => AppState
 }
 
 const UNTRUSTED: Result<never> = {
@@ -111,6 +119,11 @@ export function registerIpc(deps: IpcDeps): void {
   ): void {
     ipcMain.handle(channel, async (event, raw: unknown) => {
       if (!trusted(event)) return UNTRUSTED
+      if (deps.admitting && !deps.admitting()) {
+        return { ok: false, error: {
+          code: 'busy', message: 'Odin is stopping.', disposition: 'not_dispatched'
+        } }
+      }
       let value: z.infer<S> = undefined as z.infer<S>
       if (schema) {
         const parsed = parseRequest(schema, raw)
@@ -135,6 +148,8 @@ export function registerIpc(deps: IpcDeps): void {
     if (!projection.success) return { ok: false, error: { code: 'internal', message: 'Invalid core readiness status.' } }
     return { ok: true, result: { ...raw, first_run: projection.data } }
   })
+  handle(IPC.checkReleases, releaseNoticeSchema, async () => ({ ok: true, result: await deps.releases.check() }))
+  handle(IPC.openRelease, releaseNoticeSchema, () => deps.releases.open())
   handle(IPC.listConversations, null, async () => fromSettled(await deps.broker.request('conversations.list')))
   // Conversation commands carry the window's command ID, so their late receipts can be matched (store.ts).
   const command = async (method: string, { command_id: id, ...params }: { command_id: string }) =>
@@ -290,6 +305,16 @@ export function registerIpc(deps: IpcDeps): void {
     ok: true,
     result: deps.setConversationMuted(v.conversation_id, v.muted)
   }))
+
+  handle(IPC.acknowledgeCleanup, acknowledgeCleanupSchema, ({ id }) => {
+    if (!deps.acknowledgeCleanup) return { ok: false, error: {
+      code: 'unavailable', message: 'Cleanup acknowledgment is unavailable.', disposition: 'not_dispatched'
+    } }
+    if (deps.appState().cleanupWarning?.id !== id) return { ok: false, error: {
+      code: 'conflict', message: 'This cleanup notice has changed. Review the current notice before acknowledging.', disposition: 'rejected'
+    } }
+    return { ok: true, result: deps.acknowledgeCleanup(id) }
+  })
 
   ipcMain.handle(IPC.getAppState, (event) => (trusted(event) ? deps.appState() : null))
 }

@@ -194,6 +194,9 @@ class Scheduler:
         # Execution history
         _hist_path = history_path or str(self.data_path.parent / "schedule_history.jsonl")
         self.history = ScheduleHistory(_hist_path)
+        # Startup reconciliation is inert. Flush its history before publishing
+        # recovered definitions or admitting another execution.
+        self._interrupted_history: list[dict] = []
         self._http_session: aiohttp.ClientSession | None = None
         self._load()
         self._degrade_removed_trigger_sources()
@@ -225,13 +228,50 @@ class Scheduler:
             schedule["settlement"] = "unknown"
             schedule["last_run_binding"] = schedule.pop("run_binding", None)
             schedule.pop("retry_at", None)
+            schedule["retry_count"] = 0
+            self._interrupted_history.append({
+                "schedule_id": schedule["id"],
+                "description": schedule.get("description", ""),
+                "action": schedule.get("action", ""),
+                "status": "unknown", "duration_ms": 0,
+                "run_binding": copy.deepcopy(schedule["last_run_binding"]),
+                "error": f"Run started at {started!r}; completion was never recorded",
+            })
+            if not schedule.get("one_time"):
+                # Never retry the interrupted attempt or catch up its effects.
+                # Keep a future slot unchanged; consume stale slots on the same
+                # cron cadence. Trigger definitions remain available as well.
+                schedule.pop("missed_run", None)
+                schedule.pop("recovery_required", None)
+                due = self._parse_persisted_time(schedule.get("next_run"))
+                if (self._is_usable_cron(schedule.get("cron")) and due is not None
+                        and due <= datetime.now(UTC).replace(tzinfo=None)):
+                    schedule["next_run"] = _cron_next_run(
+                        schedule["cron"], schedule.get("timezone"),
+                    )
+                return True
+            if schedule.get("action") in self.REPLAY_SAFE_ONE_TIME_ACTIONS:
+                return True
         self._quarantine_schedule(
             schedule,
-            f"Schedule started at {started!r} but its completion was never recorded "
+            f"One-time schedule started at {started!r} but its completion was never recorded "
             "(Odin stopped or could not save the result); it may have partly run, so it was not "
             "run again. Check what it did, then set a new run_at to re-arm it",
         )
         return True
+
+    async def _record_interrupted_history(self) -> None:
+        while self._interrupted_history:
+            entry = self._interrupted_history[0]
+            # Reopening an uncommitted start marker must not duplicate history.
+            binding = entry.get("run_binding")
+            records = await self.history.query(entry["schedule_id"], limit=200)
+            if not binding or not any(
+                record.get("status") == "unknown" and record.get("run_binding") == binding
+                for record in records
+            ):
+                await self.history.record(**entry)
+            self._interrupted_history.pop(0)
 
     def _bind_desktop_run(self, current: dict, schedule: dict) -> None:
         if not self.desktop_recovery:
@@ -370,6 +410,7 @@ class Scheduler:
 
     async def _publish(self, candidate: list[dict]) -> None:
         """Caller holds _lock; persist detached state before making it visible."""
+        await self._record_interrupted_history()
         candidate = copy.deepcopy(candidate)
         writer = copy.copy(self)
         writer._schedules = candidate
@@ -1652,10 +1693,6 @@ class Scheduler:
             )
         except Exception as e:
             duration_ms = int((time.monotonic() - start) * 1000)
-            if self.desktop_recovery and isinstance(e, (aiohttp.ClientError, TimeoutError)):
-                e = NonRetryableScheduleError(
-                    "Webhook completion unknown; do not replay the request"
-                )
             retry_attempt = schedule.get("retry_count", 0) + 1
             await self._handle_failure(schedule, e)
             await self.history.record(
@@ -1761,6 +1798,7 @@ class Scheduler:
         to_fire: list[tuple[dict, str, int | None]] = []
 
         async with self._lock:
+            await self._record_interrupted_history()
             availability = self._connection_availability()
             now = datetime.now(UTC)
             now_naive = now.replace(tzinfo=None)

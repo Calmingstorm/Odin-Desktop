@@ -1,0 +1,709 @@
+{
+  "schema_version": 1,
+  "artifact": "Phase2 step8 part3 review1 parent-owned suite dispositions",
+  "original_suites": 47,
+  "restored": 21,
+  "retired": 21,
+  "deferred": 5,
+  "review": "Claude, review of #35",
+  "restored_this_review": 7,
+  "by_step": {
+    "2": {
+      "restored": 7,
+      "retired": 1
+    },
+    "3": {
+      "retired": 15,
+      "deferred": 3,
+      "restored": 9
+    },
+    "4": {
+      "restored": 5,
+      "retired": 5,
+      "deferred": 2
+    }
+  },
+  "dispositions": [
+    {
+      "path": "tests/characterization/test_delivery.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "aa67067f7f247f4a366cf50527c35dfb019b4051575dc08d86eeb69c270bf1fb",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord chunked reply, file transport and retry delivery; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/characterization/test_executor_dispatch_parity.py",
+      "step": 3,
+      "status": "deferred",
+      "inherited_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
+      "blocker": "Two unchanged inherited assertions require literal foreign callers u-42 and alice/bob. Actual canonical profile-owner admission correctly denies them. Unknown-tool ordering is fixed and its inherited tests pass, but the entire dispatch suite remains deferred; no owner bypass or identity-output emulation. maintenance/step8-review-helpers-candidates.json."
+    },
+    {
+      "path": "tests/characterization/test_intake_gating.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "607ebffddbd77754c3d81a2705297ef1dfe54f30194b01ec7ad5294cf2350808",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord guild/channel intake, allowlists and multi-bot origin gating; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/characterization/test_pipeline_persistence.py",
+      "step": 4,
+      "status": "retired",
+      "inherited_sha256": "d8b3da64ab8525523883638d08c700a78fc99721ddbab9059c575406f1fea7e2",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord pipeline routing, thread inheritance and reply/file handoff; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_attachments.py",
+      "step": 3,
+      "status": "restored",
+      "inherited_sha256": "fd45c95e1c4ea5c2d0bca39bf8809b1912194695523973ebf0d8370bc58743f6",
+      "selector": "tests/test_desktop_step8_review_search_attachments_corpus.py",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_review_search_attachments_corpus.py"
+        ],
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded."
+      },
+      "mode": "frozen-adapter"
+    },
+    {
+      "path": "tests/test_bounded_process_wait.py",
+      "step": 4,
+      "status": "restored",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_wait_corpus.py",
+      "adaptations": [
+        "One exact line-13 whole-node-hashed import rebinds tests.test_wait_stuck_integration build/run_loop to authentic setup adapter; all inherited assertions, signatures, decorators, parameters and executor AsyncMock assignments are unchanged.",
+        "Existing authentic temporary_owner creates private ProfilePaths, OwnerAuthority and PermissionManager, authenticates actual non-root local peer UID; no fake profile owner, no fake tier gate, no _execution or request state assignment by adapter.",
+        "Real build_engine_services composes ToolLoopRunner, gateway, permissions, tool executor, readiness, prompt/session owners and durable turn store. Unmodified FakeLLM(script) is injected at compatible provider seam; lifecycle close alias only.",
+        "RequestService.submit commits queued row; after_commit and real _drain authenticate the persisted profile owner, transition running, fetch sealed EngineRequest and bind actual worker task. Real engine.run invokes genuine RequestService.admit_turn and persists ledger generation, then real delivery and accounting settle request.",
+        "FakeMessage is transport content only. Its fake IDs/owner/channel are not reused. Components facade exposes actual tool_executor and ToolLoopRunner by read-through properties, preserving inherited AsyncMock executor point.",
+        "ObservedEngine.run delegates to real EngineServices.run and records its unchanged five-tuple for run_loop return after durable request completion. No authority, admission, loop, wait judgment, executor behavior or service implementation replaced.",
+        "Frozen archive/source hashes, full CORPUS_SELECTIONS with exclusions {}, assertion/signature/decorator/parameter corpus equality, exact setup allowlist and independent complete AST reverse replay checked before compile/exec/register_module/load(globals())."
+      ],
+      "qualification_group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "01bf1930dba107e1881744830bbae61e6492ee76fa462828a69055746d213048",
+      "limitation": null
+    },
+    {
+      "path": "tests/test_campaign_attachment_intake_coverage.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "3e7b098ed229a29e64287038b8a19803c79d1109cc2e5b63064f58f9f697aeb0",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord attachment intake; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_campaign_cli_coverage.py",
+      "step": 3,
+      "status": "deferred",
+      "inherited_sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b",
+      "blocker": "Authenticated local prompt CLI is built and separately tested, but full frozen HTTP CLI corpus pins urllib URL/header/request construction and legacy daemon wording. HTTP-only case dispositions are proposed, not authorized by group B; original suite remains deferred pending review of exact IPC adaptation/case dispositions. maintenance/step8-review-cli-candidates.json."
+    },
+    {
+      "path": "tests/test_campaign_discord_attachments.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "02a6f587d5a9771b2bfb5534f2bbf662614ece94075762d66485c235ca9d2d84",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord attachment intake and delivery; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_campaign_discord_intake.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "0f1220b61d5d606dcdc1eab4ad0d97bb73affd2219431380b959f9e119440e20",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord message intake; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_campaign_discord_resume.py",
+      "step": 4,
+      "status": "retired",
+      "inherited_sha256": "ca2d7d323e0cd9be584fb5e34576858b0a108decfa0abd824b83cb7514996574",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord resume intake; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_channel_cursor_campaign.py",
+      "step": 2,
+      "status": "restored",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_conversations_corpus.py",
+      "adaptations": [
+        {
+          "line": 12,
+          "before_sha256": "4cd35a1004787776e81e087c9867ad90bdd858d5cd79f86cf3492d14ee42ca66",
+          "after_source": "return desktop_message(identity, content)",
+          "reason": "Replace obsolete guild/channel helper payload with admitted conversation_id and real authenticated temporary owner_id. Preserve identity, content and exact 100-second timestamp, original helper signature and every test body."
+        }
+      ],
+      "qualification_group": "phase2-step2-restored-corpus",
+      "inherited_sha256": "67b01211656e00656f447046057f931569ee8fd0bf76b112e3c396f0b0e0ca49",
+      "limitation": "Qualifies retained real ChannelLogger/FullTextIndex cursor/reconciliation code, not a proof of Desktop SQLite TranscriptStore wiring."
+    },
+    {
+      "path": "tests/test_channel_history_recency.py",
+      "step": 2,
+      "status": "restored",
+      "mode": "direct-original",
+      "selector": "tests/test_channel_history_recency.py",
+      "adaptations": [],
+      "qualification_group": "phase2-step2-restored-corpus",
+      "inherited_sha256": "ff261ad17c4c9cefd22d01c11a6aef90328ff86a6a54d9cf7ef43431c8194495",
+      "limitation": "Unchanged real JSONL fallback search component; synthetic author/channel fields are inert persisted search fixtures, not authentication claims."
+    },
+    {
+      "path": "tests/test_channel_logger.py",
+      "step": 2,
+      "status": "retired",
+      "inherited_sha256": "da1d2387fc51c197bb4c9e85afcd857acfdde3253161879535aece3f5191d267",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord guild/DM channel logging; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_channel_logger_edge_regressions.py",
+      "step": 2,
+      "status": "restored",
+      "mode": "direct-original",
+      "selector": "tests/test_channel_logger_edge_regressions.py",
+      "adaptations": [],
+      "qualification_group": "phase2-step2-restored-corpus",
+      "inherited_sha256": "4629993659cdb3f439773865b0cecc470951dcb6349115846eadc19a8629f6e3",
+      "limitation": "Unchanged real JSONL/FTS torn-write, identity and search-predicate component tests."
+    },
+    {
+      "path": "tests/test_channel_privacy_campaign.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "88e6a8d5c7dad7a3d74f168d39300e20ad4f576d19c4ff49858c7e0358908bb6",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord channel privacy and allowlists; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_chat_session.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "aab21c70a29d895a95c8087ed2279c390954513058c08032db18cb310578b284",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: HTTP chat session and web/API identities; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_chat_steering_admission.py",
+      "step": 4,
+      "status": "retired",
+      "inherited_sha256": "70080829a6851915ea9a781bb68da617594f381198492003061b6dcf120a329a",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord steering admission; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_chat_steering_notifications.py",
+      "step": 4,
+      "status": "retired",
+      "inherited_sha256": "a9d047ef34ada3e52002c9812eea7dc6ad6b408c5506ddee8887bcb2b856e87a",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord steering notifications; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_chat_steering_parity.py",
+      "step": 4,
+      "status": "deferred",
+      "inherited_sha256": "48cf45bcceed1be223a2cf8428af0a9eff3e57b695b1d147a3e6fe7a843233ec",
+      "blocker": "Frozen trace goldens require literal requester-1/request-1 and legacy denial prose while instrumenting synthetic guard/dispatcher/delivery events. Actual RequestService owner/request identities and production owner gates cannot honestly reproduce them. Prototype removed, no parity export. Needs reviewed exact golden/fixture redesign, not retirement of supported steering. maintenance/step8-review-steering-candidates.json."
+    },
+    {
+      "path": "tests/test_chat_steering_resume.py",
+      "step": 4,
+      "status": "restored",
+      "inherited_sha256": "fd1316042f023dbabdd8f2d522bff522df54328bb04d984b619bbf93cb2f7f89",
+      "selector": "tests/test_desktop_step8_review_steer_resume.py",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_review_steer_resume.py"
+        ],
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded."
+      },
+      "mode": "frozen-adapter"
+    },
+    {
+      "path": "tests/test_chat_steering_runtime.py",
+      "step": 4,
+      "status": "restored",
+      "inherited_sha256": "b41818cc97a50a4794cac024b953f7199369b225e863e1c9b4c34b2e32cc3f2b",
+      "selector": "tests/test_desktop_step8_review_steering.py",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_review_steering.py"
+        ],
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
+        "case_retirements": [
+          {
+            "case": "test_tool_batch_pairs_checkpoint_before_replan_no_stale_judgment_or_handoff",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord admin/multi-requester steering: this case admits user 999999 as admin and asserts a distinct numeric Discord requester retains tool authority; desktop has exactly one authenticated canonical profile owner.",
+            "source_path": "tests/test_chat_steering_runtime.py",
+            "source_sha256": "b41818cc97a50a4794cac024b953f7199369b225e863e1c9b4c34b2e32cc3f2b"
+          }
+        ]
+      },
+      "mode": "frozen-adapter"
+    },
+    {
+      "path": "tests/test_codex_replay_matrix.py",
+      "step": 3,
+      "status": "deferred",
+      "inherited_sha256": "eed93185f30efd619bafbfb1fd0f2d7bcac1eda96879b50214cfc1f8f5585256",
+      "blocker": "Full documentation-catalog experiment preserves original assertions but the 67-name fixture does not match the 63-name Desktop catalog: five Discord/RBAC names removed and read_conversation added. One equality and ten missing-schema executions fail. No synthetic schemas, matrix rewrite or weakened assertions. maintenance/step8-review-codex-candidates.json."
+    },
+    {
+      "path": "tests/test_command_shell_framing.py",
+      "step": 3,
+      "status": "restored",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_runner_corpus.py",
+      "adaptations": [
+        "Two exact hashed import statements rebind HOST/USER and runtime fixture only. Retained async runtime fixture is exported intact.",
+        "Authentic private temporary ProfilePaths/OwnerAuthority/PermissionManager and workspace; USER bound to authenticated owner UUID.",
+        "Real ToolExecutor, host registry, kernel supervision, command framing/timeout, file/patch IO. Real BuiltinToolPolicy readiness tests actual callable retained owners, limited to invoked tools. No permissive identity shim or product/containment replacement."
+      ],
+      "qualification_group": "phase2-step3-restored-corpus",
+      "inherited_sha256": "cb5bd6655d51b4ed8994ea0df7f750a5295722e7234071e8935dcc4a4929324e",
+      "limitation": null
+    },
+    {
+      "path": "tests/test_compatible_output_reserve.py",
+      "step": 3,
+      "status": "restored",
+      "mode": "direct-original",
+      "selector": "tests/test_compatible_output_reserve.py",
+      "adaptations": [],
+      "qualification_group": "phase2-step3-restored-corpus",
+      "inherited_sha256": "8ca908a54d6b66b20c10b766c6ddd86b0c82a293ab1908c0744dc8541ca2968c",
+      "limitation": null
+    },
+    {
+      "path": "tests/test_computer_native_vision_r5.py",
+      "step": 4,
+      "status": "restored",
+      "mode": "direct-original",
+      "selector": "tests/test_computer_native_vision_r5.py",
+      "adaptations": [],
+      "qualification_group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "41fd36c3afe06c24f1221d9a809fba96efddd4f77d12878080f6a4984b6681c7",
+      "limitation": null
+    },
+    {
+      "path": "tests/test_computer_privacy_r5.py",
+      "step": 3,
+      "status": "restored",
+      "mode": "direct-original",
+      "selector": "tests/test_computer_privacy_r5.py",
+      "adaptations": [],
+      "qualification_group": "phase2-step3-restored-corpus",
+      "inherited_sha256": "02625a61cd0ff31dc72f9f23d5015ba99d09f948f1b9c94a2d93268dbf797374",
+      "limitation": null
+    },
+    {
+      "path": "tests/test_delivery_file_retries.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "cea07757691729a80ec3f82ed662d99280a22f92e6fb1d52c93fcf3847d29f6c",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord file delivery retries; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_delivery_review_regressions.py",
+      "step": 3,
+      "status": "restored",
+      "inherited_sha256": "bc0ddcfe244eeee48507dd6a5a16b333f18b421415b3fc1f1f1f856b340ae018",
+      "selector": "tests/test_desktop_step8_review_delivery.py",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_review_delivery.py"
+        ],
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded."
+      },
+      "mode": "frozen-adapter"
+    },
+    {
+      "path": "tests/test_delivery_status.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "d1dbc5f6cf47aedaed3c4005291531219b9fdb889429ac289c2081a81c7c3db2",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord delivery and typing status; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_delivery_turn_observation.py",
+      "step": 3,
+      "status": "restored",
+      "mode": "direct-original",
+      "selector": "tests/test_delivery_turn_observation.py",
+      "adaptations": [],
+      "qualification_group": "phase2-step3-restored-corpus",
+      "inherited_sha256": "14fd1148b43bb330206566ec926930b3e6e96671bab52399b4ff746e376bfbda",
+      "limitation": null
+    },
+    {
+      "path": "tests/test_execute_api.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "504900a3e35a622f0983db1acbf89d11357fcf0bccbbd60739498a1eb9bc95c8",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: HTTP execute API routes and identities; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_executor_timeout_durability.py",
+      "step": 4,
+      "status": "deferred",
+      "inherited_sha256": "7d1ad9553f761f999f910ed7843aba30312f4cc490b22ad95d03a59245de10c2",
+      "blocker": "Actual RequestService worker and ledger admit the original timeout cases, but four unchanged wait_for_agents/future_dynamic_tool registered/unregistered variants are unavailable in the real executor capability route. Retention rejects unavailable tool output before WI3 settlement. No fabricated readiness; two original cases pass, whole suite deferred pending capability/output-settlement design. maintenance/step8-review-timeout-candidates.json."
+    },
+    {
+      "path": "tests/test_intake_pipeline.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "4468540aeb50a719a15b70f8c4d9b9e38ef69f13d82220c5c3e1667f2970d386",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord message intake pipeline; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_native_channel_ops.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "1b423e5691516937e288395633547d8ac907c0732408af12f4c1b7233799fe15",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord channel operations; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_pr341_b10_channel_consistency.py",
+      "step": 2,
+      "status": "restored",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_conversations_corpus.py",
+      "adaptations": [
+        {
+          "line": 13,
+          "before_sha256": "3908a9d63775bff0cfe25c0d26ed100173600fd22fe4b0ae317f1543430d7d02",
+          "after_source": "from tests.desktop_adapters.step8_conversations import desktop_message as message",
+          "reason": "Rebind original helper import only to authenticated temporary admitted-message factory. Preserve every consistency probe, real SQLite transaction/trigger, independent reader, assertion and parameter/decorator expression."
+        }
+      ],
+      "qualification_group": "phase2-step2-restored-corpus",
+      "inherited_sha256": "248a1ccf33f4723e0b5f453fefb65a7364ad8fd5b17dde34c96c49313ffc26d2",
+      "limitation": "Real retained ChannelLogger/FullTextIndex component qualification, not native or live transcript wiring."
+    },
+    {
+      "path": "tests/test_pr341_b7_channel_reconciliation.py",
+      "step": 2,
+      "status": "restored",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_conversations_corpus.py",
+      "adaptations": [
+        {
+          "line": 10,
+          "before_sha256": "3908a9d63775bff0cfe25c0d26ed100173600fd22fe4b0ae317f1543430d7d02",
+          "after_source": "from tests.desktop_adapters.step8_conversations import desktop_message as message",
+          "reason": "Rebind only obsolete cross-suite message helper import. Real indexer, rollback/error, reader concurrency, deadline, malformed-source and durable cursor operations unchanged."
+        }
+      ],
+      "qualification_group": "phase2-step2-restored-corpus",
+      "inherited_sha256": "2e1bdd838c6204107963186f2f28dabc40868ffef0911305d45980d38ed109af",
+      "limitation": "Real retained ChannelLogger/FullTextIndex component qualification, not native or live transcript wiring."
+    },
+    {
+      "path": "tests/test_process_zero_offset.py",
+      "step": 3,
+      "status": "restored",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_runner_corpus.py",
+      "adaptations": [
+        "One exact pinned helper import; every assertion/decorator/parameter retained.",
+        "Frozen tail helper independently source-hash pinned; executor import and six exact owner-label constants rebound to authentic temporary owner UUID. Every helper assertion preserved and complete reverse AST replay required.",
+        "Real registry, local/remote supervisors, spool/FIFO, capture, delivery and cursor paging. Unchanged _remote_job substitutes local subprocess transport only. No authorization/settlement bypass."
+      ],
+      "qualification_group": "phase2-step3-restored-corpus",
+      "inherited_sha256": "b7db1aadbd1ad1fa965f13609906808ca282089f7b3acf87f6dfcc67dcd8b052",
+      "limitation": null
+    },
+    {
+      "path": "tests/test_resume_admission.py",
+      "step": 4,
+      "status": "restored",
+      "inherited_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_review_resume_exact.py"
+        ],
+        "reason": "All185 original assertion ASTs identical and complete reverse replay; actual canonical owner, RequestService controls and real terminal calibration correction; only exact8 removed Discord intake/denial cases retired.",
+        "case_retirements": [
+          {
+            "case": "TestExplicitResume.test_fetch_permission_failure_is_truthful_and_keeps_turn_resumable",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord fetch-permission denial surface: injects Discord Forbidden 50013 and asserts Discord denial prose. Desktop transcript lookup has no Discord permission layer; retained fetch-outage cases preserve the checkpoint and calibration lease.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestExplicitResume.test_wrong_author_gets_notice",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord multi-author resume intake and wrong-author notice. Desktop has one authenticated canonical profile owner; authentication and original-author provenance rejection remain supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_foreign_mention_is_not_stripped",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord foreign-mention stripping at resume intake; desktop bare resume and non-trigger pass-through remain supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_leading_mention_resume_triggers",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord leading bot-mention resume intake; desktop bare resume remains supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_mention_plus_sentence_is_not_a_command",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord mention-plus-sentence command intake; desktop bare resume and non-trigger pass-through remain supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_mention_recognized_trigger_still_fails_closed",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord mention-recognized resume intake; desktop bare resume rejection and fail-closed checkpoint admission remain supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_nickname_mention_form_triggers",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord nickname bot-mention resume intake; desktop bare resume remains supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          },
+          {
+            "case": "TestMentionAnchoredResumeTrigger.test_trailing_mention_is_not_a_command",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed Discord trailing-mention command intake; desktop bare resume and non-trigger pass-through remain supported and tested.",
+            "source_path": "tests/test_resume_admission.py",
+            "source_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce"
+          }
+        ]
+      }
+    },
+    {
+      "path": "tests/test_search_history_source_priority.py",
+      "step": 2,
+      "status": "restored",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_conversations_corpus.py",
+      "adaptations": [
+        {
+          "line": 255,
+          "before_sha256": "6742991fc737d2e366b1008759c129cdecb8d574cc777a7bb0f119117460c0a7",
+          "after_source": "message = desktop_message(\"12345\", f\"Fresh marker {marker}\", conversation_id=\"scratch\", timestamp=datetime.now(UTC).timestamp())",
+          "reason": "Only fresh-marker message construction becomes an admitted conversation record with real temporary owner. Preserve marker, id, timestamp and attachments semantics; export original history pytest fixture without rewriting its signature or body."
+        }
+      ],
+      "qualification_group": "phase2-step2-restored-corpus",
+      "inherited_sha256": "f017dfb328b626e378ed045123c89b439f1f9c9db8def4f113f1ae5a01ed2bb5",
+      "limitation": "Whole retained SessionManager, ChannelLogger, FullTextIndex and KnowledgeTools component corpus passes. Desktop request-bound TranscriptSearch intentionally retrieves committed visible current transcript rather than compactable session/archive/multi-user search; this candidate does not claim equivalent UI/model service behavior."
+    },
+    {
+      "path": "tests/test_session_search.py",
+      "step": 2,
+      "status": "restored",
+      "inherited_sha256": "38aa1cce39048336ef77697cade3d9d6f964e294fa8b9daed24a50600ab0c292",
+      "selector": "tests/test_desktop_step8_review_search_attachments_corpus.py",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_review_search_attachments_corpus.py"
+        ],
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
+        "case_retirements": [
+          {
+            "case": "TestSessionSearchAPI.test_search_with_user_filter",
+            "reviewer": "Claude, review of #35",
+            "reason": "Removed API identity surface: REST selects Bob from Alice/Bob messages; desktop one canonical installation owner, no multi-user participant/API identity metadata; fabricating seed identities as authority does not preserve meaning; copied engine user-provenance cases remain restored.",
+            "source_path": "tests/test_session_search.py",
+            "source_sha256": "38aa1cce39048336ef77697cade3d9d6f964e294fa8b9daed24a50600ab0c292"
+          }
+        ]
+      },
+      "mode": "frozen-adapter"
+    },
+    {
+      "path": "tests/test_sessions_review_regressions.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "68cb855877714567c839ac983b2294ae1121ee48e94e504a7e597605187f4535",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord/web session identities and allowlists; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_stop_command.py",
+      "step": 4,
+      "status": "retired",
+      "inherited_sha256": "2226fc01b8a881201f7d2e842aa22ee828abfc3ed9fb4d872253154005467e46",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord slash-command stop intake; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_tool_loop_helpers.py",
+      "step": 3,
+      "status": "restored",
+      "inherited_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782",
+      "selector": "tests/test_desktop_step8_review_helpers.py",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_review_helpers.py"
+        ],
+        "reason": "Complete retained frozen corpus through exact Desktop fixture adapters; original bytes/assertions/signatures/decorators/parameters remain pinned with complete AST reverse replay. Only explicitly recorded #35 removed-surface case/branch dispositions are excluded.",
+        "case_retirements": [
+          {
+            "case": "TestBuildRequestPreamble.test_bot_message_block",
+            "reviewer": "Claude, review of #35",
+            "reason": "Multi-bot origin handling (from_another_bot=True) is removed by Desktop; Claude, review of #35 retires only bot-origin cases.",
+            "source_path": "tests/test_tool_loop_helpers.py",
+            "source_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782"
+          },
+          {
+            "case": "TestBuildRequestPreamble.test_no_history_bot_turn_keeps_bot_origin_note",
+            "reviewer": "Claude, review of #35",
+            "reason": "Multi-bot origin handling (from_another_bot=True) is removed by Desktop; Claude, review of #35 retires only bot-origin cases.",
+            "source_path": "tests/test_tool_loop_helpers.py",
+            "source_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782"
+          }
+        ],
+        "branch_retirements": [
+          {
+            "case": "TestBehaviorPreservedByRefactor.test_all_combinations_match_reference",
+            "reviewer": "Claude, review of #35",
+            "reason": "Multi-bot origin handling (from_another_bot=True) is removed by Desktop; Claude, review of #35 retires only bot-origin cases.",
+            "source_path": "tests/test_tool_loop_helpers.py",
+            "source_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782",
+            "line": 170,
+            "column": 36,
+            "node_sha256": "dca8f82ad2c13093e18831c63d876733f70de16f7f9f34083e01bc131bb8218e",
+            "before_source": "(True, False)",
+            "after_source": "(False,)"
+          }
+        ]
+      },
+      "mode": "frozen-adapter"
+    },
+    {
+      "path": "tests/test_turn_durability_heartbeat.py",
+      "step": 3,
+      "status": "restored",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_heartbeat_corpus.py",
+      "adaptations": [
+        "Exactly two expression AST substitutions: line 45 helper enabled admission and line 155 closed-store refusal replace obsolete TurnDurability.admit call with request_admit, retaining store argument, FakeMsg transport content, prompt/tools/session arguments. No assertions, signatures, decorators, parameters or case bodies otherwise change.",
+        "Authentic temporary_owner provisions private ProfilePaths, OwnerAuthority and PermissionManager for actual non-root peer UID; the original make_store object is passed unchanged as engine.deps.turn_store, including TTL and deliberate store-death cases. No replacement fake store.",
+        "Real JournalStore, PublicationEventJournal, ConversationStore, TranscriptStore and DurableDelivery back RequestService.submit. Genuine after_commit, _drain and _execute authenticate owner, allocate persisted request, transition queued to running, fetch sealed EngineRequest and bind actual task.",
+        "AdmissionObservation is a lower-operation engine seam, not a replacement permission gate. It invokes unchanged EngineServices._admit_turn, hence real _assert_request followed by real RequestService.admit_turn, which alone obtains store.admit_turn_sync lease, writes ledger_generation, constructs handle and starts production heartbeat.",
+        "Observation task waits on a fixture Event while original parent cases inspect returned genuine handle and heartbeat task. Adapter neither settles before assertions nor changes production timers. Original _fast_beats fixture and original clock/heartbeat instrumentation remain exactly inherited.",
+        "Closed original store follows actual request service availability check: real handle.enabled False, blocked admission_error, no heartbeat task and no ledger_generation, with authentic submitted/running request preserved until teardown.",
+        "Teardown stops production beat after assertions, cancels actual request worker and retrieves terminal-projection errors expected when original cases destroyed their store. No fake repair or ledger replacement is performed. Journals and original store are closed, temporary profile released.",
+        "frozen_source checks archive digest, unique regular member and retained byte equality. Literal source SHA, full CORPUS_SELECTIONS null and exclusions {}, exact expression hunk hashes, entire assertion/signature/decorator/parameter corpus equality and independent full AST reverse replay gate compile/exec/register_module/load(globals())."
+      ],
+      "qualification_group": "phase2-step3-restored-corpus",
+      "inherited_sha256": "e7595d33ed5660a9055e372a36bc98606df1b61f5c6f8aa8153cb727f440a04c",
+      "transformations": [
+        {
+          "symbol": "admit",
+          "line": 45,
+          "column": 19,
+          "kind": "expression",
+          "before_sha256": "30ffb29be8a68a455b7162d5d0360bb153a23b8495217c1b20fc6ae40078f39b",
+          "after_sha256": "1581b2a3a2b562034a0b0a8d419c847fc5de0e472f68ab2f9451e84aeda98cab",
+          "after_source": "request_admit(store, message=FakeMsg(), system_prompt='s', tools=[], session_snapshot=None)"
+        },
+        {
+          "symbol": "test_wired_store_that_died_refuses_admission",
+          "line": 155,
+          "column": 19,
+          "kind": "expression",
+          "before_sha256": "30ffb29be8a68a455b7162d5d0360bb153a23b8495217c1b20fc6ae40078f39b",
+          "after_sha256": "1581b2a3a2b562034a0b0a8d419c847fc5de0e472f68ab2f9451e84aeda98cab",
+          "after_source": "request_admit(store, message=FakeMsg(), system_prompt='s', tools=[], session_snapshot=None)"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_typing_resilience.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "af3ca9c9d79e3996938dd257368d602746481e3967b3401e2006b16266d5d5ba",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: Discord typing and presence; removed by Desktop design (group A, review of #35)."
+      }
+    },
+    {
+      "path": "tests/test_web_chat.py",
+      "step": 3,
+      "status": "retired",
+      "inherited_sha256": "64df3b00cc5a23bdc75238190c6e976bb0ce7278f81d230f299de8d8edd3f188",
+      "retirement": {
+        "reviewer": "Claude, review of #35",
+        "reason": "Retired: HTTP web chat routes and sessions; removed by Desktop design (group A, review of #35)."
+      }
+    }
+  ],
+  "qualification": "First full frozen gate failed; corrected source and alternative evidence require explicitly authorized second full gate. No failed evidence erased."
+}

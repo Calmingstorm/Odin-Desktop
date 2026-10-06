@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def main(argv=None) -> int:
+def main(argv=None, *, deduplicate=True) -> int:
     plan = json.loads((ROOT / "maintenance/qualification-plan.json").read_text())
     groups = plan["groups"]
     if not groups:
@@ -23,6 +23,11 @@ def main(argv=None) -> int:
     collect_only = arguments_input == ["--collect-only"]
     if arguments_input and not collect_only:
         raise SystemExit("Only --collect-only is supported")
+    (ROOT / ".test-state").mkdir(mode=0o700, exist_ok=True)
+    state_directory = tempfile.TemporaryDirectory(
+        prefix="qualification-once-", dir=ROOT / ".test-state")
+    once_state = Path(state_directory.name) / "seen.json"
+    once_state.write_text(json.dumps({"seen": [], "groups": []}) + "\n")
     for index, group in enumerate(groups):
         files = group["files"]
         if not files or not group.get("reason"):
@@ -40,6 +45,9 @@ def main(argv=None) -> int:
         arguments.append(f"--junitxml={xml}")
         if collect_only:
             arguments.extend(["--collect-only", "-p", "tests.test_desktop_qualification"])
+        if deduplicate:
+            arguments.extend(["-p", "scripts.qualification_once",
+                              f"--qualification-once-state={once_state}"])
         print(f"Qualification group {index + 1}/{len(groups)}: {group['name']}", flush=True)
         result = subprocess.call(
             [sys.executable, str(ROOT / "scripts/run-phase1-tests.py"), *arguments],
@@ -60,6 +68,9 @@ def main(argv=None) -> int:
             file.write("\n")
         Path(file.name).replace(target)
     output = {"groups": len(groups), "failed_groups": failures}
+    if deduplicate:
+        (ROOT / ".test-state/qualification-once-result.json").write_text(once_state.read_text())
+    state_directory.cleanup()
     (ROOT / ".test-state/qualification-result.json").write_text(
         json.dumps(output, indent=2) + "\n"
     )
