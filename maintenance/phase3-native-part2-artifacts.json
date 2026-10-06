@@ -1,0 +1,14 @@
+{
+  "schema": "artifact-manifest-v1",
+  "artifact_root": "/mnt/storage/odin-desktop-evidence/lane7-p33-native-20261006",
+  "artifacts": [
+    {"path": "cinnamon/source-real-result.json", "sha256": "5420d4976b84a38f18bbcdef6626c5395ff130d12444ac390c8d969a03b7875e"},
+    {"path": "cinnamon/source-notify-result.json", "sha256": "d13d0d2186788f861870579253b98a2188e85093703c37702932902ad505256d"},
+    {"path": "cinnamon/package-start.png", "sha256": "1b383e2d2abac9bb8dfd5c070625a1c8cd037211cd638728b7560154a25f37c0"},
+    {"path": "cinnamon/tray-menu.png", "sha256": "63b1b0995edc3f2e5cab68eca60dfb6c3a82c5ddd9af6cea03ad17d6ec9128ee"},
+    {"path": "cinnamon/autostart-native-enable.json", "sha256": "3c13a141021981b3a8e8ac24e925b7a3eb60a1d41fa3131bcdeda4e515ef7b3f"},
+    {"path": "cinnamon/login-processes.log", "sha256": "f834f8cd37b89f60a8bf3e70999891b00b5a8c65056871bf57404217f8d5e3ba"},
+    {"path": "cinnamon/upgrade-state-preserved.log", "sha256": "32e4a6698f8327482c64dc2027a127dc4fb62eb49b10dfd805c62b4863845ba8"},
+    {"path": "cinnamon/sleep-wake.log", "sha256": "2d6f8e9f5b938e40c2e6906bcf74d4dfae37a86041ad4f592cce51a7fcde6f94"}
+  ]
+}
