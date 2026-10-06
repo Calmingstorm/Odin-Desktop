@@ -41,10 +41,22 @@ Odin or the desktop session. **Always run the suite in an isolated PID namespace
 
 ```bash
 .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_isolated_runner.py
-# Reviewed pass-now selection, then the full classified qualification:
-.venv/bin/python scripts/run-phase1-tests.py
+# CI: additional Desktop files, then each classified plan group exactly once:
+.venv/bin/python scripts/run-phase1-tests.py --additional-desktop-boundaries
 .venv/bin/python scripts/run-qualified-tests.py
 ```
+
+The additional-only mode validates the entire reviewed plan before selecting
+extras and keeps a separate JUnit receipt. The no-argument launcher still runs
+the complete reviewed default selection for local use; do not combine it with
+classified qualification in one job. Phase 2 checker tests and the mocked lab
+orchestration tests run in the additional Desktop step, not again in dedicated
+steps. The fixed `test_lab_*.py` fixtures stay behind their dedicated PID wrapper
+and bounded fixture user namespaces, as required by current main.
+When reviewed plan groups overlap, qualification assigns an exact collected
+node ID to its first group, after all normal selectors and exclusions. A fresh
+per-invocation ownership receipt records these duplicates; no selector is
+deleted from the plan and no failed test is retried by a later group.
 
 - Never point a test at `/opt/odin`, live config or data, or a real workspace.
 - The launchers first check permission for the restricted, root-owned
