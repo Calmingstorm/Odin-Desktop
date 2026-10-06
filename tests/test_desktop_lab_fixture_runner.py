@@ -12,7 +12,6 @@ runner = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(runner)
 
 EXPECTED_TESTS = [
-    "tests/test_desktop_qualification_lab.py",
     "tests/test_lab_common.py",
     "tests/test_lab_cinnamon.py",
     "tests/test_lab_gnome.py",
@@ -89,3 +88,8 @@ def test_collect_only_from_command_line(fake, monkeypatch):
     with pytest.raises(ReplacedProcessError):
         runner.main()
     assert fake[0][0][1][-2:] == ["-rs", "--collect-only"]
+
+
+def test_fixed_fixtures_are_disjoint_from_desktop_extras():
+    assert len(runner.TESTS) == len(set(runner.TESTS))
+    assert not any(Path(path).name.startswith("test_desktop_") for path in runner.TESTS)

@@ -575,6 +575,15 @@ def _check(root: Path) -> tuple[list[str], dict]:
                            "by_step": by_step}
         if mapping["counts"] != expected_counts:
             errors.append("mapping: stale recomputed counts")
+    case_manifest = root / "maintenance/phase2-step8-part5-cases.json"
+    if case_manifest.exists() or mapping.get("case_dispositions"):
+        try:
+            from scripts.maintenance import phase2_part5
+        except ModuleNotFoundError:
+            import phase2_part5
+        case_errors, case_report = phase2_part5.validate(root)
+        errors.extend(f"part5 cases: {error}" for error in case_errors)
+        report["part5_case_dispositions"] = case_report
     return errors, report
 
 

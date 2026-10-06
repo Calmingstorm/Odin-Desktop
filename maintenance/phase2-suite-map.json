@@ -1,5 +1,23 @@
 {
   "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "case_dispositions": {
+    "tests/test_campaign_health_coverage.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_campaign_reasoning_contracts.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_docs_campaign_contracts.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_fd_health.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_hosts_web_edges.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_image_default_update_paths.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_internals_bindings_contract.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_local_workspace.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_main_exit_codes.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_onboarding_durable_binding_restart.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_restart.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_schedule_report_format_parity.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_self_update_campaign_rollback.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_ui_effort_mirror.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_web_api_self_update.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_webauth_campaign_regressions.py": "maintenance/phase2-step8-part5-cases.json"
+  },
   "entries": [
     {
       "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pins the complete ordered 231-route inventory, distinct closure ownership and public patch/import seams, including skills, MCP, computer, agents and schedules. Adapt the retained named-command/domain inventory and precedence/identity assertions together; exact obsolete HTTP/social route spellings need reviewed transport disposition, not a recreated management listener. No inbound webhook trigger is exercised.",
