@@ -14,6 +14,7 @@ DOMAIN_SCHEMA = {
     "desktop_messages": {"position", "message_id", "conversation_id", "role", "text",
                          "created_at", "record"},
     "desktop_inheritance": {"conversation_id", "ordinal", "record"},
+    "desktop_request_context": {"request_id", "conversation_id", "context_position"},
 }
 
 
@@ -87,6 +88,11 @@ class ConversationStore:
                 PRIMARY KEY(conversation_id, ordinal))""")
             db.execute("CREATE INDEX IF NOT EXISTS desktop_messages_conversation "
                        "ON desktop_messages(conversation_id, position)")
+            # Private execution lineage, never public message metadata.
+            db.execute("""CREATE TABLE IF NOT EXISTS desktop_request_context (
+                request_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL
+                    REFERENCES desktop_conversations(id) ON DELETE CASCADE,
+                context_position INTEGER NOT NULL)""")
 
     def _row(self, id: str):
         require_string(id, "id")
@@ -216,7 +222,6 @@ class ConversationStore:
     def reset_context(self, id: str, expected_rev: int) -> dict:
         with domain_transaction(self.store) as db:
             record = self._revision(id, expected_rev)
-            self._idle(id)
             if self.transcript is None:
                 raise RuntimeError("Transcript service is not connected")
             notice = self.transcript.commit(

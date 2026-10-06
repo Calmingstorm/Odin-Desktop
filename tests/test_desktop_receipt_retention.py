@@ -12,10 +12,9 @@ from tests.test_desktop_core_lifecycle import connect, profile, receive, request
 # Both conversation/search and management reads are now served. Keep only methods
 # unavailable in the composed core, not either branch's pre-composition list.
 UNAVAILABLE = (
-    "work.list", "notifications.ack",
-    "submission.send", "control.stop", "control.steer",
+    "work.list", "control.stop", "control.steer",
     "unknown.method",
-    "artifacts.read", "reports.page", "tool.detail", "tool.output",
+    "reports.page",
     "skills.list", "skills.get", "skills.config.get", "mcp.list", "mcp.status", "mcp.tools",
     "schedules.list", "schedules.history", "schedules.validate_cron", "computer.status",
 )
