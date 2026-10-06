@@ -242,6 +242,11 @@ class EngineServices:
             raise RuntimeError("Desktop engine producers did not fully quiesce") from failures[0]
         self.producers_quiesced = True
 
+        # Optional background telemetry/quota owners belong to this runtime,
+        # not to the removed transport. Stop them before closing consumers.
+        await release(getattr(d.runtime_context, "codex_quota_check", None), "close")
+        await release(getattr(d.runtime_context, "usage_rollup", None), "stop")
+
         computer = getattr(getattr(d, "native_tools", None), "owners", {}).get("computer")
         # Retain completed rows even if cancellation interrupts a later barrier.
         self._execution_cleanup_results = {}
@@ -256,6 +261,9 @@ class EngineServices:
             raise RuntimeError("Desktop engine cleanup did not fully complete") from failures[0]
         await release(getattr(d.tool_executor, "ssh_pool", None), "close_all")
         await release(d.browser_manager, "shutdown")
+        media = getattr(getattr(d, "native_tools", None), "owners", {}).get("media")
+        selector = getattr(media, "image_selector", None)
+        await release(getattr(selector, "openai", None), "close")
         try:
             close = getattr(d.llm_gateway, "close", None)
             if callable(close):

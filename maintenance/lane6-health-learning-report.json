@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "branch": "lane6/step8-part4-health",
+  "adapter": "tests/desktop_adapters/lane6_health_learning.py",
+  "selector": "tests/test_desktop_lane6_health_learning.py",
+  "provenance": {
+    "loader": "scripts.maintenance.fixture_corpus.frozen_source",
+    "corpus": "scripts.maintenance.fixture_corpus.corpus",
+    "source_bytes": "Unchanged retained files, independently matched to immutable archive",
+    "assertions_signatures_decorators_parameters": "Exact full AST corpus equality before exporting or removing retired cases",
+    "setup_evidence": "lane6_health_learning.EVIDENCE[path].setup_edits records line and before/after AST hashes; EVIDENCE[path].exact_corpus records the complete inherited corpus",
+    "case_export": "scripts.maintenance.fixture_corpus.register_module, prefix=original suite stem, full_class_name=True"
+  },
+  "counts": {"restored": 62, "retired": 5, "deferred": 0, "proposed": 0},
+  "suites": [
+    {
+      "path": "tests/test_chat_loop_recovery.py",
+      "source_sha256": "13f145375ade487836f0e497ec020f9f5ef713949abbd0d4590c49a1b071e6d7",
+      "corpus_sha256": "8e2dcaaa84c808bf0156d84401cc0f9c60d2e7896015309011347014f45d07d6",
+      "whole_suite": true,
+      "baseline_cases": 48,
+      "restored": 46,
+      "retired": 2,
+      "deferred": 0,
+      "restored_cases": [
+        "test_non_durable_terminal_chat_releases_workload_scope",
+        "TestChatRescue.test_overflow_rescues_history_and_retries_same_identity",
+        "TestChatRescue.test_non_overflow_error_never_enters_rescue",
+        "TestChatRescue.test_failed_retry_publishes_no_latch",
+        "TestChatRescue.test_durability_write_failure_blocks_the_retry",
+        "TestChatRescue.test_resumed_generation_continues_at_next_rung_with_facts",
+        "TestLoopRescue.test_loop_overflow_rescues_and_latches_on_acceptance",
+        "TestLoopFrozenPreflight.test_preflight_uses_captured_axes_after_in_place_mutation",
+        "TestEvidenceSerialization.test_trajectory_serializes_recoveries_only_when_present",
+        "TestEvidenceSerialization.test_codec_rejects_malformed_recovery_fields",
+        "TestLoopSoftCompaction.test_soft_pass_fires_past_model_threshold",
+        "TestLoopSoftCompaction.test_loop_soft_pass_preserves_tool_result_shaped_prompt",
+        "TestLoopSoftCompaction.test_chat_soft_pass_preserves_tool_result_shaped_request",
+        "TestLoopSoftCompaction.test_latch_pass_compacts_and_records",
+        "TestChatProtectedEnvelopeOverflow.test_overflow_that_cannot_fit_protected_envelope_fails_honestly",
+        "TestChatLadderExhaustion.test_exhausted_ladder_finalizes_terminally",
+        "TestNonFatalCompactionGuards.test_chat_compress_failure_is_non_fatal",
+        "TestNonFatalCompactionGuards.test_loop_compaction_failure_is_non_fatal",
+        "TestNonFatalCompactionGuards.test_v2_payload_normalizes_recovery_fields",
+        "TestLegacyV3RecoveryIdentity.test_exact_four_key_v3_identity_normalizes",
+        "TestResumeIdentityReconstruction.test_facts_win_over_live_provider_switch",
+        "TestResumeIdentityReconstruction.test_compatible_facts_resume_with_compatible_client",
+        "TestResumeIdentityReconstruction.test_resumed_acceptance_publishes_latch_and_observer_evidence",
+        "TestResumeIdentityReconstruction.test_missing_frozen_provider_ends_honestly",
+        "TestResumeIdentityReconstruction.test_fresh_generation_reads_only_the_threaded_config",
+        "TestResumeIdentityReconstruction.test_rescue_freezes_budget_and_attempt_provenance",
+        "TestDurableEvidencePersistence.test_codec_roundtrip_preserves_context_recoveries",
+        "TestDurableEvidencePersistence.test_finish_loop_copies_recoveries_onto_saved_trajectory",
+        "TestDynamicChatEnvelope.test_pre_tool_control_directive_extends_protected_envelope",
+        "TestChatLatchEnforcement.test_known_refused_size_is_compacted_before_send",
+        "TestChatLatchEnforcement.test_chat_latch_refusal_branch_is_covered_directly",
+        "TestChatLatchEnforcement.test_chat_latch_enforced_without_compressor_at_iteration_zero",
+        "TestChatLatchEnforcement.test_context_policy_failure_refuses_only_when_latched",
+        "TestChatLatchEnforcement.test_already_fitting_latch_is_noop",
+        "TestChatLatchEnforcement.test_latch_compressor_failure_refuses_request",
+        "TestChatLatchEnforcement.test_oversized_protected_envelope_fails_before_send",
+        "TestChatLatchEnforcement.test_loop_latch_enforced_with_soft_compression_disabled",
+        "TestDeadlineExpiryDuringBookkeeping.test_chat_refuses_attempt_after_expiry_in_durability_write",
+        "TestDeadlineExpiryDuringBookkeeping.test_loop_refuses_attempt_after_expiry_in_compression",
+        "TestEntryPointCensus.test_run_resumed_continues_frozen_generation",
+        "TestEntryPointCensus.test_autonomous_entry_rescues_and_saves_evidence",
+        "TestLoopPolicyCensus.test_recovery_dimensions_pinned_on_both_policies",
+        "TestLoopCancellationPins.test_cancelled_loop_refuses_llm_attempt",
+        "TestLoopCancellationPins.test_cancelled_autonomous_invocation_refuses_first_generation",
+        "TestLoopCancellationPins.test_cancel_after_generation_blocks_tool_execution",
+        "TestLoopCancellationPins.test_cancel_after_accepted_response_prevents_post_acceptance_work"
+      ],
+      "admission": "Every inherited case except the two case-level retirements below; CORPUS_SELECTIONS has None for whole-suite selection",
+      "case_selector_rule": "tests/test_desktop_lane6_health_learning.py::Test_test_chat_loop_recovery_<original class>::<original method>; top-level case test_test_chat_loop_recovery_non_durable_terminal_chat_releases_workload_scope"
+    },
+    {
+      "path": "tests/test_learning_runtime_switch.py",
+      "source_sha256": "7b6e917826b8be3d19864a98f61dc5adcf295866324e60806312a4e9120e243d",
+      "corpus_sha256": "641c92689f805a6b06ce336846edf0fd2d7fa943e5ffdfb5668c56c7f0c6f570",
+      "whole_suite": true,
+      "baseline_cases": 14,
+      "restored": 13,
+      "retired": 1,
+      "deferred": 0,
+      "admission": "Every inherited case except the one case-level retirement below",
+      "restored_cases": [
+        "test_master_switch_blocks_operation_session_compaction_and_consolidation",
+        "test_disable_during_operation_generation_prevents_publication",
+        "test_disable_during_session_generation_prevents_publication",
+        "test_disable_during_operation_load_prevents_publication",
+        "test_disable_during_session_load_prevents_generation_and_publication",
+        "test_disable_then_reenable_during_generation_still_prevents_publication",
+        "test_prompt_switch_is_live_and_never_removes_persistent_memory",
+        "test_cached_prompt_refreshes_learned_only_across_runtime_flips",
+        "test_reflector_provider_tracks_replaced_config_object",
+        "test_off_at_build_reenable_preserves_insertion_point_and_cross_builder_refresh",
+        "test_loop_master_switch_precedes_subswitch_and_gate",
+        "test_operation_dispatch_switch_resumes_without_restart",
+        "test_every_reused_prompt_consumer_applies_call_time_learned_refresh"
+      ],
+      "case_selector_rule": "tests/test_desktop_lane6_health_learning.py::test_test_learning_runtime_switch_<original test suffix>"
+    },
+    {
+      "path": "tests/test_learning_transport_switch.py",
+      "source_sha256": "d0c73c09f81d9034765306690f8650c35b67478aec58ee5020915e0d2c0e7298",
+      "corpus_sha256": "47a918ab26a91ee4d8468d8b1e1c8616050d24d5ef369574e07f0ed135de6c6c",
+      "whole_suite": true,
+      "baseline_cases": 5,
+      "restored": 3,
+      "retired": 2,
+      "deferred": 0,
+      "restored_cases": [
+        "test_chat_physical_request_refreshes_cached_prompt_with_learning_off",
+        "test_autonomous_loop_physical_request_refreshes_prompt_with_learning_off",
+        "test_agent_physical_retry_reloads_learning_switch_each_attempt"
+      ],
+      "case_selector_rule": "tests/test_desktop_lane6_health_learning.py::test_test_learning_transport_switch_<original test suffix>"
+    }
+  ],
+  "retirements": [
+    {
+      "case": "tests/test_chat_loop_recovery.py::TestEntryPointCensus::test_full_discord_run_rescues_durably",
+      "reason": "Removed Discord bot intake and its durable Discord fixture. Retained recovery phases and admitted Desktop resume/autonomous entry contracts remain restored.",
+      "authority": "Claude, review of step 8 part 4"
+    },
+    {
+      "case": "tests/test_chat_loop_recovery.py::TestEntryPointCensus::test_nondurable_web_run_still_rescues",
+      "reason": "Removed Odin web UI nondurable chat entry. Desktop conversations use durable admitted requests.",
+      "authority": "Claude, review of step 8 part 4"
+    },
+    {
+      "case": "tests/test_learning_runtime_switch.py::test_config_api_flip_drives_real_prompt_with_persisted_memory",
+      "reason": "Removed Odin web UI HTTP config route and listener. Live learned-context prompt and persistent-memory switch contracts remain restored.",
+      "authority": "Claude, review of step 8 part 4"
+    },
+    {
+      "case": "tests/test_learning_transport_switch.py::test_web_physical_request_refreshes_after_provider_lock_wait",
+      "reason": "Removed Odin web UI physical chat entry and listener. Desktop and autonomous physical learned-context refresh contracts remain restored.",
+      "authority": "Claude, review of step 8 part 4"
+    },
+    {
+      "case": "tests/test_learning_transport_switch.py::test_legacy_checkpoint_resume_rebuilds_prompt_from_live_components",
+      "reason": "Removed Discord message fetching and Discord checkpoint-resume intake. Retained provider identity resume and learned-context cached prompt contracts remain restored.",
+      "authority": "Claude, review of step 8 part 4"
+    }
+  ],
+  "runtime_evidence": {
+    "composition": "build_engine_services",
+    "authority": "OwnerAuthority.authenticate_local with PermissionManager.set_request_owner",
+    "task_binding": "Real RequestService.background_execution around each async case task",
+    "request": "Sealed durable EngineRequest, canonical owner substitution in setup only",
+    "runner": "Real engine runner for direct phase cases; census ToolLoopRunner has real request assertions/admission and real tool/native/permissions/audit/loop services",
+    "prompt_memory": "Real ToolExecutor persistent-memory filesystem reader, real PromptBuilder and ConversationReflector",
+    "agent_transport": "Real AgentTaskTools callback with real RequestService child admission and WorkService ownership registration; inert manager launch captures callback without launching work"
+  },
+  "setup_adaptations": [
+    "Canonical owner replaces inert u/u1 setup IDs; assertions are not visited",
+    "Obsolete Discord Config keyword and channel_config dependency removed",
+    "Autonomous invocation uses sealed admitted EngineRequest rather than channel-shaped object",
+    "Cancelled-loop setup lambda accepts new admitted_message keyword",
+    "Provider fake close wired to drain_and_close lifecycle seam",
+    "Removed web imports and Discord resume harness imports are not executed",
+    "Async wrappers preserve original inspect signatures/decorators through functools.wraps and bind real task ownership"
+  ],
+  "data_substitutions": [],
+  "substitution_approval_required": false,
+  "production_changes": [],
+  "validation": {
+    "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_health_learning.py -x",
+    "result": "65 passed in 56.91s",
+    "restored_inherited_cases": 62,
+    "extra_frozen_corpus_checks": 3,
+    "pid_namespace": true,
+    "active_desktop": false,
+    "live_install": false
+  }
+}

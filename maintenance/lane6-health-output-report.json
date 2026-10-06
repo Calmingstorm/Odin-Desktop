@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "batch": "lane6_health_output",
+  "branch": "lane6/step8-part4-health",
+  "review": "Claude, review of step 8 part 4",
+  "adapter": "tests/desktop_adapters/lane6_health_output.py",
+  "selector": "tests/test_desktop_lane6_health_output.py",
+  "counts": {"source_cases": 117, "restored": 113, "retired": 3, "deferred": 0, "proposed": 1},
+  "validation": {
+    "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_health_output.py --tb=short",
+    "result": "117 passed in 43.61s",
+    "exit_code": 0,
+    "expanded_inherited_cases": 115,
+    "adapter_integrity_cases": 2,
+    "isolation": "PID/mount namespace and scrubbed environment; no live /opt or active desktop"
+  },
+  "production_changes": [],
+  "harmless_data_substitutions": [],
+  "setup_approval_requested": [
+    "Canonical owner/conversation UUIDs replace legacy reader/room setup labels. ScopeView projects only reads back to these labels to preserve assertion AST; actual runtime ContextVar, dispatch, permission and retention remain canonical.",
+    "Temporary 0700 workspace replaces the inherited default workspace helper.",
+    "Frozen allow-all Executor fixture becomes production ToolExecutor with authentic OwnerAuthority, PermissionManager and profile-local OutputStore. Virtual/native fixtures receive explicit readiness using the same production readiness extension seam as desktop.services._ReadyPolicy.",
+    "Async cases execute inside real RequestService.background_execution admitted task binding. functools.wraps retains test signatures and original decorators/parameters, with exact corpus checked before export.",
+    "Historical loop stub setup becomes a real authenticated executor while retaining frozen fake dispatch and assertions.",
+    "A myhost local ToolHost exists in the real HostRegistry before frozen handler side-effect mocks run. Missing badhost remains missing."
+  ],
+  "provenance": {
+    "archive_and_retained_bytes": "scripts.maintenance.fixture_corpus.frozen_source",
+    "exact_assertions_signatures_decorators_parameters": "scripts.maintenance.fixture_corpus.corpus compares original and adapted trees before any selection; selector independently verifies complete disjoint case accounting",
+    "setup_hunks": "tests.desktop_adapters.lane6_health_output.EVIDENCE[path].setup_edits contains exact source symbol/line/before_sha256 and replacement source; transformed assertion corpus is unchanged"
+  },
+  "suites": [
+    {
+      "path": "tests/test_output_streamer.py",
+      "source_sha256": "8c64bbb2a58a274f591399f888510616cfc6181cd9f75eb1d909560b3681440f",
+      "corpus_sha256": "a9c9ed5ddebf1c4043d4e7dea42f2a0cef506611e000ffff8327e1cfd8496036",
+      "whole_suite": true,
+      "restored": 102,
+      "restored_cases": [
+        "TestStreamChunk.test_basic_fields", "TestStreamChunk.test_finished_flag", "TestStreamChunk.test_to_dict", "TestStreamChunk.test_to_dict_finished", "TestStreamChunk.test_to_dict_all_keys", "TestStreamChunk.test_call_id_defaults_to_none_for_untracked_invocations", "TestStreamChunk.test_call_id_round_trips",
+        "TestActiveStream.test_default_values", "TestActiveStream.test_mutable_fields",
+        "TestStreamerInit.test_default_construction", "TestStreamerInit.test_custom_enabled_tools", "TestStreamerInit.test_custom_chunk_interval", "TestStreamerInit.test_chunk_interval_minimum", "TestStreamerInit.test_enabled_tools_returns_copy",
+        "TestIsEnabled.test_enabled_tool", "TestIsEnabled.test_disabled_tool", "TestIsEnabled.test_empty_enabled_set", "TestIsEnabled.test_none_enabled_set",
+        "TestListeners.test_add_listener", "TestListeners.test_add_listener_no_duplicates", "TestListeners.test_remove_listener", "TestListeners.test_remove_nonexistent_listener", "TestListeners.test_emit_calls_listeners", "TestListeners.test_emit_ignores_listener_errors", "TestListeners.test_emit_no_listeners",
+        "TestCreateCallback.test_returns_three_tuple", "TestCreateCallback.test_active_stream_registered", "TestCreateCallback.test_finish_removes_stream", "TestCreateCallback.test_on_output_buffers_text", "TestCreateCallback.test_on_output_emits_after_interval", "TestCreateCallback.test_finish_flushes_buffer", "TestCreateCallback.test_finish_empty_buffer", "TestCreateCallback.test_total_chars_tracked", "TestCreateCallback.test_max_chunk_chars_truncation", "TestCreateCallback.test_channel_id_passed_through", "TestCreateCallback.test_sequence_increments",
+        "TestGetActiveStreams.test_empty", "TestGetActiveStreams.test_with_active_stream", "TestGetActiveStreams.test_after_finish_stream_removed", "TestGetActiveStreams.test_multiple_streams",
+        "TestRunLocalCommandStreaming.test_no_callback_returns_normally", "TestRunLocalCommandStreaming.test_callback_receives_lines", "TestRunLocalCommandStreaming.test_callback_output_matches_return", "TestRunLocalCommandStreaming.test_callback_with_stderr", "TestRunLocalCommandStreaming.test_callback_with_failing_command", "TestRunLocalCommandStreaming.test_callback_timeout", "TestRunLocalCommandStreaming.test_callback_exception_fails_with_owned_child_cleanup", "TestRunLocalCommandStreaming.test_callback_multiline",
+        "TestRunSSHCommandStreaming.test_on_output_parameter_accepted", "TestRunSSHCommandStreaming.test_without_on_output_uses_communicate",
+        "TestExecCommandStreaming.test_local_passes_on_output", "TestExecCommandStreaming.test_ssh_passes_on_output", "TestExecCommandStreaming.test_no_on_output_default",
+        "TestHandleRunCommandStreaming.test_streaming_enabled_creates_callback", "TestHandleRunCommandStreaming.test_streaming_disabled_no_callback", "TestHandleRunCommandStreaming.test_no_streamer_works", "TestHandleRunCommandStreaming.test_unknown_host_calls_finish",
+        "TestHandleRunScriptStreaming.test_streaming_enabled", "TestHandleRunScriptStreaming.test_streaming_disabled",
+        "TestStreamingConfig.test_default_values", "TestStreamingConfig.test_custom_values", "TestStreamingConfig.test_tools_config_has_streaming", "TestStreamingConfig.test_tools_config_streaming_custom",
+        "TestExports.test_tools_init_exports", "TestExports.test_output_streamer_module_imports", "TestExports.test_ssh_output_callback_type",
+        "TestEdgeCases.test_concurrent_streams", "TestEdgeCases.test_finish_called_twice_is_safe", "TestEdgeCases.test_on_output_empty_string", "TestEdgeCases.test_rate_limiting_prevents_flood", "TestEdgeCases.test_streamer_from_config", "TestEdgeCases.test_read_lines_with_callback_helper", "TestEdgeCases.test_executor_init_with_streamer", "TestEdgeCases.test_executor_init_without_streamer", "TestEdgeCases.test_chunk_timestamp_is_iso",
+        "TestCallIdAttribution.test_unbound_callbacks_get_distinct_wire_ids", "TestCallIdAttribution.test_chunks_carry_the_bound_call_id", "TestCallIdAttribution.test_concurrent_same_name_calls_get_distinct_ids", "TestCallIdAttribution.test_autonomous_loop_binds_block_id_for_streams", "TestCallIdAttribution.test_autonomous_loop_does_not_leak_parent_id_into_native_child",
+        "TestStreamSettlementClaim.test_finish_and_abandon_racing_emits_one_terminal_chunk", "TestStreamSettlementClaim.test_two_finish_calls_racing_emit_one_terminal_chunk", "TestStreamSettlementClaim.test_sweep_and_finish_racing_emit_one_terminal_chunk", "TestStreamSettlementClaim.test_on_output_after_abandon_emits_nothing", "TestStreamSettlementClaim.test_abandon_counts_only_streams_it_actually_settled", "TestStreamSettlementClaim.test_abandon_is_idempotent",
+        "TestStaleStreamSweep.test_stream_ttl_covers_effective_tool_timeout_with_grace", "TestStaleStreamSweep.test_short_effective_timeout_does_not_shrink_default_ttl", "TestStaleStreamSweep.test_abandon_continues_when_one_stream_settlement_raises", "TestStaleStreamSweep.test_registry_remove_race_during_settlement_is_harmless", "TestStaleStreamSweep.test_fresh_streams_are_not_swept", "TestStaleStreamSweep.test_sweep_settles_a_stream_whose_owner_vanished", "TestStaleStreamSweep.test_zero_ttl_disables_the_sweep_entirely", "TestStaleStreamSweep.test_default_ttl_is_the_job_ceiling", "TestStaleStreamSweep.test_sweep_continues_when_one_stream_cannot_be_settled",
+        "TestExecutorStreamSettlement.test_stream_uses_effective_per_tool_timeout", "TestExecutorStreamSettlement.test_timeout_abandons_the_attempt_streams", "TestExecutorStreamSettlement.test_exception_abandons_the_attempt_streams", "TestExecutorStreamSettlement.test_a_completed_handler_settlement_is_not_reported_as_abandoned", "TestExecutorStreamSettlement.test_concurrent_same_name_calls_do_not_settle_each_other", "TestExecutorStreamSettlement.test_recovery_attempts_own_their_streams", "TestExecutorStreamSettlement.test_no_streamer_is_still_a_no_op"
+      ],
+      "retired": [
+        {"case": "TestAPIEndpoint.test_no_executor", "reason": "Removed Odin HTTP/Web UI /api/tool-streams route", "authority": "Claude, review of step 8 part 4"},
+        {"case": "TestAPIEndpoint.test_with_streamer", "reason": "Removed Odin HTTP/Web UI /api/tool-streams route", "authority": "Claude, review of step 8 part 4"},
+        {"case": "TestAPIEndpoint.test_with_active_stream", "reason": "Removed Odin HTTP/Web UI /api/tool-streams route", "authority": "Claude, review of step 8 part 4"}
+      ],
+      "restored_case_partition": "All 105 exact source symbols in corpus(frozen_source(path)) minus the three case-level retirements. CASE_MAP records each of the 102 restored selectors; no skip marks.",
+      "internal_listeners": "TestListeners retained: these are production in-process output subscriptions, not removed HTTP/WebSocket network listeners.",
+      "deferred": [],
+      "proposed": []
+    },
+    {
+      "path": "tests/test_runtime_output_delivery.py",
+      "source_sha256": "add5410c347955ddb90e2437bf8ec80cf26649b8003b921ef9eb0b08eec60622",
+      "corpus_sha256": "063ddd1693987f664f85b030c5f4d23749590c154a19dd45b1a90b04c3ab3c96",
+      "whole_suite": true,
+      "restored": 11,
+      "restored_cases": [
+        "test_chat_web_native_retains_ranked_matches_before_str",
+        "test_native_failure_envelope_survives_agent_cycle",
+        "test_background_wrapper_retains_full_skill",
+        "test_cancelled_dispatch_restores_scope",
+        "test_json_scrubber_preserves_structure_and_offsets",
+        "test_real_guards_preserve_canonical_envelope",
+        "test_read_file_transport_not_cut_by_native_loop",
+        "test_scrubber_preserves_ranked_normal_path",
+        "test_autonomous_mcp_dispatch_retains_before_model_cap",
+        "test_configured_larger_envelope_not_recut_by_legacy_guards",
+        "test_runtime_failure_preserves_existing_message"
+      ],
+      "retired": [],
+      "deferred": [],
+      "proposed": [
+        {
+          "case": "test_embedded_dispatcher_fallback_does_not_promise_unretained_output",
+          "reason": "Inherited ownerless fallback assertions conflict with intentional authenticated retention fail-closed contract at src/tools/runtime_delivery.py:90-95.",
+          "observed": "Real deliver_runtime_result(SimpleNamespace(config=None), ...) raises RuntimeError rather than returning short text, an unretained envelope or image passthrough.",
+          "decision_required": "Claude approval to retire or revise this obsolete fallback contract; not silently declared a removed surface or feature blocker.",
+          "execution": "Not exported; original full corpus retained and partition tested."
+        }
+      ]
+    }
+  ]
+}

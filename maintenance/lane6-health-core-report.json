@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "batch": "lane6-health-core",
+  "selector": "tests/test_desktop_lane6_health_core.py",
+  "adapter": "tests/desktop_adapters/lane6_health_core.py",
+  "reviewer": "Claude, review of step 8 part 4",
+  "suites": [
+    {"path":"tests/test_config_liveness_wiring.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Reviewer decision: inherited exact channel quota catalog wording versus canonical per-conversation quota wording.","source_sha256":"87127ab087e9d0b7df63d61529227b3495b1cf3bc18a00fee8cb82de05457db9","restored":3,"retired":4,"deferred":0,"proposed":1},
+    {"path":"tests/test_graceful_shutdown.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Four inherited swallow-error assertions conflict with truthful canonical producer/resource cleanup barriers; reviewer decisions required.","source_sha256":"9ce9bf0f2021d3377fdf178e7afe9aee655026d29fb083d60496de7cd03fb5ea","restored":20,"retired":3,"deferred":0,"proposed":4},
+    {"path":"tests/test_health_checker.py","status":"restored","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":null,"source_sha256":"ddd7a689876cae2c1b25a5ad9710c1facf6f2445509f734bdeae27f3722d893f","restored":61,"retired":9,"deferred":0,"proposed":0},
+    {"path":"tests/test_health_checker_paths.py","status":"restored","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":null,"source_sha256":"cf90cead05a53a9c4701fa9b84e20b6ef6fc6fef77d133565538255ed16d5b40","restored":13,"retired":0,"deferred":0,"proposed":0},
+    {"path":"tests/test_process_api_provenance.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"WorkService lacks named raw process shell/provenance projection preserving effective_shell/status and restoration fields; existing admitted work projection is not this contract.","source_sha256":"a6d0fdd4dd939d26c9ddd375698dc81da3603d0ee72071d4dda1a50aa44273b8","restored":1,"retired":0,"deferred":4,"proposed":0},
+    {"path":"tests/test_process_command_visibility.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Canonical admitted WorkService exposes safe title, not frozen raw-command record projection; complete mixed privacy/dispatch case awaits named projection parity.","source_sha256":"b433e3936ba4c20e14f5dadc2d97ea50a19fd9db5fe743e222697ab13e1917b2","restored":0,"retired":0,"deferred":1,"proposed":0}
+  ],
+  "case_partition": {
+    "contract":"All source cases are discovered from pinned source corpus. DISPOSITIONS and CASE_MAP exported by adapter enumerate exact original selectors, reasons, baseline case AST SHA256 and destination selectors. Runtime metadata proves total partition; only restored cases are exported. Parameter decorators and assertion/signature corpus are unchanged. Restored means the exact corpus complement of the nonrestored case IDs below, not a subset claim.",
+    "retired": {
+      "tests/test_config_liveness_wiring.py": ["TestHealthServerBacklink.test_set_bot_backlinks_the_server","TestHealthServerBacklink.test_backlink_happens_even_when_the_web_ui_is_disabled","TestHealthServerBacklink.test_stop_is_idempotent","TestHealthServerBacklink.test_failed_cleanup_stays_retryable"],
+      "tests/test_graceful_shutdown.py": ["TestOdinBotClose.test_close_no_components","TestOdinBotClose.test_close_stops_health_server","TestOdinBotClose.test_close_all_components"],
+      "tests/test_health_checker.py": ["TestCheckDiscord.test_online","TestCheckDiscord.test_not_ready","TestCheckDiscord.test_multiple_guilds","TestCheckDiscord.test_exception","TestCheckAll.test_has_all_component_names","TestCheckerList.test_checker_names","TestExports.test_health_init_exports","TestHealthAPI.test_health_components_has_all_names","TestEdgeCases.test_knowledge_none_member_count"]
+    },
+    "deferred": {
+      "tests/test_process_api_provenance.py": ["test_real_local_lifecycle_and_restored_facts","test_legacy_manifest_never_guesses_shell","test_unknown_in_memory_record_has_no_shell_default","test_remote_launcher_records_its_explicit_shell_and_restores"],
+      "tests/test_process_command_visibility.py": ["test_real_registry_retains_command_but_scrubs_every_operator_copy"]
+    },
+    "proposed": {
+      "tests/test_config_liveness_wiring.py": ["TestLiveAgentAdmissionSource.test_catalog_limits_share_live_admission_source"],
+      "tests/test_graceful_shutdown.py": ["TestOdinBotClose.test_close_continues_on_component_error","TestProcessRegistryShutdown.test_shutdown_services_closes_image_backend","TestUnprovenCleanupEscalation.test_wiring_reports_cleanup_error_without_raising","test_shutdown_usage_failure_is_nonfatal"]
+    }
+  },
+  "retirement_reasons": {
+    "TestHealthServerBacklink":"Removed HTTP HealthServer/WebUI listener backlink and runner ownership. Claude, review of step 8 part 4.",
+    "TestOdinBotClose.test_close_no_components":"Removed Discord transport superclass close assertion. Claude, review of step 8 part 4.",
+    "TestOdinBotClose.test_close_stops_health_server":"Removed HTTP health listener shutdown ownership. Claude, review of step 8 part 4.",
+    "TestOdinBotClose.test_close_all_components":"Exact full order includes removed HTTP health listener. Claude, review of step 8 part 4.",
+    "TestCheckDiscord":"Removed Discord readiness/guild population probe. Claude, review of step 8 part 4.",
+    "TestCheckAll.test_has_all_component_names":"Exact inventory includes removed Discord name, now delivery. Claude, review of step 8 part 4.",
+    "TestCheckerList.test_checker_names":"Exact checker inventory requires removed check_discord. Claude, review of step 8 part 4.",
+    "TestExports.test_health_init_exports":"Requires removed HealthServer listener export. Claude, review of step 8 part 4.",
+    "TestHealthAPI.test_health_components_has_all_names":"Exact payload inventory requires removed Discord component. Claude, review of step 8 part 4.",
+    "TestEdgeCases.test_knowledge_none_member_count":"Despite case name, probes Discord guild.member_count=None. Claude, review of step 8 part 4."
+  },
+  "substitutions": [],
+  "setup_adaptations": [
+    "Canonical engine graph fixture has OwnerAuthority, PermissionManager request binding, RequestService and original EngineServices owners.",
+    "Live Config property delegates to graph.config_holder used by actual gateway/agent providers across whole Config rebind.",
+    "Knowledge aliases original knowledge_store, session mock save_all setup aliases actual sessions.save seam; assertions unchanged.",
+    "Legacy health client is socket-free and calls actual RecordsService.health.get/check_all; only setup delivery readiness/MCP absence supplied.",
+    "Legacy check_kimi import aliases actual check_compatible; setup maps existing kimi_client fixture to canonical compatible_client slot."
+  ],
+  "lineage": {
+    "baseline":"cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+    "archive":"maintenance/odin-v4.13.0.tar.gz",
+    "archive_sha256":"845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+    "corpus_owner":"scripts/maintenance/fixture_corpus.py",
+    "evidence":"tests.desktop_adapters.lane6_health_core.EVIDENCE",
+    "case_contracts":"tests.desktop_adapters.lane6_health_core.DISPOSITIONS",
+    "case_selectors":"tests.desktop_adapters.lane6_health_core.CASE_MAP"
+  },
+  "production_changes": [{"path":"src/desktop/services.py","reason":"Actual cleanup omissions exposed: optional runtime quota/usage owners were never stopped and native image backend was never closed. Added ordered releases without weakening producer/resource barriers or sticky error propagation."}],
+  "tests": [{"command":".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_health_core.py tests/test_desktop_lane6_health_learning.py tests/test_desktop_lane6_health_output.py tests/test_desktop_lane6_health_resources.py","pid":1506495,"result":"416 passed in 163.04s, zero skips including optional lifecycle fix and exact export partition checks"}],
+  "scope":"No live services, live install, active desktop or shared maintenance files changed. No harmful strings authored. Parent integrates ledger."
+}

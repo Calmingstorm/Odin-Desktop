@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "batch": "lane6-health-resources",
+  "branch": "lane6/step8-part4-health",
+  "selector": "tests/test_desktop_lane6_health_resources.py",
+  "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+  "review": "Claude, review of step 8 part 4",
+  "scope": "Whole frozen suites loaded and corpus-verified before export; exact source bytes and assertion/signature/decorator/parameter corpus. Only restored cases exported. Retired/deferred cases remain fully partitioned in this report, not collected or skipped. Metadata checks exact original partition and export membership. No native desktop calls, HTTP listeners, production edits or live service changes.",
+  "counts": {"restored": 129, "retired": 1, "deferred": 21, "proposed": 0},
+  "substitutions_for_approval": [],
+  "setup_adaptations": [
+    "Captured-search MagicMock executor replaced with authentic temporary owner ToolExecutor and requester_id. Production captured-output dispatcher unchanged.",
+    "Owner authority uses separate tmp_path_factory root to preserve exhaustive observer tmp_path atomicity assertion."
+  ],
+  "service_provenance": [
+    "src.llm.window_observer.WindowObserver",
+    "src.monitoring.resource_usage",
+    "src.discord.tool_loop.ToolLoopRunner composed by src.desktop.services",
+    "src.discord.native_tools.agents_tasks helpers composed by src.desktop.services",
+    "src.discord.native_tools.knowledge.KnowledgeTools composed by src.desktop.services",
+    "src.discord.background_task._execute_tool_captured actual copied ranked-search dispatcher",
+    "src.tools.output_delivery and src.tools.output_retention.OutputStore"
+  ],
+  "disposition_reasons": {
+    "restored": "Actual copied engine owner; frozen assertions, signatures, decorators and parameter AST unchanged; temporary authenticated owner.",
+    "retired_resource_endpoint": "Removed HTTP /api/resource-usage web-widget endpoint and HTTP 200 contract. Claude, review of step 8 part 4. Direct collector payload cases remain restored.",
+    "deferred_resource": "Desktop ObservabilityService has no named resource-usage management method exposing session/trajectory collector payloads. Direct collector cases restored.",
+    "deferred_window": "Desktop ModelSettingsService/ObservabilityService lack context-windows named read/clear methods covering persisted clamp/account/calibration/boot-ceiling management payload parity. This is an LLM observer, not native desktop windows; P3.5 does not apply."
+  },
+  "suites": {
+    "tests/test_resource_usage.py": {
+      "source_sha256": "a7b39991f16e208dd51635caceb1aee25f4099ec9bddbcadd80101aed871dcb1",
+      "corpus_sha256": "f24abd376ef834575e61a4a8fc9e94d2d3c88cc1e88d53ef3048c47c9f8c2a5f",
+      "assertion_count": 182,
+      "case_function_count": 81,
+      "parameter_expanded_count": 81,
+      "case_dispositions": {
+        "restored": [
+          "TestDirStats.test_default_values", "TestDirStats.test_to_dict", "TestDirStats.test_to_dict_large_size", "TestDirStats.test_to_dict_zero_bytes", "TestDirStats.test_to_dict_fractional_mb",
+          "TestSessionStats.test_default_values", "TestSessionStats.test_to_dict", "TestSessionStats.test_to_dict_with_per_session", "TestSessionStats.test_independent_persist_dir",
+          "TestKnowledgeStats.test_default_values", "TestKnowledgeStats.test_to_dict", "TestKnowledgeStats.test_to_dict_with_sources",
+          "TestTrajectoryStats.test_default_values", "TestTrajectoryStats.test_to_dict", "TestTrajectoryStats.test_to_dict_combined_bytes", "TestTrajectoryStats.test_to_dict_files_lists", "TestTrajectoryStats.test_independent_dirs",
+          "TestScanDirectory.test_existing_directory", "TestScanDirectory.test_nonexistent_directory", "TestScanDirectory.test_empty_directory", "TestScanDirectory.test_with_subdirectories", "TestScanDirectory.test_path_object",
+          "TestScanFile.test_existing_file", "TestScanFile.test_nonexistent_file", "TestScanFile.test_directory_instead_of_file",
+          "TestCollectSessionStats.test_no_session_manager", "TestCollectSessionStats.test_none_session_manager", "TestCollectSessionStats.test_sessions_not_dict", "TestCollectSessionStats.test_with_sessions", "TestCollectSessionStats.test_over_budget_sessions", "TestCollectSessionStats.test_per_session_data", "TestCollectSessionStats.test_zero_token_budget", "TestCollectSessionStats.test_exception_handling", "TestCollectSessionStats.test_persist_dir_scanning",
+          "TestCollectKnowledgeStats.test_no_knowledge_store", "TestCollectKnowledgeStats.test_none_knowledge", "TestCollectKnowledgeStats.test_unavailable_knowledge", "TestCollectKnowledgeStats.test_with_knowledge", "TestCollectKnowledgeStats.test_fts_only", "TestCollectKnowledgeStats.test_db_path_attribute", "TestCollectKnowledgeStats.test_db_via_pragma", "TestCollectKnowledgeStats.test_list_sources_exception", "TestCollectKnowledgeStats.test_exception_handling", "TestCollectKnowledgeStats.test_sources_field_mapping",
+          "TestCollectTrajectoryStats.test_no_trajectory_saver", "TestCollectTrajectoryStats.test_none_trajectory_saver", "TestCollectTrajectoryStats.test_with_message_trajectories", "TestCollectTrajectoryStats.test_with_agent_trajectories", "TestCollectTrajectoryStats.test_both_trajectories", "TestCollectTrajectoryStats.test_nonexistent_directory", "TestCollectTrajectoryStats.test_ignores_non_jsonl_files", "TestCollectTrajectoryStats.test_exception_handling_message", "TestCollectTrajectoryStats.test_exception_handling_agent", "TestCollectTrajectoryStats.test_count_as_callable",
+          "TestCollectAll.test_returns_all_sections", "TestCollectAll.test_collected_at_is_iso", "TestCollectAll.test_storage_total_aggregation", "TestCollectAll.test_sessions_section_has_keys", "TestCollectAll.test_knowledge_section_has_keys", "TestCollectAll.test_trajectories_section_has_keys", "TestCollectAll.test_zero_storage_total", "TestCollectAll.test_with_all_subsystems",
+          "TestExports.test_module_imports", "TestExports.test_init_exports", "TestExports.test_dirstats_is_dataclass", "TestExports.test_session_stats_is_dataclass", "TestExports.test_knowledge_stats_is_dataclass", "TestExports.test_trajectory_stats_is_dataclass",
+          "TestEdgeCases.test_scan_directory_with_file_path", "TestEdgeCases.test_collect_all_empty_bot", "TestEdgeCases.test_session_stats_no_persist_dir_attr", "TestEdgeCases.test_knowledge_no_db_path_no_conn", "TestEdgeCases.test_trajectory_count_is_property", "TestEdgeCases.test_collect_all_storage_total_sums", "TestEdgeCases.test_dirstats_to_dict_includes_all_keys", "TestEdgeCases.test_session_stats_to_dict_includes_all_keys", "TestEdgeCases.test_knowledge_stats_to_dict_includes_all_keys", "TestEdgeCases.test_trajectory_stats_to_dict_includes_all_keys"
+        ],
+        "retired": ["TestResourceUsageAPI.test_resource_usage_endpoint"],
+        "deferred": ["TestResourceUsageAPI.test_resource_usage_has_session_data", "TestResourceUsageAPI.test_resource_usage_has_trajectory_section"],
+        "proposed": []
+      }
+    },
+    "tests/test_window_observer.py": {
+      "source_sha256": "8df113168f7d220d99c68b71fe1571391e4102b7ced1095fa3501825a8943896",
+      "corpus_sha256": "485c91c67354fa2f37abd028d349bb4f2b0fc7e353eee1ab925caa0f41b501cd",
+      "assertion_count": 177,
+      "case_function_count": 64,
+      "parameter_expanded_count": 64,
+      "case_dispositions": {
+        "restored": [
+          "TestStoreLifecycle.test_fresh_store_round_trips_atomically", "TestStoreLifecycle.test_alias_models_share_one_canonical_record", "TestStoreLifecycle.test_exact_scope_contract_rejects_subclasses_and_unknown_surfaces",
+          "TestHostileStoreInputs.test_fifo_at_store_path_never_blocks", "TestHostileStoreInputs.test_symlink_at_store_path_is_refused", "TestHostileStoreInputs.test_directory_at_store_path_is_survived", "TestHostileStoreInputs.test_oversized_file_is_quarantined", "TestHostileStoreInputs.test_corrupt_json_is_quarantined_not_repaired", "TestHostileStoreInputs.test_off_schema_store_is_quarantined",
+          "TestClampQualification.test_cross_account_retry_records_both_but_derives_no_clamp", "TestClampQualification.test_missing_acceptance_usage_records_occurrence_only", "TestClampQualification.test_model_mismatch_derives_no_clamp", "TestClampQualification.test_non_overflow_error_is_ignored", "TestClampQualification.test_missing_account_keys_disqualify_scoped_evidence", "TestClampQualification.test_estimate_shaped_junk_never_qualifies",
+          "TestDownwardOnlyMergeAndTTL.test_lower_evidence_replaces_with_fresh_ttl", "TestDownwardOnlyMergeAndTTL.test_higher_evidence_never_raises_a_live_clamp", "TestDownwardOnlyMergeAndTTL.test_expired_clamp_is_not_served_and_is_replaceable", "TestDownwardOnlyMergeAndTTL.test_active_clamp_is_minimum_across_accounts", "TestDownwardOnlyMergeAndTTL.test_active_clamp_ignores_ineligible_accounts", "TestDownwardOnlyMergeAndTTL.test_account_clamps_are_active_eligible_and_management_ready", "TestDownwardOnlyMergeAndTTL.test_eligible_provider_none_or_failure_fails_open_not_stale",
+          "TestForfeitInvariant.test_write_failure_forfeits_durability_never_the_request", "TestForfeitInvariant.test_every_entry_point_is_total_on_junk",
+          "TestPersistFdDiscipline.test_fdopen_failure_leaks_no_fd_and_no_temp_file", "TestPersistFdDiscipline.test_crashed_write_never_corrupts_the_published_store", "TestPersistFdDiscipline.test_cancelled_writer_drains_before_second_transaction",
+          "TestManualClear.test_clear_is_account_scoped_and_preserves_bounds", "TestManualClear.test_failed_clear_is_truthful_and_retains_state", "TestManualClear.test_model_scoped_clear", "TestManualClear.test_view_is_a_defensive_copy_with_expiry_flags",
+          "TestSurfaceGuardArms.test_chat_clamp_lookup_survives_a_broken_observer", "TestSurfaceGuardArms.test_chat_evidence_recording_survives_a_broken_observer", "TestSurfaceGuardArms.test_agent_clamp_lookup_survives_a_broken_observer", "TestSurfaceGuardArms.test_agent_recorder_survives_a_broken_observer",
+          "TestResolverIntegration.test_snapshot_for_codex_config_threads_the_clamp",
+          "TestChatSurfaceHooks.test_rescued_chat_success_records_the_evidence_pair", "TestChatSurfaceHooks.test_unrescued_chat_success_records_nothing", "TestChatSurfaceHooks.test_chat_soft_pass_consumes_the_active_clamp",
+          "TestLoopSurfaceHooks.test_rescued_loop_success_records_the_evidence_pair",
+          "TestAgentSurfaceHooks.test_generation_budget_snapshot_consumes_the_clamp", "TestAgentSurfaceHooks.test_evidence_recorder_adapts_the_callback_dict", "TestAgentSurfaceHooks.test_evidence_recorder_rejects_non_codex_response_provenance", "TestAgentSurfaceHooks.test_recorder_for_absent_observer_is_none", "TestAgentSurfaceHooks.test_manager_rescue_success_invokes_the_recorder"
+        ],
+        "retired": [],
+        "deferred": [
+          "TestContextWindowsApi.test_retired_evidence_stays_visible_without_an_active_model_row", "TestContextWindowsApi.test_model_row_reports_the_prior_not_a_global_calibrated_value", "TestContextWindowsApi.test_clamp_provenance_is_independent_of_workload_calibration", "TestContextWindowsApi.test_a_model_known_only_to_calibration_still_appears", "TestContextWindowsApi.test_broken_calibration_summary_still_serves_the_row", "TestContextWindowsApi.test_get_serves_floors_overrides_clamps_and_both_resolutions", "TestContextWindowsApi.test_get_clamp_expiry_describes_only_applied_effective_minimum", "TestContextWindowsApi.test_get_preserves_raw_auto_ceiling", "TestContextWindowsApi.test_get_preserves_explicit_legacy_ceiling_verbatim", "TestContextWindowsApi.test_get_without_boot_snapshot_uses_configured_runtime_truth", "TestContextWindowsApi.test_disabled_at_boot_reports_model_derived_runtime_target", "TestContextWindowsApi.test_disabled_without_boot_snapshot_still_reports_runtime_truth", "TestContextWindowsApi.test_get_prefers_boot_snapshot_for_runtime_ceiling", "TestContextWindowsApi.test_get_uses_production_direct_boot_compressor_shape", "TestContextWindowsApi.test_get_distinguishes_saved_ceiling_from_boot_frozen_runtime", "TestContextWindowsApi.test_failed_clear_returns_503_and_truthful_state", "TestContextWindowsApi.test_clear_endpoint_is_account_scoped", "TestContextWindowsApi.test_clear_endpoint_preserves_other_model_for_same_account", "TestContextWindowsApi.test_clear_without_observer_is_503"
+        ],
+        "proposed": []
+      }
+    },
+    "tests/test_search_output_capture.py": {
+      "source_sha256": "e9f008c122c7ac646b62635662eeb717f6df7804b2aef19c051c961e88f55468",
+      "corpus_sha256": "69544456adaab1c8b5e90616162def5ee51f46f7ea006e0ba13d00f83b38e5cf",
+      "assertion_count": 31,
+      "case_function_count": 4,
+      "parameter_expanded_count": 6,
+      "case_dispositions": {
+        "restored": ["test_ranked_snapshot_preserves_original_order_and_oversized_match[history]", "test_ranked_snapshot_preserves_original_order_and_oversized_match[knowledge]", "test_ranked_snapshot_preserves_original_order_and_oversized_match[background]", "test_short_knowledge_result_format_is_unchanged", "test_short_history_and_background_formats_are_unchanged", "test_search_whole_match_counts_and_oversized_continuation"],
+        "retired": [], "deferred": [], "proposed": []
+      }
+    }
+  },
+  "test_runs": [
+    {
+      "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_health_resources.py -ra",
+      "pid_isolated": true,
+      "result": "1 failed, 129 passed, 22 skipped in 6.44s",
+      "log": "/tmp/lane6-health-resources-tests.log",
+      "failure": "Owner fixture polluted observer tmp_path atomicity listing. Fixed by separate owner root; assertions unchanged."
+    },
+    {
+      "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_health_resources.py -ra",
+      "pid_isolated": true,
+      "result": "130 passed, 22 skipped in 6.49s",
+      "inherited_restored_passes": 129,
+      "adapter_metadata_passes": 1,
+      "skips": {"retired": 1, "deferred": 21},
+      "log": "/tmp/lane6-health-resources-tests-final.log"
+    },
+    {
+      "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_health_resources.py -ra",
+      "pid_isolated": true,
+      "result": "131 passed, 22 skipped in 7.64s",
+      "inherited_restored_passes": 129,
+      "adapter_metadata_passes": 2,
+      "skips": {"retired": 1, "deferred": 21},
+      "log": "/tmp/lane6-health-resources-tests-report.log",
+      "note": "Includes exact case-disposition report validation against frozen corpus."
+    },
+    {
+      "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_health_resources.py",
+      "pid_isolated": true,
+      "result": "131 passed, 22 skipped in 9.65s",
+      "inherited_restored_passes": 129,
+      "adapter_metadata_passes": 2,
+      "skips": {"retired": 1, "deferred": 21},
+      "log": "/tmp/lane6-health-resources-final-gate.log",
+      "note": "Final adapter and report identity gate. Ruff on owned Python files and git diff --check passed."
+    },
+    {
+      "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_health_resources.py",
+      "pid_isolated": true,
+      "result": "131 passed in 11.22s",
+      "inherited_restored_passes": 129,
+      "adapter_metadata_passes": 2,
+      "skips": 0,
+      "log": "/tmp/lane6-health-resources-no-skips.log",
+      "note": "Parent correction applied: retired/deferred cases not exported or collected; metadata verifies exact original partition and exported membership. Earlier skip-based runs are historical, not final qualification."
+    }
+  ]
+}

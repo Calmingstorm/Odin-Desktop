@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "batch": "lane6-health",
+  "branch": "lane6/step8-part4-health",
+  "counts": {"restored":402,"retired":25,"deferred":26,"proposed":6},
+  "counts_unit":"Original frozen case functions, not parameter expansions or added metadata tests",
+  "suite_counts":{"restored":7,"deferred":7,"retired":0},
+  "executed_counts":{"restored_source_functions":402,"expanded_inherited_cases":406,"added_guards_and_regressions":10,"total_passed":416},
+  "suites": [
+    {"path":"tests/test_chat_loop_recovery.py","status":"restored","selector":"tests/test_desktop_lane6_health_learning.py","blocked_on":null},
+    {"path":"tests/test_config_liveness_wiring.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Reviewer decision required for exact legacy per-channel catalog text assertion, while canonical dynamic admission/recovery rebind restored."},
+    {"path":"tests/test_graceful_shutdown.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Four inherited swallow-error requirements conflict with current canonical sticky producer/resource cleanup barriers; reviewer decision required."},
+    {"path":"tests/test_health_checker.py","status":"restored","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":null},
+    {"path":"tests/test_health_checker_paths.py","status":"restored","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":null},
+    {"path":"tests/test_learning_runtime_switch.py","status":"restored","selector":"tests/test_desktop_lane6_health_learning.py","blocked_on":null},
+    {"path":"tests/test_learning_transport_switch.py","status":"restored","selector":"tests/test_desktop_lane6_health_learning.py","blocked_on":null},
+    {"path":"tests/test_output_streamer.py","status":"restored","selector":"tests/test_desktop_lane6_health_output.py","blocked_on":null},
+    {"path":"tests/test_process_api_provenance.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Canonical admitted WorkService lacks exact frozen raw process shell/provenance management payload schema."},
+    {"path":"tests/test_process_command_visibility.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Canonical admitted WorkService safe title projection does not expose frozen raw-command record payload. Complete mixed case retained pending parity."},
+    {"path":"tests/test_resource_usage.py","status":"deferred","selector":"tests/test_desktop_lane6_health_resources.py","blocked_on":"Named resource-usage management method exposing session/trajectory collector payload absent; direct collector corpus restored."},
+    {"path":"tests/test_runtime_output_delivery.py","status":"deferred","selector":"tests/test_desktop_lane6_health_output.py","blocked_on":"Reviewer decision for inherited ownerless dispatcher fallback, canonical runtime fails closed without authenticated executor."},
+    {"path":"tests/test_search_output_capture.py","status":"restored","selector":"tests/test_desktop_lane6_health_resources.py","blocked_on":null},
+    {"path":"tests/test_window_observer.py","status":"deferred","selector":"tests/test_desktop_lane6_health_resources.py","blocked_on":"Named context-windows read/clear management method for clamp/account/calibration/boot ceilings absent. LLM observer, not native desktop; P3.5 not applicable."}
+  ],
+  "case_disposition_reports": [
+    "maintenance/lane6-health-core-report.json",
+    "maintenance/lane6-health-learning-report.json",
+    "maintenance/lane6-health-output-report.json",
+    "maintenance/lane6-health-resources-report.json"
+  ],
+  "retired_cases":"Exact original case selectors/reasons and Claude, review of step 8 part 4 citation enumerated in component reports and hash-bound loader case ledgers. No whole-suite retirement.",
+  "proposals":"Exact original cases and conflict reasons in core/output reports; not retired, deferred or silently assertion-modified.",
+  "substitutions": [],
+  "setup_substitutions_for_approval": [
+    {"path":"tests/desktop_adapters/lane6_health_output.py","detail":"Legacy reader/room fixture aliases map to canonical authenticated owner and admitted UUID conversation. Read-only scope comparison view preserves exact legacy assertions while all production dispatch/retention use canonical scope. No harmful sample authored."}
+  ],
+  "lineage": {
+    "baseline":"cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+    "archive":"maintenance/odin-v4.13.0.tar.gz",
+    "archive_sha256":"845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+    "contract":"Every assigned suite loaded in full from pinned archive and retained bytes verified. Source hash and exact assertion/signature/decorator/parameter AST corpus verified before case-level export. Non-restored cases never exported or skipped.",
+    "canonical_owners":["OwnerAuthority","PermissionManager","RequestService","EngineServices","RecordsService","ToolExecutor","KnowledgeTools","OutputStore","WindowObserver","resource_usage collectors","ProcessRegistry"]
+  },
+  "production_changes": [
+    {"path":"src/desktop/services.py","reason":"Real optional cleanup omissions: release runtime quota/usage owners and native media image backend, preserving producer quiescence and sticky cleanup errors.","tests":["test_lane6_health_engine_optional_shutdown_owners","test_lane6_health_engine_optional_cleanup_failure_truthful","test_shutdown_stops_usage_rollup","test_shutdown_stops_codex_quota_check"]}
+  ],
+  "tests": [
+    {"command":".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_health_core.py tests/test_desktop_lane6_health_learning.py tests/test_desktop_lane6_health_output.py tests/test_desktop_lane6_health_resources.py","pid":1506495,"result":"416 passed in 163.04s; zero skips","isolation":"env -i, temporary HOME/XDG, required unshare PID/mount boundary"}
+  ],
+  "hands_off":"No active graphical session, /opt/odin, live service/config/install, or shared maintenance integration files modified. Shared .venv remains untracked symlink. Parent owns short gates/full qualification/integration."
+}
