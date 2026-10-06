@@ -812,7 +812,6 @@ dependencies = [
     { name = "pip" },
     { name = "playwright" },
     { name = "pydantic" },
-    { name = "pymupdf" },
     { name = "python-dotenv" },
     { name = "python-xlib" },
     { name = "pyyaml" },
@@ -842,6 +841,9 @@ dev = [
     { name = "types-regex" },
     { name = "wheel" },
 ]
+pdf = [
+    { name = "pymupdf" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -862,7 +864,7 @@ requires-dist = [
     { name = "pip", specifier = ">=26.2,<27" },
     { name = "playwright", specifier = ">=1.40.0" },
     { name = "pydantic", specifier = ">=2.0" },
-    { name = "pymupdf", specifier = ">=1.24.0" },
+    { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.24.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
@@ -884,7 +886,7 @@ requires-dist = [
     { name = "types-regex", marker = "extra == 'dev'", specifier = "==2026.9.10.20260911" },
     { name = "wheel", marker = "extra == 'dev'", specifier = ">=0.45" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["pdf", "dev"]
 
 [[package]]
 name = "onnxruntime"
