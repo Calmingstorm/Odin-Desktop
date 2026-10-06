@@ -40,7 +40,8 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(statSync(core.paths.tokenPath).mode & 0o777).toBe(0o600)
     const status = successful<Status>(await broker.request('status.get'))
     expect(status).toMatchObject({ phase: 'ready', core_instance_id: welcome.core.instance_id,
-      version: welcome.core.version, capabilities })
+      version: welcome.core.version, capabilities,
+      limits: { attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10, chunk_bytes: 512 * 1024 } })
     // A configured model label is not provider readiness. No client is available on a fresh profile.
     expect(status).toMatchObject({ model: { main: expect.any(String), provider: 'codex' },
       providers: expect.arrayContaining([{ name: 'codex', health: 'unavailable' }]) })

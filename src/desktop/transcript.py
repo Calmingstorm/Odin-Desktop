@@ -143,10 +143,15 @@ class TranscriptStore:
                 "SELECT record FROM desktop_inheritance WHERE conversation_id=? ORDER BY ordinal",
                 (conversation_id,))] if context_start == 0 else [])
             cutoff = through_position if through_position is not None else 9223372036854775807
-            rows = db.execute("""SELECT record FROM desktop_messages WHERE conversation_id=?
-                AND position>? AND position<=?
-                AND role IN ('user','assistant') ORDER BY position""",
-                              (conversation_id, context_start, cutoff))
+            rows = db.execute("""SELECT m.record FROM desktop_messages m
+                LEFT JOIN desktop_request_context c
+                    ON c.request_id=json_extract(m.record,'$.request_id')
+                    AND c.conversation_id=m.conversation_id
+                WHERE m.conversation_id=? AND m.position<=?
+                AND m.role IN ('user','assistant')
+                AND ((c.request_id IS NULL AND m.position>?) OR c.context_position=?)
+                ORDER BY m.position""",
+                              (conversation_id, cutoff, context_start, context_start))
             return inherited + [json.loads(item[0]) for item in rows]
 
     def read_conversation(self, conversation_id: str, *, limit: int = 100) -> list[dict]:
