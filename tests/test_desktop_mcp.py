@@ -1,6 +1,7 @@
 """Private temporary profiles, stubbed connections, no real processes/endpoints."""
 import asyncio
 import json
+import threading
 
 import pytest
 import yaml
@@ -124,6 +125,205 @@ async def harness(tmp_path):
 
 async def save(service, **kwargs):
     return await service.handle("mcp.save", {"name": "stub", "command": "stub-program", **kwargs})
+
+
+async def test_mcp_keyring_start_save_reconnect_and_delete_use_settled_workers(harness):
+    service, backend, _, _ = harness
+    loop_thread = threading.get_ident()
+
+    def off_loop(function):
+        def wrapped(*args, **kwargs):
+            assert threading.get_ident() != loop_thread
+            assert threading.current_thread().daemon
+            with pytest.raises(RuntimeError):
+                asyncio.get_running_loop()
+            return function(*args, **kwargs)
+        return wrapped
+
+    backend.get_password = off_loop(backend.get_password)
+    backend.set_password = off_loop(backend.set_password)
+    backend.delete_password = off_loop(backend.delete_password)
+    await save(service, enabled=False, headers_set={"Authorization": "fixture-secret"})
+    service._unavailable["stub"] = "fixture retry"
+    await service.handle("mcp.reconnect", {"name": "stub"})
+    service._started = False
+    await service.start()
+    await service.handle("mcp.delete", {"name": "stub"})
+    assert backend.values == {}
+
+
+async def test_mcp_cancelled_secret_write_settles_then_rolls_back_before_gate_release(harness):
+    service, backend, _, _ = harness
+    entered, release = threading.Event(), threading.Event()
+    original = backend.set_password
+    first = True
+
+    def delayed(*args):
+        nonlocal first
+        if first:
+            first = False
+            entered.set()
+            assert release.wait(5)
+        original(*args)
+
+    backend.set_password = delayed
+    before = service.settings.paths.config_file.read_bytes()
+    mutation = asyncio.create_task(save(
+        service, enabled=False, headers_set={"Authorization": "fixture-secret"},
+    ))
+    try:
+        for _ in range(500):
+            if entered.is_set():
+                break
+            await asyncio.sleep(.001)
+        assert entered.is_set()
+        mutation.cancel()
+        await asyncio.sleep(.02)
+        assert not mutation.done()
+        assert service._lock.locked() and service.settings._async_lock.locked()
+    finally:
+        release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await mutation
+    assert service.settings.paths.config_file.read_bytes() == before
+    assert backend.values == {}
+    assert not service.manager.server_names
+    assert service._credential_fields("stub") is None
+    assert not service._lock.locked() and not service.settings._async_lock.locked()
+
+
+async def test_mcp_repeated_cancellation_drains_remaining_vault_and_marker_rollback(harness):
+    service, backend, _, _ = harness
+    await save(service, enabled=False, headers_set={"Authorization": "old-fixture"})
+    before = service.settings.paths.config_file.read_bytes()
+    values_before = backend.values.copy()
+    marker_before = service._marker_path("stub").read_bytes()
+    write_entered, write_release = threading.Event(), threading.Event()
+    rollback_entered, rollback_release = threading.Event(), threading.Event()
+    original = backend.set_password
+
+    def delayed(namespace, name, value):
+        original(namespace, name, value)
+        entered, release = ((write_entered, write_release) if "new-fixture" in value
+                            else (rollback_entered, rollback_release))
+        entered.set()
+        assert release.wait(5)
+
+    backend.set_password = delayed
+    mutation = asyncio.create_task(save(
+        service, enabled=False, headers_set={"Authorization": "new-fixture"},
+    ))
+    try:
+        for _ in range(500):
+            if write_entered.is_set():
+                break
+            await asyncio.sleep(.001)
+        assert write_entered.is_set()
+        mutation.cancel()
+        write_release.set()
+        for _ in range(500):
+            if rollback_entered.is_set():
+                break
+            await asyncio.sleep(.001)
+        assert rollback_entered.is_set()
+        mutation.cancel()
+        await asyncio.sleep(.02)
+        assert not mutation.done()
+        assert service.settings._transaction_active
+        with pytest.raises(MethodError, match="transaction"):
+            service.settings.save_changes([(("tools", "command_shell"), "sh")])
+    finally:
+        write_release.set()
+        rollback_release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await mutation
+    assert backend.values == values_before
+    assert service.settings.paths.config_file.read_bytes() == before
+    assert service._marker_path("stub").read_bytes() == marker_before
+    assert not service.settings._transaction_active
+
+
+@pytest.mark.parametrize("operation", ["start", "reconnect"])
+async def test_mcp_close_fences_adoption_after_settled_hydration(harness, monkeypatch, operation):
+    service, backend, _, _ = harness
+    await save(service, enabled=False, headers_set={"Authorization": "fixture-secret"})
+    entered, release = threading.Event(), threading.Event()
+    original = backend.get_password
+
+    def delayed(*args):
+        entered.set()
+        assert release.wait(5)
+        return original(*args)
+
+    backend.get_password = delayed
+    if operation == "start":
+        service._started = False
+        task = asyncio.create_task(service.start())
+    else:
+        service._unavailable["stub"] = "fixture retry"
+        task = asyncio.create_task(service.handle("mcp.reconnect", {"name": "stub"}))
+    adopted = []
+    for method in ("load_desired_state", "stage_desired_state"):
+        original_method = getattr(service.manager, method)
+
+        def watched(*args, _method=original_method, **kwargs):
+            adopted.append(True)
+            return _method(*args, **kwargs)
+
+        monkeypatch.setattr(service.manager, method, watched)
+    try:
+        for _ in range(500):
+            if entered.is_set():
+                break
+            await asyncio.sleep(.001)
+        assert entered.is_set()
+        await service.close()
+    finally:
+        release.set()
+    with pytest.raises(MethodError, match="closed"):
+        await task
+    assert not adopted and not service.get_tool_definitions()
+
+
+async def test_mcp_reconnect_hydration_holds_reload_gate_until_adoption(harness):
+    service, backend, _, _ = harness
+    await save(service, enabled=False, headers_set={"Authorization": "fixture-secret"})
+    service._unavailable["stub"] = "fixture retry"
+    entered, release = threading.Event(), threading.Event()
+    original = backend.get_password
+
+    def delayed(*args):
+        entered.set()
+        assert release.wait(5)
+        return original(*args)
+
+    backend.get_password = delayed
+    reconnect = asyncio.create_task(service.handle("mcp.reconnect", {"name": "stub"}))
+    adopted = asyncio.Event()
+
+    async def competing_reload():
+        async with service.settings._async_lock:
+            adopted.set()
+            transition = service.manager.stage_desired_state(enabled=False, servers={})
+            await service.manager.finish_desired_state(transition)
+
+    reload = None
+    try:
+        for _ in range(500):
+            if entered.is_set():
+                break
+            await asyncio.sleep(.001)
+        assert entered.is_set()
+        reload = asyncio.create_task(competing_reload())
+        await asyncio.sleep(.02)
+        assert not adopted.is_set()
+        assert service.settings._transaction_active
+    finally:
+        release.set()
+    await reconnect
+    await reload
+    assert adopted.is_set() and not service.manager.server_names
+    assert not service.settings._transaction_active
 
 
 async def test_empty_disabled_control_plane_needs_no_transport(harness):

@@ -4,6 +4,13 @@ import type { CoreError, ManagementMethod } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
+/** Fixed safe strings only; strip extra provider/credential data at the main boundary. */
+export const firstRunStatusSchema = z.object({
+  state: z.enum(['fresh', 'incomplete', 'saved', 'effective-ready', 'degraded']),
+  reason: z.enum(['provider_not_configured', 'provider_configuration_incomplete', 'provider_runtime_unavailable', 'provider_identity_not_adopted', 'provider_effective', 'provider_health_degraded', 'provider_health_unknown', 'keyring_unavailable', 'credential_state_unavailable']),
+  keyring_unavailable: z.boolean()
+})
+
 /** The window names each conversation command, so a lost answer is reconciled by its late receipt, never re-sent. */
 const commandId = z.uuid()
 
@@ -173,6 +180,7 @@ export const settingsSetSchema = z
 
 export const secretSetSchema = z.object({ path: settingsPath, value: z.string().min(1).max(16_384) }).strict()
 export const secretClearSchema = z.object({ path: settingsPath }).strict()
+export const secretUnlockSchema = z.object({}).strict()
 
 /** The dedicated desktop methods a field may name as its apply handler. Nothing else passes. */
 export const imageIntentSchema = z
@@ -197,7 +205,7 @@ export const editLeafSchema = z
 const accountIndex = z.number().int().min(0).max(63)
 export const codexIndexSchema = z.object({ index: accountIndex }).strict()
 export const codexLabelSchema = z.object({ index: accountIndex, label: z.string().max(80) }).strict()
-export const codexPollSchema = z.object({ device_auth_id: z.string().min(1).max(512), user_code: z.string().min(1).max(64) }).strict()
+export const codexPollSchema = z.object({ login_id: z.uuid() }).strict()
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: CoreError }
 

@@ -128,7 +128,12 @@ class BrowserManager:
         self._browser: Browser | None = None
         self._lock = asyncio.Lock()
         self._native = not bool(cdp_url)
-        self._bundled_executable = bundled_executable
+        bundle_root = os.environ.get("ODIN_DESKTOP_BUNDLE_ROOT")
+        self._bundled_executable = bundled_executable or (
+            str(Path(bundle_root) / "browser/chromium"
+                / "chrome-headless-shell-linux64/chrome-headless-shell")
+            if bundle_root else None
+        )
         self._launch_env = launch_env
         self._startup_timeout_seconds = startup_timeout_seconds
         self.allowed_urls = allow_private_targets or []
@@ -216,9 +221,8 @@ class BrowserManager:
                     launch = self._playwright.chromium.launch(
                         executable_path=self._bundled_executable,
                         headless=True,
+                        chromium_sandbox=True,
                         args=[
-                            "--no-sandbox",
-                            "--disable-setuid-sandbox",
                             "--disable-dev-shm-usage",
                             "--disable-gpu",
                         ],

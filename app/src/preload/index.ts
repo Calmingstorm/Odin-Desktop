@@ -97,6 +97,7 @@ const api: OdinApi = {
   imageModelIntent: (params) => ipcRenderer.invoke(IPC.imageModelIntent, params),
   secretsSet: (params) => ipcRenderer.invoke(IPC.secretsSet, params),
   secretsClear: (params) => ipcRenderer.invoke(IPC.secretsClear, params),
+  secretsUnlock: () => ipcRenderer.invoke(IPC.secretsUnlock, {}),
   editLeaf: (params) => ipcRenderer.invoke(IPC.editLeaf, params),
   codexAccounts: () => ipcRenderer.invoke(IPC.codexAccounts),
   codexActivate: (params) => ipcRenderer.invoke(IPC.codexActivate, params),
@@ -104,6 +105,7 @@ const api: OdinApi = {
   codexRemove: (params) => ipcRenderer.invoke(IPC.codexRemove, params),
   codexLoginBegin: () => ipcRenderer.invoke(IPC.codexLoginBegin),
   codexLoginPoll: (params) => ipcRenderer.invoke(IPC.codexLoginPoll, params),
+  codexOpenVerification: () => ipcRenderer.invoke(IPC.codexOpenVerification),
   setConversationMuted: (params) => ipcRenderer.invoke(IPC.setConversationMuted, params),
   onOpenConversation: (listener) => {
     const handler = (_event: IpcRendererEvent, conversationId: string): void => listener(conversationId)

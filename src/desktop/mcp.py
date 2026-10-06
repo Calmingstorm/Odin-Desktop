@@ -35,7 +35,7 @@ from ..tools.mcp.errors import MCPConfigError
 from ..tools.mcp.manager import MCPManager, validate_server_config
 from ..tools.mcp.outcomes import OUTCOME_FAILED, MCPToolOutcome
 from .management import MethodError
-from .secrets import SecretStoreError
+from .secrets import SecretStoreError, secret_call
 
 METHODS = frozenset({
     "mcp.list", "mcp.status", "mcp.tools", "mcp.save", "mcp.set_enabled",
@@ -181,7 +181,9 @@ class MCPService:
                 raise MethodError("capability_unavailable", "MCP service is closed")
             if self._started:
                 return
-            servers, self._unavailable = self._hydrate(self.settings.config)
+            servers, self._unavailable = await secret_call(self._hydrate, self.settings.config)
+            if self._closed:
+                raise MethodError("capability_unavailable", "MCP service is closed")
             await self.manager.load_desired_state(
                 enabled=self.settings.config.mcp.enabled, servers=servers,
             )
@@ -289,55 +291,72 @@ class MCPService:
                 name = self._name(params)
                 self._require_server(name)
                 return {"name": name, "tools": self.manager.server_tools(name)}
-            self._check_revision(params)
-            if method in {"mcp.reconnect", "mcp.refresh_tools"}:
-                if set(params) - {"name", "expected_revision"}:
-                    raise MethodError("bad_request", "Unexpected MCP operation field")
-                name = self._name(params)
-                if name not in self.settings.config.mcp.servers:
-                    raise MethodError("not_found", "MCP server not found")
-                if method == "mcp.reconnect":
-                    try:
-                        unmarked = self._credential_fields(name) is None
-                        if name in self._unavailable or unmarked:
-                            # Explicit reconnect is the legacy import boundary,
-                            # even for a public-only server already adopted at boot.
-                            row = self._hydrate_server(
-                                name, self.settings.config.mcp.servers[name], migrate=unmarked,
-                            )
-                        else:
-                            row = None
-                    except SecretStoreError:
-                        raise MethodError("capability_unavailable", self._unavailable.get(
-                            name, "MCP reconnect requires an available, unlocked profile keyring",
-                        )) from None
-                    except Exception:
-                        raise MethodError(
-                            "capability_unavailable",
-                            "MCP configuration, credential migration or marker "
-                            "persistence is unavailable",
-                        ) from None
-                    if row is not None:
-                        servers = self.manager.desired_servers()
-                        changed = servers.get(name) != row
-                        transition = self.manager.stage_desired_state(
-                            enabled=self.settings.config.mcp.enabled,
-                            servers=servers | {name: row},
-                        )
-                        self._unavailable.pop(name, None)
-                        await self.manager.finish_desired_state(transition)
-                        if changed:
-                            return self._status()
-                self._require_server(name)
-                if not self._started:
+            # Share the settings transaction gate while settled vault workers
+            # yield. Runtime publication still belongs to this event loop.
+            async with self.settings._async_lock:
+                if self.settings._transaction_active:
                     raise MethodError(
-                        "capability_unavailable", "MCP startup requires a usable keyring",
+                        "stale_binding", "Settings transaction is in progress", "stale_binding",
                     )
-                operation = (self.manager.reconnect_server if method == "mcp.reconnect"
-                             else self.manager.refresh_server_tools)
-                await operation(name)
-                return self._status()
-            return await self._mutate(method, params)
+                self.settings._transaction_active = True
+                try:
+                    return await self._handle_write(method, params)
+                finally:
+                    self.settings._transaction_active = False
+
+    async def _handle_write(self, method, params):
+        self._check_revision(params)
+        if method in {"mcp.reconnect", "mcp.refresh_tools"}:
+            if set(params) - {"name", "expected_revision"}:
+                raise MethodError("bad_request", "Unexpected MCP operation field")
+            name = self._name(params)
+            if name not in self.settings.config.mcp.servers:
+                raise MethodError("not_found", "MCP server not found")
+            if method == "mcp.reconnect":
+                try:
+                    unmarked = self._credential_fields(name) is None
+                    if name in self._unavailable or unmarked:
+                        # Explicit reconnect is the legacy import boundary,
+                        # even for a public-only server already adopted at boot.
+                        row = await secret_call(
+                            self._hydrate_server,
+                            name, self.settings.config.mcp.servers[name], migrate=unmarked,
+                        )
+                    else:
+                        row = None
+                except SecretStoreError:
+                    raise MethodError("capability_unavailable", self._unavailable.get(
+                        name, "MCP reconnect requires an available, unlocked profile keyring",
+                    )) from None
+                except Exception:
+                    raise MethodError(
+                        "capability_unavailable",
+                        "MCP configuration, credential migration or marker "
+                        "persistence is unavailable",
+                    ) from None
+                if self._closed:
+                    raise MethodError("capability_unavailable", "MCP service is closed")
+                if row is not None:
+                    servers = self.manager.desired_servers()
+                    changed = servers.get(name) != row
+                    transition = self.manager.stage_desired_state(
+                        enabled=self.settings.config.mcp.enabled,
+                        servers=servers | {name: row},
+                    )
+                    self._unavailable.pop(name, None)
+                    await self.manager.finish_desired_state(transition)
+                    if changed:
+                        return self._status()
+            self._require_server(name)
+            if not self._started:
+                raise MethodError(
+                    "capability_unavailable", "MCP startup requires a usable keyring",
+                )
+            operation = (self.manager.reconnect_server if method == "mcp.reconnect"
+                         else self.manager.refresh_server_tools)
+            await operation(name)
+            return self._status()
+        return await self._mutate(method, params)
 
     def _require_server(self, name):
         if name not in self.settings.config.mcp.servers:
@@ -365,7 +384,7 @@ class MCPService:
             if self._started:
                 runtime = self.manager.desired_servers()
             else:
-                runtime, unavailable = self._hydrate(self.settings.config)
+                runtime, unavailable = await secret_call(self._hydrate, self.settings.config)
         if method == "mcp.set_global_enabled":
             if (set(params) - {"enabled", "expected_revision"}
                     or type(params.get("enabled")) is not bool):
@@ -402,7 +421,9 @@ class MCPService:
                         value = desired.mcp.servers[name].model_dump()
                     else:
                         try:
-                            value = self._hydrate_server(name, desired.mcp.servers[name])
+                            value = await secret_call(
+                                self._hydrate_server, name, desired.mcp.servers[name],
+                            )
                         except SecretStoreError:
                             raise MethodError("capability_unavailable", unavailable[name]) from None
                         except Exception:
@@ -481,10 +502,6 @@ class MCPService:
         marker_touched = False
         with self.settings._lock, _config_file_lock(self.settings.paths.config_file):
             self._check_revision(params)
-            if self.settings._transaction_active:
-                raise MethodError(
-                    "stale_binding", "Settings transaction is in progress", "stale_binding",
-                )
             snapshot = self.settings._snapshot()
             write_started = False
             try:
@@ -507,12 +524,13 @@ class MCPService:
                         set(_CREDENTIAL_FIELDS) if old_fields is None else old_fields
                     ) | marker_fields)
                 for key, item in vault.items():
-                    previous[key] = self.settings.secrets.get(key)
+                    previous[key] = await secret_call(self.settings.secrets.get, key)
                     if previous[key] == item:
                         continue
                     touched.append(key)  # failed-after-effect is also rolled back
-                    result = (self.settings.secrets.set(key, item) if item is not None
-                              else self.settings.secrets.clear(key))
+                    result = (await secret_call(self.settings.secrets.set, key, item)
+                              if item is not None
+                              else await secret_call(self.settings.secrets.clear, key))
                     if result is False:
                         raise RuntimeError("keyring rejected write")
                 if self._closed:
@@ -521,8 +539,9 @@ class MCPService:
                 _patch_config_paths(changes, path=self.settings.paths.config_file)
                 if marker_name is not None:
                     self._write_marker(marker_name, marker_fields)
-            except Exception as exc:
+            except BaseException as exc:
                 failed = False
+                rollback_cancelled = False
                 if write_started:
                     try:
                         self.settings._restore(snapshot)
@@ -530,11 +549,18 @@ class MCPService:
                         failed = True
                 for key in reversed(touched):
                     try:
-                        result = (self.settings.secrets.set(key, previous[key])
-                                  if previous[key] is not None
-                                  else self.settings.secrets.clear(key))
-                        if result is False:
-                            raise RuntimeError("rollback refused")
+                        def restore_secret():
+                            result = (self.settings.secrets.set(key, previous[key])
+                                      if previous[key] is not None
+                                      else self.settings.secrets.clear(key))
+                            if result is False:
+                                raise RuntimeError("rollback refused")
+
+                        await secret_call(restore_secret)
+                    except asyncio.CancelledError:
+                        # The worker has settled successfully. A repeated
+                        # cancellation must not skip later secrets or markers.
+                        rollback_cancelled = True
                     except Exception:
                         failed = True
                 if marker_touched:
@@ -556,6 +582,8 @@ class MCPService:
                     raise MethodError(
                         "internal_error", "MCP settings rollback is unproven", "outcome_unknown",
                     ) from None
+                if isinstance(exc, asyncio.CancelledError) or rollback_cancelled:
+                    raise asyncio.CancelledError
                 if isinstance(exc, MethodError):
                     raise
                 raise MethodError("internal_error", "MCP settings were not saved") from None

@@ -86,6 +86,10 @@ describe('served settings/management through actual Broker and isolated reposito
     result(await broker.request('runtime.reload', { scope: 'context' }))
     refused(await broker.request('usage.get', { period: 'invalid' }), 'bad_request')
     expect(result(await broker.request('conversations.list'))).toMatchObject({ items: [], watermark: expect.any(String) })
+    expect(result(await broker.request('skills.list'))).toEqual([])
+    expect(result(await broker.request('mcp.list'))).toMatchObject({ server_count: 0, started: true })
+    expect(result(await broker.request('computer.status'))).toMatchObject({ readiness: {
+      foreground_available: false, input_supported: false, dispatch: 'none' } })
     for (const method of ['turns.create', 'schedules.list', 'loops.list', 'agents.list', 'shell.execute']) {
       expect(SERVED_CAPABILITIES).not.toContain(method)
       refused(await broker.request(method), 'capability_unavailable')
@@ -128,7 +132,7 @@ describe('served settings/management through actual Broker and isolated reposito
     refused(await broker.request('codex.accounts.list'), 'keyring_unavailable')
     const secret = 'isolated-missing-vault-canary-92fca'
     const answer = await broker.request('secrets.set', { path: 'email.smtp.password', value: secret })
-    refused(answer, 'capability_unavailable')
+    refused(answer, 'keyring_unavailable')
     expect(JSON.stringify(answer)).not.toContain(secret)
     expect(core!.persistedFilesContain(secret)).toBe(false)
     expect(core!.diagnostics).not.toContain(secret)
@@ -187,6 +191,9 @@ describe('served settings/management through actual Broker and isolated reposito
     expect(result<Status>(await broker.request('status.get')).model).toMatchObject({ main: 'contract-model', provider: 'ollama' })
     expect(field(await schema(broker), 'llm_provider.model')).toMatchObject({ desired: 'ollama:contract-model',
       effective: 'ollama:contract-model', apply_state: 'applied' })
+    expect(result(await broker.request('status.get'))).toMatchObject({ first_run: {
+      state: 'effective-ready', reason: 'provider_effective', keyring_unavailable: false
+    } }) // Actual ProviderOwner has no guard: no extra success/probe gate is imposed.
     // The real client is adopted without a generation. This proves identity, not endpoint/generation readiness.
     // Persistence classification survives the owner's unpublished-graph rollback.
     refused(await broker.request('models.main.set', { model: 'ollama:another-model', expected_revision: before.revision }), 'stale_binding', 'stale_binding')

@@ -1,5 +1,11 @@
 # P3.1 slice 4: real step-6A management integration
 
+This is the original round-0 evidence at `667e6a47`, not the current feature
+contract. PR38 review found the missing D2 skill-Test port. The subsequent fix
+publishes and executes `skills.test`; its new smoke and qualification evidence
+are recorded in `pr38-review1-validation.md`. Historical refusal observations
+below are preserved, not claimed as the corrected behavior.
+
 ## Source and scope
 
 - Base: `phase-2/services-part-a@964482858ba7b9f11fa0a6ee34d0f1ee01d1abce`.

@@ -373,7 +373,12 @@ async def launch(paths, socket_path, token_file, root):
 
 
 async def wait_connected(process, socket_path):
-    for _ in range(300):
+    # Startup now qualifies the management/provider graph before publishing IPC.
+    # Use the app real-core harness's bounded eight-second startup allowance,
+    # rather than making process-lifecycle assertions depend on a three-second
+    # import/provisioning race when other isolated lanes are qualifying.
+    deadline = asyncio.get_running_loop().time() + 8
+    while asyncio.get_running_loop().time() < deadline:
         if process.returncode is not None:
             stdout, stderr = await process.communicate()
             pytest.fail(f"core exited {process.returncode}: {stdout!r} {stderr!r}")
@@ -381,7 +386,11 @@ async def wait_connected(process, socket_path):
             return await connect(socket_path)
         except (FileNotFoundError, ConnectionRefusedError):
             await asyncio.sleep(0.01)
-    pytest.fail("core did not publish its listener")
+    process.stdin.close()
+    stdout, stderr = await asyncio.wait_for(process.communicate(), 10)
+    pytest.fail(
+        f"core did not publish its listener within eight seconds: {stdout!r} {stderr!r}"
+    )
 
 
 @pytest.mark.asyncio

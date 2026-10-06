@@ -84,6 +84,37 @@ named checkpoint; the default screenshots, evidence and profiles are discarded.
 The fixture smoke gate explicitly clears real-core overrides, so it remains a fixture regression gate rather
 than accidentally running whichever core a developer shell last selected.
 
+## First-run Settings extension (P3.2)
+
+Chat and Settings show the core's additive `status.get.first_run` projection, not a renderer completion flag.
+Its states are fresh, incomplete, saved, effective-ready and degraded. Effective-ready means required provider
+configuration is committed and the actual running owner has adopted the matching client/model/settings. It is
+not a successful generation, connectivity, quota or OAuth acceptance claim. Explicit runtime health failures
+degrade it; missing optional health instrumentation does not add a new setup or execution gate.
+
+The banner opens the existing Models and providers section. Sections remain addressable across re-entry;
+Set up later dismisses only the current window's chat reminder, never core state. Start at login stays opt-in
+and off; notification previews remain on by default. General keeps preview and quiet-hours controls available.
+
+Background keyring reads never unlock or display a system prompt. Only an owner's explicit banner Retry may
+invoke the named, no-argument `secretsUnlock()` bridge (`secrets.unlock` in the core), with a bounded wait off the
+core event loop. After success, Retry rehydrates schema/accounts/status, never replaying credential writes.
+Missing/locked collections remain `keyring_unavailable`; a timed-out prompt is not success, and another Retry
+cannot duplicate an outstanding prompt. No plaintext fallback exists. Submitted secret fields clear immediately,
+even on failure. Native Secret Service prompt acceptance remains the separate VM gate.
+
+Device authorization material stays in main. The renderer sees the intended human verification code and a
+random local `login_id`, never the provider's `device_auth_id` or OAuth tokens. Main projects both direct answers
+and late receipts. `codexOpenVerification()` takes no URL; it opens only the recognized URL retained from the core
+login response. The app does not introduce a generic navigation or renderer provider-network bridge.
+
+`test:real-core` includes `test:onboarding`: five behavior tests with six actual Electron launches cover fresh
+and second launch, navigation, incomplete/saved/effective/degraded states, revision and connection retry, login
+cancel/expiry, missing/locked keyring recovery, write-only secrets and preference persistence. The test-only auth
+adapter blocks outbound HTTP and substitutes external auth/keyring observations without overriding the real
+core transactions, transport or provider adoption. Native Secret Service durability/unlock and production OAuth
+remain separate acceptance work.
+
 ## Accessibility regression gate (P3.4 part 1)
 
 `npm run test:a11y` builds the app, then runs pinned Playwright Electron support and axe-core on a separate

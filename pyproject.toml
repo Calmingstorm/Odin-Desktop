@@ -23,14 +23,14 @@ dependencies = [
     "keyring>=25.6,<26",
     # Native image output must be fully decoded before it can be delivered.
     "Pillow>=12.3,<13",
-    # D14: these capabilities are part of the distribution, not optional extras.
-    "PyMuPDF>=1.24.0",
+    # D14: PDF downloads on first use; the browser ships in the distribution.
     "playwright>=1.40.0",
     "python-xlib>=0.33,<1",
     "dbus-next>=0.2.3,<1",
 ]
 
 [project.optional-dependencies]
+pdf = ["PyMuPDF>=1.24.0"]
 dev = [
     # Packaging regressions build a non-editable wheel without network/build
     # isolation. Match the backend's SPDX-license support, not editable imports.

@@ -28,7 +28,7 @@ The roadmap, [`app-v1-plan.md`](app-v1-plan.md), [`phase-2-desktop-engine.md`](p
 [`00-brief.md`](../design/00-brief.md) remain authoritative. Paths labeled **Add** are proposed, not existing
 implementations or passing evidence. All paths below are relative to this repository.
 
-**Decision precedence:** Aaron's 2026-10-05 choices in section 6 supersede earlier Linux signed-update/feed proposals
+**Decision precedence:** Aaron's 2026-10-05 choices in section 6 supersede earlier bundled-PDF and Linux signed-update/feed proposals
 in the design references. Linux v1 publishes GitHub Releases with `.deb` and AppImage assets, without a signing key,
 self-updater or custom feed/manifest. Existing ownership, compatibility, durability and quarantine contracts remain.
 
@@ -313,9 +313,10 @@ one explicit resource layout and inventory.
 - Pin relocatable CPython 3.12, locked engine dependencies and source/assets inside immutable app resources, not
   writable profile data. No system Python/developer tree dependency. Bundle/product, protocol, storage/checkpoint,
   upstream baseline/review watermark are separate versions.
-- D14 bundles Playwright Chromium, semantic-search models, PDF support and computer helpers with provenance/hashes/
-  licenses. Offline first run proves no feature download-on-demand. Electron Chromium and tool Chromium are separate
-  inventories/security-update obligations.
+- D14 bundles Playwright Chromium, semantic-search models and computer helpers with provenance/hashes/licenses.
+  Offline first run proves these need no feature download. Decision F keeps PDF offered with a pinned automatic
+  first-use download into user-writable data, never the immutable runtime. Electron Chromium and tool Chromium
+  are separate inventories/security-update obligations.
 - User skill dependencies cannot mutate core/another install. Qualify Phase 2's worker/loader and bounded SkillContext
   bridge; a separate venv alone does not make packages visible to an in-core import. Missing loader parity blocks
   bundling, not permission to freeze away skill support.
@@ -514,7 +515,7 @@ inherited assertions with screenshots, smoke counts, renamed exclusions or exit 
 
 ## 6. Aaron's decisions, settled on 2026-10-05
 
-Claude reviewed the work order and Aaron approved it with the update-model change below. A to E are decided, not
+Claude reviewed the work order and Aaron approved it with the update-model change below. A to F are decided, not
 open options, and do not reopen D1 to D19. Recording approval here performs no setup, test, install or publication.
 
 ### Decision A: qualification VMs on this desktop
@@ -561,6 +562,17 @@ Hyprland lab images and measure the actual glibc/sandbox/helper floor. One green
 derivatives or ARM. The repository stays private under D16; no visibility/license/publication change is implied.
 Dependency provenance/licenses are inventoried before distribution.
 
+### Decision F: PDF support downloads automatically on first use
+
+**Decided, 2026-10-05:** "pdf support can download the first time you use it, thats fine".
+PyMuPDF remains Odin's optional `[pdf]` extra and is not distributed in either Desktop candidate. Keep the pinned
+URL and SHA-256 in `pdf.lock.json`. When no installed module is available, one shared resolver downloads and verifies
+the wheel into user-writable data outside the immutable runtime, then imports it. Analyze PDF, PDF attachments and
+knowledge PDF imports use that resolver; concurrent first uses share one download. A failed/offline/hash-mismatched
+download installs nothing, explains the reason plainly, and the next use retries. No confirmation prompt is added.
+`analyze_pdf` stays offered with Odin's unchanged description under D17/D19. Offline PDF use after installation and
+honest first-use failure are separate tests; offline first-use PDF success is no longer a bundle requirement.
+
 ## 7. Deliverables and authorization summary
 
 Deliverables: implementation PRs, real-core E2E/native proof evidence, exact qualification matrices, unreleased
@@ -568,6 +580,6 @@ candidate x86-64 `.deb`/AppImage for Mint 22/Ubuntu 24.04 base, a GitHub release
 new-version/private-repo can't-check tests, manual-upgrade evidence, user docs and final R4/release report. No
 Phase 3/4 passing gate is claimed here, and no app/engine implementation, signing system or self-updater is included.
 
-Claude's plan review and Aaron's work-order approval, including the early candidate lane and A to E, are recorded.
+Claude's plan review and Aaron's work-order approval, including the early candidate lane and A to F, are recorded.
 Implementation changes each receive review. All testing stays isolated until Aaron OKs one final supervised run
 of the exact build. Release publication remains a separate owner approval; PR #17 stays open and unmerged.
