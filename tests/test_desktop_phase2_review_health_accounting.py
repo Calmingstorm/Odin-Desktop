@@ -43,9 +43,9 @@ def test_round3_case_authority_fails_closed(tamper):
     assert not checker._case_retirements(ROOT, row["path"], row["inherited_sha256"], cases)
 
 
-def test_recorder_preview_reports_expected_accounting_without_writing():
-    _, report = recorder.build(ROOT, require_complete=False)
-    assert (report["restored"], report["retired"], report["deferred"]) == (28, 42, 256)
-    assert report["review34"]["adapt_decisions"] == {
-        "deferred": 3, "restored": 9, "retired": 1}
-    assert report["review34"]["restored_paths"]
+def test_recorder_refuses_to_undo_later_step5_restorations():
+    # Step 5 completion (#40) restored group B suites after this review was
+    # recorded. Re-running the historical recorder must refuse, never mark them
+    # deferred again; the checker keeps validating every recorded decision.
+    with pytest.raises(ValueError, match="group B must remain deferred in step 5"):
+        recorder.build(ROOT, require_complete=False)

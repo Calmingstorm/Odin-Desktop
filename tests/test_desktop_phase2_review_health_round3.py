@@ -2,6 +2,7 @@
 import ast
 import copy
 import hashlib
+import json
 
 import pytest
 
@@ -96,14 +97,16 @@ def test_case_authority_rejects_widening(monkeypatch, field, value):
         verify_dispositions()
 
 
-def test_offline_recorder_accounts_all_suites_without_writing():
-    docs, report = recorder.build()
-    assert (report["restored"], report["retired"], report["deferred"]) == (28, 42, 256)
-    rows = {row["path"]: row for row in docs[checker.MAP_PATH]["entries"]}
-    for path in ("tests/test_image_model_config_api.py", "tests/test_web_api_llm_admin.py",
-                 "tests/test_log_search.py"):
-        assert rows[path]["status"] == "deferred"
-        assert rows[path]["blocked_on"] == "awaiting the step 5 completion PR"
+def test_step5_completion_settled_the_suites_this_review_held():
+    # The three mixed suites waited on step 5 completion (#40), which has merged.
+    rows = {row["path"]: row for row in
+            json.loads((checker.ROOT / checker.MAP_PATH).read_text())["entries"]}
+    assert rows["tests/test_log_search.py"]["status"] == "restored"
+    for path in ("tests/test_image_model_config_api.py", "tests/test_web_api_llm_admin.py"):
+        assert rows[path]["status"] == "deferred" and rows[path]["step"] == 5
+        assert rows[path]["blocked_on"] not in (None, "", "awaiting the step 5 completion PR")
+    with pytest.raises(ValueError, match="must remain deferred"):
+        recorder.build()
 
 
 @pytest.mark.parametrize("mutation", ("none", "missing", "unreviewed_case", "dynamic"))

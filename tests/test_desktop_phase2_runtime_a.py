@@ -72,9 +72,12 @@ async def test_state_projection_uses_committed_success_and_real_domain_refusal()
     assert result.status == 200
     assert result.body == {"status": "saved", "scope": "global", "key": "proof"}
     assert executor._load_all_memory()["global"]["proof"] == "retained"
+    # D17: the single profile owner reaches every retained scope, as Odin's admin does.
+    imported = await put(request("user_imported-owner"))
+    assert imported.body == {"status": "saved", "scope": "user_imported-owner", "key": "proof"}
     with pytest.raises(MethodError) as refused:
-        await put(request("user_not-the-authenticated-owner"))
-    assert refused.value.code == "forbidden"
+        await put(request(""))
+    assert refused.value.code == "bad_request"
 
 
 async def test_multi_host_refusal_is_real_ready_authenticated_dispatch(batch_a_owner):

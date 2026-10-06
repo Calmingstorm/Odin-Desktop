@@ -19,7 +19,8 @@ from scripts.maintenance import restore_step5_suites as generator
 ROOT = Path(__file__).resolve().parents[1]
 # Frozen reviewed head. Never derive legacy 85-suite ownership from the live
 # post-review map, whose retirements and remaps deliberately change ownership.
-PRE_REVIEW = "8703630"
+# 0faaf4c is the reachable rebased copy of 8703630, with byte-identical documents.
+PRE_REVIEW = "0faaf4c"
 
 
 @pytest.fixture(scope="session")
