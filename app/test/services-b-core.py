@@ -62,12 +62,10 @@ async def seed(self, *args, **kwargs):
         # disposable local child, not a mocked dispatcher or publication hook.
         report_program = "from pathlib import Path; p=Path(" + repr(str(root / "report-effects")) + "); p.open('a').write('effect\\n'); print(" + repr(report_output) + ")"
         report_command = "python3 -c " + shlex.quote(report_program)
-        async def controlled_tool(tool, inp, *, user_id=None, **kw):
-            assert tool == "run_command" and user_id == owner.owner_id
-            if inp == {"command": completed_command} or inp == {"command": report_command}:
-                result = await real_execute(tool, inp, user_id=user_id, **kw)
-                return result
-            assert inp in ({"command": "proof:wait"}, {"command": "proof:lost"})
+        async def controlled_tool(tool, inp, *args, **kw):
+            if tool != "run_command" or inp not in ({"command": "proof:wait"}, {"command": "proof:lost"}):
+                return await real_execute(tool, inp, *args, **kw)
+            assert kw.get("user_id") == owner.owner_id
             count("background")
             if inp["command"] == "proof:wait":
                 await asyncio.sleep(3600)

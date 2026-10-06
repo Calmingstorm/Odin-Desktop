@@ -137,6 +137,31 @@ describe('actual Broker ↔ real work/control/scheduler/report owners', () => {
       .toMatchObject({ state: 'interrupted', actions: [], settlement: { state: 'unknown', resource_release: 'unproven' } })
   })
 
+  test('seeded workProof forwards ordinary tools and commands to the actual executor', async () => {
+    const { broker } = await core.connect()
+    const cid = seed(core).conversation_id
+    const before = counts(core)
+    for (const [description, tool_name, tool_input, output] of [
+      ['Actual process registry list', 'manage_process', { action: 'list' }, 'PID'],
+      ['Ordinary local command', 'run_command', { command: "printf 'ordinary-command-pass-through'" }, 'ordinary-command-pass-through']
+    ] as const) {
+      const schedule = result<{ id: string }>(await broker.request('schedules.save', {
+        description, action: 'workflow', channel_id: cid, cron: '0 0 1 1 *',
+        steps: [{ tool_name, tool_input }], max_retries: 0
+      }, randomUUID()))
+      expect(result(await broker.request('schedules.run', { id: schedule.id }, randomUUID())))
+        .toMatchObject({ status: 'success' })
+      expect(result<unknown[]>(await broker.request('schedules.history', { id: schedule.id })))
+        .toEqual([expect.objectContaining({ status: 'success', run_binding: expect.objectContaining({ conversation_id: cid }) })])
+      const messages = result<{ items: Array<{ text: string }> }>(await broker.request('messages.list', { conversation_id: cid, limit: 100 }))
+      expect(messages.items.map(message => message.text).join('\n')).toContain(output)
+    }
+    // A real list is not process admission. The original row remains metadata-only.
+    expect(result<{ items: Work[] }>(await broker.request('work.list', { kind: 'process' })).items)
+      .toMatchObject([{ state: 'unknown', actions: [], settlement: { state: 'unknown', resource_release: 'unproven' } }])
+    expect(counts(core)).toEqual(before)
+  })
+
   test('D12 coalesces overdue reminder once, requires recovery for missed checks; report pages are stored and never rerun', async () => {
     const { broker } = await core.connect()
     const proof = seed(core)

@@ -66,8 +66,14 @@ Agent steering is queued once to the retained inbox; queued does not mean consum
 under the original command identity. D12 recovery-required, missed-run counts, inert reasons and unknown settlement
 are shown without pretending the action ran. Report pages read stored output, never implicitly invoke a check.
 
-`smoke:real-core` checks real `status.get` version/phase/instance/capabilities and actual rendered status, exercises
-chat/search/work and every settings section's own service loads, and checks on-demand context reload. A test-only
+`smoke:real-core` runs two separate, labelled passes without retries, each in its own disposable namespace and
+fresh profile. **Production entry / fresh real profile** launches `python -B -P -m src`, without the test bootstrap.
+It checks real `status.get` version/phase/instance/capabilities and actual rendered status, chat/search/empty Work,
+every settings section's own service loads, and on-demand context reload. It asserts no fixture messages, an empty
+audit and logs, and the rendered audit's “Nothing recorded.” state. Turn state is actually available on this base.
+
+**Seeded work proof** uses the existing `workProof` harness bootstrap entry. Its screenshots carry a visible seeded
+proof label and metadata-only limitation; its screen names and evidence JSON are labelled too. The test-only
 bootstrap admits work through the canonical owner and retained managers. A harmless real local command finishes
 one background task and produces a two-page report, with independent child-written effect counters. The rendered
 report's Next button reads page two; the counter stays at one. Work displays all six kinds, a journaled task-cancel
@@ -76,12 +82,15 @@ slots notice and leaves a missed check recovery-required. Agent mailbox/process 
 are controlled seeds, not provider/native execution qualification. Autonomous ticking is stopped only in this
 test bootstrap so clock seeding cannot race it; real tick/admission/history/delivery remain intact.
 The profile shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge,
-actual task/check audit/log records, unknown usage and its actual turn-state availability. Missing
+actual task/check audit/log records in the seeded pass (empty audit/logs in the production pass), unknown usage and its actual turn-state availability. Missing
 keyring access is a distinct failure with Retry, not an empty account success. Skills, MCP and computer use remain
 unavailable on this slice's base. The gate exits through normal `runtime.shutdown` and parent-EOF cleanup. Evidence paths
 and a compact result are printed as JSON. Set
 `ODIN_SMOKE_OUT` to retain screenshots of chat and every settings section plus a JSON evidence file alongside the
-named checkpoint; the default screenshots, evidence and profiles are discarded.
+named production checkpoint. The seeded checkpoint adds `-seeded-work-proof.png`, with its own screenshots and JSON.
+The default screenshots, evidence and profiles are discarded. `real-core-work.test.ts` additionally checks ordinary
+`manage_process` list (with actual authorization filtering) and unrelated `run_command` calls pass through the bootstrap to the real executor via admitted
+scheduled workflows. Listing the seeded registry row is not real process admission or process execution qualification.
 
 The fixture smoke gate explicitly clears real-core overrides, so it remains a fixture regression gate rather
 than accidentally running whichever core a developer shell last selected.

@@ -3,6 +3,12 @@
 Base: `phase-2/services-part-b` at `4ede9e75fb079a0a305c7b24f89700d7fb7c4416` (#37).
 Branch: `app/p31-real-core-slice5`. The PR targets the base branch, not main.
 
+Review round 1 found that the initial `smoke:real-core` run below used the seeded
+Work bootstrap, not the unmodified production entry point. Its 22 observations
+qualify only that seeded Work proof. They do not prove a fresh production profile.
+The correction and separately labelled production/seeded gates are recorded in
+[`pr47-review1-validation.md`](pr47-review1-validation.md).
+
 ## Delivered behavior
 
 - Work reads the actual six manager families through the existing named bridge. Structured detail, immutable
@@ -27,7 +33,8 @@ Branch: `app/p31-real-core-slice5`. The PR targets the base branch, not main.
 `app/test/services-b-core.py` is test-only and rejects unprivileged/isolation mistakes before admission. It composes
 the actual entry point, canonical authenticated owner, WorkService, ControlService, request/background owners,
 retained scheduler, command journal, report delivery and Broker. It does not substitute fixture rows into a real
-application session.
+application session from the fixture engine, but it does insert controlled agent/process manager metadata and
+replace the two synthetic waiting-tool boundaries. This is a seeded proof, not the production-entry smoke.
 
 A completed task and scheduled two-page report execute harmless real local `run_command` children. Each child
 appends an independent effect counter under the disposable HOME. The final smoke reads page two through the
