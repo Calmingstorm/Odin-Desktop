@@ -139,7 +139,8 @@ async def test_independent_background_skill_delivery_preserves_authority_and_sta
     source = tmp_path / "host-source.txt"
     source.write_text("host-read-marker\nsecond source line\n", encoding="utf-8")
     provider = IndependentProvider(kind, source, fail_after_stage)
-    core, reader, writer, cid, rfd, wfd = await session(tmp_path, provider)
+    # Correctness proof on a shared host, not a setup latency SLA.
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, provider, setup_timeout=30)
     try:
         config = core.config
         config.agents.model = "compat:test"
@@ -349,7 +350,7 @@ async def test_real_loop_stop_after_skill_staging_flushes_once_without_success_t
     source = tmp_path / "cancel-host-source.txt"
     source.write_text("host-read-marker\ncancellation fixture\n", encoding="utf-8")
     provider = IndependentProvider("loop", source)
-    core, reader, writer, cid, rfd, wfd = await session(tmp_path, provider)
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, provider, setup_timeout=30)
     try:
         config = core.config
         config.tools.hosts["localhost"] = ToolHost(address="localhost")

@@ -69,13 +69,14 @@ async def test_background_reads_share_live_settings_and_effective_runtime_owners
         await cleanup(core, writer, rfd, wfd)
 
 
-async def session(tmp_path, provider):
+async def session(tmp_path, provider, *, setup_timeout=3):
     paths, socket_path, token_file = profile(tmp_path)
     core = service(paths, socket_path, token_file, provider)
     read_fd, write_fd = os.pipe()
     await core.start(read_fd)
     reader, writer, _ = await connect(socket_path)
-    cid = (await request(reader, writer, "conversations.create"))["result"]["conversation"]["id"]
+    cid = (await request(reader, writer, "conversations.create",
+                         timeout=setup_timeout))["result"]["conversation"]["id"]
     return core, reader, writer, cid, read_fd, write_fd
 
 
