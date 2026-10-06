@@ -3745,7 +3745,7 @@
       "test_sha256": {
         "tests/test_desktop_background_core.py": "c319a2eab758ca93335816fdcbb46c3f5da7c055be14f1ab3acca8f5e4fc0a15",
         "tests/test_desktop_runtime.py": "ffc4d1cbea5a8303debd77557097bbab7d2c1a6d42370cb99fcb14eb73cdcb34",
-        "tests/test_desktop_webhooks.py": "985372e26b0fd8b49e10d7ffe113b8d2303464808180879a14c9bf7321069064"
+        "tests/test_desktop_webhooks.py": "9978d2684147edcb70ce3a570361ea9b0424f30993610eb44d6f6d6188f8925c"
       },
       "tests": [
         "tests/test_desktop_background_core.py",
@@ -4022,7 +4022,7 @@
       "test_sha256": {
         "tests/test_desktop_secret_domain_threads.py": "55e4b96e47320a64862e60d4192a8044634f10e3d2b9db062e8369f28f1f6a08",
         "tests/test_desktop_settings.py": "54e209380576a440baccd16e38d1bf1581e90f99feb65f65e12afee627790a63",
-        "tests/test_desktop_webhooks.py": "985372e26b0fd8b49e10d7ffe113b8d2303464808180879a14c9bf7321069064"
+        "tests/test_desktop_webhooks.py": "9978d2684147edcb70ce3a570361ea9b0424f30993610eb44d6f6d6188f8925c"
       },
       "tests": [
         "tests/test_desktop_secret_domain_threads.py",
@@ -9782,7 +9782,7 @@
       "test_sha256": {
         "tests/test_desktop_schedule_recovery.py": "7b686924fd8348ae63c06b25190b095ede8f4fd2fa92d792e0eb0faa69298777",
         "tests/test_desktop_webhook_adapters.py": "0f7016bf222896077d2e930ee24ced2d077158077881493e5063f9f949aaeb2a",
-        "tests/test_desktop_webhooks.py": "985372e26b0fd8b49e10d7ffe113b8d2303464808180879a14c9bf7321069064"
+        "tests/test_desktop_webhooks.py": "9978d2684147edcb70ce3a570361ea9b0424f30993610eb44d6f6d6188f8925c"
       },
       "tests": [
         "tests/test_desktop_schedule_recovery.py",

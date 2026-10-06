@@ -510,17 +510,31 @@ async def test_cancelled_handoff_fences_and_recovers_notice_only(tmp_path):
         await ingress.close()
         await asyncio.gather(first, return_exceptions=True)
         assert not scheduler.list_all()[0].get('paused')
-        restarted = WebhookIngress(settings, scheduler, ingress.store,
-            ingress.transcript, owner_id=ingress.owner_id)
-        await restarted.start()
-        try:
-            assert restarted.address is not None
-            assert len(ingress.transcript.all_messages(cid)) == 1
-            assert not seen
-            assert ingress.store.connection.execute(
-                'SELECT state,published FROM desktop_webhook_receipts').fetchone()[0] == 'unknown'
-        finally:
-            await restarted.close()
+        receipt = ingress.store.connection.execute(
+            'SELECT id,state FROM desktop_webhook_receipts').fetchone()
+        assert receipt[1] == 'unknown'
+        for count in (1, 2):
+            scheduler = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+            async def completed(schedule):
+                seen.append(schedule)
+            scheduler._callback = completed
+            restarted = WebhookIngress(settings, scheduler, ingress.store,
+                ingress.transcript, owner_id=ingress.owner_id)
+            settings.ingress = restarted
+            await restarted.start()
+            try:
+                assert restarted.address is not None
+                assert len(seen) == count - 1
+                assert len(ingress.transcript.all_messages(cid)) == count
+                assert (await post(restarted))[0] == 200
+                assert len(seen) == count
+                row = ingress.store.connection.execute(
+                    'SELECT state,published FROM desktop_webhook_receipts WHERE id=?',
+                    (receipt[0],)).fetchone()
+                assert tuple(row) == ('unknown', 1)
+                assert restarted.status()['unknown_deliveries'] == 1
+            finally:
+                await restarted.close()
 
 
 @pytest.mark.asyncio
