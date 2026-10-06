@@ -1,4 +1,5 @@
 """Real named reads and keyring-only refresh settlement, without live state."""
+import ast
 import asyncio
 import json
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ from src.desktop.management import MethodError
 from src.desktop.trajectories import TrajectoriesService
 from src.llm import codex_auth as ca
 from src.trajectories.saver import TrajectorySaver
+from tests.desktop_adapters import step5_traces
 from tests.desktop_adapters.step5_traces import EVIDENCE, adapted_tree
 
 
@@ -289,3 +291,97 @@ async def test_named_trajectory_errors_scrub_backend_secrets(tmp_path):
         with pytest.raises(MethodError) as failure:
             await service.handle(method, params)
         assert failure.value.code == code
+
+
+def _frozen_file_setup(tmp_path, rows, monkeypatch):
+    """Execute the unchanged frozen setup with its admitted constructor seam."""
+    services = []
+
+    def constructed(*args, **kwargs):
+        service = CodexAccountsService(*args, **kwargs)
+        services.append(service)
+        return service
+
+    monkeypatch.setattr(step5_traces, "CodexAccountsService", constructed)
+    tree = adapted_tree("test_codex_account_mutation_regressions")
+    namespace = {"_FileFixturePool": step5_traces._FileFixturePool}
+    exec(compile(ast.fix_missing_locations(tree),
+                 "tests/test_codex_account_mutation_regressions.py", "exec"), namespace)
+    result = namespace["setup"](tmp_path, rows)
+    assert len(services) == 1
+    return (*result, services[0])
+
+
+@pytest.mark.parametrize("single_format", [False, True])
+async def test_file_fixture_keeps_actual_pool_service_locks_and_reload_owner(
+    tmp_path, monkeypatch, single_format,
+):
+    rows = _account() if single_format else [_account()]
+    path, pool, bot, _, _, service = _frozen_file_setup(tmp_path, rows, monkeypatch)
+    assert type(service) is CodexAccountsService
+    assert isinstance(pool, ca.CodexAuthPool)
+    assert await service.get_pool() is pool is bot.llm_gateway.codex_client.auth
+    assert type(pool).reload_async is ca.CodexAuthPool.reload_async
+    assert type(pool).force_refresh is ca.CodexAuthPool.force_refresh
+    auth = pool._accounts[0]
+    lock = auth._refresh_lock
+    assert type(auth) is ca.CodexAuth
+    assert auth.expected is pool._loaded_records[0]
+    generation = pool.generation
+    async with pool._pool_lock:
+        reloading = asyncio.create_task(pool.reload_async())
+        await asyncio.sleep(0)
+        assert not reloading.done()
+        assert pool.generation == generation
+    assert await reloading == 1
+    assert pool.generation == generation + 1
+    assert pool._accounts[0] is auth
+    assert auth._refresh_lock is lock
+    assert auth.expected is pool._loaded_records[0]
+    assert auth.save_guard()
+    assert json.loads(path.read_text()) == rows
+    with pytest.raises(RuntimeError, match="requires the pool lock"):
+        pool._reload_accounts(rows)
+
+
+@pytest.mark.parametrize("operation", ["delete", "reauth"])
+async def test_file_fixture_named_mutation_reloads_durable_canonical_under_lock(
+    tmp_path, monkeypatch, operation,
+):
+    path, pool, bot, app, _, service = _frozen_file_setup(
+        tmp_path, [_account(), None, _account("B")], monkeypatch)
+    old = pool._accounts[1]
+    seen = []
+    original_reload = pool._reload_accounts
+
+    def observed_reload(raw=None):
+        assert pool._pool_lock.locked()
+        assert json.loads(path.read_text()) == raw
+        seen.append(raw)
+        original_reload(raw)
+
+    monkeypatch.setattr(pool, "_reload_accounts", observed_reload)
+    async with step5_traces.TestClient(step5_traces.TestServer(app)) as client:
+        if operation == "delete":
+            response = await client.delete("/api/codex/account/1")
+        else:
+            monkeypatch.setattr(ca.CodexAuth, "poll_device_auth", AsyncMock(
+                return_value={**_account("B"), "access_token": "synthetic-new-B"}))
+            response = await client.post("/api/codex/device-poll", json={
+                "device_auth_id": "fixture", "user_code": "fixture", "save_index": 1})
+    assert response.status == 200
+    assert (await response.json())["status"] == (
+        "deleted" if operation == "delete" else "authenticated")
+    assert len(seen) == 1
+    assert await service.get_pool() is pool
+    assert pool._canonical_indices == ([0] if operation == "delete" else [0, 2])
+    assert pool._accounts[0].get_account_id() == "A"
+    assert not old.save_guard()
+    if operation == "reauth":
+        replacement = pool._accounts[1]
+        assert replacement is not old
+        assert replacement.expected is pool._loaded_records[2]
+        assert replacement._load()["access_token"] == "synthetic-new-B"
+        assert json.loads((tmp_path / "codex_auth_2.json").read_text()) == seen[0][2]
+        assert replacement.save_guard()
+    bot.llm_gateway.reload_codex.assert_awaited_once_with()

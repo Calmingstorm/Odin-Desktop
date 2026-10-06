@@ -19,7 +19,7 @@ from ..llm.openrouter import conservative_profile, is_openrouter_base_url, openr
 from ..observability.diagnostics import safe_text, scrub_diagnostic
 from ..web.api import llm_admin
 from .management import MethodError
-from .secrets import SecretStoreError
+from .secrets import SecretStoreError, secret_call
 
 METHODS = frozenset({
     "openrouter.catalogue", "openrouter.endpoints", "openrouter.select",
@@ -42,16 +42,16 @@ class OpenRouterAdminService:
         cfg = self.settings.config.openai_compatible
         return cfg if is_openrouter_base_url(cfg.base_url) else None
 
-    def _key(self, cfg):
+    async def _key(self, cfg):
         try:
-            key = self.settings.secrets.get("openai_compatible.api_key")
+            key = await secret_call(self.settings.secrets.get, "openai_compatible.api_key")
         except SecretStoreError:
             raise MethodError("unavailable", "Profile keyring is unavailable or locked") from None
         # Already-hydrated profile config is legitimate, never files/env/another
         # transport's stale credential. Vault failures do not fall back.
         return key if key is not None else cfg.api_key
 
-    def _safe_result(self, value):
+    async def _safe_result(self, value):
         """Scrub diagnostic copies only; policy/model inputs remain untouched."""
         result = scrub_diagnostic(value)
         # Credential-presence flags are public metadata, not credential values.
@@ -71,7 +71,9 @@ class OpenRouterAdminService:
         credentials = [self.settings.config.openai_compatible.api_key,
                        getattr(client, "api_key", None)]
         try:
-            credentials.append(self.settings.secrets.get("openai_compatible.api_key"))
+            credentials.append(await secret_call(
+                self.settings.secrets.get, "openai_compatible.api_key",
+            ))
         except SecretStoreError:
             pass
         secrets = {item for item in credentials if isinstance(item, str) and item}
@@ -114,8 +116,8 @@ class OpenRouterAdminService:
             from ..llm.openrouter import model_detail_path
             model_detail_path(model)
             if method == "openrouter.endpoints":
-                rows = await llm_admin._openrouter_endpoint_rows(model, api_key=self._key(cfg))
-                return self._safe_result({
+                rows = await llm_admin._openrouter_endpoint_rows(model, api_key=await self._key(cfg))
+                return await self._safe_result({
                     "model": model, "endpoints": rows,
                     "effective_profile": conservative_profile(rows, cfg.openrouter, model=model),
                 })
@@ -126,7 +128,7 @@ class OpenRouterAdminService:
             # Pydantic's repr includes submitted values and possibly auth.
             raise MethodError("bad_request", "Invalid OpenRouter model policy") from None
         except ValueError as exc:
-            raise MethodError("bad_request", self._safe_result(safe_text(exc))) from None
+            raise MethodError("bad_request", await self._safe_result(safe_text(exc))) from None
         except (aiohttp.ClientError, TimeoutError, OSError, RuntimeError) as exc:
             raise MethodError(
                 "unavailable", f"{type(exc).__name__}: OpenRouter request failed"
@@ -149,7 +151,7 @@ class OpenRouterAdminService:
         for model in requested:
             try:
                 details[model] = await llm_admin._openrouter_endpoint_rows(
-                    model, api_key=self._key(cfg)
+                    model, api_key=await self._key(cfg)
                 )
             except MethodError:
                 raise
@@ -204,7 +206,7 @@ class OpenRouterAdminService:
                 measured = (await usage.summary("30d")).get("upstream_cache", [])
             except Exception:
                 pass
-        return self._safe_result({
+        return await self._safe_result({
                 "recognized": True, "fetched_at": llm_admin._openrouter_cache.get("fetched_at"),
                 "stale": stale, "refresh_error": error, "models": projected,
                 "quick_add": quick, "routing": cfg.openrouter.model_dump(),
@@ -238,7 +240,7 @@ class OpenRouterAdminService:
         if openrouter_variant(model) != "standard":
             raise ValueError("free and batch variants are not eligible for ordinary agents")
         pin = str(params.get("provider_tag") or "").strip()
-        rows = await llm_admin._openrouter_endpoint_rows(model, api_key=self._key(cfg))
+        rows = await llm_admin._openrouter_endpoint_rows(model, api_key=await self._key(cfg))
         if pin and pin not in {str(row.get("tag")) for row in rows}:
             raise ValueError("provider_tag must be an endpoint tag returned by OpenRouter")
         # Preserve the early unsafe-profile error before the catalogue await.
@@ -276,7 +278,7 @@ class OpenRouterAdminService:
             catalog = getattr(self.provider, "tool_catalog", None)
             if catalog is not None:
                 catalog.invalidate()
-        return self._safe_result({
+        return await self._safe_result({
                 "model": model, "provider_tag": pin or None, "profile": value.model_dump(),
                 "effective_profile": profile})
 
@@ -286,7 +288,7 @@ class OpenRouterAdminService:
             raise MethodError("unavailable", "OpenAI-compatible provider not configured")
         health = await client.health_check()
         # Retain unhealthy evidence rather than erase it behind a generic error.
-        return self._safe_result({"configured": True,
+        return await self._safe_result({"configured": True,
             "provider": getattr(client, "provider_name", "openai_compatible"),
             "base_url": client.base_url, "model": client.model,
             "health": health, "stats": client.pool_stats()})
@@ -385,7 +387,7 @@ class OpenRouterAdminService:
                 "context_utilization": compat.context_utilization,
                 "openrouter": compat.openrouter.model_dump(),
                 "openrouter_recognized": is_openrouter_base_url(compat.base_url),
-                "has_api_key": bool(self._key(compat))},
+                "has_api_key": bool(await self._key(compat))},
             "auxiliary": llm_admin._auxiliary_status(projection),
             "model_choices": {
                 "codex": {"configured": codex_client is not None, "models": [codex.model]},
@@ -400,4 +402,4 @@ class OpenRouterAdminService:
         if serving is not None and serving.client is not None:
             result["active_model"] = serving.model
             result["active_provider_name"] = serving.provider
-        return self._safe_result(result)
+        return await self._safe_result(result)

@@ -117,6 +117,33 @@ async def test_actual_compression_owner_updates_are_visible_over_transport(conne
     assert observed["result"]["upstream_cache_measured"] is False
 
 
+async def test_persisted_usage_read_is_observed_without_a_second_rollup_writer(connected):
+    from src.audit.logger import AuditLogger
+    from src.usage.rollup import UsageRollup
+
+    core, reader, writer, _, _ = connected
+    paths = core.paths
+    owner = UsageRollup(str(paths.data_dir / "usage"),
+                       trajectory_directory=str(paths.data_dir / "trajectories"),
+                       agent_trajectory_directory=str(paths.data_dir / "agent_trajectories"),
+                       audit=AuditLogger(str(paths.data_dir / "fixture-usage-audit.jsonl")))
+    assert owner.available
+    expected = await owner.summary("30d")
+    core.management.runtime.usage = owner
+    actual = await request(reader, writer, "observability.usage", {"range": "30d"})
+    assert actual["ok"], actual
+    assert actual["result"].pop("observed_at")
+    assert expected.pop("observed_at")
+    assert actual["result"] == expected
+    core.management.runtime.usage = None
+    fallback = core.management.observations._owner("usage_rollup")
+    assert fallback.db_path == owner.db_path
+    assert type(fallback).__name__ == "_ProfileUsageReader"
+    reread = await fallback.summary("30d")
+    assert reread.pop("observed_at")
+    assert reread == expected
+
+
 async def test_pool_close_command_replay_does_not_repeat_effect(connected, monkeypatch):
     core, reader, writer, _, _ = connected
     pool = core.management.executor.ssh_pool

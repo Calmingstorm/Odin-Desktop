@@ -92,6 +92,33 @@ def setup_api(app, bot):
     app.add_routes(routes)
 
 
+class _FileFixturePool(ca.CodexAuthPool):
+    """Retained file owner with the named service's locked reload boundary.
+
+    The service has already durably written the canonical file before calling
+    _reload_accounts(raw) under _pool_lock. The retained owner must reread that
+    file, not adopt the supplied keyring rows or replace its canonical/shadow
+    reconciliation and generation-fenced save hooks.
+    """
+
+    def _init_accounts(self):
+        super()._init_accounts()
+        for canonical, auth in self._loaded_auths.items():
+            # Share the actual guard/sync record, including after replacement.
+            auth.expected = self._loaded_records[canonical]
+
+    def _reload_accounts(self, raw=None):
+        if not self._pool_lock.locked():
+            raise RuntimeError("file fixture reload requires the pool lock")
+        # Exactly the retained reload_async state transition, without acquiring
+        # the already-held lock a second time. Its public async method remains
+        # inherited and still acquires the real lock.
+        self._accounts.clear()
+        self._manual_active_index = None
+        self._init_accounts()
+        self._current_index = min(self._current_index, max(self.account_count - 1, 0))
+
+
 class _FileFixtureVault:
     """Exact inherited filesystem regression fixture, NEVER production."""
 
@@ -109,10 +136,6 @@ def register_codex_oauth(routes, bot):
     service = CodexAccountsService(None, vault=_FileFixtureVault(
         bot.config.openai_codex.credentials_path))
     service._pool = bot.llm_gateway.codex_client.auth
-    # The inherited file-owner fixture lacks the keyring row metadata handle.
-    # Supply that setup seam without changing the owner, locks or credentials.
-    for auth in service.pool._accounts:
-        auth.expected = dict(auth._load())
     service.providers = bot.llm_gateway
 
     @routes.get("/api/codex/status")
@@ -251,6 +274,21 @@ def adapted_tree(stem):
                 node.module = "tests.desktop_adapters.step5_traces"
             return node
     adapted = Imports().visit(adapted)
+    if stem == "test_codex_account_mutation_regressions":
+        # Adapt only the exact frozen setup constructor. Every test body and
+        # original assertion still executes against the retained file owner.
+        setup = next(node for node in adapted.body
+                     if isinstance(node, ast.FunctionDef) and node.name == "setup")
+        constructors = [node for node in ast.walk(setup) if isinstance(node, ast.Call)
+                        and ast.dump(node, include_attributes=False) == ast.dump(
+                            ast.parse("ca.CodexAuthPool(str(path))", mode="eval").body,
+                            include_attributes=False)]
+        if len(constructors) != 1:
+            raise ValueError("expected exactly one frozen file-pool setup constructor")
+        call = constructors[0]
+        call.func = ast.copy_location(ast.Name(id="_FileFixturePool", ctx=ast.Load()), call.func)
+        changes.append({"line": call.lineno,
+                        "operation": "retained_file_pool_locked_reload_setup"})
     assert corpus(original) == corpus(adapted)
     EVIDENCE[path] = {
         "source_sha256": hashlib.sha256(source).hexdigest(),
@@ -265,6 +303,7 @@ def export_suite(namespace, stem):
     tree = adapted_tree(stem)
     module = ModuleType(f"desktop_step5_{stem}")
     module.__file__ = str(ROOT / f"tests/{stem}.py")
+    module._FileFixturePool = _FileFixturePool
     exec(compile(ast.fix_missing_locations(tree), module.__file__, "exec"), module.__dict__)
     register_module(namespace, stem, tree, module)
 

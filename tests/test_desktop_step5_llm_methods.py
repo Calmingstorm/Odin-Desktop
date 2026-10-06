@@ -1,6 +1,8 @@
 """OpenRouter named methods using real profile settings and provider owners."""
 from __future__ import annotations
 
+import asyncio
+import threading
 from unittest.mock import AsyncMock
 
 import pytest
@@ -254,3 +256,206 @@ async def test_status_and_provider_get_use_serving_and_profile_owners(service):
     with pytest.raises(MethodError) as error:
         await service.handle("models.provider.set", {"provider": "invalid"})
     assert error.value.code == "bad_request"
+
+
+class BlockingReadKeyring(MemoryKeyring):
+    """A real synchronous backend boundary, gated without any live keyring."""
+
+    def __init__(self, backend, *, block_read=1):
+        super().__init__()
+        self.values = dict(backend.values)
+        self.loop_thread = threading.get_ident()
+        self.block_read = block_read
+        self.entered = threading.Event()
+        self.release = threading.Event()
+        self.calls = []
+
+    def get_password(self, namespace, name):
+        self.calls.append((threading.get_ident(), threading.current_thread().daemon))
+        if len(self.calls) == self.block_read:
+            self.entered.set()
+            if not self.release.wait(5):
+                raise RuntimeError("temporary backend gate timed out")
+        return super().get_password(namespace, name)
+
+
+async def wait_for_backend(backend):
+    for _ in range(1000):
+        if backend.entered.is_set():
+            return
+        await asyncio.sleep(.001)
+    pytest.fail("keyring worker did not reach the read boundary")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,params,block_read,error_code", [
+    ("openrouter.endpoints", {"model": "vendor/model"}, 1, None),
+    ("openrouter.endpoints", {"model": "vendor/model"}, 2, None),
+    ("openrouter.catalogue", {}, 1, None),
+    ("openrouter.catalogue", {}, 2, None),
+    ("openrouter.select", {"model": "vendor/model"}, 1, None),
+    ("openrouter.select", {"model": "vendor/model"}, 2, None),
+    ("providers.compat.diagnostic", {}, 1, None),
+    ("models.status", {}, 1, None),
+    ("models.status", {}, 2, None),
+    ("models.provider.set", {"provider": "unknown"}, 1, "bad_request"),
+])
+async def test_all_openrouter_keyring_reads_allow_heartbeat(
+    service, monkeypatch, method, params, block_read, error_code,
+):
+    backend = BlockingReadKeyring(service.settings.secrets._backend, block_read=block_read)
+    service.settings.secrets._backend = backend
+    monkeypatch.setattr(service.provider.compatible_client, "health_check", AsyncMock(
+        return_value={"healthy": False, "error": "fixture-key"}))
+    request = asyncio.create_task(service.handle(method, params))
+    beats = []
+
+    async def heartbeat():
+        for beat in range(5):
+            await asyncio.sleep(.002)
+            beats.append(beat)
+
+    try:
+        await wait_for_backend(backend)
+        await heartbeat()
+        assert len(beats) == 5
+        assert not request.done()
+    finally:
+        backend.release.set()
+        # Always retrieve even on a failed assertion; no orphan worker/tasks.
+        outcomes = await asyncio.gather(request, return_exceptions=True)
+    if error_code:
+        assert isinstance(outcomes[0], MethodError)
+        assert outcomes[0].code == error_code
+    else:
+        assert isinstance(outcomes[0], dict)
+        assert "fixture-key" not in str(outcomes[0])
+    assert all(thread != backend.loop_thread and daemon for thread, daemon in backend.calls)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,params,block_read", [
+    ("openrouter.endpoints", {"model": "vendor/model"}, 1),
+    ("openrouter.endpoints", {"model": "vendor/model"}, 2),
+    ("openrouter.select", {"model": "vendor/model"}, 1),
+    ("providers.compat.diagnostic", {}, 1),
+])
+async def test_unknown_method_and_cancelled_keyring_read_settle(
+    service, method, params, block_read,
+):
+    backend = BlockingReadKeyring(service.settings.secrets._backend, block_read=block_read)
+    service.settings.secrets._backend = backend
+    if method == "providers.compat.diagnostic":
+        service.provider.compatible_client.health_check = AsyncMock(return_value={"healthy": True})
+    before = service.settings.paths.config_file.read_bytes()
+    revision = service.settings.revision
+    request = asyncio.create_task(service.handle(method, params))
+    try:
+        await wait_for_backend(backend)
+        # Unknown methods must settle immediately, even with the backend blocked.
+        with pytest.raises(MethodError) as error:
+            await service.handle("openrouter.unknown", {})
+        assert error.value.code == "unknown_method"
+        assert len(backend.calls) == block_read
+        request.cancel()
+        await asyncio.sleep(.01)
+        assert not request.done()
+        request.cancel()  # Repeated cancellation still cannot abandon native I/O.
+        await asyncio.sleep(.01)
+        assert not request.done()
+    finally:
+        backend.release.set()
+        outcomes = await asyncio.gather(request, return_exceptions=True)
+    assert isinstance(outcomes[0], asyncio.CancelledError)
+    assert service.settings.paths.config_file.read_bytes() == before
+    assert service.settings.revision == revision
+    assert not service.settings._async_lock.locked()
+    assert not service.provider.provider_lock.locked()
+    assert all(thread != backend.loop_thread and daemon for thread, daemon in backend.calls)
+
+
+@pytest.mark.asyncio
+async def test_keyring_credential_and_hydrated_fallback_feed_auth_cache(service, monkeypatch):
+    saved = dict(llm_admin._openrouter_cache)
+    cfg = service.settings.config.openai_compatible
+    cfg.api_key = "hydrated-fixture"
+    backend = service.settings.secrets._backend
+    namespace = service.settings.secrets.namespace
+    fetch = AsyncMock(return_value={"data": {"endpoints": [
+        {"tag": "route", "provider_name": "Route"},
+    ]}})
+    monkeypatch.setattr(llm_admin, "_openrouter_endpoint_rows", retained_endpoint_rows)
+    monkeypatch.setattr("src.llm.openrouter.fetch_json", fetch)
+    try:
+        llm_admin._openrouter_cache.update(models=None, fetched_at=0, error=None, details={})
+        await service.handle("openrouter.endpoints", {"model": "vendor/model"})
+        await service.handle("openrouter.endpoints", {"model": "vendor/model"})
+        assert fetch.await_count == 1
+        assert fetch.await_args.kwargs["api_key"] == "fixture-key"
+        backend.values[(namespace, "openai_compatible.api_key")] = "rotated-fixture"
+        await service.handle("openrouter.endpoints", {"model": "vendor/model"})
+        assert fetch.await_count == 2
+        assert fetch.await_args.kwargs["api_key"] == "rotated-fixture"
+        backend.values.pop((namespace, "openai_compatible.api_key"))
+        await service.handle("openrouter.endpoints", {"model": "vendor/model"})
+        assert fetch.await_count == 3
+        assert fetch.await_args.kwargs["api_key"] == "hydrated-fixture"
+        backend.locked = True
+        with pytest.raises(MethodError) as error:
+            await service.handle("openrouter.endpoints", {"model": "vendor/model"})
+        assert error.value.code == "unavailable"
+        assert fetch.await_count == 3
+        assert "hydrated-fixture" not in error.value.message
+        assert len(llm_admin._openrouter_cache["details"]) == 3
+        for credential in ("fixture-key", "rotated-fixture", "hydrated-fixture"):
+            assert credential not in str(list(llm_admin._openrouter_cache["details"]))
+    finally:
+        llm_admin._openrouter_cache.clear()
+        llm_admin._openrouter_cache.update(saved)
+
+
+@pytest.mark.asyncio
+async def test_async_scrub_collects_all_credentials_and_preserves_locked_diagnostics(service):
+    cfg = service.settings.config.openai_compatible
+    cfg.api_key = "hydrated-fixture"
+    service.provider.compatible_client.api_key = "serving-fixture"
+    value = {"has_api_key": True,
+             "error": "fixture-key hydrated-fixture serving-fixture"}
+    assert await service._safe_result(value) == {
+        "has_api_key": True, "error": "[REDACTED] [REDACTED] [REDACTED]",
+    }
+    assert value["error"] == "fixture-key hydrated-fixture serving-fixture"
+    service.settings.secrets._backend.locked = True
+    # Diagnostic scrub remains best-effort on a locked store, not an auth fallback.
+    assert await service._safe_result({"error": "hydrated-fixture serving-fixture"}) == {
+        "error": "[REDACTED] [REDACTED]",
+    }
+
+
+@pytest.mark.asyncio
+async def test_cancelled_select_output_scrub_preserves_completed_adoption(service):
+    backend = BlockingReadKeyring(service.settings.secrets._backend, block_read=2)
+    service.settings.secrets._backend = backend
+    revision = service.settings.revision
+    request = asyncio.create_task(service.handle("openrouter.select", {
+        "model": "vendor/model", "provider_tag": "route",
+    }))
+    try:
+        await wait_for_backend(backend)
+        adopted_revision = service.settings.revision
+        assert adopted_revision != revision
+        assert not service.settings._async_lock.locked()
+        assert not service.provider.provider_lock.locked()
+        request.cancel()
+        await asyncio.sleep(.01)
+        assert not request.done()
+    finally:
+        backend.release.set()
+        outcomes = await asyncio.gather(request, return_exceptions=True)
+    assert isinstance(outcomes[0], asyncio.CancelledError)
+    cfg = service.settings.config.openai_compatible
+    assert cfg.openrouter.model_pins == {"vendor/model": "route"}
+    assert service.provider.compatible_client.openrouter_routing is cfg.openrouter
+    saved = yaml.safe_load(service.settings.paths.config_file.read_text())
+    assert saved["openai_compatible"]["openrouter"]["model_pins"] == {"vendor/model": "route"}
+    assert service.settings.revision == adopted_revision

@@ -76,7 +76,9 @@ class ObservabilityService:
         """Resolve references only. Never construct a manager to manufacture data."""
         explicit = getattr(self, name, None)
         if explicit is not None:
-            return explicit() if name == "config" and callable(explicit) else explicit
+            if name in {"config", "usage_rollup"} and callable(explicit):
+                return explicit()
+            return explicit
         root = self.graph() if callable(self.graph) else self.graph
         aliases = {"executor": ("executor", "tool_executor"),
                    "gateway": ("providers", "llm_gateway", "gateway")}.get(name, (name,))

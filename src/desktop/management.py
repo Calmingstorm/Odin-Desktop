@@ -281,6 +281,7 @@ class ManagementService:
 
             return runtime.usage or _ProfileUsageReader(settings.config.usage.directory)
 
+        observations.usage_rollup = usage_source
         openrouter = OpenRouterAdminService(settings, provider=providers, usage=usage_source)
         manager = cls(core, services=[settings, codex, hosts, state, knowledge,
                                      records, runtime, models, integrations,

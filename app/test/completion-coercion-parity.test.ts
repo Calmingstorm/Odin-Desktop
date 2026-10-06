@@ -6,6 +6,10 @@ describe('completion bridge preserves pinned query conversion and fallback', () 
     ['auditFailures', { window: 'invalid' }],
     ['knowledgeDuplicates', { threshold: 'invalid' }],
     ['recoveryRecent', { limit: 'invalid' }],
+    ['knowledgeChunks', { source: ' ' }],
+    ['knowledgeVersion', { source: ' ', version: 0 }],
+    ['knowledgeDiff', { source: ' ', v1: 0, v2: 1 }],
+    ['codexRefresh', { index: ' 0 ' }],
     ['trajectoriesRead', { filename: 'fixture.jsonl', limit: 'invalid', errors_only: '1' }],
     ['trajectoriesSearch', { limit: 'invalid', errors_only: 'true' }]
   ])('%s lets the real owner apply its fallback', (method, params) => {
