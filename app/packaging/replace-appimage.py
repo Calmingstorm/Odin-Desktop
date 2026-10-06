@@ -6,11 +6,11 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import stat
 import sys
 import uuid
+from pathlib import Path
 
 
 class ReplacementError(ValueError):
@@ -66,7 +66,9 @@ def replace_locked(source, destination, expected, transaction):
         raise ReplacementError('Run as the ordinary AppImage owner, not root')
     if not re.fullmatch('[0-9a-f]{64}', expected):
         raise ReplacementError('Supply the local new image SHA-256 explicitly')
-    source, destination, transaction = Path(source).absolute(), Path(destination).absolute(), Path(transaction)
+    source = Path(source).absolute()
+    destination = Path(destination).absolute()
+    transaction = Path(transaction)
     if source == destination:
         raise ReplacementError('Source and destination must differ')
     # Resolve the directory once; all executable operations below are dirfd-relative.
@@ -95,12 +97,14 @@ def replace_locked(source, destination, expected, transaction):
                 previous = json.loads(os.read(fd, 64 * 1024))
             finally:
                 os.close(fd)
-            if (not isinstance(previous, dict) or previous.get('schema') != 1 or previous.get('destination') != str(destination)
+            if (not isinstance(previous, dict) or previous.get('schema') != 1
+                    or previous.get('destination') != str(destination)
                     or previous.get('new_sha256') != expected
-                    or not re.fullmatch(r'\.odin-appimage-[0-9a-f]{32}\.pending', previous.get('stage', ''))):
-                raise ReplacementError('Interrupted transaction differs; manual inspection required')
+                    or not re.fullmatch(r'\.odin-appimage-[0-9a-f]{32}\.pending',
+                                        previous.get('stage', ''))):
+                raise ReplacementError('Interrupted transaction differs; inspect manually')
             if old_hash not in {previous.get('old_sha256'), expected}:
-                raise ReplacementError('Destination changed during interruption; manual inspection required')
+                raise ReplacementError('Destination changed during interruption; inspect manually')
             # Exact recorded stage only, never glob cleanup or old executable unlinking.
             try:
                 stage_info = os.stat(previous['stage'], dir_fd=directory, follow_symlinks=False)
@@ -108,7 +112,8 @@ def replace_locked(source, destination, expected, transaction):
                 pass
             else:
                 if (not stat.S_ISREG(stage_info.st_mode) or stage_info.st_uid != os.getuid()
-                        or previous.get('stage_identity') != [stage_info.st_dev, stage_info.st_ino]):
+                        or previous.get('stage_identity') != [
+                            stage_info.st_dev, stage_info.st_ino]):
                     raise ReplacementError('Interrupted stage ownership changed')
                 os.unlink(previous['stage'], dir_fd=directory)
                 os.fsync(directory)
@@ -165,7 +170,8 @@ def replace(source, destination, expected, env=None):
     from ownership import ownership_paths, replacement_guard
     paths = ownership_paths(kind='appimage', env=env)
     with replacement_guard(paths, check_receipts=True):
-        return replace_locked(source, destination, expected, paths.directory / 'appimage-replacement.json')
+        return replace_locked(source, destination, expected,
+                              paths.directory / 'appimage-replacement.json')
 
 
 def main():

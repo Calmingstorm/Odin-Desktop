@@ -3,12 +3,13 @@ import hashlib
 import importlib.util
 import json
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('appimage_replace', Path(__file__).parents[1] / 'replace-appimage.py')
+spec = importlib.util.spec_from_file_location(
+    'appimage_replace', Path(__file__).parents[1] / 'replace-appimage.py')
 replacement = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(replacement)
 
@@ -130,7 +131,8 @@ class UserReplacement(unittest.TestCase):
         self.assertEqual(self.old.stat().st_ino, inode)
 
     def test_interrupted_transaction_different_destination_requires_inspection(self):
-        self.transaction.write_text(json.dumps({'schema': 1, 'destination': '/other', 'new_sha256': self.new_hash}))
+        self.transaction.write_text(json.dumps({
+            'schema': 1, 'destination': '/other', 'new_sha256': self.new_hash}))
         with self.assertRaises(replacement.ReplacementError):
             self.run_replace()
         self.assertEqual(hashlib.sha256(self.old.read_bytes()).hexdigest(), self.old_hash)
