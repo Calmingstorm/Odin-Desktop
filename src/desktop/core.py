@@ -234,6 +234,37 @@ class CoreService:
         # The admitted attachment service supplies the actual protocol limits.
         self.limits = {}
 
+    @property
+    def delivery_readiness_reason(self) -> str | None:
+        """Observe the live durable request binding, not configuration or startup flags.
+
+        This diagnostic grants no request authority and performs no publication.
+        IPC reads the committed journal directly; an optional sink is not required.
+        """
+        if self._closed:
+            return "core_closed"
+        if not isinstance(self.delivery, DurableDelivery):
+            return "delivery_not_composed"
+        if self.store is None or self.store._closed:
+            return "delivery_store_closed"
+        if (self.delivery.store is not self.store or self.delivery.events is not self.events):
+            return "delivery_store_unbound"
+        if (self.requests is None or self.requests.delivery is not self.delivery
+                or self.requests.store is not self.store):
+            return "delivery_request_unbound"
+        if self.requests._closed:
+            return "delivery_requests_closed"
+        if (self.engine is None or self.engine.requests is not self.requests
+                or self.engine.deps.delivery is not self.delivery):
+            return "delivery_engine_unbound"
+        if self.engine._close_attempted:
+            return "delivery_engine_closed"
+        return None
+
+    @property
+    def delivery_readiness(self) -> bool:
+        return self.delivery_readiness_reason is None
+
     def status(self) -> dict:
         if self.management is not None:
             return {
@@ -276,6 +307,10 @@ class CoreService:
             committed=self._committed,
         )
         self.commands = CommandJournal(self.store)
+        # Qualification can await supervised workers. Parent loss must remain
+        # observable while startup is in progress, not only after it succeeds.
+        self.lifetime.watch_parent(stdin_fd)
+        self.lifetime.watch_signals()
         self.events = _CoreEvents(self.store)
         self.resource_cleanup = ResourceCleanupJournal(
             self.paths.data_dir / "resource-cleanup.json",
@@ -345,6 +380,7 @@ class CoreService:
         await secret_call(settings.hydrate_secrets)
         await self.engine.initialize_profile_provider()
         upgrade.commit()
+        await self._start_management()
         self.capabilities = (*CAPABILITIES[:5],
                              *sorted((set(CAPABILITIES) | set(self.management.methods))
                                      - set(CAPABILITIES[:5])))
@@ -352,8 +388,6 @@ class CoreService:
             self.socket_path, self.token_file, self.paths.profile_id,
             self.authority, self.welcome, self.dispatch,
         )
-        self.lifetime.watch_parent(stdin_fd)
-        self.lifetime.watch_signals()
         self.phase = "ready"
         async with self._serial:
             self.commands.prune(time.time() - RECEIPT_RETENTION)
@@ -409,6 +443,20 @@ class CoreService:
                     await self._flush_publications()
         except JournalStorageError:
             self.lifetime.request_stop("storage_unavailable")
+
+    async def _start_management(self) -> None:
+        startup = asyncio.create_task(self.management.start())
+        parent_loss = asyncio.create_task(self.lifetime.wait())
+        try:
+            await asyncio.wait((startup, parent_loss), return_when=asyncio.FIRST_COMPLETED)
+            if not self.lifetime.admitting:
+                raise RuntimeError("Core supervisor stopped during qualification")
+            await startup
+        finally:
+            for task in (startup, parent_loss):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(startup, parent_loss, return_exceptions=True)
 
     async def _prune_receipts(self) -> None:
         """Serialize periodic retention with admission, and fail closed on storage loss."""

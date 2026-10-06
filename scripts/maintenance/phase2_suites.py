@@ -187,6 +187,36 @@ RESTORATION_GROUPS = {
     4: "phase2-step4-restored-corpus",
 }
 
+# Reviewed PR28 additions only. These are byte-pinned full original imports,
+# not the generic frozen-adapter protocol used by Phase 2 restorations.
+STEP6A_GROUP = "phase2-step6a-qualified-local-services"
+STEP6A_FILES = frozenset({
+    "tests/test_desktop_skills.py", "tests/test_desktop_mcp.py",
+    "tests/test_desktop_browser_runtime.py", "tests/test_desktop_computer_binding.py",
+    "tests/test_desktop_dependency_resolver.py", "tests/test_desktop_service_catalog.py",
+    "tests/test_desktop_services_core.py", "tests/test_desktop_workspace_diagnostics.py",
+})
+STEP6A_REASON = (
+    "Step 6A real skill lifecycle/schema/dependency installation, supervised configured MCP, "
+    "bundled Chromium startup, bounded local workspace diagnostics and authentic computer "
+    "management/recovery. Pip, keyring, network, browser and native backends stubbed; benign "
+    "disposable git only. No foreground/delivery/work/schedule implementation or native "
+    "qualification claim. Immutable GI original cases run in the direct group through the "
+    "worker-only resolver adapter without assertion edits. All engine suites remain isolated "
+    "PID namespace with throwaway HOME."
+)
+MERGED_SELECTOR_ADAPTERS = {
+    "direct-shared-stores-providers-tools": (
+        "tests/test_gi_support_loading.py", "tests/test_desktop_gi_loading_adaptation.py",
+        "18488dd73087297c17291811744e770730d866d338f563cd3490a411f1e24b8b",
+    ),
+    "direct-shared-computer": (
+        "tests/test_computer_runtime_coverage_r10.py",
+        "tests/test_desktop_accessibility_gi_adaptation.py",
+        "01f8d63a5d5c6f6fa596209fc29623a7a9f344e9475e134a86974bb4d3192955",
+    ),
+}
+
 
 def _digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -715,11 +745,51 @@ def _check(root: Path) -> tuple[list[str], dict]:
     merged_groups = merged_qualification["groups"]
     merged_names = {group["name"] for group in merged_groups}
     restoration_names = set(RESTORATION_GROUPS.values()) - {"phase2-core-transport"}
+    additions = set(named) - merged_names
     if (not old_names <= merged_names or not merged_names <= set(named)
-            or set(named) - merged_names - restoration_names):
+            or additions - restoration_names - {STEP6A_GROUP}):
         errors.append("qualification: preserve all historical and merged main named groups")
+    if STEP6A_GROUP in named:
+        group = named[STEP6A_GROUP]
+        if (set(group) != {"name", "files", "reason"}
+                or set(group.get("files", [])) != STEP6A_FILES
+                or group.get("reason") != STEP6A_REASON):
+            errors.append(f"qualification: exact reviewed files/reason required for {STEP6A_GROUP}")
+        for selector in STEP6A_FILES:
+            try:
+                _regular(root, selector)
+            except (OSError, ValueError) as exc:
+                errors.append(str(exc))
+    replacements = {}
+    for name, (original, adapter, sha) in MERGED_SELECTOR_ADAPTERS.items():
+        selected_by = {group_name for group_name, group in named.items()
+                       if adapter in group.get("files", [])}
+        if not selected_by:
+            continue
+        group = named.get(name, {})
+        if (selected_by != {name} or original in group.get("files", [])
+                or any(group.get(key) for key in (
+                    "exclude_expression", "include_expression", "args", "pytest_args",
+                    "exclusions"))):
+            errors.append(
+                f"qualification: exact full-suite adapter association required for {adapter}")
+            continue
+        try:
+            if _digest(_regular(root, adapter).read_bytes()) != sha:
+                raise ValueError(f"reviewed adapter bytes changed: {adapter}")
+            if _regular(root, original).read_bytes() != originals[original]:
+                raise ValueError(f"adapter original bytes changed: {original}")
+        except (OSError, ValueError, KeyError) as exc:
+            errors.append(str(exc))
+            continue
+        replacements[name] = (original, adapter)
     for group in merged_groups:
-        if not set(group["files"]) <= set(named.get(group["name"], {}).get("files", [])):
+        required = set(group["files"])
+        if group["name"] in replacements:
+            original, adapter = replacements[group["name"]]
+            required.remove(original)
+            required.add(adapter)
+        if not required <= set(named.get(group["name"], {}).get("files", [])):
             errors.append(f"qualification: lost merged main selectors in {group['name']}")
     if "phase2-core-transport" not in named:
         errors.append("qualification: phase2-core-transport group missing")
@@ -885,6 +955,15 @@ def _check(root: Path) -> tuple[list[str], dict]:
                            "by_step": by_step}
         if mapping["counts"] != expected_counts:
             errors.append("mapping: stale recomputed counts")
+    case_manifest = root / "maintenance/phase2-step8-part5-cases.json"
+    if case_manifest.exists() or mapping.get("case_dispositions"):
+        try:
+            from scripts.maintenance import phase2_part5
+        except ModuleNotFoundError:
+            import phase2_part5
+        case_errors, case_report = phase2_part5.validate(root)
+        errors.extend(f"part5 cases: {error}" for error in case_errors)
+        report["part5_case_dispositions"] = case_report
     return errors, report
 
 

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "artifact": "PR52 review round 1 external evidence manifest",
+  "root": "/mnt/storage/odin-desktop-evidence/pr52-review-r1-req450f70e5/",
+  "artifacts": [
+    {"path": "drift-final.json", "bytes": 83907, "sha256": "15fe4f1967dc8f02d178f68e7c5fcfeeec4ce7b60f628e03e519321140179a9a"},
+    {"path": "part5.log", "bytes": 908, "sha256": "de099aa26c25d4ef349dba862eb872b72384b3763c219004f677bf6208fa68d5"},
+    {"path": "part5.xml", "bytes": 44213, "sha256": "bbc3bcef6d5f466c1e68195f589df2d0ac07d7cfbf35ae83ac9f0a6b1174ff1f"},
+    {"path": "coverage.log", "bytes": 161, "sha256": "2569664b00f7befe899327af2a723e1ea5de91d11934a74a0702728c970cfc6b"},
+    {"path": "coverage.xml", "bytes": 4062, "sha256": "a6a1fe28d3cf1451263b89634fcf460ecb63b8e9789e1965756234c05c787159"},
+    {"path": "short-fixtures.log", "bytes": 161, "sha256": "3dbea32c7c392ffde9a128cd6b6a28a56c52a8cfe37605498e3bbe3ee465fad4"},
+    {"path": "short-fixtures.xml", "bytes": 5159, "sha256": "39b748f2e9d9fe3f2a73962f1e08e4a56b8cc2a292ff803f6a36d93fe205a7cb"},
+    {"path": "lint.log", "bytes": 52, "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"},
+    {"path": "ownership-plan.log", "bytes": 972, "sha256": "ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48"},
+    {"path": "case-accounting.log", "bytes": 243, "sha256": "3769e626f9357fb510f2a0f7b7cc00f5e008e527e4afb5a7cb6085038e8b342d"},
+    {"path": "suite-accounting.log", "bytes": 1587, "sha256": "aac62f07c37b2d1bd47f0aeb6a00ef6dda724540971bfd056a57a81f184dd6e7"},
+    {"path": "new-behaviors-initial.log", "bytes": 1251, "sha256": "839e64df9610a7abeb8c664f5ea00cc15c6042fb46461750eec2774962c7b57d"},
+    {"path": "document-behavior-coverage.log", "bytes": 1662, "sha256": "ad7a6ba5ed0da97954c1a6f3c0bac82f7a88413d76f703a3359b74abbed6b9ec"}
+  ]
+}

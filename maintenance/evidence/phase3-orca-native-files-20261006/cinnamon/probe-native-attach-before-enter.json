@@ -1,0 +1,26 @@
+{
+  "binding": {
+    "type": "source",
+    "run": "34c7095f0d26c33e7c92e72b82d2e25a",
+    "observed_ns": 103776462483,
+    "identity": {
+      "pid": 1216,
+      "uid": 1001,
+      "exe": "/usr/local/lib/odq/odq-orca-915066380df648afa4fb0cf9c7832a55-sandbox/electron/electron",
+      "start": "8123"
+    },
+    "peer": ":1.21",
+    "path": "/org/a11y/atspi/accessible/139",
+    "event": "object:state-changed:active",
+    "signature": "siiva{sv}"
+  },
+  "title": "Attach files",
+  "expected": "/var/tmp/odq-orca-915066380df648afa4fb0cf9c7832a55/probe-files-070823cf-1416-485b-92c7-7529004c26f7/keyboard-attachment.txt",
+  "focused_field": {
+    "peer": ":1.21",
+    "path": "/org/a11y/atspi/accessible/178",
+    "text": "/var/tmp/odq-orca-915066380df648afa4fb0cf9c7832a55/probe-files-070823cf-1416-485b-92c7-7529004c26f7/keyboard-attachment.txt"
+  },
+  "matches": true,
+  "acceptance_proven": false
+}

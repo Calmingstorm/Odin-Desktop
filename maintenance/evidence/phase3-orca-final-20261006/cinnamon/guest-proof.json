@@ -1,0 +1,120 @@
+{
+  "probe": null,
+  "desktop": "cinnamon",
+  "session": {
+    "Desktop": "cinnamon",
+    "Type": "x11",
+    "Active": "yes",
+    "State": "active"
+  },
+  "session_environment": {
+    "XDG_SESSION_TYPE": "x11",
+    "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1001/bus",
+    "XDG_RUNTIME_DIR": "/run/user/1001",
+    "DISPLAY": ":0",
+    "XDG_SESSION_DESKTOP": "cinnamon",
+    "XAUTHORITY": "/home/odq/.Xauthority",
+    "XDG_CURRENT_DESKTOP": "X-Cinnamon",
+    "HOME": "/home/odq",
+    "USER": "odq",
+    "LOGNAME": "odq",
+    "PATH": "/usr/local/bin:/usr/bin:/bin",
+    "LANG": "C.UTF-8",
+    "XDG_SESSION_ID": "c1"
+  },
+  "source_sha256": "88fc373562c2d6c16925873390edfc955cd21a3cbd3d104ee6c36c1c79fe2b36",
+  "real_core_required": true,
+  "orca_version": "46.1",
+  "speech_sink": "private speech-dispatcher Unix socket, sd_dummy only",
+  "passed": true,
+  "cleanup": {
+    "method": "non-delegated-cgroup-v2+pidfd",
+    "owned_children_exited": true,
+    "descendants_exited": true,
+    "cgroup": "odq-orca-89887b15eda744d18c2e22e0cd082988",
+    "escalated": false,
+    "members_before_cleanup": [
+      {
+        "pid": 1157,
+        "starttime": 8428,
+        "uid": 1001,
+        "state": "S"
+      },
+      {
+        "pid": 1158,
+        "starttime": 8429,
+        "uid": 1001,
+        "state": "S"
+      },
+      {
+        "pid": 1164,
+        "starttime": 8438,
+        "uid": 1001,
+        "state": "R"
+      },
+      {
+        "pid": 1190,
+        "starttime": 8480,
+        "uid": 1001,
+        "state": "S"
+      }
+    ],
+    "child_exit_codes": [
+      0,
+      -9,
+      -15,
+      0
+    ],
+    "cgroup_removed": true,
+    "native_sandbox_removed": true,
+    "uinput_restored": true
+  },
+  "native_sandbox": {
+    "path": "/usr/local/lib/odq/odq-orca-89887b15eda744d18c2e22e0cd082988-sandbox/electron/chrome-sandbox",
+    "sha256": "a4f6dfd7325ddd55f94ddc0c487d22726d40ef099ded6475d5dffe236e277896",
+    "uid": 0,
+    "mode": "0o4755"
+  },
+  "native_runtime_mount": "/      rw,relatime",
+  "native_dialog_collector": {
+    "type": "ready",
+    "run": "4d3b8303e1e315ffbde5e8fb8781771d",
+    "started_ns": 84881202732,
+    "address": "unix:path=/run/user/1001/at-spi/bus_0,guid=d0b3f38ace16b068621cc2106ac49ea6",
+    "collector_peer": ":1.20",
+    "collector": {
+      "pid": 1190,
+      "uid": 1001,
+      "exe": "/usr/bin/python3.12",
+      "start": "8480"
+    }
+  },
+  "task_exit_code": 0,
+  "orca_running_during_tasks": true,
+  "speechd_running_during_tasks": true,
+  "collector_running_during_tasks": true,
+  "evidence_sha256": {
+    "guest-orca-chat-results-attach-cancel-save-copy-report.png": "dc8b0492663deebe1a3bfa33ab5598e9ab38749d252c378070d0b4ec42d464b4",
+    "native-dialog-collector.log": "c7ddb160797f41f7d0a10e6e2ea5c83d8301e7a2835fc7953ab6ba3c77d7f3f7",
+    "tasks.json": "f3fecd71703654dc36879a516a0985cf0094d2e0e3c75daf3622a99b90940301",
+    "orca-debug.log": "75ef233e014c1c67ba98cfba33302d6f1f564bde623c9697b1301bac7bb7096a",
+    "guest-orca-delayed-history-search-retains-focused-current-message.png": "852f5d440d7ff92d20fad0b68434a642babcfab25f59581afdfb1c3648a71908",
+    "speech-dispatcher.log": "03cd0cc9a096b106a9ae7d8b85e3b7b6afc1de363fb2e430b67ae7713f3031d8",
+    "native-dialog-events.jsonl": "15088add9d2502c0cd878460bab3f7f4cfab95791d610ee7099a5c7683272793",
+    "guest-orca-all-eleven-settings-names-roles-states-errors-secret.png": "c007c10ade06f6029d8673b098f13972c14d2fd191755cb3e28de3faa25c247c",
+    "guest-orca-busy-steer-consumed-queued-stop-resume-unknown-no-flood.png": "8e4eee26b045924de8544c74c2a117ff217a4456dc7f46ccf01a38ee49a6ee5e",
+    "guest-orca-real-core-services-when-explicitly-provisioned.png": "2a6db644cde770ee5592e1dd2dbfb5c684e26c2b057e6ae2baffff768efeb4e4",
+    "guest-orca-conversation-child-modal-search.png": "7d529c703f7717731addc5a47a3128a95b940d4e469e73ac5c416842b132272b",
+    "orca-console.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tasks.log": "634209547b95309966315ed60e6fee0371f06d5f58b6345d81c71dd60f828e87",
+    "guest-orca-bridge-named-message-and-native-button-role.png": "929d37fdd73baa8ac7d7822e9579fb3ead004a657e5b818bdf9b7a31af5b8c40",
+    "tasks/.last-run.json": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903",
+    "tasks/orca-orca-real-core-services-when-explicitly-provisioned/attachments/guest-desktop-fddff9390ff1f163c5eaebdea803aae6c2452276.png": "2a6db644cde770ee5592e1dd2dbfb5c684e26c2b057e6ae2baffff768efeb4e4",
+    "tasks/orca-orca-conversation-child-modal-search/attachments/guest-desktop-b146d0f040ce83d218cc4d94b0d6724a5ab89e38.png": "7d529c703f7717731addc5a47a3128a95b940d4e469e73ac5c416842b132272b",
+    "tasks/orca-orca-all-eleven-setti-55dbe--roles-states-errors-secret/attachments/guest-desktop-77e146a0b582f8ff03297649b39a8825744c10b0.png": "c007c10ade06f6029d8673b098f13972c14d2fd191755cb3e28de3faa25c247c",
+    "tasks/orca-orca-busy-steer-consu-23a9a-top-resume-unknown-no-flood/attachments/guest-desktop-d6bae3a2d6333dde211a360088d518f6d07fead4.png": "8e4eee26b045924de8544c74c2a117ff217a4456dc7f46ccf01a38ee49a6ee5e",
+    "tasks/orca-orca-chat-results-attach-cancel-save-copy-report/attachments/guest-desktop-6724f587c8060256efdfe205b1a452675e950404.png": "dc8b0492663deebe1a3bfa33ab5598e9ab38749d252c378070d0b4ec42d464b4",
+    "tasks/orca-orca-bridge-named-message-and-native-button-role/attachments/guest-desktop-e76244702194d0f7c60bafca607a70fe1ccc6a56.png": "929d37fdd73baa8ac7d7822e9579fb3ead004a657e5b818bdf9b7a31af5b8c40",
+    "tasks/orca-orca-delayed-history--abed5-ins-focused-current-message/attachments/guest-desktop-1f6d71bc76860f8f60645db88ee736cc8fcfba9c.png": "852f5d440d7ff92d20fad0b68434a642babcfab25f59581afdfb1c3648a71908"
+  }
+}
