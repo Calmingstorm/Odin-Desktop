@@ -7,6 +7,31 @@ as nonroot `odq` against the existing guest graphical session.
 
 ## Preconditions
 
+### Reproducible guest source archive
+
+Build the source bundle from the checkout being qualified; do not reuse a
+manually assembled or cached tar:
+
+```
+python3 scripts/qualification/lab/guest_archive.py --output /path/to/evidence/native-p33-guest.tar.gz
+```
+
+The builder's reviewed manifest includes the guest session/smoke/probe scripts,
+both desktop-shell provisioning helpers, the Node guest runner and its display
+helper, the notification fixture and private receiver, and
+`app/fixture-core/fixture_core.py`. It refuses missing/symlinked inputs and
+never overwrites an existing output. Validate changes with
+`pytest -q tests/test_native_p33_guest_archive.py`; this uses tiny synthetic
+files and does not archive dependency trees.
+
+The archive is not a complete application image. Provision the same checkout's
+`app/out` and `app/node_modules` (including Electron and Playwright) separately,
+plus the explicit guest engine Python/runtime selected by
+`ODIN_DESKTOP_ENGINE_PYTHON`. Verify these correspond to the source revision;
+never bundle all of `node_modules` into this helper archive or silently fall
+back to stale files. Guest OS Python modules and desktop packages are installed
+through the guest provisioning recipe below.
+
 - Hostname `odq-cinnamon`, `odq-gnome`, `odq-kde`, or `odq-hyprland` and detected VM.
 - Root-owned non-writable `/etc/odin-desktop-qualification`, exactly
   `odin-desktop-qualification-v1` followed by newline.
