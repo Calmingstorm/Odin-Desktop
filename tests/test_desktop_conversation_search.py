@@ -224,19 +224,21 @@ def test_native_read_conversation_callback_is_bound_and_scrubbed(graph):
     assert "foreign explanation" not in refusal
 
 
-def test_bound_model_read_search_fts_and_no_foreign_selector(graph):
+def test_bound_model_search_spans_the_profile_without_a_selector(graph):
     a, b = create(graph), create(graph)
     graph[3].commit(a, "user", "alpha intervening beta")
     graph[3].commit(a, "assistant", "alpha only")
-    graph[3].commit(b, "user", "alpha beta foreign")
+    graph[3].commit(b, "user", "alpha beta elsewhere")
     request = {"bound": a, "conversation_id": b}
     bound = graph[4].for_request(request)
+    # Profile-scoped, as Odin searches every channel: each hit names its own conversation.
     results = asyncio.run(bound.search_history("alpha beta"))
-    assert len(results) == 1 and results[0]["content"] == "alpha intervening beta"
-    assert results[0]["conversation_id"] == a
-    assert isinstance(results[0]["timestamp"], float)
+    assert {(item["conversation_id"], item["content"]) for item in results} == {
+        (a, "alpha intervening beta"), (b, "alpha beta elsewhere")}
+    assert all(isinstance(item["timestamp"], float) for item in results)
+    # Reading stays current-conversation only; neither surface takes a selector.
     lines = asyncio.run(bound.read_conversation(limit=1))
-    assert len(lines) == 1 and "alpha only" in lines[0] and "foreign" not in str(lines)
+    assert len(lines) == 1 and "alpha only" in lines[0] and "elsewhere" not in str(lines)
     with pytest.raises(TypeError):
         asyncio.run(bound.read_conversation(conversation_id=b))
     with pytest.raises(TypeError):
@@ -246,36 +248,44 @@ def test_bound_model_read_search_fts_and_no_foreign_selector(graph):
         asyncio.run(unbound.read_visible_history(request))
     with pytest.raises(PermissionError):
         asyncio.run(graph[4].read_visible_history(None))
+    with pytest.raises(PermissionError):
+        asyncio.run(unbound.search_history(request, "alpha"))
     with pytest.raises(InvalidSearchQuery):
         asyncio.run(bound.search_history("bad\x00query"))
 
 
-def test_optional_semantic_rrf_uses_visible_current_payload_not_index_payload(graph):
-    cid, foreign = create(graph), create(graph)
+def test_optional_semantic_rrf_uses_visible_profile_payload_not_index_payload(graph):
+    cid, other = create(graph), create(graph)
     message = graph[3].commit(cid, "assistant", "a wise explanation")
-    other = graph[3].commit(foreign, "assistant", "foreign secret explanation")
+    elsewhere = graph[3].commit(other, "assistant", "another wise explanation")
+    stray = graph[3].commit(other, "assistant", "a stray wise note")
     calls = []
 
-    async def semantic(cid_, query, *, limit):
-        calls.append((cid_, query, limit))
-        return [{"message_id": other["id"], "conversation_id": foreign},
+    async def semantic(scope, query, *, limit):
+        calls.append((scope, query, limit))
+        return [{"message_id": stray["id"], "conversation_id": cid},  # mislabelled: dropped
                 {"message_id": message["id"], "conversation_id": cid,
                  "content": "untrusted password=short"},
-                {"message_id": "deleted"}, {"message_id": message["id"]}]
+                {"message_id": "deleted"}, {"message_id": message["id"]},
+                {"message_id": elsewhere["id"], "conversation_id": other}]
 
     search = TranscriptSearch(graph[3], graph[1], current_conversation=lambda request: request,
                               semantic_search=semantic)
     results = asyncio.run(search.search_history(cid, "wisdom"))
-    assert len(results) == 1 and results[0]["content"] == "a wise explanation"
-    assert calls == [(cid, "wisdom", 20)]
+    assert {(item["conversation_id"], item["content"]) for item in results} == {
+        (cid, "a wise explanation"), (other, "another wise explanation")}
+    assert "short" not in str(results)
+    assert calls == [(None, "wisdom", 20)]
 
 
 def test_semantic_await_deletion_discards_hit(graph):
     cid = create(graph)
     message = graph[3].commit(cid, "assistant", "visible needle")
 
-    async def remove(cid_, query, *, limit):
-        graph[2].delete(cid_, graph[2].get(cid_)["rev"])
+    async def remove(scope, query, *, limit):
+        # Profile-scoped retrieval; the requesting conversation is deleted meanwhile.
+        assert scope is None
+        graph[2].delete(cid, graph[2].get(cid)["rev"])
         return [{"message_id": message["id"]}]
 
     search = TranscriptSearch(graph[3], graph[1], current_conversation=lambda request: request,
@@ -340,7 +350,11 @@ def test_child_frozen_inheritance_does_not_alias_visible_history(graph):
     graph[3].commit(child, "assistant", "child local needle")
     graph[3].commit(parent, "assistant", "later parent needle")
     results = asyncio.run(graph[4].search_history({"bound": child}, "needle"))
-    assert [item["content"] for item in results] == ["child local needle"]
+    # Profile-scoped search returns the parent's messages under the parent,
+    # never aliased as the child's own history.
+    assert {(item["conversation_id"], item["content"]) for item in results} == {
+        (child, "child local needle"), (parent, "inherited parent needle"),
+        (parent, "later parent needle")}
     assert "parent" not in str(asyncio.run(graph[4].read_visible_history({"bound": child})))
 
 

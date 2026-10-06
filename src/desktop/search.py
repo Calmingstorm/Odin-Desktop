@@ -169,7 +169,12 @@ class TranscriptSearch:
         return await self.read_visible_history(request, limit=limit)
 
     async def search_history(self, request, query: str, *, limit: int = 10) -> list[dict]:
-        """Retrieve only the request's committed transcript, not archived sessions."""
+        """Search the committed transcript of every conversation in this profile.
+
+        Odin searches every channel's current and archived sessions; the durable
+        transcript keeps visible history until deletion. The admitted request
+        authenticates the search and never selects or narrows it.
+        """
         from ..search.fts import FullTextIndex
         from ..search.hybrid import reciprocal_rank_fusion
 
@@ -179,7 +184,7 @@ class TranscriptSearch:
         except ConversationError:
             raise InvalidSearchQuery("Invalid history query or limit") from None
         cid = self._current(request)
-        messages, _ = self._snapshot(cid)
+        messages, _ = self._snapshot()
         visible = {item["id"]: item for item in messages}
         index = FullTextIndex(":memory:")
         try:
@@ -187,10 +192,10 @@ class TranscriptSearch:
                 raise SearchExecutionError("Transcript search is unavailable")
             for message in messages:
                 text = _searchable_text(message)
-                if not index.index_session(message["id"], text, cid,
+                if not index.index_session(message["id"], text, message["conversation_id"],
                                            _timestamp(message["created_at"])):
                     raise SearchExecutionError("Transcript search is unavailable")
-            lexical = index.search_sessions(query, limit=limit * 2, channel_id=cid)
+            lexical = index.search_sessions(query, limit=limit * 2)
         except InvalidSearchQuery:
             raise
         except Exception:
@@ -201,14 +206,15 @@ class TranscriptSearch:
         semantic = []
         if self.semantic_search is not None:
             try:
-                candidates = self.semantic_search(cid, query, limit=limit * 2)
+                candidates = self.semantic_search(None, query, limit=limit * 2)
                 if inspect.isawaitable(candidates):
                     candidates = await candidates
                 seen = set()
                 for item in candidates:
                     mid = item.get("message_id", item.get("doc_id"))
-                    if (mid in visible and item.get("conversation_id", cid) == cid
-                            and mid not in seen):
+                    if (mid in visible and item.get("conversation_id",
+                                                    visible[mid]["conversation_id"])
+                            == visible[mid]["conversation_id"] and mid not in seen):
                         semantic.append({"doc_id": mid})
                         seen.add(mid)
             except Exception:
@@ -219,14 +225,17 @@ class TranscriptSearch:
         # payloads supplied by a derived index.
         if self._current(request) != cid:
             raise PermissionError("Authenticated conversation context changed")
-        fresh, _ = self._snapshot(cid)
+        with domain_transaction(self.transcript.store):
+            self.transcript.conversations.get(cid)  # The requester must still exist.
+        fresh, _ = self._snapshot()
         visible = {item["id"]: item for item in fresh}
         result = []
         for item in ranked:
             message = visible.get(item["doc_id"])
             if message is None:
                 continue
-            result.append({"conversation_id": cid, "message_id": message["id"],
+            result.append({"conversation_id": message["conversation_id"],
+                           "message_id": message["id"],
                            "content": _searchable_text(message),
                            "timestamp": _timestamp(message["created_at"]),
                            "type": message["role"], "rrf_score": item["rrf_score"]})
