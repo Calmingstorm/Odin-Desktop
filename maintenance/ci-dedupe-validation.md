@@ -1,8 +1,14 @@
 # CI qualification deduplication
 
 PR #60. Latest tested code head: `2239dce0ad265fec31070b429364b2bfe48bf832`.
-Main watermark: `f29ffc34900d3d0b4020740cadcc3baa033f668b`, integrated by
+Final integrated code head: `6085c8378e3931603110e675d47a5211c95b3dba`.
+Main watermark: `efc5e20c76e5d43ddea466c844ada46456b9d663`, integrated by
 two-parent merge, not rebase. This final evidence commit changes no code.
+The final release/Ubuntu-evidence merge changes none of `tests/`, the Python
+scheduling/proof launchers, fixture wrapper, qualification plan or engine CI
+workflow relative to the collected head; `git diff --exit-code` verified those
+exact inputs. The differential below therefore remains exact for those bytes.
+Scheduling regressions and app check were rerun on the final merged head.
 
 ## Dependency and scope
 
@@ -72,6 +78,8 @@ intentionally skipped; review-ready CI is not substituted for local proof.
   passing part5 projection run; they are retained, not presented as clean stderr.
 - Actual merged extras-only invocation: 280 passed, 34.44 seconds.
 - Combined app `npm run check`: 764 passed, typecheck and build passed.
+- Final release-main merge: 105 scheduling regressions passed; app check
+  806 passed, typecheck/build passed. Drift zero errors and lint zero new findings.
 - Actual current-main fixed fixture wrapper: 159 passed, four capability skips,
   11.10 seconds. The four skips require two distinct subordinate UID/GID maps;
   the unchanged restricted helper's no-new-privileges boundary denies that map.
@@ -81,6 +89,9 @@ intentionally skipped; review-ready CI is not substituted for local proof.
 - Lint gate: zero new findings, seven inherited findings.
 - Ownership checker, lab Ruff, actionlint 1.7.7 with explicit repository runner
   labels, and `git diff --check` passed.
+- Actionlint on the changed engine workflow passed. All-workflow actionlint
+  additionally reports inherited SC2016 in main's release workflow, a literal
+  backtick printf message; unrelated release wording was not changed here.
 - Static independent review checked ownership ordering, failure preservation,
   response-file plugins and lab ownership. Its requested-union exit-condition
   finding was fixed before the final differential.

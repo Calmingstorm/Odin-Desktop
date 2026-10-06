@@ -2,9 +2,15 @@
   "schema_version": 1,
   "run": "ci-dedupe-req3c08",
   "tested_code_head": "2239dce0ad265fec31070b429364b2bfe48bf832",
+  "final_integrated_code_head": "6085c8378e3931603110e675d47a5211c95b3dba",
   "dependency_head": "7e70bd1e6c90b3a3a527469a57a3d58eb7281bcc",
-  "main_watermark": "f29ffc34900d3d0b4020740cadcc3baa033f668b",
+  "main_watermark": "efc5e20c76e5d43ddea466c844ada46456b9d663",
   "artifacts": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/final-release-artifact-manifest.json",
+      "sha256": "7ed25bcf1b11d782f16a20814527b65b92dfde21db060fcd873bcbfbc86c26d8",
+      "description": "Final release-main merge focused tests, app gates and drift receipts"
+    },
     {
       "path": "/mnt/storage/odin-desktop-evidence/ci-dedupe-req3c08/post52-main-proof/artifact-manifest.json",
       "sha256": "0dfb36ccf96505dd719fd8799121882dc2b039fd21b2945d9f6428b82201bc69",
