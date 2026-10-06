@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './test/e2e',
+  testMatch: 'accessibility.spec.ts',
   workers: 1,
   fullyParallel: false,
   timeout: 90_000,

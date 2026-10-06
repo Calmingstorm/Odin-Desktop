@@ -13,7 +13,8 @@
     "smoke": "electron-vite build && node scripts/smoke.mjs",
     "test:real-core": "node scripts/real-core-test.mjs",
     "smoke:real-core": "electron-vite build && node scripts/real-core-smoke.mjs",
-    "test:a11y": "electron-vite build && node scripts/accessibility.mjs"
+    "test:a11y": "electron-vite build && node scripts/accessibility.mjs",
+    "test:orca": "playwright test --config test/e2e/orca.config.ts"
   },
   "dependencies": {
     "dompurify": "3.4.16",

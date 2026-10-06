@@ -2,8 +2,8 @@
 import configparser
 import json
 import os
-import shlex
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -149,34 +149,102 @@ def test_recipe_declares_runtime_packages_and_unlocks_sddm_pam_account():
     assert "openssl rand -base64 48" in recipe
 
 
-@pytest.fixture(params=["fresh", "root-owned-retry"])
+@pytest.fixture(params=["fresh", "simulated-root-owned-retry"])
 def user_config(tmp_path, request):
-    # Real root-owned fixture directories reproduce install -d's intermediate
-    # ownership bug. This runs only inside the test launcher's PID namespace;
-    # no guest, host account, service, or desktop configuration is touched.
+    # Real files/modes/writes, modeled ownership only. A rootless fixture cannot
+    # create or repair genuinely root-owned files. Record the exact ownership
+    # requests and stub only install's -o/-g and chown at this command boundary.
+    # This still catches the intermediate-directory regression: install -d
+    # applies ownership ONLY to explicitly named directories, not their parents.
     home = tmp_path / "home"
     home.mkdir()
     uid, gid = os.getuid(), os.getgid()
     assert uid != 0, "Run through the repository PID launcher as the repo user"
+    binaries = tmp_path / "ownership-bin"
+    binaries.mkdir()
+    log = tmp_path / "ownership.jsonl"
+    stub = (
+        f"#!{sys.executable}\n"
+        "import json, os, subprocess, sys\n"
+        "from pathlib import Path\n"
+        "name, args = Path(sys.argv[0]).name, sys.argv[1:]\n"
+        "if name == 'install':\n"
+        "    assert len(args) >= 8 and args[:4] == ['-d', '-m', '0755', '-o']\n"
+        "    assert args[5] == '-g' and args[4].isdigit() and args[6].isdigit()\n"
+        "    paths = args[7:]\n"
+        "    command = ['/usr/bin/install', '-d', '-m', '0755', *paths]\n"
+        "else:\n"
+        "    assert name == 'chown' and len(args) == 2\n"
+        "    assert len(args[0].split(':')) == 2\n"
+        "    assert all(part.isdigit() for part in args[0].split(':'))\n"
+        "    paths = args[1:]\n"
+        "    command = []\n"
+        "for path in paths:\n"
+        "    assert Path(path).resolve().is_relative_to(Path(os.environ['FIXTURE_HOME']))\n"
+        "with open(os.environ['OWNERSHIP_LOG'], 'a') as stream:\n"
+        "    stream.write(json.dumps([name, *args]) + '\\n')\n"
+        "sys.exit(subprocess.call(command) if command else 0)\n"
+    )
+    for name in ("install", "chown"):
+        binary = binaries / name
+        binary.write_text(stub)
+        binary.chmod(0o755)
     command = [
-        "sudo", "-n", "env", "-i", "PATH=/usr/bin:/bin", "bash", "-c",
-        f"source {shlex.quote(str(RECIPE))}; "
-        'kde_write_user_config "$1" "$2" "$3"',
-        "_", str(home), str(uid), str(gid),
+        "/bin/bash", "-c", 'source "$1"; kde_write_user_config "$2" "$3" "$4"',
+        "fixture", str(RECIPE), str(home),
     ]
-    if request.param == "root-owned-retry":
-        # Generate an earlier root-owned configuration, then repair it using
-        # exactly the same emitter that provisioning calls for odq.
-        result = subprocess.run(command[:-2] + ["0", "0"], capture_output=True, text=True)
+    directories = [home / relative for relative in (
+        ".config", ".config/plasma-workspace", ".config/plasma-workspace/env",
+    )]
+    files = [home / relative for relative in (
+        ".config/plasma-workspace/env/odq-software.sh", ".config/kaccessrc",
+    )]
+    modeled_owners = {}
+
+    def emit(owner, group):
+        log.write_text("")
+        result = subprocess.run(
+            command + [str(owner), str(group)], capture_output=True, text=True, timeout=5,
+            env={"PATH": f"{binaries}:/usr/bin:/bin", "FIXTURE_HOME": str(home),
+                 "OWNERSHIP_LOG": str(log)},
+        )
         assert result.returncode == 0, result.stderr
-        assert (home / ".config").stat().st_uid == 0
-    result = subprocess.run(command, capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr
+        calls = [json.loads(row) for row in log.read_text().splitlines()]
+        assert calls == [
+            ["install", "-d", "-m", "0755", "-o", str(owner), "-g", str(group),
+             *map(str, directories)],
+            *[["chown", f"{owner}:{group}", str(path)] for path in files],
+        ]
+        # Replay only explicitly named targets. Implicitly created parents do
+        # not acquire the requested owner, just as with the real install -d.
+        for call in calls:
+            if call[0] == "install":
+                targets, ownership = call[8:], (int(call[5]), int(call[7]))
+            else:
+                targets, ownership = call[2:], tuple(map(int, call[1].split(":")))
+            modeled_owners.update(dict.fromkeys(targets, ownership))
+
+    if request.param == "simulated-root-owned-retry":
+        emit(0, 0)
+        assert set(modeled_owners.values()) == {(0, 0)}
+        for path in directories:
+            path.chmod(0o700)
+        for path in files:
+            path.chmod(0o600)
+            path.write_text("stale guest configuration\n")
+        unrelated = home / ".config/unrelated.conf"
+        unrelated.write_text("preserve existing user configuration\n")
+    emit(uid, gid)
+    assert modeled_owners == {str(path): (uid, gid) for path in directories + files}
+    if request.param == "simulated-root-owned-retry":
+        assert unrelated.read_text() == "preserve existing user configuration\n"
     return home, uid, gid
 
 
-def test_emitted_user_config_owns_every_intermediate_and_allows_kde_writes(user_config):
+def test_emitted_user_config_targets_every_intermediate_and_allows_kde_writes(user_config):
     home, uid, gid = user_config
+    # Physical ownership here is the fixture account's, not proof of a real
+    # chown. The fixture separately checks every requested guest ownership.
     for relative in (".config", ".config/plasma-workspace", ".config/plasma-workspace/env",
                      ".config/plasma-workspace/env/odq-software.sh"):
         path = home / relative
@@ -221,6 +289,10 @@ def test_emitted_kaccess_config_enables_native_screen_reader(user_config):
     assert (path.stat().st_uid, path.stat().st_gid) == (uid, gid)
     assert path.stat().st_mode & 0o777 == 0o644
     # The KDE emitter must not create its own Orca wrapper/autostart launch.
-    assert sorted(p.relative_to(home).as_posix() for p in home.rglob("*") if p.is_file()) == [
+    expected = [
         ".config/kaccessrc", ".config/plasma-workspace/env/odq-software.sh",
     ]
+    if (home / ".config/unrelated.conf").exists():
+        expected.append(".config/unrelated.conf")
+    observed = sorted(p.relative_to(home).as_posix() for p in home.rglob("*") if p.is_file())
+    assert observed == expected
