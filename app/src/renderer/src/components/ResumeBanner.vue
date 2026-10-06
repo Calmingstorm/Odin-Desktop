@@ -27,7 +27,7 @@ async function resumeTask(event: MouseEvent): Promise<void> {
 <template>
   <div v-if="target && attempt?.status !== 'admitted'" class="resume-banner">
     <p v-if="target.blocked">The last task {{ what }}. {{ target.blocked }}</p>
-    <p v-else>The last task {{ what }} before it finished. Odin kept its progress and can carry on from there.</p>
+    <p v-else>The last task {{ what }} before it finished. Ask Odin to resume from any progress he preserved.</p>
     <button
       v-if="!target.blocked"
       ref="resumeButton"
@@ -38,6 +38,7 @@ async function resumeTask(event: MouseEvent): Promise<void> {
     >
       {{ attempt?.status === 'sending' ? 'Resuming…' : 'Resume' }}
     </button>
+    <p v-if="!target.blocked" class="tool-note">Use Resume to carry on. Typing “continue” or “resume” also resumes preserved work.</p>
     <p class="tool-note" role="status" aria-atomic="true">{{ attempt?.status === 'unknown' ? 'Resume outcome unknown. Waiting for Odin to confirm; it is never sent twice.' : attempt?.status === 'sending' ? 'Resuming the last task.' : '' }}</p>
     <p v-if="attempt?.status === 'rejected' || attempt?.status === 'failed'" class="warn" role="alert">{{ attempt.reason }}</p>
   </div>

@@ -496,7 +496,7 @@ function applySnapshot(conversationId: string, view: ConversationView, snapshot:
     if (local) advance(local, record.disposition)
   }
   for (const message of view.messages) {
-    if (message.role === 'user' && message.client_submission_id) removePending(message.client_submission_id)
+    settleCommittedSubmission(message)
   }
   releaseHeld(view)
   void markReadIfAttentive(conversationId)
@@ -907,9 +907,11 @@ export async function loadOlder(conversationId: string): Promise<void> {
   const oldest = view?.messages[0]
   if (!view || !view.hasData || !view.hasMore || view.loadingOlder || !oldest) return
   view.loadingOlder = true
+  const loadToken = view.loadToken
+  const epoch = state.recoveryEpoch
   const result = await window.odin.listMessages({ conversation_id: conversationId, before: oldest.id, limit: 100 })
   view.loadingOlder = false
-  if (state.views[conversationId] !== view) return
+  if (state.views[conversationId] !== view || view.loadToken !== loadToken || epoch !== state.recoveryEpoch) return
   if (!result.ok) return note(errorText(result))
   const known = new Set(view.messages.map((m) => m.id))
   view.messages = [...result.result.items.filter((m) => !known.has(m.id)), ...view.messages]
@@ -917,7 +919,8 @@ export async function loadOlder(conversationId: string): Promise<void> {
 }
 
 /**
- * Sends a new message. While a task runs, the composer instead steers it or queues a follow-up (explicit modes).
+ * Submits text. The core may consume a bare resume trigger instead of committing a new user message.
+ * While a task runs, the composer instead steers it or queues a follow-up (explicit modes).
  * Attachments go only with a message: a steer carries text alone.
  */
 export async function send(
@@ -1093,7 +1096,12 @@ export function applyReceipt(receipt: LateReceipt): void {
   const pending = state.pending.find((p) => p.client_submission_id === receipt.id)
   if (pending) {
     const settled = receipt.settled
-    if (settled.ok && (settled.result as { disposition?: string }).disposition === 'accepted') return
+    if (settled.ok && (settled.result as { disposition?: string }).disposition === 'accepted') {
+      // A typed resume is admitted under the ORIGINAL request/message IDs. No new user message will arrive
+      // with this submission ID. Admission itself settles the optimistic bubble, just as a direct answer does.
+      removePending(receipt.id)
+      return
+    }
     if (!settled.ok && isUnknownOutcome(settled.error)) {
       pending.status = 'unknown'
       return
@@ -1161,6 +1169,13 @@ function removePending(id: string): void {
   state.pending = state.pending.filter((p) => p.client_submission_id !== id)
 }
 
+/** Both ordinary user messages and typed-resume failure notices settle their submission, including after recovery. */
+function settleCommittedSubmission(message: Message): void {
+  if ((message.role === 'user' || message.role === 'notice') && message.client_submission_id) {
+    removePending(message.client_submission_id)
+  }
+}
+
 /** Conversation records only move forward in revision, and a deleted one never comes back. */
 function upsertConversation(conversation: Conversation, fromList = false): void {
   if (deleted.has(conversation.id)) return
@@ -1199,7 +1214,7 @@ export function applyEvent(event: CoreEvent): void {
   }
   if (event.type === 'message.committed') {
     const message = p.message as Message
-    if (message.role === 'user' && message.client_submission_id) removePending(message.client_submission_id)
+    settleCommittedSubmission(message)
   }
   const jump = state.jump
   // Whatever the window holds of a file that is gone goes too, whether or not its conversation is loaded.
@@ -1238,11 +1253,18 @@ function applyToView(view: ConversationView, event: CoreEvent): void {
       const index = view.messages.findIndex((m) => m.id === message.id)
       if (index >= 0) view.messages[index] = message
       else view.messages.push(message)
+      // The real core's queued event carries a request binding, not a message ID.
+      // A replay may also deliver that event before this committed message.
+      if (message.role === 'user' && message.request_id) {
+        const queued = view.queued.find((q) => q.request_id === message.request_id)
+        if (queued) queued.message_id = message.id
+      }
       return
     }
     case 'request.queued':
       if (view.running?.request_id !== requestId && !view.queued.some((q) => q.request_id === requestId)) {
-        view.queued.push({ request_id: requestId, generation, message_id: String(p.message_id ?? '') })
+        const messageId = view.messages.find((m) => m.role === 'user' && m.request_id === requestId)?.id
+        view.queued.push({ request_id: requestId, generation, message_id: String(p.message_id ?? messageId ?? '') })
       }
       return
     case 'request.started':

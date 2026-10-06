@@ -104,6 +104,13 @@ export class AttachmentManager extends EventEmitter {
     if (!entry) return failure('not_found', 'That attachment is gone; attach it again.')
     if (entry.uploading) return failure('busy', 'That attachment is already uploading.')
     entry.uploading = true
+    let uploadId: string | undefined
+    const cancelUpload = async (): Promise<void> => {
+      if (!uploadId) return
+      // Cancellation is best-effort cleanup, not a reason to hide the original
+      // failed/unknown receipt. An unreachable core expires the upload itself.
+      try { await this.core.request('attachments.cancel', { upload_id: uploadId }) } catch { /* core TTL owns cleanup */ }
+    }
     try {
       const begun = await this.core.request('attachments.begin', {
         client_attachment_id: entry.id,
@@ -113,10 +120,11 @@ export class AttachmentManager extends EventEmitter {
         mime: entry.mime
       })
       if (!begun.ok) return this.drop(id, begun)
-      const { upload_id: uploadId, chunk_bytes: offered } = begun.result as { upload_id: string; chunk_bytes: number }
+      const { upload_id: begunId, chunk_bytes: offered } = begun.result as { upload_id: string; chunk_bytes: number }
+      uploadId = begunId
       // From here on, any way out other than a commit cancels the upload in the core.
       const abandon = async <T>(result: Result<T>): Promise<Result<T>> => {
-        await this.core.request('attachments.cancel', { upload_id: uploadId })
+        await cancelUpload()
         return this.drop(id, result)
       }
       const chunkBytes = Math.max(1, Math.min(offered || this.limits().chunk_bytes, this.limits().chunk_bytes))
@@ -142,6 +150,7 @@ export class AttachmentManager extends EventEmitter {
       this.entries.delete(id)
       return { ok: true, result: (committed.result as { attachment: AttachmentRef }).attachment }
     } catch {
+      await cancelUpload()
       return this.drop(id, failure('internal', `Couldn't attach ${entry.name}.`))
     } finally {
       entry.uploading = false

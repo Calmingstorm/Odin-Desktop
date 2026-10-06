@@ -4,12 +4,16 @@ The desktop app: tray lifecycle (D3), the chat window, and the main-process brok
 the protocol in [`../docs/design/protocol.md`](../docs/design/protocol.md). Current `main` composes real conversations,
 search, requests, attachments, result delivery and Stop/Steer/Resume, plus provider/model configuration,
 device-code accounts, tools/timeouts, personality, hosts/trust, memory/lists/knowledge and records.
+P3.1 slice 3 connects the existing chat to them: transcript/search, guarded replies, tool activity and retained
+output, attachments/artifacts, and generation-bound Stop/Steer/Resume.
 P3.1 slice 4 adds the Skills/MCP screen integration, owner-only Odin-parity skill Test, browser qualification
 and separate next-use retry observations, plus retained computer management and exact-generation recovery.
 P3.1 slice 5 connects step-6B background work, schedules and stored reports to their actual core services. Computer foreground input remains a separate review handoff;
-uncomposed services stay explicitly unavailable. Real-core sessions never substitute fixture rows or invented successful reads.
+uncomposed services stay explicitly unavailable. Real-core sessions never substitute fixture rows, invented
+successful reads or endless loading indicators.
 The P3.1 slice-1 launch, authentication, status and durable event replay contracts remain, with P3.3 source-build
 lifecycle qualification for bounded shutdown, quiescing, unknown-cleanup journaling and core loss.
+This integration slice is not full P3.1 or release qualification.
 
 ## User documentation and review status
 
@@ -72,7 +76,32 @@ back to the caller's uid/gid, and only then import or launch engine code. The wh
 there; it never uses the active desktop or the user's profile. Missing Python, dependencies, engine, namespace
 support or required tools fail with an explanation. There are no silent skips or unisolated fallbacks.
 
-`test:real-core` exercises the actual Broker, profile persistence, revisions/receipt identity, model adoption,
+The real gates use a canned HTTP/SSE OpenAI-compatible endpoint on loopback. The real core's
+`OpenAICompatibleClient`, guarded runner, original tools, durable delivery and controls execute; neither provider
+client nor tool results are mocked. No real account, ambient credential or live profile is used.
+The provider-backed lanes use the real revision-bound `providers.compat.set`, `secrets.set`, and `models.main.set`
+methods to configure and adopt the endpoint. Only the external vault boundary is replaced with an ephemeral
+in-memory keyring. There is no test-only `config_provider` injection or plaintext credential fallback.
+Provider-backed tests stay out of `npm run check` and fail before engine imports unless the real-core isolation
+runner owns their PID namespace and throwaway HOME.
+
+`test:real-core` exercises immutable receipts, replay/watermarks, conversation CRUD/child/reset/search/jump,
+guarded publication, queueing, Stop/Steer receipts, successful same-request generation-2 button and typed Resume after an isolated
+core interruption, real tool-detail/output paging, file/image bytes, chunked attachment adoption/cancel and provider
+failure/recovery. The real Python domain-service contracts also exercise the renderer's catch-up and output reducers.
+
+The provider-backed chat pass of `smoke:real-core` uses the rendered Electron app and named preload bridge to send a committed reply, inspect a real
+tool card and retained-output pages, upload a multi-chunk attachment, download a posted file and decode a posted
+image, assert a committed request-bound provider-failure notice, stop an exact request, steer one and queue a follow-up,
+search/jump, reset context, and exercise conversation lifecycle. Typing `continue` resumes a genuinely preserved
+checkpoint on the same request's generation 2 with one original user message and no stuck optimistic bubble.
+Afterward, the same trigger without a resumable request is an ordinary user message. The preserved checkpoint
+comes from an owned real core interrupted before Electron's normal startup, not synthetic ledger rows or a bypass
+of lifecycle restart restrictions. Native file/save chooser selections are injected in main only under
+the isolated gate; their native UI, default-app launch and folder reveal are not qualified. Successful checkpoint
+Resume is covered by the contract gate.
+
+The real settings contract also exercises the actual Broker, profile persistence, revisions/receipt identity, model adoption,
 management writes, knowledge versions, record filtering and write-only credentials. Slice 4 adds skill CRUD and
 validation, failed-module cards, a harmless local stdio MCP fixture, publication/enable/reconnect transitions,
 settings revision conflicts without replay, server-local keyring failures, and browser/computer truthfulness.
@@ -89,8 +118,8 @@ Agent steering is queued once to the retained inbox; queued does not mean consum
 under the original command identity. D12 recovery-required, missed-run counts, inert reasons and unknown settlement
 are shown without pretending the action ran. Report pages read stored output, never implicitly invoke a check.
 
-`smoke:real-core` runs two separate, labelled passes without retries, each in its own disposable namespace and
-fresh profile. **Production entry / fresh real profile** launches `python -B -P -m src`, without the test bootstrap.
+`smoke:real-core` runs three separate, labelled passes without retries, each in its own disposable namespace and
+fresh profile: the provider-backed chat pass above and the two below. **Production entry / fresh real profile** launches `python -B -P -m src`, without the test bootstrap.
 It checks real `status.get` version/phase/instance/capabilities and actual rendered status, chat/search/empty Work,
 every settings section's own service loads, and on-demand context reload. It asserts no fixture messages, an empty
 audit and logs, and the rendered audit's “Nothing recorded.” state. Turn state is actually available on this base.
@@ -112,7 +141,8 @@ tools; browser health distinguishes missing bundle/readiness from next-use retry
 session and no qualified foreground/native input. No remote MCP service or real account is used. The gate exits through normal `runtime.shutdown` and parent-EOF cleanup. Evidence paths
 and a compact result are printed as JSON. Set
 `ODIN_SMOKE_OUT` to retain screenshots of chat and every settings section plus a JSON evidence file alongside the
-named production checkpoint. The seeded checkpoint adds `-seeded-work-proof.png`, with its own screenshots and JSON.
+named production checkpoint. The seeded checkpoint adds `-seeded-work-proof.png`, with its own screenshots and JSON,
+and the provider-backed chat pass adds `-provider-chat.png` with its own JSON.
 The default screenshots, evidence and profiles are discarded. `real-core-work.test.ts` additionally checks ordinary
 `manage_process` list (with actual authorization filtering) and unrelated `run_command` calls pass through the bootstrap to the real executor via admitted
 scheduled workflows. Listing the seeded registry row is not real process admission or process execution qualification.
@@ -167,6 +197,7 @@ The real-core lane covers keyboard status/usage reports and all eleven Settings 
 AX audits: step five supplies actual settings/management data, step 6A supplies Skills/MCP and browser/computer
 management observations, and step 6B serves background work and schedules. Chat now has real core owners;
 historical accessibility evidence predates that composition and does not qualify it merely by inheritance.
+The suspended Resume banner has both typed-trigger wording and an AX/axe checkpoint.
 Uncomposed services retain explicit unavailable views. Fresh usage is unknown with history not enabled, not a
 missing `usage.get` service.
 Neither a fixture pass nor a Chromium AX dump proves Orca/AT-SPI speech or Wayland qualification.
