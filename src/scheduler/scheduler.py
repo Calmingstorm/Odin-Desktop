@@ -226,7 +226,10 @@ class Scheduler:
             schedule["settlement"] = "unknown"
             schedule["last_run_binding"] = schedule.pop("run_binding", None)
             schedule.pop("retry_at", None)
-            schedule["_interrupted_run_history"] = {
+            pending = schedule.get("_interrupted_run_history", [])
+            if isinstance(pending, dict):  # Compatibility with the scalar outbox.
+                pending = [pending]
+            schedule["_interrupted_run_history"] = [*pending, {
                 "schedule_id": schedule["id"],
                 "description": schedule.get("description", ""),
                 "action": schedule.get("action", ""),
@@ -234,7 +237,7 @@ class Scheduler:
                 "duration_ms": 0,
                 "error": f"Run started at {started!r}; completion was never recorded",
                 "run_binding": copy.deepcopy(schedule["last_run_binding"]),
-            }
+            }]
             if not schedule.get("one_time"):
                 # The interrupted effect is spent, not the definition. Keep a
                 # future cron slot intact; skip elapsed slots rather than
@@ -411,18 +414,18 @@ class Scheduler:
             # two writes recovers the same binding, without duplicating its
             # unknown entry. If history storage fails, retain the outbox in the
             # durable definition so a later publication can finish it.
-            def recorded(entries, pending=pending):
-                return any(
-                    entry.get("status") == "unknown"
-                    and entry.get("error") == pending["error"]
-                    and entry.get("run_binding") == pending["run_binding"]
-                    for entry in entries
-                )
-            entries = await self.history.query(schedule["id"], limit=200)
-            if not recorded(entries):
-                await self.history.record(**pending)
-                entries = await self.history.query(schedule["id"], limit=200)
-            if recorded(entries):
+            if isinstance(pending, dict):  # Old stores used a single entry.
+                pending = [pending]
+            remaining = []
+            for entry in pending:
+                try:
+                    await self.history.record_interrupted(entry)
+                except Exception:
+                    log.exception("Failed to persist interrupted history for %s", schedule["id"])
+                    remaining.append(entry)
+            if remaining:
+                schedule["_interrupted_run_history"] = remaining
+            else:
                 schedule.pop("_interrupted_run_history", None)
         writer = copy.copy(self)
         writer._schedules = candidate

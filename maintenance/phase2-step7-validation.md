@@ -159,6 +159,27 @@ Intermediate full evidence is preserved at
 `shared-outbound-lifecycle-regression.log`, `main-ci-targeted.log`, and
 `/home/odin/desktop-step7-20261006/review1-integrated-targeted.log`.
 
+## Final-source recovery audit
+
+Because the required PR37 base stayed unchanged, the specific P2-1 correction
+needed by ingress was integrated locally in `24823e9f`, without touching
+PR37's other findings. The broad ingress/adapters/recovery/shared-outbound/native
+scheduler preflight passed **346 tests**. A final-source full run began on that
+head but was stopped after a read-only audit found three history-evidence gaps:
+ambiguous failed read could duplicate unknown history, readback did not prove
+fsync durability, and a scalar pending history slot could overwrite another
+interrupted binding while history storage remained unavailable.
+
+The incomplete run is preserved separately in `final-full.log` and `final/`;
+it is not a full qualification result or added to any pass count. Cancellation
+reported an unknown cleanup receipt; a subsequent scoped process/cwd inspection
+found no remaining PR42 final-checkout qualification processes. No unrelated
+process was killed and no test was replayed automatically.
+
+Final qualification will use the corrected history-evidence source, not that
+audited intermediate head. History evidence fixes remain within the local P2-1
+dependency and do not introduce replay or pause the recurring definition.
+
 Evidence under `/home/odin/desktop-step7-20261006/`:
 `review1-targeted-final-prebase.log`, `review1-prebase-ingress.log`,
 `review1-ingress-audit.log`, `review1-notification-edges.log`,

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from collections.abc import Coroutine
 from datetime import UTC, datetime
 from pathlib import Path
@@ -109,6 +110,42 @@ class ScheduleHistory:
         if self._records_since_prune >= self._auto_prune_interval:
             self._records_since_prune = 0
             await self._prune_locked()
+
+    async def record_interrupted(self, pending: dict) -> None:
+        """Strict, durable recovery append; failures leave the outbox intact.
+
+        Read the entire file under the history lock rather than treating an
+        unreadable store as empty, as the best-effort live query does.
+        """
+        async with self._lock:
+            await self._settle_io(asyncio.to_thread(self._record_interrupted_sync, pending))
+
+    def _record_interrupted_sync(self, pending: dict) -> None:
+        evidence = ("schedule_id", "status", "run_binding", "error")
+        if pending.get("status") != "unknown":
+            raise ValueError("Interrupted recovery history must have unknown status")
+        # a+ creates a missing file without truncating an existing one. Any
+        # read/parse/write/sync failure propagates instead of claiming success.
+        with self.path.open("a+", encoding="utf-8") as file:
+            file.seek(0)
+            entries = [json.loads(line) for line in file if line.strip()]
+            recorded = any(
+                all(entry.get(key) == pending.get(key) for key in evidence)
+                for entry in entries
+            )
+            if not recorded:
+                entry = {"timestamp": datetime.now(UTC).isoformat(), **pending}
+                file.write(json.dumps(entry, default=str) + "\n")
+            # Sync existing matches too: readback after a failed fsync is not
+            # evidence of durability, even though the bytes are visible.
+            file.flush()
+            os.fsync(file.fileno())
+        # Persist file creation before retiring its durable scheduler outbox.
+        directory = os.open(self.path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
 
     async def query(
         self,
