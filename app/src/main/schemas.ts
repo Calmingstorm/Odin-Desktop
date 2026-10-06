@@ -146,6 +146,9 @@ export const steerSchema = controlSchema.extend({ text: z.string().min(1).max(4_
 
 export const setAutostartSchema = z.object({ enabled: z.boolean() }).strict()
 
+// An opaque notice token, not a path, journal record supplied by the window, or a core operation.
+export const acknowledgeCleanupSchema = z.object({ id: z.string().min(1).max(128).refine((id) => id.trim().length > 0) }).strict()
+
 const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
 
 export const setNotificationsSchema = z

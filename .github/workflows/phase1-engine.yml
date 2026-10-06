@@ -9,6 +9,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The merged Phase 2 accounting gate verifies exact historical Git
+          # objects. A shallow merge checkout cannot read those pinned inputs.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

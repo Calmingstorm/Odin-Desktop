@@ -17,6 +17,12 @@ import pytest
 from src.desktop.lifecycle import CoreLifetime
 from src.desktop.paths import ProfilePaths
 
+# Fixture budgets for cold imports and busy self-hosted runners, not product
+# latency contracts. Match the real-core CI harness: no command is resent and
+# expiration still fails. One timeout bounds the entire wait, not each poll/read.
+CORE_STARTUP_WAIT_SECONDS = 25
+CORE_RECEIPT_WAIT_SECONDS = 15
+
 
 @pytest.mark.asyncio
 async def test_parent_pipe_eof_is_an_orderly_shutdown_edge():
@@ -87,8 +93,9 @@ async def send(writer, message):
 
 
 async def receive(reader):
-    header = await asyncio.wait_for(reader.readexactly(4), 3)
-    return json.loads(await asyncio.wait_for(reader.readexactly(struct.unpack(">I", header)[0]), 3))
+    async with asyncio.timeout(CORE_RECEIPT_WAIT_SECONDS):
+        header = await reader.readexactly(4)
+        return json.loads(await reader.readexactly(struct.unpack(">I", header)[0]))
 
 
 async def connect(socket_path, *, token="ab" * 32):
@@ -373,15 +380,18 @@ async def launch(paths, socket_path, token_file, root):
 
 
 async def wait_connected(process, socket_path):
-    for _ in range(300):
-        if process.returncode is not None:
-            stdout, stderr = await process.communicate()
-            pytest.fail(f"core exited {process.returncode}: {stdout!r} {stderr!r}")
-        try:
-            return await connect(socket_path)
-        except (FileNotFoundError, ConnectionRefusedError):
-            await asyncio.sleep(0.01)
-    pytest.fail("core did not publish its listener")
+    try:
+        async with asyncio.timeout(CORE_STARTUP_WAIT_SECONDS):
+            while True:
+                if process.returncode is not None:
+                    stdout, stderr = await process.communicate()
+                    pytest.fail(f"core exited {process.returncode}: {stdout!r} {stderr!r}")
+                try:
+                    return await connect(socket_path)
+                except (FileNotFoundError, ConnectionRefusedError):
+                    await asyncio.sleep(0.01)
+    except TimeoutError:
+        pytest.fail("core did not publish its listener")
 
 
 @pytest.mark.asyncio

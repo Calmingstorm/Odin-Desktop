@@ -76,7 +76,7 @@ function fakeBridge() {
     appState: [] as Array<(s: AppState) => void>,
     receipt: [] as Array<(r: LateReceipt) => void>,
     reset: [] as Array<(r: { event_high: string }) => void>,
-    open: [] as Array<(conversationId: string) => void>
+    open: [] as Array<(target: { conversationId: string; messageId: string }) => void>
   }
   const calls = {
     update: [] as Array<Record<string, unknown>>,
@@ -224,7 +224,7 @@ function fakeBridge() {
     onAppState: (l: (s: AppState) => void) => (listeners.appState.push(l), () => undefined),
     onReceipt: (l: (r: LateReceipt) => void) => (listeners.receipt.push(l), () => undefined),
     onReset: (l: (r: { event_high: string }) => void) => (listeners.reset.push(l), () => undefined),
-    onOpenConversation: (l: (conversationId: string) => void) => (listeners.open.push(l), () => undefined)
+    onOpenConversation: (l: (target: { conversationId: string; messageId: string }) => void) => (listeners.open.push(l), () => undefined)
   }
   return { api, listeners, calls, control }
 }
@@ -854,7 +854,7 @@ describe('notifications', () => {
     await store.setMuted('c1', false)
     expect(store.isMuted('c1')).toBe(false)
     store.state.activeId = null
-    bridge.listeners.open.forEach((l) => l('c1'))
+    bridge.listeners.open.forEach((l) => l({ conversationId: 'c1', messageId: 'm1' }))
     expect(store.state.activeId).toBe('c1')
   })
 })
@@ -1154,11 +1154,21 @@ describe('review round 2: a notification opens the news', () => {
     emit(event(2, 'message.committed', { message: message('m2') }))
     emit(event(3, 'conversation.updated', { conversation: { ...CONVERSATION, unread: 1, rev: 2 } }))
     const before = bridge.calls.markRead.length
-    bridge.listeners.open.forEach((l) => l('c1'))
+    bridge.listeners.open.forEach((l) => l({ conversationId: 'c1', messageId: 'm2' }))
     await until(() => bridge.calls.markRead.length === before + 1)
     expect(store.state.jump).toBeNull()
-    expect(store.state.highlightId).toBeNull()
+    expect(store.state.highlightId).toBe('m2')
     expect(bridge.calls.markRead[before]).toMatchObject({ id: 'c1', through_message_id: 'm2' })
+  })
+
+  it('opens an older notification message, not a newer reply that arrived before the click', async () => {
+    await start(snapshot({ watermark: '3', messages: { items: [message('m-latest')], has_more: true } }))
+    bridge.control.aroundResult = { ok: true, result: { items: [message('m-notified')], has_before: true, has_after: true } }
+    bridge.listeners.open.forEach((l) => l({ conversationId: 'c1', messageId: 'm-notified' }))
+    await until(() => store.state.highlightId === 'm-notified')
+    expect(store.state.jump?.messageId).toBe('m-notified')
+    expect(bridge.calls.around.at(-1)).toMatchObject({ conversation_id: 'c1', message_id: 'm-notified' })
+    expect(store.state.views.c1?.messages.at(-1)?.id).toBe('m-latest')
   })
 })
 

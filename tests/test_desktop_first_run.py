@@ -50,6 +50,30 @@ def state(runtime):
     return runtime.status()["first_run"]
 
 
+@pytest.mark.asyncio
+async def test_async_readiness_preserves_original_unknown_cleanup_projection(tmp_path):
+    from src.desktop.resource_cleanup import ResourceCleanupError, ResourceCleanupJournal
+
+    runtime = make_runtime(tmp_path)
+    receipt = tmp_path / "resource-cleanup.json"
+    journal = ResourceCleanupJournal(receipt)
+    with pytest.raises(ResourceCleanupError):
+        journal.finish({"computer": {
+            "state": "unknown", "unresolved_sessions": ["original-owner"],
+        }})
+    runtime.core.resource_cleanup = ResourceCleanupJournal(receipt)
+    original = runtime.core.resource_cleanup.public()
+    saved = receipt.read_bytes()
+    for _ in range(2):
+        status = await runtime.status_async()
+        assert status["first_run"]["state"] == "fresh"
+        assert status["resource_cleanup"] == original
+        assert status["resource_cleanup"]["reconciliation_required"] is True
+        assert status["resource_cleanup"]["effects_undone"] is False
+        assert status["resource_cleanup"]["replay"] is False
+    assert receipt.read_bytes() == saved
+
+
 def authorize(runtime):
     runtime.settings.secrets.set("codex_accounts", json.dumps({"access_token": "test-private"}))
 
