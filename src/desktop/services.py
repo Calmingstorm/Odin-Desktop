@@ -212,7 +212,10 @@ class EngineServices:
         await release(d.loop_manager, "shutdown")
         await release(d.scheduler, "stop")
         await release(getattr(d, "usage_rollup", None), "stop")
-        if not getattr(d, "management_owned_mcp", False):
+        mcp_service = getattr(d, "management_mcp_service", None)
+        if mcp_service is not None:
+            await release(mcp_service, "close")
+        else:
             await release(getattr(d.runtime_context, "mcp_manager", None), "shutdown")
         active = [agent for agent in d.agent_manager._agents.values() if agent._sm.is_active]
         tasks = [agent._task for agent in d.agent_manager._agents.values()

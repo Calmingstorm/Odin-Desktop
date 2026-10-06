@@ -94,6 +94,9 @@ class MCPService:
         if manager is not None and on_catalog_changed is not None:
             manager.set_on_catalog_changed(on_catalog_changed)
         self._lock = asyncio.Lock()
+        self._close_lock = asyncio.Lock()
+        self._close_attempted = False
+        self._close_error = None
         self._started = False
         self._closed = False
         self._startup_error = ""
@@ -195,7 +198,20 @@ class MCPService:
     async def close(self):
         # Fence before awaiting the service lock or an in-flight management op.
         self._closed = True
-        await self.manager.shutdown()
+        # Engine producer quiescence and later management owner traversal share
+        # this original barrier. A failed/cancelled shutdown is not a new attempt
+        # on traversal: retain its failure rather than retrying for better proof.
+        async with self._close_lock:
+            if self._close_attempted:
+                if self._close_error is not None:
+                    raise self._close_error
+                return
+            self._close_attempted = True
+            try:
+                await self.manager.shutdown()
+            except BaseException as error:
+                self._close_error = error
+                raise
 
     shutdown = close
 

@@ -127,6 +127,32 @@ async def save(service, **kwargs):
     return await service.handle("mcp.save", {"name": "stub", "command": "stub-program", **kwargs})
 
 
+@pytest.mark.asyncio
+async def test_close_retains_first_cancellation_without_retrying_manager():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from src.config.schema import Config
+
+    entered = asyncio.Event()
+
+    async def shutdown():
+        entered.set()
+        await asyncio.Event().wait()
+
+    manager = SimpleNamespace(shutdown=AsyncMock(side_effect=shutdown))
+    service = MCPService(SimpleNamespace(config=Config()), manager=manager)
+    closing = asyncio.create_task(service.close())
+    await entered.wait()
+    closing.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await closing
+    with pytest.raises(asyncio.CancelledError):
+        await service.shutdown()
+    assert service._closed
+    manager.shutdown.assert_awaited_once()
+
+
 async def test_mcp_keyring_start_save_reconnect_and_delete_use_settled_workers(harness):
     service, backend, _, _ = harness
     loop_thread = threading.get_ident()
