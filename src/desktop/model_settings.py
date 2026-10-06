@@ -20,6 +20,7 @@ import aiohttp
 from ..config.schema import OpenAICompatibleConfig, PersonalityConfig, PersonalityPreset
 from ..llm.model_ref import parse_model_ref
 from ..llm.system_prompt import PERSONALITY_PRESETS, register_user_presets
+from ..tools.affordances import get_affordance
 from ..tools.builtin_policy import BUILTIN_TOOL_NAMES, normalize_disabled_tools
 from ..tools.defs.computer import computer_definitions
 from ..tools.registry import get_documentation_tool_definitions
@@ -248,6 +249,7 @@ class ModelSettingsService:
         tools = []
         for tool in definitions:
             name = tool["name"]
+            affordance = get_affordance(name)
             enabled = name not in disabled
             if not enabled:
                 state = "disabled"
@@ -261,6 +263,8 @@ class ModelSettingsService:
                 "name": name, "description": tool.get("description", ""),
                 "is_core": tool.get("is_core", False), "enabled": enabled, "state": state,
                 "input_schema": copy.deepcopy(tool.get("input_schema", {})),
+                "cost": affordance.cost.value if affordance.cost is not None else None,
+                "risk": affordance.risk.value,
             })
         return {
             "global_enabled": bool(cfg.enabled), "disabled_count": len(disabled), "tools": tools,

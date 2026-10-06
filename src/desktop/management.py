@@ -233,20 +233,34 @@ class ManagementService:
 
         settings.owners["runtime.reload"] = ReloadOwner()
         state = StateService(core.paths, core.authority.owner_id, memory=executor, lists=executor)
-        knowledge = KnowledgeService(core.paths)
+        runtime_context = getattr(deps, "runtime_context", None)
+        knowledge_store = getattr(deps, "knowledge_store", None)
+        if knowledge_store is not None:
+            from ..knowledge.importer import BulkImporter
+
+            knowledge = KnowledgeService(
+                core.paths, store=knowledge_store,
+                importer=BulkImporter(knowledge_store,
+                                      embedder=getattr(deps, "embedder", None)),
+            )
+        else:
+            knowledge = KnowledgeService(core.paths)
         observed = SimpleNamespace(config=settings.config, llm_gateway=providers,
                                    tool_executor=executor, knowledge_store=None)
 
         def health():
             observed.config = settings.config
+            observed.knowledge_store = knowledge._store
             return check_all(observed)
 
         records = RecordsService(core.paths, health=health, settings=settings,
-                                 get_audit_path=lambda: settings.config.tools.audit_log_path)
+                                 get_audit_path=lambda: settings.config.tools.audit_log_path,
+                                 audit_getter=lambda: getattr(deps, "audit", None))
         context = (deps.context_loader if deps is not None
                    else ContextLoader(settings.config.context.directory))
         runtime = RuntimeService(core, settings, llm=providers, context=context,
-                                 skills=deps.skill_manager if deps is not None else None)
+                                 skills=deps.skill_manager if deps is not None else None,
+                                 usage=getattr(runtime_context, "usage_rollup", None))
         models = ModelSettingsService(settings, executor=executor, provider=providers)
         integrations = IntegrationsService(settings)
         learned = LearnedContextService(
@@ -255,12 +269,19 @@ class ManagementService:
         )
         trajectories = TrajectoriesService(
             core.paths, get_directory=lambda: settings.config.tools.trajectory_path,
+            saver_getter=lambda: getattr(getattr(deps, "turn_recorder", None),
+                                         "_trajectory_saver", None),
         )
         observations = ObservabilityService(
             executor=executor, gateway=providers, config=lambda: settings.config,
             model_breakers=providers.model_breakers, graph=lambda: manager,
         )
-        openrouter = OpenRouterAdminService(settings, provider=providers)
+        def usage_source():
+            from .runtime import _ProfileUsageReader
+
+            return runtime.usage or _ProfileUsageReader(settings.config.usage.directory)
+
+        openrouter = OpenRouterAdminService(settings, provider=providers, usage=usage_source)
         manager = cls(core, services=[settings, codex, hosts, state, knowledge,
                                      records, runtime, models, integrations,
                                      learned, trajectories, observations, openrouter],

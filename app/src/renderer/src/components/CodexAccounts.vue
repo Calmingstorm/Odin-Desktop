@@ -1,12 +1,50 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { CodexAccount, QuotaWindow } from '../../../shared/api'
 import { ask } from '../dialog'
 import { accountIdentity, activateAccount, beginLogin, labelAccount, loadCodex, removeAccount, retryLogin, settings, stopLogin } from '../stores/settings'
-import { unavailableText } from '../capability'
+import { isUnavailable, unavailableText } from '../capability'
+import type { Result } from '../../../shared/api'
+import { act, management } from '../stores/management'
+import OpenRouterAdmin from './OpenRouterAdmin.vue'
+import { isUnknownOutcome, onLateReceipt } from '../store'
 
 onMounted(loadCodex)
 const copyStatus = ref('')
+const refreshUnavailable = ref(false)
+const refreshKey = 'codex-refresh'
+let alive = true
+let pendingRefresh: string | undefined
+onUnmounted(() => { alive = false })
+onLateReceipt((receipt) => {
+  if (!alive || receipt.id !== pendingRefresh) return
+  if (!receipt.settled.ok && isUnknownOutcome(receipt.settled.error)) return
+  pendingRefresh = undefined
+  if (!receipt.settled.ok && isUnavailable(receipt.settled.error)) refreshUnavailable.value = true
+})
+type RefreshBridge = { codexRefresh?: (params: { index: number }) => Promise<Result<{ status: 'refreshed'; email: string; expired: false }>> }
+
+async function refreshAccount(account: CodexAccount): Promise<void> {
+  if (settings.codex.busy || settings.codex.stale || management.busy[refreshKey] || refreshUnavailable.value) return
+  const identity = accountIdentity(account)
+  const now = settings.codex.status?.accounts.find((entry) => entry.index === account.index)
+  if (!now || accountIdentity(now) !== identity) return
+  const refresh = (window.odin as unknown as RefreshBridge).codexRefresh
+  if (!refresh) { refreshUnavailable.value = true; return }
+  settings.codex.busy = true
+  settings.codex.stale = true
+  await act(refreshKey, async () => {
+    const result = await refresh({ index: account.index }).catch((): Result<never> => ({
+      ok: false, error: { code: 'bridge_error', message: 'The bridge could not return a result.' }
+    }))
+    if (!result.ok && isUnknownOutcome(result.error)) pendingRefresh = result.error.command_id
+    if (!result.ok && isUnavailable(result.error)) refreshUnavailable.value = true
+    return result
+  }, (answer) => `Sign-in refreshed for ${answer.email}.`, async () => {
+    try { settings.codex.stale = !await loadCodex() }
+    finally { settings.codex.busy = false }
+  })
+}
 const loginAnnouncement = computed(() => {
   const login = settings.codex.login
   if (!login) return ''
@@ -67,7 +105,7 @@ async function remove(account: CodexAccount): Promise<void> {
     <header class="panel-head">
       <h3>Codex accounts</h3>
       <span class="panel-hint">Odin uses one at a time and moves to the next when one hits its limit.</span>
-      <button v-if="!settings.codex.unavailable" class="ghost" :disabled="settings.codex.beginning || settings.codex.login?.status === 'waiting'" @click="beginLogin">Add account</button>
+      <button v-if="!settings.codex.unavailable" class="ghost" :disabled="settings.codex.busy || settings.codex.beginning || settings.codex.login?.status === 'waiting'" @click="beginLogin">Add account</button>
     </header>
     <p v-if="settings.codex.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Codex accounts') }}</p>
     <template v-else>
@@ -88,6 +126,8 @@ async function remove(account: CodexAccount): Promise<void> {
       </div>
       <p v-if="settings.codex.error" class="warn" role="status">{{ settings.codex.error }} <button class="ghost" @click="loadCodex">Retry</button></p>
       <p v-if="settings.codex.busy" role="status">Updating Codex accounts.</p>
+      <p v-if="refreshUnavailable" class="capability-unavailable" role="status">{{ unavailableText('Codex sign-in refresh') }}</p>
+      <p v-if="management.notes[refreshKey]" role="status">{{ management.notes[refreshKey] }}</p>
       <p v-if="settings.codex.stale && !settings.codex.busy" class="warn">
         The list couldn't be refreshed after your last change, so it may be out of date.
         <button class="ghost" @click="loadCodex">Refresh</button>
@@ -95,6 +135,7 @@ async function remove(account: CodexAccount): Promise<void> {
       <p v-else-if="settings.codex.status && !settings.codex.status.configured" class="panel-hint">Codex isn't configured.</p>
       <ul class="accounts">
         <li v-for="account in settings.codex.status?.accounts ?? []" :key="account.index" :class="['account', { current: account.is_current }]">
+          <button class="ghost" :aria-label="`Refresh sign-in: ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale || management.busy[refreshKey] || refreshUnavailable" @click="refreshAccount(account)">Refresh sign-in</button>
           <p v-if="account.error" class="warn">Account {{ account.index + 1 }}: {{ account.error }}</p>
           <template v-else>
             <div class="account-line">
@@ -119,4 +160,5 @@ async function remove(account: CodexAccount): Promise<void> {
       </ul>
     </template>
   </section>
+  <OpenRouterAdmin />
 </template>

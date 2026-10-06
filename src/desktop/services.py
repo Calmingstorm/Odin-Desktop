@@ -165,7 +165,7 @@ class EngineServices:
             await asyncio.to_thread(d.sessions.save)
         except Exception as error:
             failures.append(error)
-        await release(getattr(d.runtime_context, "knowledge_store", None), "close")
+        await release(d.knowledge_store, "close")
         await release(d.turn_store, "close")
         if failures:
             raise RuntimeError("Desktop engine cleanup did not fully complete") from failures[0]
@@ -312,6 +312,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..health.subsystem_guard import SubsystemGuard
     from ..learning import ConversationReflector
     from ..learning.loop_reflection import LoopReflectionGate
+    from ..knowledge.store import KnowledgeStore
     from ..llm import CodexChatClient, OllamaClient, OpenAICompatibleClient
     from ..llm.codex_auth import CodexAuthPool
     from ..llm.cost_tracker import CostTracker
@@ -341,6 +342,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     context = getattr(runtime, "context_loader", None) or ContextLoader(cfg.context.directory)
     context.load()
     knowledge, embedder = getattr(runtime, "knowledge_store", None), getattr(runtime, "embedder", None)
+    if knowledge is None:
+        # Management and native/model tools must share one durable store. A
+        # saved management document is not an absent request-side capability.
+        # Embeddings remain the actual injected owner, never fabricated or
+        # downloaded during profile construction; retained FTS works without it.
+        knowledge = KnowledgeStore(str(paths.data_dir / "knowledge.db"))
     sessions = session_manager or getattr(runtime, "sessions", None)
     if sessions is None:
         sessions = SessionManager(max_history=cfg.sessions.max_history,
@@ -622,7 +629,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         skill_manager=skills, audit=audit, agent_manager=agents, loop_manager=loops,
         host_registry=hosts, host_access_manager=access, scheduler=scheduler, reflector=reflector,
-        context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime)
+        context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime,
+        knowledge_store=knowledge, embedder=embedder)
     engine = EngineServices(d, None)
     runner = ToolLoopRunner(ToolLoopDeps(get_config=get_config,
         get_default_system_prompt=lambda: prompt.default_prompt, get_context_compressor=lambda: compression,

@@ -10,8 +10,11 @@ import uuid
 
 import pytest
 
+from tests import test_desktop_management_core as management_tests
 from tests.test_desktop_core_lifecycle import request
-from tests.test_desktop_management_core import connected, no_network  # noqa: F401
+
+connected = management_tests.connected
+no_network = management_tests.no_network
 
 
 async def test_completion_capabilities_are_composed_and_read_classified(connected):
@@ -59,6 +62,33 @@ async def test_missing_runtime_measurement_is_not_a_fabricated_counter(connected
     assert capacity["result"]["data"]["breakers"] == []
 
 
+async def test_completion_reads_share_the_request_graphs_original_owners(connected):
+    core, _, _, _, _ = connected
+    manager, deps = core.management, core.engine.deps
+    assert manager.executor is deps.tool_executor
+    assert manager.providers is deps.llm_gateway
+    assert manager.records.audit is deps.audit
+    assert manager.learned.reflector is deps.reflector
+    assert manager.trajectories.saver is deps.turn_recorder._trajectory_saver
+    assert manager.observations._owner("model_breakers") is deps.llm_gateway.model_breakers
+    assert manager.knowledge.store is deps.knowledge_store
+    assert deps.native_tools.owners["knowledge"]._knowledge_store is manager.knowledge.store
+
+
+async def test_management_ingest_is_visible_to_original_native_knowledge_tools(connected):
+    core, reader, writer, _, _ = connected
+    result = await request(reader, writer, "knowledge.ingest", {
+        "source": "management-reference", "content": "The profile has one shared knowledge store.",
+    })
+    assert result["ok"], result
+    native = core.engine.deps.native_tools.owners["knowledge"]
+    assert native._knowledge_store is core.management.knowledge.store
+    assert core.engine.deps.readiness()["search_knowledge"] is True
+    found = await native._handle_search_knowledge({"query": "shared knowledge"})
+    assert "management-reference" in found
+    assert "one shared knowledge store" in found
+
+
 async def test_pool_close_command_replay_does_not_repeat_effect(connected, monkeypatch):
     core, reader, writer, _, _ = connected
     pool = core.management.executor.ssh_pool
@@ -80,7 +110,9 @@ async def test_pool_close_command_replay_does_not_repeat_effect(connected, monke
     assert calls == [True]
 
 
-async def test_trajectory_reads_follow_configured_path_without_creating_writers(connected, tmp_path):
+async def test_trajectory_reads_follow_configured_path_without_creating_writers(
+    connected, tmp_path,
+):
     core, reader, writer, _, _ = connected
     directory = tmp_path / "relocated-traces"
     directory.mkdir()
