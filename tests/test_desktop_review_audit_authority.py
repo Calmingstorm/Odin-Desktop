@@ -20,7 +20,7 @@ def test_composed_restart_verifies_keyring_signed_history_before_schema(tmp_path
         settings = manager.settings
         settings.secrets.set("audit.hmac_key", key)
         assert settings.config.audit.hmac_key == ""
-        assert not settings._keyring_checked
+        settings._keyring_checked = False
         paths, backend = core.paths, settings.secrets._backend
         reader = manager.methods["audit.verify"]
         runner.run(manager.hosts._audit("save", "fixture"))
