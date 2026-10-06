@@ -2,8 +2,10 @@
 
 ## Requested artifact and dispositions
 
-This is an update of PR #35 on `phase-2/restore-steps2-4`, against
-`phase-2/controls-resume`. No rebase, force-push, merge to the target, upstream
+This is an update of PR #35 on `phase-2/restore-steps2-4`. GitHub retargeted it to
+`main` after controls PR #23 merged. Main `5ba8d6df` was merged into this branch,
+preserving both status assertion sets and both exact ledger lineages. No rebase,
+force-push, merge to the target, upstream
 Odin change, deployment, restart or active-desktop operation.
 
 Parent-owned review dispositions:
@@ -96,6 +98,17 @@ The earlier full gate remains failed historical evidence: 32/33 groups,
 isolated startup/lifecycle diagnostic in this review passed 53 cases. No startup
 deadline, assertion or selector was weakened, and that diagnostic does not erase
 the failed historical full run.
+
+Parent integrated selection: 361 passed. Final CLI/request/resume and rejected
+adapter safeguards: 98 passed. After main integration, startup/lifecycle,
+management, CLI and suite-map selection: 225 passed. The first parent CLI attempt
+selected nonexistent file names and executed no tests; the next run found a new
+timeout test's response race and a missing AST import, both corrected before the
+98-pass run. The timeout fixture now blocks actual admitted execution with events
+rather than assuming admission completes inside 0.1 seconds.
+
+Final byte ledger and suite map have zero errors. Ruff has seven inherited
+findings and zero new. Original suite membership and hashes remain unchanged.
 
 Final review-round qualification will run exactly once from a fresh frozen
 checkout under a group-writable parent, using Python 3.12, non-root `odin`,
