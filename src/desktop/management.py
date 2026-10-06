@@ -108,7 +108,7 @@ class ManagementService:
         from ..tools.executor import EXECUTOR_HANDLERS, ToolExecutor
         from .codex_accounts import CodexAccountsService
         from .hosts import HostsService
-        from .integrations import IntegrationsService
+        from .integrations import IntegrationsService, ProfileOutboundWebhookDispatcher
         from .knowledge import KnowledgeService
         from .model_settings import ModelSettingsService
         from .providers import ProviderOwner
@@ -244,12 +244,17 @@ class ManagementService:
         runtime = RuntimeService(core, settings, llm=providers, context=context,
                                  skills=deps.skill_manager if deps is not None else None)
         models = ModelSettingsService(settings, executor=executor, provider=providers)
-        integrations = IntegrationsService(settings)
+        outbound = (deps.outbound_webhook_dispatcher if deps is not None else
+                    ProfileOutboundWebhookDispatcher(lambda: settings.config,
+                                                     secrets=settings.secrets))
+        integrations = IntegrationsService(settings, dispatcher=outbound,
+                                           owns_dispatcher=deps is None)
         manager = cls(core, services=[settings, codex, hosts, state, knowledge,
                                      records, runtime, models, integrations],
                       identity_key=_binding_key(core.paths))
         manager.settings, manager.executor, manager.providers = settings, executor, providers
         manager.runtime, manager.hosts, manager.codex = runtime, hosts, codex
+        manager.integrations = integrations
         manager._engine_owned = deps is not None
         return manager
 

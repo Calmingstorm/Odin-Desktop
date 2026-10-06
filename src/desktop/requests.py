@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from uuid import uuid4
@@ -85,11 +86,13 @@ class RequestService:
         self._seal = object()
         self._workers = {}
         self._tasks = set()
+        self._background_active = {}
         self._closed = False
         self._session_epochs = {}
         runner = getattr(engine, "runner", None)
         if runner is not None:
             runner._record_tool_detail = self.record_tool_detail
+            runner._assert_bound_request = self.assert_bound_request
         with store.transaction() as db:
             db.execute("""CREATE TABLE IF NOT EXISTS desktop_requests (
                 request_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL,
@@ -101,6 +104,10 @@ class RequestService:
             db.execute("""CREATE TABLE IF NOT EXISTS desktop_submissions (
                 client_submission_id TEXT PRIMARY KEY, binding TEXT NOT NULL,
                 response TEXT NOT NULL)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS desktop_background_requests (
+                request_id TEXT PRIMARY KEY, kind TEXT NOT NULL, run_id TEXT NOT NULL,
+                parent_request_id TEXT, binding TEXT NOT NULL,
+                UNIQUE(kind,run_id))""")
             # Upgrade step-three profiles made before execution lineage existed.
             # Those profiles refused reset while work ran, so the most recent
             # notice at start time is unambiguous. Queued work stays unbound.
@@ -131,11 +138,140 @@ class RequestService:
             for row in rows:
                 message = self.fetch_request(row["conversation_id"], row["request_id"])
                 self._finish(message, "interrupted")
+            # A manager may have been admitted just before the core died. It is
+            # retained as interrupted, never handed to the foreground queue.
+            db.execute("UPDATE desktop_requests SET state='interrupted',ended_at=? "
+                       "WHERE state='admitted' AND request_id IN "
+                       "(SELECT request_id FROM desktop_background_requests)", (now(),))
 
     def get_request(self, request_id):
         row = self.store.connection.execute(
             "SELECT * FROM desktop_requests WHERE request_id=?", (request_id,)).fetchone()
         return dict(row) if row is not None else None
+
+    def current_request(self):
+        """Return the current sealed envelope only inside its admitted task."""
+        binding = _execution.get()
+        if not binding or binding[0] is not self:
+            raise PermissionError("No current admitted request")
+        self.assert_request(binding[2])
+        return binding[2]
+
+    def current_bound_request(self):
+        """Read the admitted envelope in an inherited native-tool child task."""
+        binding = _execution.get()
+        if not binding or binding[0] is not self:
+            raise PermissionError("No current admitted request")
+        self.assert_bound_request(binding[2])
+        return binding[2]
+
+    def is_background(self, message):
+        return self.store.connection.execute(
+            "SELECT 1 FROM desktop_background_requests WHERE request_id=?",
+            (message.request_id,)).fetchone() is not None
+
+    def register_background(self, parent_message, kind, run_id, text, *, conversation_id=None):
+        """Admit a manager-owned child from an actually executing request.
+
+        Registration persists a new execution identity before a manager starts it.
+        A destination cannot be supplied by model-generated owner-shaped objects.
+        """
+        self.assert_bound_request(parent_message)
+        cid = conversation_id or parent_message.conversation_id
+        self.conversations.get(cid)
+        return self._register_background(kind, run_id, text, cid, parent_message.owner_id,
+                                         parent_message.request_id)
+
+    def _register_background(self, kind, run_id, text, cid, owner, parent=None):
+        if self._closed:
+            raise PermissionError("The core is quiescing")
+        if kind not in {"agent", "task", "loop", "loop_iteration", "process",
+                        "schedule", "workflow"}:
+            raise ValueError("Unknown background work kind")
+        require_string(run_id, "run_id")
+        if type(text) is not str:
+            raise ValueError("Background request text must be a string")
+        if not self.permissions.is_owner(owner) or owner != self.authority.owner_id:
+            raise PermissionError("Background work requires its authenticated profile owner")
+        binding = canonical_json([kind, run_id, cid, owner, parent, text])
+        with self.store.transaction() as db:
+            old = db.execute("SELECT request_id,binding FROM desktop_background_requests "
+                             "WHERE kind=? AND run_id=?", (kind, run_id)).fetchone()
+            if old is not None:
+                if old["binding"] != binding:
+                    raise PermissionError("Background run identity is already bound")
+                return self.fetch_request(cid, old["request_id"])
+            rid, mid = "r_" + uuid4().hex, "m_" + uuid4().hex
+            db.execute("""INSERT INTO desktop_requests VALUES
+                (?,?,?,?,1,'admitted',?,'[]',?,NULL,NULL,'[]',NULL)""",
+                       (rid, cid, mid, owner, text, now()))
+            db.execute("INSERT INTO desktop_background_requests VALUES (?,?,?,?,?)",
+                       (rid, kind, run_id, parent, binding))
+            epoch = self.conversations._row(cid)["context_position"]
+            db.execute("INSERT INTO desktop_request_context VALUES (?,?,?)", (rid, cid, epoch))
+        return self.fetch_request(cid, rid)
+
+    @asynccontextmanager
+    async def background_execution(self, message, *, settle=True):
+        """Bind one durable background identity to one task, without replay.
+
+        The retained managers still own budgets, cancellation and completion. This
+        only supplies the same task-owned authority and durable destination as a
+        foreground request. It does not acquire a foreground conversation slot.
+        """
+        self.assert_preserved_request(message)
+        with self.store.transaction() as db:
+            child = db.execute("SELECT 1 FROM desktop_background_requests WHERE request_id=?",
+                               (message.request_id,)).fetchone()
+            row = self.binding(message.conversation_id, message.request_id, message.generation)
+            allowed = {"admitted"} if settle else {"admitted", "running"}
+            if (child is None or row is None or row["state"] not in allowed or self._closed
+                    or message.request_id in self._background_active):
+                raise PermissionError("Background execution is no longer admitted")
+            db.execute("UPDATE desktop_requests SET state='running',started_at=? "
+                       "WHERE request_id=? AND state='admitted'", (now(), message.request_id))
+        task = asyncio.current_task()
+        self._background_active[message.request_id] = task
+        tracked = task in self._tasks
+        self._tasks.add(task)
+        owner = self.authority.authenticate_local(peer_uid=self.authority.owner_uid)
+        owner_token = self.permissions.set_request_owner(owner)
+        token = _execution.set((self, task, message))
+        try:
+            yield message
+        except asyncio.CancelledError:
+            if settle:
+                self._finish(message, "interrupted")
+            raise
+        except BaseException:
+            if settle:
+                self._finish(message, "failed")
+            raise
+        else:
+            if settle:
+                self._finish(message, "completed")
+        finally:
+            _execution.reset(token)
+            self.permissions.reset_request_owner(owner_token)
+            if not tracked:
+                self._tasks.discard(task)
+            self._background_active.pop(message.request_id, None)
+
+    def settle_background(self, message, outcome):
+        """Project the manager's actual terminal result, never its cancel ACK."""
+        self.assert_preserved_request(message)
+        if not self.is_background(message):
+            raise PermissionError("Expected an admitted background request")
+        states = {"completed": "completed", "success": "completed", "failed": "failed",
+                  "failure": "failed", "cancelled": "cancelled", "killed": "cancelled",
+                  "interrupted": "interrupted", "timed_out": "failed",
+                  "suspended": "suspended", "unknown": "interrupted"}
+        if outcome not in states:
+            raise ValueError("Expected an actual background settlement")
+        with self.store.transaction() as db:
+            db.execute("UPDATE desktop_requests SET state='running' WHERE request_id=? "
+                       "AND state='admitted'", (message.request_id,))
+            self._finish(message, states[outcome])
 
     def binding(self, conversation_id, request_id, generation):
         row = self.get_request(request_id)
@@ -283,7 +419,10 @@ class RequestService:
             (conversation_id,))]
         def bind(row):
             return {"request_id": row["request_id"], "generation": row["generation"]}
-        active = [row for row in rows if row["state"] in ("running", "stop_requested")]
+        background = {row[0] for row in self.store.connection.execute(
+            "SELECT request_id FROM desktop_background_requests")}
+        active = [row for row in rows if row["state"] in ("running", "stop_requested")
+                  and row["request_id"] not in background]
         queued = [{**bind(row), "message_id": row["message_id"]} for row in rows
                   if row["state"] == "queued"]
         terminal = [{**bind(row), "outcome": row["state"],
@@ -560,7 +699,9 @@ class RequestService:
                     with self.store.transaction() as db:
                         active = db.execute(
                             "SELECT 1 FROM desktop_requests WHERE conversation_id=? "
-                            "AND state IN ('running','stop_requested')", (cid,)).fetchone()
+                            "AND state IN ('running','stop_requested') AND request_id NOT IN "
+                            "(SELECT request_id FROM desktop_background_requests)",
+                            (cid,)).fetchone()
                         if active:
                             return
                         db.execute("UPDATE desktop_requests SET state='running',started_at=? "
@@ -580,8 +721,12 @@ class RequestService:
     async def _execute(self, message, st=None):
         token = _execution.set((self, asyncio.current_task(), message))
         failure_notice = False
+        computer_ticket = None
+        computer = getattr(self, "computer_foreground", None)
         try:
             self.assert_request(message)
+            if computer is not None:
+                computer_ticket = computer.enter_request(message)
             failure_notice = True
             if st is None:
                 self._seed_session_context(message)
@@ -671,9 +816,13 @@ class RequestService:
                         type(publication_error).__name__)
         finally:
             try:
-                self._fence_settled_context(message)
+                if computer_ticket is not None:
+                    await computer.leave_request(computer_ticket)
             finally:
-                _execution.reset(token)
+                try:
+                    self._fence_settled_context(message)
+                finally:
+                    _execution.reset(token)
 
     def _finish(self, message, outcome):
         with self.store.transaction() as db:
@@ -726,7 +875,9 @@ class RequestService:
         with self.store.transaction() as db:
             row = self.binding(cid, rid, original.generation)
             busy = db.execute("""SELECT 1 FROM desktop_requests WHERE conversation_id=?
-                AND state IN ('queued','running','stop_requested') LIMIT 1""", (cid,)).fetchone()
+                AND state IN ('queued','running','stop_requested')
+                AND request_id NOT IN (SELECT request_id FROM desktop_background_requests)
+                LIMIT 1""", (cid,)).fetchone()
             if (self._closed or not row or row["state"] != "suspended" or busy
                     or not self.context_is_current(original)
                     or row["ledger_generation"] != preserved["generation"]
@@ -786,5 +937,11 @@ class RequestService:
 
     def delete_conversation(self, conversation_id):
         """Erase request content while preserving admitted identity tombstones."""
+        active = self.store.connection.execute(
+            "SELECT 1 FROM desktop_requests WHERE conversation_id=? "
+            "AND state IN ('admitted','running','stop_requested')", (conversation_id,)).fetchone()
+        if active:
+            raise ConversationError("busy", "Conversation has active background work",
+                                    "not_dispatched")
         self.store.connection.execute("UPDATE desktop_requests SET text='',attachments='[]' "
                                       "WHERE conversation_id=?", (conversation_id,))
