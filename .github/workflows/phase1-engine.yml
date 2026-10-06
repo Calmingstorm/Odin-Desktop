@@ -2,6 +2,7 @@ name: Phase 1 engine boundaries
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 permissions:
@@ -11,6 +12,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   short-gates:
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     name: short-gates (${{ matrix.lane }})
     strategy:
       fail-fast: false
@@ -19,7 +21,7 @@ jobs:
           - lane: light
             labels: [self-hosted, odin-desktop-ci-light]
           - lane: desktop
-            labels: [self-hosted, odin-desktop-ci-light, odin-desktop-ci]
+            labels: [self-hosted, odin-desktop-short]
     runs-on: ${{ matrix.labels }}
     timeout-minutes: 15
     steps:
@@ -67,11 +69,12 @@ jobs:
       - name: Hermetic Cinnamon and GNOME fixtures (no graphical session)
         run: .venv/bin/python scripts/run-phase1-tests.py tests/test_lab_cinnamon.py tests/test_lab_gnome.py -rs
   full-suites:
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: [self-hosted, odin-desktop-ci]
-    # The explicit default selection and classified qualification deliberately
-    # replay the broad boundary corpus. Bound the whole job without cancelling
-    # its last groups when this self-hosted machine is running parallel lanes.
-    timeout-minutes: 60
+    # The explicit default selection and classified qualification currently
+    # replay the broad boundary corpus. Under parallel lane load the job ran past
+    # 60 minutes and was cancelled mid-qualification, so bound it at 120.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:

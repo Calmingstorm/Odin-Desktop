@@ -106,17 +106,23 @@ class ManagementService:
         from ..llm.codex_quota_check import CodexQuotaCheckService
         from ..llm.system_prompt import register_user_presets
         from ..permissions.host_access import HostAccessManager
-        from ..tools.builtin_policy import BuiltinToolPolicy
+        from ..tools.builtin_policy import BUILTIN_TOOL_NAMES, BuiltinToolPolicy
         from ..tools.executor import EXECUTOR_HANDLERS, ToolExecutor
+        from .browser_runtime import BrowserRuntime
         from .codex_accounts import CodexAccountsService
+        from .computer_binding import ComputerBindingService
         from .hosts import HostsService
         from .integrations import IntegrationsService
         from .knowledge import KnowledgeService
+        from .mcp import MCPService
         from .model_settings import ModelSettingsService
         from .providers import ProviderOwner
         from .records import RecordsService
         from .runtime import RuntimeService
+        from .skills import SkillsService
         from .state import StateService
+        from .tool_catalog import DesktopToolCatalog
+        from .workspace_diagnostics import WorkspaceDiagnostics
 
         settings = settings or getattr(core, "settings", None)
         if settings is None:
@@ -179,6 +185,7 @@ class ManagementService:
                 mode = spec_for("tools." + name).apply_mode
                 if mode in {"live_read", "live_for_new_work"}:
                     setattr(executor.config, name, getattr(desired.tools, name))
+            skills.update_runtime_config(executor.config)
             for name in ("tool_catalog", "prompt_builder"):
                 owner = getattr(providers, name, None)
                 invalidate = getattr(owner, "invalidate", None)
@@ -190,24 +197,80 @@ class ManagementService:
         hosts = HostsService(settings, executor=executor,
                              registry=deps.host_registry if deps is not None else None,
                              scheduler=deps.scheduler if deps is not None else None)
+        browser = (deps.browser_manager if deps is not None
+                   and isinstance(deps.browser_manager, BrowserRuntime)
+                   else BrowserRuntime(settings, core.paths, executor))
+        browser.executor = executor
+        skills = SkillsService(settings, executor=executor, owner_id=core.authority.owner_id,
+                               permissions=core.permissions,
+                               manager=deps.skill_manager if deps is not None else None)
+        computer = ComputerBindingService(core, settings)
+        bound_mcp = (getattr(deps.runtime_context, "mcp_manager", None)
+                     if deps is not None else None)
+        mcp = MCPService(settings, permissions=core.permissions,
+                         manager=bound_mcp,
+                         reserved_names_provider=lambda: {
+                             *BUILTIN_TOOL_NAMES,
+                             *(tool["name"] for tool in skills.get_tool_definitions()),
+                         })
 
         def tool_readiness():
             ready = {name: True for name in EXECUTOR_HANDLERS}
             for name in ready:
                 if name.startswith("browser_"):
-                    ready[name] = executor._browser_manager is not None
+                    # This is a qualify-before-use lazy handler. Withdrawing it
+                    # after failure would remove the only route to retry.
+                    ready[name] = browser.available()
                 if name.startswith("email_"):
                     ready[name] = settings.config.email.enabled
             return ready
 
         if deps is None:
             executor.set_builtin_policy(BuiltinToolPolicy(lambda: settings.config, tool_readiness))
+            catalog = DesktopToolCatalog(
+                builtin_policy=executor._builtin_policy, get_config=lambda: settings.config,
+                skill_manager=skills, get_mcp_definitions=mcp.get_tool_definitions,
+                computer_available=lambda: computer.published_available,
+                get_email_config=lambda: settings.config.email,
+            )
+        else:
+            # Preserve the request engine's policy, catalog and all consumers.
+            catalog = deps.tool_catalog
+            catalog.skill_manager = skills
+            # Part A management is not a new request-dispatch binding. Only
+            # publish MCP through an already bound runtime manager.
+            catalog.get_mcp_definitions = (mcp.get_tool_definitions
+                                           if bound_mcp is mcp.manager else None)
+            catalog.computer_available = lambda: computer.published_available
+            deps.management_owned_browser = browser is deps.browser_manager
+            deps.management_owned_mcp = bound_mcp is mcp.manager
+            # The retained manager is a producer, not just a late transport.
+            # Its management wrapper remains the single close owner, but the
+            # engine must await it before declaring producers quiesced.
+            deps.management_mcp_service = mcp if deps.management_owned_mcp else None
+        skills.set_on_catalog_changed(catalog.invalidate)
+        mcp.set_on_catalog_changed(catalog.invalidate)
+        catalog.invalidate()
+        executor.tool_catalog = providers.tool_catalog = catalog
+        settings.owners["computer.activation.set"] = computer
+        settings.owners["mcp.save"] = mcp.reject_generic_credentials
 
         class ReloadOwner:
             async def prepare_settings(self, desired, changes):
                 change = await providers.prepare_reload_async(desired, changes)
-                staged = hosts.registry.stage(desired.tools.hosts,
-                                              default_host=desired.tools.default_host)
+                try:
+                    mcp_changes = [(path, value) for path, value in changes if path[0] == "mcp"]
+                    mcp_change = (await secret_call(mcp.prepare_settings, desired, mcp_changes)
+                                  if mcp_changes else None)
+                    computer_changes = [(path, value) for path, value in changes
+                                        if path[0] == "computer"]
+                    computer_change = (computer.prepare_settings(desired, computer_changes)
+                                       if computer_changes else None)
+                    staged = hosts.registry.stage(desired.tools.hosts,
+                                                  default_host=desired.tools.default_host)
+                except BaseException:
+                    await change.rollback()
+                    raise
                 old_app, old_email = executor._app_config, executor._email_config
                 old_tools = executor.config
 
@@ -218,6 +281,11 @@ class ManagementService:
                         try:
                             async with providers.provider_lock:
                                 await change.qualify()
+                                if mcp_change is not None:
+                                    mcp_change.apply()
+                                    await mcp_change.finish()
+                                if computer_change is not None:
+                                    await computer_change.apply()
                                 if hosts.registry.generation != staged.expected_generation:
                                     raise MethodError("stale_binding", "Host generation changed")
                                 apply_generic(desired, settings.config, changes)
@@ -227,6 +295,7 @@ class ManagementService:
                                              "ssh_known_hosts_path", "ssh_pool"):
                                     setattr(adopted_tools, name, getattr(old_tools, name))
                                 executor.config = adopted_tools
+                                skills.update_runtime_config(executor.config)
                                 hosts.registry.publish_staged(staged)
                                 change.publish()
                                 self.committed = True
@@ -239,11 +308,16 @@ class ManagementService:
                         if not self.committed:
                             executor._app_config, executor._email_config = old_app, old_email
                             executor.config = old_tools
+                            skills.update_runtime_config(old_tools)
                             register_user_presets({
                                 name: preset.model_dump()
                                 for name, preset in settings.config.personality.user_presets.items()
                             })
                             await change.rollback()
+                            if computer_change is not None:
+                                await computer_change.rollback()
+                            if mcp_change is not None:
+                                await mcp_change.rollback()
 
                 return ReloadToken()
 
@@ -251,27 +325,36 @@ class ManagementService:
         state = StateService(core.paths, core.authority.owner_id, memory=executor, lists=executor)
         knowledge = KnowledgeService(core.paths)
         observed = SimpleNamespace(config=settings.config, llm_gateway=providers,
-                                   tool_executor=executor, knowledge_store=None)
+                                   tool_executor=executor, knowledge_store=None,
+                                   skill_manager=skills, mcp_manager=mcp.manager)
+        diagnostics = WorkspaceDiagnostics(lambda: executor)
 
-        def health():
+        async def health():
             observed.config = settings.config
-            return check_all(observed)
+            result = check_all(observed)
+            result["workspace"] = await diagnostics.snapshot()
+            result["browser"] = browser.status()
+            result["computer"] = computer.readiness()
+            return result
 
         records = RecordsService(core.paths, health=health, settings=settings,
                                  get_audit_path=lambda: settings.config.tools.audit_log_path)
         context = (deps.context_loader if deps is not None
                    else ContextLoader(settings.config.context.directory))
-        runtime = RuntimeService(core, settings, llm=providers, context=context,
-                                 skills=deps.skill_manager if deps is not None else None)
+        runtime = RuntimeService(core, settings, llm=providers, context=context, skills=skills)
         models = ModelSettingsService(settings, executor=executor, provider=providers)
         integrations = IntegrationsService(settings)
         manager = cls(core, services=[settings, codex, hosts, state, knowledge,
-                                     records, runtime, models, integrations],
+                                     records, runtime, models, integrations, skills, mcp, computer],
                       identity_key=_binding_key(core.paths))
+        manager.lifecycle_services = (*manager.services, browser)
         manager.settings, manager.executor, manager.providers = settings, executor, providers
         manager.runtime, manager.hosts, manager.codex = runtime, hosts, codex
         manager.subsystem_guard = subsystem_guard
         manager.codex_quota_check = quota_check
+        manager.skills, manager.mcp = skills, mcp
+        manager.browser, manager.computer = browser, computer
+        manager.tool_catalog, manager.workspace_diagnostics = catalog, diagnostics
         manager._engine_owned = deps is not None
         return manager
 
@@ -456,7 +539,7 @@ class ManagementService:
 
     async def close(self) -> None:
         await self.stop_background()
-        from .resource_cleanup import close_existing_execution_owners
+        from .resource_cleanup import ResourceCleanupError, close_existing_execution_owners
 
         # Retained barriers keep ambiguous native owners and independently prove
         # whole process sessions before releasing their transports.
@@ -468,11 +551,13 @@ class ManagementService:
             journal = getattr(self.core, "resource_cleanup", None)
             if journal is not None:
                 journal.finish(resources)
-            from .resource_cleanup import ResourceCleanupError
-
             raise ResourceCleanupError("Runtime producers are still settling")
         failed = False
-        for service in reversed(self.services):
+        # Teardown of one owner cannot strand the other supervised transports.
+        owners = [*reversed(getattr(self, "lifecycle_services", self.services)),
+                  (getattr(self, "providers", None)
+                   if not getattr(self, "_engine_owned", False) else None)]
+        for service in owners:
             close = getattr(service, "close", None)
             if close is not None:
                 try:
@@ -481,12 +566,6 @@ class ManagementService:
                         await result
                 except Exception:
                     failed = True
-        providers = getattr(self, "providers", None)
-        if providers is not None and not getattr(self, "_engine_owned", False):
-            try:
-                await providers.close()
-            except Exception:
-                failed = True
         executor = getattr(self, "executor", None)
         pool = getattr(executor, "ssh_pool", None)
         if pool is not None and not getattr(self, "_engine_owned", False):
@@ -503,6 +582,19 @@ class ManagementService:
         if journal is not None:
             journal.finish(resources)
         elif failed or any(row["state"] == "unknown" for row in resources.values()):
-            from .resource_cleanup import ResourceCleanupError
-
             raise ResourceCleanupError("Runtime resource cleanup is unverified")
+
+    async def start(self) -> None:
+        """Qualify configured service owners before the core publishes methods."""
+        for service in getattr(self, "lifecycle_services", self.services):
+            start = getattr(service, "start", None)
+            if callable(start):
+                result = start()
+                if inspect.isawaitable(result):
+                    await result
+        # Optional store qualification may leave observation usable while its
+        # native management effects are unavailable. Do not publish those.
+        self.methods = {method: service for service in self.services
+                        for method in getattr(service, "management_methods", service.METHODS)}
+        self.read_methods = {method for service in self.services
+                             for method in service.READ_METHODS if method in self.methods}

@@ -74,10 +74,20 @@ async def test_startup_deadline_bounds_a_stalled_connect_without_relaunch(monkey
         calls.append(path)
         await asyncio.Event().wait()
 
+    cleanup = []
+
+    async def communicate():
+        cleanup.append("communicate")
+        return b"", b"fixture timeout"
+
+    process = SimpleNamespace(returncode=None,
+                              stdin=SimpleNamespace(close=lambda: cleanup.append("stdin")),
+                              communicate=communicate)
     monkeypatch.setattr(harness, "connect", connect)
     with pytest.raises(pytest.fail.Exception, match="core did not publish its listener"):
-        await harness.wait_connected(SimpleNamespace(returncode=None), "socket")
+        await harness.wait_connected(process, "socket")
     assert calls == ["socket"]
+    assert cleanup == ["stdin", "communicate"]
 
 
 @pytest.mark.asyncio
