@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "adapter": "tests/desktop_adapters/lane6_schedules_core.py",
+  "selector": "tests/test_desktop_lane6_schedules_core.py",
+  "lineage": {
+    "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+    "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+    "source_hashes": {
+      "tests/test_scheduled_events.py": "71db4d14426cef763211723bc3ed02897c54474dafe1030be70b4881fee1d3d7",
+      "tests/characterization/test_scheduled_events.py": "846efd54be82f42a77bb46987f3c03acc67a434298564a91754d0e0b813dff1b",
+      "tests/test_scheduled_workflow.py": "7d4e792a9375619f8f8cce7886f9e8d8b7e81ce6188cd30153bda404647a9ce6",
+      "tests/test_campaign_scheduler_workflows.py": "cdb2da7883cba08ef96726fa30efea0af47499e841ff161d6a4067e07db62c2b",
+      "tests/test_scheduled_digest_identity.py": "fb0c7efc11f59788e4d225906a87f36529808d96e0a676dce2aa47c989d64d82",
+      "tests/test_scheduled_events_digest_failure_summary.py": "a157ba0734a41c8b43e6ee0418e2c2b0e27db8c2ca686d458b5b5153584ac864"
+    },
+    "corpus_hashes": {
+      "tests/test_scheduled_events.py": "f9573cfe9fa72c16a0065147cf3a6b3ce5ce214d444aa246315dbbe35b7373a3",
+      "tests/characterization/test_scheduled_events.py": "e792701a2bb04b922829d127e8fb7ebd2623ffbdcee3df9752bc7f11fffb3581",
+      "tests/test_scheduled_workflow.py": "fc14989ddce1e6a658870485c4de484a541c25e3eae10a99180ede31b64a42e3",
+      "tests/test_campaign_scheduler_workflows.py": "e4ccf3727dfbde5bbc6840394dc22ecae2272b59b0dcae69d83cbdb308cffeac",
+      "tests/test_scheduled_digest_identity.py": "25c54072d8ffdbbfd413d2b8a63b65d396e9c830ec3d830dbe3a97807790050d",
+      "tests/test_scheduled_events_digest_failure_summary.py": "8e4cf0e8099155d8af5695086417177e9c8af216a73b322ddb9c6885728d5246"
+    },
+    "whole_frozen_corpus_verified": true,
+    "assertions_signatures_decorators_parameters_unchanged": true
+  },
+  "suites": [
+    {"path":"tests/test_scheduled_events.py","status":"deferred","selector":"tests/test_desktop_lane6_schedules_core.py","selectors":["tests/test_desktop_lane6_schedules_core.py"],"blocked_on":"Eight retained digest cases need production task-owned child probe admission; other retained cases exported."},
+    {"path":"tests/characterization/test_scheduled_events.py","status":"restored","selector":"tests/test_desktop_lane6_schedules_core.py","selectors":["tests/test_desktop_lane6_schedules_core.py"],"blocked_on":null},
+    {"path":"tests/test_scheduled_workflow.py","status":"restored","selector":"tests/test_desktop_lane6_schedules_core.py","selectors":["tests/test_desktop_lane6_schedules_core.py"],"blocked_on":null},
+    {"path":"tests/test_campaign_scheduler_workflows.py","status":"deferred","selector":"tests/test_desktop_lane6_schedules_core.py","selectors":["tests/test_desktop_lane6_schedules_core.py"],"blocked_on":"Five exact source cases require native background admission, owner executor construction or owner-ready strict tool catalog adapters."},
+    {"path":"tests/test_scheduled_digest_identity.py","status":"deferred","selector":"tests/test_desktop_lane6_schedules_core.py","selectors":["tests/test_desktop_lane6_schedules_core.py"],"blocked_on":"Three retained digest cases need production task-owned child probe admission; no-host case exported."},
+    {"path":"tests/test_scheduled_events_digest_failure_summary.py","status":"deferred","selector":"tests/test_desktop_lane6_schedules_core.py","selectors":[],"blocked_on":"Production digest child tasks rejected by RequestService.assert_request."}
+  ],
+  "retired_cases": [
+    {"original":"tests/test_scheduled_events.py::TestDigest::test_no_channel_id","reason":"Discord channel identifier absence removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestDigest::test_channel_not_found","reason":"Discord channel lookup removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestResolveMentions::test_replaces_known_member","reason":"Discord guild/member mention resolution removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestFormatDigestRaw::test_failed_probe_is_a_collection_failure","reason":"Assertion requires scheduler pseudo-user identity; multi-user authority removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestWorkflow::test_strict_workflow_stops_on_step_permission_denial","reason":"Foreign tier user u identity assertion removed with multi-user authority.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestWorkflow::test_strict_workflow_rejects_missing_skill_name","reason":"Unauthenticated None tier identity assertion removed with multi-user authority.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestWorkflow::test_strict_workflow_checks_skill_target_permission","reason":"Foreign tier user u identity assertion removed with multi-user authority.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestWorkflow::test_workflow_truncation","reason":"Discord 1900-character workflow message cap removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestWorkflow::test_workflow_send_error_propagates","reason":"Discord send exception contract replaced by nonretryable durable delivery.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestScheduleFailureAndTask::test_schedule_failure_no_channel","reason":"Discord fallback channel lookup removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestScheduleFailureAndTask::test_task_channel_not_found","reason":"Discord channel lookup removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestScheduleFailureAndTask::test_task_reminder_send_exception","reason":"Discord reminder send exception contract removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestScheduleFailureAndTask::test_task_check_success_send_exception","reason":"Discord send ValueError contract replaced by nonretryable durable delivery.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestScheduleFailureAndTask::test_task_no_channel_id","reason":"Discord channel identifier absence removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestStructuredCheckReports::test_report_format_dispatches_raw_result_to_pagination_service","reason":"Discord channel pagination service replaced by durable report service.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestStructuredCheckReports::test_report_service_unavailable_uses_failure_path","reason":"Discord pagination service unavailable contract removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestStructuredCheckReports::test_renderer_failure_uses_existing_check_failure_path","reason":"Discord pagination renderer exception contract removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_events.py::TestStructuredCheckReports::test_renderer_failure_notice_failure_is_swallowed","reason":"Discord renderer and channel send exception contract removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/characterization/test_scheduled_events.py::TestScheduledTaskRouting::test_missing_channel_id_is_a_delivery_failure","reason":"Discord channel identifier absence removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/characterization/test_scheduled_events.py::TestScheduledWorkflow::test_truncated_summary_closes_the_cut_code_block","reason":"Discord message cap/code-block truncation removed.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_digest_identity.py::test_system_digest_uses_scheduler_identity_and_reports_denied_hosts","reason":"Scheduler pseudo-user authority removed; canonical profile owner required.","reviewer":"Claude, review of step 8 part 4"},
+    {"original":"tests/test_scheduled_digest_identity.py::test_user_digest_runs_as_its_requester","reason":"Foreign multi-user requester authority removed.","reviewer":"Claude, review of step 8 part 4"}
+  ],
+  "deferred_cases": {
+    "tests/test_scheduled_events.py": ["TestDigest.test_every_failed_check_notifies_then_fails_without_summarizing","TestDigest.test_audit_failure_after_digest_delivery_does_not_duplicate_notice","TestDigest.test_success_with_llm","TestDigest.test_no_active_client_uses_raw","TestDigest.test_llm_exception_falls_back","TestFormatDigestRaw.test_gather_exception_marks_the_probe_failed","TestFormatDigestRaw.test_dispatch_exception_is_reported_as_collection_failure","TestScheduleFailureAndTask.test_task_digest_dispatch"],
+    "tests/test_scheduled_digest_identity.py": ["test_digest_with_no_reachable_host_is_a_failed_run","test_cancelled_child_probe_is_reported_as_collection_failure","test_audit_failure_after_delivery_does_not_retry_digest"],
+    "tests/test_scheduled_events_digest_failure_summary.py": ["test_digest_summarizes_many_failures_with_bounded_label_list"],
+    "tests/test_campaign_scheduler_workflows.py": {
+      "test_delegated_empty_output_obeys_conditions":"Legacy BackgroundTask lacks sealed native RequestService admission.",
+      "test_native_error_aborts_workflow_and_reaches_scheduler_retry_counter":"Standalone Scheduler lacks desktop-recovery run_binding.",
+      "test_delegated_invalid_selected_skill_never_executes":"Legacy run_background_task lacks sealed native admission.",
+      "test_background_actual_executor_prepares_contract_defaults":"__new__ executor lacks canonical owner/readiness dependencies; production refuses before _execute_inner.",
+      "test_update_workflow_strict_transport_preserves_condition_and_failure_policy":"Current registry lacks update_schedule without owner-composed readiness catalog adapter."
+    }
+  },
+  "digest_blocker":"Real production gap: asyncio.gather digest probes inherit scheduled context but execute in child tasks; Core._dispatch_scheduled_tool calls task-owned RequestService.assert_request and rejects them. No harness-only child admission retained. Coordinator notified; no production change authorized.",
+  "hunks": {
+    "tests/test_scheduled_events.py":[{"symbol":"<module>","line":16,"before_sha256":"d6446bd36e2057ad3497d04e29abb186dcff7254c62dcb68f1e165d1f22f9e86","after_sha256":"e0f6cc1c900bb58df21c7f975d5c79a3e3921d92f16c4816349a5ad643061e0d","after_source":"from tests.desktop_adapters.lane6_schedules_core import ScheduledEventHandlers, ScheduledEventsDeps"}],
+    "tests/characterization/test_scheduled_events.py":[{"symbol":"<module>","line":17,"before_sha256":"de866b2a1bfc667bff926ea9aea3145b71671d10d1898bab66deb26a54879265","after_sha256":"fa90cba5c8fdab62267c5674f41033ed85fc0131e39fc7a162b17e5e9fab15b5","after_source":"from tests.desktop_adapters.lane6_schedules_core import FakeChannel, FakeLLM, make_bot"}],
+    "tests/test_scheduled_workflow.py":[{"symbol":"TestCollectAgentResult._make_tools_with_agent_manager","line":67,"before_sha256":"909c1ecbbeb98ada9544a34830b7a49b37d8a0e1fca7ac6827067b57c2df61ee","after_sha256":"33d0207109daac051664af2f678a7fba6fead05bb08e406e4838dc49e00246fe","after_source":"@staticmethod\ndef _make_tools_with_agent_manager(wait_result: dict):\n    return collect_tools(wait_result)"}],
+    "tests/test_campaign_scheduler_workflows.py":[{"symbol":"<module>","line":13,"before_sha256":"110309a7ebb84107cbe9baee3f094295bc4571335396014351ccf26be235be98","after_sha256":"a99fcb5135a1be4c6fbf0f2f99cb7200eaf68ed1dc6ec8cbf561f89a63f36115","after_source":"from tests.desktop_adapters.lane6_schedules_core import FakeChannel"},{"symbol":"<module>","line":14,"before_sha256":"ec2e1ddc42f03d7a0737f85c4d080f908115ffdefbd9e38b77f42ed97298cf35","after_sha256":"6c803fc2cfd3aae9541fc1ed565eaea44624decabb4c97db93a00610d25a3ae3","after_source":"from tests.desktop_adapters.lane6_schedules_core import _handlers"}],
+    "tests/test_scheduled_digest_identity.py":[{"symbol":"<module>","line":12,"before_sha256":"646db53e419b41e77462bf1e80f5989b31e3cde479d1006f1c3722aa5c46c1b1","after_sha256":"d5a1f9594e4c190c05439aea24858a3294f4a234a282577fef065f804e3689af","after_source":"from tests.desktop_adapters.lane6_schedules_core import make_bot"}],
+    "tests/test_scheduled_events_digest_failure_summary.py":[{"symbol":"<module>","line":10,"before_sha256":"d6446bd36e2057ad3497d04e29abb186dcff7254c62dcb68f1e165d1f22f9e86","after_sha256":"e0f6cc1c900bb58df21c7f975d5c79a3e3921d92f16c4816349a5ad643061e0d","after_source":"from tests.desktop_adapters.lane6_schedules_core import ScheduledEventHandlers, ScheduledEventsDeps"}]
+  },
+  "proposals": [],
+  "restored_cases": {
+    "tests/test_scheduled_events.py": ["TestDigest.test_collect_failure","TestDigest.test_collect_failure_and_notice_delivery_failure_propagate","TestFormatDigestRaw.test_no_configured_hosts_fails_instead_of_reporting_empty_digest","TestExecuteScheduledTool.test_rbac_denial","TestExecuteScheduledTool.test_dispatch_toolresult","TestExecuteScheduledTool.test_mcp_audit_metadata_survives_scheduled_dispatch","TestExecuteScheduledTool.test_mcp_audit_failure_is_nonfatal","TestExecuteScheduledTool.test_dispatch_plain_result_wrapped","TestExecuteScheduledTool.test_dispatch_exception","TestWorkflow.test_strict_workflow_rejects_invalid_step_before_dispatch","TestWorkflow.test_strict_check_revalidates_persisted_input_before_dispatch","TestWorkflow.test_uncertain_mcp_workflow_requires_manual_resolution","TestWorkflow.test_all_steps_ok","TestWorkflow.test_condition_skip","TestWorkflow.test_step_failure_aborts","TestWorkflow.test_step_failure_continue","TestWorkflow.test_spawn_agent_auto_collect","TestWorkflow.test_spawn_agent_empty_result","TestWorkflow.test_workflow_collect_exception_aborts","TestScheduleFailureAndTask.test_uncertain_mcp_check_never_becomes_retryable","TestScheduleFailureAndTask.test_schedule_failure_alert","TestScheduleFailureAndTask.test_schedule_failure_send_exception","TestScheduleFailureAndTask.test_task_audit_exception_swallowed","TestScheduleFailureAndTask.test_task_check_fail_send_exception","TestScheduleFailureAndTask.test_task_workflow_failure_raises","TestScheduleFailureAndTask.test_task_reminder","TestScheduleFailureAndTask.test_task_check_success_and_fail","TestScheduleFailureAndTask.test_task_workflow_and_unknown","TestStructuredCheckReports.test_legacy_check_output_is_byte_identical_at_truncation_boundary"],
+    "tests/characterization/test_scheduled_events.py": ["TestScheduledTaskRouting.test_reminder_posts_to_channel","TestScheduledTaskRouting.test_unknown_action_is_a_failure","TestScheduledTaskRouting.test_check_success_posts_result","TestScheduledTaskRouting.test_check_failure_posts_and_raises","TestScheduledWorkflow.test_on_failure_abort_is_default_and_stops_workflow","TestScheduledWorkflow.test_on_failure_continue_keeps_going_and_workflow_succeeds","TestScheduledWorkflow.test_condition_skips_step_on_missing_substring","TestScheduledWorkflow.test_negated_condition_skips_when_substring_present","TestExecuteScheduledTool.test_rbac_denial_returns_structured_failure","TestExecuteScheduledTool.test_dispatch_exception_wrapped_as_execution_error","TestExecuteScheduledTool.test_string_result_wrapped_ok","TestAlerts.test_schedule_failure_alert_posts_threshold_message"],
+    "tests/test_scheduled_workflow.py": ["TestAgentIdExtraction.test_normal_label","TestAgentIdExtraction.test_label_with_backticks","TestAgentIdExtraction.test_label_with_multiple_backticks","TestAgentIdExtraction.test_old_backtick_method_fails_on_backtick_label","TestAgentIdExtraction.test_with_depth_note","TestAgentIdExtraction.test_no_match","TestCollectAgentResult.test_completed_agent_returns_ok","TestCollectAgentResult.test_failed_agent_returns_failure_data","TestCollectAgentResult.test_completed_empty_result_flagged","TestCollectAgentResult.test_timed_out_agent","TestWorkflowAgentFailurePropagation.test_failed_agent_makes_step_fail","TestWorkflowAgentFailurePropagation.test_completed_agent_makes_step_succeed","TestWorkflowAgentFailurePropagation.test_completed_empty_still_succeeds_with_warning","TestWorkflowAgentFailurePropagation.test_running_after_timeout_is_failure","TestWorkflowOnFailureBehavior.test_abort_on_failed_step","TestWorkflowOnFailureBehavior.test_continue_on_failed_step","TestWorkflowOnFailureBehavior.test_continue_then_abort","TestWorkflowOnFailureBehavior.test_continue_with_all_steps_failing"],
+    "tests/test_campaign_scheduler_workflows.py": ["test_scheduled_empty_output_obeys_conditions","test_native_error_becomes_failed_scheduled_result","test_structured_scheduled_result_is_preserved","test_background_preserves_executor_host_contract","test_nested_invoke_skill_validates_selected_schema","test_nested_skill_wire_json_decodes_without_mutating_original","test_templated_selected_skill_name_defers_until_concrete_execution","test_valid_selected_skill_executes_with_integer_input","test_scheduled_concrete_skill_schema_rechecked_before_dispatch"],
+    "tests/test_scheduled_digest_identity.py": ["test_digest_with_no_configured_hosts_is_not_reported_healthy"],
+    "tests/test_scheduled_events_digest_failure_summary.py": []
+  },
+  "counts": {"source_cases":108,"restored_source_cases":69,"retired_source_cases":22,"deferred_source_cases":17,"passed_parameterized_cases":81},
+  "case_selector_rule": {"class_cases":"tests/test_desktop_lane6_schedules_core.py::TestLane6_schedules_core_<stem_with_slashes_replaced_by_underscores>_<source_class>::<source_method>","function_cases":"tests/test_desktop_lane6_schedules_core.py::test_lane6_schedules_core_<stem_with_slashes_replaced_by_underscores>__<source_function>"},
+  "substitutions": [],
+  "test_status": {"command":".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_schedules_core.py --tb=short","pid":1451077,"exit_code":0,"passed":81,"duration_seconds":52.29,"isolated_pid_namespace":true},
+  "production_changes": false,
+  "committed": false
+}

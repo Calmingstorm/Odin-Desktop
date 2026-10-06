@@ -1,0 +1,64 @@
+{
+  "artifact": "Lane6 schedules reports whole frozen corpus qualification",
+  "counts": {"restored_case_functions": 32, "retired_case_functions": 10, "deferred_case_functions": 12, "executed_parameterized_cases": 57},
+  "suites": [
+    {"path": "tests/test_native_scheduling.py", "status": "deferred", "selector": "tests/test_desktop_lane6_schedules_reports.py", "selectors": ["TestLane6_test_native_scheduling_ValidatePayload", "TestLane6_test_native_scheduling_ScheduleTask", "TestLane6_test_native_scheduling_ListSchedules", "TestLane6_test_native_scheduling_UpdateSchedule", "TestLane6_test_native_scheduling_DeleteAndParse", "TestLane6_test_native_scheduling_ReportFormatNativeParity", "TestLane6_test_native_scheduling_UnknownReportFormatNativeRejection"], "blocked_on": "Two not-found semantic mismatches against actual ScheduleService, recorded at case level below. 24 retained functions pass through real native owner and canonical service admission."},
+    {"path": "tests/test_scheduled_report.py", "status": "deferred", "selector": "tests/test_desktop_lane6_schedules_reports.py", "selectors": ["TestLane6_test_scheduled_report_PaginatedEmbedV1Contract::test_empty_pages_normalize_to_bounded_empty_state", "TestLane6_test_scheduled_report_PaginatedEmbedV1Contract::test_hostile_shapes_are_rejected", "TestLane6_test_scheduled_report_PaginatedEmbedV1Contract::test_hard_character_and_link_caps", "TestLane6_test_scheduled_report_PaginatedEmbedV1Contract::test_page_field_link_and_embed_caps", "TestLane6_test_scheduled_report_PaginatedEmbedV1Contract::test_link_urls_are_scrubbed_after_parse_before_validation", "TestLane6_test_scheduled_report_PaginatedEmbedV1Contract::test_unknown_registry_format_is_rejected_at_render_time", "TestLane6_test_scheduled_report_RegistryAndPersistenceFailureEdges::test_duplicate_registration_and_formats", "TestLane6_test_scheduled_report_RegistryAndPersistenceFailureEdges::test_malformed_json_has_stable_error"], "blocked_on": "Nine combined legacy/native rendering or persistence contracts cannot be projected unchanged through real 6B ReportService; concrete inspected blockers below. Eight retained validation functions use ReportService.registry."},
+    {"path": "tests/test_scheduled_report_pagination_listener.py", "status": "retired", "selectors": [], "blocked_on": null},
+    {"path": "tests/test_scheduled_report_wiring.py", "status": "deferred", "selectors": [], "blocked_on": "Retained scheduler persistence composition concern has static assertions hardcoded to absent Discord wiring source and obsolete JSON root; actual CoreService composes bound reports in JournalStore."}
+  ],
+  "selector_convention": "Prefix each selectors entry with selector plus ::. Class selectors collect exactly the registered retained original functions; CASE_MAP in adapter provides every full per-function mapping. No pytest skips.",
+  "retired_cases": [
+    {"original": "tests/test_scheduled_report_pagination_listener.py::test_loaded_listener_routes_managed_reaction_to_pagination_service", "reason": "Removed Discord startup extension/cog and raw reaction routing.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/test_scheduled_report_pagination_listener.py::test_listener_ignores_bot_reactions_and_unmanaged_messages", "reason": "Removed Discord bot reaction filter/listener.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/test_scheduled_report_wiring.py::test_registry_and_pagination_service_are_bot_components", "reason": "Exact static assertions pin removed Discord BotComponents/wiring source, not native registry behavior.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/test_scheduled_report.py::TestPaginationState::test_navigation_wraps_and_removes_user_reaction", "reason": "Removed Discord message editing/user-reaction removal.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/test_scheduled_report.py::TestPaginationState::test_missing_message_removes_persisted_state", "reason": "Removed Discord NotFound/fetch_message lifecycle.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/test_scheduled_report.py::TestRegistryAndPersistenceFailureEdges::test_reaction_unknown_emoji_or_message_is_ignored", "reason": "Removed Discord emoji/message routing.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/test_scheduled_report.py::TestRegistryAndPersistenceFailureEdges::test_missing_channel_keeps_state_without_editing", "reason": "Removed Discord channel lookup/edit.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/test_scheduled_report.py::TestRegistryAndPersistenceFailureEdges::test_discord_edit_error_keeps_state", "reason": "Removed Discord Forbidden message edit failure.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/test_scheduled_report.py::TestRegistryAndPersistenceFailureEdges::test_reaction_add_failures_do_not_fail_delivery", "reason": "Removed Discord reaction-add failure contract.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/test_scheduled_report.py::TestRegistryAndPersistenceFailureEdges::test_reaction_removal_failure_does_not_fail_redraw", "reason": "Removed Discord reaction-removal failure contract.", "reviewer": "Claude, review of step 8 part 4"}
+  ],
+  "deferred_cases": [
+    {"original": "tests/test_native_scheduling.py::TestUpdateSchedule::test_strict_update_without_existing_selected_tool_remains_safe", "reason": "ScheduleService._owned raises ConversationError before scheduler.update for missing IDs; native handler catches ValueError only. Original requires update validation flag to reach scheduler. Coordinated production fix needed."},
+    {"original": "tests/test_native_scheduling.py::TestDeleteAndParse::test_delete", "reason": "Real service returns deleted unconditionally after scheduler.delete, original false dependency result must yield not-found. Coordinated native/service semantic fix needed."},
+    {"original": "tests/test_scheduled_report_wiring.py::test_state_path_comes_from_configured_scheduler_persistence_root", "reason": "Static Path.read_text asserts absent Discord wiring source; actual CoreService reports use shared JournalStore rather than scheduler-parent JSON. Cannot fabricate source text."},
+    {"original": "tests/test_scheduled_report.py::TestPaginatedEmbedV1Contract::test_required_optional_defaults_and_rendering", "reason": "Mixed retained normalization and removed embed assertions: ReportService.registry.render_page returns native dict, no Embed.to_dict/Links field."},
+    {"original": "tests/test_scheduled_report.py::TestPaginatedEmbedV1Contract::test_parse_first_then_scrub_rendered_strings_only", "reason": "Native renderer stores inert plain text, no Discord markdown/mention escaping. Combined retained scrubbing and exact legacy escaping assertions cannot be satisfied without copying presentation behavior."},
+    {"original": "tests/test_scheduled_report.py::TestPaginatedEmbedV1Contract::test_freeform_text_cannot_create_clickable_links", "reason": "Native inert plain text differs from exact original Discord markdown-escaping assertion; requires reviewed contract disposition, not assertion rewrite."},
+    {"original": "tests/test_scheduled_report.py::TestPaginationState::test_post_persists_only_normalized_projection_and_reloads", "reason": "6B ReportService stores bound versioned pages in JournalStore; legacy pagination.post explicitly unavailable. Exact message/channel JSON key and reload/edit contract incompatible."},
+    {"original": "tests/test_scheduled_report.py::TestPaginationState::test_refresh_is_redraw_only_and_does_not_reproject_or_execute", "reason": "Retained no-reexecution obligation exists in ReportService.page, but original uses unavailable post/reaction/edit and mutable JSON page state; immutable native snapshots have no redraw seam."},
+    {"original": "tests/test_scheduled_report.py::TestPaginationState::test_requires_absolute_state_path_and_prunes_older_than_26h", "reason": "Legacy store now requires report_id/conversation_id and lacks handles; native ReportService retains historical receipts without 26h TTL. Persistence lifecycle requires adjudication."},
+    {"original": "tests/test_scheduled_report.py::TestPaginationState::test_stale_in_memory_state_is_pruned_and_persisted_on_reaction", "reason": "Original message-indexed mutable post/reaction TTL store differs from native immutable bound snapshots; legacy post unavailable. Retained concern is deferred, not blanket retired."},
+    {"original": "tests/test_scheduled_report.py::TestRegistryAndPersistenceFailureEdges::test_malformed_persisted_state_fails_closed", "reason": "Original JSON constructor requires get_channel/handles removed seams; actual 6B storage is JournalStore. No fabricated compatibility store."},
+    {"original": "tests/test_scheduled_report.py::TestRegistryAndPersistenceFailureEdges::test_persistence_failure_after_post_is_best_effort", "reason": "Native publication is transactionally durable/fail-closed; original best-effort JSON failure returns an already-sent Discord message. Cannot preserve exact tolerance through durable delivery unchanged."}
+  ],
+  "proposals": [
+    {"original": "tests/test_native_scheduling.py::TestUpdateSchedule::test_strict_update_without_existing_selected_tool_remains_safe", "request": "Coordinate native missing-ID error projection fix; then rerun unchanged case."},
+    {"original": "tests/test_native_scheduling.py::TestDeleteAndParse::test_delete", "request": "Coordinate delete missing-ID/false result projection fix; then rerun unchanged case."}
+  ],
+  "substitutions": [],
+  "lineage": {
+    "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+    "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+    "adapter": "tests/desktop_adapters/lane6_schedules_reports.py",
+    "dispositions": "tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+    "whole_suite_bound_before_case_projection": true,
+    "assertions_signatures_decorators_parameters_unchanged": true,
+    "sources": {
+      "tests/test_native_scheduling.py": {"source_sha256": "7bd9102e662705cd34187f038aa53e4c10cd9c8796322c49249145c7531077cd", "full_corpus_sha256": "14160b7d934aaa27334cae7b92f1878dcb71e00e01c9402d0b5f8bbdb7d33e0e"},
+      "tests/test_scheduled_report.py": {"source_sha256": "45a0f3bbc7bca2f630ef041c4f06e578ee9fd1b6b210c2f7a9a7c2ac87e2c482", "full_corpus_sha256": "49b4444bd03c8a455fd9a678f3cc87e0b82e61589186f0cdb93d648a115eead2"},
+      "tests/test_scheduled_report_pagination_listener.py": {"source_sha256": "afa49c7afd843834fafca21cf7763f19b3bd00c14422ea3960c80a208d438b52", "full_corpus_sha256": "eecb7171a3df0e2a89b27118d37c510b44bbeb82aab0706f04d44381b43d620a"},
+      "tests/test_scheduled_report_wiring.py": {"source_sha256": "fc4b2ad6038e17475d5ca6803017bc51a61b6d8838b52b5af28e3f1812eb7e7f", "full_corpus_sha256": "6b267629f2c12e58198ea3a98e5a0a4250b7850cd3b736e59387287dbfe0cce6"}
+    },
+    "hunks": [
+      {"path": "tests/test_native_scheduling.py", "line": 14, "before_sha256": "2d6919324ac7cf4ec37088f94992b0b93f563a86b51473d0da2ca0e058032cf1", "after_sha256": "98c091db4c8cf7770a9472a8ad44a87f4670c16a5171e18cdc9d2f18aa720afc", "operation": "Import fixture subclass which enters actual RequestService task-owned admission then actual ScheduleService"},
+      {"path": "tests/test_native_scheduling.py", "line": 372, "before_sha256": "af2b17a65b5db25765da4aacde97733343df85b4e5d48d2aa202ac61174ba0a5", "after_sha256": "9d9d4f0202b4b30659ce757febac5fa9d5402cca4d5fa7f4ec387d8546998733", "operation": "Seed inherited raw scheduler fixture through real owner-authenticated ScheduleService with actual persisted destination"},
+      {"path": "tests/test_scheduled_report.py", "line": 31, "before_sha256": "7a778a456623aa5cb288b48cf64b31803794a8d54827472a3e351d9eaaa6cbf9", "after_sha256": "9a38f37aa37a9ef273c3ad2d9939e0e9c1afd42cb3ed417ab2d86fce1c7aeb98", "operation": "Return actual 6B ReportService.registry from temporary canonical profile"}
+    ]
+  },
+  "test_status": {"passed": 57, "failed": 0, "seconds": 17.44, "pid_isolated": true, "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_schedules_reports.py --junitxml=.test-state/lane6-schedules-reports-final.xml", "junit": ".test-state/lane6-schedules-reports-final.xml", "junit_sha256": "a59a1a24a1f4273680022985ca9447cf2d59319fbb1681dd86b8285461b438ee"},
+  "production_changes": false,
+  "committed": false
+}

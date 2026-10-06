@@ -256,6 +256,8 @@ class SchedulingTools:
         except ScheduleConnectionUnavailableError as e:
             return f"Scheduling unavailable: {e}"
         except ValueError as e:
+            if getattr(e, "code", None) == "not_found":
+                return f"Schedule {schedule_id} not found."
             return f"Error: {e}"
         if result is None:
             return f"Schedule {schedule_id} not found."

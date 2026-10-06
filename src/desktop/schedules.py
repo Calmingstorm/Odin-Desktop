@@ -15,7 +15,7 @@ class ScheduleService:
     """No payload requester identity or web token is owner authority."""
     methods = frozenset({"schedules.list", "schedules.save", "schedules.delete",
         "schedules.run", "schedules.reset_failures", "schedules.history",
-        "schedules.validate_cron"})
+        "schedules.validate_cron", "schedules.stats"})
 
     def __init__(self, scheduler, *, authority, conversations, assert_request=None):
         self.scheduler, self.authority = scheduler, authority
@@ -65,11 +65,19 @@ class ScheduleService:
             entries = await self.scheduler.history.query(id, limit=limit)
             return [entry for entry in entries if
                 entry.get("run_binding", {}).get("owner_id") == owner_id]
+        if method == "schedules.stats":
+            self._owned(params.get("id"), owner_id)
+            return await self.scheduler.history.stats(params["id"])
         id = params.get("id")
         if method == "schedules.save":
             values = dict(params)
             values.pop("id", None)
+            if "description" in values and (not isinstance(values["description"], str)
+                    or not values["description"].strip() or len(values["description"]) > 5000):
+                raise ValueError("description must be a nonempty string of at most 5000 characters")
             if id:
+                if not values:
+                    raise ValueError("No fields to update")
                 current = self._owned(id, owner_id)
                 if "action" in values and values.pop("action") != current["action"]:
                     raise ValueError("action cannot be changed")
@@ -103,7 +111,8 @@ class ScheduleService:
                 nested_payload_validated=nested_payload_validated, **values)
         self._owned(id, owner_id)
         if method == "schedules.delete":
-            await self.scheduler.delete(id)
+            if not await self.scheduler.delete(id):
+                return None
             return {"status": "deleted"}
         if method == "schedules.run":
             return await self.scheduler.run_now(id)

@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "subset": "lane6-schedules-loops",
+  "lineage": {
+    "head_sha": "22aeaaa3a7eed20d0412fc3e07b1d693c3b820d6",
+    "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+    "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+    "declaration": "tests/desktop_adapters/lane6_schedules_loops_cases.py",
+    "bridge": "tests/desktop_adapters/lane6_schedules_loops_bridge.py",
+    "adapter_hashes": [
+      {"path": "tests/desktop_adapters/lane6_schedules_loops_bridge.py", "sha256": "b7636dd068521eddbfc8c7d6b4d43003060277ed4765e3a692b351dec9269b1f"},
+      {"path": "tests/desktop_adapters/lane6_schedules_loops_cases.py", "sha256": "0773abd33ce7dc27030e23cd577ec2d964e9e7a7935d20ee48f13ab2bba016ac"},
+      {"path": "tests/test_desktop_lane6_schedules_loops.py", "sha256": "55f56809b809313b79a5a6232d5b77e944d11e0606a0eee87326d78761c51b05"}
+    ],
+    "whole_assert_signature_decorator_parameter_corpus_checked_before_projection": true
+  },
+  "suites": [
+    {
+      "path": "tests/characterization/test_autonomous_loop.py",
+      "status": "deferred",
+      "selector": "tests/test_desktop_lane6_schedules_loops.py::Test_lane6_loops_autonomous_loop_TestLoopFlow",
+      "selectors": [
+        "tests/test_desktop_lane6_schedules_loops.py::Test_lane6_loops_autonomous_loop_TestLoopFlow",
+        "tests/test_desktop_lane6_schedules_loops.py::Test_lane6_loops_autonomous_loop_TestAsymmetryPins",
+        "tests/test_desktop_lane6_schedules_loops.py::Test_lane6_loops_autonomous_loop_TestLoopDispatchParity"
+      ],
+      "blocked_on": "Four exact cases need sealed synchronous native startup adapter, reviewer identity-assertion decision, or coordinated native skill readiness correction. Sixteen retained cases pass unchanged.",
+      "source_sha256": "242d1c57c12b8a33eee30f9694861a29bbca047a5eb640cdd0504df4c53b18fc",
+      "full_corpus_sha256": "cfd52cd3c99818b7098db9e5906831680f346f1e5571a59dec08ae35163a5693",
+      "setup_hunks": [
+        {"line": 15, "operation": "real_graph_factory_or_transcript_view", "before_sha256": "372b06e19d76290d4ce83018f9f666a5a177b698abe7cb793c36fde832ec353a", "after_sha256": "b02454853eedd85334973af914fdfd882536951224a3c4d3a50633159976faa6", "after_source": "from tests.desktop_adapters.lane6_schedules_loops_bridge import Channel as FakeChannel, FakeLLM, make_bot\nfrom tests.fakes import parse_error_call, text_response, tool_call_response", "kind": "statement", "independent_reconstruction_checked": true},
+        {"line": 48, "operation": "sealed_background_iteration_fixture", "before_sha256": "d24c7d9be1c2b9a629420805ce0b48565356777fb3a0be07669596d3d540aec7", "after_sha256": "5a7ce18b806f5e15cf76f4417fbc80332796e2b93d675b4800fef2295d87d77c"}
+      ],
+      "restored_cases": [
+        "TestLoopFlow.test_natural_finish_returns_final_text",
+        "TestLoopFlow.test_prev_context_synthetic_exchange_shape",
+        "TestLoopFlow.test_no_preamble_without_prev_context",
+        "TestAsymmetryPins.test_no_response_guards_in_loop",
+        "TestAsymmetryPins.test_no_completion_classifier_in_loop",
+        "TestAsymmetryPins.test_llm_called_directly_not_via_codex_call",
+        "TestAsymmetryPins.test_circuit_open_error_reraised_to_loop_manager",
+        "TestAsymmetryPins.test_generic_llm_error_returned_as_text",
+        "TestAsymmetryPins.test_llm_error_text_sanitized_for_reflection_and_response",
+        "TestAsymmetryPins.test_cap_exhaustion_is_error_with_failure_class_iteration_cap",
+        "TestAsymmetryPins.test_cap_exhaustion_surfaces_stale_partial_text",
+        "TestAsymmetryPins.test_recovered_tool_error_is_success_with_failure_detail",
+        "TestAsymmetryPins.test_trajectory_source_is_loop",
+        "TestLoopDispatchParity.test_parse_error_not_executed_in_loop",
+        "TestLoopDispatchParity.test_ok_false_visibility_in_loop",
+        "TestLoopDispatchParity.test_native_tool_dispatches_through_loop_proxy"
+      ]
+    },
+    {
+      "path": "tests/test_campaign_loops.py",
+      "status": "restored",
+      "selector": "tests/test_desktop_lane6_schedules_loops.py",
+      "selectors": [
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_campaign_loops_iteration_history_adds_only_missing_same_prefix",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_campaign_loops_terminal_findings_obey_mode_without_sentinel",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_campaign_loops_final_iteration_never_sleeps",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_campaign_loops_actual_failed_runner_stops_manager_after_five",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_campaign_loops_empty_natural_completion_after_batched_tools_is_success",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_campaign_loops_legitimate_generation_is_awaited_and_error_quotes_are_not_failures",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_campaign_loops_real_success_resets_consecutive_failed_iteration_count"
+      ],
+      "blocked_on": null,
+      "source_sha256": "a719fd8104bd2917381bbb754ead2aebbf91271fba9546e4397da51525a91ed6",
+      "full_corpus_sha256": "72331f2f9252f9e6bb6778a67b374f37ff514d36a3c0c3d21ede934d0d77a942",
+      "setup_hunks": [
+        {"line": 6, "operation": "real_graph_loop_manager_factory", "before_sha256": "8142599b66c72c55953a8a784b4b0e032dd04b8f0273619e675852173ef741ce", "after_sha256": "eaf3e0cd096b267287c9a1e1793ade341624e42e4858546fe86314921c3b5587"},
+        {"line": 7, "operation": "frozen_adapted_helper_import", "before_sha256": "8e377e4db3d7d9da71902b9c7dc91d7832319ee80bd44f683501fccea1819f20", "after_sha256": "d545ca64ec8d8a2d8be64cdea9e95a863abac1a372181d11783d126eb2b10250"},
+        {"line": 8, "operation": "real_graph_factory_or_transcript_view", "before_sha256": "c91414a1a07bf57cffcad5933e7267dbf330fc829fbfafa1d6fafd1bedc4f7ba", "after_sha256": "a82dca87a8b57ab8141ef9d0724db4e41915f7ae24402f3da340ac95861ae6c9", "after_source": "from tests.desktop_adapters.lane6_schedules_loops_bridge import Channel as FakeChannel\nfrom tests.fakes import text_response, tool_call_response", "kind": "statement", "independent_reconstruction_checked": true},
+        {"line": 33, "operation": "durable_admitted_loop_start", "before_sha256": "a1bac04b8cc0df73be8a7d32583137d28f344f8e8267e84d7ace8cae92a105c6", "after_sha256": "315ad6d31cf78edc8e3d4b4c60b0ce8a12b3293a7410337b479bf130b25ceee7"},
+        {"line": 52, "operation": "durable_admitted_loop_start", "before_sha256": "669929fdc94ef9c6824c6e796f83d81cb7155418fa8635eaa4aaf7d40e1ee5ea", "after_sha256": "b8e6ac90befd09c628f7f39eb0949a1dd776821503532a9731ff8ffb0e5a91c2"},
+        {"line": 77, "operation": "durable_admitted_loop_start", "before_sha256": "7d41afc1b64d8be9cac33c0c6f0e3470a9c52f4fcee2e58ebcbc668835d03807", "after_sha256": "ae40383975ac106461d71e944bfd64941779ec2001f657633f24c569ecd9f44d"},
+        {"line": 106, "operation": "durable_admitted_loop_start", "before_sha256": "39823ee1c8bd34ccf28955cab2f81e216e57ecfdcad1dea3c9a8a68817d4ca9c", "after_sha256": "c17a31a6957f7122eca9703d64682af233a6368204fffc5d23477b8812fbfe2d"},
+        {"line": 139, "operation": "durable_admitted_loop_start", "before_sha256": "1da9dc51f4340dd22d0c6f598da990fb55f76bd0befbbb82926ddc224f45cad0", "after_sha256": "203836ee7f0bb51d18652e638ee516b0799bcc0ffc5bbb94f5584d9ca949edda"},
+        {"line": 166, "operation": "durable_admitted_loop_start", "before_sha256": "b2ae7b8885734e0ac02a57703154370baece80abe1ccede253efcd688f98cf4d", "after_sha256": "7348768f3dbe539ab4a35e12a510109c5f77efa066a541b868f84d33884f2f3e"}
+      ],
+      "restored_cases": ["test_iteration_history_adds_only_missing_same_prefix", "test_terminal_findings_obey_mode_without_sentinel", "test_final_iteration_never_sleeps", "test_actual_failed_runner_stops_manager_after_five", "test_empty_natural_completion_after_batched_tools_is_success", "test_legitimate_generation_is_awaited_and_error_quotes_are_not_failures", "test_real_success_resets_consecutive_failed_iteration_count"]
+    },
+    {
+      "path": "tests/test_turn_recorder_loop_reflection.py",
+      "status": "restored",
+      "selector": "tests/test_desktop_lane6_schedules_loops.py",
+      "selectors": [
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_turn_recorder_loop_reflection_success_path_consults_gate_and_fires_reflection",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_turn_recorder_loop_reflection_error_path_passes_failure_class_to_gate",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_turn_recorder_loop_reflection_tool_error_without_is_error_still_takes_error_path",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_turn_recorder_loop_reflection_gate_suppression_schedules_nothing",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_turn_recorder_loop_reflection_no_tool_details_skips_gate_entirely",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_turn_recorder_loop_reflection_missing_reflector_is_still_a_safe_no_op",
+        "tests/test_desktop_lane6_schedules_loops.py::test_lane6_loops_turn_recorder_loop_reflection_disabled_by_config_short_circuits"
+      ],
+      "blocked_on": null,
+      "source_sha256": "25b8057e064f795d2b7105ffac039d96c299d4e8ccbe1c4eea257ef2656bdc36",
+      "full_corpus_sha256": "bddd239ff0c3faa2e08d594ec5b2368bc35ebe8b3505bbbb3a3f01d33e0d1f45",
+      "setup_hunks": [
+        {"line": 22, "operation": "real_service_recorder_fixture", "before_sha256": "0027c062fa96ce1a9004137cf54ea6a6c404c3c4af786b1ac4c97588d9402899", "after_sha256": "81456af79559458e28918cb61e8a6d3da5314814bbb8197670195b7a9522169f"},
+        {"line": 37, "operation": "real_service_recorder_fixture", "before_sha256": "93b0947c083e51d1fa2fcfd2da52f7f0a3c3a742bacf2afbaa2ab2e545959c00", "after_sha256": "bb7baa420001d2bf5355a817abbc2037bf0ef1ecff25f1e6fa698e63bb009bb1"}
+      ],
+      "restored_cases": ["test_success_path_consults_gate_and_fires_reflection", "test_error_path_passes_failure_class_to_gate", "test_tool_error_without_is_error_still_takes_error_path", "test_gate_suppression_schedules_nothing", "test_no_tool_details_skips_gate_entirely", "test_missing_reflector_is_still_a_safe_no_op", "test_disabled_by_config_short_circuits"]
+    }
+  ],
+  "retired_cases": [
+    {"original": "tests/characterization/test_autonomous_loop.py::TestLoopFlow::test_long_final_text_truncated_to_discord_limit", "reason": "Removed Discord output-length formatter surface.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/characterization/test_autonomous_loop.py::TestLoopDispatchParity::test_rbac_denial_in_loop_dispatch", "reason": "Removed multi-user tier RBAC denial surface.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/characterization/test_autonomous_loop.py::TestLoopDispatchParity::test_export_skill_stages_pending_file_in_loop", "reason": "Removed Discord channel-keyed attachment staging surface.", "reviewer": "Claude, review of step 8 part 4"}
+  ],
+  "deferred_cases": [
+    {"original": "tests/characterization/test_autonomous_loop.py::TestLoopFlow::test_stop_loop_tool_self_stop_settles_without_cancellation_cycle", "reason": "Frozen synchronous FakeMessage startup cannot obtain current task-owned sealed native admission unchanged. Actual AgentTaskTools start at agents_tasks.py:1013 registers RequestService and WorkService/control lineage. No guard weakened.", "blocked_on": "Exact native synchronous-start setup adapter over real background/work/control services"},
+    {"original": "tests/characterization/test_autonomous_loop.py::TestLoopDispatchParity::test_unknown_tool_routes_to_executor_with_user_id", "reason": "Exact assertion requires foreign user_id 4242. Actual run_autonomous requires message.owner_id == user_id, RequestService requires authenticated UUID canonical owner. Assertion cannot remain exact with canonical-owner dispatch.", "blocked_on": "Reviewer decision on foreign identity assertion"},
+    {"original": "tests/characterization/test_autonomous_loop.py::TestLoopDispatchParity::test_skill_crud_rebuilds_prompt_in_loop", "reason": "Actual build_engine_services readiness omits create_skill despite bound SkillManager/dispatcher. Restored run exposed runtime_delivery PermissionError: Output capability unavailable. No production edit without coordination.", "blocked_on": "Coordinated native skill readiness correction"},
+    {"original": "tests/characterization/test_autonomous_loop.py::TestLoopDispatchParity::test_invoke_skill_missing_required_fields_errors", "reason": "Actual build_engine_services readiness omits invoke_skill despite bound SkillManager/dispatcher. Legacy _LoopMessageProxy refuses construction; sealed setup can adapt that but real output authority still rejects unavailable skill capability.", "blocked_on": "Coordinated native skill readiness correction"}
+  ],
+  "proposals": [
+    {"original": "tests/characterization/test_autonomous_loop.py::TestLoopDispatchParity::test_unknown_tool_routes_to_executor_with_user_id", "reason": "Approve canonical UUID-owner comparison in place of inherited foreign identity literal, or decide disposition."},
+    {"original": "tests/characterization/test_autonomous_loop.py::TestLoopDispatchParity::test_skill_crud_rebuilds_prompt_in_loop", "reason": "Coordinate production readiness defect correction; do not retire retained skill behavior."},
+    {"original": "tests/characterization/test_autonomous_loop.py::TestLoopDispatchParity::test_invoke_skill_missing_required_fields_errors", "reason": "Coordinate production readiness defect correction; do not retire retained skill behavior."}
+  ],
+  "substitutions": [],
+  "counts": {"restored_cases": 30, "retired_cases": 3, "deferred_cases": 4, "passed_parameter_instances": 40},
+  "test_status": {
+    "status": "passed",
+    "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_schedules_loops.py",
+    "pid": 1453741,
+    "exit_code": 0,
+    "passed": 40,
+    "failed": 0,
+    "errors": 0,
+    "duration_seconds": 33.50,
+    "log": "/tmp/lane6-schedules-loops-final-confirm.log",
+    "isolation": "Required PID namespace runner; shared .venv symlink; no display or live configuration"
+  },
+  "production_edits": false,
+  "commits": false
+}

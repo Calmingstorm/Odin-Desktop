@@ -528,9 +528,17 @@ class CoreService:
         return result if isinstance(result, str) else json.dumps(result)
 
     async def _dispatch_scheduled_tool(self, message, tool_name, tool_input):
-        self.requests.assert_request(message)
-        return await self.engine.runner.dispatch_loop_tool(
-            tool_name, tool_input, message, message.owner_id)
+        # Digest probes run concurrently in gather children. Inherited context
+        # proves the active parent binding, not execution ownership of this task.
+        # Admit a distinct durable child before entering the real tool runner;
+        # never relax assert_request or borrow the parent's execution identity.
+        from uuid import uuid4
+
+        child = self.requests.register_background(message, "schedule", uuid4().hex,
+            "Scheduled tool: " + tool_name)
+        async with self.requests.background_execution(child):
+            return await self.engine.runner.dispatch_loop_tool(
+                tool_name, tool_input, child, child.owner_id)
 
     async def _publish_scheduled_report(self, message, report_format, output, tool_name):
         self.requests.assert_bound_request(message)
