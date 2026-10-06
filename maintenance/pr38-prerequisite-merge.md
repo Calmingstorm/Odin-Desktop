@@ -36,7 +36,8 @@ Inventory refresh and short merge gates are not fresh full qualification.
 Merge short gates passed: exact-byte drift has zero errors (review pending),
 lint has zero new findings (seven inherited), phase-2 ownership plan passes,
 app TypeScript/Vue typecheck passes, and `git diff --check` is clean.
-All 330 independent record reviews remain pending, not manufactured approvals.
+The final drift report lists 335 independent record reviews pending, not
+manufactured approvals.
 Parent-owned fresh post-merge gates and corrected skill-Test smoke evidence will
 be recorded separately under `pr38-review1-validation.md`, backed by
 `/home/odin/desktop-pr38-review1-evidence/`.
