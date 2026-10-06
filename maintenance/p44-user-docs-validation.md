@@ -333,3 +333,107 @@ lane. The final working-tree link-data check covers **206 links across 13 files*
 87 local targets/anchors, 115 pinned Git objects and 4 other external URL syntax
 checks, with zero errors. The external raw result records source/file identities;
 its SHA-256 and path are in the small committed artifact manifest.
+
+## Step 6A integrated documentation promotion
+
+Date: 2026-10-06. Work order:
+`/home/odin/reviews/desktop-docs-6a-sections.md` (request `req-f0f2fcbc`).
+Pulled latest main before creating `docs/promote-6a-user-sections`:
+`da2d3d4adbc7864ed78ffb972e3792f8557fbcb2`, the merged #44 documentation.
+#28 is merged at `cd52a8e2b055a9c4abc051a49566b9daf3e1bd79`; this round checks
+the integrated main tree, not its historical draft or a combined pending stack.
+
+The previous round had already promoted much of the 6A wording as #28 landed
+during execution. This round removes the duplicate historical #28 procedures
+from the pending file, completes and corrects their current user-guide copies,
+and keeps only the future foreground-binding dependency under #37. Skills/MCP,
+browser and retained-computer guidance belongs in Settings; diagnosis, workspace
+limitations and native-release safety belong in Recovery. User guides contain
+no source SHAs, PR links or development-lane terminology.
+
+### Checked integrated behavior
+
+All links in this table are pinned to the pulled main commit above. These are
+source/control/served-method checks, not a newly executed graphical walkthrough.
+
+| Section | Actual source and checked limits |
+|---|---|
+| Skills controls and availability | [Skills screen](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/app/src/renderer/src/views/settings/Skills.vue), [management store](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/app/src/renderer/src/stores/management.ts), [service](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/src/desktop/skills.py): list/get/validate/save/config/enable/delete are served; `skills.test` is absent from published METHODS and explicitly refused. The visible button does not execute a management test. Config persistence requires the profile keyring; refusal is not empty config. |
+| Skill names, loading and dependencies | [Retained manager](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/src/tools/skill_manager.py): lowercase-leading names of at most 50 characters; validation compiles/inspects without execution; loading imports code and may install declared package-index dependencies. This is not a safety review. |
+| MCP controls, state and limits | [MCP screen](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/app/src/renderer/src/views/settings/Mcp.vue), [service](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/src/desktop/mcp.py), [schema](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/src/config/schema.py): named list/status/tools/save/enable/delete/reconnect/refresh/global/limits routes exist. Reconnect is also an explicit legacy credential-migration boundary. Secrets stay write-only; locked/unavailable keyrings stay unavailable. Publication limits are 1–128 per server and 1–256 globally, despite the UI input's zero minimum. |
+| MCP management is not default request dispatch | [Composition](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/src/desktop/management.py): lines 188–230 bind catalog definitions only when an existing engine manager matches; [request engine](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/src/desktop/services.py): default runtime has no MCP manager (`mcp = getattr(runtime, "mcp_manager", None)`). Real server management/connectivity does not establish chat tool execution. |
+| Browser setup and unavailable states | [Browser owner](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/src/desktop/browser_runtime.py), [copied tool context lifetime](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/src/tools/browser.py): supplied CDP or packaged Chromium, frozen startup configuration, qualification before use and a wired retry seam distinct from readiness. Missing resources require installation repair, not PATH/profile/guard workarounds. Temporary contexts do not carry form/cookie state into later calls and do not justify replay. |
+| Workspace status | [Snapshot collector](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/src/desktop/workspace_diagnostics.py), composition `health()` above: bounded read-only local snapshot, partial/unavailable counts, remote Git freshness not checked. It is included as a top-level health field, but the Records panel renders only component rows. No workspace screen or repair/export wizard is promised. |
+| Retained computer management and refused native configuration | [Computer binding](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/src/desktop/computer_binding.py): `computer.status` returns `{session, readiness}`; no foreground/input/native-qualified capability, `dispatch:none`. Store startup failure preserves status observation while withholding mutations. Only `computer.enabled` changes are accepted by the native settings owner. |
+| Actual Records rendering and Release request | [Records screen](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/app/src/renderer/src/views/settings/Records.vue), [records store](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/app/src/renderer/src/stores/records.ts), [IPC pass-through](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/app/src/main/ipc.ts): `loadComputer` assigns the envelope directly while the screen reads flat session fields, so the retained session row is not rendered. `computer.reconcile` exists, but the screen adds `acknowledgment`, rejected by `_params` at binding lines 96–107 before any controller operation. Neither a blank panel nor the current Release request establishes cleanup. |
+| Native release truthfulness | [Retained controller](https://github.com/Calmingstorm/Odin-Desktop/blob/da2d3d4adbc7864ed78ffb972e3792f8557fbcb2/src/computer/controller.py): management acknowledgments, process absence, guardian ledger cleanup, compositor acknowledgment and receiver proof remain distinct. No input, reset, auto-replay or unsupported native recovery wizard is taught as current behavior. |
+
+The two independent read-only audits confirmed the broad service/control and
+browser/native boundaries. Both initially inferred that Release worked because
+`computer.reconcile` exists. Parent inspection rejected that inference after
+following the actual payload and `_params` allowlist. A private-HOME read-only
+parameter probe confirmed `invalid_params` for the screen's acknowledgment-bearing
+payload; it did not construct a controller, open a store or dispatch input.
+This is why the guides describe a rejected screen request rather than remove
+the existing warning. The newly recorded status-envelope display mismatch is
+also documented, not silently repaired in a docs-only change.
+
+### Pending boundaries retained
+
+Checked GitHub status: #37, #39, #40 and #42 are still **open**. Their existing
+draft bodies, historical pins and limits remain in the pending file unchanged.
+The only rewritten joint section isolates #37's future foreground binding; it
+does not duplicate already-current native safety guidance or claim qualification.
+No background owners/schedules/reports, release-notice, shared knowledge,
+extended records or inbound-ingress procedure was promoted from those branches.
+Their refs were fetched solely to verify the pending archive's pinned links.
+
+### This round's gates and limits
+
+- Repository-local locked Python 3.12 environment provisioned with
+  `uv sync --frozen --extra dev`; no system dependency installation.
+- Exact short-gate sequence from main: inventory report **0 errors**; lint gate
+  **0 new findings** (7 inherited); phase-2 planned-ownership checker passed;
+  Cinnamon/GNOME fixture selection **38 passed** behind the restricted PID helper
+  as ordinary UID 1003. No graphical session was launched.
+- `scripts/docs/generate_tool_reference.py --check`: current generated reference.
+- Read-only method-parameter probe: screen Release payload rejected
+  `invalid_params`; `skills.test` not an advertised Skills method. No real session
+  or effectful execution used.
+- Documentation link-data check covers all eight guides, both READMEs, the release
+  checklist, pending file and this validation record. Local paths/headings and
+  exact pinned Git objects are checked; other external URLs are syntax-only.
+  Counts and file identities are in the external `links.json` receipt.
+- `git diff --check` and docs/maintenance-only changed-path inspection passed.
+  No Markdown-wording tests, app/native smoke or full-suite rerun was needed or
+  claimed. Historical gate results above retain their original limitations.
+
+Evidence and SHA-256 paths are recorded in the small committed
+[artifact manifest](p44-user-docs-6a-artifacts.json). Raw receipts and bounded
+probe/checker scripts are outside Git under
+`/mnt/storage/odin-desktop-evidence/docs6a-reqf0f2/`. Root disk admission started
+at 120 GB free and stayed above the 60 GB floor. Only this lane's inactive fresh
+checkout is removed after pushing and verifying delivery. No other lane or
+evidence directory is deleted.
+
+No product code, live service, active desktop session, production profile,
+credential, release publication or PR merge was changed. No attribution trailers.
+
+### Main advance during this promotion
+
+Main advanced to `28642294d4f3dc079e525d5e9f2df16adeb756be` with #49's
+qualification-lab user-namespace ownership changes. Rebased this docs-only branch
+onto that main before delivery. Its delta changes laboratory tooling, fixtures,
+CI's full-suite lab step and ledger records, not the app/core sources in the
+claim map above or the four pending feature states. The short-gate selection
+itself is unchanged. Reran the complete short sequence on this final base;
+the result remains 0 inventory errors, 0 new lint findings, planned ownership
+pass, 38 isolated fixture tests passed and current generated reference. This
+does not qualify the pending native/packaged laboratory matrix.
+
+Final link-data result: **216 links in 13 files, 0 errors** (92 local targets,
+120 pinned Git objects and 4 external URL syntax checks). The first exploratory
+link invocation lacked unmerged branch objects and the not-yet-added validation
+heading. Fetching the reference objects and completing the section resolved
+those check-environment/draft failures without rewriting pending feature prose
+or weakening link checks.
