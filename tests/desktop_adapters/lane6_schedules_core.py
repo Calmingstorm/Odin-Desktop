@@ -42,7 +42,11 @@ SUITES = {
         "a157ba0734a41c8b43e6ee0418e2c2b0e27db8c2ca686d458b5b5153584ac864"
     ),
 }
-CORPUS_SELECTIONS = {stem: None for stem in SUITES}
+CORPUS_SELECTIONS = {
+    "test_scheduled_events": None, "characterization/test_scheduled_events": None,
+    "test_scheduled_workflow": None, "test_campaign_scheduler_workflows": None,
+    "test_scheduled_digest_identity": None, "test_scheduled_events_digest_failure_summary": None,
+}
 CORPUS_HASHES = {
     "test_scheduled_events": "f9573cfe9fa72c16a0065147cf3a6b3ce5ce214d444aa246315dbbe35b7373a3",
     "characterization/test_scheduled_events": (
@@ -167,7 +171,34 @@ DEFERRED_CASES = {
         ),
     },
 }
-CORPUS_EXCLUSIONS = {stem: sorted(cases) for stem, cases in RETIRED_CASES.items()}
+CORPUS_EXCLUSIONS = {
+    "characterization/test_scheduled_events": [
+        "TestScheduledTaskRouting.test_missing_channel_id_is_a_delivery_failure",
+        "TestScheduledWorkflow.test_truncated_summary_closes_the_cut_code_block",
+    ],
+    "test_scheduled_events": [
+        "TestDigest.test_no_channel_id", "TestDigest.test_channel_not_found",
+        "TestResolveMentions.test_replaces_known_member",
+        "TestFormatDigestRaw.test_failed_probe_is_a_collection_failure",
+        "TestWorkflow.test_strict_workflow_stops_on_step_permission_denial",
+        "TestWorkflow.test_strict_workflow_rejects_missing_skill_name",
+        "TestWorkflow.test_strict_workflow_checks_skill_target_permission",
+        "TestWorkflow.test_workflow_truncation", "TestWorkflow.test_workflow_send_error_propagates",
+        "TestScheduleFailureAndTask.test_schedule_failure_no_channel",
+        "TestScheduleFailureAndTask.test_task_channel_not_found",
+        "TestScheduleFailureAndTask.test_task_reminder_send_exception",
+        "TestScheduleFailureAndTask.test_task_check_success_send_exception",
+        "TestScheduleFailureAndTask.test_task_no_channel_id",
+        "TestStructuredCheckReports.test_report_format_dispatches_raw_result_to_pagination_service",
+        "TestStructuredCheckReports.test_report_service_unavailable_uses_failure_path",
+        "TestStructuredCheckReports.test_renderer_failure_uses_existing_check_failure_path",
+        "TestStructuredCheckReports.test_renderer_failure_notice_failure_is_swallowed",
+    ],
+    "test_scheduled_digest_identity": [
+        "test_system_digest_uses_scheduler_identity_and_reports_denied_hosts",
+        "test_user_digest_runs_as_its_requester",
+    ],
+}
 _graph = ContextVar("lane6_schedules_core_graph", default=None)
 
 

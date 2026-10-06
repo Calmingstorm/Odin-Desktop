@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "status": "retained-corpus-restored-implementation-blocked",
+  "source_path": "tests/test_agent_trajectory.py",
+  "source_sha256": "2159b565d648189872a1f4acb8bbfb41aaaddddda173f1762ec914d86e2e3b33",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "full_corpus_sha256": "c40de8519fe9ad110e104d2fa8ed13595d7936aa54ef06d68de0f31985c86483",
+  "adapted_corpus_sha256": "c40de8519fe9ad110e104d2fa8ed13595d7936aa54ef06d68de0f31985c86483",
+  "full_assertion_signature_decorator_parameter_corpus_preserved": true,
+  "whole_suite_exported": true,
+  "source_function_count": 83,
+  "retained_endpoint_function_count": 9,
+  "retired_cases": [],
+  "deferred_cases": [],
+  "excluded_cases": [],
+  "qualification_claim": "Not qualified while the retained finder and agent search behavior fail. These are implementation blockers, never removed-HTTP retirements.",
+  "adapter": "tests/desktop_adapters/lane6_trajectory_endpoint_parity.py",
+  "selector": "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+  "complete_selector_mapping": {
+    "class_rule": "tests/test_agent_trajectory.py::{TestClass}::{test_function} -> tests/test_desktop_lane6_trajectory_endpoint_parity.py::TestLane6Trajectory_{TestClass_without_Test}::{test_function}",
+    "module_function_rule": "tests/test_agent_trajectory.py::{test_function} -> tests/test_desktop_lane6_trajectory_endpoint_parity.py::test_lane6_trajectory_{test_function_without_test_}",
+    "runtime_exact_map": "tests.desktop_adapters.lane6_trajectory_endpoint_parity.CASE_MAP",
+    "coverage": "83 unique inherited functions exported, with no test-body, assertion, signature, decorator or parameter edits. This standalone wrapper can replace the existing trajectory selector instead of composing its blanket nine-case exclusion."
+  },
+  "endpoint_selector_mapping": [
+    {
+      "source": "tests/test_agent_trajectory.py::TestAgentTrajectoryAPI::test_list_no_saver",
+      "selector": "tests/test_desktop_lane6_trajectory_endpoint_parity.py::TestLane6Trajectory_AgentTrajectoryAPI::test_list_no_saver",
+      "method": "trajectories.list",
+      "observed": "passed"
+    },
+    {
+      "source": "tests/test_agent_trajectory.py::TestAgentTrajectoryAPI::test_list_with_saver",
+      "selector": "tests/test_desktop_lane6_trajectory_endpoint_parity.py::TestLane6Trajectory_AgentTrajectoryAPI::test_list_with_saver",
+      "method": "trajectories.list",
+      "observed": "passed"
+    },
+    {
+      "source": "tests/test_agent_trajectory.py::TestAgentTrajectoryAPI::test_find_by_agent_id",
+      "selector": "tests/test_desktop_lane6_trajectory_endpoint_parity.py::TestLane6Trajectory_AgentTrajectoryAPI::test_find_by_agent_id",
+      "method": "trajectories.agent",
+      "observed": "failed: named method missing"
+    },
+    {
+      "source": "tests/test_agent_trajectory.py::TestAgentTrajectoryAPI::test_find_agent_not_found",
+      "selector": "tests/test_desktop_lane6_trajectory_endpoint_parity.py::TestLane6Trajectory_AgentTrajectoryAPI::test_find_agent_not_found",
+      "method": "trajectories.agent",
+      "observed": "failed: named method missing"
+    },
+    {
+      "source": "tests/test_agent_trajectory.py::TestAgentTrajectoryAPI::test_search_endpoint",
+      "selector": "tests/test_desktop_lane6_trajectory_endpoint_parity.py::TestLane6Trajectory_AgentTrajectoryAPI::test_search_endpoint",
+      "method": "trajectories.search",
+      "observed": "failed: agent saver receives unsupported search kwargs"
+    },
+    {
+      "source": "tests/test_agent_trajectory.py::TestAgentTrajectoryAPI::test_search_no_saver",
+      "selector": "tests/test_desktop_lane6_trajectory_endpoint_parity.py::TestLane6Trajectory_AgentTrajectoryAPI::test_search_no_saver",
+      "method": "trajectories.search",
+      "observed": "passed"
+    },
+    {
+      "source": "tests/test_agent_trajectory.py::TestAgentTrajectoryAPI::test_read_file_endpoint",
+      "selector": "tests/test_desktop_lane6_trajectory_endpoint_parity.py::TestLane6Trajectory_AgentTrajectoryAPI::test_read_file_endpoint",
+      "method": "trajectories.read",
+      "observed": "passed"
+    },
+    {
+      "source": "tests/test_agent_trajectory.py::TestAgentTrajectoryAPI::test_read_file_invalid_name",
+      "selector": "tests/test_desktop_lane6_trajectory_endpoint_parity.py::TestLane6Trajectory_AgentTrajectoryAPI::test_read_file_invalid_name",
+      "method": "trajectories.read",
+      "observed": "passed"
+    },
+    {
+      "source": "tests/test_agent_trajectory.py::TestAgentTrajectoryAPI::test_read_file_no_saver",
+      "selector": "tests/test_desktop_lane6_trajectory_endpoint_parity.py::TestLane6Trajectory_AgentTrajectoryAPI::test_read_file_no_saver",
+      "method": "trajectories.read",
+      "observed": "passed"
+    }
+  ],
+  "implementation_blockers": [
+    {
+      "owner": "src/desktop/trajectories.py:METHODS and TrajectoriesService._handle",
+      "behavior": "Exact retained agent-id finder",
+      "observed": "METHODS contains list/read/search/message but not trajectories.agent. Both frozen finder cases receive method_not_found mapped to 500, rather than 200 for abc123 or 404 for nonexistent.",
+      "required_parent_fix": "Add a named method accepting agent_id and dispatching to the actual AgentTrajectorySaver.find_by_agent_id. Preserve capability-unavailable and not-found behavior; do not synthesize search/scanning in a facade."
+    },
+    {
+      "owner": "src/desktop/trajectories.py:TrajectoriesService._handle search branch",
+      "behavior": "Retained agent-trajectory search filters",
+      "observed": "The service always forwards user_id and errors_only to saver.search. AgentTrajectorySaver.search accepts channel_id/requester_id/tool_name/state/limit, not those kwargs. The unchanged channel_id=ch1 source case receives unavailable mapped to 500.",
+      "required_parent_fix": "Bind the retained agent saver through a real named service search branch with its native filter signature; preserve the base trajectory saver branch. Do not rewrite or copy either saver algorithm."
+    }
+  ],
+  "coordination": {
+    "source_edits_not_performed": true,
+    "notified_agents": ["d43a562e", "a6b5d561"],
+    "reason": "Task ownership explicitly limits this agent to the three new parity files; source fix remains parent-owned."
+  },
+  "validation": {
+    "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+    "pid": 1673197,
+    "pid_namespace_boundary": true,
+    "passed": 81,
+    "failed": 4,
+    "inherited_passed": 80,
+    "inherited_failed": 3,
+    "additional_guards": {
+      "full_corpus_and_exact_mapping": "passed",
+      "named_service_surface": "failed: trajectories.agent is missing"
+    },
+    "pytest_duration_seconds": 8.33,
+    "exit_code": 1,
+    "process_cleanup_verified": true
+  },
+  "transport_and_scope": {
+    "named_service_owner": "src.desktop.trajectories.TrajectoriesService",
+    "retained_saver_owner": "src.agents.trajectory.AgentTrajectorySaver",
+    "facade": "URL-shaped fixture registration plus step5_traces in-process TestClient/TestServer and MethodError serialization only",
+    "http_listener_opened": false,
+    "copied_algorithms": false,
+    "live_install_or_service_changes": false,
+    "stage_or_commit": false,
+    "harmful_data_authored": false
+  }
+}

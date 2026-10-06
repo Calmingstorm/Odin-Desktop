@@ -11,6 +11,7 @@ from src.discord.tool_loop import ToolLoopRunner
 from src.discord.turn_recorder import TurnRecorder
 from src.llm.types import LLMResponse
 from tests.desktop_adapters import lane6_agents_lineage_transcript as lane6_agents_lineage_adapter
+from tests.desktop_adapters.lane6_agents_lineage_transcript import load
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -31,7 +32,7 @@ async def lane6_agents_lineage_owner_graph(tmp_path):
             lane6_agents_lineage_adapter.lane6_agents_lineage_state.reset(binding)
 
 
-lane6_agents_lineage_adapter.load(globals())
+load(globals())
 
 
 def test_lane6_agents_lineage_frozen_hash_and_whole_corpus():
@@ -46,7 +47,9 @@ def test_lane6_agents_lineage_frozen_hash_and_whole_corpus():
 
 
 @pytest.mark.asyncio
-async def test_lane6_agents_lineage_canonical_bridge_identity_and_real_spawn(lane6_agents_lineage_owner_graph):
+async def test_lane6_agents_lineage_canonical_bridge_identity_and_real_spawn(
+    lane6_agents_lineage_owner_graph,
+):
     state = lane6_agents_lineage_owner_graph
     assert type(state.engine.deps.agent_manager) is AgentManager
     assert type(state.requests) is RequestService
@@ -71,7 +74,9 @@ async def test_lane6_agents_lineage_canonical_bridge_identity_and_real_spawn(lan
     parent = state.requests._register_background("task", "canonical-parent", "run once",
         state.cid, state.owner.authority.owner_id)
     async with state.requests.background_execution(parent):
-        result = await state.native._handle_spawn_agent(parent, {"label": "test", "goal": "run once"})
+        result = await state.native._handle_spawn_agent(
+            parent, {"label": "test", "goal": "run once"}
+        )
         assert "spawned" in result
         agent = next(iter(state.engine.deps.agent_manager._agents.values()))
         records = state.work.list()["items"]

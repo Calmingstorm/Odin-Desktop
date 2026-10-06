@@ -8,19 +8,28 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..agents.trajectory import AgentTrajectorySaver
 from ..observability.diagnostics import scrub_diagnostic
 from ..trajectories.saver import TrajectorySaver
 from .management import MethodError
 
 METHODS = frozenset({
     "trajectories.list", "trajectories.read", "trajectories.search",
-    "trajectories.message",
+    "trajectories.message", "trajectories.agent",
 })
 READ_METHODS = METHODS
 
 
 class _TrajectoryReader(TrajectorySaver):
     """Retained reader algorithms without mkdir or writer initialization."""
+
+    def __init__(self, directory):
+        self.directory = Path(directory)
+        self._count = 0
+
+
+class _AgentTrajectoryReader(AgentTrajectorySaver):
+    """Use retained agent reads without constructing a writer on management reads."""
 
     def __init__(self, directory):
         self.directory = Path(directory)
@@ -45,13 +54,33 @@ class TrajectoriesService:
     METHODS = METHODS
     READ_METHODS = READ_METHODS
 
-    def __init__(self, paths=None, *, saver=None, get_directory=None, saver_getter=None):
+    def __init__(self, paths=None, *, saver=None, get_directory=None, saver_getter=None,
+                 agent_saver_getter=None):
         self.paths = paths
         self._saver = saver
         self._get_directory = get_directory
         self._saver_getter = saver_getter
+        self._agent_saver_getter = agent_saver_getter
         self._reader = None
         self._binding = None
+        self._agent_reader = None
+
+    def _selected_saver(self, params, method):
+        kind = params.get("kind", "agent" if method == "trajectories.agent" else "turn")
+        if kind not in {"agent", "turn"}:
+            raise MethodError("bad_request", "kind must be agent or turn")
+        if isinstance(self._saver, AgentTrajectorySaver):
+            return self._saver
+        if kind != "agent":
+            return self.saver
+        current = self._agent_saver_getter() if self._agent_saver_getter is not None else None
+        if current is not None:
+            return current
+        if self.paths is None:
+            return None
+        if self._agent_reader is None:
+            self._agent_reader = _AgentTrajectoryReader(self.paths.data_dir / "agent_trajectories")
+        return self._agent_reader
 
     @property
     def saver(self):
@@ -84,7 +113,7 @@ class TrajectoriesService:
             raise MethodError("unavailable", "Trajectory read is unavailable") from None
 
     async def _handle(self, method, params):
-        saver = self.saver
+        saver = self._selected_saver(params, method)
         if saver is None:
             raise MethodError("capability_unavailable", "trajectory saving not available")
         if method == "trajectories.list":
@@ -95,10 +124,26 @@ class TrajectoriesService:
             if entry is None:
                 raise MethodError("not_found", "trajectory not found")
             return {"entry": entry}
+        if method == "trajectories.agent":
+            if not isinstance(saver, AgentTrajectorySaver):
+                raise MethodError("capability_unavailable", "agent trajectory saving not available")
+            entry = await saver.find_by_agent_id(_text(params, "agent_id", ""))
+            if entry is None:
+                raise MethodError("not_found", "trajectory not found")
+            return {"entry": entry}
         filters = {key: _text(params, key) for key in ("channel_id", "user_id", "tool_name")}
         errors = str(params.get("errors_only", "")).lower() in ("1", "true")
         if method == "trajectories.search":
-            results = await saver.search(**filters, errors_only=errors, limit=_limit(params, 50))
+            if isinstance(saver, AgentTrajectorySaver):
+                if errors:
+                    raise MethodError("bad_request", "Use state for agent trajectory filtering")
+                results = await saver.search(channel_id=filters["channel_id"],
+                    requester_id=_text(params, "requester_id", filters["user_id"]),
+                    tool_name=filters["tool_name"], state=_text(params, "state"),
+                    limit=_limit(params, 50))
+            else:
+                results = await saver.search(
+                    **filters, errors_only=errors, limit=_limit(params, 50))
             return {"results": results, "count": len(results)}
         filename = _text(params, "filename", "")
         if (not filename.endswith(".jsonl") or "/" in filename
@@ -110,5 +155,10 @@ class TrajectoriesService:
         filters = {key: value for key, value in filters.items() if value}
         if errors:
             filters["errors_only"] = True
-        entries = await saver.read_file(filename, limit=_limit(params, 100), **filters)
+        if isinstance(saver, AgentTrajectorySaver):
+            if filters:
+                raise MethodError("bad_request", "Agent selected-file filters are not supported")
+            entries = await saver.read_file(filename, limit=_limit(params, 100))
+        else:
+            entries = await saver.read_file(filename, limit=_limit(params, 100), **filters)
         return {"entries": entries, "count": len(entries)}

@@ -275,6 +275,8 @@ class ManagementService:
             core.paths, get_directory=lambda: settings.config.tools.trajectory_path,
             saver_getter=lambda: getattr(getattr(deps, "turn_recorder", None),
                                          "_trajectory_saver", None),
+            agent_saver_getter=lambda: getattr(getattr(
+                deps, "native_owners", {}).get("agents"), "_agent_trajectory_saver", None),
         )
         observations = ObservabilityService(
             executor=executor, gateway=providers, config=lambda: settings.config,

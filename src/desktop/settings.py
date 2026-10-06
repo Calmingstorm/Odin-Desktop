@@ -95,7 +95,7 @@ def _handler(path):
         "agents.auto_model_allowlist",
         "agents.thinking_mode",
         "agents.model_selection_hints",
-    }:
+    } or path.startswith("agents.model_selection_hints."):
         return "models.agents.set"
     if path == "tools.disabled_tools":
         return "tools.set_enabled"

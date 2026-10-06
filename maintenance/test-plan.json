@@ -7,11 +7,11 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 273,
+    "phase2": 248,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "retired": 5,
-    "safe_pass_now": 405,
+    "retired": 6,
+    "safe_pass_now": 429,
     "safety_manual_gated": 100
   },
   "entries": [
@@ -82,7 +82,7 @@
         "src/discord/delivery.py",
         "src/discord/tool_loop.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/delivery.py: Desktop owner/intake/control/durable delivery adapter: delivery; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "242d1c57c12b8a33eee30f9694861a29bbca047a5eb640cdd0504df4c53b18fc",
       "string_source_references": [],
       "test_import_closure": [
@@ -95,7 +95,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -116,7 +116,7 @@
       "phase2_seams": [
         "src/discord/client.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "26ddac3a5df6fd9128e4cf18a0afd7f41590232f6389c803abbb953bf3aa6608",
       "string_source_references": [],
       "test_import_closure": [
@@ -374,7 +374,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/tools/__init__.py",
@@ -390,7 +390,7 @@
       "phase2_seams": [
         "src/discord/client.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "846efd54be82f42a77bb46987f3c03acc67a434298564a91754d0e0b813dff1b",
       "string_source_references": [],
       "test_import_closure": [
@@ -837,7 +837,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/agents/__init__.py",
@@ -871,7 +871,7 @@
         "src/discord/native_tools/knowledge.py",
         "src/discord/tool_loop.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/delivery.py: Desktop owner/intake/control/durable delivery adapter: delivery; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/knowledge.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "24209634cb1e6bce8e0075f69fd0b2987f35b83c21d55c703c8ffb1b44222e0b",
       "string_source_references": [
         "src.discord.tool_loop.get_agent_tool_context"
@@ -888,7 +888,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/config/__init__.py",
@@ -912,7 +912,7 @@
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/agents_tasks.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "24ab02cd772b8267386db861f39bab27428f7e3b0c1ed541506eca55433180da",
       "string_source_references": [],
       "test_import_closure": [
@@ -1014,7 +1014,7 @@
         "src/web/api/__init__.py",
         "src/web/api/agents_loops.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/agents_loops.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "c73d509c079d20da613b9e4be74343a1457de09e493a9598aa70727a8f7d71d2",
       "string_source_references": [
         "src.discord.completion.asyncio.wait_for"
@@ -1123,7 +1123,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/config/__init__.py",
@@ -1152,7 +1152,7 @@
         "src/discord/scheduled_context.py",
         "src/discord/scheduled_events.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/scheduled_context.py: Desktop owner/intake/control/durable delivery adapter: scheduled_context; src/discord/scheduled_events.py: Desktop owner/intake/control/durable delivery adapter: scheduled_events. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "363fbda2fdfcf2c11c902bb6b13e95429ea60807ee7e3e099db0b929d789874b",
       "string_source_references": [],
       "test_import_closure": [
@@ -1163,7 +1163,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/agents/__init__.py",
@@ -1183,7 +1183,7 @@
         "src/discord/native_tools/agents_tasks.py",
         "src/discord/native_tools/registry.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "0cbcea1b9673a4fa3f4a96fc899a591460df576dea6afc08706a305d6093ea02",
       "string_source_references": [],
       "test_import_closure": [
@@ -1194,7 +1194,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/agents/__init__.py",
@@ -1214,7 +1214,7 @@
         "src/discord/native_tools/agents_tasks.py",
         "src/discord/native_tools/registry.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "d8166c9a8d1075476c31f4d614f3683d407acbca5824b2badd57d12aecdd0ac0",
       "string_source_references": [],
       "test_import_closure": [
@@ -1255,7 +1255,7 @@
         "src/discord/native_tools/agents_tasks.py",
         "src/discord/native_tools/registry.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "6e011660579a0ecf6bdd125bc0565bba6ec50e4df67b79d9e41ea94236c77c6e",
       "string_source_references": [],
       "test_import_closure": [
@@ -1291,7 +1291,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/agents/__init__.py",
@@ -1316,7 +1316,7 @@
         "src/discord/native_tools/agents_tasks.py",
         "src/discord/native_tools/registry.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "7290cc68cc3ae1dbb08b27de4f1254f50d043af6a9004ba8e95d711c8caa6e84",
       "string_source_references": [
         "src.agents.manager.time.time"
@@ -1360,7 +1360,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/agents/__init__.py",
@@ -1386,7 +1386,7 @@
         "src/web/__init__.py",
         "src/web/api/__init__.py"
       ],
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "2159b565d648189872a1f4acb8bbfb41aaaddddda173f1762ec914d86e2e3b33",
       "string_source_references": [],
       "test_import_closure": [
@@ -1419,7 +1419,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/agents/__init__.py",
@@ -1447,7 +1447,7 @@
         "src/discord/native_tools/agents_tasks.py",
         "src/discord/native_tools/registry.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "2f0980cf7385abab6fdb4d35efaca2198c2bbe1d3e35b0c5a7bc7943067fc7d0",
       "string_source_references": [
         "src.llm.context_compressor.compress_tool_context"
@@ -1459,7 +1459,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/agents/__init__.py",
@@ -1484,7 +1484,7 @@
         "src/discord/native_tools/agents_tasks.py",
         "src/discord/native_tools/registry.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "97c566d0fb3fc48a0e9c947d81b1f6832249c1b1097f22c94e0d2992cd1b5719",
       "string_source_references": [],
       "test_import_closure": [
@@ -1515,7 +1515,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -1533,7 +1533,7 @@
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/agents_tasks.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "28fc3d89c78cb86d5138eeee1f74bb8b4229dfd188f60f1e9d464380237f89a2",
       "string_source_references": [
         "src.tools.agent_tool_policy.agent_allowlist_entry",
@@ -2087,7 +2087,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -2110,7 +2110,7 @@
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/agents_tasks.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "e5addb75a7446519d799c6a6087f7142749e0496f1c6ef4e48b1012ab4528aec",
       "string_source_references": [],
       "test_import_closure": [
@@ -2147,7 +2147,7 @@
         "src/discord/background_task.py",
         "src/discord/client.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "30720be2e4e3b64bbc7e97d8932d7e5e328ae43c055670da3897fcf92addcd78",
       "string_source_references": [],
       "test_import_closure": [
@@ -3592,7 +3592,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/tools/__init__.py",
@@ -3610,7 +3610,7 @@
         "src/discord/delivery.py",
         "src/discord/tool_loop.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/delivery.py: Desktop owner/intake/control/durable delivery adapter: delivery; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "a719fd8104bd2917381bbb754ead2aebbf91271fba9546e4397da51525a91ed6",
       "string_source_references": [],
       "test_import_closure": [
@@ -4182,7 +4182,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -4209,7 +4209,7 @@
         "src/discord/client.py",
         "src/discord/scheduled_events.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/scheduled_events.py: Desktop owner/intake/control/durable delivery adapter: scheduled_events. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "cdb2da7883cba08ef96726fa30efea0af47499e841ff161d6a4067e07db62c2b",
       "string_source_references": [],
       "test_import_closure": [
@@ -4729,7 +4729,7 @@
         "src/turn_state/codec.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Exact lane6 health suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "13f145375ade487836f0e497ec020f9f5ef713949abbd0d4590c49a1b071e6d7",
       "string_source_references": [
         "src.llm.context_budget.snapshot_for_codex_config",
@@ -12266,7 +12266,7 @@
         "src/discord/wiring.py",
         "src/health/server.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/wiring.py: Desktop owner/intake/control/durable delivery adapter: wiring; src/health/server.py: authenticated IPC readiness/ingress. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "87127ab087e9d0b7df63d61529227b3495b1cf3bc18a00fee8cb82de05457db9",
       "string_source_references": [],
       "test_import_closure": [
@@ -12498,7 +12498,7 @@
         "src/turn_state/codec.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Exact lane6 providers suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "3616a97cbd8aa2c22640614b934b5febfd90311d664c995128dc73bf8e736b6a",
       "string_source_references": [
         "src.llm.context_compressor.compress_tool_context"
@@ -12596,7 +12596,7 @@
         "src/discord/tool_loop.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Exact lane6 providers suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "6758f17d838dc83286e4974eaec41962d6db2aab5af30bbe2508d724aa9ed1b9",
       "string_source_references": [
         "src.llm.context_budget"
@@ -13744,7 +13744,7 @@
         "src/discord/native_tools/registry.py",
         "src/discord/tool_loop.py"
       ],
-      "reason": "Exact lane6 providers suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "2b7575b89b1aaea5e230135f2dd557978951a4c52dce6d0dad4f426188c134e2",
       "string_source_references": [
         "src.agents.manager.time",
@@ -14156,7 +14156,7 @@
         "src/discord/client.py",
         "src/discord/wiring.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/wiring.py: Desktop owner/intake/control/durable delivery adapter: wiring. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "9ce9bf0f2021d3377fdf178e7afe9aee655026d29fb083d60496de7cd03fb5ea",
       "string_source_references": [],
       "test_import_closure": [
@@ -14265,7 +14265,7 @@
         "src/web/__init__.py",
         "src/web/api/__init__.py"
       ],
-      "reason": "Exact lane6 health suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "ddd7a689876cae2c1b25a5ad9710c1facf6f2445509f734bdeae27f3722d893f",
       "string_source_references": [
         "src.health.checker"
@@ -14294,7 +14294,7 @@
       "phase2_seams": [
         "src/health/checker.py"
       ],
-      "reason": "Exact lane6 health suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "cf90cead05a53a9c4701fa9b84e20b6ef6fc6fef77d133565538255ed16d5b40",
       "string_source_references": [],
       "test_import_closure": [
@@ -18000,7 +18000,7 @@
         "src/web/api/__init__.py",
         "src/web/api/config_admin.py"
       ],
-      "reason": "Exact lane6 health suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "7b6e917826b8be3d19864a98f61dc5adcf295866324e60806312a4e9120e243d",
       "string_source_references": [
         "src.discord.turn_recorder.fire_and_forget"
@@ -18045,7 +18045,7 @@
         "src/web/__init__.py",
         "src/web/chat.py"
       ],
-      "reason": "Exact lane6 health suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "d0c73c09f81d9034765306690f8650c35b67478aec58ee5020915e0d2c0e7298",
       "string_source_references": [],
       "test_import_closure": [
@@ -18729,7 +18729,7 @@
         "src/discord/tool_loop_helpers.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Exact lane6 providers suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "b7fd583e10ab910c9523add50131032236a9563dc0ab7241764a997d73b03f5b",
       "string_source_references": [],
       "test_import_closure": [
@@ -19274,7 +19274,7 @@
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/agents_tasks.py"
       ],
-      "reason": "Exact lane6 providers suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "de80f566cf7be48ddd03d006b5ba68ce13286e1e01ca04af0c9d2a6873534330",
       "string_source_references": [],
       "test_import_closure": [
@@ -19486,7 +19486,7 @@
         "src/discord/native_tools/agents_tasks.py",
         "src/discord/native_tools/registry.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "f42a7364881ee0fc07afb7953a94fe517c2008222815a0d779a0e1de2ceadc92",
       "string_source_references": [
         "src.discord.native_tools.agents_tasks._send_progress",
@@ -19649,7 +19649,7 @@
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/scheduling.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/scheduling.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "7bd9102e662705cd34187f038aa53e4c10cd9c8796322c49249145c7531077cd",
       "string_source_references": [
         "src.tools.time_parser.parse_time"
@@ -19681,7 +19681,7 @@
         "src/web/__init__.py",
         "src/web/api/__init__.py"
       ],
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "456360eb249056add8aec170277b0f0d30247552c1bfcdf127a827c9c0566554",
       "string_source_references": [],
       "test_import_closure": [
@@ -20288,7 +20288,7 @@
         "src/web/__init__.py",
         "src/web/api/__init__.py"
       ],
-      "reason": "Exact lane6 health suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "8c64bbb2a58a274f591399f888510616cfc6181cd9f75eb1d909560b3681440f",
       "string_source_references": [
         "src.tools.executor.is_local_address",
@@ -20846,7 +20846,7 @@
         "src/turn_state/codec.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Exact lane6 providers suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "085ca193095b1b2d7a831495088eaa4bad4e25167bed1f02a2edde1a4e98f708",
       "string_source_references": [],
       "test_import_closure": [
@@ -20880,7 +20880,7 @@
       "phase2_seams": [
         "src/discord/tool_loop.py"
       ],
-      "reason": "Exact lane6 providers suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "9f86bc04fdb9108e3ea4f1e91ab5adaccfb8c97267b17098bc083c2d2a0484bb",
       "string_source_references": [],
       "test_import_closure": [
@@ -20914,7 +20914,7 @@
         "src/web/api/__init__.py",
         "src/web/api/agents_loops.py"
       ],
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/agents_loops.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "a6d0fdd4dd939d26c9ddd375698dc81da3603d0ee72071d4dda1a50aa44273b8",
       "string_source_references": [
         "src.async_utils.fire_and_forget"
@@ -20950,7 +20950,7 @@
         "src/web/api/__init__.py",
         "src/web/api/agents_loops.py"
       ],
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/agents_loops.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "b433e3936ba4c20e14f5dadc2d97ea50a19fd9db5fe743e222697ab13e1917b2",
       "string_source_references": [
         "src.async_utils.fire_and_forget",
@@ -21510,7 +21510,7 @@
         "src/discord/native_tools/registry.py",
         "src/discord/tool_loop.py"
       ],
-      "reason": "Exact lane6 providers suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "9a3183d8b67e55a346fc5945c9e2b65753d13de2911269c2b3d7e6089c711166",
       "string_source_references": [],
       "test_import_closure": [
@@ -21571,7 +21571,7 @@
         "src/web/api/__init__.py",
         "src/web/api/_agent_display.py"
       ],
-      "reason": "Exact lane6 providers suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "6a30d0463fba2d15cf2de86bce84c197b33473ad7c5150ac93add489a7d53448",
       "string_source_references": [
         "src.discord.llm_gateway.OpenAICompatibleClient",
@@ -21731,7 +21731,7 @@
         "src/discord/native_tools/registry.py",
         "src/discord/tool_loop.py"
       ],
-      "reason": "Exact lane6 providers suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "b3b83f66584b7e8d197b2f4579be2ed21dcc03747a7ee9b02ebb03ca9ed214e3",
       "string_source_references": [],
       "test_import_closure": [
@@ -21896,7 +21896,7 @@
       "phase2_seams": [
         "src/discord/tool_loop.py"
       ],
-      "reason": "Exact lane6 providers suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "43b762f236d0b284426602c309f413eafd94f10bca1c0e757481005dd182c98c",
       "string_source_references": [],
       "test_import_closure": [
@@ -22219,7 +22219,7 @@
         "src/web/__init__.py",
         "src/web/api/__init__.py"
       ],
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "a7b39991f16e208dd51635caceb1aee25f4099ec9bddbcadd80101aed871dcb1",
       "string_source_references": [],
       "test_import_closure": [
@@ -22707,7 +22707,7 @@
         "src/discord/background_task.py",
         "src/discord/tool_loop.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "add5410c347955ddb90e2437bf8ec80cf26649b8003b921ef9eb0b08eec60622",
       "string_source_references": [],
       "test_import_closure": [
@@ -22860,7 +22860,7 @@
       "phase2_seams": [
         "src/discord/client.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "fb0c7efc11f59788e4d225906a87f36529808d96e0a676dce2aa47c989d64d82",
       "string_source_references": [],
       "test_import_closure": [
@@ -22892,7 +22892,7 @@
       "phase2_seams": [
         "src/discord/scheduled_events.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/scheduled_events.py: Desktop owner/intake/control/durable delivery adapter: scheduled_events. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "71db4d14426cef763211723bc3ed02897c54474dafe1030be70b4881fee1d3d7",
       "string_source_references": [],
       "test_import_closure": [
@@ -22900,7 +22900,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -22917,7 +22917,7 @@
       "phase2_seams": [
         "src/discord/scheduled_events.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/scheduled_events.py: Desktop owner/intake/control/durable delivery adapter: scheduled_events. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "a157ba0734a41c8b43e6ee0418e2c2b0e27db8c2ca686d458b5b5153584ac864",
       "string_source_references": [],
       "test_import_closure": [
@@ -22941,7 +22941,7 @@
       "phase2_seams": [
         "src/discord/scheduled_report.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/scheduled_report.py: Desktop owner/intake/control/durable delivery adapter: scheduled_report. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "45a0f3bbc7bca2f630ef041c4f06e578ee9fd1b6b210c2f7a9a7c2ac87e2c482",
       "string_source_references": [
         "src.discord.scheduled_report.scrub_response_secrets"
@@ -22951,7 +22951,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "retired",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -22971,7 +22971,11 @@
         "src/discord/cogs/__init__.py",
         "src/discord/cogs/scheduled_report_pagination.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/cogs/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/cogs/scheduled_report_pagination.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Every original case exclusively tests removed Discord raw reaction listener routing; individual exact function ASTs bound below.",
+      "retirement": {
+        "reason": "Every original case exclusively tests removed Discord raw reaction listener routing; individual exact function ASTs bound below.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
       "sha256": "afa49c7afd843834fafca21cf7763f19b3bd00c14422ea3960c80a208d438b52",
       "string_source_references": [
         "src.discord.cogs.scheduled_report_pagination"
@@ -22997,7 +23001,7 @@
       "phase2_seams": [
         "src/discord/scheduled_report.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/scheduled_report.py: Desktop owner/intake/control/durable delivery adapter: scheduled_report. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "fc4b2ad6038e17475d5ca6803017bc51a61b6d8838b52b5af28e3f1812eb7e7f",
       "string_source_references": [],
       "test_import_closure": [
@@ -23005,7 +23009,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -23025,7 +23029,7 @@
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/agents_tasks.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "7d4e792a9375619f8f8cce7886f9e8d8b7e81ce6188cd30153bda404647a9ce6",
       "string_source_references": [],
       "test_import_closure": [
@@ -23256,7 +23260,7 @@
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/knowledge.py"
       ],
-      "reason": "Exact lane6 health suite adapter enrollment, independently reviewed disposition required; collection/execution remain separate evidence.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "e9f008c122c7ac646b62635662eeb717f6df7804b2aef19c051c961e88f55468",
       "string_source_references": [],
       "test_import_closure": [
@@ -24644,7 +24648,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/agents/__init__.py",
@@ -24681,7 +24685,7 @@
         "src/discord/native_tools/registry.py",
         "src/discord/tool_loop.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "3b8fc0e50882c50aa0e22bb3c154a1a1373fd116ffc085ce1c404c1ba5b97277",
       "string_source_references": [
         "src.discord.tool_loop.asyncio.wait_for",
@@ -24753,7 +24757,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/config/__init__.py",
@@ -24779,7 +24783,7 @@
       "phase2_seams": [
         "src/discord/tool_loop.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "ae40015bf21a1f7bdb4e654a55bb425df6c0b0632877ebdf21f92093713b320b",
       "string_source_references": [],
       "test_import_closure": [
@@ -24986,7 +24990,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/audit/__init__.py",
@@ -25024,7 +25028,7 @@
         "src/discord/tool_loop.py",
         "src/discord/turn_recorder.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/discord/turn_recorder.py: Desktop owner/intake/control/durable delivery adapter: turn_recorder. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "5de597c2ea6e15ea22cdcb8fa582f24ac19dfb4650505c38d3b00d063f2e203d",
       "string_source_references": [],
       "test_import_closure": [
@@ -25142,7 +25146,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -25158,7 +25162,7 @@
       "phase2_seams": [
         "src/discord/turn_recorder.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/turn_recorder.py: Desktop owner/intake/control/durable delivery adapter: turn_recorder. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "25b8057e064f795d2b7105ffac039d96c299d4e8ccbe1c4eea257ef2656bdc36",
       "string_source_references": [
         "src.discord.turn_recorder.fire_and_forget"
@@ -25469,7 +25473,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -25491,7 +25495,7 @@
         "src/discord/tool_loop.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "437d3ef88266cab7e4988ccedae19b72887411f7384e029dd155e152814e3a59",
       "string_source_references": [],
       "test_import_closure": [
@@ -25504,7 +25508,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/config/__init__.py",
@@ -25529,7 +25533,7 @@
         "src/web/api/__init__.py",
         "src/web/api/agents_loops.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/background_task.py: Desktop owner/intake/control/durable delivery adapter: background_task; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/agents_loops.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "5a11f1688a846b9a521c16e85d9fdb8ce9c9820f03636d10d81b8a102bafbaeb",
       "string_source_references": [
         "src.tools.agent_tool_policy.",
@@ -25853,7 +25857,7 @@
         "src/web/api/__init__.py",
         "src/web/api/schedules_api.py"
       ],
-      "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/schedules_api.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "e05b80b887ea8ef3ba04cd6bd0f7d519ffa37c853bc4fabf108cf8ff3021788d",
       "string_source_references": [],
       "test_import_closure": [
@@ -26789,7 +26793,7 @@
         "src/web/api/__init__.py",
         "src/web/api/llm_admin.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/agents_tasks.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/durability.py: private delivery/outbox/replay admission; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/llm_admin.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "sha256": "8df113168f7d220d99c68b71fe1571391e4102b7ced1095fa3501825a8943896",
       "string_source_references": [],
       "test_import_closure": [
@@ -26797,7 +26801,7 @@
       ]
     },
     {
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "direct_source_imports": [
         "src/__init__.py",
         "src/discord/__init__.py",
@@ -26826,7 +26830,7 @@
         "src/discord/tool_loop.py",
         "src/turn_state/durability.py"
       ],
-      "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/housekeeping.py: Desktop owner/intake/control/durable delivery adapter: housekeeping; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/durability.py: private delivery/outbox/replay admission. Preserve cases, no privileged fake shim.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "sha256": "b17a926b79afcc342e4f5fdf4b48094336057a02c5d26c517c9fedc4df8af708",
       "string_source_references": [],
       "test_import_closure": [
@@ -36328,7 +36332,6 @@
   "phase2": [
     "tests/characterization/test_api_route_parity.py",
     "tests/characterization/test_autonomous_loop.py",
-    "tests/characterization/test_chat_tool_loop.py",
     "tests/characterization/test_delivery.py",
     "tests/characterization/test_executor_dispatch_parity.py",
     "tests/characterization/test_facade_contract.py",
@@ -36337,28 +36340,16 @@
     "tests/characterization/test_p1_carve_semantics.py",
     "tests/characterization/test_p2_composition.py",
     "tests/characterization/test_pipeline_persistence.py",
-    "tests/characterization/test_scheduled_events.py",
     "tests/characterization/test_tool_parity.py",
-    "tests/test_agent_audit_parity.py",
-    "tests/test_agent_auto_dynamic.py",
     "tests/test_agent_completion_classifier.py",
     "tests/test_agent_image_safety.py",
-    "tests/test_agent_model_admission.py",
-    "tests/test_agent_parent_activity.py",
-    "tests/test_agent_repetition.py",
     "tests/test_agent_result_pages.py",
-    "tests/test_agent_stream_progress.py",
-    "tests/test_agent_trajectory.py",
-    "tests/test_agent_transcript_contract.py",
-    "tests/test_agent_wait_budget.py",
-    "tests/test_agents_tasks_provider_paths.py",
     "tests/test_attachments.py",
     "tests/test_audit_signing.py",
     "tests/test_auth_config_integration_review.py",
     "tests/test_auth_entry_preservation.py",
     "tests/test_auth_snapshot_compatibility.py",
     "tests/test_auth_snapshot_routes.py",
-    "tests/test_background_task_cancel.py",
     "tests/test_background_task_failure_visibility.py",
     "tests/test_bootstrap_bind_policy.py",
     "tests/test_bootstrap_runtime_bind.py",
@@ -36380,11 +36371,9 @@
     "tests/test_campaign_execution_outcomes.py",
     "tests/test_campaign_finish_boundaries.py",
     "tests/test_campaign_health_coverage.py",
-    "tests/test_campaign_loops.py",
     "tests/test_campaign_private_persistence.py",
     "tests/test_campaign_provider_reload_coverage.py",
     "tests/test_campaign_reasoning_contracts.py",
-    "tests/test_campaign_scheduler_workflows.py",
     "tests/test_campaign_startup_auth.py",
     "tests/test_campaign_startup_health.py",
     "tests/test_campaign_web_final_coverage.py",
@@ -36542,11 +36531,8 @@
     "tests/test_schedule_report_format_parity.py",
     "tests/test_scheduled_digest_identity.py",
     "tests/test_scheduled_events.py",
-    "tests/test_scheduled_events_digest_failure_summary.py",
     "tests/test_scheduled_report.py",
-    "tests/test_scheduled_report_pagination_listener.py",
     "tests/test_scheduled_report_wiring.py",
-    "tests/test_scheduled_workflow.py",
     "tests/test_search_history_source_priority.py",
     "tests/test_search_small_delivery_budget.py",
     "tests/test_self_audit_fixes.py",
@@ -36562,17 +36548,11 @@
     "tests/test_subsystem_guard.py",
     "tests/test_tool_catalog_dependency_gate.py",
     "tests/test_tool_failure_visibility.py",
-    "tests/test_tool_lifecycle_correlation.py",
     "tests/test_tool_loop_helpers.py",
-    "tests/test_tool_loop_provenance.py",
-    "tests/test_trajectory_completeness.py",
     "tests/test_turn_durability_heartbeat.py",
-    "tests/test_turn_recorder_loop_reflection.py",
     "tests/test_turn_recorder_webhook_campaign.py",
     "tests/test_typing_resilience.py",
     "tests/test_ui_effort_mirror.py",
-    "tests/test_wait_stuck_integration.py",
-    "tests/test_web_api_agents_loops.py",
     "tests/test_web_api_codex_admin.py",
     "tests/test_web_api_config_admin.py",
     "tests/test_web_api_integrations.py",
@@ -36597,16 +36577,30 @@
     "tests/test_webhook_campaign.py",
     "tests/test_websocket_bootstrap_auth.py",
     "tests/test_websocket_handler.py",
-    "tests/test_window_observer.py",
-    "tests/test_write_invariant_integration.py"
+    "tests/test_window_observer.py"
   ],
   "phase2_restored": [
+    "tests/characterization/test_chat_tool_loop.py",
+    "tests/characterization/test_scheduled_events.py",
     "tests/test_action_diffs.py",
+    "tests/test_agent_audit_parity.py",
+    "tests/test_agent_auto_dynamic.py",
+    "tests/test_agent_model_admission.py",
+    "tests/test_agent_parent_activity.py",
+    "tests/test_agent_repetition.py",
+    "tests/test_agent_stream_progress.py",
+    "tests/test_agent_trajectory.py",
+    "tests/test_agent_transcript_contract.py",
+    "tests/test_agent_wait_budget.py",
+    "tests/test_agents_tasks_provider_paths.py",
     "tests/test_audit_tail_v412.py",
+    "tests/test_background_task_cancel.py",
     "tests/test_campaign_audit_observability.py",
     "tests/test_campaign_execution_risk.py",
+    "tests/test_campaign_loops.py",
     "tests/test_campaign_openrouter_coverage.py",
     "tests/test_campaign_prefix_measurement.py",
+    "tests/test_campaign_scheduler_workflows.py",
     "tests/test_campaign_websocket_coverage.py",
     "tests/test_channel_state_recent_action_failure.py",
     "tests/test_chat_loop_recovery.py",
@@ -36641,20 +36635,30 @@
     "tests/test_reasoning_generation_records.py",
     "tests/test_recovery.py",
     "tests/test_restored_process_shutdown.py",
+    "tests/test_scheduled_events_digest_failure_summary.py",
+    "tests/test_scheduled_workflow.py",
     "tests/test_search_output_capture.py",
+    "tests/test_tool_lifecycle_correlation.py",
+    "tests/test_tool_loop_provenance.py",
     "tests/test_trajectories.py",
+    "tests/test_trajectory_completeness.py",
+    "tests/test_turn_recorder_loop_reflection.py",
+    "tests/test_wait_stuck_integration.py",
+    "tests/test_web_api_agents_loops.py",
     "tests/test_web_api_knowledge_mem.py",
     "tests/test_web_api_new_endpoints.py",
     "tests/test_web_api_observability.py",
     "tests/test_web_api_turn_state.py",
     "tests/test_web_campaign_streams.py",
-    "tests/test_webui_selected_trace_filters.py"
+    "tests/test_webui_selected_trace_filters.py",
+    "tests/test_write_invariant_integration.py"
   ],
   "phase2_retired": [
     "tests/test_client.py",
     "tests/test_command_reconciliation.py",
     "tests/test_gateway_transition_regressions.py",
     "tests/test_rate_limiter.py",
+    "tests/test_scheduled_report_pagination_listener.py",
     "tests/test_websocket_production_stack.py"
   ],
   "phase2_suite_map": "maintenance/phase2-suite-map.json",
@@ -36736,6 +36740,7 @@
     "tests/test_command_reconciliation.py",
     "tests/test_gateway_transition_regressions.py",
     "tests/test_rate_limiter.py",
+    "tests/test_scheduled_report_pagination_listener.py",
     "tests/test_websocket_production_stack.py"
   ],
   "safe_neutral_case_selections": [
@@ -36756,14 +36761,26 @@
     }
   ],
   "safe_pass_now": [
+    "tests/characterization/test_chat_tool_loop.py",
+    "tests/characterization/test_scheduled_events.py",
     "tests/computer/test_hyprland_backend.py",
     "tests/test_action_diffs.py",
     "tests/test_adaptive_compaction.py",
+    "tests/test_agent_audit_parity.py",
+    "tests/test_agent_auto_dynamic.py",
     "tests/test_agent_cascade_retention.py",
     "tests/test_agent_context_overflow.py",
     "tests/test_agent_lifecycle.py",
+    "tests/test_agent_model_admission.py",
+    "tests/test_agent_parent_activity.py",
+    "tests/test_agent_repetition.py",
     "tests/test_agent_serialized_budget.py",
+    "tests/test_agent_stream_progress.py",
+    "tests/test_agent_trajectory.py",
     "tests/test_agent_trajectory_bounded_reads.py",
+    "tests/test_agent_transcript_contract.py",
+    "tests/test_agent_wait_budget.py",
+    "tests/test_agents_tasks_provider_paths.py",
     "tests/test_apply_patch.py",
     "tests/test_apply_patch_corrective_errors.py",
     "tests/test_apply_patch_payload.py",
@@ -36776,6 +36793,7 @@
     "tests/test_audit_rotation_integrity_snapshot_coverage.py",
     "tests/test_audit_tail_v412.py",
     "tests/test_auxiliary_llm.py",
+    "tests/test_background_task_cancel.py",
     "tests/test_backoff.py",
     "tests/test_binary_host_read.py",
     "tests/test_browser_automation.py",
@@ -36796,6 +36814,7 @@
     "tests/test_campaign_host_collisions.py",
     "tests/test_campaign_hosts_trust_coverage.py",
     "tests/test_campaign_learning_observability.py",
+    "tests/test_campaign_loops.py",
     "tests/test_campaign_openrouter_coverage.py",
     "tests/test_campaign_outbound.py",
     "tests/test_campaign_prefix_measurement.py",
@@ -36811,6 +36830,7 @@
     "tests/test_campaign_scheduler_final_coverage.py",
     "tests/test_campaign_scheduler_removed_triggers.py",
     "tests/test_campaign_scheduler_time.py",
+    "tests/test_campaign_scheduler_workflows.py",
     "tests/test_campaign_system_coverage_restore.py",
     "tests/test_campaign_usage_lock.py",
     "tests/test_campaign_websocket_coverage.py",
@@ -37107,6 +37127,8 @@
     "tests/test_schedule_history.py",
     "tests/test_schedule_publication_fences.py",
     "tests/test_schedule_workflow_validation.py",
+    "tests/test_scheduled_events_digest_failure_summary.py",
+    "tests/test_scheduled_workflow.py",
     "tests/test_scheduler.py",
     "tests/test_scheduler_agents_reliability.py",
     "tests/test_scheduler_connection_gate.py",
@@ -37141,17 +37163,23 @@
     "tests/test_token_budget.py",
     "tests/test_tool_effect_classifier.py",
     "tests/test_tool_failure_reporting.py",
+    "tests/test_tool_lifecycle_correlation.py",
+    "tests/test_tool_loop_provenance.py",
     "tests/test_tool_text_regressions.py",
     "tests/test_trajectories.py",
     "tests/test_trajectory_bounded_reads.py",
+    "tests/test_trajectory_completeness.py",
     "tests/test_trajectory_saver.py",
     "tests/test_turn_checkpoint_codec.py",
+    "tests/test_turn_recorder_loop_reflection.py",
     "tests/test_turn_state_store.py",
     "tests/test_url_safety.py",
     "tests/test_usage_rollup.py",
     "tests/test_usage_rollup_migration.py",
     "tests/test_vector_archive_failure_boundaries.py",
     "tests/test_wait_for_agents_deadlines.py",
+    "tests/test_wait_stuck_integration.py",
+    "tests/test_web_api_agents_loops.py",
     "tests/test_web_api_knowledge_mem.py",
     "tests/test_web_api_new_endpoints.py",
     "tests/test_web_api_observability.py",
@@ -37160,7 +37188,8 @@
     "tests/test_web_tools.py",
     "tests/test_webhook_persistence.py",
     "tests/test_webhook_text.py",
-    "tests/test_webui_selected_trace_filters.py"
+    "tests/test_webui_selected_trace_filters.py",
+    "tests/test_write_invariant_integration.py"
   ],
   "safety_manual_gated": [
     "tests/test_hyprland_input_loss_campaign.py",

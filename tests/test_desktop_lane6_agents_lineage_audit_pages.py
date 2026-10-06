@@ -1,22 +1,22 @@
 """Whole-suite audit/page lineage and authentic canonical owner contracts."""
-from types import SimpleNamespace
 import json
+from types import SimpleNamespace
 
 import pytest
 import pytest_asyncio
 
 from src.agents.manager import AgentManager
 from src.discord.tool_loop import ToolLoopRunner
-from tests.desktop_adapters.tools_cases import owner_fixture
 from tests.desktop_adapters.lane6_agents_lineage_audit_pages import (
+    lane6_agents_lineage_dispatcher,
+    lane6_agents_lineage_finish,
     lane6_agents_lineage_graph,
     lane6_agents_lineage_harness,
-    lane6_agents_lineage_state,
     lane6_agents_lineage_manager,
-    lane6_agents_lineage_finish,
-    lane6_agents_lineage_dispatcher,
+    lane6_agents_lineage_state,
     load,
 )
+from tests.desktop_adapters.tools_cases import owner_fixture
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -77,13 +77,18 @@ async def test_lane6_agents_lineage_byte_complete_restart_and_owner(tmp_path):
     initial = json.loads(await call("get_agent_results", {"agent_id": aid, "limit": 17}))
     assert initial["original_bytes"] == len(text.encode())
     assert initial["truncated"] is True
-    assert await call("get_agent_results", {"agent_id": aid, "cursor": "invalid"}) == "Invalid or stale result cursor"
+    assert (
+        await call("get_agent_results", {"agent_id": aid, "cursor": "invalid"})
+        == "Invalid or stale result cursor"
+    )
     assert manager._remove_agent(aid)
     call = lane6_agents_lineage_dispatcher(tmp_path, lane6_agents_lineage_manager(),
                                           AgentTrajectorySaver(str(saver.directory)))
     pages, cursor = [], ""
     while True:
-        page = json.loads(await call("get_agent_results", {"agent_id": aid, "cursor": cursor, "limit": 997}))
+        page = json.loads(
+            await call("get_agent_results", {"agent_id": aid, "cursor": cursor, "limit": 997})
+        )
         assert len(page["preview"].encode()) <= 997
         pages.append(page["preview"])
         cursor = page["cursor"]

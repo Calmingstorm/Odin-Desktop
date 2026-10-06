@@ -12,19 +12,25 @@ from types import ModuleType
 
 from scripts.maintenance.fixture_corpus import ROOT, corpus, frozen_source
 from tests.desktop_adapters.lane6_agents_lineage_owner import (
-    lane6_agents_lineage_executor, lane6_agents_lineage_message,
-    lane6_agents_lineage_owner_id, lane6_agents_lineage_runner,
+    lane6_agents_lineage_executor,
     lane6_agents_lineage_lifecycle_runner,
+    lane6_agents_lineage_message,
+    lane6_agents_lineage_owner_id,
+    lane6_agents_lineage_runner,
 )
 
 lane6_agents_lineage_suites = {
     "test_agent_trajectory": "2159b565d648189872a1f4acb8bbfb41aaaddddda173f1762ec914d86e2e3b33",
-    "test_tool_lifecycle_correlation": "3b8fc0e50882c50aa0e22bb3c154a1a1373fd116ffc085ce1c404c1ba5b97277",
+    "test_tool_lifecycle_correlation": (
+        "3b8fc0e50882c50aa0e22bb3c154a1a1373fd116ffc085ce1c404c1ba5b97277"
+    ),
     "test_tool_loop_provenance": "ae40015bf21a1f7bdb4e654a55bb425df6c0b0632877ebdf21f92093713b320b",
 }
 SUITES = {
     "test_agent_trajectory": "2159b565d648189872a1f4acb8bbfb41aaaddddda173f1762ec914d86e2e3b33",
-    "test_tool_lifecycle_correlation": "3b8fc0e50882c50aa0e22bb3c154a1a1373fd116ffc085ce1c404c1ba5b97277",
+    "test_tool_lifecycle_correlation": (
+        "3b8fc0e50882c50aa0e22bb3c154a1a1373fd116ffc085ce1c404c1ba5b97277"
+    ),
     "test_tool_loop_provenance": "ae40015bf21a1f7bdb4e654a55bb425df6c0b0632877ebdf21f92093713b320b",
 }
 lane6_agents_lineage_evidence = {}
@@ -70,17 +76,40 @@ def lane6_agents_lineage_adapted_tree(stem):
     adapted = copy.deepcopy(original)
     changes = []
 
-    class lane6_agents_lineage_imports(ast.NodeTransformer):
+    class Lane6AgentsLineageImports(ast.NodeTransformer):
+        def visit_Assert(self, node):
+            return node
+
+        def visit_Constant(self, node):
+            if stem == "test_tool_lifecycle_correlation" and node.value == "read_channel":
+                changes.append({"line": node.lineno,
+                                "operation": "canonical_conversation_native_tool_setup"})
+                return ast.copy_location(ast.Constant(value="read_conversation"), node)
+            return node
+
         def visit_Call(self, node):
             self.generic_visit(node)
             if stem == "test_tool_lifecycle_correlation":
                 if ast.unparse(node.func) == "object.__new__":
-                    changes.append({"line": node.lineno,"operation":"composed_lifecycle_runner_setup"})
-                    return ast.copy_location(ast.Call(func=ast.Name(
-                        id="lane6_agents_lineage_lifecycle_runner",ctx=ast.Load()),args=[],keywords=[]),node)
+                    changes.append({
+                        "line": node.lineno, "operation": "composed_lifecycle_runner_setup"
+                    })
+                    return ast.copy_location(
+                        ast.Call(
+                            func=ast.Name(
+                                id="lane6_agents_lineage_lifecycle_runner", ctx=ast.Load()
+                            ),
+                            args=[], keywords=[],
+                        ), node,
+                    )
                 for keyword in node.keywords:
-                    if keyword.arg in {"user_id","requester_id"} and isinstance(keyword.value,ast.Constant):
-                        keyword.value=ast.Call(func=ast.Name(id="lane6_agents_lineage_owner_id",ctx=ast.Load()),args=[],keywords=[])
+                    if keyword.arg in {"user_id", "requester_id"} and isinstance(
+                        keyword.value, ast.Constant
+                    ):
+                        keyword.value = ast.Call(
+                            func=ast.Name(id="lane6_agents_lineage_owner_id", ctx=ast.Load()),
+                            args=[], keywords=[],
+                        )
             if stem == "test_tool_loop_provenance":
                 if ast.unparse(node.func) == "ToolLoopRunner.__new__":
                     changes.append({"line": node.lineno, "operation": "composed_runner_setup"})
@@ -91,13 +120,17 @@ def lane6_agents_lineage_adapted_tree(stem):
                     if keyword.arg == "user_id" and isinstance(keyword.value, ast.Constant):
                         changes.append({"line": keyword.value.lineno,
                                         "operation": "authenticated_owner_setup"})
-                        keyword.value = ast.Call(func=ast.Name(
-                            id="lane6_agents_lineage_owner_id", ctx=ast.Load()), args=[], keywords=[])
+                        keyword.value = ast.Call(
+                            func=ast.Name(id="lane6_agents_lineage_owner_id", ctx=ast.Load()),
+                            args=[], keywords=[],
+                        )
                     if keyword.arg == "msg_proxy":
                         changes.append({"line": keyword.value.lineno,
                                         "operation": "bound_request_setup"})
-                        keyword.value = ast.Call(func=ast.Name(
-                            id="lane6_agents_lineage_message", ctx=ast.Load()), args=[], keywords=[])
+                        keyword.value = ast.Call(
+                            func=ast.Name(id="lane6_agents_lineage_message", ctx=ast.Load()),
+                            args=[], keywords=[],
+                        )
             return node
 
         def visit_Assign(self, node):
@@ -136,7 +169,7 @@ def lane6_agents_lineage_adapted_tree(stem):
                                         "operation": "static_documentation_catalog_import"})
             return node
 
-    adapted = lane6_agents_lineage_imports().visit(adapted)
+    adapted = Lane6AgentsLineageImports().visit(adapted)
     if corpus(original) != corpus(adapted):
         raise ValueError("Full assertion/signature/decorator/parameter corpus changed")
     full = corpus(original)
@@ -154,21 +187,28 @@ def lane6_agents_lineage_adapted_tree(stem):
                     }
     if stem == "test_tool_lifecycle_correlation":
         for node in adapted.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(
+                "test_"
+            ):
                 DEFERRED_CASES[f"{stem}.{node.name}"] = {
                     "source_sha256": lane6_agents_lineage_suites[stem],
-                    "reason": "Frozen harness replaces the authenticated executor consumer with a "
-                              "SimpleNamespace and uses an unsealed message proxy. Background dispatch "
-                              "requires RequestService task-bound admission; retained output requires "
-                              "the real executor owner. Native parameters also reference removed "
-                              "read_channel. No assertion-compatible canonical harness bridge qualified.",
+                    "reason": (
+                        "Frozen harness replaces the authenticated executor consumer with a "
+                        "SimpleNamespace and uses an unsealed message proxy. Background dispatch "
+                        "requires RequestService task-bound admission; retained output requires "
+                        "the real executor owner. Native parameters also reference removed "
+                        "read_channel. No assertion-compatible canonical harness bridge qualified."
+                    ),
                     "reviewer": "Odin: concrete canonical admission/retention fixture blocker",
                 }
-        DEFERRED_CASES[f"{stem}.test_foreground_timeout_during_start_audit_never_dispatches"]["reason"] = (
+        audit_case = f"{stem}.test_foreground_timeout_during_start_audit_never_dispatches"
+        DEFERRED_CASES[audit_case]["reason"] = (
             "Retained pre-dispatch audit cancellation passes in the unqualified frozen harness, "
             "but that harness has no authenticated executor consumer or sealed RequestService "
-            "message. Whole-suite canonical owner bridge remains unqualified; no case sampling.")
-        DEFERRED_CASES[f"{stem}.test_adapter_marker_reaches_native_dispatch_by_identity"]["reason"] = (
+            "message. Whole-suite canonical owner bridge remains unqualified; no case sampling."
+        )
+        marker_case = f"{stem}.test_adapter_marker_reaches_native_dispatch_by_identity"
+        DEFERRED_CASES[marker_case]["reason"] = (
             "Native marker identity corpus dispatches mocked owners from an unsealed proxy; "
             "agent/autonomous routes now require RequestService.assert_bound_request and an "
             "authenticated executor for retention. Real durable scheduling/task owner fixture "
@@ -190,14 +230,6 @@ def lane6_agents_lineage_adapted_tree(stem):
     }
     if stem == "test_tool_lifecycle_correlation":
         DEFERRED_CASES.clear()
-        for failure in ("None", "failure1"):
-            for route in ("foreground", "autonomous", "agent"):
-                case = f"{stem}.test_real_execution_has_one_correlated_canonical_record[{failure}-True-{route}]"
-                RETIRED_CASES[case] = {
-                    "source_sha256": SUITES[stem],
-                    "reason": "Removed read_channel native Discord surface, exact native=True parameter only",
-                    "reviewer": "Claude, review of step 8 part 4",
-                }
     return ast.fix_missing_locations(adapted)
 
 
@@ -244,14 +276,3 @@ def lane6_agents_lineage_load(namespace):
 
 
 load = lane6_agents_lineage_load
-
-
-def pytest_collection_modifyitems(config, items):
-    lane6_agents_lineage_removed = []
-    for item in list(items):
-        if "test_tool_lifecycle_correlation_real_execution_has_one_correlated_canonical_record" in item.nodeid:
-            if item.callspec.params.get("native") is True:
-                items.remove(item)
-                lane6_agents_lineage_removed.append(item)
-    if lane6_agents_lineage_removed:
-        config.hook.pytest_deselected(items=lane6_agents_lineage_removed)

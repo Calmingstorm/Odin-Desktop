@@ -17,11 +17,54 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Exercises real autonomous iteration and start/stop-loop ownership, loop-specific guard/classifier asymmetries, error/reflection/trajectory shape, skill CRUD invalidation/export and dispatch. Replace Discord destination/proxy with durable conversation delivery without unifying away the pinned loop asymmetries.",
+      "blocked_on": "TestLoopDispatchParity.test_export_skill_stages_pending_file_in_loop: Native export_skill lacks invocation-owned durable artifact staging owner, despite retained artifact/file production requirement. Not retired merely for Discord channel-keyed storage. | TestLoopDispatchParity.test_unknown_tool_routes_to_executor_with_user_id: Exact executor observer requires literal4242; canonical request owner UUID required. Propose identity-only expected-call projection.",
+      "case_deferrals": [
+        {
+          "adapter": "tests/desktop_adapters/lane6_schedules_finish.py",
+          "assertion_review_proposal": "After implementing native durable artifact publication, reviewer approve replacing obsolete pending_files[777] assertion with actual artifact receipt.",
+          "blocker": "Actual SkillTools export prepares bytes but returns conversation_delivery_unavailable; no invocation-owned durable artifact staging owner exists. D2/D17 retained artifact production cannot be retired.",
+          "case": "TestLoopDispatchParity.test_export_skill_stages_pending_file_in_loop",
+          "case_ast_sha256": "4a52c4c3a251ac4c8a0883b0aa4b17b409e393ee1fd0401100eac41b29b7b0bd",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/maintenance/lane6-schedules-finish-report.json",
+          "original": "tests/characterization/test_autonomous_loop.py::TestLoopDispatchParity.test_export_skill_stages_pending_file_in_loop",
+          "reason": "Native export_skill lacks invocation-owned durable artifact staging owner, despite retained artifact/file production requirement. Not retired merely for Discord channel-keyed storage.",
+          "selector": "tests/test_desktop_lane6_schedules_finish.py",
+          "status": "deferred"
+        }
+      ],
+      "case_proposals": [
+        {
+          "adapter": "tests/desktop_adapters/lane6_schedules_finish.py",
+          "case": "TestLoopDispatchParity.test_unknown_tool_routes_to_executor_with_user_id",
+          "case_ast_sha256": "679364e48f5478393c2074a3c508b27caf107b05aaa69ba09bc7e025b2702943",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/maintenance/lane6-schedules-finish-report.json",
+          "original": "tests/characterization/test_autonomous_loop.py::TestLoopDispatchParity.test_unknown_tool_routes_to_executor_with_user_id",
+          "proposal": "Reviewer approve replacing obsolete literal identity assertion with authenticated profile UUID equality. Never dispatch foreign owner identity.",
+          "reason": "Exact executor observer requires literal4242; canonical request owner UUID required. Propose identity-only expected-call projection.",
+          "selector": "tests/test_desktop_lane6_schedules_finish.py",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [
+        {
+          "case": "TestLoopFlow.test_long_final_text_truncated_to_discord_limit",
+          "reason": "Pure removed Discord output-length formatting contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "b3c2f9516e92cd54fbf42c894172de6aa2a497b0f81e458523b9c1ee78462869",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestLoopDispatchParity.test_rbac_denial_in_loop_dispatch",
+          "reason": "Pure removed multi-user RBAC tier denial contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "6df04ec469be4f8446db01b6b27ef63144c21977111d88f4d0f87bd1a0a0d9a0",
+          "surface": "multi-user tiers"
+        }
+      ],
       "inherited_sha256": "242d1c57c12b8a33eee30f9694861a29bbca047a5eb640cdd0504df4c53b18fc",
       "path": "tests/characterization/test_autonomous_loop.py",
       "qualification_group": "background-loop-parity",
-      "reason": "Exercises real autonomous iteration and start/stop-loop ownership, loop-specific guard/classifier asymmetries, error/reflection/trajectory shape, skill CRUD invalidation/export and dispatch. Replace Discord destination/proxy with durable conversation delivery without unifying away the pinned loop asymmetries.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -32,12 +75,37 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Whole suite covers real chat guard/classifier/validation flow, Stop races and effect-aware cancellation, tool ordering/authority/vision, plus actual skill handoff and CRUD dispatcher cache rebuilds. Last required surface is skill/native publication, not merely step3 runner or step4 controls. Preserve every one-shot, budget, cancellation and handoff assertion using trusted profile/request adapters.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [
+        {
+          "case": "TestToolFailurePaths.test_rbac_denial_returned_without_execution",
+          "reason": "Removed multi-user tier denial and literal tier-too-low assertion",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "549358ee8c4425bcdd1ba019fac222efb681260d7915f61e3587efae3933d0e3",
+          "surface": "multi-user tiers"
+        },
+        {
+          "case": "TestToolSurfaceAndSkills.test_api_token_allowed_tools_scope_filters",
+          "reason": "Removed bearer/API-token tool scope mutates message.allowed_tools",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "b4b0a1005b4880f9bd5f26abd11b6a102b008026654eb3f126d31867e91f4bd6",
+          "surface": "bearer sessions"
+        }
+      ],
       "inherited_sha256": "26ddac3a5df6fd9128e4cf18a0afd7f41590232f6389c803abbb953bf3aa6608",
       "path": "tests/characterization/test_chat_tool_loop.py",
-      "qualification_group": "request-skill-runner-parity",
-      "reason": "Whole suite covers real chat guard/classifier/validation flow, Stop races and effect-aware cancellation, tool ordering/authority/vision, plus actual skill handoff and CRUD dispatcher cache rebuilds. Last required surface is skill/native publication, not merely step3 runner or step4 controls. Preserve every one-shot, budget, cancellation and handoff assertion using trusted profile/request adapters.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-case-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_write_chat_chat.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "request tool runner and guards",
@@ -162,12 +230,37 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Runs scheduler reminder/check/workflow/failure callbacks with actual native parse_time and stubbed executor boundaries; asserts delivery failure propagation, abort/continue/condition semantics, structured denials and backoff alerts. Adapt persistent conversation destinations and background callback owner while retaining all original result/raise assertions.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [
+        {
+          "case": "TestScheduledTaskRouting.test_missing_channel_id_is_a_delivery_failure",
+          "reason": "Discord channel identifier absence removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "efbabd80a0b526bc27df7fea722176e7b7dd0e9a1eb9d85f63279c6b4adc38dc",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestScheduledWorkflow.test_truncated_summary_closes_the_cut_code_block",
+          "reason": "Discord message cap/code-block truncation removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "3afb04c5919f3feb0b7c7c43a6399a1e040ab872edc9e3a3bc96776f26566655",
+          "surface": "Discord"
+        }
+      ],
       "inherited_sha256": "846efd54be82f42a77bb46987f3c03acc67a434298564a91754d0e0b813dff1b",
       "path": "tests/characterization/test_scheduled_events.py",
-      "qualification_group": "schedule-workflow-parity",
-      "reason": "Runs scheduler reminder/check/workflow/failure callbacks with actual native parse_time and stubbed executor boundaries; asserts delivery failure propagation, abort/continue/condition semantics, structured denials and backoff alerts. Adapt persistent conversation destinations and background callback owner while retaining all original result/raise assertions.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-schedules",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-case-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_schedules_core.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "schedule callbacks",
@@ -211,12 +304,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Agent tool-cycle attribution, exactly one execution record, raw input/result identity, observer failure isolation, cancellation, uncertain dispatch, concurrent identities, audit-search rendering and a real autonomous iteration require background composition. Neutral logger clipping alone cannot qualify the suite. Adapt trusted Desktop origins preserving all audit and settlement assertions.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "24209634cb1e6bce8e0075f69fd0b2987f35b83c21d55c703c8ffb1b44222e0b",
       "path": "tests/test_agent_audit_parity.py",
-      "qualification_group": "agents-audit-dispatch-parity",
-      "reason": "Agent tool-cycle attribution, exactly one execution record, raw input/result identity, observer failure isolation, cancellation, uncertain dispatch, concurrent identities, audit-search rendering and a real autonomous iteration require background composition. Neutral logger clipping alone cannot qualify the suite. Adapt trusted Desktop origins preserving all audit and settlement assertions.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_lineage_audit_pages.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agent tool cycle",
@@ -226,12 +329,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Preserves model/effort axes, schema exposure, actual spawn override rejection/default servability, exact eligible catalogues and immutable shared definitions. Restore real agent admission/provider-policy composition; pure schema subsets are not the whole suite.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "24ab02cd772b8267386db861f39bab27428f7e3b0c1ed541506eca55433180da",
       "path": "tests/test_agent_auto_dynamic.py",
-      "qualification_group": "agents-model-axis-schema-policy",
-      "reason": "Preserves model/effort axes, schema exposure, actual spawn override rejection/default servability, exact eligible catalogues and immutable shared definitions. Restore real agent admission/provider-policy composition; pure schema subsets are not the whole suite.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_core.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agent model policy",
@@ -241,11 +354,25 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real agent completion nudges/limits, iteration and lifetime exhaustion, parent corrections while judging, failed-result visibility, provider judge bytes/budgets and classifier wiring require agents. Adapt HTTP presentation and composition, retaining every verdict, timeout, hash and visibility assertion.",
+      "blocked_on": "test_iteration_cap_failure_visible_to_wait_results_and_agents_api: Mixed retained iteration-cap wait failure visibility and removed agent HTTP projection in one case. Propose split transport assertion from canonical wait visibility; no assertion edited or case retired.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "case": "test_iteration_cap_failure_visible_to_wait_results_and_agents_api",
+          "case_ast_sha256": "dee3ba429ad716a8a71b8d165ce868160e1d41a09d1d553bb1946960ae041351",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_agents_core.py",
+          "original": "tests/test_agent_completion_classifier.py::test_iteration_cap_failure_visible_to_wait_results_and_agents_api",
+          "reason": "Mixed retained iteration-cap wait failure visibility and removed agent HTTP projection in one case. Propose split transport assertion from canonical wait visibility; no assertion edited or case retired.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "c73d509c079d20da613b9e4be74343a1457de09e493a9598aa70727a8f7d71d2",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [],
       "inherited_sha256": "c73d509c079d20da613b9e4be74343a1457de09e493a9598aa70727a8f7d71d2",
       "path": "tests/test_agent_completion_classifier.py",
       "qualification_group": "agents-completion-classifier-parity",
-      "reason": "Real agent completion nudges/limits, iteration and lifetime exhaustion, parent corrections while judging, failed-result visibility, provider judge bytes/budgets and classifier wiring require agents. Adapt HTTP presentation and composition, retaining every verdict, timeout, hash and visibility assertion.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -271,12 +398,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real spawn and scheduler dispatch preserve explicit auto selection, eligibility rejection, consumed trusted scheduled context, iteration caps, disabled-provider filtering/order and early allowlist-drift rejection. Require authentic scheduled-origin bindings, not model-supplied flags.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "363fbda2fdfcf2c11c902bb6b13e95429ea60807ee7e3e099db0b929d789874b",
       "path": "tests/test_agent_model_admission.py",
-      "qualification_group": "agents-model-admission-scheduled-origin",
-      "reason": "Real spawn and scheduler dispatch preserve explicit auto selection, eligibility rejection, consumed trusted scheduled context, iteration caps, disabled-provider filtering/order and early allowlist-drift rejection. Require authentic scheduled-origin bindings, not model-supplied flags.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_core.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agent admission",
@@ -286,12 +423,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real inbox/activity and nested waits assert queued/consumed corrections, running-mutation protection, remaining-call suppression, child snapshots, wakeup, stale health, exhaustion, effect-free cancellation and predispatch gaps. Controls are dependencies; parent-agent semantics are the last surface.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "0cbcea1b9673a4fa3f4a96fc899a591460df576dea6afc08706a305d6093ea02",
       "path": "tests/test_agent_parent_activity.py",
-      "qualification_group": "agents-parent-corrections-activity-waits",
-      "reason": "Real inbox/activity and nested waits assert queued/consumed corrections, running-mutation protection, remaining-call suppression, child snapshots, wakeup, stale health, exhaustion, effect-free cancellation and predispatch gaps. Controls are dependencies; parent-agent semantics are the last surface.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_core.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agent manager",
@@ -301,12 +448,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real agent repetition backstop preserves one warning, truthful termination, output-change progress, ordered identity-independent fingerprints and effect-free child-wait exemptions. Fingerprint-only cases cannot stand in for original execution/status/provenance assertions.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "d8166c9a8d1075476c31f4d614f3683d407acbca5824b2badd57d12aecdd0ac0",
       "path": "tests/test_agent_repetition.py",
-      "qualification_group": "agents-repetition-progress-backstop",
-      "reason": "Real agent repetition backstop preserves one warning, truthful termination, output-change progress, ordered identity-independent fingerprints and effect-free child-wait exemptions. Fingerprint-only cases cannot stand in for original execution/status/provenance assertions.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_core.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agent repetition tracker",
@@ -315,11 +472,25 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Native agent results, worker persistence, eviction/restart fallback, UTF-8 byte-complete pages, cursors, reauthorization, retry and output guards require durable reports/work. Replace legacy admin fixtures with genuine owner/conversation bindings preserving visibility distinctions.",
+      "blocked_on": "test_byte_complete_dispatch_pages_after_eviction_and_restart: Byte-complete retained result paging/restart shares an indivisible admin-tier bypass assertion. Propose canonical-owner identity projection while preserving paging/restart assertions; no guard relaxed.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "case": "test_byte_complete_dispatch_pages_after_eviction_and_restart",
+          "case_ast_sha256": "9a07b04edd4763f8fc4b34d0c742e6b672d5382a5743f2e1c0121af55f819397",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_agents_lineage_audit_pages.py",
+          "original": "tests/test_agent_result_pages.py::test_byte_complete_dispatch_pages_after_eviction_and_restart",
+          "reason": "Byte-complete retained result paging/restart shares an indivisible admin-tier bypass assertion. Propose canonical-owner identity projection while preserving paging/restart assertions; no guard relaxed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "9b8600e3d5a9a60c7085b2a19347c8bbe8a3869f2f8126b01a64255337963406",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [],
       "inherited_sha256": "6e011660579a0ecf6bdd125bc0565bba6ec50e4df67b79d9e41ea94236c77c6e",
       "path": "tests/test_agent_result_pages.py",
       "qualification_group": "agents-durable-result-pagination",
-      "reason": "Native agent results, worker persistence, eviction/restart fallback, UTF-8 byte-complete pages, cursors, reauthorization, retry and output guards require durable reports/work. Replace legacy admin fixtures with genuine owner/conversation bindings preserving visibility distinctions.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -330,12 +501,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Provider progress/retry/discard telemetry and atomic generations combine AgentInfo activity, bounded waits and real in-flight callback. Preserve counters/budgets and no telemetry-as-input/completion/activity semantics through agent composition.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "7290cc68cc3ae1dbb08b27de4f1254f50d043af6a9004ba8e95d711c8caa6e84",
       "path": "tests/test_agent_stream_progress.py",
-      "qualification_group": "agents-provider-stream-progress-atomicity",
-      "reason": "Provider progress/retry/discard telemetry and atomic generations combine AgentInfo activity, bounded waits and real in-flight callback. Preserve counters/budgets and no telemetry-as-input/completion/activity semantics through agent composition.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_core.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agent activity",
@@ -345,12 +526,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Beyond serialization/temp storage, suite exercises actual spawn/completion/failure/kill/timeout persistence, frozen budgets, MCP metadata, provider provenance, usage observers and trajectory list/search/read management. Adapt named work/report/record operations retaining all invalid/unavailable/not-found/paging/filtering assertions.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "2159b565d648189872a1f4acb8bbfb41aaaddddda173f1762ec914d86e2e3b33",
       "path": "tests/test_agent_trajectory.py",
-      "qualification_group": "agents-trajectory-persistence-management",
-      "reason": "Beyond serialization/temp storage, suite exercises actual spawn/completion/failure/kill/timeout persistence, frozen budgets, MCP metadata, provider provenance, usage observers and trajectory list/search/read management. Adapt named work/report/record operations retaining all invalid/unavailable/not-found/paging/filtering assertions.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_trajectory_endpoint_parity.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agent manager",
@@ -360,12 +551,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Actual spawn execution/provider replay asserts execute-once identity, repeated names and reused/duplicate IDs, malformed calls, denied/unknown outcomes, cancellation, native history validation/compression. This is agent tool history, not solely conversation storage; preserve replay counts, ordering, budgets and gates.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "2f0980cf7385abab6fdb4d35efaca2198c2bbe1d3e35b0c5a7bc7943067fc7d0",
       "path": "tests/test_agent_transcript_contract.py",
-      "qualification_group": "agents-native-tool-history-replay",
-      "reason": "Actual spawn execution/provider replay asserts execute-once identity, repeated names and reused/duplicate IDs, malformed calls, denied/unknown outcomes, cancellation, native history validation/compression. This is agent tool history, not solely conversation storage; preserve replay counts, ordering, budgets and gates.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_lineage_transcript.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agent tool cycle",
@@ -375,12 +576,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Complete agent rosters, preview ceilings/cursors, actual delivery guards and native wait/result handlers include durable fallback, parent interruption, wait reauthorization, invalid IDs and saved/effective budgets. Preserve all original roster and interruption assertions through reports/work.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "97c566d0fb3fc48a0e9c947d81b1f6832249c1b1097f22c94e0d2992cd1b5719",
       "path": "tests/test_agent_wait_budget.py",
-      "qualification_group": "agents-wait-roster-delivery-budgets",
-      "reason": "Complete agent rosters, preview ceilings/cursors, actual delivery guards and native wait/result handlers include durable fallback, parent interruption, wait reauthorization, invalid IDs and saved/effective budgets. Preserve all original roster and interruption assertions through reports/work.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_core.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agent results and waits",
@@ -390,12 +601,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Agent provider adapters, spawn reasoning/catalogue handling, frozen generation-plan capture, result collection timeout and evidence/density provenance require the real agent handler seam even though many cases invoke it directly. Policy-only subsets are not whole-suite step1.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "28fc3d89c78cb86d5138eeee1f74bb8b4229dfd188f60f1e9d464380237f89a2",
       "path": "tests/test_agents_tasks_provider_paths.py",
-      "qualification_group": "agents-provider-generation-adapters",
-      "reason": "Agent provider adapters, spawn reasoning/catalogue handling, frozen generation-plan capture, result collection timeout and evidence/density provenance require the real agent handler seam even though many cases invoke it directly. Policy-only subsets are not whole-suite step1.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_tasks_provider.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agent native handlers",
@@ -514,12 +735,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real background runner/cancel handler interrupts steps/follow-ups, preserves idempotency/terminal races and suppresses summaries after cancellation. Require actual background manager and durable destination, not a generic control smoke.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "e5addb75a7446519d799c6a6087f7142749e0496f1c6ef4e48b1012ab4528aec",
       "path": "tests/test_background_task_cancel.py",
-      "qualification_group": "background-task-cancellation",
-      "reason": "Real background runner/cancel handler interrupts steps/follow-ups, preserves idempotency/terminal races and suppresses summaries after cancellation. Require actual background manager and durable destination, not a generic control smoke.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_tasks_cancel.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "background task runner",
@@ -529,11 +760,37 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real workflow progression validates payloads/permissions/selected skills, structured failures, knowledge durability errors, MCP audit metadata and scrubbed progress. Background skills/MCP composition is last; preserve all failure accounting and delivery distinctions.",
+      "blocked_on": "TestStructuredFailureVisibility.test_nested_validated_tool_permission_is_rechecked_before_execution: Retained task permission/effect observer assertion demands literal requester4242; authenticated persisted Desktop UUID is required. Propose identity-only expected-call projection. | TestStructuredFailureVisibility.test_nested_invoke_skill_permission_is_checked_for_selected_skill: Retained task permission/effect observer assertion demands literal requester4242; authenticated persisted Desktop UUID is required. Propose identity-only expected-call projection. | TestStructuredFailureVisibility.test_workflow_substitutes_outputs_and_skips_unmatched_condition: Retained task permission/effect observer assertion demands literal requester4242; authenticated persisted Desktop UUID is required. Propose identity-only expected-call projection.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "case": "TestStructuredFailureVisibility.test_nested_validated_tool_permission_is_rechecked_before_execution",
+          "case_ast_sha256": "bf392333817d5c4a2fd8f18a7ce9fe5b436640f666ca35c3fceb48bebc08fdb7",
+          "original": "tests/test_background_task_failure_visibility.py::TestStructuredFailureVisibility.test_nested_validated_tool_permission_is_rechecked_before_execution",
+          "reason": "Retained task permission/effect observer assertion demands literal requester4242; authenticated persisted Desktop UUID is required. Propose identity-only expected-call projection.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestStructuredFailureVisibility.test_nested_invoke_skill_permission_is_checked_for_selected_skill",
+          "case_ast_sha256": "1b18b090b810ac22c189308853335566ce0df6c5dde1953cddef8039284c0a05",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/maintenance/lane6_agents_tasks-report.json",
+          "original": "tests/test_background_task_failure_visibility.py::TestStructuredFailureVisibility.test_nested_invoke_skill_permission_is_checked_for_selected_skill",
+          "reason": "Retained task permission/effect observer assertion demands literal requester4242; authenticated persisted Desktop UUID is required. Propose identity-only expected-call projection.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestStructuredFailureVisibility.test_workflow_substitutes_outputs_and_skips_unmatched_condition",
+          "case_ast_sha256": "d8c555316fde6b79746645bea808e1ed6bbb178b9327ecbc5e5cb905f9b47161",
+          "original": "tests/test_background_task_failure_visibility.py::TestStructuredFailureVisibility.test_workflow_substitutes_outputs_and_skips_unmatched_condition",
+          "reason": "Retained task permission/effect observer assertion demands literal requester4242; authenticated persisted Desktop UUID is required. Propose identity-only expected-call projection.",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [],
       "inherited_sha256": "30720be2e4e3b64bbc7e97d8932d7e5e328ae43c055670da3897fcf92addcd78",
       "path": "tests/test_background_task_failure_visibility.py",
       "qualification_group": "background-task-failure-visibility",
-      "reason": "Real workflow progression validates payloads/permissions/selected skills, structured failures, knowledge durability errors, MCP audit metadata and scrubbed progress. Background skills/MCP composition is last; preserve all failure accounting and delivery distinctions.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -888,12 +1145,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real loop manager/autonomous runner pins history prefixes, notification modes, final-iteration timing, five-error backoff/termination, empty completion, awaited generations and recovery resetting counts.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "a719fd8104bd2917381bbb754ead2aebbf91271fba9546e4397da51525a91ed6",
       "path": "tests/test_campaign_loops.py",
-      "qualification_group": "background-autonomous-loop-campaign",
-      "reason": "Real loop manager/autonomous runner pins history prefixes, notification modes, final-iteration timing, five-error backoff/termination, empty completion, awaited generations and recovery resetting counts.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-schedules",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_schedules_loops.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "loop manager",
@@ -991,12 +1258,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Delegated/scheduled workflows assert conditional empty output, native/structured errors, retry history, host defaults, selected-skill schema validation, placeholder deferral and strict update transport. Preserve all background workflow/result distinctions.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "cdb2da7883cba08ef96726fa30efea0af47499e841ff161d6a4067e07db62c2b",
       "path": "tests/test_campaign_scheduler_workflows.py",
-      "qualification_group": "background-workflow-skill-contracts",
-      "reason": "Delegated/scheduled workflows assert conditional empty output, native/structured errors, retry history, host defaults, selected-skill schema validation, placeholder deferral and strict update transport. Preserve all background workflow/result distinctions.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-schedules",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_schedules_finish.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "background tasks",
@@ -1203,6 +1480,8 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
       "case_retirements": [
         {
           "case": "TestEntryPointCensus.test_full_discord_run_rescues_durably",
@@ -1222,10 +1501,10 @@
       "inherited_sha256": "13f145375ade487836f0e497ec020f9f5ef713949abbd0d4590c49a1b071e6d7",
       "path": "tests/test_chat_loop_recovery.py",
       "qualification_group": "phase2-step6-lane6-health",
-      "reason": "Full suite covers real foreground/autonomous overflow recovery, protected boundaries, durable ordering, frozen resume identity, codec, compaction/deadlines, entry-point census and loop cancellation. Autonomous behavior makes step6 last; codec-only subsets do not restore all cases.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-case-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_health_learning.py"
         ]
@@ -2292,11 +2571,55 @@
       ]
     },
     {
-      "blocked_on": "Reviewer decision required for exact legacy per-channel catalog text assertion, while canonical dynamic admission/recovery rebind restored.",
+      "blocked_on": "TestLiveAgentAdmissionSource.test_catalog_limits_share_live_admission_source: Exact assertion expects legacy Max N/channel wording. Desktop catalog enforces and renders Max N/conversation. Dynamic admission still survives; wording substitution inside assertions needs reviewer approval.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_core.py",
+          "case": "TestLiveAgentAdmissionSource.test_catalog_limits_share_live_admission_source",
+          "case_ast_sha256": "8748431faf263ec7655e1f2ebc3acd8b6c3ded71122b619f887725a67cf0c7e5",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
+          "original": "tests/test_config_liveness_wiring.py::TestLiveAgentAdmissionSource.test_catalog_limits_share_live_admission_source",
+          "reason": "Exact assertion expects legacy Max N/channel wording. Desktop catalog enforces and renders Max N/conversation. Dynamic admission still survives; wording substitution inside assertions needs reviewer approval.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_health_core.py",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [
+        {
+          "case": "TestHealthServerBacklink.test_set_bot_backlinks_the_server",
+          "reason": "Removed HTTP HealthServer/WebUI listener backlink/runner cleanup.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "b227187a2996ee3951d58403041e12a06c388f4abde11d23c5e0cc54bcd75469",
+          "surface": "Odin web UI"
+        },
+        {
+          "case": "TestHealthServerBacklink.test_backlink_happens_even_when_the_web_ui_is_disabled",
+          "reason": "Removed HTTP HealthServer/WebUI listener backlink/runner cleanup.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "fad862d91be7f264e880da8cc43c34abed51682cd0615517ea34f9596693f382",
+          "surface": "Odin web UI"
+        },
+        {
+          "case": "TestHealthServerBacklink.test_stop_is_idempotent",
+          "reason": "Removed HTTP HealthServer/WebUI listener backlink/runner cleanup.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "87230f7a44dc4f9d10905c2b7ec5c52516c93e2f4a6f5abfe6c30f9fc386a5b7",
+          "surface": "Odin web UI"
+        },
+        {
+          "case": "TestHealthServerBacklink.test_failed_cleanup_stays_retryable",
+          "reason": "Removed HTTP HealthServer/WebUI listener backlink/runner cleanup.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "9f48a0c39c489121f00f92a0ee23b9a3f170964a1e44820977060c6c17cd7802",
+          "surface": "Odin web UI"
+        }
+      ],
       "inherited_sha256": "87127ab087e9d0b7df63d61529227b3495b1cf3bc18a00fee8cb82de05457db9",
       "path": "tests/test_config_liveness_wiring.py",
       "qualification_group": "phase2-step-6-headless",
-      "reason": "Reviewer decision required for exact legacy per-channel catalog text assertion, while canonical dynamic admission/recovery rebind restored.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -2350,13 +2673,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "3616a97cbd8aa2c22640614b934b5febfd90311d664c995128dc73bf8e736b6a",
       "path": "tests/test_context_budget_activation.py",
       "qualification_group": "phase2-step6-lane6-providers",
-      "reason": "Whole suite includes real AgentManager spawn/generation snapshots and loop soft/rescue identity alongside chat/provider budget captures. Agent/loop integration sets latest step; pure math cases do not waive integrated assertions.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_providers.py"
         ]
@@ -2373,13 +2699,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "6758f17d838dc83286e4974eaec41962d6db2aab5af30bbe2508d724aa9ed1b9",
       "path": "tests/test_context_density_calibration.py",
       "qualification_group": "phase2-step6-lane6-providers",
-      "reason": "Derivation/calibration/clamp qualification spans production chat, loop and agent density/budget/descent hooks and workload attribution. Preserve fail-open behavior and all utilization/forensic cases; no new D17 admission policy.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_providers.py"
         ]
@@ -2594,13 +2923,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "2b7575b89b1aaea5e230135f2dd557978951a4c52dce6d0dad4f426188c134e2",
       "path": "tests/test_generation_duration_contract.py",
       "qualification_group": "phase2-step6-lane6-providers",
-      "reason": "Generation and persisted trajectory timing spans chat, autonomous loops and agents, including failed generations and exclusion of tool duration. Agent/loop assertions make step6 last.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_providers.py"
         ]
@@ -2646,11 +2978,85 @@
       ]
     },
     {
-      "blocked_on": "Four inherited swallow-error requirements conflict with current canonical sticky producer/resource cleanup barriers; reviewer decision required.",
+      "blocked_on": "TestOdinBotClose.test_close_continues_on_component_error: Frozen component-error case requires session persistence after unresolved producer shutdown errors. Canonical EngineServices.close deliberately vetoes persistence beneath unsettled producers. Reviewer decision required; do not weaken cleanup barriers. | TestOdinBotClose.test_close_all_components: Retained full cleanup ordering includes removed HTTP health listener in one indivisible list assertion. Propose remove only listener order member while keeping actual producer/resource barriers. | TestProcessRegistryShutdown.test_shutdown_services_closes_image_backend: Image backend release omission fixed on canonical engine; frozen case additionally requires backend close failure swallowed, conflicting with truthful cleanup propagation. Reviewer decision required. | TestUnprovenCleanupEscalation.test_wiring_reports_cleanup_error_without_raising: Frozen case requires logging/swallowing unproven process cleanup; canonical Desktop deliberately propagates resource cleanup barriers. Reviewer disposition required; do not weaken barriers. | test_shutdown_usage_failure_is_nonfatal: Frozen case requires telemetry stop errors swallowed and legacy log spelling; canonical engine keeps cleanup error outcome truthful. Reviewer decision required.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_core.py",
+          "case": "TestOdinBotClose.test_close_continues_on_component_error",
+          "case_ast_sha256": "cbcc3328d4cf3fc716136d82a27df854f449296d05f507bd6afd6547767cd510",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
+          "original": "tests/test_graceful_shutdown.py::TestOdinBotClose.test_close_continues_on_component_error",
+          "reason": "Frozen component-error case requires session persistence after unresolved producer shutdown errors. Canonical EngineServices.close deliberately vetoes persistence beneath unsettled producers. Reviewer decision required; do not weaken cleanup barriers.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_health_core.py",
+          "status": "proposed"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_core.py",
+          "case": "TestOdinBotClose.test_close_all_components",
+          "case_ast_sha256": "86f9c5a5014be2cf79658341f37a726cd40365ba3c4dff1096127e8ec65756b2",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
+          "original": "tests/test_graceful_shutdown.py::TestOdinBotClose.test_close_all_components",
+          "reason": "Retained full cleanup ordering includes removed HTTP health listener in one indivisible list assertion. Propose remove only listener order member while keeping actual producer/resource barriers.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_health_core.py",
+          "status": "proposed"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_core.py",
+          "case": "TestProcessRegistryShutdown.test_shutdown_services_closes_image_backend",
+          "case_ast_sha256": "719e1355fb97a5479a891ad8cda171b59492cfd9a23ba78fcc7d259f46cb8e84",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
+          "original": "tests/test_graceful_shutdown.py::TestProcessRegistryShutdown.test_shutdown_services_closes_image_backend",
+          "reason": "Image backend release omission fixed on canonical engine; frozen case additionally requires backend close failure swallowed, conflicting with truthful cleanup propagation. Reviewer decision required.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_health_core.py",
+          "status": "proposed"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_core.py",
+          "case": "TestUnprovenCleanupEscalation.test_wiring_reports_cleanup_error_without_raising",
+          "case_ast_sha256": "053dfeccf45bedb81c944648b89f702e288bb7712ac7a244457a4f4df55e6524",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
+          "original": "tests/test_graceful_shutdown.py::TestUnprovenCleanupEscalation.test_wiring_reports_cleanup_error_without_raising",
+          "reason": "Frozen case requires logging/swallowing unproven process cleanup; canonical Desktop deliberately propagates resource cleanup barriers. Reviewer disposition required; do not weaken barriers.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_health_core.py",
+          "status": "proposed"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_core.py",
+          "case": "test_shutdown_usage_failure_is_nonfatal",
+          "case_ast_sha256": "63e3a0fe7c268581c3e2e6e215a0d5aff8b5866dce8ef656eb7165eb2e4b48b8",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
+          "original": "tests/test_graceful_shutdown.py::test_shutdown_usage_failure_is_nonfatal",
+          "reason": "Frozen case requires telemetry stop errors swallowed and legacy log spelling; canonical engine keeps cleanup error outcome truthful. Reviewer decision required.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_health_core.py",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [
+        {
+          "case": "TestOdinBotClose.test_close_no_components",
+          "reason": "Exact case asserts removed transport superclass close and/or removed HTTP health listener in teardown ordering.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "75f201efd89c384859aa08df2105b0aebe5ab36017cc8f74a8c4faf5c84aabfe",
+          "surface": "Odin web UI"
+        },
+        {
+          "case": "TestOdinBotClose.test_close_stops_health_server",
+          "reason": "Exact case asserts removed transport superclass close and/or removed HTTP health listener in teardown ordering.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "d10683fc81c12ac22e41a5764534fb8a0e095eada74fafe5cd64848b5debbfe1",
+          "surface": "Odin web UI"
+        }
+      ],
       "inherited_sha256": "9ce9bf0f2021d3377fdf178e7afe9aee655026d29fb083d60496de7cd03fb5ea",
       "path": "tests/test_graceful_shutdown.py",
       "qualification_group": "phase2-background-shutdown",
-      "reason": "Four inherited swallow-error requirements conflict with current canonical sticky producer/resource cleanup barriers; reviewer decision required.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -2662,66 +3068,68 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
       "case_retirements": [
         {
           "case": "TestCheckDiscord.test_online",
-          "reason": "Removed Discord or management listener-only contract.",
+          "reason": "Removed Discord readiness/guild population probe.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_sha256": "7e0f9d151c1c0e43e6a5798a699927dbac75e7e112be514cb1a91275378dc215",
           "surface": "Discord"
         },
         {
           "case": "TestCheckDiscord.test_not_ready",
-          "reason": "Removed Discord or management listener-only contract.",
+          "reason": "Removed Discord readiness/guild population probe.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_sha256": "1fb92f5055baadf0181dde02ee2ac6a5fbe6793ef4e0617788a41500a5841423",
           "surface": "Discord"
         },
         {
           "case": "TestCheckDiscord.test_multiple_guilds",
-          "reason": "Removed Discord or management listener-only contract.",
+          "reason": "Removed Discord readiness/guild population probe.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_sha256": "3423aba9b91defd6270f97673e33d42997edc40991a45e8d553bee3f1d03095b",
           "surface": "Discord"
         },
         {
           "case": "TestCheckDiscord.test_exception",
-          "reason": "Removed Discord or management listener-only contract.",
+          "reason": "Removed Discord readiness/guild population probe.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_sha256": "2a6cdd3acc4e0380320c85e2b4f9009544eb0a3c227e3853ac7c02ca64a37c49",
           "surface": "Discord"
         },
         {
           "case": "TestCheckAll.test_has_all_component_names",
-          "reason": "Removed Discord or management listener-only contract.",
+          "reason": "Exact Discord checker/name inventory replaced by authenticated delivery.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_sha256": "d8efe0db35246b5b7c883812fe84ad2b1795fe3801de9054f8251322a32c61b6",
           "surface": "Discord"
         },
         {
           "case": "TestCheckerList.test_checker_names",
-          "reason": "Removed Discord or management listener-only contract.",
+          "reason": "Exact Discord checker/name inventory replaced by authenticated delivery.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_sha256": "856813c0f75d62f71215bda00fbfe1c078ea210b64fb0b6404ab2d9e00147a1e",
           "surface": "Discord"
         },
         {
           "case": "TestExports.test_health_init_exports",
-          "reason": "Removed Discord or management listener-only contract.",
+          "reason": "Exports removed listener HealthServer.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_sha256": "6f88e44126039c959fa33ad810a61ccd17fa308c407b022e95adfe94167dd433",
-          "surface": "Discord"
+          "surface": "Odin web UI"
         },
         {
           "case": "TestHealthAPI.test_health_components_has_all_names",
-          "reason": "Removed Discord or management listener-only contract.",
+          "reason": "Exact route payload inventory asserts removed Discord component name.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_sha256": "b94aa59878238e15b304baef1f47372070ac78637da9d9af8d2d5484f1f870a2",
           "surface": "Discord"
         },
         {
           "case": "TestEdgeCases.test_knowledge_none_member_count",
-          "reason": "Removed Discord or management listener-only contract.",
+          "reason": "Removed Discord readiness/guild population probe.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_sha256": "03d9c51e16abe3d4700d54f8a626723ec18fef865683051782013c32d5103fa3",
           "surface": "Discord"
@@ -2730,10 +3138,10 @@
       "inherited_sha256": "ddd7a689876cae2c1b25a5ad9710c1facf6f2445509f734bdeae27f3722d893f",
       "path": "tests/test_health_checker.py",
       "qualification_group": "phase2-step6-lane6-health",
-      "reason": "Provider/session/knowledge/host checks combine browser, schedules, loops and agents plus status projection. Real manager/browser health is last; move HTTP projection to runtime health without fake readiness.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-case-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_health_core.py"
         ]
@@ -2750,13 +3158,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "cf90cead05a53a9c4701fa9b84e20b6ef6fc6fef77d133565538255ed16d5b40",
       "path": "tests/test_health_checker_paths.py",
       "qualification_group": "phase2-step6-lane6-health",
-      "reason": "Provider breaker/pool probes and browser/loop/agent aggregate-health failures need step6 collaborators beyond runtime status.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_health_core.py"
         ]
@@ -3126,6 +3537,8 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
       "case_retirements": [
         {
           "case": "test_config_api_flip_drives_real_prompt_with_persisted_memory",
@@ -3138,10 +3551,10 @@
       "inherited_sha256": "7b6e917826b8be3d19864a98f61dc5adcf295866324e60806312a4e9120e243d",
       "path": "tests/test_learning_runtime_switch.py",
       "qualification_group": "phase2-step6-lane6-health",
-      "reason": "Live learning toggles reach reflection, prompts, executor and agent-related native paths. Agent/native request composition is the last surface beyond settings publication.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-case-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_health_learning.py"
         ]
@@ -3157,6 +3570,8 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
       "case_retirements": [
         {
           "case": "test_web_physical_request_refreshes_after_provider_lock_wait",
@@ -3176,10 +3591,10 @@
       "inherited_sha256": "d0c73c09f81d9034765306690f8650c35b67478aec58ee5020915e0d2c0e7298",
       "path": "tests/test_learning_transport_switch.py",
       "qualification_group": "phase2-step6-lane6-health",
-      "reason": "Live learned-context refresh is asserted at physical chat/web/loop/agent attempts and resume. Preserve persisted memory, live-toggle and retry assertions under trusted Desktop bindings.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-case-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_health_learning.py"
         ]
@@ -3301,13 +3716,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "b7fd583e10ab910c9523add50131032236a9563dc0ab7241764a997d73b03f5b",
       "path": "tests/test_max_reasoning_effort.py",
       "qualification_group": "phase2-step6-lane6-providers",
-      "reason": "Model/effort compatibility crosses settings, spawn admission and final request construction; agent spawn is the last required surface.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_providers.py"
         ]
@@ -3467,10 +3885,12 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
       "case_retirements": [
         {
           "case": "test_codex_default_spawn_requires_model_selection",
-          "reason": "Exact whole-schema byte hash pins removed Discord/channel description. The entire frozen-to-current agents definition diff is Discord/channel to conversation wording. Restoring those bytes would recreate removed surface wording, not improve model policy coverage; all remaining mixed-model policy cases execute unchanged.",
+          "reason": "Exact schema byte hash differs only for removed Discord/channel wording; remaining model admission behavior is restored unchanged.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_sha256": "c94b58bbd2bfb778dfe5ed775c529ed4e5609adc063d056e5a38b336fb20119a",
           "surface": "Discord"
@@ -3479,10 +3899,10 @@
       "inherited_sha256": "de80f566cf7be48ddd03d006b5ba68ce13286e1e01ca04af0c9d2a6873534330",
       "path": "tests/test_mixed_agent_reasoning_contract.py",
       "qualification_group": "phase2-step6-lane6-providers",
-      "reason": "Agent model selection, reasoning defaults/schema and provider translation belong to agent admission and request construction.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-case-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_providers.py"
         ]
@@ -3496,11 +3916,45 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Native agents/loops/tasks validate, authorize, launch, cancel and settle actual work-handler domains. Rebind manager/delivery collaborators to temporary Desktop destinations.",
+      "blocked_on": "TestDelegateTask.test_strict_invoke_skill_missing_name_denied_before_launch: Exact fixed owner7/trigger4242 or six RBAC parameters contain retained task privacy/admission behavior. Propose canonical UUID/conversation assertion projection; no foreign owner or recreated tiers. | TestDelegateTask.test_strict_invoke_skill_target_permission_checked_before_launch: Exact fixed owner7/trigger4242 or six RBAC parameters contain retained task privacy/admission behavior. Propose canonical UUID/conversation assertion projection; no foreign owner or recreated tiers. | TestListCancelTasks.test_dispatch_scopes_tasks: Exact fixed owner7/trigger4242 or six RBAC parameters contain retained task privacy/admission behavior. Propose canonical UUID/conversation assertion projection; no foreign owner or recreated tiers. | test_spawn_agent_links_triggering_message_turn: Exact fixed owner7/trigger4242 or six RBAC parameters contain retained task privacy/admission behavior. Propose canonical UUID/conversation assertion projection; no foreign owner or recreated tiers.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "case": "TestDelegateTask.test_strict_invoke_skill_missing_name_denied_before_launch",
+          "case_ast_sha256": "3c367bb54be0bed404a47939d0857c601e36a339c67540e2aa916715e1180bc7",
+          "original": "tests/test_native_agents_tasks.py::TestDelegateTask.test_strict_invoke_skill_missing_name_denied_before_launch",
+          "reason": "Exact fixed owner7/trigger4242 or six RBAC parameters contain retained task privacy/admission behavior. Propose canonical UUID/conversation assertion projection; no foreign owner or recreated tiers.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestDelegateTask.test_strict_invoke_skill_target_permission_checked_before_launch",
+          "case_ast_sha256": "e1e999e8720a0827bc211f37f771d29fa6d31140aa566ef771ea74fd27c3178a",
+          "original": "tests/test_native_agents_tasks.py::TestDelegateTask.test_strict_invoke_skill_target_permission_checked_before_launch",
+          "reason": "Exact fixed owner7/trigger4242 or six RBAC parameters contain retained task privacy/admission behavior. Propose canonical UUID/conversation assertion projection; no foreign owner or recreated tiers.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestListCancelTasks.test_dispatch_scopes_tasks",
+          "case_ast_sha256": "1d71be5e4f2a32b1cacabb806c83762f2dd3f2f2520f0030b939fb84d86557ee",
+          "original": "tests/test_native_agents_tasks.py::TestListCancelTasks.test_dispatch_scopes_tasks",
+          "reason": "Exact fixed owner7/trigger4242 or six RBAC parameters contain retained task privacy/admission behavior. Propose canonical UUID/conversation assertion projection; no foreign owner or recreated tiers.",
+          "status": "proposed"
+        },
+        {
+          "case": "test_spawn_agent_links_triggering_message_turn",
+          "case_ast_sha256": "6b2617aacf0a984c4cc55e2fdfb79de2cd9092b46e4fc1cde78a96f58d28f461",
+          "line": 1410,
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/maintenance/lane6_agents_tasks-report.json",
+          "original": "tests/test_native_agents_tasks.py::test_spawn_agent_links_triggering_message_turn",
+          "reason": "Exact fixed owner7/trigger4242 or six RBAC parameters contain retained task privacy/admission behavior. Propose canonical UUID/conversation assertion projection; no foreign owner or recreated tiers.",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [],
       "inherited_sha256": "f42a7364881ee0fc07afb7953a94fe517c2008222815a0d779a0e1de2ceadc92",
       "path": "tests/test_native_agents_tasks.py",
       "qualification_group": "phase2-background-native-work",
-      "reason": "Native agents/loops/tasks validate, authorize, launch, cancel and settle actual work-handler domains. Rebind manager/delivery collaborators to temporary Desktop destinations.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -3569,11 +4023,24 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Native schedule CRUD, nested payload validation, command/host shortcuts, parse-time errors, inert paused schedules and report-format validation require the real scheduling service and native owner/destination adapter. Trigger dictionaries here are schedule metadata, not receiver authentication.",
+      "blocked_on": "TestUpdateSchedule.test_strict_update_without_existing_selected_tool_remains_safe: Immutable mock await_args requires scheduler.update despite missing owned schedule. Real safe handler now returns not-found without delegation; propose assert_not_awaited for absent definition.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "case": "TestUpdateSchedule.test_strict_update_without_existing_selected_tool_remains_safe",
+          "case_ast_sha256": "880982c0a4b9cd3741a7c5b45258edd5bb56e85c3518b1a6461c46083e398613",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+          "original": "tests/test_native_scheduling.py::TestUpdateSchedule.test_strict_update_without_existing_selected_tool_remains_safe",
+          "reason": "Immutable mock await_args requires scheduler.update despite missing owned schedule. Real safe handler now returns not-found without delegation; propose assert_not_awaited for absent definition.",
+          "request": "Coordinate native missing-ID error projection fix; then rerun unchanged case.",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [],
       "inherited_sha256": "7bd9102e662705cd34187f038aa53e4c10cd9c8796322c49249145c7531077cd",
       "path": "tests/test_native_scheduling.py",
       "qualification_group": "phase2-background-schedules",
-      "reason": "Native schedule CRUD, nested payload validation, command/host shortcuts, parse-time errors, inert paused schedules and report-format validation require the real scheduling service and native owner/destination adapter. Trigger dictionaries here are schedule metadata, not receiver authentication.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -3584,11 +4051,25 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pins depth/child/tree-lifetime budgets, inherited root snapshots, filtering/prompts, lineage, cascade cancellation, trajectory timing and parent/child ownership. Preserve the real AgentManager and harmless iteration callbacks under temporary profile destinations.",
+      "blocked_on": "TestRestApi.test_list_agents_includes_depth: Retained child depth display mixed with removed raw HTTP agent list fixture. Propose exact WorkService display projection; not blanket retired.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "case": "TestRestApi.test_list_agents_includes_depth",
+          "case_ast_sha256": "59ee07fc1d45de2df62a236ecdf107f94dfdcee2758ca35c3da450336f53961b",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_agents_core.py",
+          "original": "tests/test_nested_agents.py::TestRestApi.test_list_agents_includes_depth",
+          "reason": "Retained child depth display mixed with removed raw HTTP agent list fixture. Propose exact WorkService display projection; not blanket retired.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "456360eb249056add8aec170277b0f0d30247552c1bfcdf127a827c9c0566554",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [],
       "inherited_sha256": "456360eb249056add8aec170277b0f0d30247552c1bfcdf127a827c9c0566554",
       "path": "tests/test_nested_agents.py",
       "qualification_group": "phase2-background-agents",
-      "reason": "Pins depth/child/tree-lifetime budgets, inherited root snapshots, filtering/prompts, lineage, cascade cancellation, trajectory timing and parent/child ownership. Preserve the real AgentManager and harmless iteration callbacks under temporary profile destinations.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -3716,6 +4197,8 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
       "case_retirements": [
         {
           "case": "TestAPIEndpoint.test_no_executor",
@@ -3742,10 +4225,10 @@
       "inherited_sha256": "8c64bbb2a58a274f591399f888510616cfc6181cd9f75eb1d909560b3681440f",
       "path": "tests/test_output_streamer.py",
       "qualification_group": "phase2-step6-lane6-health",
-      "reason": "Most chunk/settlement tests are neutral, but whole-suite restoration includes real executor streaming, status projection, autonomous-loop tool attribution and native-child ContextVar isolation. The _run_one_loop_tool assertions require step6 loop/native composition; preserve per-call identity and exactly-one terminal chunk races.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-case-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_health_output.py"
         ]
@@ -3864,13 +4347,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "085ca193095b1b2d7a831495088eaa4bad4e25167bed1f02a2edde1a4e98f708",
       "path": "tests/test_predictive_presend.py",
       "qualification_group": "phase2-step6-lane6-providers",
-      "reason": "Predictive descent, one shared rescue ladder, frozen resumed-generation facts and attempt-evidence provenance are pinned independently across chat, physical autonomous-loop attempts and AgentManager recovery. Step4 frozen resume semantics and step5 provider context evidence are required, but real loop/agent assertions make step6 the last surface.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_providers.py"
         ]
@@ -3887,13 +4373,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "9f86bc04fdb9108e3ea4f1e91ab5adaccfb8c97267b17098bc083c2d2a0484bb",
       "path": "tests/test_preserved_reasoning_accounting.py",
       "qualification_group": "phase2-step6-lane6-providers",
-      "reason": "GLM wire reasoning and structured tool-result accounting drive real compression, chat soft passes and AgentManager rejection/rescue. Preserve every byte/count, no-resend and newest-reasoning assertion; agent recovery is the last surface beyond request/provider composition.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_providers.py"
         ]
@@ -3908,11 +4397,59 @@
       ]
     },
     {
-      "blocked_on": "Canonical admitted WorkService lacks exact frozen raw process shell/provenance management payload schema.",
+      "blocked_on": "test_real_local_lifecycle_and_restored_facts: Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults. | test_legacy_manifest_never_guesses_shell: Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults. | test_unknown_in_memory_record_has_no_shell_default: Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults. | test_remote_launcher_records_its_explicit_shell_and_restores: Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+      "case_deferrals": [
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_core.py",
+          "case": "test_real_local_lifecycle_and_restored_facts",
+          "case_ast_sha256": "bfa934e20967f49d6877f01195a2602d3b1e6776862e3ee55fb4f15cff9aeecf",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
+          "original": "tests/test_process_api_provenance.py::test_real_local_lifecycle_and_restored_facts",
+          "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_health_core.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_core.py",
+          "case": "test_legacy_manifest_never_guesses_shell",
+          "case_ast_sha256": "7c3b2975aa285dc0f045de8ddede1478712b535f7421f289c763a40935fb74a8",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
+          "original": "tests/test_process_api_provenance.py::test_legacy_manifest_never_guesses_shell",
+          "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_health_core.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_core.py",
+          "case": "test_unknown_in_memory_record_has_no_shell_default",
+          "case_ast_sha256": "485027b00454acadffdcdfdcd7403d9542ee5d7657e80c37868d76b87b2f422c",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
+          "original": "tests/test_process_api_provenance.py::test_unknown_in_memory_record_has_no_shell_default",
+          "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_health_core.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_core.py",
+          "case": "test_remote_launcher_records_its_explicit_shell_and_restores",
+          "case_ast_sha256": "a120a8ada5a07f8029d228170d8987ad0bbd7e18cd32071d4dd5671a4d24f635",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
+          "original": "tests/test_process_api_provenance.py::test_remote_launcher_records_its_explicit_shell_and_restores",
+          "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_health_core.py",
+          "status": "deferred"
+        }
+      ],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "a6d0fdd4dd939d26c9ddd375698dc81da3603d0ee72071d4dda1a50aa44273b8",
       "path": "tests/test_process_api_provenance.py",
       "qualification_group": "phase2-background-processes",
-      "reason": "Canonical admitted WorkService lacks exact frozen raw process shell/provenance management payload schema.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -3923,11 +4460,26 @@
       ]
     },
     {
-      "blocked_on": "Canonical admitted WorkService safe title projection does not expose frozen raw-command record payload. Complete mixed case retained pending parity.",
+      "blocked_on": "test_real_registry_retains_command_but_scrubs_every_operator_copy: Retained raw registry command persistence and scrubbed operator-copy assertions need exact owner-checked process provenance/detail projection; current WorkService preview is insufficient.",
+      "case_deferrals": [
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_core.py",
+          "case": "test_real_registry_retains_command_but_scrubs_every_operator_copy",
+          "case_ast_sha256": "17c8ebb37114cba59e4e36297fbe8e554445316bcd20830b9ab66d4e39692613",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
+          "original": "tests/test_process_command_visibility.py::test_real_registry_retains_command_but_scrubs_every_operator_copy",
+          "reason": "Retained raw registry command persistence and scrubbed operator-copy assertions need exact owner-checked process provenance/detail projection; current WorkService preview is insufficient.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_health_core.py",
+          "status": "deferred"
+        }
+      ],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "b433e3936ba4c20e14f5dadc2d97ea50a19fd9db5fe743e222697ab13e1917b2",
       "path": "tests/test_process_command_visibility.py",
       "qualification_group": "phase2-background-processes",
-      "reason": "Canonical admitted WorkService safe title projection does not expose frozen raw-command record payload. Complete mixed case retained pending parity.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -4008,13 +4560,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "9a3183d8b67e55a346fc5945c9e2b65753d13de2911269c2b3d7e6089c711166",
       "path": "tests/test_provider_argument_acceptance.py",
       "qualification_group": "phase2-step6-lane6-providers",
-      "reason": "Malformed provider arguments never execute effects across chat, autonomous-loop and agent dispatch, while valid empty-object calls remain accepted. Agent/loop composition is the last actual assertion surface.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_providers.py"
         ]
@@ -4031,13 +4586,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "6a30d0463fba2d15cf2de86bce84c197b33473ad7c5150ac93add489a7d53448",
       "path": "tests/test_provider_campaign_regressions.py",
       "qualification_group": "phase2-step6-lane6-providers",
-      "reason": "Provider parsers/breakers/routing/client reload and incomplete-turn settlement combine with agent completion/results projection. Preserve provider/request assertions but real agent/work display makes step6 last.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_providers.py"
         ]
@@ -4068,13 +4626,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "b3b83f66584b7e8d197b2f4579be2ed21dcc03747a7ee9b02ebb03ca9ed214e3",
       "path": "tests/test_provider_stream_acceptance.py",
       "qualification_group": "phase2-step6-lane6-providers",
-      "reason": "Stream terminal acceptance is exercised through chat, autonomous loops and agents. Preserve incomplete-response refusal, no tool execution before accepted completion and no replay; agent/loop composition is the last owner.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_providers.py"
         ]
@@ -4109,13 +4670,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "43b762f236d0b284426602c309f413eafd94f10bca1c0e757481005dd182c98c",
       "path": "tests/test_reasoning_generation_records.py",
       "qualification_group": "phase2-step6-lane6-providers",
-      "reason": "Generation reasoning-token provenance and incomplete outcomes span foreground, autonomous-loop and agent recording plus durable usage rollup. Agent/loop recording determines the latest required surface; preserve unknown-versus-zero facts.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_providers.py"
         ]
@@ -4153,11 +4717,45 @@
       ]
     },
     {
-      "blocked_on": "Named resource-usage management method exposing session/trajectory collector payload absent; direct collector corpus restored.",
+      "blocked_on": "TestResourceUsageAPI.test_resource_usage_endpoint: Missing named resource-usage management method exposing actual sessions/trajectories collector payload. Retained direct collector cases restored; HTTP-only setup does not retire payload behavior. | TestResourceUsageAPI.test_resource_usage_has_session_data: Missing named resource-usage management method exposing actual sessions/trajectories collector payload. Retained direct collector cases restored; HTTP-only setup does not retire payload behavior. | TestResourceUsageAPI.test_resource_usage_has_trajectory_section: Missing named resource-usage management method exposing actual sessions/trajectories collector payload. Retained direct collector cases restored; HTTP-only setup does not retire payload behavior.",
+      "case_deferrals": [
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestResourceUsageAPI.test_resource_usage_endpoint",
+          "case_ast_sha256": "6322cacbe6bb38d2db16ed9fc9aad587662296283b91e8570c781e8ed5c71433",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_resource_usage.py::TestResourceUsageAPI.test_resource_usage_endpoint",
+          "reason": "Missing named resource-usage management method exposing actual sessions/trajectories collector payload. Retained direct collector cases restored; HTTP-only setup does not retire payload behavior.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestResourceUsageAPI.test_resource_usage_has_session_data",
+          "case_ast_sha256": "7168d177b894d39ad46f771bbe251c6b4734b6730b5487fcbd1b5f7f7959cb3e",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_resource_usage.py::TestResourceUsageAPI.test_resource_usage_has_session_data",
+          "reason": "Missing named resource-usage management method exposing actual sessions/trajectories collector payload. Retained direct collector cases restored; HTTP-only setup does not retire payload behavior.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestResourceUsageAPI.test_resource_usage_has_trajectory_section",
+          "case_ast_sha256": "0bae9a9deff8f7a83827a88045e3e2f5b8a9a01a98e480e76e19318d0f6e0331",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_resource_usage.py::TestResourceUsageAPI.test_resource_usage_has_trajectory_section",
+          "reason": "Missing named resource-usage management method exposing actual sessions/trajectories collector payload. Retained direct collector cases restored; HTTP-only setup does not retire payload behavior.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        }
+      ],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "a7b39991f16e208dd51635caceb1aee25f4099ec9bddbcadd80101aed871dcb1",
       "path": "tests/test_resource_usage.py",
       "qualification_group": "phase2-runtime-background-composition",
-      "reason": "Named resource-usage management method exposing session/trajectory collector payload absent; direct collector corpus restored.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -4244,11 +4842,28 @@
       ]
     },
     {
-      "blocked_on": "Reviewer decision for inherited ownerless dispatcher fallback, canonical runtime fails closed without authenticated executor.",
+      "blocked_on": "test_embedded_dispatcher_fallback_does_not_promise_unretained_output: Ownerless fallback is deliberately fail-closed in runtime_delivery; reviewer decision required.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_output.py",
+          "case": "test_embedded_dispatcher_fallback_does_not_promise_unretained_output",
+          "case_ast_sha256": "76d060cd5a6e491be222617e8c733ace5576d77c448f127b8bb6245825a29276",
+          "decision_required": "Claude approval to retire or revise this obsolete fallback contract; not silently declared a removed surface or feature blocker.",
+          "execution": "Not exported; original full corpus retained and partition tested.",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_output.py",
+          "observed": "Real deliver_runtime_result(SimpleNamespace(config=None), ...) raises RuntimeError rather than returning short text, an unretained envelope or image passthrough.",
+          "original": "tests/test_runtime_output_delivery.py::test_embedded_dispatcher_fallback_does_not_promise_unretained_output",
+          "reason": "Ownerless fallback is deliberately fail-closed in runtime_delivery; reviewer decision required.",
+          "selector": "tests/test_desktop_lane6_health_output.py",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [],
       "inherited_sha256": "add5410c347955ddb90e2437bf8ec80cf26649b8003b921ef9eb0b08eec60622",
       "path": "tests/test_runtime_output_delivery.py",
       "qualification_group": "phase2-background-output-delivery",
-      "reason": "Reviewer decision for inherited ownerless dispatcher fallback, canonical runtime fails closed without authenticated executor.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -4276,11 +4891,37 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Scheduled digest dispatch distinguishes scheduler identity from user requester and reports failed host probes. Restore durable schedule destination and native dispatcher identity without a privileged fake owner.",
+      "blocked_on": "test_system_digest_uses_scheduler_identity_and_reports_denied_hosts: Retained host collection/admission asserts scheduler pseudo-user or foreign requester identity. Propose canonical authenticated owner assertion projection; do not retire digest safety. | test_user_digest_runs_as_its_requester: Retained host collection/admission asserts scheduler pseudo-user or foreign requester identity. Propose canonical authenticated owner assertion projection; do not retire digest safety.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "adapter": "tests/desktop_adapters/lane6_schedules_core.py",
+          "case": "test_system_digest_uses_scheduler_identity_and_reports_denied_hosts",
+          "case_ast_sha256": "e07a24cefc7f7d15ac871e8f9c8b9631a897d3f8fdc01569df98aa614f256991",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_core.py",
+          "original": "tests/test_scheduled_digest_identity.py::test_system_digest_uses_scheduler_identity_and_reports_denied_hosts",
+          "reason": "Retained host collection/admission asserts scheduler pseudo-user or foreign requester identity. Propose canonical authenticated owner assertion projection; do not retire digest safety.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_schedules_core.py",
+          "status": "proposed"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_schedules_core.py",
+          "case": "test_user_digest_runs_as_its_requester",
+          "case_ast_sha256": "f66f75df982ce3e2e85048e004401066523e6f9fe95e48cb11f1c66fe79b8250",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_core.py",
+          "original": "tests/test_scheduled_digest_identity.py::test_user_digest_runs_as_its_requester",
+          "reason": "Retained host collection/admission asserts scheduler pseudo-user or foreign requester identity. Propose canonical authenticated owner assertion projection; do not retire digest safety.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_schedules_core.py",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [],
       "inherited_sha256": "fb0c7efc11f59788e4d225906a87f36529808d96e0a676dce2aa47c989d64d82",
       "path": "tests/test_scheduled_digest_identity.py",
       "qualification_group": "phase2-background-schedules",
-      "reason": "Scheduled digest dispatch distinguishes scheduler identity from user requester and reports failed host probes. Restore durable schedule destination and native dispatcher identity without a privileged fake owner.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -4291,11 +4932,158 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Scheduled callbacks include digests/checks/workflows, tasks, agent-result collection, MCP errors and structured reports. Preserve callback fault handling and current-authority/destination bindings through real work/report composition.",
+      "blocked_on": "TestFormatDigestRaw.test_failed_probe_is_a_collection_failure: Retained collection-failure or nested selected-skill permission behavior mixed with pseudo-user/foreign tier identity assertions. Propose canonical owner expected-call projection, not retirement. | TestWorkflow.test_strict_workflow_stops_on_step_permission_denial: Retained collection-failure or nested selected-skill permission behavior mixed with pseudo-user/foreign tier identity assertions. Propose canonical owner expected-call projection, not retirement. | TestWorkflow.test_strict_workflow_rejects_missing_skill_name: Retained collection-failure or nested selected-skill permission behavior mixed with pseudo-user/foreign tier identity assertions. Propose canonical owner expected-call projection, not retirement. | TestWorkflow.test_strict_workflow_checks_skill_target_permission: Retained collection-failure or nested selected-skill permission behavior mixed with pseudo-user/foreign tier identity assertions. Propose canonical owner expected-call projection, not retirement.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "adapter": "tests/desktop_adapters/lane6_schedules_core.py",
+          "case": "TestFormatDigestRaw.test_failed_probe_is_a_collection_failure",
+          "case_ast_sha256": "d2cf8309e3d5affe93201fc0c4cd5c680fccd142bef27863b1fecbffb36ec9a4",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_core.py",
+          "original": "tests/test_scheduled_events.py::TestFormatDigestRaw.test_failed_probe_is_a_collection_failure",
+          "reason": "Retained collection-failure or nested selected-skill permission behavior mixed with pseudo-user/foreign tier identity assertions. Propose canonical owner expected-call projection, not retirement.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_schedules_core.py",
+          "status": "proposed"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_schedules_core.py",
+          "case": "TestWorkflow.test_strict_workflow_stops_on_step_permission_denial",
+          "case_ast_sha256": "36898171d6b51693a4fdc2eefcfa83932d06fad63c00f5a1be98368c7dc3745a",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_core.py",
+          "original": "tests/test_scheduled_events.py::TestWorkflow.test_strict_workflow_stops_on_step_permission_denial",
+          "reason": "Retained collection-failure or nested selected-skill permission behavior mixed with pseudo-user/foreign tier identity assertions. Propose canonical owner expected-call projection, not retirement.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_schedules_core.py",
+          "status": "proposed"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_schedules_core.py",
+          "case": "TestWorkflow.test_strict_workflow_rejects_missing_skill_name",
+          "case_ast_sha256": "5dacaa6d4eb6402175f9a77c24ad5f5d38c92e2720a6a4d8a237ee48fc842e28",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_core.py",
+          "original": "tests/test_scheduled_events.py::TestWorkflow.test_strict_workflow_rejects_missing_skill_name",
+          "reason": "Retained collection-failure or nested selected-skill permission behavior mixed with pseudo-user/foreign tier identity assertions. Propose canonical owner expected-call projection, not retirement.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_schedules_core.py",
+          "status": "proposed"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_schedules_core.py",
+          "case": "TestWorkflow.test_strict_workflow_checks_skill_target_permission",
+          "case_ast_sha256": "57b9fc16463572723a772105b7f00bc9a0a93b3c40f094613d71153100afeff3",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_core.py",
+          "original": "tests/test_scheduled_events.py::TestWorkflow.test_strict_workflow_checks_skill_target_permission",
+          "reason": "Retained collection-failure or nested selected-skill permission behavior mixed with pseudo-user/foreign tier identity assertions. Propose canonical owner expected-call projection, not retirement.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_schedules_core.py",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [
+        {
+          "case": "TestDigest.test_no_channel_id",
+          "reason": "Discord channel identifier absence removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "db4de270150faf9e95fe578f2330c69d2dac21f0a5937bcce202adcd96aac901",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestDigest.test_channel_not_found",
+          "reason": "Discord channel lookup removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "765976f82a3d48dd0e8633ecc86729c73bee88bc4104adda28fdad2200407328",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestResolveMentions.test_replaces_known_member",
+          "reason": "Discord guild/member mention resolution removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "f0cbc5ffca24571a32300b7380ac9af2d2524b7455e4e784546139af3e2e0831",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestWorkflow.test_workflow_truncation",
+          "reason": "Discord 1900-character workflow message cap removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "b279061fd2bf3da6d4884c67840705984f3f1ea5e973af8ef89831bcd5e3f9b9",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestWorkflow.test_workflow_send_error_propagates",
+          "reason": "Discord send exception contract replaced by nonretryable durable delivery.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "8580d28a91ee58365f5e7e530344d8fb829d69202416e63c5baf4686892c6171",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestScheduleFailureAndTask.test_schedule_failure_no_channel",
+          "reason": "Discord fallback channel lookup removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "2a2414c5e020529eefcda9a2c4117bea62391de3c66873c20a1da03c36f79520",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestScheduleFailureAndTask.test_task_channel_not_found",
+          "reason": "Discord channel lookup removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "a6c380a0e5c764f01f800f816af0c955c217d53e7fc4e886cde508dc3677dbdd",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestScheduleFailureAndTask.test_task_reminder_send_exception",
+          "reason": "Discord reminder send exception contract removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "1313d9e1ca5e8c18c84b211e7eba2bc5a4811dd2bafc2975329782292a55dd58",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestScheduleFailureAndTask.test_task_check_success_send_exception",
+          "reason": "Discord send ValueError contract removed; durable publication is nonretryable.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "bd074d721485879cb3e1fe328b1ee5b1d7a88c93d7e7fc44be79a5b2c3b9422c",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestScheduleFailureAndTask.test_task_no_channel_id",
+          "reason": "Discord channel identifier absence removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "d225f1ad96add7a60760c8a21df111da2e86150400c4fd64cc58df9e1c213c80",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestStructuredCheckReports.test_report_format_dispatches_raw_result_to_pagination_service",
+          "reason": "Discord channel pagination service removed; durable report service now owns delivery.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "0bceedd765edea2cb17c4e814946a58e98a407808dd5471c3f19f959e1a9104b",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestStructuredCheckReports.test_report_service_unavailable_uses_failure_path",
+          "reason": "Discord pagination service unavailable contract removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "8eb35f4f3e6d330e74d467e1f49b0767a29c546003fdf237edd7bec08f394de7",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestStructuredCheckReports.test_renderer_failure_uses_existing_check_failure_path",
+          "reason": "Discord pagination renderer exception contract removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "a0abec4980633254d1d77235ee5194e24b2a3a4bfc4922c2437a412f569fd793",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestStructuredCheckReports.test_renderer_failure_notice_failure_is_swallowed",
+          "reason": "Discord pagination renderer and channel send exception contract removed.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "c90939162c0a0878c8c07d019ef2ed3d7ccde152f5b5221c5d8d864cd94e2750",
+          "surface": "Discord"
+        }
+      ],
       "inherited_sha256": "71db4d14426cef763211723bc3ed02897c54474dafe1030be70b4881fee1d3d7",
       "path": "tests/test_scheduled_events.py",
       "qualification_group": "phase2-background-schedules",
-      "reason": "Scheduled callbacks include digests/checks/workflows, tasks, agent-result collection, MCP errors and structured reports. Preserve callback fault handling and current-authority/destination bindings through real work/report composition.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -4308,12 +5096,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Bounded scheduled host-probe failure summaries and partial success are background schedule/report behavior; preserve useful failure distinctions and summary bounds.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "a157ba0734a41c8b43e6ee0418e2c2b0e27db8c2ca686d458b5b5153584ac864",
       "path": "tests/test_scheduled_events_digest_failure_summary.py",
-      "qualification_group": "phase2-background-schedules",
-      "reason": "Bounded scheduled host-probe failure summaries and partial success are background schedule/report behavior; preserve useful failure distinctions and summary bounds.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-schedules",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_schedules_core.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "scheduled digests",
@@ -4323,11 +5121,137 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Structured report validation/rendering, persistence, pagination and listener failure cases belong to stored scheduled reports. Adapt reactions/embeds to report-page services with exact case accounting; page reads must not rerun checks.",
+      "blocked_on": "TestPaginatedEmbedV1Contract.test_required_optional_defaults_and_rendering: Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged. | TestPaginatedEmbedV1Contract.test_parse_first_then_scrub_rendered_strings_only: Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged. | TestPaginatedEmbedV1Contract.test_freeform_text_cannot_create_clickable_links: Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged. | TestPaginationState.test_post_persists_only_normalized_projection_and_reloads: Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged. | TestPaginationState.test_refresh_is_redraw_only_and_does_not_reproject_or_execute: Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged. | TestPaginationState.test_requires_absolute_state_path_and_prunes_older_than_26h: Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged. | TestPaginationState.test_stale_in_memory_state_is_pruned_and_persisted_on_reaction: Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged. | TestRegistryAndPersistenceFailureEdges.test_malformed_persisted_state_fails_closed: Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged. | TestRegistryAndPersistenceFailureEdges.test_persistence_failure_after_post_is_best_effort: Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "case": "TestPaginatedEmbedV1Contract.test_required_optional_defaults_and_rendering",
+          "case_ast_sha256": "3f96099b6042bbe23f3c07950180a5f0fdfc9f51b334719ce50f7a30381f55fc",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+          "original": "tests/test_scheduled_report.py::TestPaginatedEmbedV1Contract.test_required_optional_defaults_and_rendering",
+          "reason": "Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestPaginatedEmbedV1Contract.test_parse_first_then_scrub_rendered_strings_only",
+          "case_ast_sha256": "bac7287820c34be087f89469003429c0321225d4ab2e8582642b7745aa32a234",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+          "original": "tests/test_scheduled_report.py::TestPaginatedEmbedV1Contract.test_parse_first_then_scrub_rendered_strings_only",
+          "reason": "Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestPaginatedEmbedV1Contract.test_freeform_text_cannot_create_clickable_links",
+          "case_ast_sha256": "b391bbe68c30194252b23413ff31e6c15a5b8a74d1665c46fd23d16b7b56a024",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+          "original": "tests/test_scheduled_report.py::TestPaginatedEmbedV1Contract.test_freeform_text_cannot_create_clickable_links",
+          "reason": "Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestPaginationState.test_post_persists_only_normalized_projection_and_reloads",
+          "case_ast_sha256": "9a444e9ec1f6c4290ef976dfabb3a7e92c6b1dd994ea35fd2f39b5aa6d1a2c72",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+          "original": "tests/test_scheduled_report.py::TestPaginationState.test_post_persists_only_normalized_projection_and_reloads",
+          "reason": "Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestPaginationState.test_refresh_is_redraw_only_and_does_not_reproject_or_execute",
+          "case_ast_sha256": "23d86044a01ff84f7696adb1434309b12f596ba513f5c50ceb48d4dea153de68",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+          "original": "tests/test_scheduled_report.py::TestPaginationState.test_refresh_is_redraw_only_and_does_not_reproject_or_execute",
+          "reason": "Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestPaginationState.test_requires_absolute_state_path_and_prunes_older_than_26h",
+          "case_ast_sha256": "7745d8c18a8ed7e87435a3e98e14ff28c8f7cd1b7d8e19cfbd6993e536202d4e",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+          "original": "tests/test_scheduled_report.py::TestPaginationState.test_requires_absolute_state_path_and_prunes_older_than_26h",
+          "reason": "Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestPaginationState.test_stale_in_memory_state_is_pruned_and_persisted_on_reaction",
+          "case_ast_sha256": "5c00fe0a684c1b9ca0a362eae4726053b04342554244781a7ce5d661ab36ec54",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+          "original": "tests/test_scheduled_report.py::TestPaginationState.test_stale_in_memory_state_is_pruned_and_persisted_on_reaction",
+          "reason": "Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestRegistryAndPersistenceFailureEdges.test_malformed_persisted_state_fails_closed",
+          "case_ast_sha256": "e5f276158016ea903530bd8765bf87ea6aedf28482fd1c9877e27735582ab6df",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+          "original": "tests/test_scheduled_report.py::TestRegistryAndPersistenceFailureEdges.test_malformed_persisted_state_fails_closed",
+          "reason": "Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged.",
+          "status": "proposed"
+        },
+        {
+          "case": "TestRegistryAndPersistenceFailureEdges.test_persistence_failure_after_post_is_best_effort",
+          "case_ast_sha256": "7da4d0305310a25c5207dab85d3af6fc7c636081ededa0db67ad484fda14fafa",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+          "original": "tests/test_scheduled_report.py::TestRegistryAndPersistenceFailureEdges.test_persistence_failure_after_post_is_best_effort",
+          "reason": "Retained report normalization/scrubbing/no-reexecute or persistence contract conflicts with removed Discord Embed/emoji/JSON26h lifecycle and native immutable durable JournalStore pages. Propose case-level native contract projection; original assertions unchanged.",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [
+        {
+          "case": "TestPaginationState.test_navigation_wraps_and_removes_user_reaction",
+          "reason": "Removed Discord message editing and user-reaction removal contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "8ee250b30609a24bca145b283d60724fc8d3053062942f4dc22cc97a705401cc",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestPaginationState.test_missing_message_removes_persisted_state",
+          "reason": "Removed Discord NotFound/fetch_message pagination-message lifecycle.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "0b841c555506c34171f7c2ac0b19da5af6151ea615997f5537ae329a0f63eb2b",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestRegistryAndPersistenceFailureEdges.test_reaction_unknown_emoji_or_message_is_ignored",
+          "reason": "Removed raw Discord emoji/message routing.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "290d7b141949a9ed637fcc04848dbccb88e9e6689b0700ab24a6fdfda03d04b8",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestRegistryAndPersistenceFailureEdges.test_missing_channel_keeps_state_without_editing",
+          "reason": "Removed Discord channel lookup/edit contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "921c556bfc2422afec94abca9922938e6dcdb883d4d0b9e32bfef333eaca62b9",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestRegistryAndPersistenceFailureEdges.test_discord_edit_error_keeps_state",
+          "reason": "Removed Discord Forbidden message-edit failure handling.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "25deed2dd2fe748af92712356812eaa9622c7af2df7d4006a293a1355f2718b7",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestRegistryAndPersistenceFailureEdges.test_reaction_add_failures_do_not_fail_delivery",
+          "reason": "Removed Discord reaction-add failure contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "4f368a61bc8c0989537f3747be86ca8aac1b61a3bf6a2f25b429bd0cc7c73bc3",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestRegistryAndPersistenceFailureEdges.test_reaction_removal_failure_does_not_fail_redraw",
+          "reason": "Removed Discord reaction removal failure contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "ee4242ed4a2f6c5e43f95726e45f82c1df8fa588f31e9603d66951180361e8cc",
+          "surface": "Discord"
+        }
+      ],
       "inherited_sha256": "45a0f3bbc7bca2f630ef041c4f06e578ee9fd1b6b210c2f7a9a7c2ac87e2c482",
       "path": "tests/test_scheduled_report.py",
       "qualification_group": "phase2-background-schedule-reports",
-      "reason": "Structured report validation/rendering, persistence, pagination and listener failure cases belong to stored scheduled reports. Adapt reactions/embeds to report-page services with exact case accounting; page reads must not rerun checks.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -4338,12 +5262,34 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Startup registration and managed-reaction routing are scheduled report composition contracts. Replace the Discord listener presentation with the report-page owner while retaining registration/routing/exclusion assertions.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [
+        {
+          "case": "test_loaded_listener_routes_managed_reaction_to_pagination_service",
+          "reason": "Removed Discord startup extension/cog and on_raw_reaction_add emoji routing.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "56a1c60808257738c105d63ce5024125fcfa398f4e60546e4b33469c3018b428",
+          "surface": "Discord"
+        },
+        {
+          "case": "test_listener_ignores_bot_reactions_and_unmanaged_messages",
+          "reason": "Removed Discord bot self-reaction filter and raw reaction listener.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "5e61aabbc2cfe3ff60dde6b4cf960f06f826a54def8c0d0cf9725ae8402fb16d",
+          "surface": "Odin web UI"
+        }
+      ],
       "inherited_sha256": "afa49c7afd843834fafca21cf7763f19b3bd00c14422ea3960c80a208d438b52",
       "path": "tests/test_scheduled_report_pagination_listener.py",
-      "qualification_group": "phase2-background-schedule-reports",
-      "reason": "Startup registration and managed-reaction routing are scheduled report composition contracts. Replace the Discord listener presentation with the report-page owner while retaining registration/routing/exclusion assertions.",
-      "status": "deferred",
+      "qualification_group": "not-applicable-retired",
+      "reason": "Every original case exclusively tests removed Discord raw reaction listener routing; individual exact function ASTs bound below.",
+      "retirement": {
+        "reason": "Every original case exclusively tests removed Discord raw reaction listener routing; individual exact function ASTs bound below.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "status": "retired",
       "step": 6,
       "surfaces": [
         "report listener registration",
@@ -4352,11 +5298,31 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Report registry and persistence-path wiring require the background report/scheduler service graph, not merely imports. Preserve original registry/path assertions through Desktop service composition.",
+      "blocked_on": "test_state_path_comes_from_configured_scheduler_persistence_root: Static inherited assertion requires absent Discord wiring file and scheduler-parent JSON. Native reports use owner-bound JournalStore, propose equivalent original-owner persistence-root assertion, not fabricated source text.",
+      "case_deferrals": [],
+      "case_proposals": [
+        {
+          "case": "test_state_path_comes_from_configured_scheduler_persistence_root",
+          "case_ast_sha256": "c18e4667d6e2ca83adbcdeae4df8a7b23ed690627e7ac69f602fe7dda7e771c9",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+          "original": "tests/test_scheduled_report_wiring.py::test_state_path_comes_from_configured_scheduler_persistence_root",
+          "reason": "Static inherited assertion requires absent Discord wiring file and scheduler-parent JSON. Native reports use owner-bound JournalStore, propose equivalent original-owner persistence-root assertion, not fabricated source text.",
+          "status": "proposed"
+        }
+      ],
+      "case_retirements": [
+        {
+          "case": "test_registry_and_pagination_service_are_bot_components",
+          "reason": "Original static assertions specifically pin removed Discord BotComponents and Discord wiring source spellings, not retained native report registry behavior.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "d63ac76e09bb1adcd892688683a1d86359525da84cc5020750b88c678945737d",
+          "surface": "Discord"
+        }
+      ],
       "inherited_sha256": "fc4b2ad6038e17475d5ca6803017bc51a61b6d8838b52b5af28e3f1812eb7e7f",
       "path": "tests/test_scheduled_report_wiring.py",
       "qualification_group": "phase2-background-schedule-reports",
-      "reason": "Report registry and persistence-path wiring require the background report/scheduler service graph, not merely imports. Preserve original registry/path assertions through Desktop service composition.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -4366,12 +5332,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Workflow result collection, agent failure propagation, on-failure policy and scheduled-task callbacks require real work manager composition and durable delivery destinations.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "7d4e792a9375619f8f8cce7886f9e8d8b7e81ce6188cd30153bda404647a9ce6",
       "path": "tests/test_scheduled_workflow.py",
-      "qualification_group": "phase2-background-schedules",
-      "reason": "Workflow result collection, agent failure propagation, on-failure policy and scheduled-task callbacks require real work manager composition and durable delivery destinations.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-schedules",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_schedules_core.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "scheduled workflows",
@@ -4398,13 +5374,16 @@
     },
     {
       "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "e9f008c122c7ac646b62635662eeb717f6df7804b2aef19c051c961e88f55468",
       "path": "tests/test_search_output_capture.py",
       "qualification_group": "phase2-step6-lane6-health",
-      "reason": "Search retention/paging spans conversation history, knowledge and background-task tool execution. Knowledge is step5 and task composition step6; preserve rank, whole-match boundaries and captured-output reuse.",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
       "restoration": {
         "mode": "frozen-adapter",
-        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
         "selectors": [
           "tests/test_desktop_lane6_health_resources.py"
         ]
@@ -4637,12 +5616,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Call/generation lifecycle and audit correlation spans foreground, autonomous and agent work plus MCP/computer outcomes. Keep correlation/unknown-outcome assertions and current admission bindings; background/computer composition is last.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "3b8fc0e50882c50aa0e22bb3c154a1a1373fd116ffc085ce1c404c1ba5b97277",
       "path": "tests/test_tool_lifecycle_correlation.py",
-      "qualification_group": "phase2-background-recording",
-      "reason": "Call/generation lifecycle and audit correlation spans foreground, autonomous and agent work plus MCP/computer outcomes. Keep correlation/unknown-outcome assertions and current admission bindings; background/computer composition is last.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_lineage_retained.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "tool lifecycle",
@@ -4669,12 +5658,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Provider/model/usage provenance includes request and autonomous-loop generation recording and timeouts. The actual loop path makes step6 later than provider settings/readiness; retain immutable serving-identity and unknown usage facts.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "ae40015bf21a1f7bdb4e654a55bb425df6c0b0632877ebdf21f92093713b320b",
       "path": "tests/test_tool_loop_provenance.py",
-      "qualification_group": "phase2-background-recording",
-      "reason": "Provider/model/usage provenance includes request and autonomous-loop generation recording and timeouts. The actual loop path makes step6 later than provider settings/readiness; retain immutable serving-identity and unknown usage facts.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_lineage_retained.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "provider provenance",
@@ -4707,12 +5706,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Recording completeness includes loop reflection, audit correlation, failure classification and agent saver wiring. Restore real recorder/background service ownership and preserve complete-versus-incomplete generation facts.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "5de597c2ea6e15ea22cdcb8fa582f24ac19dfb4650505c38d3b00d063f2e203d",
       "path": "tests/test_trajectory_completeness.py",
-      "qualification_group": "phase2-background-recording",
-      "reason": "Recording completeness includes loop reflection, audit correlation, failure classification and agent saver wiring. Restore real recorder/background service ownership and preserve complete-versus-incomplete generation facts.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_lineage_transcript.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "turn recording",
@@ -4738,12 +5747,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pins full autonomous-loop reflection gate dispatch, tool error classification, no-tools/config/absent-reflector suppression and once-only coroutine scheduling. Background loop recorder owns the latest surface; preserve gate arguments and original failure distinctions.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "25b8057e064f795d2b7105ffac039d96c299d4e8ccbe1c4eea257ef2656bdc36",
       "path": "tests/test_turn_recorder_loop_reflection.py",
-      "qualification_group": "phase2-background-recording",
-      "reason": "Pins full autonomous-loop reflection gate dispatch, tool error classification, no-tools/config/absent-reflector suppression and once-only coroutine scheduling. Background loop recorder owns the latest surface; preserve gate arguments and original failure distinctions.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-schedules",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_schedules_loops.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "autonomous loop recorder",
@@ -4801,12 +5820,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real chat-loop stuck detection preserves progressing/frozen poll fingerprints, one-shot nudge budgets, durable-before-judgement ordering and unchanged mixed-batch detection; final cases explicitly dispatch wait_for_agents progress snapshots. Agent wait semantics make step6 last, not generic request-only helpers.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "437d3ef88266cab7e4988ccedae19b72887411f7384e029dd155e152814e3a59",
       "path": "tests/test_wait_stuck_integration.py",
-      "qualification_group": "phase2-background-wait-guards",
-      "reason": "Real chat-loop stuck detection preserves progressing/frozen poll fingerprints, one-shot nudge budgets, durable-before-judgement ordering and unchanged mixed-batch detection; final cases explicitly dispatch wait_for_agents progress snapshots. Agent wait semantics make step6 last, not generic request-only helpers.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_tasks_wait.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "request stuck detection",
@@ -4817,12 +5846,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Old routes exercise agent/loop/process validation, restart serialization/cancellation, durable history, callback invocation, lineage, full-vs-preview results and honest execution/config display provenance. Adapt to work/control reads and mutations with trusted conversation destinations, retaining all concurrency and missing-manager assertions.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "5a11f1688a846b9a521c16e85d9fdb8ce9c9820f03636d10d81b8a102bafbaeb",
       "path": "tests/test_web_api_agents_loops.py",
-      "qualification_group": "phase2-background-management",
-      "reason": "Old routes exercise agent/loop/process validation, restart serialization/cancellation, durable history, callback invocation, lineage, full-vs-preview results and honest execution/config display provenance. Adapt to work/control reads and mutations with trusted conversation destinations, retaining all concurrency and missing-manager assertions.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-schedules",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_work_projection_finish.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agents",
@@ -4986,11 +6025,31 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Schedule CRUD/run/history/reset, timezone/cron preview parity and report-format clearing/validation require scheduler work service. Webhook here is a scheduled outbound HTTP action, not inbound receiver authentication; disconnected execution/no-channel behavior belongs to background scheduling.",
+      "blocked_on": "TestListCreate.test_create_webhook_without_discord_channel: Feature gap: channel-less external webhook schedules have no conversation destination, while canonical desktop schedule admission requires durable conversation binding. Exact disconnected create/update/run contract missing. | TestWebhookApiParity.test_disconnected_create_update_and_run_without_channel: Feature gap: channel-less external webhook schedules have no conversation destination, while canonical desktop schedule admission requires durable conversation binding. Exact disconnected create/update/run contract missing.",
+      "case_deferrals": [
+        {
+          "case": "TestListCreate.test_create_webhook_without_discord_channel",
+          "case_ast_sha256": "69267b585d8f7aadf735556c9cfb90394b0231cbdc010a0a365b519c412c9cf3",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_web.py",
+          "original": "tests/test_web_api_schedules.py::TestListCreate.test_create_webhook_without_discord_channel",
+          "reason": "Feature gap: channel-less external webhook schedules have no conversation destination, while canonical desktop schedule admission requires durable conversation binding. Exact disconnected create/update/run contract missing.",
+          "status": "deferred"
+        },
+        {
+          "case": "TestWebhookApiParity.test_disconnected_create_update_and_run_without_channel",
+          "case_ast_sha256": "94474953790fa13db55e90059e38c97a2c501f72dba6674834f9e6fb15472b74",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_schedules_web.py",
+          "original": "tests/test_web_api_schedules.py::TestWebhookApiParity.test_disconnected_create_update_and_run_without_channel",
+          "reason": "Feature gap: channel-less external webhook schedules have no conversation destination, while canonical desktop schedule admission requires durable conversation binding. Exact disconnected create/update/run contract missing.",
+          "status": "deferred"
+        }
+      ],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "e05b80b887ea8ef3ba04cd6bd0f7d519ffa37c853bc4fabf108cf8ff3021788d",
       "path": "tests/test_web_api_schedules.py",
       "qualification_group": "phase2-background-schedules",
-      "reason": "Schedule CRUD/run/history/reset, timezone/cron preview parity and report-format clearing/validation require scheduler work service. Webhook here is a scheduled outbound HTTP action, not inbound receiver authentication; disconnected execution/no-channel behavior belongs to background scheduling.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -5376,11 +6435,205 @@
       ]
     },
     {
-      "blocked_on": "Named context-windows read/clear management method for clamp/account/calibration/boot ceilings absent. LLM observer, not native desktop; P3.5 not applicable.",
+      "blocked_on": "TestContextWindowsApi.test_retired_evidence_stays_visible_without_an_active_model_row: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_model_row_reports_the_prior_not_a_global_calibrated_value: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_clamp_provenance_is_independent_of_workload_calibration: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_a_model_known_only_to_calibration_still_appears: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_broken_calibration_summary_still_serves_the_row: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_get_serves_floors_overrides_clamps_and_both_resolutions: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_get_clamp_expiry_describes_only_applied_effective_minimum: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_get_preserves_raw_auto_ceiling: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_get_preserves_explicit_legacy_ceiling_verbatim: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_get_without_boot_snapshot_uses_configured_runtime_truth: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_disabled_at_boot_reports_model_derived_runtime_target: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_disabled_without_boot_snapshot_still_reports_runtime_truth: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_get_prefers_boot_snapshot_for_runtime_ceiling: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_get_uses_production_direct_boot_compressor_shape: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_get_distinguishes_saved_ceiling_from_boot_frozen_runtime: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_failed_clear_returns_503_and_truthful_state: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_clear_endpoint_is_account_scoped: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_clear_endpoint_preserves_other_model_for_same_account: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5. | TestContextWindowsApi.test_clear_without_observer_is_503: Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+      "case_deferrals": [
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_retired_evidence_stays_visible_without_an_active_model_row",
+          "case_ast_sha256": "6cf1452980571e77590f167f873714831db6b7a28f9f5a71e7e9a5b5317e6ec4",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_retired_evidence_stays_visible_without_an_active_model_row",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_model_row_reports_the_prior_not_a_global_calibrated_value",
+          "case_ast_sha256": "1ffccf407b591e75ccb0c94a757f1e72c72c01055300807302f4f23040eba2a1",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_model_row_reports_the_prior_not_a_global_calibrated_value",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_clamp_provenance_is_independent_of_workload_calibration",
+          "case_ast_sha256": "e8dc10bd1a67d7ff7525a8bf1fdf3aa6803ce072149368ebf2428a4a024e706f",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_clamp_provenance_is_independent_of_workload_calibration",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_a_model_known_only_to_calibration_still_appears",
+          "case_ast_sha256": "3dd77f556ce211ead0f89fc83ade5be03b4f4085f3cbc41afa1217cd0cdd38e1",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_a_model_known_only_to_calibration_still_appears",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_broken_calibration_summary_still_serves_the_row",
+          "case_ast_sha256": "ddeb4e396e247210730d3ed87632d52ca21197ab96eed1263dc83f02ed6013e5",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_broken_calibration_summary_still_serves_the_row",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_get_serves_floors_overrides_clamps_and_both_resolutions",
+          "case_ast_sha256": "bf012ca103db434bfd7a83e668a7ab744fecc7afc6e315c71cbd137e38d970a1",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_get_serves_floors_overrides_clamps_and_both_resolutions",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_get_clamp_expiry_describes_only_applied_effective_minimum",
+          "case_ast_sha256": "fb6db04f40abc3bbbe98b311be9fc1b93559d9f1f1ac1254053b887af32e3dff",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_get_clamp_expiry_describes_only_applied_effective_minimum",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_get_preserves_raw_auto_ceiling",
+          "case_ast_sha256": "9b5e8d6390cad9e83a8839ebe33348c577764de2c1d67fe3510f4e6d870ced07",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_get_preserves_raw_auto_ceiling",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_get_preserves_explicit_legacy_ceiling_verbatim",
+          "case_ast_sha256": "59e0bb1619ff0e83134284021bfffe5258260e45e07a64388d27adbd2ee9c993",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_get_preserves_explicit_legacy_ceiling_verbatim",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_get_without_boot_snapshot_uses_configured_runtime_truth",
+          "case_ast_sha256": "9d968a55b1f519a7d352ccd4856696c7165ba6af6d0a3684a7ee7eba069123d9",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_get_without_boot_snapshot_uses_configured_runtime_truth",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_disabled_at_boot_reports_model_derived_runtime_target",
+          "case_ast_sha256": "563cd52486af862029c1114fdc4c920d65a1e702257a01b933cf36e0a5635e7f",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_disabled_at_boot_reports_model_derived_runtime_target",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_disabled_without_boot_snapshot_still_reports_runtime_truth",
+          "case_ast_sha256": "aca7c2e7589299d34be9b636a81a769239e7148dba424eb90a82b9b257f4d529",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_disabled_without_boot_snapshot_still_reports_runtime_truth",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_get_prefers_boot_snapshot_for_runtime_ceiling",
+          "case_ast_sha256": "3c24fcd418309af88da085124f0189c1dbdc047dca38ed7c5df270ba591daad9",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_get_prefers_boot_snapshot_for_runtime_ceiling",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_get_uses_production_direct_boot_compressor_shape",
+          "case_ast_sha256": "3895d212285de1e0a14fd3b95f58571841fd6d6cbfe00dfafbb63e3976187597",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_get_uses_production_direct_boot_compressor_shape",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_get_distinguishes_saved_ceiling_from_boot_frozen_runtime",
+          "case_ast_sha256": "adba0471ab8c67f5352ceae5cf66e54735256f2cc0624a9abb118351ec2aebd7",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_get_distinguishes_saved_ceiling_from_boot_frozen_runtime",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_failed_clear_returns_503_and_truthful_state",
+          "case_ast_sha256": "3b58da3cb63ba6ceb0b2b76ee760ef09b9120333361ddb608f5084fb5202119e",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_failed_clear_returns_503_and_truthful_state",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_clear_endpoint_is_account_scoped",
+          "case_ast_sha256": "063e99db994fd07254c7602006060c524259d0a33efabd0ada5655770b0159f1",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_clear_endpoint_is_account_scoped",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_clear_endpoint_preserves_other_model_for_same_account",
+          "case_ast_sha256": "13d8e72badbed77484bfaae3990b4d5425ca5b1e6ccb1a4201c9d6e6261f057d",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_clear_endpoint_preserves_other_model_for_same_account",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        },
+        {
+          "adapter": "tests/desktop_adapters/lane6_health_resources.py",
+          "case": "TestContextWindowsApi.test_clear_without_observer_is_503",
+          "case_ast_sha256": "f3690900ef03f1d62ce376f096f958dcf1ab1dba52173afdb243494a6b28152b",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_resources.py",
+          "original": "tests/test_window_observer.py::TestContextWindowsApi.test_clear_without_observer_is_503",
+          "reason": "Missing named context-window evidence read/clear management methods for actual WindowObserver account/model clamps, boot/saved ceilings and calibration. Not native-display P3.5.",
+          "selector": "tests/test_desktop_lane6_health_resources.py",
+          "status": "deferred"
+        }
+      ],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "8df113168f7d220d99c68b71fe1571391e4102b7ced1095fa3501825a8943896",
       "path": "tests/test_window_observer.py",
       "qualification_group": "phase2-background-provider-evidence",
-      "reason": "Named context-windows read/clear management method for clamp/account/calibration/boot ceilings absent. LLM observer, not native desktop; P3.5 not applicable.",
+      "reason": "Whole-suite completion blocked only by the exact case-level feature gaps/proposals listed; actual retained-case executions are recorded separately, never advertised as whole-suite restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -5394,12 +6647,22 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Full real runner/store tests cover durable intents/results/checkpoints, spent guards, suspension, fail-closed admission, redelivery refusal, long leases and Stop settlement. Mixed/read-only cancellation cases explicitly dispatch wait_for_agents, so background native admission step6 is last over requests/controls. Preserve no fresh unledgered fallback and all commit-before-success/unknown-effect assertions via genuine Desktop request composition.",
+      "blocked_on": null,
+      "case_deferrals": [],
+      "case_proposals": [],
+      "case_retirements": [],
       "inherited_sha256": "b17a926b79afcc342e4f5fdf4b48094336057a02c5d26c517c9fedc4df8af708",
       "path": "tests/test_write_invariant_integration.py",
-      "qualification_group": "phase2-background-write-invariant",
-      "reason": "Full real runner/store tests cover durable intents/results/checkpoints, spent guards, suspension, fail-closed admission, redelivery refusal, long leases and Stop settlement. Mixed/read-only cancellation cases explicitly dispatch wait_for_agents, so background native admission step6 is last over requests/controls. Preserve no fresh unledgered fallback and all commit-before-success/unknown-effect assertions via genuine Desktop request composition.",
-      "status": "deferred",
+      "qualification_group": "phase2-step6-lane6-agents",
+      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
+        "selectors": [
+          "tests/test_desktop_lane6_agents_write_chat_write.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "request durability",

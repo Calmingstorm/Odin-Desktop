@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import uuid
 from collections.abc import Mapping
 
 from ..llm.secret_scrubber import scrub_output_secrets
 from ..web.api._agent_display import agent_display_policy
 from .commands import canonical_json, response_error
+from .work_loops import WorkLoopOperations
 
 WORK_COLUMNS = {"kind", "id", "manager_generation", "record"}
 KINDS = frozenset({"agent", "task", "workflow", "loop", "process", "schedule"})
@@ -26,7 +28,7 @@ def _get(item, key, default=None):
     return item.get(key, default) if isinstance(item, Mapping) else getattr(item, key, default)
 
 
-class WorkService:
+class WorkService(WorkLoopOperations):
     """Compose retained managers without copying their budget/control algorithms.
 
     ``requests`` is the real RequestService. ``controls`` is attached after
@@ -194,6 +196,7 @@ class WorkService:
                 "inbox_sequence", "last_consumed_sequence", "inbox_events")}
             # Keep the retained truthful per-axis provenance policy intact.
             detail.update(agent_display_policy(item, self.display_config))
+            detail.update(self._agent_fields(item, record["manager_id"], preview=True))
             active_children = [a for aid in self.agents.get_descendants(record["manager_id"])
                                if (a := self._items("agent").get(aid)) is not None
                                and (_get(a, "status") not in TERMINAL or
@@ -212,11 +215,20 @@ class WorkService:
         elif kind == "loop":
             detail = {key: _get(item, key) for key in ("mode", "interval_seconds",
                       "max_iterations", "iteration_count", "stop_condition")}
+            detail.update(id=record["manager_id"], goal=_get(item, "goal", ""),
+                          iteration_history=list(_get(item, "_iteration_history", [])),
+                          last_trigger_age_seconds=max(0, time.time() -
+                              (_get(item, "last_trigger", 0) or 0)))
             if state == "running":
                 actions = ["stop"]
         elif kind == "process":
             detail = {key: _get(item, key) for key in ("host", "exit_code", "containment",
                       "transport_unknown", "session_confirmed_empty", "termination_reason")}
+            detail.update(pid=int(record["manager_id"]),
+                          command=scrub_output_secrets(str(_get(item, "command", ""))),
+                          output_preview=[scrub_output_secrets(str(line).rstrip("\r\n"))
+                              for line in list(_get(item, "output_buffer", []))[-3:]],
+                          effective_shell=_get(item, "effective_shell"))
             if not _get(item, "restored", False) and (
                     state == "running" or not item.session_confirmed_empty):
                 actions = ["stop"]
@@ -291,6 +303,72 @@ class WorkService:
         record = next((r for row in rows if (r := json.loads(row[0]))["id"] == id), None)
         return self.refresh(record) if record else None
 
+    def _agent_fields(self, item, manager_id, *, preview):
+        """Full retained fields with distinct preview policy, never execution inference."""
+        from ..agents.manager import AgentInfo
+
+        fields = {key: _get(item, key) for key in (
+            "label", "goal", "result", "error", "status", "created_at", "ended_at",
+            "iteration_count", "recovery_attempts", "max_iterations", "parent_id", "depth",
+            "children_ids", "model_override", "reasoning_effort_override")}
+        fields["id"] = manager_id
+        state = _get(item, "state")
+        fields["state"] = _get(state, "value", state)
+        if isinstance(item, AgentInfo):
+            fields.update(self.agents.get_results(manager_id))
+        tools = list(_get(item, "tools_used", []))
+        fields.update(tools_used=tools[-10:] if preview else tools,
+                      tools_used_count=len(tools))
+        activity = getattr(item, "activity", None)
+        if callable(activity):
+            fields.update(activity())
+        sm = getattr(item, "_sm", None)
+        if sm is not None:
+            fields["state_history"] = sm.history_as_dicts()
+        for key in ("goal", "result", "error"):
+            value = fields.get(key)
+            if isinstance(value, str):
+                value = scrub_output_secrets(value)
+                fields[key] = value[:200] if preview else value
+        return fields
+
+    def manager_record(self, kind, manager_id):
+        """Trusted native adapter lookup. Protocol clients still use immutable IDs."""
+        matches = [record for record in self.list({"kind": kind}).get("items", [])
+                   if record["manager_id"] == str(manager_id) and
+                   self._same(record, self._items(kind).get(str(manager_id)))]
+        return matches[0] if len(matches) == 1 else None
+
+    def agent_detail(self, id):
+        record = self.resolve("agent", id)
+        if not record or record["owner_id"] != self.authority.owner_id or not (
+                self.permissions.is_owner(self.authority.owner_id)):
+            return None
+        item = self._items("agent").get(record["manager_id"])
+        if not self._same(record, item):
+            return None
+        detail = dict(record["detail"])
+        detail.update(self._agent_fields(item, record["manager_id"], preview=False))
+        return detail
+
+    def agent_tree(self, id, relation):
+        record = self.resolve("agent", id)
+        if not record or not self.permissions.is_owner(self.authority.owner_id):
+            return None
+        item = self._items("agent").get(record["manager_id"])
+        if record["owner_id"] != self.authority.owner_id or not self._same(record, item):
+            return None
+        method = {"children": "get_children", "lineage": "get_lineage",
+                  "descendants": "get_descendants"}.get(relation)
+        if method is None:
+            return None
+        values = getattr(self.agents, method)(record["manager_id"])
+        permitted = set(r["manager_id"] for r in self.list({"kind": "agent"})["items"]
+                        if r["conversation_id"] == record["conversation_id"])
+        if relation == "children":
+            return [value for value in values if value.get("id") in permitted]
+        return [value for value in values if value in permitted]
+
     def binding(self, params):
         """Exact work binding for ControlService reservation and duplicate checks."""
         required = ("kind", "id", "manager_generation", "run_id", "conversation_id")
@@ -360,14 +438,16 @@ class WorkService:
                     receipt = {"disposition": "queued", "consumed": False,
                                "sequence": item.inbox_sequence, "detail": result}
                 else:
-                    self.agents.kill(manager_id)  # preserves cascade/lineage ownership
-                    receipt = {"disposition": "requested"}
+                    result = self.agents.kill(manager_id)  # preserves cascade/lineage ownership
+                    receipt = {"disposition": "not_available" if "not found" in result.lower()
+                               else "requested", "detail": result}
             elif kind in {"task", "workflow"}:
                 await item.request_cancel()
                 receipt = {"disposition": "requested"}
             elif kind == "loop":
-                await self.loops.stop_loop(manager_id)
-                receipt = {"disposition": "requested"}
+                result = await self.loops.stop_loop(manager_id)
+                receipt = {"disposition": "not_available" if "not found" in result.lower()
+                           else "requested", "detail": result}
             elif kind == "process":
                 if self.authorize_process is None or not self.authorize_process(item):
                     return response_error("unauthorized", "Current process scope is not authorized")

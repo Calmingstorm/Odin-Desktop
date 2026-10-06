@@ -1,9 +1,9 @@
 """Authenticated temporary Desktop composition for frozen lineage fixtures."""
 from __future__ import annotations
 
+import uuid
 from contextvars import ContextVar
 from types import SimpleNamespace
-import uuid
 
 from src.config.schema import Config
 from src.desktop.commands import JournalStore

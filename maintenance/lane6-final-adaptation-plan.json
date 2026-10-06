@@ -1,0 +1,1192 @@
+{
+  "entries": [
+    {
+      "path": "scripts/maintenance/lane6_case_manifest.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_case_manifest.py"
+      ],
+      "reason": "Exact retained lane6 workflow/work-projection/trajectory parity and complete source-case census.",
+      "contract": "Frozen source+case AST bound before setup-only transform; named canonical WorkService/TrajectoryService/Schedule owners preserve assertion corpus, generated census requires explicit status decisions.",
+      "invariant": "No removed listener recreated, no source algorithm copies, no fake passes or unreviewed case retirement."
+    },
+    {
+      "path": "scripts/maintenance/lane6_providers_report.py",
+      "reason": "Assigned providers frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_providers.py",
+        "tests/test_desktop_providers.py"
+      ]
+    },
+    {
+      "path": "scripts/maintenance/lane6_schedules_report.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "scripts/maintenance/phase2_suites.py",
+      "reason": "Step6 whole-suite enrollment and authorized case-level removed-surface dispositions.",
+      "contract": "All 869 frozen bytes and historical326 suite membership stay pinned; reviewed case removal binds exact original function AST, reviewer and one permitted removed surface. Partial adapter exclusions must equal the bound retired cases, no undeclared subset.",
+      "invariant": "No assertion recapture, no sampled suite promotion, no arbitrary retirement or relaxed historical classification.",
+      "tests": [
+        "tests/test_desktop_phase2_suite_map.py"
+      ]
+    },
+    {
+      "path": "scripts/maintenance/record_lane6.py",
+      "reason": "Generate pending exact lineage candidates for enumerated lane6 paths only.",
+      "contract": "Explicit reason/contract/invariant/evidence per path; never recapture frozen tests, generate only, apply_patch integrates candidate.",
+      "invariant": "No generic whole-tree source recapture or independent-review claim.",
+      "tests": [
+        "tests/test_desktop_phase2_suite_map.py",
+        "tests/test_desktop_maintenance.py"
+      ]
+    },
+    {
+      "path": "scripts/run-phase1-tests.py",
+      "reason": "Case-adapted suites use their reviewed frozen wrapper instead of obsolete original setup.",
+      "contract": "Default qualified selection omits the original only for restored, immutable corpus-bound adapters, including explicit case retirement.",
+      "invariant": "PID namespace, isolated environment and explicit qualification selection remain mandatory.",
+      "tests": [
+        "tests/test_desktop_isolated_runner.py",
+        "tests/test_desktop_qualified_runner.py",
+        "tests/test_desktop_phase2_suite_map.py"
+      ]
+    },
+    {
+      "path": "src/desktop/core.py",
+      "reason": "Scheduled parallel probes each get distinct durable child admission, preserved owner/conversation/parent lineage; schedule stats is real read capability.",
+      "contract": "Scheduled parallel probes each get distinct durable child admission, preserved owner/conversation/parent lineage; schedule stats is real read capability.",
+      "invariant": "Existing authorization, containment, unknown outcome and source corpus remain unchanged; named regressions prove actual behavior.",
+      "tests": [
+        "tests/test_desktop_background_core.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "src/desktop/management.py",
+      "tests": [
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_step5_traces_methods.py"
+      ],
+      "reason": "Agent trajectory finder and actual agent saver filters through canonical read-only management.",
+      "contract": "Separate turn/agent saver signatures, explicit kind selects original owner, actual find_by_agent_id served; cold reads construct read-only subclass without directories, malicious filename rejected.",
+      "invariant": "No copied reader algorithms, no writer construction on management reads, no secrets exposed."
+    },
+    {
+      "path": "src/desktop/providers.py",
+      "reason": "Cancel candidate rollback retires generation admission before wire close.",
+      "contract": "Cancel candidate rollback retires generation admission before wire close.",
+      "invariant": "Existing authorization, containment, unknown outcome and source corpus remain unchanged; named regressions prove actual behavior.",
+      "tests": [
+        "tests/test_desktop_lane6_providers.py",
+        "tests/test_desktop_providers.py"
+      ]
+    },
+    {
+      "path": "src/desktop/requests.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_write_chat_write.py",
+        "tests/test_desktop_requests.py"
+      ],
+      "reason": "Runtime ledger admission exception returns existing blocked handle instead of enabling uncheckpointed run.",
+      "contract": "Original authenticated request/durability identity unchanged; store failure refuses provider/tool effects, CancelledError propagates.",
+      "invariant": "No admission bypass, no write uncertainty replay."
+    },
+    {
+      "path": "src/desktop/schedules.py",
+      "reason": "Schedule bounds/empty update/delete truth and owner-checked stats parity.",
+      "contract": "Schedule bounds/empty update/delete truth and owner-checked stats parity.",
+      "invariant": "Existing authorization, containment, unknown outcome and source corpus remain unchanged; named regressions prove actual behavior.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py"
+      ]
+    },
+    {
+      "path": "src/desktop/services.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_health_core.py"
+      ],
+      "reason": "Native readiness binds actual skill/media/MCP owners and shutdown closes optional runtime owners.",
+      "contract": "Handler and catalog owner match request service, no absent export artifact owner is advertised; published MCP generation ready only via actual has_tool. Optional usage/quota/media teardown after producer barrier preserves sticky unknown.",
+      "invariant": "No unbound authority or absent handler publication, no swallowed release uncertainty."
+    },
+    {
+      "path": "src/desktop/settings.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py"
+      ],
+      "reason": "Retained full work detail/lineage/process presentation, loop lifecycle and policy settings parity.",
+      "contract": "Actual manager results and truthful preview counts, owner/conversation/manager generation checked controls, durable loop restart history and canonical settings transaction.",
+      "invariant": "No invented execution identity; stale/foreign work rejected; restart cancellation preserves owner settlement; preview secrets scrubbed."
+    },
+    {
+      "path": "src/desktop/trajectories.py",
+      "tests": [
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_step5_traces_methods.py"
+      ],
+      "reason": "Agent trajectory finder and actual agent saver filters through canonical read-only management.",
+      "contract": "Separate turn/agent saver signatures, explicit kind selects original owner, actual find_by_agent_id served; cold reads construct read-only subclass without directories, malicious filename rejected.",
+      "invariant": "No copied reader algorithms, no writer construction on management reads, no secrets exposed."
+    },
+    {
+      "path": "src/desktop/work.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py"
+      ],
+      "reason": "Retained full work detail/lineage/process presentation, loop lifecycle and policy settings parity.",
+      "contract": "Actual manager results and truthful preview counts, owner/conversation/manager generation checked controls, durable loop restart history and canonical settings transaction.",
+      "invariant": "No invented execution identity; stale/foreign work rejected; restart cancellation preserves owner settlement; preview secrets scrubbed."
+    },
+    {
+      "path": "src/desktop/work_loops.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py"
+      ],
+      "reason": "Retained full work detail/lineage/process presentation, loop lifecycle and policy settings parity.",
+      "contract": "Actual manager results and truthful preview counts, owner/conversation/manager generation checked controls, durable loop restart history and canonical settings transaction.",
+      "invariant": "No invented execution identity; stale/foreign work rejected; restart cancellation preserves owner settlement; preview secrets scrubbed."
+    },
+    {
+      "path": "src/desktop/work_policy.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py"
+      ],
+      "reason": "Retained full work detail/lineage/process presentation, loop lifecycle and policy settings parity.",
+      "contract": "Actual manager results and truthful preview counts, owner/conversation/manager generation checked controls, durable loop restart history and canonical settings transaction.",
+      "invariant": "No invented execution identity; stale/foreign work rejected; restart cancellation preserves owner settlement; preview secrets scrubbed."
+    },
+    {
+      "path": "src/discord/native_tools/scheduling.py",
+      "reason": "Native missing update returns truthful not-found without unsafe missing-definition mutation.",
+      "contract": "Native missing update returns truthful not-found without unsafe missing-definition mutation.",
+      "invariant": "Existing authorization, containment, unknown outcome and source corpus remain unchanged; named regressions prove actual behavior.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_reports.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_agents_core.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Canonical admitted agent/task and durable chat corpus adapter.",
+      "contract": "Whole frozen archive+suite pins; unchanged assertion/decorator/signature/parameter corpus before exact case-level export. Actual request/work/manager/store owners; observed external transports only.",
+      "invariant": "No fake authorization, algorithm substitution, hidden collection cut, frozen-source edits or unapproved assertion changes."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_agents_lineage_audit_pages.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Canonical admitted agent/task and durable chat corpus adapter.",
+      "contract": "Whole frozen archive+suite pins; unchanged assertion/decorator/signature/parameter corpus before exact case-level export. Actual request/work/manager/store owners; observed external transports only.",
+      "invariant": "No fake authorization, algorithm substitution, hidden collection cut, frozen-source edits or unapproved assertion changes."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_agents_lineage_owner.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Canonical admitted agent/task and durable chat corpus adapter.",
+      "contract": "Whole frozen archive+suite pins; unchanged assertion/decorator/signature/parameter corpus before exact case-level export. Actual request/work/manager/store owners; observed external transports only.",
+      "invariant": "No fake authorization, algorithm substitution, hidden collection cut, frozen-source edits or unapproved assertion changes."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_agents_lineage_retained.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Canonical admitted agent/task and durable chat corpus adapter.",
+      "contract": "Whole frozen archive+suite pins; unchanged assertion/decorator/signature/parameter corpus before exact case-level export. Actual request/work/manager/store owners; observed external transports only.",
+      "invariant": "No fake authorization, algorithm substitution, hidden collection cut, frozen-source edits or unapproved assertion changes."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_agents_lineage_transcript.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Canonical admitted agent/task and durable chat corpus adapter.",
+      "contract": "Whole frozen archive+suite pins; unchanged assertion/decorator/signature/parameter corpus before exact case-level export. Actual request/work/manager/store owners; observed external transports only.",
+      "invariant": "No fake authorization, algorithm substitution, hidden collection cut, frozen-source edits or unapproved assertion changes."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_agents_tasks.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Canonical admitted agent/task and durable chat corpus adapter.",
+      "contract": "Whole frozen archive+suite pins; unchanged assertion/decorator/signature/parameter corpus before exact case-level export. Actual request/work/manager/store owners; observed external transports only.",
+      "invariant": "No fake authorization, algorithm substitution, hidden collection cut, frozen-source edits or unapproved assertion changes."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_agents_tasks_native.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Canonical admitted agent/task and durable chat corpus adapter.",
+      "contract": "Whole frozen archive+suite pins; unchanged assertion/decorator/signature/parameter corpus before exact case-level export. Actual request/work/manager/store owners; observed external transports only.",
+      "invariant": "No fake authorization, algorithm substitution, hidden collection cut, frozen-source edits or unapproved assertion changes."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_agents_tasks_recovery.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Canonical admitted agent/task and durable chat corpus adapter.",
+      "contract": "Whole frozen archive+suite pins; unchanged assertion/decorator/signature/parameter corpus before exact case-level export. Actual request/work/manager/store owners; observed external transports only.",
+      "invariant": "No fake authorization, algorithm substitution, hidden collection cut, frozen-source edits or unapproved assertion changes."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_agents_write_chat_chat.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Canonical admitted agent/task and durable chat corpus adapter.",
+      "contract": "Whole frozen archive+suite pins; unchanged assertion/decorator/signature/parameter corpus before exact case-level export. Actual request/work/manager/store owners; observed external transports only.",
+      "invariant": "No fake authorization, algorithm substitution, hidden collection cut, frozen-source edits or unapproved assertion changes."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_agents_write_chat_write.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Canonical admitted agent/task and durable chat corpus adapter.",
+      "contract": "Whole frozen archive+suite pins; unchanged assertion/decorator/signature/parameter corpus before exact case-level export. Actual request/work/manager/store owners; observed external transports only.",
+      "invariant": "No fake authorization, algorithm substitution, hidden collection cut, frozen-source edits or unapproved assertion changes."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_health_core.py",
+      "reason": "Assigned health frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_health_core.py",
+        "tests/test_desktop_lane6_health_learning.py",
+        "tests/test_desktop_lane6_health_output.py",
+        "tests/test_desktop_lane6_health_resources.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_health_learning.py",
+      "reason": "Assigned health frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_health_core.py",
+        "tests/test_desktop_lane6_health_learning.py",
+        "tests/test_desktop_lane6_health_output.py",
+        "tests/test_desktop_lane6_health_resources.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_health_output.py",
+      "reason": "Assigned health frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_health_core.py",
+        "tests/test_desktop_lane6_health_learning.py",
+        "tests/test_desktop_lane6_health_output.py",
+        "tests/test_desktop_lane6_health_resources.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_health_resources.py",
+      "reason": "Assigned health frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_health_core.py",
+        "tests/test_desktop_lane6_health_learning.py",
+        "tests/test_desktop_lane6_health_output.py",
+        "tests/test_desktop_lane6_health_resources.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_providers_cases.py",
+      "reason": "Assigned providers frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_providers.py",
+        "tests/test_desktop_providers.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_providers_engine.py",
+      "reason": "Assigned providers frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_providers.py",
+        "tests/test_desktop_providers.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_providers_owner.py",
+      "reason": "Assigned providers frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_providers.py",
+        "tests/test_desktop_providers.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_providers_timing.py",
+      "reason": "Assigned providers frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_providers.py",
+        "tests/test_desktop_providers.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_schedules_core.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_schedules_finish.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_case_manifest.py"
+      ],
+      "reason": "Exact retained lane6 workflow/work-projection/trajectory parity and complete source-case census.",
+      "contract": "Frozen source+case AST bound before setup-only transform; named canonical WorkService/TrajectoryService/Schedule owners preserve assertion corpus, generated census requires explicit status decisions.",
+      "invariant": "No removed listener recreated, no source algorithm copies, no fake passes or unreviewed case retirement."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_schedules_loops_bridge.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_schedules_loops_cases.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_schedules_reports.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_schedules_reports_dispositions.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_schedules_web.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_schedules_web_agents.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_trajectory_endpoint_parity.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_case_manifest.py"
+      ],
+      "reason": "Exact retained lane6 workflow/work-projection/trajectory parity and complete source-case census.",
+      "contract": "Frozen source+case AST bound before setup-only transform; named canonical WorkService/TrajectoryService/Schedule owners preserve assertion corpus, generated census requires explicit status decisions.",
+      "invariant": "No removed listener recreated, no source algorithm copies, no fake passes or unreviewed case retirement."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_work_loop_bridge.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_case_manifest.py"
+      ],
+      "reason": "Exact retained lane6 workflow/work-projection/trajectory parity and complete source-case census.",
+      "contract": "Frozen source+case AST bound before setup-only transform; named canonical WorkService/TrajectoryService/Schedule owners preserve assertion corpus, generated census requires explicit status decisions.",
+      "invariant": "No removed listener recreated, no source algorithm copies, no fake passes or unreviewed case retirement."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_work_policy_bridge.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_case_manifest.py"
+      ],
+      "reason": "Exact retained lane6 workflow/work-projection/trajectory parity and complete source-case census.",
+      "contract": "Frozen source+case AST bound before setup-only transform; named canonical WorkService/TrajectoryService/Schedule owners preserve assertion corpus, generated census requires explicit status decisions.",
+      "invariant": "No removed listener recreated, no source algorithm copies, no fake passes or unreviewed case retirement."
+    },
+    {
+      "path": "tests/desktop_adapters/lane6_work_projection_finish.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_case_manifest.py"
+      ],
+      "reason": "Exact retained lane6 workflow/work-projection/trajectory parity and complete source-case census.",
+      "contract": "Frozen source+case AST bound before setup-only transform; named canonical WorkService/TrajectoryService/Schedule owners preserve assertion corpus, generated census requires explicit status decisions.",
+      "invariant": "No removed listener recreated, no source algorithm copies, no fake passes or unreviewed case retirement."
+    },
+    {
+      "path": "tests/test_desktop_background_core.py",
+      "reason": "Real authenticated IPC schedule stats read is served and advertised.",
+      "contract": "Real authenticated IPC schedule stats read is served and advertised.",
+      "invariant": "Existing authorization, containment, unknown outcome and source corpus remain unchanged; named regressions prove actual behavior.",
+      "tests": [
+        "tests/test_desktop_background_core.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_contract.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_core.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_lineage_retained.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_lineage_transcript.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_tasks_cancel.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_tasks_failure.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_tasks_native.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_tasks_provider.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_tasks_readiness.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_tasks_wait.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_write_chat_chat.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_agents_write_chat_write.py",
+      "tests": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py"
+      ],
+      "reason": "Execute assigned lane6 retained agent/task/chat source cases and canonical owner regressions.",
+      "contract": "Original filename/qualname/params collection binds exact cases; omitted mixed identity/schema cases proposed explicitly, never counted whole restored.",
+      "invariant": "No hidden skips; admission wrapper unwrap preserves source identity."
+    },
+    {
+      "path": "tests/test_desktop_lane6_case_manifest.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_case_manifest.py"
+      ],
+      "reason": "Exact retained lane6 workflow/work-projection/trajectory parity and complete source-case census.",
+      "contract": "Frozen source+case AST bound before setup-only transform; named canonical WorkService/TrajectoryService/Schedule owners preserve assertion corpus, generated census requires explicit status decisions.",
+      "invariant": "No removed listener recreated, no source algorithm copies, no fake passes or unreviewed case retirement."
+    },
+    {
+      "path": "tests/test_desktop_lane6_health_core.py",
+      "reason": "Assigned health frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_health_core.py",
+        "tests/test_desktop_lane6_health_learning.py",
+        "tests/test_desktop_lane6_health_output.py",
+        "tests/test_desktop_lane6_health_resources.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_health_learning.py",
+      "reason": "Assigned health frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_health_core.py",
+        "tests/test_desktop_lane6_health_learning.py",
+        "tests/test_desktop_lane6_health_output.py",
+        "tests/test_desktop_lane6_health_resources.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_health_output.py",
+      "reason": "Assigned health frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_health_core.py",
+        "tests/test_desktop_lane6_health_learning.py",
+        "tests/test_desktop_lane6_health_output.py",
+        "tests/test_desktop_lane6_health_resources.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_health_resources.py",
+      "reason": "Assigned health frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_health_core.py",
+        "tests/test_desktop_lane6_health_learning.py",
+        "tests/test_desktop_lane6_health_output.py",
+        "tests/test_desktop_lane6_health_resources.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_providers.py",
+      "reason": "Assigned providers frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_providers.py",
+        "tests/test_desktop_providers.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_schedules_core.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_schedules_finish.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_case_manifest.py"
+      ],
+      "reason": "Exact retained lane6 workflow/work-projection/trajectory parity and complete source-case census.",
+      "contract": "Frozen source+case AST bound before setup-only transform; named canonical WorkService/TrajectoryService/Schedule owners preserve assertion corpus, generated census requires explicit status decisions.",
+      "invariant": "No removed listener recreated, no source algorithm copies, no fake passes or unreviewed case retirement."
+    },
+    {
+      "path": "tests/test_desktop_lane6_schedules_fixes.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_schedules_loops.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_schedules_reports.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_schedules_web.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_schedules_web_agents.py",
+      "reason": "Assigned schedules frozen suite restoration with exact source hash and case corpus binding.",
+      "contract": "Canonical owners execute retained behavior; explicit source-frozen setup adapters preserve assertions/signatures/decorators/parameters and declare removed surfaces/blockers per original case. Inheritance and bounded waits are recorded separately from pass evidence.",
+      "invariant": "No frozen source edits, no source assertion recapture, no fake execution authority, no new skips or hidden case subset promotion.",
+      "tests": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_schedules_web_agents.py",
+        "tests/test_desktop_lane6_schedules_fixes.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_case_manifest.py"
+      ],
+      "reason": "Exact retained lane6 workflow/work-projection/trajectory parity and complete source-case census.",
+      "contract": "Frozen source+case AST bound before setup-only transform; named canonical WorkService/TrajectoryService/Schedule owners preserve assertion corpus, generated census requires explicit status decisions.",
+      "invariant": "No removed listener recreated, no source algorithm copies, no fake passes or unreviewed case retirement."
+    },
+    {
+      "path": "tests/test_desktop_lane6_trajectory_owner.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_case_manifest.py"
+      ],
+      "reason": "Exact retained lane6 workflow/work-projection/trajectory parity and complete source-case census.",
+      "contract": "Frozen source+case AST bound before setup-only transform; named canonical WorkService/TrajectoryService/Schedule owners preserve assertion corpus, generated census requires explicit status decisions.",
+      "invariant": "No removed listener recreated, no source algorithm copies, no fake passes or unreviewed case retirement."
+    },
+    {
+      "path": "tests/test_desktop_lane6_work_projection_finish.py",
+      "tests": [
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_case_manifest.py"
+      ],
+      "reason": "Exact retained lane6 workflow/work-projection/trajectory parity and complete source-case census.",
+      "contract": "Frozen source+case AST bound before setup-only transform; named canonical WorkService/TrajectoryService/Schedule owners preserve assertion corpus, generated census requires explicit status decisions.",
+      "invariant": "No removed listener recreated, no source algorithm copies, no fake passes or unreviewed case retirement."
+    },
+    {
+      "path": "tests/test_desktop_phase2_suite_map.py",
+      "reason": "Behavioral mutation tests for step6 enrollment and fail-closed exact case retirement.",
+      "contract": "Offline fixtures bind real checker outputs for whole-suite enrollment and retirement hash/reviewer/surface/partition mutations.",
+      "invariant": "Checker tests do not import engine/adapters or claim runtime suite execution.",
+      "tests": [
+        "tests/test_desktop_phase2_suite_map.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_qualification.py",
+      "reason": "Actual collection unwraps functools admission wrappers to bind original source function identity and unchanged parameter IDs.",
+      "contract": "Actual collection unwraps functools admission wrappers to bind original source function identity and unchanged parameter IDs.",
+      "invariant": "Existing authorization, containment, unknown outcome and source corpus remain unchanged; named regressions prove actual behavior.",
+      "tests": [
+        "tests/test_desktop_qualified_collection.py",
+        "tests/test_desktop_qualification.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_qualified_collection.py",
+      "reason": "Behavioral proof of wrapped source collection identity, not bridge alias guessing.",
+      "contract": "Behavioral proof of wrapped source collection identity, not bridge alias guessing.",
+      "invariant": "Existing authorization, containment, unknown outcome and source corpus remain unchanged; named regressions prove actual behavior.",
+      "tests": [
+        "tests/test_desktop_qualified_collection.py"
+      ]
+    },
+    {
+      "path": "tests/test_desktop_shared_outbound.py",
+      "reason": "Merge6B borrowed dispatcher fixtures with accepted producer-first lifecycle barrier.",
+      "contract": "Borrowed integration close does not close dispatcher; requests then engine settle before management teardown. Original-owner dispatcher closes once, no live producer teardown bypass.",
+      "invariant": "Production cleanup guard remains unchanged; standalone composition and current/prior unknown cleanup remain truthful.",
+      "tests": [
+        "tests/test_desktop_shared_outbound.py",
+        "tests/test_desktop_core_lifecycle.py"
+      ]
+    }
+  ]
+}

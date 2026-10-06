@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "artifact": "Schedule retained setup finish and whole-suite exact case dispositions",
+  "selector": "tests/test_desktop_lane6_schedules_finish.py",
+  "adapter": "tests/desktop_adapters/lane6_schedules_finish.py",
+  "counts": {"source_cases": 37, "restored_cases": 33, "retired_cases": 2, "deferred_cases": 1, "proposed_cases": 1},
+  "suites": {
+    "tests/test_campaign_scheduler_workflows.py": {
+      "source_sha256": "cdb2da7883cba08ef96726fa30efea0af47499e841ff161d6a4067e07db62c2b",
+      "full_corpus_sha256": "e4ccf3727dfbde5bbc6840394dc22ecae2272b59b0dcae69d83cbdb308cffeac",
+      "whole_suite": true,
+      "counts": {"source_cases": 14, "restored_cases": 14, "retired_cases": 0, "deferred_cases": 0, "proposed_cases": 0},
+      "restored_cases": [
+        "test_delegated_empty_output_obeys_conditions",
+        "test_scheduled_empty_output_obeys_conditions",
+        "test_native_error_becomes_failed_scheduled_result",
+        "test_structured_scheduled_result_is_preserved",
+        "test_native_error_aborts_workflow_and_reaches_scheduler_retry_counter",
+        "test_background_preserves_executor_host_contract",
+        "test_background_actual_executor_prepares_contract_defaults",
+        "test_nested_invoke_skill_validates_selected_schema",
+        "test_nested_skill_wire_json_decodes_without_mutating_original",
+        "test_templated_selected_skill_name_defers_until_concrete_execution",
+        "test_delegated_invalid_selected_skill_never_executes",
+        "test_valid_selected_skill_executes_with_integer_input",
+        "test_scheduled_concrete_skill_schema_rechecked_before_dispatch",
+        "test_update_workflow_strict_transport_preserves_condition_and_failure_policy"
+      ],
+      "executable_prefix": "tests/test_desktop_lane6_schedules_finish.py::test_finish_campaign_scheduler_workflows__",
+      "closed_blockers": [
+        "Legacy BackgroundTask setup replaced with real canonical request admission, WorkService registration, task-owned durable publication and actual executor retention; external effect recorder remains frozen boundary only.",
+        "Scheduler configured with real desktop recovery and authenticated destination/owner; callback verifies assert_run_binding and registers real WorkService schedule before tool execution.",
+        "Frozen __new__ executor fixture replaced with actual owner executor; check_permission stub removed, _execute_inner inert seam retained, default-host assertions unchanged.",
+        "Strict catalog composed from actual ready native owners; no static schema pretends to be execution capability."
+      ]
+    },
+    "tests/characterization/test_autonomous_loop.py": {
+      "source_sha256": "242d1c57c12b8a33eee30f9694861a29bbca047a5eb640cdd0504df4c53b18fc",
+      "full_corpus_sha256": "1a2e55772def8089c5684ab30496d446911d7e52ce020d339783a9a773daab31",
+      "whole_suite": true,
+      "counts": {"source_cases": 23, "restored_cases": 19, "retired_cases": 2, "deferred_cases": 1, "proposed_cases": 1},
+      "restored_cases": [
+        "TestLoopFlow.test_natural_finish_returns_final_text",
+        "TestLoopFlow.test_stop_loop_tool_self_stop_settles_without_cancellation_cycle",
+        "TestLoopFlow.test_prev_context_synthetic_exchange_shape",
+        "TestLoopFlow.test_no_preamble_without_prev_context",
+        "TestAsymmetryPins.test_no_response_guards_in_loop",
+        "TestAsymmetryPins.test_no_completion_classifier_in_loop",
+        "TestAsymmetryPins.test_llm_called_directly_not_via_codex_call",
+        "TestAsymmetryPins.test_circuit_open_error_reraised_to_loop_manager",
+        "TestAsymmetryPins.test_generic_llm_error_returned_as_text",
+        "TestAsymmetryPins.test_llm_error_text_sanitized_for_reflection_and_response",
+        "TestAsymmetryPins.test_cap_exhaustion_is_error_with_failure_class_iteration_cap",
+        "TestAsymmetryPins.test_cap_exhaustion_surfaces_stale_partial_text",
+        "TestAsymmetryPins.test_recovered_tool_error_is_success_with_failure_detail",
+        "TestAsymmetryPins.test_trajectory_source_is_loop",
+        "TestLoopDispatchParity.test_parse_error_not_executed_in_loop",
+        "TestLoopDispatchParity.test_ok_false_visibility_in_loop",
+        "TestLoopDispatchParity.test_native_tool_dispatches_through_loop_proxy",
+        "TestLoopDispatchParity.test_skill_crud_rebuilds_prompt_in_loop",
+        "TestLoopDispatchParity.test_invoke_skill_missing_required_fields_errors"
+      ],
+      "executable_pattern": "tests/test_desktop_lane6_schedules_finish.py::TestFinish_autonomous_loop_{class}::{case}",
+      "closed_blockers": ["Synchronous native start setup now awaits only parent RequestService admission, then invokes real synchronous handler with sealed parent. Actual LoopManager, native child dispatch, WorkService and ControlService self-stop path pass all unchanged assertions."],
+      "retired_cases": {
+        "TestLoopFlow.test_long_final_text_truncated_to_discord_limit": {"reason": "Pure removed Discord output-length formatting contract.", "reviewer": "Claude, review of step 8 part 4"},
+        "TestLoopDispatchParity.test_rbac_denial_in_loop_dispatch": {"reason": "Pure removed multi-user RBAC tier denial contract.", "reviewer": "Claude, review of step 8 part 4"}
+      },
+      "deferred_cases": {
+        "TestLoopDispatchParity.test_export_skill_stages_pending_file_in_loop": {"blocker": "Actual SkillTools export prepares bytes but returns conversation_delivery_unavailable; no invocation-owned durable artifact staging owner exists. D2/D17 retained artifact production cannot be retired.", "assertion_review_proposal": "After implementing native durable artifact publication, reviewer approve replacing obsolete pending_files[777] assertion with actual artifact receipt."}
+      },
+      "proposed_cases": {
+        "TestLoopDispatchParity.test_unknown_tool_routes_to_executor_with_user_id": {"reason": "Exact assertion pins user_id 4242; canonical UUID owner cannot legitimately satisfy it.", "proposal": "Reviewer approve replacing obsolete literal identity assertion with authenticated profile UUID equality. Never dispatch foreign owner identity."}
+      }
+    }
+  },
+  "verification": {
+    "command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_schedules_finish.py --tb=short --junitxml=.test-state/schedules-finish.xml",
+    "result": "50 passed in 76.89s, including 49 exact frozen parametrized cases and one native readiness regression",
+    "junit": ".test-state/schedules-finish.xml",
+    "lint": "Ruff both owned Python files and src/desktop/services.py passed",
+    "combined_regression": "79 passed, 2 failed in 135.12s across finish, engine_services and background_core: existing lightweight cleanup fixture lacks outbound_webhook_dispatcher; existing loop IPC work.list timed out at 3s under load. Neither failure is hidden or converted to skip.",
+    "combined_junit": ".test-state/schedules-finish-regression.xml"
+  },
+  "proof": {"source_hash_checked": true, "whole_corpus_hash_checked": true, "assertions_signatures_decorators_parameters_unchanged": true, "setup_hunks": "Adapter EVIDENCE records exact before/after AST hashes and replacement source; composes pre-existing hash-bound core/loops setup hunks.", "case_map": "Adapter CASE_MAP maps every restored original case to exact executable path; load verifies no unaccounted source cases."},
+  "security": {"canonical_uuid_owner_preserved": true, "real_request_work_control_services": true, "external_effect_recorders_only": true, "frozen_source_immutable": true, "nonexport_exclusions": true, "no_skips": true, "source_changes": ["src/desktop/services.py"], "live_changes": false},
+  "substitutions": [],
+  "source_fix_coordination": "Parent authorized actual loops readiness gap fix. Initial nine-line same-owner readiness correction restored both exact cases, regression verified owner-detached and request-unbound fail-closed. Parent now owns services.py and is replacing this delta with expired tasks recovery broader correction preserving stronger same-owner condition. Export stays unavailable until actual durable artifact owner exists. No further services.py edits by this agent.",
+  "handoff": "Parent must use finish adapter CASE_MAP as authoritative projection for these two whole suites and avoid duplicate old core/loops projections. Older subreport deferrals and mixed export retirement are superseded here. No stage or commit performed."
+}

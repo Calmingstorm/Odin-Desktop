@@ -1,17 +1,16 @@
 """Whole hash-bound inherited lineage suites, not case samples."""
-import pytest_asyncio
 import pytest
-pytest_plugins = ["tests.desktop_adapters.lane6_agents_lineage_retained"]
+import pytest_asyncio
 
 from src.agents.manager import AgentManager
 from src.discord.tool_loop import ToolLoopRunner
 from src.tools.executor import ToolExecutor
-
-from tests.desktop_adapters.tools_cases import owner_fixture
-from tests.desktop_adapters.lane6_agents_lineage_retained import load
 from tests.desktop_adapters.lane6_agents_lineage_owner import (
-    lane6_agents_lineage_current, lane6_agents_lineage_graph,
+    lane6_agents_lineage_current,
+    lane6_agents_lineage_graph,
 )
+from tests.desktop_adapters.lane6_agents_lineage_retained import load
+from tests.desktop_adapters.tools_cases import owner_fixture
 
 
 @pytest_asyncio.fixture(autouse=True)

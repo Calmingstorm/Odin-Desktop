@@ -1796,7 +1796,7 @@
         "tests/test_desktop_providers.py"
       ],
       "name": "phase2-step6-lane6-providers",
-      "reason": "Exact assigned lane6 frozen source/corpus-bound retained cases through real canonical owners; individual removed-surface retirements and exact concrete/proposed blockers are separate, no skip marks or source assertion edits."
+      "reason": "Assigned lane6 real canonical owner retained-case suites, immutable source/corpus bound. Whole suite accounting in lane6-case-manifest distinguishes restoration from concrete feature deferrals and pending case proposals. No skip/retry or hidden collection cut."
     },
     {
       "files": [
@@ -1806,7 +1806,43 @@
         "tests/test_desktop_lane6_health_resources.py"
       ],
       "name": "phase2-step6-lane6-health",
-      "reason": "Exact assigned lane6 frozen source/corpus-bound retained cases through real canonical owners; individual removed-surface retirements and exact concrete/proposed blockers are separate, no skip marks or source assertion edits."
+      "reason": "Assigned lane6 real canonical owner retained-case suites, immutable source/corpus bound. Whole suite accounting in lane6-case-manifest distinguishes restoration from concrete feature deferrals and pending case proposals. No skip/retry or hidden collection cut."
+    },
+    {
+      "files": [
+        "tests/test_desktop_lane6_schedules_core.py",
+        "tests/test_desktop_lane6_schedules_finish.py",
+        "tests/test_desktop_lane6_schedules_fixes.py",
+        "tests/test_desktop_lane6_schedules_loops.py",
+        "tests/test_desktop_lane6_schedules_reports.py",
+        "tests/test_desktop_lane6_schedules_web.py",
+        "tests/test_desktop_lane6_trajectory_owner.py",
+        "tests/test_desktop_lane6_work_projection_finish.py",
+        "tests/test_desktop_work.py"
+      ],
+      "name": "phase2-step6-lane6-schedules",
+      "reason": "Assigned lane6 real canonical owner retained-case suites, immutable source/corpus bound. Whole suite accounting in lane6-case-manifest distinguishes restoration from concrete feature deferrals and pending case proposals. No skip/retry or hidden collection cut."
+    },
+    {
+      "files": [
+        "tests/test_desktop_lane6_agents_contract.py",
+        "tests/test_desktop_lane6_agents_core.py",
+        "tests/test_desktop_lane6_agents_lineage_audit_pages.py",
+        "tests/test_desktop_lane6_agents_lineage_retained.py",
+        "tests/test_desktop_lane6_agents_lineage_transcript.py",
+        "tests/test_desktop_lane6_agents_tasks_cancel.py",
+        "tests/test_desktop_lane6_agents_tasks_failure.py",
+        "tests/test_desktop_lane6_agents_tasks_native.py",
+        "tests/test_desktop_lane6_agents_tasks_provider.py",
+        "tests/test_desktop_lane6_agents_tasks_readiness.py",
+        "tests/test_desktop_lane6_agents_tasks_wait.py",
+        "tests/test_desktop_lane6_agents_write_chat_chat.py",
+        "tests/test_desktop_lane6_agents_write_chat_write.py",
+        "tests/test_desktop_lane6_case_manifest.py",
+        "tests/test_desktop_lane6_trajectory_endpoint_parity.py"
+      ],
+      "name": "phase2-step6-lane6-agents",
+      "reason": "Assigned lane6 real canonical owner retained-case suites, immutable source/corpus bound. Whole suite accounting in lane6-case-manifest distinguishes restoration from concrete feature deferrals and pending case proposals. No skip/retry or hidden collection cut."
     }
   ],
   "observed_failures": [

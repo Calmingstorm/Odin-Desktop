@@ -1,4 +1,5 @@
 """Exact whole provider-path corpus plus canonical service identity contracts."""
+
 import pytest_asyncio
 
 from src.agents.manager import AgentManager
@@ -8,23 +9,31 @@ from src.discord.tool_loop import ToolLoopRunner
 from tests.desktop_adapters.lane6_agents_tasks import (
     lane6_agents_tasks_case_map,
     lane6_agents_tasks_graph_context,
-    load,
     lane6_agents_tasks_native_owner,
+    load,
 )
 from tests.desktop_adapters.test_phase2_runner_characterization import (
-    graph as lane6_agents_tasks_graph,
+    graph as graph,
 )
+
+lane6_agents_tasks_graph = graph
 
 
 @pytest_asyncio.fixture(autouse=True)
 async def lane6_agents_tasks_owner_fixture(lane6_agents_tasks_graph):
     graph = lane6_agents_tasks_graph
     deps = graph.engine.deps
-    graph.work = WorkService(graph.store, graph.requests.delivery.events,
-        authority=graph.requests.authority, permissions=graph.requests.permissions,
-        requests=graph.requests, conversations=graph.requests.conversations,
-        agents=deps.agent_manager, tasks=deps.channel_state.background_tasks,
-        loops=deps.loop_manager)
+    graph.work = WorkService(
+        graph.store,
+        graph.requests.delivery.events,
+        authority=graph.requests.authority,
+        permissions=graph.requests.permissions,
+        requests=graph.requests,
+        conversations=graph.requests.conversations,
+        agents=deps.agent_manager,
+        tasks=deps.channel_state.background_tasks,
+        loops=deps.loop_manager,
+    )
     owner = deps.native_owners["agents"]
     owner._background_admission = graph.requests
     owner._work_service = graph.work
@@ -56,8 +65,13 @@ def test_lane6_agents_tasks_bridge_is_canonical_owner(lane6_agents_tasks_owner_f
 
 
 def test_lane6_agents_tasks_whole_suite_case_binding():
-    assert sum(path.startswith("tests/test_agents_tasks_provider_paths.py::")
-               for path in lane6_agents_tasks_case_map) == 9
+    assert (
+        sum(
+            path.startswith("tests/test_agents_tasks_provider_paths.py::")
+            for path in lane6_agents_tasks_case_map
+        )
+        == 9
+    )
 
 
 load(globals())

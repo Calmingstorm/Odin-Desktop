@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import ast
-import copy
 import contextvars
+import copy
 import hashlib
 import json
 import uuid
@@ -31,7 +31,10 @@ CORPUS_EXCLUSIONS = {
 }
 RETIRED_CASES = {
     "test_agent_result_pages.test_byte_complete_dispatch_pages_after_eviction_and_restart": {
-        "reason": "Removed multi-user administrator tier: indivisible case requires admin bypass of requester/conversation binding.",
+        "reason": (
+            "Removed multi-user administrator tier: indivisible case requires admin bypass "
+            "of requester/conversation binding."
+        ),
         "reviewer": "Claude, review of step 8 part 4",
         "source_sha256": "9b8600e3d5a9a60c7085b2a19347c8bbe8a3869f2f8126b01a64255337963406",
     },
@@ -61,8 +64,8 @@ def lane6_agents_lineage_graph(script=None):
     cfg.context.directory = str(root / "context")
     provider = None
     if script is not None:
-        from tests.fakes.llm import FakeLLM
         from src.config.schema import OpenAICompatibleModelProfile
+        from tests.fakes.llm import FakeLLM
 
         provider = FakeLLM(script, model="fixture")
         provider.drain_and_close = provider.close
@@ -182,7 +185,9 @@ def lane6_agents_lineage_dispatcher(tmp_path, manager, saver):
                           if item.cid == destination), graph)
         if destination != admission.cid:
             destination = admission.cid
-            return await native._handle_get_agent_results(inp, user_id=owner, channel_id="foreign-conversation")
+            return await native._handle_get_agent_results(
+                inp, user_id=owner, channel_id="foreign-conversation"
+            )
         message = admission.requests._register_background(
             "workflow", uuid.uuid4().hex, "read result page", destination, graph.owner_id)
         async with admission.requests.background_execution(message):
@@ -205,7 +210,7 @@ def lane6_agents_lineage_tree(stem):
     bridge = "tests.desktop_adapters.lane6_agents_lineage_audit_pages"
     edits = []
 
-    class lane6_agents_lineage_setup(ast.NodeTransformer):
+    class Lane6AgentsLineageSetup(ast.NodeTransformer):
         def visit_Assert(self, node):
             return node
 
@@ -235,7 +240,7 @@ def lane6_agents_lineage_tree(stem):
             elif node.module == "src.agents.manager" and stem == "test_agent_result_pages":
                 replacement = ast.parse(
                     f"from {bridge} import lane6_agents_lineage_manager as AgentManager").body[0]
-            elif node.module == "src.permissions.manager" or node.module == "tests.test_native_agents_tasks":
+            elif node.module in {"src.permissions.manager", "tests.test_native_agents_tasks"}:
                 replacement = ast.Pass()
             else:
                 return node
@@ -249,7 +254,7 @@ def lane6_agents_lineage_tree(stem):
                 return ast.copy_location(replacement, node)
             return node
 
-    tree = lane6_agents_lineage_setup().visit(copy.deepcopy(original))
+    tree = Lane6AgentsLineageSetup().visit(copy.deepcopy(original))
     ast.fix_missing_locations(tree)
     if corpus(tree) != corpus(original):
         raise ValueError("Frozen assertions/signatures/decorators/parameters changed")

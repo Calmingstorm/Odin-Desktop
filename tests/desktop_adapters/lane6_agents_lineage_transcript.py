@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import ast
 import asyncio
-import copy
 import contextvars
+import copy
 import functools
 import hashlib
 from contextlib import asynccontextmanager
@@ -17,7 +17,7 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from scripts.maintenance.fixture_corpus import ROOT, corpus, frozen_source, nodes
+from scripts.maintenance.fixture_corpus import ROOT, corpus, frozen_source
 from src.agents.manager import AgentInfo
 from src.config.schema import Config, OpenAICompatibleModelProfile
 from src.desktop.commands import JournalStore
@@ -28,16 +28,24 @@ from src.desktop.services import build_engine_services
 from src.desktop.transcript import TranscriptStore
 from src.desktop.work import WorkService
 from src.observability.correlation import get_turn
-from tests.desktop_adapters.tools_cases import owner_fixture
+from tests.desktop_adapters.tools_cases import owner_fixture as owner_fixture
 
 lane6_agents_lineage_state = contextvars.ContextVar("lane6_agents_lineage_transcript", default=None)
 lane6_agents_lineage_hashes = {
-    "test_agent_transcript_contract": "2f0980cf7385abab6fdb4d35efaca2198c2bbe1d3e35b0c5a7bc7943067fc7d0",
-    "test_trajectory_completeness": "5de597c2ea6e15ea22cdcb8fa582f24ac19dfb4650505c38d3b00d063f2e203d",
+    "test_agent_transcript_contract": (
+        "2f0980cf7385abab6fdb4d35efaca2198c2bbe1d3e35b0c5a7bc7943067fc7d0"
+    ),
+    "test_trajectory_completeness": (
+        "5de597c2ea6e15ea22cdcb8fa582f24ac19dfb4650505c38d3b00d063f2e203d"
+    ),
 }
 SUITES = {
-    "test_agent_transcript_contract": "2f0980cf7385abab6fdb4d35efaca2198c2bbe1d3e35b0c5a7bc7943067fc7d0",
-    "test_trajectory_completeness": "5de597c2ea6e15ea22cdcb8fa582f24ac19dfb4650505c38d3b00d063f2e203d",
+    "test_agent_transcript_contract": (
+        "2f0980cf7385abab6fdb4d35efaca2198c2bbe1d3e35b0c5a7bc7943067fc7d0"
+    ),
+    "test_trajectory_completeness": (
+        "5de597c2ea6e15ea22cdcb8fa582f24ac19dfb4650505c38d3b00d063f2e203d"
+    ),
 }
 CORPUS_SELECTIONS = {"test_agent_transcript_contract": None, "test_trajectory_completeness": None}
 DEFERRED_CASES = {}
@@ -46,7 +54,7 @@ lane6_agents_lineage_case_map = {}
 lane6_agents_lineage_deferred = []
 
 
-class lane6_agents_lineage_provider:
+class Lane6AgentsLineageProvider:
     model = "test"
     provider_name = "compat"
 
@@ -78,14 +86,15 @@ def lane6_agents_lineage_graph(owner):
     transcript = TranscriptStore(store, events, conversations)
     delivery = DurableDelivery(store, events, transcript_commit=transcript.commit)
     engine = build_engine_services(cfg, owner.paths, owner.manager, delivery=delivery,
-        compatible_client=lane6_agents_lineage_provider())
+        compatible_client=Lane6AgentsLineageProvider())
     requests = RequestService(store, conversations, transcript, engine=engine,
         permissions=owner.manager, authority=owner.authority, delivery=delivery)
     engine.bind_requests(requests)
     work = WorkService(store, events, authority=owner.authority, permissions=owner.manager,
         requests=requests, conversations=conversations, agents=engine.deps.agent_manager,
         tasks=engine.deps.channel_state.background_tasks, loops=engine.deps.loop_manager,
-        processes=engine.deps.tool_executor._ensure_process_registry(), scheduler=engine.deps.scheduler)
+        processes=engine.deps.tool_executor._ensure_process_registry(),
+        scheduler=engine.deps.scheduler)
     native = engine.deps.native_owners["agents"]
     native._background_admission, native._work_service = requests, work
 
@@ -185,13 +194,15 @@ def lane6_agents_lineage_loop_setup(instance, responses, tool_output="hi out", r
     async def lane6_agents_lineage_chat(**kwargs):
         return instance._responses.pop(0)
 
-    instance.llm_client = lane6_agents_lineage_provider()
+    instance.llm_client = Lane6AgentsLineageProvider()
     instance.llm_client.chat_with_tools = lane6_agents_lineage_chat
     state.engine.deps.llm_gateway.compatible_client = instance.llm_client
     instance._turn_recorder._save_turn_trajectory = instance._save_turn_trajectory
     instance._turn_recorder._maybe_loop_reflect = instance._maybe_loop_reflect
 
-    async def lane6_agents_lineage_dispatch(name, inputs, message, user_id, *, audit_owned_by_caller=False):
+    async def lane6_agents_lineage_dispatch(
+        name, inputs, message, user_id, *, audit_owned_by_caller=False
+    ):
         state.requests.assert_bound_request(message)
         if user_id != message.owner_id:
             raise AssertionError("Tool dispatch lost authenticated owner")
@@ -212,7 +223,9 @@ async def lane6_agents_lineage_run_loop(instance, prompt, channel, prev_context,
     message = state.requests.register_background(parent, "loop_iteration", uuid4().hex, prompt)
     instance.lane6_agents_lineage_caller_label = user_id
     async with state.requests.background_execution(message):
-        return await state.engine.runner.run_autonomous(prompt, message, prev_context, message.owner_id)
+        return await state.engine.runner.run_autonomous(
+            prompt, message, prev_context, message.owner_id
+        )
 
 
 def lane6_agents_lineage_loop_manager():
@@ -267,20 +280,26 @@ def lane6_agents_lineage_adapted_tree(stem):
     edits = []
     bridge = __name__
 
-    class lane6_agents_lineage_setup(ast.NodeTransformer):
+    class Lane6AgentsLineageSetup(ast.NodeTransformer):
         def visit_Assert(self, node):
             return node
 
         def visit_ImportFrom(self, node):
             if node.module == "tests.test_native_agents_tasks":
                 node.module = bridge
-                node.names = [ast.alias(name="lane6_agents_lineage_gateway", asname="_fake_gateway"),
+                node.names = [
+                    ast.alias(name="lane6_agents_lineage_gateway", asname="_fake_gateway"),
                     ast.alias(name="lane6_agents_lineage_message", asname="_message"),
                     ast.alias(name="lane6_agents_lineage_tools", asname="_tools")]
                 edits.append((node.lineno, "canonical_native_owner_fixture_import"))
-            elif stem == "test_trajectory_completeness" and node.module == "src.tools.autonomous_loop":
+            elif (
+                stem == "test_trajectory_completeness"
+                and node.module == "src.tools.autonomous_loop"
+            ):
                 node.module = bridge
-                node.names = [ast.alias(name="lane6_agents_lineage_loop_manager", asname="LoopManager")]
+                node.names = [
+                    ast.alias(name="lane6_agents_lineage_loop_manager", asname="LoopManager")
+                ]
                 edits.append((node.lineno, "canonical_admitted_loop_stamp_fixture"))
             return node
 
@@ -291,16 +310,27 @@ def lane6_agents_lineage_adapted_tree(stem):
                 edits.append((node.lineno, "authenticated_manager_owned_agent_fixture"))
             if node.name == "__init__" and stem == "test_trajectory_completeness":
                 if node.lineno == 202:
-                    node.body = [item for item in node.body if isinstance(item, (ast.Import, ast.ImportFrom, ast.ClassDef))] + ast.parse("lane6_agents_lineage_recording_setup(self, enabled, cap)").body
+                    node.body = [
+                        item for item in node.body
+                        if isinstance(item, (ast.Import, ast.ImportFrom, ast.ClassDef))
+                    ] + ast.parse("lane6_agents_lineage_recording_setup(self, enabled, cap)").body
                     edits.append((node.lineno, "canonical_turn_recorder_setup"))
                 elif node.lineno == 303:
-                    node.body = [item for item in node.body if isinstance(item, (ast.Import, ast.ImportFrom, ast.ClassDef))] + ast.parse("lane6_agents_lineage_loop_setup(self, responses, tool_output, result_cap)").body
+                    node.body = [
+                        item for item in node.body
+                        if isinstance(item, (ast.Import, ast.ImportFrom, ast.ClassDef))
+                    ] + ast.parse(
+                        "lane6_agents_lineage_loop_setup(self, responses, tool_output, result_cap)"
+                    ).body
                     edits.append((node.lineno, "canonical_autonomous_runner_setup"))
             return self.generic_visit(node)
 
         def visit_AsyncFunctionDef(self, node):
             if stem == "test_trajectory_completeness" and node.name == "_run_loop_iteration":
-                node.body = ast.parse("return await lane6_agents_lineage_run_loop(self, prompt, channel, prev_context, user_id)").body
+                node.body = ast.parse(
+                    "return await lane6_agents_lineage_run_loop("
+                    "self, prompt, channel, prev_context, user_id)"
+                ).body
                 edits.append((node.lineno, "sealed_request_autonomous_intake"))
             return self.generic_visit(node)
 
@@ -310,10 +340,12 @@ def lane6_agents_lineage_adapted_tree(stem):
                 return None
             return self.generic_visit(node)
 
-    adapted = lane6_agents_lineage_setup().visit(copy.deepcopy(expected))
+    adapted = Lane6AgentsLineageSetup().visit(copy.deepcopy(expected))
     ast.fix_missing_locations(adapted)
     if corpus(adapted) != corpus(expected):
-        raise AssertionError("Retained whole-suite assertion/signature/decorator/parameter corpus changed")
+        raise AssertionError(
+            "Retained whole-suite assertion/signature/decorator/parameter corpus changed"
+        )
     lane6_agents_lineage_evidence[path] = {
         "source_sha256": hashlib.sha256(source).hexdigest(),
         "corpus_sha256": hashlib.sha256(repr(corpus(original)).encode()).hexdigest(),
@@ -359,7 +391,9 @@ def lane6_agents_lineage_load(namespace):
                     if method.startswith("test_"):
                         function = getattr(value, method)
                         setattr(value, method, lane6_agents_lineage_bound_case(function))
-                        lane6_agents_lineage_case_map[f"tests/{stem}.py::{name}::{method}"] = f"{exported}::{method}"
+                        lane6_agents_lineage_case_map[f"tests/{stem}.py::{name}::{method}"] = (
+                            f"{exported}::{method}"
+                        )
                 namespace[exported] = value
 
 

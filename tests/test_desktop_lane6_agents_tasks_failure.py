@@ -1,4 +1,5 @@
 """Exact retained failure cases with actual published MCP fixture ownership."""
+
 import asyncio
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -21,22 +22,38 @@ async def lane6_agents_tasks_failure_graph(tmp_path):
     mcp._global_enabled = True
     mcp._servers["srv"] = _ServerRuntime(config={"enabled": True}, generation=1)
     connection = SimpleNamespace(connected=True)
-    discovery = DiscoveryResult(tools=[ToolRecord("write", "hermetic metadata seam",
-        {"type": "object", "properties": {"password": {"type": "string"}}})])
+    discovery = DiscoveryResult(
+        tools=[
+            ToolRecord(
+                "write",
+                "hermetic metadata seam",
+                {"type": "object", "properties": {"password": {"type": "string"}}},
+            )
+        ]
+    )
     assert await mcp._publish("srv", 1, connection, discovery)
     assert mcp.has_tool("mcp_srv_write")
     with owner_fixture(tmp_path / "owner") as owner:
+
         def compose(*args, **kwargs):
-            return build_engine_services(*args, **kwargs,
-                runtime_context=SimpleNamespace(mcp_manager=mcp))
+            return build_engine_services(
+                *args, **kwargs, runtime_context=SimpleNamespace(mcp_manager=mcp)
+            )
+
         with patch(
             "tests.desktop_adapters.lane6_agents_lineage_owner.build_engine_services", compose
         ):
             graph = lane6_agents_lineage_graph(owner)
         graph.cid = graph.message.conversation_id
         graph.lane6_agents_tasks_messages = {}
-        controls = ControlService(graph.store, graph.work.events, graph.requests,
-            graph.engine.deps.channel_state, authority=owner.authority, permissions=owner.manager)
+        controls = ControlService(
+            graph.store,
+            graph.work.events,
+            graph.requests,
+            graph.engine.deps.channel_state,
+            authority=owner.authority,
+            permissions=owner.manager,
+        )
         controls.work = graph.work
         graph.work.controls = controls
         token = lane6_agents_tasks_graph_context.set(graph)
@@ -45,8 +62,10 @@ async def lane6_agents_tasks_failure_graph(tmp_path):
             yield graph
         finally:
             tasks = [
-                t._asyncio_task for t in graph.engine.deps.channel_state.background_tasks.values()
-                     if t._asyncio_task is not None and not t._asyncio_task.done()]
+                t._asyncio_task
+                for t in graph.engine.deps.channel_state.background_tasks.values()
+                if t._asyncio_task is not None and not t._asyncio_task.done()
+            ]
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
