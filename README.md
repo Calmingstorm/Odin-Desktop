@@ -50,8 +50,9 @@ claim checks and historical gate results live in
 [P4.4 validation](maintenance/p44-user-docs-validation.md).
 Drafted guidance for still-open integrations is kept separately in
 [pending user docs](docs/release/pending-user-docs.md), not presented as usable
-features in `docs/user/`. Ownership/upgrades/removal from #36 and attachment intent
-from #46 are now included from merged main.
+features in `docs/user/`. Ownership/upgrades/removal from #36, attachment intent
+from #46, and #28 service management are now included from merged main. Computer
+management still does not grant foreground input authority.
 
 The upstream review remains **baseline only** at Odin v4.13.0; later changes are
 not implied. Full internal identities are in the validation and

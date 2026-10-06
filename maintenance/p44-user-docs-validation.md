@@ -161,7 +161,7 @@ maintainer documentation. The only user-facing upstream watermark is the short
 paragraph in `install.md`: based on Odin v4.13.0; later changes require release-note
 disclosure. That is not current-upstream parity or identical-engine approval.
 
-### Integrated source and scope
+### Initial integrated source and scope
 
 - Re-read and merged `origin/main` at
   `ed0069674533c23e70a0302652a2fb76901ff385` with two-parent merge
@@ -190,8 +190,9 @@ disclosure. That is not current-upstream parity or identical-engine approval.
 
 ### Claim-to-source map for the user guides
 
-Every link below is pinned to the integrated main source
-`ed0069674533c23e70a0302652a2fb76901ff385`. This map records source inspection,
+Every link below is pinned to the initial integrated main source
+`ed0069674533c23e70a0302652a2fb76901ff385`. The subsequent #28 merge/promotion
+overrides the absent-service rows as detailed below. This map records source inspection,
 not native procedure execution. Existing historical gate results above retain
 their original source identities and limits.
 
@@ -221,7 +222,7 @@ The SHA-256 procedure uses the ordinary checksum tool as user guidance. It
 establishes byte equality, not signatures or provenance. No credential/private
 history screenshots or new acceptance claims were introduced.
 
-### Pending-section tracking, now maintainer-only
+### Initial pending-section tracking, now maintainer-only
 
 Original task prose and pinned branch references are preserved in
 [`docs/release/pending-user-docs.md`](../docs/release/pending-user-docs.md).
@@ -268,10 +269,58 @@ Observed round-1 checks:
 - Root filesystem admission measured 123 GB available initially and 120 GB during
   this small documentation run; no heavy qualification checkout was created.
 - After pushing and verifying the remote head, remove this lane's inactive
-  historical fresh clone and reference worktrees. Keep committed evidence,
-  external evidence directories and small logs; do not touch other lanes.
+  reference worktrees. Keep committed evidence, external evidence directories
+  and small logs; do not touch other lanes. Activity inspection found another
+  lane's live pytest mapping dependency files from both the historical fresh
+  clone and development checkout. Those in-use copies must be retained until
+  their consumer exits, not removed under the cleanup rule.
 
 The small artifact manifest is
 [`p44-user-docs-round1-artifacts.json`](p44-user-docs-round1-artifacts.json).
 Raw link results and the bounded checker stay under
 `/mnt/storage/odin-desktop-evidence/p44-r1-req-c55cf225/`, outside Git.
+
+### Main advanced during round 1: #28 promotion
+
+Before pushing, main advanced to
+`cd52a8e2b055a9c4abc051a49566b9daf3e1bd79` with #28. Incorporated it with the
+two-parent merge `f14dcebcc24e097b75f842c6f1a778e2d6f84446`. Main's executable
+changes remain inherited work, not authored documentation fixes. Did not run a
+new full qualification or disturb its separately rerunning CI.
+
+Rechecked actual integrated code, not just the archive's original #28 pins:
+
+- [management composition](https://github.com/Calmingstorm/Odin-Desktop/blob/cd52a8e2b055a9c4abc051a49566b9daf3e1bd79/src/desktop/management.py),
+  [Skills service](https://github.com/Calmingstorm/Odin-Desktop/blob/cd52a8e2b055a9c4abc051a49566b9daf3e1bd79/src/desktop/skills.py),
+  [MCP service](https://github.com/Calmingstorm/Odin-Desktop/blob/cd52a8e2b055a9c4abc051a49566b9daf3e1bd79/src/desktop/mcp.py),
+  [Skills controls](https://github.com/Calmingstorm/Odin-Desktop/blob/cd52a8e2b055a9c4abc051a49566b9daf3e1bd79/app/src/renderer/src/views/settings/Skills.vue)
+  and [MCP controls](https://github.com/Calmingstorm/Odin-Desktop/blob/cd52a8e2b055a9c4abc051a49566b9daf3e1bd79/app/src/renderer/src/views/settings/Mcp.vue).
+  These are no longer documented as unavailable by default. User task guidance
+  now distinguishes validation, loading code and effectful Test, and external
+  connection/configuration/inventory reads.
+- [browser runtime](https://github.com/Calmingstorm/Odin-Desktop/blob/cd52a8e2b055a9c4abc051a49566b9daf3e1bd79/src/desktop/browser_runtime.py)
+  is composed. Browser restart/boot-snapshot and missing-resource repair limits
+  replace the obsolete blanket absent-service statement.
+- [computer binding](https://github.com/Calmingstorm/Odin-Desktop/blob/cd52a8e2b055a9c4abc051a49566b9daf3e1bd79/src/desktop/computer_binding.py)
+  supports retained management/status but explicitly reports foreground/input
+  unavailable, `dispatch:none`, and no native qualification. No current user
+  guide grants new input authority. [Records controls](https://github.com/Calmingstorm/Odin-Desktop/blob/cd52a8e2b055a9c4abc051a49566b9daf3e1bd79/app/src/renderer/src/views/settings/Records.vue)
+  and [recovery receipts](https://github.com/Calmingstorm/Odin-Desktop/blob/cd52a8e2b055a9c4abc051a49566b9daf3e1bd79/app/src/renderer/src/stores/records.ts)
+  determine what the actual UI can say; RPC success alone remains insufficient.
+- [workspace diagnosis](https://github.com/Calmingstorm/Odin-Desktop/blob/cd52a8e2b055a9c4abc051a49566b9daf3e1bd79/src/desktop/workspace_diagnostics.py)
+  is a real read-only service, not an invented graphical repair/export wizard.
+- #37, #39, #40 and #42 remained open at this final source snapshot. Their drafted
+  procedures remain maintainer-only. Work/schedules/report paging and default
+  shared knowledge wiring are not inferred from #28's composition.
+
+Original #28 draft text stays explicitly historical in the maintainer archive;
+its integrated guidance is promoted and it is no longer listed as an open
+pending dependency. Final documentation source watermark is the `cd52a8e` main
+above. Other initial claim-map links remain valid for their unchanged paths.
+
+Two current source boundaries found while promoting, and kept plain in the guides:
+`SkillsService.handle` refuses `skills.test` even though the UI offers Test, and
+`ComputerBindingService._params` does not accept the acknowledgment attached by
+the Records screen's Release request. These are documented limits, not silently
+fixed product code or claimed successful tests/recovery. Validate/save and retained
+status remain separate from those refused operations.

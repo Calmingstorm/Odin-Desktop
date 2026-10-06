@@ -49,9 +49,41 @@ In chat, `/status` reads runtime/configuration state. `/reload` reloads context,
 not the core or cleanup state. A ready core, saved setting or usable keyring
 does not itself prove provider or endpoint health.
 
-Use [First run](first-run.md#recover-the-keyring) for keyring recovery. An
-unavailable Work, Schedules, Skills, MCP or computer panel means the service is
-absent, not that there are no records or a clean bill of health.
+Use [First run](first-run.md#recover-the-keyring) for keyring recovery. Skills and
+MCP management and retained computer status are supported; see
+[Settings](settings.md#skills-and-mcp-servers) for their controls. **Unavailable**
+still means a service cannot currently be used, not that there are no records or
+a clean bill of health. Work, Schedules and report management remain unavailable
+in the current core.
+
+## A skill or server will not work
+
+- In **Settings → Skills**, read the load state and diagnostics first. **Validate**
+  checks code without execution; **Create/Save** loads it and can execute
+  module-level code. Saving successfully is not proof the skill's external
+  operation works. The current core refuses the visible **Test** request because
+  management test execution is unavailable. Do not retry it to settle an unknown
+  earlier effect.
+- In **Settings → MCP servers**, read the server state, error and offered-tool
+  counts. Check **MCP on** and the server's on/off state. For a known connection
+  failure, correct the configuration and use **Reconnect**; use **Refresh tools**
+  when the inventory needs updating. Neither verifies a previous call's outcome.
+  Stored header/environment values are never shown again; blank fields are not
+  evidence of missing credentials. If the error requires an unlocked keyring,
+  recover that first, then reconnect.
+- For browser failures, check the saved versus running browser settings. Changes
+  require a clean app/core restart; they do not alter the current start's captured
+  configuration. A CDP connection error calls for checking the configured endpoint;
+  a missing or unusable bundled Chromium calls for installation repair. There is
+  no generic browser-repair button in Records. Do not change PATH, copy personal
+  browser profiles or weaken network guards as a repair. A fresh browser session
+  does not authorize replaying an uncertain click, submission or navigation.
+
+There is no dedicated workspace-diagnostics screen in the current UI. Do not
+assume a Health refresh shows workspace size or Git freshness. Workspace status
+collected by the core is bounded and local: partial counts are incomplete and
+local Git references do not establish remote freshness. Collection does not
+fetch, prune, repair the workspace or clear safety blocks.
 
 ## Window or core loss
 
@@ -74,9 +106,28 @@ repeatedly start copies. Forced termination is not a clean shutdown receipt.
 
 ## Computer-input safety
 
-The current default core does not provide usable computer-input management.
-Visible controls or enabled fields do not authorize input or establish backend
-support. Do not press a release/recovery control simply to hide a warning.
+### Read the retained session
+
+1. Open **Settings → Records → Computer use → Refresh**. This reads status, not
+   mouse/keyboard input. If a session is shown, preserve its exact ID, generation,
+   state and recovery reason. A failed refresh may leave **Showing the last read**;
+   that is not fresh evidence.
+2. The current core has retained-session management but no foreground input
+   authority. An enabled value or a status read does not establish native backend
+   support, consent or permission to start/resume input. No session shown is not
+   proof that a previous application released input.
+3. A quarantined row may show **Release…**. Its confirmation asks you to check the
+   computer first and says cleanup remains unverified. **Cancel** leaves the
+   session unchanged. The current screen's Release request is not supported by
+   the backing management method. Do not use it to dismiss quarantine or establish
+   cleanup; preserve the record and obtain operator help. If a recovery result is
+   already recorded, read it: a refused, unknown, incomplete or still-quarantined
+   result is not permission to continue.
+
+This screen is not a complete native recovery wizard. It does not provide a
+fresh-target/renewed-consent input workflow or permission to replay partial work.
+An acknowledgment made by an operator is not proof that the receiving application
+released input, even if a retained session is closed.
 
 If a resource is quarantined or its input release is unknown, stop. Do not inject
 another key press or mouse release to test it; that can interfere with a person's
@@ -84,6 +135,25 @@ held input. A disappeared helper or receipt alone is not proof that the receivin
 application released input. Preserve the exact session/resource identity and
 obtain operator help. Do not restart a desktop session or indiscriminately kill
 helpers as a diagnosis step.
+
+### Native backend limits
+
+- **Shared X11:** cleanup depends on a surviving guardian and acknowledged release
+  of its owned input. Abrupt loss of the sole guardian can lose that record. There
+  is no universal server-side release guarantee; a vanished helper is not proof
+  that the mouse or keyboard released.
+- **Hyprland:** a confirmed release may mean only that the guardian's input record
+  was drained and local resources closed, without compositor acknowledgment. That
+  is not compositor or receiving-application proof. Native scoped targets and
+  safe same-process dialogs need fresh observations; XWayland and ambiguous
+  surfaces are not made safe by a recovery action.
+- **Unknown release:** a release-all request, later success, switching backends or
+  restarting the app cannot erase uncertainty. Exact-resource cleanup may require
+  a qualified operator's external verification and explicit reconciliation. Any
+  release-only recovery does not resume input. Never automatically replay an action.
+
+Status and recovery do not authorize terminals, credential/security prompts or
+Odin's own controls.
 
 ## Compatibility and rollback
 

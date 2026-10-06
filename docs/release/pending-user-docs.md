@@ -1,4 +1,4 @@
-# Pending user-documentation drafts
+# Pending and promoted user-documentation draft archive
 
 **Maintainer-only historical archive. Not the current user guide, current branch
 heads, a merged feature list, or release qualification.** These task instructions
@@ -17,7 +17,7 @@ test. No fixture may stand in for an unavailable real service.
 
 | Pending change | Historical reviewed source, not current head |
 | --- | --- |
-| #28: skills, MCP, browser, computer management and workspace diagnosis | `2d91071a692a646b6d8c466daa5711a37cd8c93f` |
+| #28: historical draft, now merged; service-management guidance promoted after main verification | `2d91071a692a646b6d8c466daa5711a37cd8c93f` |
 | #37: background owners, schedules, reports and foreground binding | `4ede9e75fb079a0a305c7b24f89700d7fb7c4416` |
 | #39: manual release notice | `1c48529b0af3ad18d9c413882166cb6ee40702d1` |
 | #40: account/provider administration, shared knowledge and extended records | `6321eec26e1c87dd5b9682e902723818a5fdda03` |
@@ -26,6 +26,13 @@ test. No fixture may stand in for an unavailable real service.
 #36 is merged and is deliberately **not** a pending draft here. Its package,
 compatibility and replacement instructions belong in the current user guides.
 The archive does not supersede their verification or the release checklist.
+
+#28 also merged during this revision at main
+`cd52a8e2b055a9c4abc051a49566b9daf3e1bd79`. Its management/browser guidance was
+rechecked and promoted into current Settings/Recovery guides. The historical
+text below is retained as provenance only. Computer foreground input and the
+joint #28/#37 native procedures remain incomplete; their historical drafts do
+not authorize input or claim native qualification.
 
 ## Skills, MCP, browser and workspace diagnosis (#28)
 

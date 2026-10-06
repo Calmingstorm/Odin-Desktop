@@ -4,7 +4,8 @@ The desktop app: tray lifecycle (D3), the chat window, and the main-process brok
 the protocol in [`../docs/design/protocol.md`](../docs/design/protocol.md). Current `main` composes real conversations,
 search, requests, attachments, result delivery and Stop/Steer/Resume, plus provider/model configuration,
 device-code accounts, tools/timeouts, personality, hosts/trust, memory/lists/knowledge and records.
-Step-six skills/MCP/background work/computer services and stored reports remain separate review handoffs;
+Main also composes Skills/MCP management, browser runtime and retained computer management.
+Computer foreground input, background work/schedules and stored-report paging remain separate review handoffs;
 uncomposed services stay explicitly unavailable. Real-core sessions never substitute fixture rows or invented successful reads.
 The P3.1 slice-1 launch, authentication, status and durable event replay contracts remain, with P3.3 source-build
 lifecycle qualification for bounded shutdown, quiescing, unknown-cleanup journaling and core loss.
@@ -14,9 +15,10 @@ lifecycle qualification for bounded shutdown, quiescing, unknown-cleanup journal
 The [first-draft user guide](../README.md#user-guide-first-draft) covers installation, first run, chat/results,
 settings, current work boundaries, recovery, updates and accessibility using merged `main` behavior only.
 Source/review watermarks and claim references are in
-[P4.4 validation](../maintenance/p44-user-docs-validation.md); preserved drafts for open #28, #37,
-#39, #40 and #42 are in [pending user docs](../docs/release/pending-user-docs.md).
-Merged #36 ownership/upgrades/removal are included in the guides.
+[P4.4 validation](../maintenance/p44-user-docs-validation.md); preserved drafts for open #37,
+#39, #40 and #42 are in [pending user docs](../docs/release/pending-user-docs.md), alongside
+historical #28 material now promoted where integrated. Merged #36 ownership/upgrades/removal
+and #28 service management are included in the guides.
 The [Linux release checklist](../docs/release/linux-v1-checklist.md) still requires P4.5,
 P4.6 and Aaron's explicit approvals. This documentation PR is not package or live acceptance.
 
@@ -78,8 +80,9 @@ do not qualify native Secret Service unlock behavior or successful model generat
 chat/search/work and every settings section's own service loads, and checks on-demand context reload. A fresh core
 shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge and audit/log
 records; availability and durability must be read from that checkout's actual diagnostics. Health reports absent runtime owners honestly; missing
-keyring access is a distinct failure with Retry, not an empty account success. Skills, MCP, scheduling and computer
-use remain unavailable. The gate validates the reviewed management/readiness projections and rejects fixture rows,
+keyring access is a distinct failure with Retry, not an empty account success. Skill and MCP management now
+read their real service state; scheduling remains unavailable and computer management does not grant input.
+The gate validates the reviewed management/readiness projections and rejects fixture rows,
 raw capability errors, successful-empty claims for refused reads or duplicate composer usage notices. It exits
 through normal `runtime.shutdown` and parent-EOF cleanup. Evidence includes both direct core reads and named-bridge
 observations; evidence paths and a compact result are printed as JSON. Set

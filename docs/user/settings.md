@@ -118,15 +118,86 @@ Switching a hidden tool on does not install its dependency. Edit **Default, in
 seconds**, optionally **Add a tool's own timeout**, then **Save timeouts**.
 Timeouts are positive whole seconds and affect new calls, not calls already running.
 
-Browser/computer/email fields can be visible without a working service. Browser
-and computer-use runtime services are not connected in the current default core;
-saving their fields does not enable usable input or browsing.
+Browser/computer/email fields can be visible without a working service. Read the
+saved and running values and the returned status, not just an enabled switch.
+
+### Set up browser tools
+
+Under **Tools → Browser**, check the browser settings. Odin uses the configured
+CDP endpoint when one is supplied; otherwise it uses bundled Chromium, not your
+usual browser profile. Only configure an endpoint you are authorized to use.
+
+Browser settings are saved for the next app/core start. They do not change the
+configuration captured when the current core started. Follow the restart steps
+above, then check the running values and the next browser tool result. Saving or
+seeing a browser tool offered is not proof that its connection works: Odin checks
+the browser and its network guards before use. If bundled Chromium is missing,
+repair the installation; do not copy a personal browser profile or disable guards.
+
+### Check computer use without granting input
+
+Open **Settings → Records → Computer use → Refresh** to read retained status.
+The current core provides computer management, but not foreground mouse/keyboard
+input authority. Turning computer use on does not start a native desktop session,
+grant consent or make an unsupported backend usable. Native configuration changes
+may be refused. This screen is not a start/resume-input workflow. For a recovery
+warning, follow [Computer-input safety](recovery.md#computer-input-safety).
 
 ## Skills and MCP servers
 
-These management panels are not available in the current real core. Do not read
-an unavailable panel as an empty library or a connected external tool server.
-They are not required for first-run provider setup.
+These panels manage real skills and server connections. Neither is required for
+first-run provider setup. If a panel reports **Unavailable**, read that as a
+service problem, not an empty library or a connected server.
+
+### Add or change a skill
+
+Skills are Python code loaded into Odin. Use only code you trust; validation is
+not a safety review or a successful execution test.
+
+1. Open **Settings → Skills**. Read each skill's **Loaded**, **Off** or **Failed to
+   load** state and diagnostics. Choose **Open** for a loaded/off skill, or **New
+   skill** to enter a name and code.
+2. Choose **Validate** and correct errors. Validation compiles and inspects code
+   without executing it. **Create** or **Save** validates again, then loads the
+   code; loading can execute module-level code. Read the returned result and state.
+3. If the skill supplies **Its settings**, edit them and choose **Save its settings**.
+   This is separate from saving its code.
+4. Use **Turn off** or **Turn on** to change whether it is offered. **Delete…**
+   requires confirmation and removes its code; it does not undo earlier effects.
+
+The visible **Test** button requests a real execution with empty input, not another
+validation. In the current core, this management test is unavailable. Do not treat
+that refusal as a failed skill run or proof the code is harmless. Do not use Test
+to investigate an uncertain earlier effect, and do not assume unsaved edits were
+loaded or tested.
+
+### Connect an MCP server
+
+MCP servers supply external tools. Starting a local server can run code; connecting
+to a URL can make network requests. Use servers and credentials you trust.
+
+1. Open **Settings → MCP servers → Add server**. Enter **Name** and **Transport**.
+   For **stdio: a program on this computer**, supply **Executable**, arguments
+   (one per line) and the working directory as needed. For **http: a server at a
+   URL**, supply **URL**. Set a positive whole-number **Timeout, in seconds**.
+2. Use **Only these tools, one per line** to restrict offered tools; blank on a new
+   server means all. Add required headers or environment variables through
+   **Headers and environment**, then choose **Add**. Read the receipt, server
+   state, errors and connected/tool counts. Saving is not connection success.
+3. Check **MCP on** and the server's **Turn on/Turn off** state. For an enabled
+   server, **Reconnect** requests a new connection and **Refresh tools** refreshes
+   its inventory. **Tools** shows offered names and exclusion reasons.
+4. Use **Edit → Save** for changes. Blank fields keep existing values; use the
+   explicit clear/remove choices to remove arguments, headers or variables, or
+   **Offer all its tools again** to clear a tool restriction. Stored header and
+   environment values are never read back. A blank password field does not mean
+   the credential was lost.
+
+**Maximum tools per server**, **Maximum tools in all** and **Save limits** limit
+publication, not permission to perform an effect. **Remove…** stops and removes
+that server and its offered tools, with confirmation. Turning off, removing,
+reconnecting or refreshing does not undo or settle earlier tool calls. For an
+unknown result, preserve the original record and use [Recovery](recovery.md).
 
 ## Hosts and trust
 
@@ -166,8 +237,9 @@ before retrying an unknown host change.
 
 ## Scheduled and running work
 
-The named work-list and schedule-management services are not available in the
-current real core. The visible panels are not proof a timer runs or no work exists.
+The named work-list, schedule-management and report-management services are not
+available in the current real core. The visible panels are not proof a timer runs
+or no work exists.
 Use a conversation's task state and Stop/Steer controls for its running request.
 See [Background work](background-work.md).
 
@@ -209,8 +281,9 @@ usage distinguishes measured, estimated and unknown data. Unavailable/unsigned
 audit verification is not a complete verified record.
 
 Preserved work records concern checkpoints, not proof an effect was rolled back.
-Computer-session status/recovery may be unavailable because its service is absent.
-Do not use a recovery action merely to remove a warning. Follow [Recovery](recovery.md).
+Computer management may report a storage or startup problem; it does not grant
+foreground input. Do not use a recovery action merely to remove a warning.
+Follow [Recovery](recovery.md).
 
 ## Other
 

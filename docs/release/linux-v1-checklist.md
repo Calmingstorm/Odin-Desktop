@@ -1,7 +1,7 @@
 # Linux v1 release checklist
 
 **P4.4 first draft only. No release authorization.** Documentation watermark:
-Desktop main `ed0069674533c23e70a0302652a2fb76901ff385`, 2026-10-06.
+Desktop main `cd52a8e2b055a9c4abc051a49566b9daf3e1bd79`, 2026-10-06.
 This checklist does not assert that P4.5 or P4.6 has passed, authorize a tag,
 install/run on the active desktop, or approve publication. Leave items open until
 the reviewer records evidence and the required owner approvals. Earlier candidate
