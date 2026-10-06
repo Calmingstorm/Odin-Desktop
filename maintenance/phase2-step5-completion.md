@@ -8,7 +8,9 @@ paragraph says 20. All 21 are retained byte-for-byte and restored as whole,
 hash/corpus-bound adapters. Nothing in another lane is implicitly accepted.
 
 The branch started at `main@5dd8cfc5`; main was merged, not rebased, as reviewed
-requests (#22), controls (#23), and packaging (#24) landed. No live installation,
+requests (#22), controls (#23), packaging (#24), onboarding (#30), and lifecycle
+(#32, `main@0b7d596f`) landed. Shared ledger metadata uses the requested key-based
+merge helper and retains both lanes' contracts and named witnesses. No live installation,
 service, active desktop, credential or real account was modified. No deployment
 or merge approval is claimed.
 
@@ -103,6 +105,38 @@ selection **66 passed**; accounting **84 passed**. The app implementation check
 passed **691 tests**, typechecks and production builds. Earlier targeted failures
 are retained under `/home/odin/desktop-step5-evidence/` rather than relabelled.
 
-The final fresh-checkout full qualification, exact execution head and app gates
-will be recorded in `phase2-step5-completion-result.json`. Enrollment and pending
-exact-byte lineage records are not independent approval.
+Final execution head: `60ed7fdf8a4ce5f5389806eade506ee4f444bc48`.
+The new checkout under `/home/odin/desktop-step5-qualification/final-384af75b`
+was created at `384af75b`, fast-forwarded by the single capability-count assertion
+fix before any gates, and remained clean throughout qualification. Both parent
+and checkout are group-writable (2775); locked Python/dev and npm dependencies
+were installed locally. No live profile/display/session was supplied.
+
+- Full qualification: **30/30 groups passed**, **15,267 passing executions**,
+  zero failures/errors and **2 pre-existing conditional skips**. The native
+  Hyprland wire-binary case lacks its opt-in binary; the missing-Playwright
+  case skips because Playwright is installed. This is a sum across groups,
+  not a claim of 15,267 distinct original tests. Existing seven deselections
+  remain in the inherited plan. The completion group passed **1,169/1,169**
+  with no skips. All 21 requested original filenames are restored whole-suite
+  adapters, with pinned original bytes/assertions/parameter data unchanged.
+- App check: **782 passed**, both typechecks and production build passed.
+- Actual Broker/core: **24 passed**; onboarding: **6 passed**.
+- Fixture smoke and real-core smoke: passed; real smoke **39 checkpoints**.
+- Accessibility: **15/15 passed**, Chromium AX/renderer scope only.
+- Merged lifecycle/notification integration: **19/19 passed**, no retries/skips.
+- Byte drift clean, map valid, no new lint and `pip check` passed. Exact-byte
+  records remain pending independent review, never automatic approval.
+
+Warnings from frozen mocks and historical fixture APIs remain visible. Earlier
+failures are preserved, including the pre-lifecycle full run's two listener-start
+failures and a separate concurrent Broker run's socket-start timeout. Neither is
+retroactively called a clean pass. Final same-head gates passed without changing
+timeouts, excluding failures, adding retries or weakening ownership guards.
+`npm ci` reported the existing locked graph's 11 advisories (10 high, 1 critical);
+no unrelated dependency upgrade was made.
+
+Exact result, log digests, conditional skips and build-artifact identity are in
+`phase2-step5-completion-result.json`. The final commit records evidence only;
+the executable implementation is the tested head above. PR #40 is for review,
+not merge/deployment authority.
