@@ -15,9 +15,10 @@ Use a disposable build environment if those pinned inputs are unavailable.
 
 From `app/`, run `npm ci --ignore-scripts`, provision the pinned Electron binary
 with `node node_modules/electron/install.js`, then `npm run check` and
-`npm run package:candidate`. Candidate construction never publishes. No packaging
-workflow is added; the pre-existing engine workflow is now manual-dispatch only
-so opening this private-repository PR does not spend hosted-runner minutes.
+`npm run package:candidate`. Candidate construction never publishes. Engine CI
+runs on pull requests and main pushes using separate self-hosted short-gate and
+full-suite runner labels. P4.3 adds a self-hosted release workflow whose default
+dispatch is a nonpublishing dry-run; publication remains separately guarded.
 
 Build-time downloads are hash checked: standalone CPython 3.12.15, build-only uv,
 the wheel-only production closure from `uv.lock`, Chromium Headless Shell,
@@ -152,8 +153,10 @@ candidates**. Its download provenance remains pinned for user-initiated PDF use;
 this packaging change does not assert that downloading resolves every licensing
 question. Other distributed third-party notice closure remains a release gate.
 
-No tag, GitHub Release, asset upload, update service or publishing workflow is
-created. Candidates stay local. P4.2 ownership/upgrades and alongside evidence
+These local packaging commands create no tag, GitHub Release, asset upload or
+update service. Candidates stay local. The separately guarded P4.3 workflow is
+documented in [`maintenance/phase4-releases.md`](../../maintenance/phase4-releases.md).
+P4.2 ownership/upgrades and alongside evidence
 are recorded in [`maintenance/phase4-packaging.md`](../../maintenance/phase4-packaging.md).
 The `.deb` now uses explicit self-contained preinst/postinst/prerm/postrm hooks
 with `python3-minimal` predependency. They fence replacement without starting

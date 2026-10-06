@@ -1,5 +1,63 @@
 # P4.1 early candidate packaging evidence, 2026-10-05
 
+## PR #54 review round 1: fixed-probe installed `.deb` measurement
+
+**Latest disposition: GUI row FAIL; overall gate remains OPEN. Renderer sandbox
+is now directly witnessed in this new measurement.** At reviewer's request,
+the unchanged installed #54 `.deb` was launched exactly once on 2026-10-06,
+10:48:11–10:48:58 UTC, with the merged probe that saves `observations.json`
+before checking GUI success. #54 had already merged, so this is a small
+evidence-only follow-up from `main@541d29e7ad53ec4cd231a371774aa8fbb8f5500c`.
+No rebuild, sandbox switch, application patch, browser/AppImage rerun or native
+lifecycle run was performed.
+
+- Candidate SHA-256 remains
+  `41b8a927bd06d45ed0c1403d153ca038b33b31c11ea65f614a527bacc9609551`.
+  `dpkg -V odin-desktop` returned no discrepancies. The unchanged fixed probe
+  SHA-256 is `74d68b9d9c8c342bcab4f87a60561d559abe7c336641c7542455b200449eec30`.
+- Owned `odq-gnome`: Ubuntu 24.04, kernel `6.8.0-146-generic`, active GNOME
+  Wayland, candidate executed as `odq` UID 1001. AppArmor was active and
+  `apparmor_restrict_unprivileged_userns=1`. The second restriction,
+  `apparmor_restrict_unprivileged_unconfined`, had reset to 0 after reboot and
+  was restored to 1 **before** measurement. Unprofiled `unshare -Ur true` was
+  denied. This retains the earlier restored-policy, not untouched-stock-image,
+  limitation. No host policy or active desktop was changed.
+- **Sandbox witness:** 285 saved samples of renderer PID **1378**, all with
+  `Seccomp: 2`, `NoNewPrivs: 1`, `--enable-sandbox`, no `--no-sandbox` or
+  `--disable-setuid-sandbox`, and `odin-desktop (unconfined)` attachment.
+  Concurrent read-only guest-root collection confirms renderer user namespace
+  `user:[4026532708]`, PID namespace `pid:[4026532709]`, and network namespace
+  `net:[4026532712]`, all different from guest PID 1; `NSpid: 1378 4 1`.
+  The mount namespace is shared. The AppArmor exception is unconfined plus
+  userns, not a claim of full application confinement.
+- **Exact failed checkpoint:** exit **1**, `smoke: timed out`, then
+  `UnknownVizError`; no `electron.png` or `smoke: ok link=ready` survived.
+  Electron **44.5.1** maps this error to `CopyFromSurfaceError::kUnknownVizError`
+  in `OnCapturePageDone`. The unchanged candidate's smoke source calls
+  `webContents.capturePage()` after broker readiness. This identifies a Viz
+  surface-copy/capture failure, not an observed renderer sandbox startup denial.
+  The error is logged **after** the timeout; it may be a teardown consequence
+  of `app.exit(1)`, not the original reason capture did not complete. This run
+  has no event trace that resolves that ordering ambiguity.
+- **Graphics evidence, not a proven root cause:** the guest has virtio GPU
+  `-virgl`, zero capability sets, GNOME EGL `failed to create dri2 screen`,
+  fallback to `kms_swrast`, and no accelerated framebuffer sharing. These
+  support a VM/Electron Wayland graphics-path explanation. This one run does
+  **not** distinguish a guest graphics defect from an Electron/Viz capture
+  compatibility defect. No candidate AppArmor/SECCOMP denial appears in the
+  retained journal; its only namespace-related DENIED row is the deliberate
+  unprofiled `unshare` control. Absence of a logged denial is not universal
+  proof of absence. Do not close the GUI gate from the renderer witnesses.
+
+Summary and artifact SHA-256 paths:
+`maintenance/evidence/pr54-deb-probe-r1-20261006/`. Raw observations (about
+715 KiB) and journals remain outside Git under
+`/mnt/storage/odin-desktop-evidence/pr54-deb-probe-r1-req5cf491b3/`.
+The pulled isolated profile contains generated test credentials and is private;
+it is neither committed nor included in the public evidence manifest.
+All `odq-*` VMs were stopped after collection. The original failed row below is
+historical and is not retroactively upgraded by this newly authorized run.
+
 ## Ubuntu 24.04 restricted-userns Task 1, 2026-10-06
 
 **Disposition: partially qualified, overall gate remains OPEN.** The one-shot
