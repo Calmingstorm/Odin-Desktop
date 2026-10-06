@@ -1,5 +1,40 @@
 # P4.1 early candidate packaging evidence, 2026-10-05
 
+## Last main merge, 2026-10-06
+
+Two-parent merge of `main@d546c44c29388225015f20747c55930413b03f75`
+(#22 request/delivery composition) into the previous head `8907b96a`.
+Only the delta ledger conflicted. The supplied key-based merge retained 299
+entries; five doubly-changed entries were explicitly regenerated with drift
+tooling. Four have identical source bytes; `src/desktop/providers.py` adopts
+#22's injectable gateway dependencies. Combined witnesses retain Decision F's
+first-use PDF policy and the new request-service evidence. Independent review
+remains pending, not self-approved.
+
+Drift reports zero errors, lint reports zero new findings and seven inherited,
+and the ownership-plan checker passes. Focused PDF/resource/runtime/core tests
+pass **143 cases** in an isolated PID/mount namespace. Packaging behavior tests
+pass **39 cases**. Two preliminary selections named nonexistent files and ran
+no cases; their failed logs are retained, not counted. No full qualification
+was repeated in this merge-only step; P4.2 runs it once after final integration.
+
+Both formats were rebuilt because #22 changes **16 shipped engine files**,
+not merely Git history. A stale build stage correctly refused changed locks;
+it was preserved and a fresh stage used. App source and dependency lock bytes
+are unchanged. Candidates remain local in this worktree's
+`.packaging-candidates/` directory.
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `odin-desktop-0.1.0-candidate-amd64.deb` | 341715736 | `e964d3a295bd117948fa69bde19d3f98011df5a658d10a356d2263fe0ab5e755` |
+| `odin-desktop-0.1.0-candidate-x86_64.AppImage` | 489636352 | `f6bc5ecbcc75b5e20ff8885380b2ce56272f36fefb57ea4faa7f26dc3c4379f4` |
+
+Sealed resource manifest: 8,480 files/links, 975,561,143 bytes, SHA-256
+`f1193d134144f635e4c90e8c1ee861c840bce1b59a0ea5216804daa40a0a9a07`.
+Evidence is `/home/odin/desktop-p41-evidence/last-main-20261006/`.
+The Ubuntu 24.04 restricted-user-namespace/mounted-AppImage gate remains
+**open**. No heavy VM, live service, active desktop, publishing or release work.
+
 ## Review round 1 changes and open Ubuntu gate
 
 PR #24 is rebased onto `main@caa871cd`, including #19's validated development

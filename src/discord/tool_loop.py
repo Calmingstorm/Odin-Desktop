@@ -210,9 +210,8 @@ _TOOL_DISPATCH_SETTLEMENT_GRACE_SECONDS = 15.0
 
 @asynccontextmanager
 async def _best_effort_typing(channel):
-    """Presence delivery is Phase 2-gated, never simulated by a transport shim."""
-    _require_phase2_wiring()
-    yield  # Context-manager contract; unreachable before durable admission exists.
+    """Desktop presence is delivered by the task-owned durable service."""
+    yield
 
 
 class _LoopMessageProxy:
@@ -533,6 +532,10 @@ class ToolLoopDeps:
     # Exact cleanup target for agents spawned by a cancelled main turn.
     kill_agents_for_turn: Callable[[str], list[str]] = lambda _turn_id: []
     get_computer: Callable = lambda: None
+    # Authenticated desktop admission, supplied by the profile composition root.
+    assert_request: Callable | None = None
+    request_admission: Callable | None = None
+    record_tool_detail: Callable | None = None
 
 
 class ToolLoopRunner:
@@ -541,7 +544,12 @@ class ToolLoopRunner:
         return self._prompt_builder.refresh_learned_context(prompt, user_id=user_id)
 
     def __init__(self, deps: ToolLoopDeps) -> None:
-        _require_phase2_wiring()
+        if (not callable(getattr(deps, "assert_request", None))
+                or not callable(getattr(deps, "request_admission", None))):
+            _require_phase2_wiring()
+        self._assert_request = deps.assert_request
+        self._request_admission = deps.request_admission
+        self._record_tool_detail = deps.record_tool_detail
         self._get_config = deps.get_config
         self._get_default_system_prompt = deps.get_default_system_prompt
         self._get_context_compressor = deps.get_context_compressor
@@ -730,7 +738,9 @@ class ToolLoopRunner:
         - tools_used: list of tool names called during this loop
         - handoff: True if the response should be handed off to another handler
         """
-        _require_phase2_wiring()
+        if not callable(getattr(self, "_assert_request", None)):
+            _require_phase2_wiring()
+        self._assert_request(message)
         st = await self._prepare_chat_turn(
             message,
             history,
@@ -775,7 +785,9 @@ class ToolLoopRunner:
         same guard envelope as a fresh one. The iteration loop starts from
         ``st.iteration`` — the restored transcript already contains every
         earlier generation."""
-        _require_phase2_wiring()
+        if not callable(getattr(self, "_assert_request", None)):
+            _require_phase2_wiring()
+        self._assert_request(st.message)
         st._cancel = self._channel_state.set_active_request(st._ch_id, st._req_id, st._cancel)
         # Only consumed directives survive in the checkpoint transcript. Never
         # resurrect a pending mailbox from a suspended/replaced process owner.
@@ -1063,7 +1075,9 @@ class ToolLoopRunner:
         """Turn setup: prompt/tools resolution, request preamble, permission
         filtering, trajectory + correlation init, cancellation wiring."""
 
-        _require_phase2_wiring()
+        if not callable(getattr(self, "_assert_request", None)):
+            _require_phase2_wiring()
+        self._assert_request(message)
         system_prompt = system_prompt_override or self._get_default_system_prompt()
         messages = list(history)
 
@@ -1176,26 +1190,16 @@ class ToolLoopRunner:
         _steer_inbox = ChatTurnInbox(requester_id=user_id)
         self._channel_state.bind_steer_inbox(_ch_id, _req_id, _steer_inbox)
 
-        # Phase 2 must wire authenticated conversation identity and mandatory
-        # durable admission. This retained legacy block cannot execute while
-        # _prepare_chat_turn is gated; it is not a fallback execution mode.
-        durability = TurnDurability.disabled()
-        if (
-            policy is CHAT_POLICY
-            and self._turn_store is not None
-            and _trajectory.source == "conversation"
-        ):
-            try:
-                durability = await TurnDurability.admit(
-                    self._turn_store,  # type: ignore[arg-type]
-                    message=message,
-                    system_prompt=system_prompt,
-                    tools=tools,
-                    session_snapshot={"history_len": len(history)},
-                )
-            except BaseException:
-                self._channel_state.close_steer_inbox(_ch_id, _req_id)
-                raise
+        try:
+            durability = await self._request_admission(
+                message, system_prompt=system_prompt, tools=tools,
+                session_snapshot={"history_len": len(history)},
+            )
+            if not isinstance(durability, TurnDurability):
+                raise PermissionError("Durable request admission returned no execution ledger")
+        except BaseException:
+            self._channel_state.close_steer_inbox(_ch_id, _req_id)
+            raise
 
         return _ChatTurn(
             message=message,
@@ -2739,7 +2743,7 @@ class ToolLoopRunner:
                 )
                 if _effects.rebuild_system_prompt:
                     st.system_prompt = self._prompt_builder.build_full_prompt(
-                        channel=st.message.channel,
+                        conversation_id=str(st.message.channel.id),
                         user_id=st.user_id,
                     )
                 # A native handler may return a ToolResult (e.g. generate_image
@@ -2911,6 +2915,7 @@ class ToolLoopRunner:
             error,
             tool_result,
             call_id=block.id,
+            uncertain_outcome=uncertain_outcome,
         )
 
         # Track for conversational context
@@ -2942,6 +2947,13 @@ class ToolLoopRunner:
             uncertain=uncertain_outcome,
             result_text=tool_content,
         )
+        # Passive transport projection only, after the authoritative operation
+        # settlement. A failed detail sink cannot change or replay the effect.
+        if self._record_tool_detail is not None:
+            try:
+                self._record_tool_detail(st.message, block, tool_input, tool_content)
+            except Exception:
+                log.exception("Tool detail publication failed; operation is already settled")
 
         return {
             "type": "tool_result",
@@ -2960,6 +2972,7 @@ class ToolLoopRunner:
         tool_result,
         *,
         call_id: str | None = None,
+        uncertain_outcome: bool = False,
     ) -> None:
         """Write terminal audit evidence without letting audit failure crash a tool."""
         # Audit log — never crash tool execution on audit failure
@@ -3051,6 +3064,7 @@ class ToolLoopRunner:
                     "error": error,
                     "iteration": st.iteration,
                     "call_id": call_id,
+                    "uncertain_outcome": uncertain_outcome,
                     "turn_id": str(getattr(st.message, "id", "")),
                 },
             )
