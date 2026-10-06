@@ -114,6 +114,12 @@ jobs:
           python -m venv --copies .venv
           .venv/bin/python -m pip install uv==0.12.23 setuptools==84.0.0 wheel==0.48.0
           .venv/bin/uv sync --locked --extra dev --active --no-build-isolation-package odin-desktop-engine
+      - name: Private tmpfs scratch for test I/O
+        run: |
+          scratch="/dev/shm/odin-ci-$RUNNER_NAME"
+          rm -rf "$scratch"
+          mkdir -m 700 "$scratch"
+          echo "ODIN_TEST_SCRATCH=$scratch" >> "$GITHUB_ENV"
       - name: App launcher unit and real-core contracts (no graphical session)
         working-directory: app
         run: |
@@ -133,6 +139,9 @@ jobs:
           # mappings skip explicitly. Never relax the unchanged PID helper's NNP.
           .venv/bin/python scripts/run-lab-fixture-tests.py
 
+      - name: Remove tmpfs scratch
+        if: always()
+        run: rm -rf "/dev/shm/odin-ci-$RUNNER_NAME"
   qualification:
     name: qualification (${{ matrix.shard }}/5)
     if: github.event_name == 'push' || github.event.pull_request.draft == false
@@ -180,7 +189,16 @@ jobs:
           python -m venv --copies .venv
           .venv/bin/python -m pip install uv==0.12.23 setuptools==84.0.0 wheel==0.48.0
           .venv/bin/uv sync --locked --extra dev --active --no-build-isolation-package odin-desktop-engine
+      - name: Private tmpfs scratch for test I/O
+        run: |
+          scratch="/dev/shm/odin-ci-$RUNNER_NAME"
+          rm -rf "$scratch"
+          mkdir -m 700 "$scratch"
+          echo "ODIN_TEST_SCRATCH=$scratch" >> "$GITHUB_ENV"
       - name: Classified qualification shard in PID namespaces
         env:
           QUALIFICATION_SHARD: ${{ matrix.shard }}
         run: .venv/bin/python scripts/run-qualified-tests.py --shard "$QUALIFICATION_SHARD/5"
+      - name: Remove tmpfs scratch
+        if: always()
+        run: rm -rf "/dev/shm/odin-ci-$RUNNER_NAME"

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -27,6 +28,7 @@ def load_runner():
 def configure_runner(tmp_path, monkeypatch):
     runner = load_runner()
     monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.delenv("ODIN_TEST_SCRATCH", raising=False)
     monkeypatch.setattr(runner, "os", SimpleNamespace(
         getuid=lambda: 1234, geteuid=lambda: 1234,
         getgid=lambda: 5678, getegid=lambda: 5678,
@@ -518,3 +520,53 @@ def test_additional_flag_refuses_selection_overrides_before_launch(
     monkeypatch.setattr(runner, "run_namespace", lambda command: pytest.fail("must not launch"))
     with pytest.raises(SystemExit, match="accepts only"):
         runner.main(["--additional-desktop-boundaries", *arguments])
+
+
+def test_ci_scratch_root_moves_isolated_state_and_tmpdir_to_private_tmpfs(tmp_path, monkeypatch):
+    runner = configure_runner(tmp_path, monkeypatch)
+    # The scratch root is owned by the real test user.
+    runner.os.getuid, runner.os.geteuid = os.getuid, os.geteuid
+    shm = tmp_path / "shm"
+    monkeypatch.setenv("ODIN_TEST_SCRATCH", str(shm))
+    monkeypatch.setattr(runner.sys, "argv", ["runner", "tests/test_neutral.py"])
+    probe_results(runner, monkeypatch, [0])
+    captured = []
+    monkeypatch.setattr(runner, "run_namespace", lambda cmd: captured.append(cmd) or 0)
+    assert runner.main() == 0
+    command = captured[0]
+    home = Path(next(arg.removeprefix("HOME=") for arg in command if arg.startswith("HOME=")))
+    assert home.parent.parent == shm and home.parent.name.startswith("isolation-")
+    assert f"TMPDIR={shm}" in command
+    assert stat.S_IMODE(shm.stat().st_mode) == 0o700
+    assert not home.parent.exists()
+
+
+def test_default_scratch_stays_in_test_state_without_tmpdir(tmp_path, monkeypatch):
+    runner = configure_runner(tmp_path, monkeypatch)
+    monkeypatch.setattr(runner.sys, "argv", ["runner", "tests/test_neutral.py"])
+    probe_results(runner, monkeypatch, [0])
+    captured = []
+    monkeypatch.setattr(runner, "run_namespace", lambda cmd: captured.append(cmd) or 0)
+    assert runner.main() == 0
+    assert not any(arg.startswith("TMPDIR=") for arg in captured[0])
+
+
+@pytest.mark.parametrize("kind", ["relative", "shared", "symlink"])
+def test_ci_scratch_root_must_be_absolute_private_and_owned(tmp_path, monkeypatch, kind):
+    runner = configure_runner(tmp_path, monkeypatch)
+    runner.os.getuid, runner.os.geteuid = os.getuid, os.geteuid
+    target = tmp_path / "shared"
+    target.mkdir()
+    target.chmod(0o755)
+    value = {"relative": "relative/scratch", "shared": str(target)}.get(kind)
+    if kind == "symlink":
+        target.chmod(0o700)
+        link = tmp_path / "link"
+        link.symlink_to(target, target_is_directory=True)
+        value = str(link)
+    monkeypatch.setenv("ODIN_TEST_SCRATCH", value)
+    monkeypatch.setattr(runner.sys, "argv", ["runner", "tests/test_neutral.py"])
+    probe_results(runner, monkeypatch, [0])
+    monkeypatch.setattr(runner, "run_namespace", lambda cmd: 0)
+    with pytest.raises(SystemExit, match="ODIN_TEST_SCRATCH"):
+        runner.main()

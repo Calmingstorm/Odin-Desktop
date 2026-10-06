@@ -7,6 +7,7 @@ import importlib.util
 import os
 import pwd
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -131,6 +132,22 @@ def _run_namespace(command: list[str], *, timeout: int | None = None, quiet: boo
                 signal.signal(sig, handler)
 
 
+def _scratch_root() -> Path | None:
+    """An optional private scratch parent (CI uses tmpfs), never a shared directory."""
+    value = os.environ.get("ODIN_TEST_SCRATCH")
+    if not value:
+        return None
+    root = Path(value)
+    if not root.is_absolute():
+        raise SystemExit("ODIN_TEST_SCRATCH must be an absolute path")
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = root.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid()
+            or info.st_mode & 0o077):
+        raise SystemExit("ODIN_TEST_SCRATCH must be a private directory owned by this user")
+    return root
+
+
 def main(argv: list[str] | None = None) -> int:
     if sys.version_info[:2] != (3, 12):
         raise SystemExit("Use the repository Python 3.12 environment")
@@ -156,7 +173,8 @@ def main(argv: list[str] | None = None) -> int:
                                      extras_only=extras_only)
     if not any(not argument.startswith("-") for argument in arguments):
         raise SystemExit("Refusing an unclassified full-suite invocation")
-    with tempfile.TemporaryDirectory(prefix="isolation-", dir=state) as scratch:
+    scratch_root = _scratch_root() or state
+    with tempfile.TemporaryDirectory(prefix="isolation-", dir=scratch_root) as scratch:
         home = Path(scratch)
         for name in ("home", "config", "data", "cache"):
             (home / name).mkdir(mode=0o700)
@@ -171,6 +189,10 @@ def main(argv: list[str] | None = None) -> int:
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         }
+        if scratch_root != state:
+            # CI points the private scratch root at tmpfs, so fsync-heavy suites
+            # running in parallel do not queue on one disk.
+            environment["TMPDIR"] = str(scratch_root)
         # This is a cleanup tag, not an authentication credential. Preserve it
         # so GitHub can also identify children after an abrupt launcher death.
         if tracking := os.environ.get("RUNNER_TRACKING_ID"):
