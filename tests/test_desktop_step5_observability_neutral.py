@@ -30,5 +30,3 @@ def test_frozen_suite_metadata_is_complete():
     assert set(SUITES) == set(CORPUS_SELECTIONS)
     assert CORPUS_EXCLUSIONS == {}
     assert all(len(digest) == 64 for digest in SUITES.values())
-
-

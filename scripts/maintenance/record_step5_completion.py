@@ -199,10 +199,23 @@ def record_lineage(root=ROOT):
          "or passing evidence from static enrollment."),
     ]
     planned = []
+    existing = {row["path"]: row for row in inventory.ledger(root)["entries"]}
+    shared = {"src/desktop/management.py", "src/desktop/services.py"}
     for reason, paths, tests, contract, invariant in domains:
         for path in paths:
             entry = {"path": path, "reason": reason, "contract": contract,
                      "invariant": invariant, "owner": "Odin", "tests": tests}
+            previous = existing.get(path)
+            if path in shared and previous is not None:
+                # A byte refresh must not erase the accepted lifecycle lane's
+                # contract or its witnesses after the reviewed ledger union.
+                for field in ("reason", "contract", "invariant"):
+                    old = previous[field]
+                    if entry[field] not in old:
+                        entry[field] = old + "\nStep5 completion: " + entry[field]
+                    else:
+                        entry[field] = old
+                entry["tests"] = sorted(set(previous["tests"]) | set(entry["tests"]))
             planned.append(entry)
             inventory.record(root, SimpleNamespace(**entry))
     # Source bytes for these six existing records are unchanged. Refresh only
@@ -220,7 +233,9 @@ def record_lineage(root=ROOT):
                 raise ValueError(f"Dependent source unexpectedly changed: {row['path']}")
             row["test_sha256"] = {path: inventory.digest((root / path).read_bytes())
                                   for path in row["tests"]}
-            row["evidence"] += " Step-five completion updates named evidence hashes only."
+            annotation = " Step-five completion updates named evidence hashes only."
+            if annotation not in row["evidence"]:
+                row["evidence"] += annotation
     inventory.write_json(root / "maintenance/desktop-deltas.json", ledger)
     inventory.write_json(root / "maintenance/phase2-step5-completion-adaptation-plan.json",
                          {"schema_version": 1, "artifact": "Explicit pending completion lineage",

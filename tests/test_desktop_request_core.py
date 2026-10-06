@@ -382,3 +382,41 @@ async def test_request_cleanup_failure_preserves_graph_storage_and_profile_owner
         core.release_runtime()
         os.close(read_fd)
         os.close(write_fd)
+
+
+@pytest.mark.asyncio
+async def test_engine_cleanup_failure_records_unknown_without_releasing_graph_owner(tmp_path):
+    paths, socket_path, token_file = profile(tmp_path)
+    core = service(paths, socket_path, token_file, Provider())
+    read_fd, write_fd = os.pipe()
+    try:
+        await core.start(read_fd)
+        original_close = core.engine.close
+        closed = []
+        original_management_close = core.management.close
+
+        async def cannot_finish():
+            await original_close()
+            raise RuntimeError("Engine cleanup unverified")
+
+        async def management_close():
+            closed.append("management")
+            await original_management_close()
+
+        core.engine.close = cannot_finish
+        core.management.close = management_close
+        with pytest.raises(RuntimeError, match="Engine cleanup unverified"):
+            await core.close()
+        assert closed == ["management"]
+        assert core.resource_cleanup.public()["state"] == "unknown"
+        assert core.resource_cleanup.public()["reconciliation_required"]
+        assert not core.store._closed
+        contender = OwnerAuthority(paths, app_bootstrap=True)
+        with pytest.raises(Exception):
+            contender.acquire_runtime()
+    finally:
+        if core.store is not None:
+            core.store.close()
+        core.release_runtime()
+        os.close(read_fd)
+        os.close(write_fd)

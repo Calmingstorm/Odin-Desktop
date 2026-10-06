@@ -12,6 +12,7 @@ import mimetypes
 import time
 from collections.abc import Mapping
 from contextvars import ContextVar
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -89,6 +90,12 @@ class EngineServices:
         self.deps, self.runner = deps, runner
         self.requests = None
         self._recorded = set()
+        self._close_lock = asyncio.Lock()
+        self._close_attempted = False
+        self._cleanup_error = None
+        self._execution_cleanup_results = None
+        self._cleanup_outcome = {"state": "unknown", "reason": "engine_cleanup_not_complete"}
+        self.producers_quiesced = False
 
     def bind_requests(self, requests):
         if self.requests is not None and self.requests is not requests:
@@ -140,15 +147,48 @@ class EngineServices:
                              "available" if d.llm_gateway.compatible_client is not None else "off",
                     "reason": "missing_api_key" if d.compatible_skipped else None}}
 
-    async def close(self):
-        """Release this profile's transports after request workers are quiesced."""
-        from ..llm.client_lifecycle import shutdown_provider_clients
+    @property
+    def execution_cleanup_results(self):
+        """First original-owner receipts, isolated from journal mutation."""
+        return deepcopy(self._execution_cleanup_results)
 
-        if getattr(self, "_closed", False):
-            return
-        self._closed = True
+    @property
+    def cleanup_outcome(self):
+        return deepcopy(self._cleanup_outcome)
+
+    async def close(self):
+        """Retain original barriers once, including failure and cancellation."""
+        async with self._close_lock:
+            if self._close_attempted:
+                if self._cleanup_error is not None:
+                    raise self._cleanup_error
+                return
+            self._close_attempted = True
+            try:
+                await self._close_once()
+            except BaseException as error:
+                self._cleanup_error = error
+                self._cleanup_outcome["state"] = "unknown"
+                self._cleanup_outcome.setdefault("failures", []).append({
+                    "stage": "engine_close", "error_type": type(error).__name__,
+                })
+                raise
+            else:
+                self._closed = True
+                self._cleanup_outcome = {"state": "released"}
+
+    async def _close_once(self):
+        from ..llm.client_lifecycle import shutdown_provider_clients
+        from .resource_cleanup import ResourceCleanupError, close_execution_owners
+
         d = self.deps
         failures = []
+        failure_evidence = []
+        self._cleanup_outcome = {"state": "unknown", "failures": failure_evidence}
+
+        def failed(stage, error):
+            failures.append(error)
+            failure_evidence.append({"stage": stage, "error_type": type(error).__name__})
 
         async def release(owner, method):
             if owner is None:
@@ -159,24 +199,61 @@ class EngineServices:
                 if hasattr(result, "__await__"):
                     await result
             except Exception as error:
-                failures.append(error)
+                failed(method, error)
                 log.exception("Desktop cleanup failed: %s", method)
 
+        # Never close transports/storage beneath an unsettled admitted request.
+        if self.requests is not None and (
+            not getattr(self.requests, "_closed", False)
+            or any(not task.done() for task in self.requests._tasks)
+        ):
+            raise RuntimeError("Desktop request producers have not quiesced")
         await release(d.channel_state, "shutdown_steering")
         await release(d.loop_manager, "shutdown")
         await release(d.scheduler, "stop")
         await release(getattr(d.runtime_context, "mcp_manager", None), "shutdown")
         active = [agent for agent in d.agent_manager._agents.values() if agent._sm.is_active]
-        tasks = [agent._task for agent in active if getattr(agent, "_task", None) is not None]
+        tasks = [agent._task for agent in d.agent_manager._agents.values()
+                 if getattr(agent, "_task", None) is not None and not agent._task.done()]
         for agent in active:
-            d.agent_manager.kill(agent.id, cascade=True)
-        if tasks:
             try:
-                await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), 10.0)
-            except TimeoutError as error:
-                failures.append(error)
+                d.agent_manager.kill(agent.id, cascade=True)
+            except Exception as error:
+                failed("agent_kill", error)
+        # A terminal state is not proof that the agent's task has settled.
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            done, pending = await asyncio.wait(tasks, timeout=10.0)
+            for task in done:
+                if not task.cancelled():
+                    task.exception()
+            if pending:
+                failed("agent_tasks", TimeoutError())
         await release(d.agent_manager, "cleanup")
-        await release(getattr(d.tool_executor, "_process_registry", None), "shutdown")
+        # Some retained APIs log timeouts rather than raise. Check actual tasks.
+        producer_tasks = [getattr(d.scheduler, "_task", None)]
+        producer_tasks += [getattr(loop, "_task", None)
+                           for loop in getattr(d.loop_manager, "_loops", {}).values()]
+        producer_tasks += tasks
+        if any(task is not None and not task.done() for task in producer_tasks):
+            failed("producer_tasks", RuntimeError("Engine producers are still settling"))
+        if failures:
+            raise RuntimeError("Desktop engine producers did not fully quiesce") from failures[0]
+        self.producers_quiesced = True
+
+        computer = getattr(getattr(d, "native_tools", None), "owners", {}).get("computer")
+        # Retain completed rows even if cancellation interrupts a later barrier.
+        self._execution_cleanup_results = {}
+        await close_execution_owners(
+            computer=computer, registry=getattr(d.tool_executor, "_process_registry", None),
+            resources=self._execution_cleanup_results,
+        )
+        if any(row["state"] == "unknown" for row in self._execution_cleanup_results.values()):
+            failed("execution_owners", ResourceCleanupError("Runtime resource cleanup is unverified"))
+            # Unknown native input/process release can retain live execution.
+            # Keep its shared transports and persistence until containment.
+            raise RuntimeError("Desktop engine cleanup did not fully complete") from failures[0]
         await release(getattr(d.tool_executor, "ssh_pool", None), "close_all")
         await release(d.browser_manager, "shutdown")
         try:
@@ -186,12 +263,12 @@ class EngineServices:
             else:
                 await shutdown_provider_clients(d.llm_gateway)
         except Exception as error:
-            failures.append(error)
+            failed("providers", error)
         await release(getattr(d.runtime_context, "outbound_webhook_dispatcher", None), "close")
         try:
             await asyncio.to_thread(d.sessions.save)
         except Exception as error:
-            failures.append(error)
+            failed("sessions_save", error)
         await release(d.knowledge_store, "close")
         await release(d.turn_store, "close")
         if failures:

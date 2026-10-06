@@ -257,4 +257,3 @@ def register_module(namespace, suite):
 def load(namespace):
     for suite in CORPUS_SELECTIONS:
         register_module(namespace, suite)
-
