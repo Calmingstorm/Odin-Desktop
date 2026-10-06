@@ -149,6 +149,16 @@ not the result of this canonical fixture. The post-merge result is recorded
 below. Neither the restricted PID helper nor its no-new-privileges policy is
 relaxed; the obsolete Docker fixture lane is removed by #49.
 
+Post-merge canonical fixture corpus: **267 passed, 4 explicit skips** for the
+two-distinct-subordinate-ID retry capability blocked by unchanged
+no-new-privileges. Orca/collector/probe/cleanup/CI tests: **294 passed**.
+App check: **758 passed**, typecheck/build clean; ordinary-user part-one
+accessibility: **15/15 passed**. Full engine qualification ran once:
+**30/30 groups, 14,476 passing executions, 3 skips, zero failures/errors**.
+Exact source timing, warnings, remaining capability skips and external
+artifact hashes are recorded in
+`maintenance/evidence/phase3-orca-review1-gates-20261006/`.
+
 ### Silent speech and native task boundary
 
 The bootstrap runs only inside one of the three named, marked/capped VMs,
