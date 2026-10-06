@@ -585,6 +585,8 @@ class CoreService:
             # Failed cleanup must not release ownership beneath a surviving
             # execution task. The caller's containment exit remains the barrier.
             try:
+                if self.management is not None:
+                    await self.management.stop_background()
                 if self.requests is not None:
                     await self.requests.close()
                 if self.engine is not None:

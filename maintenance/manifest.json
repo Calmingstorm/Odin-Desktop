@@ -22058,11 +22058,11 @@
       "fixtures_closure": "retained-test-support",
       "owner": "Odin",
       "path": "tests/test_output_executor_fences.py",
-      "reason": "Phase2 retained integration: src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "reason": "Real desktop engine now owns native search_history readiness; original output fence assertions preserved with approved canonical owner substitution.",
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "139272513c5b1ad8",
       "upstream_sha256": "04d20c34d86cce820027cfcd64490adf39d53d2e4084eef9a2c922ada1699c86"
     },

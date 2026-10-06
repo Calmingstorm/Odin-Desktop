@@ -13,18 +13,18 @@ No rebase was performed. Later main advancement is recorded below when merged.
   `awaiting the step 5 completion PR`.
 - Six suites remap to their actual later owner: three request/recording suites
   to step 3 and three computer/process suites to step 6. No remap passes a test.
-- Seven complete group C corpora are restored: audit signing, hosts, provider
+- Eight complete group C corpora are restored: audit signing, hosts, provider
   reload rejection, quota checks, malformed agent policy, integration validation,
-  and outbound webhooks. Together they retain 175 inherited parameter executions.
+  output fences and outbound webhooks. They retain 184 inherited executions.
 - Partial inherited image, LLM-admin and log search corpora are executable and
   explicitly partitioned. Their complete files remain deferred, not restored.
 - Health endpoint/startup suites still mix removed HTTP role/Discord truth with
   health behavior absent from the current Desktop result shape. Output fences
-  still require native history readiness absent from the pre-merge step 3 graph.
+  became restorable after main merged the real step 3 native-history owner.
   Neither status projections nor canonical UUIDs manufacture those features.
 
-Historical accounting before the later main merge is
-**326 = 26 restored + 41 retired + 259 deferred**. Original frozen bytes and
+Historical accounting after the main merge is
+**326 = 27 restored + 41 retired + 258 deferred**. Original frozen bytes and
 membership hashes are preserved. All lane decisions, seals, partitions and
 references are in `step8-part2-review-*.json` and the executable suite map.
 
@@ -48,6 +48,15 @@ Parent applied-code review found the keyring audit authority split; it was fixed
 and the new restart test passes. No active desktop, live config, service or
 upstream repository was modified. No actual provider endpoint or real keyring
 was used. Local HTTP receivers are disposable inherited delivery fixtures.
+
+Main advanced while implementation ran. A real two-parent merge of
+`main@d546c44c` preserves the step 2/3 request engine, reuses its provider and
+guard owners, and moves quota cleanup before engine retirement. The supplied
+key-union ledger helper handled the merge; eight concurrently changed path
+records were explicitly reconciled and exact merged bytes/evidence re-recorded.
+Configured guard thresholds remain qualified in the newly shared graph.
+Merged composition/guard/audit/quota tests returned 144 passed. Output-fence
+full candidate returned 21 passed including all nine inherited cases.
 
 ## Targeted verification before the final fresh qualification
 

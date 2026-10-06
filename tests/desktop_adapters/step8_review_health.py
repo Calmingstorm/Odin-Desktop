@@ -18,13 +18,14 @@ from src.desktop import ipc_auth
 from src.desktop.ipc import IpcServer
 from src.desktop.model_settings import ModelSettingsService
 from src.desktop.protocol import encode_frame, read_frame
+from src.desktop.services import _ReadyPolicy
 from src.desktop.settings import SettingsService
-from src.tools.builtin_policy import BuiltinToolPolicy
 from src.tools.executor import ToolExecutor
 
 ROOT = Path(__file__).resolve().parents[2]
 CORPUS_SELECTIONS = {
     "test_campaign_agent_routes_coverage": None,
+    "test_output_executor_fences": None,
 }
 CORPUS_EXCLUSIONS = {}
 SUITES = {
@@ -50,11 +51,9 @@ def fixture_owner_id():
 
 def fixture_policy(executor, *, disabled=()):
     executor.config.disabled_tools = list(disabled)
-    return BuiltinToolPolicy(
+    return _ReadyPolicy(
         lambda: SimpleNamespace(tools=executor.config),
-        lambda: {name: True for name in (
-            "run_command", "search_history", "manage_process", "get_tool_output",
-        )},
+        get_readiness=state().engine.deps.readiness,
     )
 
 

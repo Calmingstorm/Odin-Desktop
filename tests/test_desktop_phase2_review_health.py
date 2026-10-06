@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from scripts.maintenance.fixture_corpus import corpus, frozen_source
+from src.desktop.services import _ReadyPolicy
 from tests.desktop_adapters.process_cases import temporary_owner
 from tests.desktop_adapters.step8_review_health import (
     CORPUS_SELECTIONS,
@@ -20,16 +21,19 @@ from tests.desktop_adapters.step8_review_health import (
     source_tree,
     verify_adaptation,
 )
+from tests.desktop_adapters.step8_runtime_guard import temporary_guard_graph
 
 
 @pytest.fixture(autouse=True)
 def review_health_owner(tmp_path_factory):
     with temporary_owner(tmp_path_factory.mktemp("pr34-health-owner")) as owner:
-        binding = fixture_state.set(owner)
-        try:
-            yield owner
-        finally:
-            fixture_state.reset(binding)
+        with temporary_guard_graph(tmp_path_factory.mktemp("pr34-health-graph"), True) as (core, _):
+            owner.engine = core.engine
+            binding = fixture_state.set(owner)
+            try:
+                yield owner
+            finally:
+                fixture_state.reset(binding)
 
 
 @pytest.mark.parametrize("name", tuple(CORPUS_SELECTIONS))
@@ -63,7 +67,7 @@ def test_complete_guard_rejects_tampering(name, mutation):
 def test_all_four_inherited_bytes_and_no_partial_health_restoration():
     rows = records()["entries"]
     assert len(rows) == 4
-    assert sum(row["status"] == "restored" for row in rows) == 1
+    assert sum(row["status"] == "restored" for row in rows) == 2
     for row in rows:
         frozen = frozen_source(row["path"])
         assert hashlib.sha256(frozen).hexdigest() == row["inherited_sha256"]
@@ -81,6 +85,12 @@ def test_executor_is_authentic_owner_ready_and_foreign_owner_denied(tmp_path, re
     assert review_health_owner.manager.is_owner(fixture_owner_id())
     assert ex.check_permission("get_tool_output", fixture_owner_id()) is None
     assert ex._builtin_policy.is_available("get_tool_output")
+    assert type(ex._builtin_policy) is _ReadyPolicy
+    assert ex._builtin_policy._get_readiness is review_health_owner.engine.deps.readiness
+    assert review_health_owner.engine.requests is not None
+    assert review_health_owner.engine.deps.native_tools.handles("search_history")
+    assert ex._builtin_policy.is_available("search_history")
+    assert ex.host_registry.get("testhost") is not None
     assert not ex._authorize_output("get_tool_output", (), "owner")
     assert ex._authorize_output("get_tool_output", (), fixture_owner_id())
 

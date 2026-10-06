@@ -26,6 +26,7 @@
     "tests/test_knowledge_snapshot_campaign.py",
     "tests/test_local_supervisor_wrapper_r10.py",
     "tests/test_native_knowledge.py",
+    "tests/test_output_executor_fences.py",
     "tests/test_process_manager.py",
     "tests/test_process_tail_correctness.py",
     "tests/test_provider_shutdown_budget.py",
@@ -50,10 +51,10 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 259,
+    "phase2": 258,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "safe_pass_now": 383,
+    "safe_pass_now": 384,
     "safety_manual_gated": 100,
     "retired": 41
   },
@@ -20347,8 +20348,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Real desktop engine now owns native search_history readiness; original output fence assertions preserved with approved canonical owner substitution.",
       "phase2_seams": [
         "src/permissions/token_manager.py",
         "src/web/__init__.py",
@@ -36695,7 +36696,6 @@
     "tests/test_onboarding_full_parity_campaign.py",
     "tests/test_onboarding_journey_campaign.py",
     "tests/test_openrouter_admin_boundaries.py",
-    "tests/test_output_executor_fences.py",
     "tests/test_output_streamer.py",
     "tests/test_pr341_b10_channel_consistency.py",
     "tests/test_pr341_b7_channel_reconciliation.py",
@@ -37133,6 +37133,7 @@
     "tests/test_openrouter.py",
     "tests/test_output_authorization.py",
     "tests/test_output_delivery_retention.py",
+    "tests/test_output_executor_fences.py",
     "tests/test_output_handler.py",
     "tests/test_planning_store.py",
     "tests/test_pr341_b6_audit_history.py",
