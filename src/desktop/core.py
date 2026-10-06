@@ -24,6 +24,7 @@ from .management import ManagementService
 from .paths import ProfilePaths
 from .reports import ReportBinding, ReportDelivery, ReportService
 from .requests import RequestService
+from .resource_cleanup import ResourceCleanupJournal
 from .search import TranscriptSearch
 from .secrets import secret_call
 from .services import build_engine_services
@@ -240,6 +241,7 @@ class CoreService:
         self._publication_ready = asyncio.Event()
         self._published_seq = 0
         self.management: ManagementService | None = None
+        self.resource_cleanup: ResourceCleanupJournal | None = None
         self._secret_backend = secret_backend
         self.capabilities = CAPABILITIES
         self.start_time = time.monotonic()
@@ -287,6 +289,9 @@ class CoreService:
         )
         self.commands = CommandJournal(self.store)
         self.events = _CoreEvents(self.store)
+        self.resource_cleanup = ResourceCleanupJournal(
+            self.paths.data_dir / "resource-cleanup.json",
+        )
         self.conversations = ConversationStore(self.store, self.events)
         self.transcript = TranscriptStore(self.store, self.events, self.conversations)
         self.search = TranscriptSearch(self.transcript, self.events)
@@ -889,9 +894,24 @@ class CoreService:
                         await self.engine.deps.scheduler.stop()
                     await self.requests.close()
                 if self.engine is not None:
-                    await self.engine.close()
-                if self.computer_foreground is not None:
-                    await self.computer_foreground.close()
+                    try:
+                        await self.engine.close()
+                    except Exception:
+                        # Requests are settled, but execution cleanup failed.
+                        # Persist its uncertainty and attempt independent
+                        # management cleanup without releasing graph ownership.
+                        self._engine_cleanup_failed = True
+                        try:
+                            if self.management is not None:
+                                await self.management.close()
+                            elif self.resource_cleanup is not None:
+                                self.resource_cleanup.finish({
+                                    **getattr(self.engine, "execution_cleanup_results", {}),
+                                    "engine_services": {"state": "unknown"},
+                                })
+                        except Exception:
+                            pass  # The original engine failure remains authoritative.
+                        raise
             finally:
                 if self._publication_task is not None:
                     self._publication_task.cancel()

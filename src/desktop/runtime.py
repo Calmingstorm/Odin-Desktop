@@ -259,6 +259,8 @@ class RuntimeService:
             "limits": {name: limits.get(name) for name in
                        ("chunk_bytes", "attachment_bytes", "attachments_per_turn")},
             "summary": summary,
+            "resource_cleanup": (self.core.resource_cleanup.public()
+                                 if getattr(self.core, "resource_cleanup", None) else None),
             "first_run": self._first_run(),
         })
 

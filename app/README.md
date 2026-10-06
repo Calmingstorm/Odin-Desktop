@@ -6,6 +6,8 @@ management to the real Phase 2 step-five core: provider/model configuration, dev
 personality, hosts/trust, memory/lists/knowledge, records and profile runtime observations. Services not yet composed,
 including conversations/execution and step-six skills/MCP/background work/computer use, remain explicitly
 unavailable. Real-core sessions never substitute fixture rows or invented successful reads.
+The P3.1 slice-1 launch, authentication, status and durable event replay contracts remain, with P3.3 source-build
+lifecycle qualification for bounded shutdown, quiescing, unknown-cleanup journaling and core loss.
 
 ## Build and test
 
@@ -21,6 +23,7 @@ npm run smoke          # launches the built app on an isolated xvfb display with
 npm run test:real-core  # separate real engine contract gate; never included in npm run check
 npm run smoke:real-core # built Electron app + real engine, isolated PID namespace and xvfb
 npm run test:a11y     # real Electron keyboard/axe/Chromium AX gate, fixture + real step-five core
+npm run test:e2e       # source lifecycle + private native notification receiver, same isolation
 ```
 
 `npm run smoke` never touches the real desktop session, the user's Odin Desktop profile or their autostart entries. Set
@@ -63,8 +66,10 @@ chat/search/work and every settings section's own service loads, and checks on-d
 shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge and audit/log
 records, unknown usage and disabled turn-state storage. Health reports absent runtime owners honestly; missing
 keyring access is a distinct failure with Retry, not an empty account success. Skills, MCP, scheduling and computer
-use remain unavailable. The gate exits through normal `runtime.shutdown` and parent-EOF cleanup. Evidence paths
-and a compact result are printed as JSON. Set
+use remain unavailable. The gate validates the reviewed management/readiness projections and rejects fixture rows,
+raw capability errors, successful-empty claims for refused reads or duplicate composer usage notices. It exits
+through normal `runtime.shutdown` and parent-EOF cleanup. Evidence includes both direct core reads and named-bridge
+observations; evidence paths and a compact result are printed as JSON. Set
 `ODIN_SMOKE_OUT` to retain screenshots of chat and every settings section plus a JSON evidence file alongside the
 named checkpoint; the default screenshots, evidence and profiles are discarded.
 
@@ -122,6 +127,41 @@ Neither a fixture pass nor a Chromium AX dump proves Orca/AT-SPI speech or Wayla
 Reports, full Chromium AX dumps, axe violations **and incomplete checks**, sandbox/cleanup receipts and screenshots
 are written under ignored `test-results/`. Set `ODIN_APP_A11Y_REPORT` to an absolute JSON path to retain a report
 outside the checkout. Review `../maintenance/phase3-accessibility.md` for findings, dispositions and open native rows.
+
+## Source-build lifecycle qualification (P3.3 part 1)
+
+`test:e2e` uses the shared pinned Playwright 1.63.0 without downloading or substituting a browser. It launches the pinned
+Electron source build inside the real-core isolation runner, on Xvfb and a disposable D-Bus session that has no
+service-activation directories. The notification receiver is an explicitly started `dbus-next` fixture using the
+project Python environment. No installed app, user tray, login autostart, workstation bus or native input is used.
+Run through the wrapper, not `playwright test` directly: the harness rejects an unisolated/root invocation.
+
+Set `ODIN_APP_E2E_OUT` to an external directory to retain Playwright JSON and per-case PID/start-tick/namespace,
+socket, acknowledgement and cleanup evidence. For source/artifact hashes plus the streamed gate log, build first,
+then run `../.venv/bin/python ../scripts/qualification/lifecycle.py --output /absolute/external/evidence` from
+`app/`. The driver reports failed gates unchanged. Default evidence and private profiles are discarded.
+
+Close/relaunch, menu/Ctrl+Q/launcher Exit, no-instance `--exit`, parent EOF/abrupt app loss, renderer recovery,
+stale/live/non-socket occupancy and startup restart budgets are exercised against the actual step-one core.
+Unexpected loss of an already authenticated core stops automatic replacement: a process exit cannot establish
+effect/native-resource release. Exit freezes admission and reconnect reconciliation before persisting state and
+requesting one shutdown. Process escalation has a separate unknown receipt, never an "undone" result.
+Cleanup evidence is fsynced in an app-only sibling file `config/odin-desktop/default-cleanup-state.json`, not in
+the identity-checked engine profile. Previous unknown evidence remains visible in a nonmodal banner on subsequent
+starts and is not cleared by a later ordinary Exit. **Acknowledge** durably archives the displayed warning with its
+time in that same journal. It is an acknowledgment of uncertainty, never proof of undo or release: core resource
+quarantine/reconciliation and no-replay policy are unchanged. The same archived evidence stays quiet on restart;
+a new unknown event raises a fresh notice. Hidden login starts never open a cleanup modal.
+
+Notification tests exercise actual Electron D-Bus requests, acceptance/refusal and native `ActionInvoked`, then
+inspect the exact older conversation/message in the renderer, including renderer loss. Their conversation and
+acknowledgement service is explicitly a fixture: the current core does not serve real delivery, requests, background work,
+notifications or computer input. D11 trays/login, installed package paths, admitted work/descendant cleanup and
+full native desktop input grants remain open, not silently qualified by these tests. The continuation also
+qualifies actual admitted credential-free management work across hide/Exit, original execution-owner escaped
+descendant cleanup, and real isolated X11 guardian-loss quarantine/no-replay. It does not upgrade missing
+native release proof into success. See
+[`../maintenance/phase3-lifecycle.md`](../maintenance/phase3-lifecycle.md).
 
 ## Layout
 
