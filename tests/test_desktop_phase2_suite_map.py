@@ -151,17 +151,77 @@ def test_whole_suite_restore_preserves_membership_and_counts(repo, adapter, caps
 
 
 @pytest.mark.parametrize("adapter", [False, True])
-def test_step5_whole_suite_restore_preserves_original_ownership(repo, adapter):
+@pytest.mark.parametrize("step", [5, 6])
+def test_later_whole_suite_restore_preserves_original_ownership(repo, adapter, step):
     path, _ = _restore(repo, adapter=adapter)
     mapping = _read(repo, checker.MAP_PATH)
-    next(row for row in mapping["entries"] if row["path"] == path)["step"] = 5
+    next(row for row in mapping["entries"] if row["path"] == path)["step"] = step
     _write(repo, checker.MAP_PATH, mapping)
     assert checker.validate(repo) == []
     errors, report = checker._evaluate(repo)
     assert errors == []
-    assert report["by_step"]["5"] == {
+    assert report["by_step"][str(step)] == {
         "total": 1, "restored": 1, "deferred": 0, "retired": 0,
     }
+
+
+def _restore_step6_case_adapter(repo):
+    import ast
+    import hashlib
+
+    path, selector = _restore(repo, adapter=True)
+    mapping = _read(repo, checker.MAP_PATH)
+    row = next(row for row in mapping["entries"] if row["path"] == path)
+    row["step"] = 6
+    row["restoration"]["mode"] = "frozen-case-adapter"
+    case, node = next(iter(checker._case_nodes((repo / path).read_bytes()).items()))
+    row["case_retirements"] = [{
+        "case": case,
+        "source_sha256": hashlib.sha256(ast.dump(
+            node, include_attributes=False).encode()).hexdigest(),
+        "reviewer": checker.STEP6_RETIREMENT_REVIEWER,
+        "surface": "Discord", "reason": "Removed Discord transport fixture case.",
+    }]
+    _write(repo, checker.MAP_PATH, mapping)
+    target = repo / selector
+    target.write_text(target.read_text().replace(
+        "CORPUS_EXCLUSIONS = {}", f"CORPUS_EXCLUSIONS = {{{Path(path).stem!r}: [{case!r}]}}"))
+    return path, selector, case
+
+
+def test_step6_case_retirement_requires_complete_bound_partition(repo):
+    _restore_step6_case_adapter(repo)
+    assert checker.validate(repo) == []
+
+
+@pytest.mark.parametrize("mutation", ["hash", "reviewer", "surface", "case", "duplicate",
+                                      "missing", "undeclared", "wrong_step", "full_mode"])
+def test_step6_case_retirement_mutations_fail_closed(repo, mutation):
+    path, selector, case = _restore_step6_case_adapter(repo)
+    mapping = _read(repo, checker.MAP_PATH)
+    row = next(row for row in mapping["entries"] if row["path"] == path)
+    declaration = row["case_retirements"][0]
+    if mutation == "hash":
+        declaration["source_sha256"] = "0" * 64
+    elif mutation == "reviewer":
+        declaration["reviewer"] = "pending"
+    elif mutation == "surface":
+        declaration["surface"] = "canonical owner not built"
+    elif mutation == "case":
+        declaration["case"] = "TestMissing.test_missing"
+    elif mutation == "duplicate":
+        row["case_retirements"].append(copy.deepcopy(declaration))
+    elif mutation == "missing":
+        row.pop("case_retirements")
+    elif mutation == "undeclared":
+        target = repo / selector
+        target.write_text(target.read_text().replace(f"[{case!r}]", "[]"))
+    elif mutation == "wrong_step":
+        row["step"] = 5
+    else:
+        row["restoration"]["mode"] = "frozen-adapter"
+    _write(repo, checker.MAP_PATH, mapping)
+    assert checker.validate(repo)
 
 
 @pytest.mark.parametrize("mutation", [

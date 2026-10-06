@@ -28,7 +28,8 @@ def main() -> int:
         mapping = json.loads(mapping_path.read_text()) if mapping_path.exists() else {}
         adapted = {row["path"] for row in mapping.get("entries", [])
                    if row.get("status") == "restored"
-                   and row.get("restoration", {}).get("mode") == "frozen-adapter"}
+                   and row.get("restoration", {}).get("mode")
+                   in {"frozen-adapter", "frozen-case-adapter"}}
         selected = [path for path in plan["safe_pass_now"] if path not in adapted]
         if not selected:
             raise SystemExit("Refusing an unclassified full-suite invocation")

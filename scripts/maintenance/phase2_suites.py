@@ -27,6 +27,11 @@ HISTORICAL_QUALIFICATION_SHA256 = "0e45810c0574b26a79d23842a65fe02f0d1ec0ca6d8c9
 MERGED_MAIN = "566b7954911154ed36d9e5e751c2db9029e262e2"
 MERGED_QUALIFICATION_SHA256 = "89094765dc426da5fa6844efb8d54273d94d1b79dd54e62e0207d315bfc79956"
 RETIREMENT_REVIEWER = "Claude, review of #26"
+STEP6_RETIREMENT_REVIEWER = "Claude, review of step 8 part 4"
+REMOVED_STEP6_SURFACES = {
+    "Discord", "multi-user tiers", "HTTP/WebSocket listeners",
+    "bearer sessions", "Odin web UI",
+}
 RETIRABLE_SUITES = {
     "tests/test_client.py", "tests/test_command_reconciliation.py",
     "tests/test_gateway_transition_regressions.py", "tests/test_rate_limiter.py",
@@ -147,7 +152,8 @@ def _adapter_modules(root: Path, selector: str) -> list[ast.Module]:
     return trees
 
 
-def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> bool:
+def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
+                  *, retired_cases: set[str] | None = None) -> bool:
     """Fail-closed static full-export association for frozen corpus loaders.
 
     A literal admission alone is insufficient: the reachable loader must read
@@ -163,6 +169,7 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
     hash_guard = False
     compile_frozen = False
     invokes_loader = False
+    retirement_bound = retired_cases is None
     stem = PurePosixPath(path).stem
     for tree in trees:
         constants = {}
@@ -181,8 +188,20 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                 return False
             admitted = True
         exclusions = constants.get("CORPUS_EXCLUSIONS", {})
-        if not isinstance(exclusions, dict) or any(exclusions.values()):
+        if not isinstance(exclusions, dict):
             return False
+        if retired_cases is None:
+            if any(exclusions.values()):
+                return False
+        else:
+            if any(not isinstance(value, list) or any(not isinstance(item, str)
+                       for item in value) for value in exclusions.values()):
+                return False
+            if stem in exclusions:
+                actual = exclusions[stem]
+                if len(actual) != len(set(actual)) or set(actual) != retired_cases:
+                    return False
+                retirement_bound = True
         if (constants.get("SOURCE_PATH") == path
                 and constants.get("SOURCE_SHA256") == inherited_hash):
             pinned = True
@@ -221,7 +240,50 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                               and n.func.attr in {"sha256", "hexdigest"}]
                 hash_guard |= bool(hash_calls and guards and correct_operator)
     return (admitted and pinned and frozen and export and corpus_guard and hash_guard
-            and compile_frozen and invokes_loader)
+            and compile_frozen and invokes_loader and retirement_bound)
+
+
+def _case_nodes(source: bytes) -> dict[str, ast.AST]:
+    """Exact source identities, not collected aliases or a self-reported count."""
+    result = {}
+
+    def walk(body, prefix=""):
+        for node in body:
+            if isinstance(node, ast.ClassDef):
+                walk(node.body, prefix + node.name + ".")
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.name.startswith("test_"):
+                    result[prefix + node.name] = node
+
+    walk(ast.parse(source).body)
+    return result
+
+
+def _step6_retired_cases(row: dict, source: bytes, errors: list[str]) -> set[str]:
+    path = row["path"]
+    declarations = row.get("case_retirements")
+    if not isinstance(declarations, list) or not declarations:
+        errors.append(f"mapping: case retirement declarations required: {path}")
+        return set()
+    cases = _case_nodes(source)
+    result = set()
+    for declaration in declarations:
+        if not isinstance(declaration, dict):
+            errors.append(f"mapping: malformed case retirement: {path}")
+            continue
+        case = declaration.get("case")
+        if not isinstance(case, str) or case not in cases or case in result:
+            errors.append(f"mapping: unknown/duplicate retired case: {path}: {case}")
+            continue
+        result.add(case)
+        expected_hash = _digest(ast.dump(cases[case], include_attributes=False).encode())
+        if (declaration.get("source_sha256") != expected_hash
+                or declaration.get("reviewer") != STEP6_RETIREMENT_REVIEWER
+                or declaration.get("surface") not in REMOVED_STEP6_SURFACES
+                or not isinstance(declaration.get("reason"), str)
+                or not declaration["reason"].strip()):
+            errors.append(f"mapping: unbound/unauthorized case retirement: {path}: {case}")
+    return result
 
 
 def _check(root: Path) -> tuple[list[str], dict]:
@@ -409,7 +471,13 @@ def _check(root: Path) -> tuple[list[str], dict]:
         if status == "retired":
             mapped_retired.add(path)
             retirement = row.get("retirement", {})
-            if (path not in RETIRABLE_SUITES or type(step) is not int or step != 1
+            if type(step) is int and step == 6:
+                retired = _step6_retired_cases(row, originals[path], errors)
+                if retired != set(_case_nodes(originals[path])):
+                    errors.append(f"mapping: retired step6 suite has retained cases: {path}")
+                if retirement.get("reviewer") != STEP6_RETIREMENT_REVIEWER:
+                    errors.append(f"mapping: step6 retirement reviewer missing: {path}")
+            elif (path not in RETIRABLE_SUITES or type(step) is not int or step != 1
                     or not isinstance(retirement, dict)
                     or retirement.get("reviewer") != RETIREMENT_REVIEWER
                     or retirement.get("reason") != RETIREMENT_REASONS.get(path)):
@@ -435,8 +503,9 @@ def _check(root: Path) -> tuple[list[str], dict]:
                 errors.append(f"mapping: deferred suite carries restoration: {path}")
             continue
         mapped_restored.add(path)
-        if type(step) is not int or step not in {1, 5}:
-            errors.append(f"mapping: restored suite must belong to merged step 1 or 5: {path}")
+        if type(step) is not int or step not in {1, 5, 6}:
+            errors.append(
+                f"mapping: restored suite must belong to implemented step 1, 5 or 6: {path}")
         if row.get("blocked_on", "missing") is not None:
             errors.append(f"mapping: restored suite must have blocked_on null: {path}")
         if path not in classified["safe_pass_now"] or path not in restored_paths:
@@ -461,8 +530,17 @@ def _check(root: Path) -> tuple[list[str], dict]:
         selectors = _strings(restoration.get("selectors"), f"restoration {path} selectors", errors)
         if not isinstance(restoration.get("reason"), str) or not restoration["reason"].strip():
             errors.append(f"mapping: restoration needs reason: {path}")
-        if mode not in {"direct-original", "frozen-adapter"}:
+        if mode not in {"direct-original", "frozen-adapter", "frozen-case-adapter"}:
             errors.append(f"mapping: unknown restoration mode: {path}")
+        retired = None
+        if mode == "frozen-case-adapter":
+            if type(step) is not int or step != 6:
+                errors.append(f"mapping: case retirement requires reviewed step6: {path}")
+            retired = _step6_retired_cases(row, originals[path], errors)
+            if retired == set(_case_nodes(originals[path])):
+                errors.append(f"mapping: all-retired suite cannot claim restoration: {path}")
+        elif row.get("case_retirements"):
+            errors.append(f"mapping: retirement declarations require case adapter mode: {path}")
         for selector in selectors:
             if not _path(selector) or selector not in group.get("files", []):
                 errors.append(
@@ -475,8 +553,9 @@ def _check(root: Path) -> tuple[list[str], dict]:
                     errors.append(
                         f"mapping: direct-original must select entire original suite: {path}"
                     )
-                if mode == "frozen-adapter" and not _full_adapter(
-                    root, selector, path, row.get("inherited_sha256", "")
+                if mode in {"frozen-adapter", "frozen-case-adapter"} and not _full_adapter(
+                    root, selector, path, row.get("inherited_sha256", ""),
+                    retired_cases=retired,
                 ):
                     errors.append(
                         f"mapping: adapter lacks immutable full-suite corpus association: {path}"

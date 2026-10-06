@@ -1,0 +1,39 @@
+{
+  "entries": [
+    {
+      "path": "scripts/maintenance/phase2_suites.py",
+      "reason": "Step6 whole-suite enrollment and authorized case-level removed-surface dispositions.",
+      "contract": "All 869 frozen bytes and historical326 suite membership stay pinned; reviewed case removal binds exact original function AST, reviewer and one permitted removed surface. Partial adapter exclusions must equal the bound retired cases, no undeclared subset.",
+      "invariant": "No assertion recapture, no sampled suite promotion, no arbitrary retirement or relaxed historical classification.",
+      "tests": ["tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "tests/test_desktop_phase2_suite_map.py",
+      "reason": "Behavioral mutation tests for step6 enrollment and fail-closed exact case retirement.",
+      "contract": "Offline fixtures bind real checker outputs for whole-suite enrollment and retirement hash/reviewer/surface/partition mutations.",
+      "invariant": "Checker tests do not import engine/adapters or claim runtime suite execution.",
+      "tests": ["tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "scripts/run-phase1-tests.py",
+      "reason": "Case-adapted suites use their reviewed frozen wrapper instead of obsolete original setup.",
+      "contract": "Default qualified selection omits the original only for restored, immutable corpus-bound adapters, including explicit case retirement.",
+      "invariant": "PID namespace, isolated environment and explicit qualification selection remain mandatory.",
+      "tests": ["tests/test_desktop_isolated_runner.py", "tests/test_desktop_qualified_runner.py", "tests/test_desktop_phase2_suite_map.py"]
+    },
+    {
+      "path": "tests/test_desktop_shared_outbound.py",
+      "reason": "Merge6B borrowed dispatcher fixtures with accepted producer-first lifecycle barrier.",
+      "contract": "Borrowed integration close does not close dispatcher; requests then engine settle before management teardown. Original-owner dispatcher closes once, no live producer teardown bypass.",
+      "invariant": "Production cleanup guard remains unchanged; standalone composition and current/prior unknown cleanup remain truthful.",
+      "tests": ["tests/test_desktop_shared_outbound.py", "tests/test_desktop_core_lifecycle.py"]
+    },
+    {
+      "path": "scripts/maintenance/record_lane6.py",
+      "reason": "Generate pending exact lineage candidates for enumerated lane6 paths only.",
+      "contract": "Explicit reason/contract/invariant/evidence per path; never recapture frozen tests, generate only, apply_patch integrates candidate.",
+      "invariant": "No generic whole-tree source recapture or independent-review claim.",
+      "tests": ["tests/test_desktop_phase2_suite_map.py", "tests/test_desktop_maintenance.py"]
+    }
+  ]
+}
