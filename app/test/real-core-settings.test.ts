@@ -76,7 +76,7 @@ describe('served settings/management through actual Broker and isolated reposito
     expect(result(await broker.request('knowledge.list'))).toEqual([])
     expect(result(await broker.request('audit.query'))).toEqual([])
     expect(result(await broker.request('logs.search'))).toEqual({ entries: [], count: 0 })
-    expect(result(await broker.request('turn_state.list'))).toMatchObject({ schema_version: 1, availability: 'not_enabled', data: {} })
+    expect(result(await broker.request('turn_state.list'))).toMatchObject({ schema_version: 1, availability: 'available', data: {} })
     expect(result(await broker.request('usage.get', { period: '7d' }))).toMatchObject({ period: '7d', tokens: { value: null, kind: 'unknown' },
       context: { used: { value: null, kind: 'unknown' }, budget: { value: null, kind: 'unknown' } }, quota: [] })
     expect(result(await broker.request('audit.verify'))).toMatchObject({ valid: false, verified: 0, availability: 'not_enabled' })
@@ -89,7 +89,11 @@ describe('served settings/management through actual Broker and isolated reposito
     expect(result(await broker.request('mcp.list'))).toMatchObject({ server_count: 0, started: true })
     expect(result(await broker.request('computer.status'))).toMatchObject({ readiness: {
       foreground_available: false, input_supported: false, dispatch: 'none' } })
-    for (const method of ['turns.create', 'schedules.list', 'skills.test', 'loops.list', 'agents.list', 'shell.execute']) {
+    for (const method of ['schedules.list', 'loops.list', 'agents.list']) {
+      expect(SERVED_CAPABILITIES).toContain(method)
+      expect(result(await broker.request(method))).toEqual([])
+    }
+    for (const method of ['turns.create', 'skills.test', 'shell.execute']) {
       expect(SERVED_CAPABILITIES).not.toContain(method)
       refused(await broker.request(method), 'capability_unavailable')
     }
@@ -357,6 +361,6 @@ describe('served settings/management through actual Broker and isolated reposito
     }
     result(await broker.request('codex.accounts.remove', { index: 0 }))
     expect(result(await broker.request('codex.accounts.list'))).toEqual({ configured: false, accounts: [] })
-    refused(await broker.request('schedules.list'), 'capability_unavailable')
+    expect(result(await broker.request('schedules.list'))).toEqual([])
   })
 })
