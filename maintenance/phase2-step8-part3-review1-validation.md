@@ -110,9 +110,37 @@ rather than assuming admission completes inside 0.1 seconds.
 Final byte ledger and suite map have zero errors. Ruff has seven inherited
 findings and zero new. Original suite membership and hashes remain unchanged.
 
-Final review-round qualification will run exactly once from a fresh frozen
-checkout under a group-writable parent, using Python 3.12, non-root `odin`,
-mount/PID namespaces, `env -i`, throwaway HOME/XDG and no display, DBus, credentials,
-live installation or native backend. The complete receipt records every group,
-JUnit hash, log hash, tested SHA and verdict. Pending that invocation, this file
-does not claim a clean full gate.
+## Single final full gate and subsequent correction
+
+The review-round full qualification ran exactly once at frozen checkout
+`90cad1e55b094331deb46af4b0ffa9cc4513a51d`, parent and checkout mode2775. Fresh
+locked dependency sync and pip check passed. Python3.12, nonroot `odin`, mount/PID
+namespaces, `env -i`, throwaway HOME/XDG; no display, DBus, credentials, live
+installation or native backend.
+
+**Observed: 30/33 groups, 15,086 passing executions, ten failures, zero errors,
+two skips. Full qualification failed.** All three restoration groups passed:
+step2=202, step3=284, step4=129 executions, including supplemental guards and
+historical duplicate vision executions, not 615 unique original cases.
+
+Failures: eight capability/readiness regressions from resolving a known unready
+handler before denial, and two Desktop-native tests still expecting the formerly
+diagnostic-only CLI to raise SystemExit rather than return its failure status.
+The earlier startup failure did not recur. The real capability regression was
+corrected with static name classification: owner/reservation/scope still precede
+unknown-name classification; known documented/handler names still reach readiness
+denial before handler resolution. No capability test/assertion was changed.
+Two Desktop-native CLI harnesses now verify nonzero return and no transport/
+process effect, while the supervised root retains exit2. Frozen inherited CLI
+assertions remain unchanged and its whole suite is still deferred.
+
+Post-gate exact affected selection passed **153 executions**, no failures/skips.
+This does not erase the failed full run or qualify the new source in full.
+**No second full run occurred; PR remains draft.**
+
+`phase2-step8-part3-review1-result.json` retains all group/JUnit hashes, complete
+log hash, tested SHA and failed verdict. The shell's outer `tee` returned zero,
+but authoritative `qualification-result.json` records three failed groups; exit0
+was not treated as health. Final receipt counts are taken from JUnit, not shell
+optimism. Final source is post-gate corrected and explicitly not the fully
+qualified source SHA.

@@ -141,7 +141,11 @@ def test_real_unwired_entry_rejects_before_effect(entry, monkeypatch):
         "api_setup": api.setup_api, "components": wiring.build_components,
         "services": wiring.build_services,
     }
-    if entry in {"cli", "root"}:
+    if entry == "cli":
+        # Optional prompt client returns its nonzero status to the console
+        # wrapper; obsolete daemon input still cannot reach any effect.
+        assert entries[entry]() == 2
+    elif entry == "root":
         with pytest.raises(SystemExit) as rejected:
             entries[entry]()
         assert rejected.value.code == 2

@@ -832,8 +832,12 @@ class ToolExecutor:
             return ToolResult(output="Permission denied: tool scope revoked or unavailable.",
                               ok=False, error="permission_denied", tool_name=tool_name)
         # In-scope unknown names precede permission/readiness/risk middleware.
-        # Known handlers still require every existing guard below.
-        if self._resolve_handler(tool_name) is None:
+        # Do not resolve a known but unready handler merely to classify it:
+        # capability denial must still precede every handler/domain lookup.
+        from .registry import TOOL_MAP
+
+        if (tool_name not in TOOL_MAP and tool_name not in EXECUTOR_HANDLERS
+                and ("_handle_" + tool_name) not in self.__dict__):
             return ToolResult(output=f"Unknown tool: {tool_name}", ok=False,
                               error="unknown_tool", tool_name=tool_name)
         denial = self.check_permission(tool_name, user_id)
