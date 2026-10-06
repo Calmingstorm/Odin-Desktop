@@ -12,6 +12,20 @@ export const firstRunStatusSchema = z.object({
 })
 
 /** The window names each conversation command, so a lost answer is reconciled by its late receipt, never re-sent. */
+export const webhookIngressStatusSchema = z.object({
+  reason: z.enum(['closed', 'disabled', 'unconfigured_bind', 'no_eligible_schedule', 'accepting', 'not_bound', 'unavailable']),
+  address: z.tuple([z.string(), z.number().int().min(0).max(65535)]).rest(z.union([z.number(), z.string()])).nullable(),
+  eligible_schedules: z.number().int().nonnegative(),
+  unknown_deliveries: z.number().int().nonnegative()
+})
+
+/** Retained scheduler conditions, including GitLab even though ingress is unavailable for it. */
+export const scheduleTriggerSchema = z.object({
+  source: z.enum(['generic', 'github', 'gitea', 'gitlab', '']).nullable().optional(),
+  event: z.string().nullable().optional(),
+  repo: z.string().nullable().optional()
+}).strict().refine((value) => Object.values(value).some(Boolean), 'Trigger must have at least one condition')
+
 const commandId = z.uuid()
 
 export const createConversationSchema = z
@@ -258,6 +272,7 @@ const scheduleFields = {
   cron: z.string().min(1).max(256).optional(),
   run_at: z.string().min(1).max(64).optional(),
   cron_timezone: z.string().min(1).max(64).optional(),
+  trigger: scheduleTriggerSchema.optional(),
   message: z.string().max(4000).optional(),
   tool_name: z.string().min(1).max(128).optional(),
   tool_input: z.record(z.string(), z.json()).optional(),

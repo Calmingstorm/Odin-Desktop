@@ -10,12 +10,21 @@ export interface FirstRunStatus {
   keyring_unavailable: boolean
 }
 
+/** Socket readiness observed by the core, never inferred from saved opt-in. */
+export interface WebhookIngressStatus {
+  reason: 'closed' | 'disabled' | 'unconfigured_bind' | 'no_eligible_schedule' | 'accepting' | 'not_bound' | 'unavailable'
+  address: [string, number, ...unknown[]] | null
+  eligible_schedules: number
+  unknown_deliveries: number
+}
+
 export interface CoreStatus {
   phase: CorePhase
   core_instance_id: string
   version: string
   capabilities: string[]
   first_run?: FirstRunStatus
+  webhook_ingress?: WebhookIngressStatus
   model?: { main: string; effort: string; provider: string }
   providers?: Array<{ name: string; health: string }>
   limits?: { chunk_bytes: number; attachment_bytes: number; attachments_per_turn: number }
@@ -626,7 +635,7 @@ export interface ScheduleRow {
   report_format?: string | null
   steps?: unknown[] | null
   webhook_config?: Record<string, unknown> | null
-  trigger?: Record<string, unknown> | null
+  trigger?: ScheduleTrigger | null
   max_retries?: number
   retry_backoff_seconds?: number
   consecutive_failures?: number
@@ -653,12 +662,19 @@ export interface ScheduleRow {
 }
 
 /** Fields both creating and changing a schedule take. Changing sends only what changed. */
+export interface ScheduleTrigger {
+  source?: 'generic' | 'github' | 'gitea' | 'gitlab' | null
+  event?: string | null
+  repo?: string | null
+}
+
 interface ScheduleFields {
   description?: string
   channel_id?: string
   cron?: string
   run_at?: string
   cron_timezone?: string
+  trigger?: ScheduleTrigger
   message?: string
   tool_name?: string
   tool_input?: Record<string, unknown>

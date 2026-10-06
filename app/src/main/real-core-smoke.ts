@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { BrowserWindow } from 'electron'
 import type { Broker } from './broker'
-import type { ConversationSnapshot } from '../shared/api'
+import type { ConversationSnapshot, WebhookIngressStatus, ScheduleRow } from '../shared/api'
 
 const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -27,14 +27,16 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover', 'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
   'control.stop', 'control.steer', 'control.resume',
+  'work.list', 'work.control', 'reports.page', 'schedules.list', 'schedules.save', 'schedules.delete',
+  'schedules.run', 'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron',
   'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete', 'webhooks.outbound.test', 'integrations.email.get'
 ].sort()]
 export type RealCoreStatus = { phase: string; version: string; core_instance_id: string; capabilities: string[];
   model: { main: string | null; effort: string | null; provider: string | null };
   providers: Array<{ name: string; health: string }>; limits: Record<string, number>; summary: string;
-  first_run: { state: string; reason: string; keyring_unavailable: boolean } }
+  first_run: { state: string; reason: string; keyring_unavailable: boolean }; webhook_ingress: WebhookIngressStatus }
 
-export function assertFreshManagementStatus(status: RealCoreStatus): void {
+export function assertFreshManagementStatus(status: RealCoreStatus, keyring: 'unavailable' | 'ephemeral' = 'unavailable'): void {
   assert.equal(status.phase, 'ready') // Transport lifetime, not provider readiness.
   assert.deepEqual(status.capabilities, realCoreCapabilities)
   // capture_serving_identity exposes the configured default even without a
@@ -45,7 +47,10 @@ export function assertFreshManagementStatus(status: RealCoreStatus): void {
   ])
   assert.deepEqual(status.limits, { chunk_bytes: 512 * 1024, attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10 })
   assert.match(status.summary, /Codex: unavailable/)
-  assert.deepEqual(status.first_run, { state: 'degraded', reason: 'keyring_unavailable', keyring_unavailable: true })
+  assert.deepEqual(status.first_run, keyring === 'unavailable'
+    ? { state: 'degraded', reason: 'keyring_unavailable', keyring_unavailable: true }
+    : { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false })
+  assert.deepEqual(status.webhook_ingress, { reason: 'disabled', address: null, eligible_schedules: 0, unknown_deliveries: 0 })
 }
 
 export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: string): Promise<void> {
@@ -66,7 +71,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   const result = await broker.request('status.get')
   assert(result.ok, 'real status.get must succeed')
   const status = result.result as RealCoreStatus
-  assertFreshManagementStatus(status)
+  assertFreshManagementStatus(status, 'ephemeral')
   assert.equal(status.core_instance_id, broker.coreInstanceId)
   assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? '0.1.0.dev1')
   for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
@@ -89,7 +94,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     reads[method] = answer.result
   }
   const accounts = await broker.request('codex.accounts.list')
-  assert(!accounts.ok && accounts.error.code === 'keyring_unavailable', 'isolated profile must honestly report missing system keyring, not invent accounts')
+  assert(accounts.ok, 'ephemeral keyring must serve the actual empty account store')
+  assert.deepEqual(accounts.result, { configured: false, accounts: [] })
   reads['codex.accounts.list'] = accounts
   assert.deepEqual(reads['lists.list'], { items: [] })
   assert(Array.isArray(reads['audit.query']) && (reads['audit.query'] as unknown[]).length > 0, 'real task/check activity must populate audit')
@@ -123,6 +129,121 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     }
   }
   const screens: Array<{ screen: string; text: string }> = []
+  const webhookProof: Record<string, unknown> = {}
+  const webhookSmoke = async (): Promise<void> => {
+    const panel = '[data-testid="webhook-ingress"]'
+    const measured = async (): Promise<WebhookIngressStatus> => {
+      const answer = await broker.request('status.get')
+      assert(answer.ok)
+      const ingress = (answer.result as RealCoreStatus).webhook_ingress
+      assert(ingress, 'status.get must include the actual ingress owner projection')
+      assert(Number.isInteger(ingress.eligible_schedules) && ingress.eligible_schedules >= 0)
+      assert.equal(ingress.unknown_deliveries, 0, 'completed deliveries must not invent unknown handoffs')
+      return ingress
+    }
+    const refresh = async (): Promise<void> => {
+      await until(async () => await run<boolean>(`document.querySelector(${JSON.stringify(panel)})?.getAttribute('aria-busy') === 'false'`), 'idle webhook inspector')
+      await click('button[aria-label="Refresh webhook ingress"]')
+      await until(async () => await run<boolean>(`document.querySelector(${JSON.stringify(panel)})?.getAttribute('aria-busy') === 'false'`), 'refreshed webhook inspector')
+    }
+    const field = async (testid: string, value: string, event = 'input'): Promise<void> => {
+      await run(`(() => { const input = document.querySelector('[data-testid=${testid}]');
+        input.value = ${JSON.stringify(value)}; input.dispatchEvent(new Event(${JSON.stringify(event)}, { bubbles: true })); })()`)
+    }
+    const button = async (label: string): Promise<void> => {
+      await run(`(() => { const button = Array.from(document.querySelectorAll(${JSON.stringify(panel + ' button')})).find(b => b.textContent.trim() === ${JSON.stringify(label)});
+        if (!button || button.disabled) throw new Error('Missing or disabled webhook action'); button.click(); })()`)
+    }
+    await refresh()
+    assert.deepEqual(await measured(), { reason: 'disabled', address: null, eligible_schedules: 0, unknown_deliveries: 0 })
+    assert((await text('[data-testid="webhook-ingress-status"]')).startsWith('Disabled'))
+    assert.equal(await run('document.querySelector("[data-testid=webhook-ingress-enabled]").checked'), false, 'inbound ingress must start opt-in')
+    await field('webhook-ingress-bind', '127.0.0.1')
+    await field('webhook-ingress-port', '0')
+    await click('[data-testid="webhook-ingress-enabled"]')
+    await button('Save listener setup')
+    await until(async () => (await measured()).reason === 'no_eligible_schedule', 'opt-in without eligible trigger stays off')
+    await refresh()
+    assert.deepEqual(await measured(), { reason: 'no_eligible_schedule', address: null, eligible_schedules: 0, unknown_deliveries: 0 })
+    assert((await text('[data-testid="webhook-ingress-status"]')).includes('Off: no eligible schedule'))
+    // Named preload creation enters the actual scheduler, not a seeded row.
+    const created = await run<{ ok: boolean; result: ScheduleRow }>(`window.odin.schedulesSave(${JSON.stringify({
+      description: 'Real ephemeral webhook reminder', action: 'reminder', channel_id: proof.conversation_id,
+      trigger: { source: 'generic', event: 'smoke-delivery' }, message: 'Real webhook schedule ran.'
+    })})`)
+    assert(created.ok, 'named trigger schedule creation must succeed')
+    const row = created.result
+    webhookProof.schedule = row
+    await refresh()
+    await field('webhook-ingress-schedule', row.id, 'change')
+    await until(async () => (await count('[data-testid="webhook-ingress-secret"]')) === 1, 'selected saved trigger inspector')
+    assert.equal(await run('document.querySelector("[data-testid=webhook-ingress-secret]").value'), '', 'stored secret must never prefill')
+    assert.equal((await measured()).eligible_schedules, 0, 'saved schedule alone cannot authenticate a delivery')
+    await field('webhook-ingress-source', 'generic', 'change')
+    const secret = randomUUID() // Ephemeral fixture credential, excluded from evidence.
+    await field('webhook-ingress-secret', secret)
+    await button('Save trigger source and secret')
+    await until(async () => (await measured()).reason === 'accepting', 'actual loopback ingress bind')
+    await refresh()
+    const accepting = await measured()
+    assert.equal(accepting.eligible_schedules, 1)
+    assert.equal(accepting.address?.[0], '127.0.0.1')
+    assert(Number.isInteger(accepting.address?.[1]) && accepting.address![1] > 0, 'port0 must report its actual ephemeral port')
+    assert.equal(await run('document.querySelector("[data-testid=webhook-ingress-secret]").value'), '', 'submission clears secret draft')
+    const url = `http://127.0.0.1:${accepting.address![1]}/webhook/generic/${encodeURIComponent(row.id)}`
+    assert((await text('[data-testid="webhook-ingress-endpoint"]')).includes(url), 'UI must show actual socket endpoint, not configured port0')
+    const schema = await run<{ ok: boolean; result: unknown }>('window.odin.settingsSchema()')
+    assert(schema.ok && !JSON.stringify(schema.result).includes(secret), 'write-only schema must not reveal fixture credential')
+    assert(!(await text(panel)).includes(secret), 'inspector must not render stored credential')
+    screens.push({ screen: 'Webhook ingress / actual accepting loopback endpoint', text: await text(panel) })
+    writeFileSync(out.replace(/\.png$/i, '') + '-webhook.png', (await win.webContents.capturePage()).toPNG())
+    const history = async (): Promise<unknown[]> => {
+      const answer = await run<{ ok: boolean; result: unknown[] }>(`window.odin.schedulesHistory({ id: ${JSON.stringify(row.id)} })`)
+      assert(answer.ok)
+      return answer.result
+    }
+    const deliver = (credential: string, event: string, title: string): Promise<Response> => fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': credential },
+      body: JSON.stringify({ event, title, message: 'Harmless isolated delivery.' }), signal: AbortSignal.timeout(5_000)
+    })
+    assert.deepEqual(await history(), [])
+    const denied = await deliver('not-the-trigger-secret', 'smoke-delivery', 'Rejected webhook')
+    assert.equal(denied.status, 403)
+    assert.deepEqual(await history(), [], 'unauthenticated delivery must not invoke the scheduler')
+    const filtered = await deliver(secret, 'different-event', 'Filtered webhook notice')
+    assert.equal(filtered.status, 200)
+    assert.deepEqual(await filtered.json(), { status: 'delivered' })
+    assert.deepEqual(await history(), [], 'authenticated nonmatching event publishes notice without running trigger')
+    for (const title of ['Actual webhook delivery one', 'Actual webhook delivery two']) {
+      const response = await deliver(secret, 'smoke-delivery', title)
+      assert.equal(response.status, 200)
+      assert.deepEqual(await response.json(), { status: 'delivered' })
+    }
+    const runs = await history()
+    assert.equal(runs.length, 2, 'each HTTP delivery must run once through the actual scheduler')
+    assert(runs.every(run => (run as { status: string }).status === 'success'))
+    const transcript = await broker.request('conversation.snapshot', { conversation_id: proof.conversation_id })
+    assert(transcript.ok)
+    const messages = (transcript.result as ConversationSnapshot).messages.items
+    assert.equal(messages.filter(item => item.text.includes('Real webhook schedule ran.')).length, 2)
+    for (const title of ['Filtered webhook notice', 'Actual webhook delivery one', 'Actual webhook delivery two']) {
+      assert.equal(messages.filter(item => item.text.includes(title)).length, 1, 'delivery notice must publish once')
+    }
+    assert(!JSON.stringify(transcript.result).includes(secret), 'delivery transcript must not reveal authentication secret')
+    assert.deepEqual(counts(), beforePaging, 'webhook reminder delivery must not rerun existing task/report commands')
+    webhookProof.accepting = accepting
+    webhookProof.history = runs
+    webhookProof.deliveryStatus = { rejected: denied.status, filtered: filtered.status, accepted: 2 }
+    await button('Clear per-trigger secret')
+    await until(async () => (await measured()).reason === 'no_eligible_schedule' && (await measured()).address === null, 'cleared secret closes actual listener')
+    await refresh()
+    assert.deepEqual(await measured(), { reason: 'no_eligible_schedule', address: null, eligible_schedules: 0, unknown_deliveries: 0 })
+    assert.equal(await count('[data-testid="webhook-ingress-endpoint"]'), 0, 'inactive inspector must not advertise accepting endpoint')
+    await assert.rejects(deliver(secret, 'smoke-delivery', 'After secret clear'), 'closed listener must reject connections')
+    assert.deepEqual(await history(), runs, 'clearing secret must not replay or run any delivery')
+    webhookProof.cleared = await measured()
+    screens.push({ screen: 'Webhook ingress / secret cleared and listener off', text: await text(panel) })
+  }
   const unavailable = /not (?:yet )?available|unavailable|not served|later (?:step|slice)/i
   const recordUnavailable = async (screen: string, selector: string): Promise<void> => {
     await until(async () => unavailable.test(await text(selector)), screen)
@@ -235,7 +356,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     Records: ['section[aria-label="Computer use"]']
   }
   const servedPanels: Record<string, Array<[string, RegExp]>> = {
-    'Models and providers': [['.codex-accounts', /keyring.*(?:locked|unavailable)/i]],
+    'Models and providers': [['.codex-accounts', /Codex isn't configured\./]],
     Personality: [['section[aria-label="Personality"]', /preset|personality/i]],
     Tools: [['section[aria-label="Built-in tools"]', /run_command/], ['section[aria-label="Tool timeouts"]', /Default|seconds/i]],
     'Hosts and trust': [['section[aria-label="Hosts"]', /localhost/]],
@@ -253,7 +374,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   }))()`)
   for (const [name, answer] of Object.entries(observations)) {
     if (name === 'accounts') {
-      assert(!answer.ok && answer.error?.code === 'keyring_unavailable', 'accounts must retain the distinct unavailable native-keyring failure')
+      assert(answer.ok, 'ephemeral account store read must succeed without inventing credentials')
+      assert.deepEqual(answer.result, accounts.result)
     } else assert(answer.ok, `named bridge ${name} failed: ${JSON.stringify(answer.error)}`)
   }
   const hostData = observations.hosts!.result as { hosts: Array<{ alias: string; trust_state: string }>; default_host: string }
@@ -284,6 +406,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       await until(async () => (await text('section[aria-label="Schedules"]')).includes('D12 manual recovery check') &&
         (await text('section[aria-label="Schedules"]')).includes('Recovery required'), 'real D12 recovery-required schedule')
       assert((await text('section[aria-label="Schedules"]')).includes('No effects were replayed'), 'D12 must render actual recovery reason')
+      await webhookSmoke()
     }
     if (sections[i] === 'Hosts and trust') {
       await until(async () => (await text('section[aria-label=Hosts]')).includes('localhost'), 'real localhost row')
@@ -318,7 +441,12 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert((await text('section[aria-label="Health"]')).includes('host(s) configured'), 'real health must observe profile hosts')
     }
     assert.equal(await run('document.querySelectorAll(".settings-body [role=alert]").length'), 0, `${sections[i]} must not present capability refusal as a fault`)
-    assert.equal(await run('document.querySelectorAll(".settings-body .work-item, .settings-body .account").length'), 0, `${sections[i]} must not display fixture accounts/work`)
+    assert.equal(await count('.settings-body .account'), 0, `${sections[i]} must not display fixture accounts`)
+    if (sections[i] === 'Scheduled and running work') {
+      const titles = await run<string[]>('Array.from(document.querySelectorAll(".settings-body .work-title"), row => row.textContent.trim())')
+      assert(titles.length > 0, 'Settings must retain actual seeded running work')
+      for (const title of titles) assert(workItems.some(item => item.title === title), 'every Settings Work row must come from the actual work.list observation')
+    } else assert.equal(await count('.settings-body .work-item'), 0, `${sections[i]} must not invent work rows`)
     const renderedPaths = await run<string[]>('Array.from(document.querySelectorAll(".settings-body .field-path"), e => e.textContent)')
     const fields = (reads['settings.schema'] as { fields: Array<{ path: string }> }).fields
     for (const path of renderedPaths) assert(fields.some((field) => field.path === path), `rendered field ${path} must belong to the served schema`)
@@ -379,7 +507,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   writeFileSync(out.replace(/\.png$/i, '') + '-chat.png', (await win.webContents.capturePage()).toPNG())
   assert.equal(broker.linkState, 'ready')
   assert.deepEqual(counts(), beforePaging, 'all report reads and UI navigation must not rerun a check')
-  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, reads, observations, proof, receipt, toolCounts: counts(), screens }, null, 2) + '\n')
+  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, reads, observations, proof, receipt, webhookProof, toolCounts: counts(), screens }, null, 2) + '\n')
   process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ link: broker.linkState, status, screens: screens.map(({ screen }) => screen), observations: Object.fromEntries(Object.entries(observations).map(([name, answer]) => [name, answer.ok ? 'observed' : answer.error?.code])) })}\n`)
   process.stdout.write(`real-core-smoke: ok link=ready version=${status.version} screens=${screens.length}\n`)
 }

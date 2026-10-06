@@ -79,14 +79,27 @@ slots notice and leaves a missed check recovery-required. Agent mailbox/process 
 are controlled seeds, not provider/native execution qualification. Autonomous ticking is stopped only in this
 test bootstrap so clock seeding cannot race it; real tick/admission/history/delivery remain intact.
 The profile shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge,
-actual task/check audit/log records, unknown usage and its actual turn-state availability. Missing
-keyring access is a distinct failure with Retry, not an empty account success. Skills, MCP and computer use remain
+actual task/check audit/log records, unknown usage and its actual turn-state availability. The slice-6 Electron
+bootstrap injects only an ephemeral memory keyring at the external Secret Service boundary; empty accounts and
+fresh/provider-not-configured status are genuine reads under that boundary, not native keyring qualification.
+The separate real-core contracts retain missing-keyring failure with Retry coverage.
+Skills, MCP and computer use remain
 unavailable on this slice's base. The gate validates management/readiness projections, rejects fixture rows,
 raw capability errors, successful-empty claims for refused reads and duplicate composer usage notices.
 It exits through normal `runtime.shutdown` and parent-EOF cleanup. Evidence includes direct core reads and named-bridge observations. Evidence paths
 and a compact result are printed as JSON. Set
 `ODIN_SMOKE_OUT` to retain screenshots of chat and every settings section plus a JSON evidence file alongside the
 named checkpoint; the default screenshots, evidence and profiles are discarded.
+
+The slice-6 smoke creates a trigger reminder through the named preload schedule API, then uses the rendered
+Webhook ingress inspector to opt in on `127.0.0.1` with port `0` and store a per-trigger source/secret via the
+existing settings and write-only secret APIs. Saved opt-in without a secret remains off. Actual `status.get`
+ingress reason/address/eligible/unknown fields and the rendered endpoint prove binding to the ephemeral port.
+Real authenticated HTTP delivery exercises source/event filtering, rejects a wrong secret, runs two distinct
+matching deliveries exactly once, and verifies schedule history plus the actual conversation publications.
+Secret clear closes the listener without replay. Existing child-written task/report counters stay unchanged.
+No LAN listener, real account, native keyring or production profile participates; raw screenshots and large
+evidence belong outside Git, with small summaries and artifact hashes retained separately.
 
 The fixture smoke gate explicitly clears real-core overrides, so it remains a fixture regression gate rather
 than accidentally running whichever core a developer shell last selected.

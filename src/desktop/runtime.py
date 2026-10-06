@@ -239,6 +239,8 @@ class RuntimeService:
         limits = getattr(self.core, "limits", None) or {}
         summary = render_status(facts)
         ingress = getattr(self.core, "webhooks", None)
+        state = {"reason": "unavailable", "address": None,
+                 "eligible_schedules": 0, "unknown_deliveries": 0}
         if ingress is not None:
             state = ingress.status()
             address = state['address']
@@ -259,6 +261,7 @@ class RuntimeService:
             "limits": {name: limits.get(name) for name in
                        ("chunk_bytes", "attachment_bytes", "attachments_per_turn")},
             "summary": summary,
+            "webhook_ingress": state,
             "first_run": self._first_run(),
             "resource_cleanup": (self.core.resource_cleanup.public()
                                  if getattr(self.core, "resource_cleanup", None) else None),
