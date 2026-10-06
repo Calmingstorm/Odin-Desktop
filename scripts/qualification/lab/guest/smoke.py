@@ -51,6 +51,11 @@ def session_environment(uid, expected_type):
                 and environment.get("XDG_CURRENT_DESKTOP")
                 and environment.get("XDG_SESSION_TYPE") == expected_type
                 and (expected_type != "wayland" or environment.get("WAYLAND_DISPLAY"))):
+            if expected_type == "wayland" and not environment.get("DISPLAY"):
+                # Orca 46 still reads Xwayland's keymap even when the tested
+                # application is explicitly native Wayland. Prefer the real
+                # guest shell environment over an early compositor environment.
+                continue
             # Never inherit arbitrary guest credentials into a proof helper.
             selected = {key: value for key, value in environment.items() if key in (
                 "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR",
