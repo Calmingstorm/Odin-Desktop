@@ -1,7 +1,9 @@
 abi <abi/4.0>,
 include <tunables/global>
 
-profile odin-desktop "/opt/Odin/odin-desktop" flags=(unconfined) {
+# The public launcher is a shell/Python ownership wrapper. Attach userns to the
+# actual Electron image it executes, not to the wrapper's interpreter chain.
+profile odin-desktop "/opt/Odin/odin-desktop.bin" flags=(unconfined) {
   userns,
 
   # Site-specific additions and overrides. See local/README for details.
