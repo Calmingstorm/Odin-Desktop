@@ -1445,6 +1445,7 @@
         "tests/test_desktop_resume_trigger.py",
         "tests/test_desktop_resume_no_ledger.py",
         "tests/test_desktop_artifacts.py",
+        "tests/test_desktop_attachment_knowledge.py",
         "tests/test_desktop_attachments.py",
         "tests/test_desktop_delivery.py",
         "tests/test_desktop_engine_services.py",
