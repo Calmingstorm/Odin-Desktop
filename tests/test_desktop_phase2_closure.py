@@ -25,16 +25,42 @@ def test_final_dispositions_are_not_relabelled_as_passes():
                                  {"path": "tests/b.py", "status": "retired"}]})
     assert result["ready"]
     assert result["suites"] == {"total": 2, "statuses": {"restored": 1, "retired": 1},
-                                "without_final_disposition": 0}
+                                "without_final_disposition": 0, "named_deferrals": 0}
 
 
-@pytest.mark.parametrize("status", ["deferred", "pending-review", "passing", None])
+@pytest.mark.parametrize("status", ["Deferred", "deferred ", "pending-review", "passing", None])
 def test_unfinished_suite_status_and_reason_remain_blockers(status):
     result = check({"entries": [{"path": "tests/a.py", "status": status,
                                   "blocked_on": "Awaiting exact case disposition"}]})
     assert not result["ready"]
     assert result["suites"]["without_final_disposition"] == 1
     assert result["blockers"][0]["reason"] == "Awaiting exact case disposition"
+
+
+def test_named_deferrals_close_under_decision_3():
+    result = check({"entries": [{"path": "tests/a.py", "status": "deferred",
+                                  "blocked_on": "  Frozen fixtures import a removed facade  "},
+                                 {"path": "tests/b.py", "status": "restored"}]})
+    assert result["ready"]
+    assert result["suites"]["without_final_disposition"] == 0
+    assert result["suites"]["named_deferrals"] == 1
+    assert result["suites"]["statuses"] == {"deferred": 1, "restored": 1}
+    assert result["deferrals"] == [{"kind": "suite", "id": "tests/a.py",
+                                    "reason": "Frozen fixtures import a removed facade"}]
+    assert result["deferral_authority"].startswith("Aaron decision 3, 2026-10-06")
+
+
+@pytest.mark.parametrize("blocked_on", [None, "", "   ", 7, ["named"], {"reason": "named"}])
+def test_deferral_without_a_named_blocker_stays_open(blocked_on):
+    row = {"path": "tests/a.py", "status": "deferred"}
+    if blocked_on is not None:
+        row["blocked_on"] = blocked_on
+    result = check({"entries": [row]})
+    assert not result["ready"]
+    assert result["suites"]["without_final_disposition"] == 1
+    assert result["suites"]["named_deferrals"] == 0
+    assert result["deferrals"] == []
+    assert result["blockers"][0]["id"] == "tests/a.py"
 
 
 @pytest.mark.parametrize("status", ["pending_restoration", "proposed_mechanical",
@@ -76,11 +102,25 @@ def test_report_mode_returns_zero_with_missing_temporary_inputs(tmp_path, capsys
 
 
 def test_detailed_report_preserves_every_row(tmp_path, monkeypatch, capsys):
-    expected = check({"entries": [{"path": "tests/a.py", "status": "deferred"}]})
+    expected = check({"entries": [{"path": "tests/a.py", "status": "deferred"},
+                                  {"path": "tests/b.py", "status": "deferred",
+                                   "blocked_on": "Named blocker"}]})
     monkeypatch.setattr(closure, "report", lambda root: expected)
     assert closure.main(["report", "--root", str(tmp_path), "--details"]) == 0
     result = json.loads(capsys.readouterr().out)
     assert result["blockers"][0]["id"] == "tests/a.py"
+    assert result["deferrals"] == [{"kind": "suite", "id": "tests/b.py", "reason": "Named blocker"}]
+
+
+def test_plain_report_counts_deferrals_without_listing_them(tmp_path, monkeypatch, capsys):
+    expected = check({"entries": [{"path": "tests/b.py", "status": "deferred",
+                                   "blocked_on": "Named blocker"}]})
+    monkeypatch.setattr(closure, "report", lambda root: expected)
+    assert closure.main(["report", "--root", str(tmp_path)]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert "deferrals" not in result and "blockers" not in result
+    assert result["suites"]["named_deferrals"] == 1
+    assert result["blocker_counts"] == {}
 
 
 def test_duplicate_input_keys_are_not_last_write_wins(tmp_path):

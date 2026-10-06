@@ -150,6 +150,17 @@ export async function waitFor(check: () => boolean, description: string, timeout
   }
 }
 
+/** Odin starts its usage backfill at boot; wait for its first pass to complete. */
+export async function usageSettled(broker: Broker, timeoutMs = 15_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const usage = await broker.request('observability.usage', {})
+    if (usage.ok && (usage.result as { coverage?: { backfill_complete?: unknown } }).coverage?.backfill_complete === true) return
+    if (Date.now() >= deadline) throw new Error('Timed out: usage backfill completion')
+    await new Promise((accept) => setTimeout(accept, 50))
+  }
+}
+
 export function onceEvent<T>(broker: Broker, event: string, timeoutMs = 8_000): Promise<T> {
   return new Promise((accept, reject) => {
     const listener = (value: T): void => { clearTimeout(timer); accept(value) }

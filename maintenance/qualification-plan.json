@@ -1848,7 +1848,8 @@
         "tests/packaging/test_chromium_runtime.py",
         "tests/packaging/test_chromium_staging.py",
         "tests/test_desktop_phase2_review_health_round3.py",
-        "tests/test_desktop_phase2_review_health_accounting.py"
+        "tests/test_desktop_phase2_review_health_accounting.py",
+        "tests/test_desktop_usage_backfill.py"
       ],
       "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification. Step-five completion additionally executes all 21 requested original filenames through whole hash/corpus-bound adapters, plus named-method and authenticated transport proofs. No original selection is removed, no new skip/exclusion is added."
     },
