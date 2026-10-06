@@ -78,6 +78,11 @@ Odin or the desktop session. **Always run the suite in an isolated PID namespace
   Pytest stays non-root; root fixture commands remain container-local. The
   restricted helper and its no-new-privileges setting are never changed for
   these tests. This lane is not native desktop or VM qualification.
+- Offline Cinnamon/GNOME capture fixtures execute the test interpreter, including
+  the emitted PNG validators, so Pillow comes from the locked environment rather
+  than system Python. The real GNOME keyfile-compilation test skips with an explicit
+  reason when `dconf` is absent; it is not a host runner requirement. The disposable
+  lab image includes `dconf-cli`, so that lane still exercises real compilation.
 - Installing dependencies into this repo's own `.venv` (and `node_modules` for `app/`) is fine. System package installs
   need Aaron's OK first.
 
