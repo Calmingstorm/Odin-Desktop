@@ -79,3 +79,26 @@ dependencies under the required group-writable parent and PID/HOME boundary.
 These overlapping targeted counts are not unique inherited-case totals and do
 not replace the single final full qualification. Final result receipt follows
 the fresh-checkout execution and records all groups, failures, warnings and skips.
+
+## Final qualification outcome
+
+Ran the full 30-group qualification **once**, from fresh detached `0ec1b308`
+under a 2775 group-writable parent/check-out, umask002 and locked dev install.
+Observed **15,060 passed, 2 failed, 2 skipped**. Both failures were new Desktop
+batch-B probes, not inherited assertions: one inferred historical batch ownership
+from the newly remapped step, and one still pinned the URL-overwrite defect the
+review explicitly required fixing. Neither failure is hidden or called passing.
+
+Corrected only those two Desktop probe expectations. The immutable historical
+batch record now owns source-hash validation, and the saved desired URL is asserted
+instead of the rejected boot URL. Frozen upstream bytes/expectations are unchanged.
+Fresh detached `ddae32b7` with a second locked dev install reran **only** the affected
+complete group: **923 passed, zero failures/errors**. The other 29 groups' code,
+selectors and lock are byte-identical. Combined evidence is **15,062 passed,
+2 skipped**, not a claim of a second clean full invocation. Per-group JUnit hashes,
+initial failures, correction scope and receipts are retained in
+`phase2-step8-part2-review1-result.json`.
+
+Inherited AsyncMock/subprocess cleanup warnings and the imported inherited
+`Test*` collection warnings remain visible. No suppressed warnings, deployment,
+real endpoint/keyring access or active desktop acceptance claim.
