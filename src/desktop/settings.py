@@ -702,7 +702,7 @@ class SettingsService:
                 document, _ = _load_document(self.paths.config_file)
                 try:
                     values = fresh_config(self.paths).model_dump(mode="json")
-                    self._merge(values, dict(document))
+                    self._merge(values, _ignore_unknown_config_keys(dict(document)))
                     desired = Config.model_validate(values, context={"startup": True})
                     values = desired.model_dump(mode="json")
                     for path, value in flatten(values):
