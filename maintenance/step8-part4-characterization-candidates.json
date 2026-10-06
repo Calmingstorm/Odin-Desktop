@@ -84,26 +84,16 @@
     {
       "path":"tests/characterization/test_tool_parity.py",
       "inherited_sha256":"41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
-      "status":"deferred",
-      "selector":"tests/characterization/test_tool_parity.py",
-      "restoration":null,
-      "support_evidence":{"mode":"partial-frozen-support","support_case_functions":2,"catalog_recovery":"Real Desktop _ReadyCatalog PDF visibility through composed owner graph"},
+      "status":"restored",
+      "selector":"tests/test_tool_parity.py",
+      "restoration":{"adapter":"tests/desktop_adapters/tool_parity.py","selector":"tests/test_tool_parity.py","loader":"load_suite","reason":"All ten frozen case definitions restored, including eight exact reviewer-approved runtime list, prompt-row schema, isolated-copy cache and real composed-engine bindings. Authority: Claude, PR48 round 1 item 1."},
       "retired_cases":[],
-      "blocker":"Intentional Desktop schema/readiness/profile-clone changes conflict with exact inherited registry/cache assertions. Need reviewer ruling, not retirement.",
-      "deferred_cases":[
-        {"case":"TestToolParity.test_exact_names_and_order","reason":"Exact 67-tool order includes removed Discord and tier tools. Mixed neutral whole-list case needs reviewer ruling."},
-        {"case":"TestToolParity.test_schema_deep_equality","reason":"Desktop schemas intentionally changed; frozen old schema hashes cannot be changed under exact corpus contract."},
-        {"case":"TestToolParity.test_tool_map_completeness_and_identity","reason":"Expected complete old registry includes removed tools; neutral mapping/identity remains relevant."},
-        {"case":"TestBackendGatedVisibility.test_unconfigured_backends_are_invisible","reason":"Genuine Desktop _ReadyCatalog removes unready native owners, conflicting with old exact registry arithmetic."},
-        {"case":"TestBackendGatedVisibility.test_generate_image_follows_codex_auth_not_chat_provider","reason":"Genuine native image readiness requires qualified media owner, not dummy enabled Config flags."},
-        {"case":"TestRegistryMutabilitySemantics.test_tool_map_static_but_defs_cache_rebuilds","reason":"Canonical registry now returns profile-isolated clones rather than original same-object cache behavior."},
-        {"case":"TestRegistryMutabilitySemantics.test_defs_cache_identity","reason":"Profile-isolated clones intentionally contradict inherited object identity contract."},
-        {"case":"TestRegistryMutabilitySemantics.test_defs_shape_and_schema_identity","reason":"Old 67-tool list and reference-shared schemas conflict with retained profile-isolation semantics."}
-      ]
+      "blocker":null,
+      "deferred_cases":[]
     }
   ],
   "data_substitutions": [],
-  "fixture_proof": {"support_hashes":"SUPPORT_SUITE","support_cases":"SUPPORT_CASES","whole_suite_selection":{},"counts":{"assigned_suites":6,"deferred_suites":5,"retired_suites":1,"restored_suites":0,"support_case_functions":25,"support_parameterized_cases":30,"retired_case_functions":10,"deferred_case_functions":20},"focused_validation":{"passed":38,"failed":0,"duration_seconds":15.61,"environment":"nonroot odin; isolated PID namespace; disposable HOME/XDG; workspace .venv"},"qualification":"partial frozen support only; no restored suites or parameter edits"},
+  "fixture_proof": {"support_hashes":"SUPPORT_SUITE","support_cases":"SUPPORT_CASES","whole_suite_selection":{"test_tool_parity":null},"whole_adapter":"tests/desktop_adapters/tool_parity.py","counts":{"assigned_suites":6,"deferred_suites":4,"retired_suites":1,"restored_suites":1,"support_case_functions":23,"support_parameterized_cases":28,"restored_case_functions":10,"retired_case_functions":10,"deferred_case_functions":12},"previous_focused_validation":{"passed":38,"failed":0,"duration_seconds":15.61,"environment":"nonroot odin; isolated PID namespace; disposable HOME/XDG; workspace .venv"},"qualification":"Parity is whole-suite restored under the exact PR48 round 1 reviewed bindings; other support remains partial, not whole restoration. Previous focused validation predates these adapters."},
   "entries": [
     {"path":"tests/desktop_adapters/step8_6a_characterization.py","reason":"Separate static empty whole-suite selections from hash-bound frozen partial support.","contract":"Exact frozen support and full-case exclusions unchanged.","invariant":"No restored-suite claim or parameter edits.","owner":"Odin","tests":["tests/test_desktop_step8_6a_characterization_corpus.py","tests/test_desktop_step8_6a_characterization_provenance.py"]},
     {"path":"tests/test_desktop_step8_6a_characterization_corpus.py","reason":"Use load_support instead of whole-suite load.","contract":"Partial support only.","invariant":"Five suites deferred.","owner":"Odin","tests":["tests/test_desktop_step8_6a_characterization_corpus.py"]},

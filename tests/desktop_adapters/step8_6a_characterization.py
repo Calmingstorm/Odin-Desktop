@@ -97,10 +97,8 @@ SUPPORT_CASES = {
         "TestNegativeContract.test_no_retired_spellings_in_tests",
         "TestNegativeContract.test_no_bot_private_access_in_src",
     },
-    "test_tool_parity": {
-        "TestToolParity.test_no_duplicate_names",
-        "TestBackendGatedVisibility.test_analyze_pdf_follows_its_dependency",
-    },
+    # PR48 review 1 restores the complete parity suite in tests/test_tool_parity.py.
+    "test_tool_parity": set(),
 }
 _scope = ContextVar("step8_characterization_fixture")
 

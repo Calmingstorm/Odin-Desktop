@@ -1787,8 +1787,8 @@
     },
     {
       "name": "phase2-step6a-campaigns-restored-corpus",
-      "files": ["tests/test_desktop_step8_6a_campaigns_corpus.py", "tests/test_desktop_step8_6a_characterization_corpus.py", "tests/test_desktop_step8_6a_characterization_provenance.py", "tests/test_desktop_step8_6a_characterization_wiring.py", "tests/test_desktop_step8_6a_empty_fields_corpus.py"],
-      "reason": "Exact whole retained campaign/privacy/catalog suites and separate honest frozen support for deferred characterization/empty-field branches. Only individually removed Discord, web/listener/bearer/multi-user cases retire. Real neutral UsageRollup and calibration graph wiring restored and tested. No parameter deselection or false whole-suite coverage; authentic owner worker/service seams, isolated PID namespace and throwaway profiles."
+      "files": ["tests/test_tool_parity.py", "tests/test_desktop_tool_parity_adaptation.py", "tests/test_desktop_tool_parity_accounting.py", "tests/test_desktop_d17_parity_visibility.py", "tests/test_desktop_step8_6a_campaigns_corpus.py", "tests/test_desktop_step8_6a_characterization_corpus.py", "tests/test_desktop_step8_6a_characterization_provenance.py", "tests/test_desktop_step8_6a_characterization_wiring.py", "tests/test_desktop_step8_6a_empty_fields_corpus.py"],
+      "reason": "Exact whole retained campaign/privacy/catalog suites and the ten-case tool parity suite under the eight explicit PR48 round 1 reviewed bindings, with exact-byte reverse and full-export proofs. Other characterization/empty-field support remains honestly partial. Only individually removed Discord, web/listener/bearer/multi-user cases retire. Real neutral UsageRollup, knowledge/image owner publication and calibration graph wiring tested. No parameter deselection or false whole-suite coverage; authentic owner worker/service seams, isolated PID namespace and throwaway profiles."
     }
   ],
   "acceptance": {

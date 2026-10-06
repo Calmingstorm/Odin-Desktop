@@ -303,7 +303,8 @@ class ManagementService:
 
         settings.owners["runtime.reload"] = ReloadOwner()
         state = StateService(core.paths, core.authority.owner_id, memory=executor, lists=executor)
-        knowledge = KnowledgeService(core.paths)
+        knowledge = KnowledgeService(
+            core.paths, store=getattr(deps, "knowledge_store", None))
         observed = SimpleNamespace(config=settings.config, llm_gateway=providers,
                                    tool_executor=executor, knowledge_store=None,
                                    skill_manager=skills, mcp_manager=mcp.manager)

@@ -276,7 +276,9 @@ class EngineServices:
             await asyncio.to_thread(d.sessions.save)
         except Exception as error:
             failed("sessions_save", error)
-        await release(getattr(d.runtime_context, "knowledge_store", None), "close")
+        await release(getattr(d, "image_backend", None), "close")
+        await release(getattr(d, "knowledge_store", None)
+                      or getattr(d.runtime_context, "knowledge_store", None), "close")
         await release(d.turn_store, "close")
         if failures:
             raise RuntimeError("Desktop engine cleanup did not fully complete") from failures[0]
@@ -453,6 +455,10 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     context = getattr(runtime, "context_loader", None) or ContextLoader(cfg.context.directory)
     context.load()
     knowledge, embedder = getattr(runtime, "knowledge_store", None), getattr(runtime, "embedder", None)
+    if knowledge is None and cfg.search.enabled:
+        from ..knowledge.store import KnowledgeStore
+
+        knowledge = KnowledgeStore(str(paths.data_dir / "knowledge.db"))
     sessions = session_manager or getattr(runtime, "sessions", None)
     if sessions is None:
         sessions = SessionManager(max_history=cfg.sessions.max_history,
@@ -626,6 +632,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     def readiness():
         ready = {name: callable(executor._resolve_handler(name))
                  for name in PHASE1_EXECUTOR_TOOL_NAMES}
+        # D17: registered native owners are capabilities too. The executor-only
+        # Phase 1 set must not silently hide the retained Phase 2 catalog.
+        from ..tools.builtin_policy import BUILTIN_TOOL_NAMES
+
+        ready.update({name: dispatcher.handles(name) for name in BUILTIN_TOOL_NAMES
+                      if name not in PHASE1_EXECUTOR_TOOL_NAMES})
         for name in ("browser_read_page", "browser_read_table", "browser_click", "browser_fill", "browser_evaluate"):
             available = getattr(browser, "available", None)
             ready[name] = (available() if callable(available)
@@ -637,8 +649,16 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
                       "read_conversation": engine.requests is not None,
                       "generate_file": engine.requests is not None,
                       "post_file": engine.requests is not None})
+        ready["browser_screenshot"] = ready["browser_read_page"] and engine.requests is not None
+        ready["generate_image"] = (engine.requests is not None
+                                   and image_backend.is_configured()
+                                   and get_config().openai_codex.enabled
+                                   and get_config().image.openai.enabled)
+        # Spawn admission remains separately fenced until services B owns it.
+        ready["spawn_agent"] = False
         for name in ("search_knowledge", "ingest_document", "bulk_ingest_knowledge", "list_knowledge", "delete_knowledge"):
-            ready[name] = knowledge is not None and bool(get_config().search.enabled)
+            ready[name] = (knowledge is not None and knowledge.available
+                           and bool(get_config().search.enabled))
         extra = getattr(runtime, "native_readiness", None)
         if extra is not None:
             supplied = extra() if callable(extra) else extra
@@ -736,8 +756,27 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             finally:
                 publication_tool.reset(token)
 
+        async def _handle_generate_image(self, message, inp):
+            token = publication_tool.set("generate_image")
+            try:
+                return await super()._handle_generate_image(message, inp)
+            finally:
+                publication_tool.reset(token)
+
+        async def _handle_browser_screenshot(self, message, inp):
+            token = publication_tool.set("browser_screenshot")
+            try:
+                return await super()._handle_browser_screenshot(message, inp)
+            finally:
+                publication_tool.reset(token)
+
+    from ..tools.image import ImageBackendSelector, OpenAIImageBackend
+
+    image_backend = OpenAIImageBackend(
+        get_auth=lambda: getattr(gateway.codex_client, "auth", None), get_config=get_config)
     owners.setdefault("media", DesktopMediaTools(
-        get_config=get_config, browser_manager=browser, tool_executor=executor))
+        get_config=get_config, browser_manager=browser, tool_executor=executor,
+        image_selector=ImageBackendSelector(get_config=get_config, openai_backend=image_backend)))
     owners["transcript_history"] = TranscriptHistoryTools()
     dispatcher = _ReadyDispatcher(owners=owners, skill_manager=skills, tool_catalog=catalog,
         prompt_builder=prompt, channel_state=state, builtin_policy=policy)
@@ -751,7 +790,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         host_registry=hosts, host_access_manager=access, scheduler=scheduler, reflector=reflector,
         context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime,
         usage_rollup=usage, trajectory_saver=trajectories,
-        agent_trajectory_saver=agent_trajectories, window_observer=window_observer)
+        agent_trajectory_saver=agent_trajectories, window_observer=window_observer,
+        knowledge_store=knowledge, image_backend=image_backend)
     engine = EngineServices(d, None)
     runner = ToolLoopRunner(ToolLoopDeps(get_config=get_config,
         get_default_system_prompt=lambda: prompt.default_prompt, get_context_compressor=lambda: compression,

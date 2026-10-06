@@ -56,7 +56,7 @@ QUALIFICATION_PATH = "maintenance/qualification-plan.json"
 PART4_REVIEWER = "Claude, review of step 8 part 4"
 PART4_PATH = "maintenance/phase2-step8-part4-lane8-dispositions.json"
 # Replaced with the exact parent-audited artifact digest before qualification.
-PART4_SHA256 = "0b8601be06252b40878b667d4f3aa63c2c126cd0aae0bd25f5bd453b5c1097fa"
+PART4_SHA256 = "641c1e827e1662e4cc09da2ac9364b834d33d7c6f137e6215777bf2894b80c20"
 PART4_GROUPS = {
     "phase2-step6a-tools-restored-corpus": {
         "tests/test_desktop_step8_6a_tools_corpus.py",
@@ -69,6 +69,10 @@ PART4_GROUPS = {
         "tests/test_desktop_step8_6a_hyprland_support.py",
     },
     "phase2-step6a-campaigns-restored-corpus": {
+        "tests/test_tool_parity.py",
+        "tests/test_desktop_tool_parity_adaptation.py",
+        "tests/test_desktop_tool_parity_accounting.py",
+        "tests/test_desktop_d17_parity_visibility.py",
         "tests/test_desktop_step8_6a_campaigns_corpus.py",
         "tests/test_desktop_step8_6a_characterization_corpus.py",
         "tests/test_desktop_step8_6a_characterization_provenance.py",
@@ -252,6 +256,26 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
     frozen bytes, pin their digest, guard corpus AST identity and export the
     complete module. Runtime qualification remains the named group's job.
     """
+    # PR48 review 1 explicitly permits eight Desktop assertion bindings, not
+    # blanket corpus equality waivers. Pin the exact reversible adapter, full
+    # export and independent proof, while retaining the immutable source hash.
+    if selector == "tests/test_tool_parity.py":
+        source_hash = "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2"
+        if (path != "tests/characterization/test_tool_parity.py"
+                or inherited_hash != source_hash
+                or case_retirements not in (None, [])):
+            return False
+        pins = {
+            "tests/test_tool_parity.py":
+                "e734b9f088569c37109de900f8bbecf48d6d76885d29c23def4fadd8bf4b3849",
+            "tests/desktop_adapters/tool_parity.py":
+                "decc80ec9cb5d07e355978ccad7214688f588aa8b51a273402c658551d2c6777",
+            "tests/test_desktop_tool_parity_adaptation.py":
+                "42a97c359c0141011b82e35bfe94f285629fa771d2c8d897f1baa164af4debe9",
+        }
+        return (_digest(_regular(root, path).read_bytes()) == inherited_hash
+                and all(_digest(_regular(root, name).read_bytes()) == digest
+                        for name, digest in pins.items()))
     trees = _adapter_modules(root, selector)
     reviewed = [] if case_retirements is None else case_retirements
     if not _case_retirements(root, path, inherited_hash, reviewed):

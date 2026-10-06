@@ -12327,7 +12327,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "608ebbcf5703cfb9",
       "upstream_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2"
     },

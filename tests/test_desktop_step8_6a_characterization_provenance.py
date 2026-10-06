@@ -41,6 +41,21 @@ def test_step8_characterization_candidates_cover_exact_functions():
         available = {symbol for symbol, *_ in corpus(ast.parse(source))["cases"]}
         name = Path(row["path"]).stem
         support = SUPPORT_CASES.get(name, set())
+        if name == "test_tool_parity":
+            from tests.desktop_adapters.tool_parity import SOURCE_PATH, SOURCE_SHA256
+
+            assert row["path"] == SOURCE_PATH
+            assert row["inherited_sha256"] == SOURCE_SHA256
+            assert row["status"] == "restored"
+            assert row["selector"] == "tests/test_tool_parity.py"
+            assert row["restoration"]["adapter"] == "tests/desktop_adapters/tool_parity.py"
+            assert row["restoration"]["selector"] == row["selector"]
+            assert row["restoration"]["loader"] == "load_suite"
+            assert len(available) == 10
+            assert not support
+            assert not row["retired_cases"] and not row["deferred_cases"]
+            assert not row.get("proposed_cases")
+            continue
         assert row["restoration"] is None
         categories = [support, *(set(item["case"] for item in row.get(key, []))
                                  for key in ("retired_cases", "deferred_cases", "proposed_cases"))]

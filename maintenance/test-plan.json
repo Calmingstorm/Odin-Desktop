@@ -10,6 +10,7 @@
   "qualification_plan": "maintenance/qualification-plan.json",
   "phase2_suite_map": "maintenance/phase2-suite-map.json",
   "phase2_restored": [
+    "tests/characterization/test_tool_parity.py",
     "tests/test_branch_freshness.py",
     "tests/test_browser_wait_timeout.py",
     "tests/test_campaign_diagnostic_privacy.py",
@@ -57,13 +58,13 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 274,
+    "phase2": 273,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "safe_pass_now": 390,
+    "safe_pass_now": 391,
     "safety_manual_gated": 100,
     "retired": 19,
-    "phase2_restored": 33,
+    "phase2_restored": 34,
     "phase2_retired": 19
   },
   "entries": [
@@ -480,7 +481,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/client.py"
@@ -36439,7 +36440,6 @@
     "tests/characterization/test_p2_composition.py",
     "tests/characterization/test_pipeline_persistence.py",
     "tests/characterization/test_scheduled_events.py",
-    "tests/characterization/test_tool_parity.py",
     "tests/test_action_diffs.py",
     "tests/test_agent_audit_parity.py",
     "tests/test_agent_auto_dynamic.py",
@@ -36776,6 +36776,7 @@
     "tests/supervised_shell_double.py"
   ],
   "safe_pass_now": [
+    "tests/characterization/test_tool_parity.py",
     "tests/computer/test_hyprland_backend.py",
     "tests/test_adaptive_compaction.py",
     "tests/test_agent_cascade_retention.py",

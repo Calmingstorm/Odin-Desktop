@@ -1,8 +1,8 @@
 {
   "assignment_sha256": "20f094868694949d7e3fc89d74f9277e4d1a293e0c7578311f7b1c6bb0b5d12c",
   "counts": {
-    "deferred": 59,
-    "restored": 24,
+    "deferred": 58,
+    "restored": 25,
     "retired": 14
   },
   "data_substitutions": [],
@@ -148,16 +148,13 @@
     },
     {
       "batch": "campaigns",
-      "blocker": "Neutral schema/readiness/profile-clone differences need reviewer ruling, not retirement.",
+      "blocker": null,
       "inherited_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
       "path": "tests/characterization/test_tool_parity.py",
-      "restoration": null,
+      "restoration": "All ten frozen case definitions exported by tests/desktop_adapters/tool_parity.py; eight exact assertion/setup bindings explicitly approved in PR48 review round 1 item 1. Derived 63-tool order, exactly eleven prompt-row repins, real isolated Codex auth and composed engine, cache identity and returned-copy isolation retained.",
       "retired_cases": [],
-      "selector": "tests/characterization/test_tool_parity.py",
-      "status": "deferred",
-      "support_evidence": {
-        "reference": "maintenance/step8-part4-characterization-candidates.json"
-      }
+      "selector": "tests/test_tool_parity.py",
+      "status": "restored"
     },
     {
       "batch": "tools",
@@ -2254,7 +2251,7 @@
         },
         {
           "case": "test_falsy_requester_never_bypasses_rbac",
-          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reason": "Removed multi-user tier RBAC: check_permission plus tier PermissionManager, not an HTTP or Discord transport case. The same falsy-requester invariant remains pinned by tests/test_desktop_shared_tools.py::test_real_owner_host_fences_reject_ambient_or_payload_identity and the falsy-identity owner checks in tests/test_desktop_shared_foundation.py.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_path": "tests/test_web_campaign_authorization.py",
           "source_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c"
@@ -2464,80 +2461,7 @@
       "status": "deferred"
     }
   ],
-  "proposed": [
-    {
-      "case": "TestBackendGatedVisibility.test_generate_image_follows_codex_auth_not_chat_provider",
-      "path": "tests/characterization/test_tool_parity.py",
-      "reason": "Genuine native image readiness requires a qualified media owner rather than dummy enabled Config flags. Decide the exact inherited readiness-contract disposition; remains deferred, not retired.",
-      "reviewer": "Claude, review of step 8 part 4",
-      "source_path": "tests/characterization/test_tool_parity.py",
-      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
-      "status": "pending-reviewer-decision"
-    },
-    {
-      "case": "TestBackendGatedVisibility.test_unconfigured_backends_are_invisible",
-      "path": "tests/characterization/test_tool_parity.py",
-      "reason": "Real Desktop readiness removes unready native owners, conflicting with inherited registry arithmetic. Decide the exact contract disposition; remains deferred, not retired.",
-      "reviewer": "Claude, review of step 8 part 4",
-      "source_path": "tests/characterization/test_tool_parity.py",
-      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
-      "status": "pending-reviewer-decision"
-    },
-    {
-      "case": "TestRegistryMutabilitySemantics.test_defs_cache_identity",
-      "path": "tests/characterization/test_tool_parity.py",
-      "reason": "Profile-isolated registry clones intentionally contradict inherited cache object identity. Decide the exact contract disposition; remains deferred, not retired.",
-      "reviewer": "Claude, review of step 8 part 4",
-      "source_path": "tests/characterization/test_tool_parity.py",
-      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
-      "status": "pending-reviewer-decision"
-    },
-    {
-      "case": "TestRegistryMutabilitySemantics.test_defs_shape_and_schema_identity",
-      "path": "tests/characterization/test_tool_parity.py",
-      "reason": "The inherited 67-tool list and reference-shared schemas conflict with retained profile-isolation semantics. Decide the exact contract disposition; remains deferred, not retired.",
-      "reviewer": "Claude, review of step 8 part 4",
-      "source_path": "tests/characterization/test_tool_parity.py",
-      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
-      "status": "pending-reviewer-decision"
-    },
-    {
-      "case": "TestRegistryMutabilitySemantics.test_tool_map_static_but_defs_cache_rebuilds",
-      "path": "tests/characterization/test_tool_parity.py",
-      "reason": "Canonical registry returns profile-isolated clones rather than original same-object cache behavior. Decide the exact contract disposition; remains deferred, not retired.",
-      "reviewer": "Claude, review of step 8 part 4",
-      "source_path": "tests/characterization/test_tool_parity.py",
-      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
-      "status": "pending-reviewer-decision"
-    },
-    {
-      "case": "TestToolParity.test_exact_names_and_order",
-      "path": "tests/characterization/test_tool_parity.py",
-      "reason": "Exact inherited order mixes removed Discord/tier tools with neutral tools. Decide the complete mixed-list case disposition without parameter edits or blanket retirement.",
-      "reviewer": "Claude, review of step 8 part 4",
-      "source_path": "tests/characterization/test_tool_parity.py",
-      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
-      "status": "pending-reviewer-decision"
-    },
-    {
-      "case": "TestToolParity.test_schema_deep_equality",
-      "path": "tests/characterization/test_tool_parity.py",
-      "reason": "Intentional Desktop schema changes conflict with frozen inherited schema equality. Decide the exact contract disposition; inherited assertions and hashes remain unchanged.",
-      "reviewer": "Claude, review of step 8 part 4",
-      "source_path": "tests/characterization/test_tool_parity.py",
-      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
-      "status": "pending-reviewer-decision"
-    },
-    {
-      "case": "TestToolParity.test_tool_map_completeness_and_identity",
-      "path": "tests/characterization/test_tool_parity.py",
-      "reason": "Complete inherited registry includes removed tools while neutral mapping/identity still matters. Decide the complete mixed-contract case disposition; remains deferred, not retired.",
-      "reviewer": "Claude, review of step 8 part 4",
-      "source_path": "tests/characterization/test_tool_parity.py",
-      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
-      "status": "pending-reviewer-decision"
-    }
-  ],
+  "proposed": [],
   "reviewer": "Claude, review of step 8 part 4",
   "schema_version": 1,
   "status": "pending-independent-review-not-accepted"
