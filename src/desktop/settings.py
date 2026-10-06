@@ -213,6 +213,16 @@ class SettingsService:
             self._notify_changes()
             return True
 
+    def audit_signing_key(self):
+        """Resolve one profile audit authority without a settings read side effect.
+
+        Readers and writers must consult the same keyring binding after restart.
+        A locked keyring raises rather than silently interpreting signed history
+        as unsigned. Hydrating an unrelated settings schema is never required.
+        """
+        stored = self.secrets.get("audit.hmac_key")
+        return self.config.audit.hmac_key if stored is None else stored
+
     def _image_metadata(self):
         return read_image_model_metadata(self.paths.config_file, self.config)
 
@@ -388,9 +398,16 @@ class SettingsService:
             resolved = _get(result, path)
             if resolved is _MISSING and value is not DELETE_CONFIG_PATH:
                 raise _error(f"{'.'.join(path)}: no such setting")
-            normalized.append(
-                (path, DELETE_CONFIG_PATH if value is DELETE_CONFIG_PATH else resolved)
-            )
+            if (value is not DELETE_CONFIG_PATH and isinstance(resolved, dict)
+                    and path in {("image",), ("image", "openai")}):
+                # Forms submit defaults along with pins. Leaf persistence lets
+                # the image writer retain absence for followed model defaults.
+                normalized.extend((tuple(leaf.split(".")), item)
+                                  for leaf, item in flatten(resolved, ".".join(path)))
+            else:
+                normalized.append(
+                    (path, DELETE_CONFIG_PATH if value is DELETE_CONFIG_PATH else resolved)
+                )
         return desired, normalized
 
     def _validate_route_values(self, method, candidate, changes):
@@ -414,6 +431,11 @@ class SettingsService:
                     raise _error("ollama.timeout: must be between 10 and 3600") from None
                 candidate["ollama"]["timeout"] = value
         if method == "providers.codex.set":
+            if ("openai_codex.reasoning_effort" in paths
+                    and candidate["openai_codex"]["reasoning_effort"] not in {
+                        "none", "low", "medium", "high", "xhigh", "max",
+                    }):
+                raise _error("openai_codex.reasoning_effort: invalid reasoning effort")
             for name in ("request_timeout_seconds", "stream_stall_timeout_seconds"):
                 if f"openai_codex.{name}" in paths and isinstance(
                     candidate["openai_codex"][name], bool

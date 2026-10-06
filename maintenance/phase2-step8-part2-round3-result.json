@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "artifact": "PR34 round3 single fresh full qualification receipt",
+  "execution_commit": "2281b21184fb6001e7e5a1751d7db4ba35741d9e",
+  "main_merged": "ddd054fe399fef46dd64b6e8ec95b2676af8f09f",
+  "reviewer": "Claude, review of #34, round 3",
+  "full_runs": 1,
+  "single_clean_full_invocation": false,
+  "exit_code": 1,
+  "groups": 30,
+  "totals": {"passed": 15214, "failed": 2, "errors": 0, "skipped": 2},
+  "suite_counts": {"restored": 28, "retired": 42, "deferred": 256, "total": 326},
+  "failed_groups": ["phase2-core-transport", "phase2-step5-profile-management"],
+  "failures": [
+    {
+      "case": "tests/test_desktop_core_entry.py::test_real_core_accepts_node_style_socketpair_stdin_and_exits_on_parent_eof[511]",
+      "observed": "wait_connected exhausted 300 iterations with 0.01s sleep: core did not publish its listener",
+      "classification": "Startup deadline failure; exact cause not established. No source change or assertion relaxation was made."
+    },
+    {
+      "case": "tests/test_desktop_management_core.py::test_management_governs_engine_shell_tools_and_readiness",
+      "observed": "tools.set_enabled response exceeded receive()'s 3-second deadline",
+      "classification": "IPC response deadline failure; exact cause not established. No source change or assertion relaxation was made."
+    }
+  ],
+  "failure_diagnostic": {
+    "same_execution_commit": true,
+    "command": ".venv/bin/python scripts/run-phase1-tests.py 'tests/test_desktop_core_entry.py::test_real_core_accepts_node_style_socketpair_stdin_and_exits_on_parent_eof[511]' tests/test_desktop_management_core.py::test_management_governs_engine_shell_tools_and_readiness --tb=short --junitxml=.test-state/round3-failure-diagnostic.xml",
+    "result": "2 passed in 8.90s; exit 0",
+    "junit_sha256": "14ab3bdc5f2fd4dcb83572ebe08479a0e8b2ea0fc40707f6d4f19ab976ad7bc8",
+    "log_sha256": "e7b6146c3f14f679734dfe9cfa343a6d3f26a3a4bb99ccae3a5e610a1f36cc4d",
+    "conclusion": "Intermittent in the observed schedule, not proof of harmless flakes or a clean full qualification. This diagnostic is not combined with the full totals."
+  },
+  "short_gates": {
+    "merged_main_python_passed": 139,
+    "parent_final_accounting_python_passed": 234,
+    "app_tests_passed": 640,
+    "app_packaging_tests_passed": 39,
+    "typecheck": "passed",
+    "production_build": "passed",
+    "drift_errors": 0,
+    "new_lint_findings": 0,
+    "inherited_lint_findings": 7
+  },
+  "fresh_checkout": "/home/odin/desktop-phase2-step8-part2/round3/qualification/fresh",
+  "installation": "Fresh uv sync --locked --extra dev; no manual dependency repair.",
+  "isolation": "2775 group-writable parent/checkout, umask002; odin UID; mount/PID namespace; env-i throwaway HOME/XDG; no live display/DBus/credentials.",
+  "qualification_plan_sha256": "1873c3dcb6269a931a1019e5bff440380362f05398e5a651f21fbeaea6a402e6",
+  "lock_sha256": "8f4d8db85bc9b87ce6eda02959968adff41f327e1debacf019ecbf808dae8d85",
+  "full_log": "/home/odin/desktop-phase2-step8-part2/round3/qualification/full.log",
+  "full_log_sha256": "f0f6f465b09dba13f49806e7271f999303f3ef24d4871c5f47193f815a934c91",
+  "group_results": [
+    {"name":"direct-shared-stores-providers-tools","passed":3158,"failed":0,"errors":0,"skipped":0,"junit_sha256":"eb9dfa007b53d6470011460f247b3231329a0680a54c37686516c72544bfcbcb"},
+    {"name":"direct-shared-computer","passed":3559,"failed":0,"errors":0,"skipped":0,"junit_sha256":"6d860306935e4dc91f891baaf66eead0f8822ca7ec62f75edf7293994027dd2c"},
+    {"name":"direct-shared-hyprland","passed":888,"failed":0,"errors":0,"skipped":1,"junit_sha256":"879abb81b7b041c28a4136278ad79a40372efd9ffd45e110671b72d43641eb0e"},
+    {"name":"direct-shared-engine","passed":1442,"failed":0,"errors":0,"skipped":0,"junit_sha256":"20d831f8218a038936c69d26a752488151477666e6937b5edacc620a54852355"},
+    {"name":"faithful-computer-recovery","passed":188,"failed":0,"errors":0,"skipped":0,"junit_sha256":"19232dfb1f1a5aa4824347ec05451b9e4dfc8005db97a041ac83c027e8565de2"},
+    {"name":"faithful-config","passed":286,"failed":0,"errors":0,"skipped":0,"junit_sha256":"c43be799df21a39ac2baa9ee8332e5860d5f3c00cf2163ee4b0577f8c38c7354"},
+    {"name":"faithful-computer-declaration","passed":4,"failed":0,"errors":0,"skipped":0,"junit_sha256":"fc3475857b0d7da6f3d5c0cac37a4bb3d0afff50c10f3f3b59cc368e4acadc18"},
+    {"name":"faithful-tools","passed":269,"failed":0,"errors":0,"skipped":1,"junit_sha256":"188b97984b0d9af39ea620c4d03dc34172a96d0820c05d8fe41cd59271173003"},
+    {"name":"faithful-tools-extra","passed":135,"failed":0,"errors":0,"skipped":0,"junit_sha256":"bf5488d029a18b7cc1fe2fc50ea91ee3eb04a20a783e2591f793f35f66f1bd40"},
+    {"name":"faithful-llm","passed":187,"failed":0,"errors":0,"skipped":0,"junit_sha256":"99c66a558732e77b39fda73fbf938b6afff4caaf27d9931d996b484f8813f155"},
+    {"name":"direct-neutral-metadata","passed":36,"failed":0,"errors":0,"skipped":0,"junit_sha256":"a7891f73d54e7816b4752f142713ce9c15b7f6c0f2d5b4e9bf9defd22c111140"},
+    {"name":"neutral-completion-classifier","passed":28,"failed":0,"errors":0,"skipped":0,"junit_sha256":"aa7628043aa5981f045b35ab7b88494a6e2020f87b16d92b779269987ec92dd4"},
+    {"name":"neutral-host-control","passed":59,"failed":0,"errors":0,"skipped":0,"junit_sha256":"e2912d50b0ca32348a62bb8bca945b01fd17a3750a23c06d8c40fdeecbec9aad"},
+    {"name":"neutral-subsystem-guard","passed":126,"failed":0,"errors":0,"skipped":0,"junit_sha256":"7560a5d263decadfffb9f6d18b8deef8f1d2beea06d307b5c94e05c5a44bdfa8"},
+    {"name":"neutral-fd-health","passed":5,"failed":0,"errors":0,"skipped":0,"junit_sha256":"a9b769400de69b7dd99cfef547d0fa638c20279c89da5a91a06dcf654c3931de"},
+    {"name":"neutral-parallel-policy","passed":4,"failed":0,"errors":0,"skipped":0,"junit_sha256":"bc5a53859eb572340219e4d0328f8ba1d8eda7922c83ae1e3c133702ba43e578"},
+    {"name":"faithful-foundation","passed":946,"failed":0,"errors":0,"skipped":0,"junit_sha256":"0c7613bb6166e18196a4fbaf2ceb73aa4c6ad7464781c37b1404f04300cd7d2a"},
+    {"name":"faithful-migrations","passed":33,"failed":0,"errors":0,"skipped":0,"junit_sha256":"c05652e2c81bcd5d57465e1e5236d877375400e52fb037a3da287e9cf35f6bba"},
+    {"name":"mixed-original-passed-cases","passed":875,"failed":0,"errors":0,"skipped":0,"junit_sha256":"f90681b41521eb57d0557bb2352d4e4bb43069c7717cb72ea9e0a8cc62de4805"},
+    {"name":"desktop-boundary-tests","passed":852,"failed":0,"errors":0,"skipped":0,"junit_sha256":"42e08afca3e6ff417a4fac31b241670ee7665966d7492fcde89c3744b9ddbeee"},
+    {"name":"direct-foundation-neutral-remainder","passed":167,"failed":0,"errors":0,"skipped":0,"junit_sha256":"78c8a8db1c1f3c296db69e37b00b7bc534cfe42c65e0a678c6ee37b88337153a"},
+    {"name":"direct-isolation-timeout-neutrals","passed":5,"failed":0,"errors":0,"skipped":0,"junit_sha256":"0221025f91242922a41a016359f34c8281b5e58d6b807e06e62ae0290817cde0"},
+    {"name":"faithful-owner-contracts","passed":122,"failed":0,"errors":0,"skipped":0,"junit_sha256":"7a828656a03a7d1d93c10e2545e728257942a30f2dc65834660bd5d2eebb58f8"},
+    {"name":"faithful-retirement-corpus","passed":32,"failed":0,"errors":0,"skipped":0,"junit_sha256":"ff48dbb68baf92ebaad39c1b2bbfa1a705a150173c119dec50fcd0bc627bc22d"},
+    {"name":"final-historical-cases","passed":36,"failed":0,"errors":0,"skipped":0,"junit_sha256":"872e80c1911a818873c15a0ad19ee1c78ab16cf41c5d967d30806f7813d0f850"},
+    {"name":"final-helper-cases","passed":34,"failed":0,"errors":0,"skipped":0,"junit_sha256":"b84874844ed0f19ae64e0f68e4c9b7ac69aac96c49631cd2c13dd1dd03429c84"},
+    {"name":"final-distribution-cases","passed":32,"failed":0,"errors":0,"skipped":0,"junit_sha256":"263186c52f656c1c9694898b534713a515909fcfe89604c68a1b87be01dd215b"},
+    {"name":"final-config-cases","passed":72,"failed":0,"errors":0,"skipped":0,"junit_sha256":"136222dc8523a03e4aeac14b816c910ba8021a77e080bb4cb646c4f02cd4ef7a"},
+    {"name":"phase2-core-transport","passed":574,"failed":1,"errors":0,"skipped":0,"junit_sha256":"4a7fdeb60ec80e558a8b0bb2422500731e87e663c491a525d799ea97338e37a5"},
+    {"name":"phase2-step5-profile-management","passed":1060,"failed":1,"errors":0,"skipped":0,"junit_sha256":"78b05deeb9627d2f9f93301152af198dba579ee6b0a03b35d1e16a7da078f9a5"}
+  ],
+  "skips": [
+    {"group":"direct-shared-hyprland","case":"test_five_vertex_650ms_wire_timing","reason":"set ODIN_HYPRLAND_INPUT_TEST_BINARY to run native wire tests"},
+    {"group":"faithful-tools","case":"test_playwright_not_installed_raises","reason":"playwright is installed; cannot test missing-import path"}
+  ],
+  "main_advanced_after_qualification": "0b7d596f7e870d06699722f151c4d9837c5433f1",
+  "main_advancement": "PR32 lifecycle landed during this work; no validation of that later main is claimed.",
+  "limits": "The requested clean full gate was not achieved. No second full invocation or combined passing total is substituted. Counts are actual executions including overlapping gate selectors, not unique inherited cases. Retirements are not passing coverage. Inherited warnings remain in full log. No deployment, live service/configuration, real provider/keyring or active desktop operation."
+}

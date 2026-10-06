@@ -27,7 +27,7 @@ export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.s
   'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label', 'codex.accounts.refresh',
   'codex.login.begin', 'codex.login.poll',
   'hosts.list', 'hosts.settings', 'hosts.prepare', 'hosts.test', 'hosts.commit', 'hosts.set_enabled',
-  'hosts.references', 'hosts.delete', 'hosts.public_key', 'hosts.force_revoke',
+  'hosts.references', 'hosts.delete', 'hosts.public_key', 'hosts.force_revoke', 'hosts.import_legacy',
   'memory.list', 'memory.get', 'memory.set', 'memory.delete', 'memory.bulk_delete',
   'lists.list', 'lists.get', 'lists.delete',
   'knowledge.list', 'knowledge.search', 'knowledge.ingest', 'knowledge.reingest', 'knowledge.delete',

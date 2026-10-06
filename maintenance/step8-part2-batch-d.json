@@ -1,0 +1,214 @@
+{
+  "schema_version": 1,
+  "batch": "D",
+  "base_commit": "b74056c4c9a16071426cb832db361cf86c84989a",
+  "allocation": "step-5 sorted paths [3::4]; subsystem_guard delegated",
+  "audit_agents": ["b149e4a9", "139a3a1e"],
+  "counts": {"owned": 21, "restored": 2, "deferred": 18, "delegated": 1},
+  "validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_phase2_runtime_d.py",
+    "result": "22 passed in 7.51s",
+    "inherited_cases": 14,
+    "adapter_proof_cases": 8,
+    "full_qualification": false,
+    "log": "/home/odin/desktop-phase2-step8-part2/batch-d-runtime-final.log",
+    "log_sha256": "25fc66d44a84a6832b348cb0aa5a16c7e93403ae47a1f72f257f098dedb28642",
+    "safety": "Inspected runner env -i, nonroot odin and PID/mount namespace before execution. Real process-group cleanup stays inside that namespace. Only disposable stores, profiles, protected workspaces and private Unix sockets; no native desktop or live installation.",
+    "iterations": [
+      "Initial run: 8 failed, 8 passed; omitted actual BuiltinToolPolicy readiness. Fixed with actual wired manage_process handler and owner/host/workspace validation only, no global readiness.",
+      "Second run: 16 passed. Added four fail-closed adapter tests; SQLite Row versus tuple assertion in new test fixed.",
+      "Real Unix transport upgrade initially rejected non-UUID IDs. Fixed request IDs to actual UUID protocol requirement, no product changes.",
+      "Real IPC run: 20 passed. Added two parent-checker association proofs; final 22 passed."
+    ]
+  },
+  "setup_ledger": {
+    "implementation": "tests/desktop_adapters/step8_runtime_d.py:SETUP_HUNKS",
+    "seal": "Each exact line/type/original AST SHA hunk matches once. Source SHA pinned against immutable archive and retained file bytes. Complete assertion/signature/decorator/parameter corpus equality and independent whole-module AST reverse replay required before compile/export.",
+    "knowledge_snapshot_campaign": "13 setup hunks: remove aiohttp/web route imports, replace two obsolete route setups with KnowledgeCommandClient(store), remove route registration/app scaffolding, replace two client-construction expressions. All 6 inherited assertion nodes and 2 functions/5 parameter cases unchanged.",
+    "process_tail_correctness": "7 setup hunks: substitute obsolete executor-helper import and six owner identity setup constants with the real temporary authenticated owner ID. All 48 inherited assertion nodes, helpers, 6 functions/9 cases, decorators and local/remote parameter values unchanged.",
+    "whole_module_export": true,
+    "product_code_changes": false
+  },
+  "entries": [
+    {
+      "path": "tests/test_auth_config_integration_review.py",
+      "inherited_sha256": "5288cbb875f2606db665a6f6fb726558895a4fe8af69c419c8a071b02be9bca8",
+      "status": "deferred",
+      "blocked_on": "Whole suite requires bearer credential revocation, multiple carrier collisions and same-user static-session WebSocket handshake. IPC local owner admission has no corresponding credential inventory/session policy; a model-profile subset does not restore the suite.",
+      "references": ["tests/test_auth_config_integration_review.py:16-77,114-144,145-172", "src/web/websocket.py:1-9", "src/desktop/ipc_auth.py"],
+      "evidence": "Static audit only, not executed or counted passing."
+    },
+    {
+      "path": "tests/test_bootstrap_bind_policy.py",
+      "inherited_sha256": "782ebdc56fd9d5b66d8b44a164af55bd23f45206724bfbe6ccb1c0b5e73756f1",
+      "status": "deferred",
+      "blocked_on": "Requires configured/effective TCP bind selection, explicit wildcard widening and numeric-loopback last-credential removal policy. Desktop has no management TCP listener to bind; IPC is not equivalent.",
+      "references": ["tests/test_bootstrap_bind_policy.py:27-123", "src/web/bootstrap_policy.py"],
+      "evidence": "Static audit only; removed management listener surface."
+    },
+    {
+      "path": "tests/test_campaign_audit_observability.py",
+      "inherited_sha256": "77dc718bbf05897961c4fa61ab129eb4d5f4081823571d507444072b3324387a",
+      "status": "deferred",
+      "blocked_on": "Real failure-aggregate management dispatch over rotations and snapshot closure is absent from RecordsService.METHODS. Directly calling the logger helper from a facade would manufacture the missing management behavior.",
+      "references": ["tests/test_campaign_audit_observability.py:61-127", "src/desktop/records.py:20-23,143-149"],
+      "evidence": "Neutral helper coverage is not whole-suite restoration."
+    },
+    {
+      "path": "tests/test_campaign_private_persistence.py",
+      "inherited_sha256": "cc3f3bea541b83ed94da8cd967a3b637217bdd057496cda460379f0f1d641dd1",
+      "status": "deferred",
+      "blocked_on": "Nine mutation families include removed token create/update/regenerate/delete and per-user permission/host-policy writes. Private writer behavior alone cannot preserve all token post-commit assertions.",
+      "references": ["tests/test_campaign_private_persistence.py:26-32,129-168", "src/permissions/token_manager.py", "src/permissions/manager.py"],
+      "evidence": "Static audit only; no bearer-management facade added."
+    },
+    {
+      "path": "tests/test_campaign_websocket_coverage.py",
+      "inherited_sha256": "faaf9e25f7f58664271b5f59f392db799c8698694b7a2160511772127f6f1119",
+      "status": "deferred",
+      "blocked_on": "Requires actual audit-tail WebSocket subscription polling, closed/revoked credential stops and rotation/read-failure behavior. EventJournal is not an audit-file tail implementation.",
+      "references": ["tests/test_campaign_websocket_coverage.py:20-92", "src/web/websocket.py:1-9"],
+      "evidence": "Static audit only; no removed subscription loop recreated."
+    },
+    {
+      "path": "tests/test_compatible_timeout_migration.py",
+      "inherited_sha256": "c2cc201b14db1f081014f64b181c849dc42c544a9a64206371825ee3e3b79da7",
+      "status": "deferred",
+      "blocked_on": "Whole suite requires authenticated selected-profile migration plus actual provider command normalization of legacy timeout input to explicit persisted fields. SettingsService._prepare rejects unknown paths; adapter-side normalization would implement missing product semantics.",
+      "references": ["tests/test_compatible_timeout_migration.py:31-127", "src/desktop/settings.py:256", "src/config/migrations.py:_require_desktop_config"],
+      "evidence": "Static audit only; migration helper subset not counted."
+    },
+    {
+      "path": "tests/test_config_campaign_v410.py",
+      "inherited_sha256": "6acd66510d743fa02241d3b92191aa3b99a61cb628698bdf9b6582e0247eb3e6",
+      "status": "deferred",
+      "blocked_on": "Whole suite asserts Config.discord, gateway serving identity, loaded Discord token and live legacy/static bearer auth consumers. Desktop extra-forbid Config intentionally lacks Discord and its owner identity is not bearer credential equivalence.",
+      "references": ["tests/test_config_campaign_v410.py:25-45,165-172,513-536", "src/config/schema.py:1713-1748", "src/web/api_common.py:186-199"],
+      "evidence": "Static audit only. No admin-tier claim invented for this suite."
+    },
+    {
+      "path": "tests/test_health_endpoints.py",
+      "inherited_sha256": "51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda",
+      "status": "deferred",
+      "blocked_on": "Requires HealthServer liveness/readiness, component registration and user/guest/admin endpoint policy. health.get invokes check_all with different shape; compatibility HTTP HealthServer would fake equivalence.",
+      "references": ["tests/test_health_endpoints.py:119-269", "src/desktop/records.py:185-192", "src/health/server.py"],
+      "evidence": "Static audit only; existing HTTP HealthServer is deferred."
+    },
+    {
+      "path": "tests/test_image_model_config_api.py",
+      "inherited_sha256": "25a525b1f9b5b5b1c45aac61b61f34c814afafc57d4fc5c3f361e635da145a62",
+      "status": "deferred",
+      "blocked_on": "Image intent exists, but whole suite also asserts legacy admin-only denial, settled-write cancellation and shared config transaction interleaving. Synchronous _image_intent does not supply the inherited route transaction seam; facade cancellation would be fabricated.",
+      "references": ["tests/test_image_model_config_api.py:134-209", "src/desktop/settings.py:562"],
+      "evidence": "Static audit only; image-intent subset not counted."
+    },
+    {
+      "path": "tests/test_knowledge_snapshot_campaign.py",
+      "inherited_sha256": "9558df8f435566d712ddb9793533031aa6352e7714f804fb67e5bf8933cc2949",
+      "status": "restored",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": ["tests/test_desktop_phase2_runtime_d.py"],
+        "reason": "Entire 5-case frozen suite through real private IpcServer/LocalClient handshake and OS-peer owner authentication, CoreService.dispatch, durable ManagementService journal and actual injected KnowledgeService/KnowledgeStore. Only success carrier->200 and genuine MethodError conflict->409 projection; unknown domain codes fail closed.",
+        "inherited_cases": 5,
+        "inherited_assertion_nodes": 6
+      },
+      "references": ["tests/desktop_adapters/step8_runtime_d.py:KnowledgeCommandClient", "src/desktop/ipc.py:167-205", "src/desktop/core.py:183-235", "src/desktop/knowledge.py:139-150"],
+      "evidence": "All original snapshot-byte/hash/missing/stale/refusal/unchanged-chunk assertions passed. Additional authentic bad-credential and owner-denial checks passed."
+    },
+    {
+      "path": "tests/test_listener_credential_provenance.py",
+      "inherited_sha256": "78211a660fa65974d1b73ed218e3b97e02c333afa4c847a2fe8e4e6c5c4820fa",
+      "status": "deferred",
+      "blocked_on": "Requires listener consent coordinator, raw/session/query admin credential provenance and re-resolution across token publication. Desktop has no listener credential administration preserving these distinctions.",
+      "references": ["tests/test_listener_credential_provenance.py:62-147,167-254", "src/web/api_common.py:186-199"],
+      "evidence": "Static audit only; removed credential administration not recreated."
+    },
+    {
+      "path": "tests/test_onboarding_partial_publication.py",
+      "inherited_sha256": "9ddfc36f91d84db9ee551641bf7b840ffd6de803b29d3a258e315d96aa0e2cb7",
+      "status": "deferred",
+      "blocked_on": "Separate YAML/environment/initialization transactions, DISCORD_TOKEN/web_api_token persistence, partial publication reconciliation, cancellation and attach suppression lack a Desktop onboarding coordinator or three-store protocol.",
+      "references": ["tests/test_onboarding_partial_publication.py:48-170,195-255", "src/setup_wizard.py:1-18", "src/web/onboarding.py:1-15"],
+      "evidence": "Static audit only; provisioning is not imported prior-user onboarding."
+    },
+    {
+      "path": "tests/test_pr356_static_recovery_identity.py",
+      "inherited_sha256": "a966be322eac7bc19a279481f562cbb23e4a509f785cff847072b79a2e09d1dd",
+      "status": "deferred",
+      "blocked_on": "Exact static credential recovery identity after corrupt dynamic bearer-token storage, with revoked/rotated HTTP and WebSocket session rejection, has no equivalent IPC owner/keyring provenance distinction.",
+      "references": ["tests/test_pr356_static_recovery_identity.py:10-13,39-108", "src/desktop/ipc_auth.py"],
+      "evidence": "Static audit only; owner admission not relabeled static-session recovery."
+    },
+    {
+      "path": "tests/test_process_tail_correctness.py",
+      "inherited_sha256": "1fa6fdfcfb7281790748fe5b6ace0cedae94f7c5e36eb9da97ba95413b37f880",
+      "status": "restored",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": ["tests/test_desktop_phase2_runtime_d.py"],
+        "reason": "Entire 9-case frozen suite with authenticated temporary owner, current testhost binding, private validated protected workspace and actual ToolExecutor/process handler. Actual local supervisor and actual remote supervisor/controller run locally; only remote SSH transport retains the original hermetic substitute. No capture/delivery/settlement or permission methods replaced.",
+        "inherited_cases": 9,
+        "inherited_assertion_nodes": 48
+      },
+      "references": ["tests/desktop_adapters/step8_runtime_d.py:executor", "tests/test_remote_process_streaming.py:35-115", "src/tools/process_manager.py", "src/tools/executor.py:819-918"],
+      "evidence": "Local/remote secret tail, coordinate, quota, retention cursor/channel denial and truthful fallback assertions all passed. Real lease settlement/containment cleanup retained."
+    },
+    {
+      "path": "tests/test_setup_helpers.py",
+      "inherited_sha256": "ffef02f54aa3cb0e458a9002fec8678c49fc40fadf3278d2fc665e7e0e224d81",
+      "status": "deferred",
+      "blocked_on": "Whole suite explicitly asserts Discord token validation/scaffold keys and DISCORD_TOKEN environment writing. Desktop fresh config intentionally lacks Discord; only private env writer remains.",
+      "references": ["tests/test_setup_helpers.py:19-41,82-102", "src/setup_wizard.py:1-18", "src/desktop/provisioning.py:fresh_config_document"],
+      "evidence": "Static audit only; env writer subset not counted."
+    },
+    {
+      "path": "tests/test_subsystem_guard.py",
+      "inherited_sha256": "5c4f14908ca2b46527800bc7304633e2833509048ee474d9192c8c68de24c1d7",
+      "status": "delegated",
+      "blocked_on": "Separate subsystem-guard agent owns actual composition and whole-suite disposition. Batch D makes no duplicate edit or passing claim. Original constructor assertions require actual guard creation, thresholds 7/19 and llm_codex registration.",
+      "references": ["tests/test_subsystem_guard.py:762-784", "src/desktop/management.py:108-120", "src/desktop/providers.py:129"],
+      "evidence": "Delegated as instructed; parent overlays separate guard result."
+    },
+    {
+      "path": "tests/test_web_api_codex_admin.py",
+      "inherited_sha256": "d95f33c074042cee4ff56d83ffa862a78a3002b6bc997ac53cc435ebf48c5802",
+      "status": "deferred",
+      "blocked_on": "Whole suite requires credential-file .bak preservation before replacing corrupt storage and refused overwrite on backup failure. Desktop keyring-backed credential storage cannot preserve file-copy assertions without reviewed disposition.",
+      "references": ["tests/test_web_api_codex_admin.py:67-99", "src/desktop/codex_accounts.py", "src/desktop/secrets.py"],
+      "evidence": "Static audit only; does not claim all Codex behavior is absent."
+    },
+    {
+      "path": "tests/test_web_api_new_endpoints.py",
+      "inherited_sha256": "7fe8c3706f7d9c08ae7b2412af59007abb77a7dfd88348e15e605b18d439239f",
+      "status": "deferred",
+      "blocked_on": "Only inherited case requires actual affordance projection with run_command cost medium/risk high. tools.list _inventory omits structured cost/risk; facade-injected metadata would invent missing management output.",
+      "references": ["tests/test_web_api_new_endpoints.py:44-56", "src/desktop/model_settings.py:224-250"],
+      "evidence": "Static audit only; actual metadata projection needed."
+    },
+    {
+      "path": "tests/test_web_api_turn_state.py",
+      "inherited_sha256": "23a20c4e9b712c53499bf638abe64cbb654e681a1ff675bd4de1882d6c0067e3",
+      "status": "deferred",
+      "blocked_on": "Read-only turn_state.list exists, but complete suite requires capacity-breaker management snapshot/open/probing truth and admin-tier endpoint gates. No capacity-breaker method is registered.",
+      "references": ["tests/test_web_api_turn_state.py:200-268,588-659", "src/desktop/records.py:20-23", "src/desktop/core.py:31"],
+      "evidence": "Static audit only; census/observer subset not counted."
+    },
+    {
+      "path": "tests/test_web_persisted_sessions.py",
+      "inherited_sha256": "96bbad3cdd202801d5ed5a6ecfcd1753b7ceb5a98d9c964c2eef0ad7276d0649",
+      "status": "deferred",
+      "blocked_on": "Requires hashed bearer-session persistence/expiry/revocation across restart, corrupt-store and restored WebSocket handshake behavior, and dynamic issuer/reuse fencing. Desktop IPC peer admission is not persisted bearer-session equivalence.",
+      "references": ["tests/test_web_persisted_sessions.py:12-18,56-122,132-263,316-378", "src/desktop/ipc_auth.py"],
+      "evidence": "Static audit only; removed sessions not recreated."
+    },
+    {
+      "path": "tests/test_websocket_handler.py",
+      "inherited_sha256": "0fac1e88dbb9eba25243a7e391cdef9db5f4d3ac84d7e3754ec3509c7ec2d738",
+      "status": "deferred",
+      "blocked_on": "Requires WebSocket broadcast/subscription cleanup, chat/file/error shapes, user-scoped channel routing and per-user connection closure. Desktop has no renderer network socket; mocked WebSocket handlers would not prove IPC equivalence.",
+      "references": ["tests/test_websocket_handler.py:75-317", "src/web/websocket.py:1-9"],
+      "evidence": "Static audit only; unavailable chat transport not substituted."
+    }
+  ]
+}

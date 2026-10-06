@@ -285,6 +285,8 @@ describe('served settings/management through actual Broker and isolated reposito
 
   test('records query/search the retained profile corpus and never call unsigned audit data verified', async () => {
     const broker = await connect()
+    // This is the real unavailable vault, not the in-memory signing fixture.
+    expect((await schema(broker)).status.keyring_error).toMatch(/unavailable|locked/i)
     expect(await core!.parentEOF()).toEqual({ code: 0, signal: null })
     broker.close()
     const rows = [
@@ -296,6 +298,7 @@ describe('served settings/management through actual Broker and isolated reposito
     writeFileSync(join(core!.paths.dataDir, 'audit.jsonl'), rows.map((row) => JSON.stringify(row)).join('\n') + '\n', { mode: 0o600 })
     await core!.start()
     const restarted = (await core!.connect()).broker
+    expect((await schema(restarted)).status.keyring_error).toMatch(/unavailable|locked/i)
     expect(result(await restarted.request('audit.query', { tool: 'read_file', host: 'localhost', q: 'beta' }))).toEqual([rows[1]])
     expect(result(await restarted.request('logs.search', { level: 'error', q: 'beta' }))).toEqual({ entries: [rows[1]], count: 1 })
     expect(result(await restarted.request('audit.verify'))).toMatchObject({ valid: false, verified: 0, availability: 'not_enabled' })

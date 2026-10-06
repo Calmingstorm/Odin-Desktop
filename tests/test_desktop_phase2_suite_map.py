@@ -13,8 +13,14 @@ from pathlib import Path
 import pytest
 
 from scripts.maintenance import phase2_suites as checker
+from scripts.maintenance import record_step8_part2_review as review_generator
+from scripts.maintenance import restore_step5_suites as generator
 
 ROOT = Path(__file__).resolve().parents[1]
+# Frozen reviewed head. Never derive legacy 85-suite ownership from the live
+# post-review map, whose retirements and remaps deliberately change ownership.
+# 0faaf4c is the reachable rebased copy of 8703630, with byte-identical documents.
+PRE_REVIEW = "0faaf4c"
 
 
 @pytest.fixture(scope="session")
@@ -134,6 +140,387 @@ def _restore(root, *, adapter=False, source_path=None):
 
 def test_complete_offline_historical_mapping_is_valid(repo):
     assert checker.validate(repo) == []
+
+
+@pytest.mark.parametrize("path", [checker.MAP_PATH, checker.PLAN_PATH, checker.QUALIFICATION_PATH])
+def test_prospective_empty_document_cannot_fall_back_to_valid_disk_input(repo, path):
+    snapshot = _accounting_bytes(repo)
+    assert checker.validate(repo, documents={path: {}})
+    assert _accounting_bytes(repo) == snapshot
+
+
+@pytest.fixture
+def step5_repo(repo):
+    """Disposable actual decisions/loaders, with only step 5 reverted to held."""
+    for path in (ROOT / "tests").rglob("*.py"):
+        relative = path.relative_to(ROOT)
+        target = repo / relative
+        if not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, target)
+    for path in (ROOT / "maintenance").glob("step8-part2-*.json"):
+        shutil.copyfile(path, repo / "maintenance" / path.name)
+    mapping, plan, qualification = (json.loads(subprocess.check_output(
+        ["git", "-C", str(ROOT), "show", f"{PRE_REVIEW}:{filename}"]
+    )) for filename in (checker.MAP_PATH, checker.PLAN_PATH, checker.QUALIFICATION_PATH))
+    restored = set()
+    for row in mapping["entries"]:
+        if row["step"] != 5:
+            continue
+        row.pop("step8_part2", None)
+        if row["status"] == "restored":
+            restored.add(row["path"])
+            row.update(status="deferred", blocked_on="Awaiting whole runtime suite integration")
+            row.pop("restoration")
+    for row in plan["entries"]:
+        if row["path"] in restored:
+            row["classification"] = "phase2"
+    for field in ("safe_pass_now", "phase2_restored"):
+        plan[field] = sorted(set(plan[field]) - restored)
+        if field in plan["counts"]:
+            plan["counts"][field] = len(plan[field])
+    plan["phase2"] = sorted(set(plan["phase2"]) | restored)
+    plan["counts"]["phase2"] = len(plan["phase2"])
+    neutral = next(g for g in qualification["groups"] if g["name"] == "neutral-subsystem-guard")
+    neutral["files"] = ["tests/test_subsystem_guard.py"]
+    neutral["exclude_expression"] = "test_real_bot_guard"
+    for filename, document in ((checker.MAP_PATH, mapping), (checker.PLAN_PATH, plan),
+                               (checker.QUALIFICATION_PATH, qualification)):
+        _write(repo, filename, document)
+    assert checker.validate(repo) == []
+    return repo
+
+
+def _accounting_bytes(root):
+    return {path: (root / path).read_bytes() for path in
+            (checker.MAP_PATH, checker.PLAN_PATH, checker.QUALIFICATION_PATH)}
+
+
+@pytest.fixture
+def review_repo(step5_repo):
+    # Restore historical ten first in the disposable pre-review snapshot only.
+    generator.integrate(step5_repo)
+    shutil.copyfile(ROOT / review_generator.DISPOSITIONS,
+                    step5_repo / review_generator.DISPOSITIONS)
+    return step5_repo
+
+
+def test_review34_exact_dispositions_preview_preserves_originals_and_five(review_repo):
+    root = review_repo
+    snapshot = _accounting_bytes(root)
+    mapping = _read(root, checker.MAP_PATH)
+    old_five = {r["path"]: r for r in mapping["entries"] if r["path"] in checker.RETIRABLE_SUITES}
+    original_hashes = {r["path"]: r["inherited_sha256"] for r in mapping["entries"]}
+    docs, report = review_generator.build(root, records=[], require_complete=False)
+    assert _accounting_bytes(root) == snapshot
+    assert (report["restored"], report["retired"], report["deferred"]) == (19, 41, 266)
+    rows = {r["path"]: r for r in docs[checker.MAP_PATH]["entries"]}
+    assert old_five == {p: rows[p] for p in old_five}
+    assert {p: r["inherited_sha256"] for p, r in rows.items()} == original_hashes
+    assert len(checker.RETIRABLE_SUITES) == 5
+    assert len(checker.REVIEW34_RETIRABLE_SUITES) == 36
+    assert not checker.RETIRABLE_SUITES & checker.REVIEW34_RETIRABLE_SUITES
+    reviewed = (set(review_generator.REMAPS) | review_generator.DEFERRED
+                | review_generator.ADAPT | checker.REVIEW34_RETIRABLE_SUITES)
+    assert reviewed == {
+        r["path"] for r in mapping["entries"] if r["step"] == 5 and r["status"] == "deferred"
+    }
+    for path in checker.REVIEW34_RETIRABLE_SUITES:
+        assert rows[path]["retirement"] == {
+            "reviewer": checker.REVIEW34_REVIEWER,
+            "reason": checker.REVIEW34_RETIREMENT_REASONS[path],
+        }
+    for path in review_generator.DEFERRED:
+        assert rows[path]["blocked_on"] == review_generator.BLOCKER
+        assert rows[path]["status"] == "deferred"
+    for path, step in review_generator.REMAPS.items():
+        assert rows[path]["step"] == step
+        assert rows[path]["status"] == "deferred"
+    assert checker.validate(root, documents=docs) == []
+    # Idempotent against already-applied review documents, not the legacy map.
+    for name, doc in docs.items():
+        _write(root, name, doc)
+    repeated, repeated_report = review_generator.build(root, records=[], require_complete=False)
+    assert repeated == docs
+    assert repeated_report == report
+
+
+@pytest.mark.parametrize("mutation", ["reviewer", "reason", "path", "extra", "step"])
+def test_review34_retirement_admission_is_exact(review_repo, mutation):
+    docs, _ = review_generator.build(review_repo, records=[], require_complete=False)
+    path = sorted(checker.REVIEW34_RETIRABLE_SUITES)[0]
+    row = next(r for r in docs[checker.MAP_PATH]["entries"] if r["path"] == path)
+    entry = next(r for r in docs[checker.PLAN_PATH]["entries"] if r["path"] == path)
+    if mutation == "reviewer":
+        row["retirement"]["reviewer"] = "Claude, review of #26"
+    elif mutation == "reason":
+        row["retirement"]["reason"] = "Removed surface, trust me"
+    elif mutation == "path":
+        row["path"] = "tests/test_action_diffs.py"
+    elif mutation == "extra":
+        row["retirement"]["approval"] = "arbitrary source"
+    else:
+        row["step"] = 1
+    entry["retirement"] = copy.deepcopy(row["retirement"])
+    assert checker.validate(review_repo, documents=docs)
+
+
+@pytest.mark.parametrize("mutation", [
+    "authority_reason", "authority_path", "missing_c", "duplicate", "unreviewed",
+    "mixed_restored", "partial_mode", "case_selector", "no_blocker", "wrong_mixed_blocker",
+    "wrong_hash", "wrong_reviewer", "missing_evidence", "fake_adapter",
+])
+def test_review34_generator_fails_closed_without_writes(review_repo, mutation):
+    root = review_repo
+    decision = {"path": "tests/test_hosts_api.py", "status": "deferred",
+                "blocked_on": "Actual host carrier still requires complete adaptation",
+                "references": ["src/desktop/management.py"], "evidence": ["offline disposition"]}
+    record = {"schema_version": 1, "reviewer": checker.REVIEW34_REVIEWER, "entries": [decision]}
+    complete = False
+    if mutation.startswith("authority_"):
+        approval = _read(root, review_generator.DISPOSITIONS)
+        if mutation == "authority_reason":
+            approval["blocker"] = "arbitrary approval"
+        else:
+            approval["deferred"].pop()
+        _write(root, review_generator.DISPOSITIONS, approval)
+    elif mutation == "missing_c":
+        complete = True
+    elif mutation == "duplicate":
+        record["entries"].append(copy.deepcopy(decision))
+    elif mutation == "unreviewed":
+        decision["path"] = "tests/test_action_diffs.py"
+    elif mutation in {"mixed_restored", "partial_mode", "case_selector", "fake_adapter"}:
+        decision.update(status="restored", restoration={"mode": "frozen-adapter",
+                        "selectors": ["tests/test_desktop_fake_adapter.py"],
+                        "reason": "whole fixture", "inherited_cases": 1})
+        if mutation == "mixed_restored":
+            decision["path"] = "tests/test_log_search.py"
+        elif mutation == "partial_mode":
+            decision["restoration"]["mode"] = "partial-adapter"
+        elif mutation == "case_selector":
+            decision["restoration"]["selectors"][0] += "::test_one"
+    elif mutation == "no_blocker":
+        decision.pop("blocked_on")
+    elif mutation == "wrong_mixed_blocker":
+        decision["path"] = "tests/test_web_api_llm_admin.py"
+    elif mutation == "wrong_hash":
+        decision["inherited_sha256"] = "0" * 64
+    elif mutation == "wrong_reviewer":
+        record["reviewer"] = "Claude, review of #26"
+    elif mutation == "missing_evidence":
+        decision["evidence"] = []
+    snapshot = _accounting_bytes(root)
+    with pytest.raises((ValueError, OSError)):
+        review_generator.build(root, records=[("offline-fixture.json", record)],
+                               require_complete=complete)
+    assert _accounting_bytes(root) == snapshot
+
+
+def test_review34_partial_log_llm_stay_deferred_and_out_of_restored_counts(review_repo):
+    (review_repo / "tests/test_desktop_partial_fixture.py").write_text(
+        "raise RuntimeError('offline checker must not import partial adapters')\n")
+    records = [("offline-fixture.json", {
+                "schema_version": 1, "reviewer": checker.REVIEW34_REVIEWER,
+                "entries": [{"path": p, "status": "deferred",
+                             "blocked_on": review_generator.BLOCKER,
+                             "references": ["tests/desktop_adapters/partial_fixture.py"],
+                             "evidence": ["Exact carrier adaptation, not full suite"],
+                             "partial_adaptation": {
+                                 "selectors": ["tests/test_desktop_partial_fixture.py"],
+                                 "reason": "Missing group B features"}}
+                            for p in sorted(review_generator.PARTIAL_STEP5)]})]
+    docs, report = review_generator.build(review_repo, records=records, require_complete=False)
+    assert report["restored"] == 19
+    assert report["review34"]["adapt_decisions"] == {"deferred": 2}
+    group = next(g for g in docs[checker.QUALIFICATION_PATH]["groups"]
+                 if g["name"] == "phase2-step5-profile-management")
+    assert "tests/test_desktop_partial_fixture.py" in group["files"]
+    for row in docs[checker.MAP_PATH]["entries"]:
+        if row["path"] in review_generator.PARTIAL_STEP5:
+            assert row["status"] == "deferred"
+            assert "restoration" not in row
+
+
+def test_review34_complete_frozen_restoration_counts_and_repeats(review_repo):
+    root = review_repo
+    path = "tests/test_hosts_api.py"
+    sha = next(r["inherited_sha256"] for r in _read(root, checker.MAP_PATH)["entries"]
+               if r["path"] == path)
+    selector = "tests/test_desktop_review_complete_fixture.py"
+    # Static association fixture deliberately cannot be imported or executed.
+    (root / selector).write_text(
+        "raise RuntimeError('offline checker must not import')\n"
+        f"SOURCE_PATH = {path!r}\nSOURCE_SHA256 = {sha!r}\n"
+        "CORPUS_SELECTIONS = {'test_hosts_api': None, 'test_log_search': ['TestSearch']}\n"
+        "CORPUS_EXCLUSIONS = {'test_log_search': ['TestStats']}\n"
+        "def load(namespace):\n"
+        "    source = frozen_source(SOURCE_PATH)\n"
+        "    if hashlib.sha256(source).hexdigest() != SOURCE_SHA256:\n"
+        "        raise ValueError('hash drift')\n"
+        "    original = ast.parse(source)\n"
+        "    adapted = copy.deepcopy(original)\n"
+        "    if corpus(original) != corpus(adapted):\n"
+        "        raise ValueError('assertion drift')\n"
+        "    exec(compile(adapted, SOURCE_PATH, 'exec'), module.__dict__)\n"
+        "    register_module(namespace, module)\nload(globals())\n"
+    )
+    record = {"schema_version": 1, "reviewer": checker.REVIEW34_REVIEWER,
+              "entries": [{"path": path, "status": "restored", "inherited_sha256": sha,
+                           "references": [selector], "evidence": ["Offline static fixture only"],
+                           "restoration": {"mode": "frozen-adapter", "selectors": [selector],
+                                           "reason": "Complete static association fixture",
+                                           "inherited_cases": 1}}]}
+    records = [("offline-fixture.json", record)]
+    docs, report = review_generator.build(root, records=records, require_complete=False)
+    assert (report["restored"], report["retired"], report["deferred"]) == (20, 41, 265)
+    assert report["review34"]["restored_paths"] == [path]
+    assert checker.validate(root, documents=docs) == []
+    for filename, document in docs.items():
+        _write(root, filename, document)
+    repeated, repeated_report = review_generator.build(
+        root, records=records, require_complete=False)
+    assert repeated == docs
+    assert repeated_report == report
+
+
+def test_generator_integrates_all_decisions_preserving_history_bytes_and_idempotency(step5_repo):
+    root = step5_repo
+    before = _read(root, checker.MAP_PATH)
+    originals = {row["path"]: (root / row["path"]).read_bytes() for row in before["entries"]}
+    result = generator.integrate(root)
+    assert result["owned"] == 85
+    assert result["dispositions"] == {"restored": 10, "deferred": 75}
+    assert len(result["restored"]) == 10
+    errors, counts = checker._evaluate(root)
+    assert errors == []
+    assert (counts["mapped"], counts["restored"], counts["retired"], counts["deferred"]) == (
+        326, 19, 5, 302,
+    )
+    after = _read(root, checker.MAP_PATH)
+    assert {row["path"] for row in after["entries"]} == set(originals)
+    assert all((root / path).read_bytes() == data for path, data in originals.items())
+    assert [row for row in before["entries"] if row["step"] != 5] == [
+        row for row in after["entries"] if row["step"] != 5
+    ]
+    assert sum("step8_part2" in row for row in after["entries"] if row["step"] == 5) == 85
+    qualification = _read(root, checker.QUALIFICATION_PATH)
+    neutral = next(g for g in qualification["groups"] if g["name"] == "neutral-subsystem-guard")
+    assert neutral["files"] == ["tests/test_desktop_phase2_runtime_guard.py"]
+    assert "exclude_expression" not in neutral
+    snapshot = _accounting_bytes(root)
+    assert generator.integrate(root) == result
+    assert _accounting_bytes(root) == snapshot
+
+
+@pytest.mark.parametrize("mutation", [
+    "missing_decision", "duplicate_decision", "unowned_decision", "unresolved_delegate",
+    "partial_mode", "case_selector", "missing_blocker", "original_bytes",
+    "historical_membership", "guard_subset", "guard_multiple", "duplicate_json_key",
+    "guard_not_delegated",
+])
+def test_generator_rejects_invalid_decisions_without_writing_accounting(step5_repo, mutation):
+    root = step5_repo
+    filename = "maintenance/step8-part2-batch-a.json"
+    document = _read(root, filename)
+    restored = next(row for row in document["entries"] if row["status"] == "restored")
+    deferred = next(row for row in document["entries"] if row["status"] == "deferred")
+    if mutation == "missing_decision":
+        document["entries"].pop()
+    elif mutation == "duplicate_decision":
+        document["entries"].append(copy.deepcopy(restored))
+    elif mutation == "unowned_decision":
+        deferred["path"] = "tests/test_unowned.py"
+    elif mutation == "unresolved_delegate":
+        restored["status"] = "delegated"
+    elif mutation == "partial_mode":
+        restored["restoration"]["mode"] = "partial-adapter"
+    elif mutation == "case_selector":
+        restored["restoration"]["selectors"][0] += "::test_one"
+    elif mutation == "missing_blocker":
+        deferred["blocked_on"] = ""
+    elif mutation == "guard_not_delegated":
+        for batch in "abcd":
+            batch_path = f"maintenance/step8-part2-batch-{batch}.json"
+            batch_document = _read(root, batch_path)
+            for row in batch_document["entries"]:
+                if row["path"] == "tests/test_subsystem_guard.py":
+                    row["status"] = "deferred"
+            if batch_path == filename:
+                document = batch_document
+            else:
+                _write(root, batch_path, batch_document)
+    elif mutation == "original_bytes":
+        target = root / deferred["path"]
+        target.unlink()  # Break the archive fixture hardlink before mutating bytes.
+        target.write_text("def test_changed():\n    assert True\n")
+    elif mutation == "historical_membership":
+        mapping = _read(root, checker.MAP_PATH)
+        mapping["entries"].pop()
+        _write(root, checker.MAP_PATH, mapping)
+    elif mutation in {"guard_subset", "guard_multiple"}:
+        guard_path = "maintenance/step8-part2-guard.json"
+        guard = _read(root, guard_path)
+        if mutation == "guard_subset":
+            guard["owned_suites"][0]["test_entry"] += "::test_one"
+        else:
+            guard["owned_suites"].append(copy.deepcopy(guard["owned_suites"][0]))
+        _write(root, guard_path, guard)
+    _write(root, filename, document)
+    if mutation == "duplicate_json_key":
+        (root / filename).write_text('{"entries":[],"entries":[]}')
+    snapshot = _accounting_bytes(root)
+    with pytest.raises(ValueError):
+        generator.integrate(root)
+    assert _accounting_bytes(root) == snapshot
+
+
+@pytest.mark.parametrize("mutation", [
+    "deferred", "wrong_step", "direct_mode", "different_association", "neutral_exclusion",
+    "missing_adapter", "syntax_error", "partial_corpus", "lost_other_selector",
+])
+def test_guard_replacement_is_only_for_verified_complete_guard_adapter(step5_repo, mutation):
+    root = step5_repo
+    generator.integrate(root)
+    assert checker.validate(root) == []  # Positive case uses the real static closure.
+    mapping = _read(root, checker.MAP_PATH)
+    qualification = _read(root, checker.QUALIFICATION_PATH)
+    guard = next(row for row in mapping["entries"]
+                 if row["path"] == "tests/test_subsystem_guard.py")
+    neutral = next(g for g in qualification["groups"] if g["name"] == "neutral-subsystem-guard")
+    if mutation == "deferred":
+        guard["status"] = "deferred"
+    elif mutation == "wrong_step":
+        guard["step"] = 1
+    elif mutation == "direct_mode":
+        guard["restoration"]["mode"] = "direct-original"
+    elif mutation == "different_association":
+        guard["restoration"]["selectors"] = ["tests/test_subsystem_guard.py"]
+    elif mutation == "neutral_exclusion":
+        neutral["exclude_expression"] = "test_one"
+    elif mutation == "missing_adapter":
+        (root / neutral["files"][0]).unlink()
+    elif mutation == "syntax_error":
+        (root / neutral["files"][0]).write_text("def invalid(\n")
+    elif mutation == "partial_corpus":
+        path = root / "tests/desktop_adapters/step8_runtime_guard.py"
+        path.write_text(path.read_text().replace(
+            'CORPUS_SELECTIONS = {"test_subsystem_guard": None}',
+            'CORPUS_SELECTIONS = {"test_subsystem_guard": ["test_one"]}',
+        ))
+    elif mutation == "lost_other_selector":
+        group = next(g for g in qualification["groups"]
+                     if g["name"] == "phase2-step5-profile-management")
+        group["files"].remove("tests/test_desktop_management.py")
+    _write(root, checker.MAP_PATH, mapping)
+    _write(root, checker.QUALIFICATION_PATH, qualification)
+    errors = checker.validate(root)
+    if mutation in {"missing_adapter", "syntax_error"}:
+        assert errors and any("file" in error or "malformed" in error for error in errors)
+    else:
+        group = ("phase2-step5-profile-management" if mutation == "lost_other_selector"
+                 else "neutral-subsystem-guard")
+        assert f"qualification: lost merged main selectors in {group}" in errors
 
 
 @pytest.mark.parametrize("adapter", [False, True])
@@ -343,6 +730,15 @@ def test_check_cli_returns_json_errors_and_nonzero_on_missing_input(tmp_path, ca
     assert checker.main(["check", "--root", str(tmp_path)]) == 1
     result = json.loads(capsys.readouterr().out)
     assert result["errors"] and result["valid"] is False
+
+
+@pytest.mark.parametrize("step", [6, 7, "Phase 3"])
+def test_unmerged_surface_cannot_be_marked_restored(repo, step):
+    _restore(repo)
+    mapping = _read(repo, checker.MAP_PATH)
+    mapping["entries"][0]["step"] = step
+    _write(repo, checker.MAP_PATH, mapping)
+    assert any("qualified steps 1 to 5" in error for error in checker.validate(repo))
 
 
 def test_pinned_history_is_required_not_a_rewritten_current_plan(repo, monkeypatch):

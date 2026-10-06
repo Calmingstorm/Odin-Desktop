@@ -1,0 +1,550 @@
+{
+  "schema_version": 1,
+  "artifact": "PR34 review1 single full qualification plus corrected group receipt",
+  "execution_commit": "0ec1b30803bb2b72a0a6bfd5920918d6e5ab4f29",
+  "correction_commit": "ddae32b7075613dafbadc96592d58cb145b15f74",
+  "main_merged": "4ea7aa0f3b423a301854a9f0bdd2a46bc92d9d7b",
+  "full_runs": 1,
+  "single_clean_full_invocation": false,
+  "initial_exit_code": 1,
+  "groups": 30,
+  "initial_totals": {
+    "passed": 15060,
+    "failed": 2,
+    "errors": 0,
+    "skipped": 2
+  },
+  "initial_failed_groups": [
+    "phase2-step5-profile-management"
+  ],
+  "initial_failure_reasons": [
+    "New Desktop historical batch probe used remapped current step rather than original fixed batch membership.",
+    "New Desktop rejected-row probe still asserted known old URL-overwrite defect after reviewer-directed product fix."
+  ],
+  "corrected_group": {
+    "name": "phase2-step5-profile-management",
+    "passed": 923,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "junit_sha256": "28800580e4b3a35a7b34da2b435bb0484221ef04ad70625566b5ec34c901085d"
+  },
+  "correction_reason": "Update only non-inherited Desktop assertions for exact reviewer-requested remap and saved desired URL preservation. All frozen original bytes/expectations unchanged.",
+  "corrected_fresh_checkout": "/home/odin/desktop-phase2-step8-part2/review1/fresh-corrected",
+  "fresh_checkout": "/home/odin/desktop-phase2-step8-part2/review1/fresh-final",
+  "installation": "Fresh uv sync --locked --extra dev in each checkout; no manual dependency repair.",
+  "isolation": "2775 parent and checkouts, umask002; nonroot odin env-i isolated mount/PID namespace procfs repository-local throwaway HOME/XDG; no display/DBus/live credentials.",
+  "combined_totals": {
+    "passed": 15062,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 2
+  },
+  "coverage_statement": "29 unchanged groups from initial invocation plus the corrected complete 30th group. This is not represented as a second clean full invocation.",
+  "group_results": [
+    {
+      "name": "direct-shared-stores-providers-tools",
+      "passed": 3158,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "dffef434c9cc45a9044fd57a2e41cb0fe7ed395d9461641e7f8cd23348d99e27"
+    },
+    {
+      "name": "direct-shared-computer",
+      "passed": 3559,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "164b02e1107b76baf2c35f53cd482f2a207a644282bb83a84cd538877f774d1d"
+    },
+    {
+      "name": "direct-shared-hyprland",
+      "passed": 888,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "junit_sha256": "c9aa719293e1dace3daa88ca44e0221a49b5ee8e874feb08606051c4be4f5cdd"
+    },
+    {
+      "name": "direct-shared-engine",
+      "passed": 1442,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "a4da16898d551e98b4404d35ba320e781ff5582c2c5680e0804da1d3c95e47dd"
+    },
+    {
+      "name": "faithful-computer-recovery",
+      "passed": 188,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "d39c134764d88f358459dbb5ed786852abdaf31fd37c317ac9d386c4d9782ca7"
+    },
+    {
+      "name": "faithful-config",
+      "passed": 286,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "e1b7c1c087d590a64708506970693dbd2d981960ec02b614303a8ceea5839139"
+    },
+    {
+      "name": "faithful-computer-declaration",
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "b9a0757bd14bf97b21193f5cd4a370b5ba061adf66eae316018b10f4c7e6d96c"
+    },
+    {
+      "name": "faithful-tools",
+      "passed": 269,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "junit_sha256": "fd605138a2521b4afc1ad3845510d95052bc46c870de13bba69ad25b0a847356"
+    },
+    {
+      "name": "faithful-tools-extra",
+      "passed": 135,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "1e899ca5bbe4a88b07fe2c0b184264f8e9fe9f2a1882cb40d11e214621217dc2"
+    },
+    {
+      "name": "faithful-llm",
+      "passed": 187,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "992901fd0b66c86ee790982f97af93b2a57fac6d7714ffdd9eadd9b6f6882824"
+    },
+    {
+      "name": "direct-neutral-metadata",
+      "passed": 36,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "42e76269b9dfa0f018602b5dac9d4314b90852015a05985b0645575026fb46c3"
+    },
+    {
+      "name": "neutral-completion-classifier",
+      "passed": 28,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "370d7603a3ba9e66b5514de45af0804ce7b0ac302b1f7cc05ff0d780587d87a2"
+    },
+    {
+      "name": "neutral-host-control",
+      "passed": 59,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "a8f5c6f64816a62c05c63966508ebdd46f7d418d526d8ed78b163e949b146bcf"
+    },
+    {
+      "name": "neutral-subsystem-guard",
+      "passed": 126,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "dec859ab2253e525293a862f5d71be3ec1a7db630bc8c2d3c7ab9703c5910c9e"
+    },
+    {
+      "name": "neutral-fd-health",
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "1da5facac870cc2b47419d4968d714f5ac500b06cadc361fe90a7501a080056a"
+    },
+    {
+      "name": "neutral-parallel-policy",
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "f1882e1e304c426b436150e1417d2b3b921ebb14b9a53c9392ee85e37be459dd"
+    },
+    {
+      "name": "faithful-foundation",
+      "passed": 946,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "cf50e6fda9fb549b6cadf4aedb4ca58769f7f7e57faabb6c4fdac1c8f286a071"
+    },
+    {
+      "name": "faithful-migrations",
+      "passed": 33,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "6db1df65ee696df2dce32449f487eb9b146c3d7bb865a94726e6cc176ed5fbd4"
+    },
+    {
+      "name": "mixed-original-passed-cases",
+      "passed": 875,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "55900ddd8000c53be491ab4353197d5784aba5c082bcd7962152dd469e4ab063"
+    },
+    {
+      "name": "desktop-boundary-tests",
+      "passed": 836,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "1493646cd9490b6903268c0a3771824246c9956a265ff8dd77dc0a01c39546a7"
+    },
+    {
+      "name": "direct-foundation-neutral-remainder",
+      "passed": 167,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "5a739a0043ca7442705aa26bcf5ac29ec04797a9f757e102677e62e9bc060638"
+    },
+    {
+      "name": "direct-isolation-timeout-neutrals",
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "e36b1ee571f8e1d7a7193f21d2ac91cad7ba5f71bc36612c932c241790ba38ab"
+    },
+    {
+      "name": "faithful-owner-contracts",
+      "passed": 122,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "448caf1b40c7c32f87042dd8c13619cf4a4e6ad84967b770ec31c143286f66ca"
+    },
+    {
+      "name": "faithful-retirement-corpus",
+      "passed": 32,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "953c34c7def4326a7ec57f501d5a3f062a6d3b59217683845cff3e16d11b23a7"
+    },
+    {
+      "name": "final-historical-cases",
+      "passed": 36,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "dd233b95ce4c3a69f37e24f9daec26a3b2f8289d3c7a2c7a1f6f73e8da5303c1"
+    },
+    {
+      "name": "final-helper-cases",
+      "passed": 34,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "f928d3e4588c3e03cc60b9719b3d0b5544c4816ca03077001d6393c26f83acca"
+    },
+    {
+      "name": "final-distribution-cases",
+      "passed": 32,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "8d4592050bc1e9088edf8ffaadf472e25bf928e3828a01533df7c210d57deda8"
+    },
+    {
+      "name": "final-config-cases",
+      "passed": 72,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "0fd621bde4bf33993519a0f2658c727fce6e2900aa50d8c3826c1dfd5d137f5e"
+    },
+    {
+      "name": "phase2-core-transport",
+      "passed": 575,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "81882ad268487b455469e8e6c2ce864f5e73e5df84aacdd1c8739b1844b81d0b"
+    },
+    {
+      "name": "phase2-step5-profile-management",
+      "passed": 921,
+      "failed": 2,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "09114991a3b6d8011ae6d1314ed5b34d8b58862a10aec79d5806710e37e10956"
+    }
+  ],
+  "corrected_group_results": [
+    {
+      "name": "direct-shared-stores-providers-tools",
+      "passed": 3158,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "dffef434c9cc45a9044fd57a2e41cb0fe7ed395d9461641e7f8cd23348d99e27"
+    },
+    {
+      "name": "direct-shared-computer",
+      "passed": 3559,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "164b02e1107b76baf2c35f53cd482f2a207a644282bb83a84cd538877f774d1d"
+    },
+    {
+      "name": "direct-shared-hyprland",
+      "passed": 888,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "junit_sha256": "c9aa719293e1dace3daa88ca44e0221a49b5ee8e874feb08606051c4be4f5cdd"
+    },
+    {
+      "name": "direct-shared-engine",
+      "passed": 1442,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "a4da16898d551e98b4404d35ba320e781ff5582c2c5680e0804da1d3c95e47dd"
+    },
+    {
+      "name": "faithful-computer-recovery",
+      "passed": 188,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "d39c134764d88f358459dbb5ed786852abdaf31fd37c317ac9d386c4d9782ca7"
+    },
+    {
+      "name": "faithful-config",
+      "passed": 286,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "e1b7c1c087d590a64708506970693dbd2d981960ec02b614303a8ceea5839139"
+    },
+    {
+      "name": "faithful-computer-declaration",
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "b9a0757bd14bf97b21193f5cd4a370b5ba061adf66eae316018b10f4c7e6d96c"
+    },
+    {
+      "name": "faithful-tools",
+      "passed": 269,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "junit_sha256": "fd605138a2521b4afc1ad3845510d95052bc46c870de13bba69ad25b0a847356"
+    },
+    {
+      "name": "faithful-tools-extra",
+      "passed": 135,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "1e899ca5bbe4a88b07fe2c0b184264f8e9fe9f2a1882cb40d11e214621217dc2"
+    },
+    {
+      "name": "faithful-llm",
+      "passed": 187,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "992901fd0b66c86ee790982f97af93b2a57fac6d7714ffdd9eadd9b6f6882824"
+    },
+    {
+      "name": "direct-neutral-metadata",
+      "passed": 36,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "42e76269b9dfa0f018602b5dac9d4314b90852015a05985b0645575026fb46c3"
+    },
+    {
+      "name": "neutral-completion-classifier",
+      "passed": 28,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "370d7603a3ba9e66b5514de45af0804ce7b0ac302b1f7cc05ff0d780587d87a2"
+    },
+    {
+      "name": "neutral-host-control",
+      "passed": 59,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "a8f5c6f64816a62c05c63966508ebdd46f7d418d526d8ed78b163e949b146bcf"
+    },
+    {
+      "name": "neutral-subsystem-guard",
+      "passed": 126,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "dec859ab2253e525293a862f5d71be3ec1a7db630bc8c2d3c7ab9703c5910c9e"
+    },
+    {
+      "name": "neutral-fd-health",
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "1da5facac870cc2b47419d4968d714f5ac500b06cadc361fe90a7501a080056a"
+    },
+    {
+      "name": "neutral-parallel-policy",
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "f1882e1e304c426b436150e1417d2b3b921ebb14b9a53c9392ee85e37be459dd"
+    },
+    {
+      "name": "faithful-foundation",
+      "passed": 946,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "cf50e6fda9fb549b6cadf4aedb4ca58769f7f7e57faabb6c4fdac1c8f286a071"
+    },
+    {
+      "name": "faithful-migrations",
+      "passed": 33,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "6db1df65ee696df2dce32449f487eb9b146c3d7bb865a94726e6cc176ed5fbd4"
+    },
+    {
+      "name": "mixed-original-passed-cases",
+      "passed": 875,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "55900ddd8000c53be491ab4353197d5784aba5c082bcd7962152dd469e4ab063"
+    },
+    {
+      "name": "desktop-boundary-tests",
+      "passed": 836,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "1493646cd9490b6903268c0a3771824246c9956a265ff8dd77dc0a01c39546a7"
+    },
+    {
+      "name": "direct-foundation-neutral-remainder",
+      "passed": 167,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "5a739a0043ca7442705aa26bcf5ac29ec04797a9f757e102677e62e9bc060638"
+    },
+    {
+      "name": "direct-isolation-timeout-neutrals",
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "e36b1ee571f8e1d7a7193f21d2ac91cad7ba5f71bc36612c932c241790ba38ab"
+    },
+    {
+      "name": "faithful-owner-contracts",
+      "passed": 122,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "448caf1b40c7c32f87042dd8c13619cf4a4e6ad84967b770ec31c143286f66ca"
+    },
+    {
+      "name": "faithful-retirement-corpus",
+      "passed": 32,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "953c34c7def4326a7ec57f501d5a3f062a6d3b59217683845cff3e16d11b23a7"
+    },
+    {
+      "name": "final-historical-cases",
+      "passed": 36,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "dd233b95ce4c3a69f37e24f9daec26a3b2f8289d3c7a2c7a1f6f73e8da5303c1"
+    },
+    {
+      "name": "final-helper-cases",
+      "passed": 34,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "f928d3e4588c3e03cc60b9719b3d0b5544c4816ca03077001d6393c26f83acca"
+    },
+    {
+      "name": "final-distribution-cases",
+      "passed": 32,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "8d4592050bc1e9088edf8ffaadf472e25bf928e3828a01533df7c210d57deda8"
+    },
+    {
+      "name": "final-config-cases",
+      "passed": 72,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "0fd621bde4bf33993519a0f2658c727fce6e2900aa50d8c3826c1dfd5d137f5e"
+    },
+    {
+      "name": "phase2-core-transport",
+      "passed": 575,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "81882ad268487b455469e8e6c2ce864f5e73e5df84aacdd1c8739b1844b81d0b"
+    },
+    {
+      "name": "phase2-step5-profile-management",
+      "passed": 923,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "junit_sha256": "28800580e4b3a35a7b34da2b435bb0484221ef04ad70625566b5ec34c901085d"
+    }
+  ],
+  "post_correction_changed_paths": [
+    "maintenance/desktop-deltas.json",
+    "maintenance/phase2-step8-part2-review1-merges.json",
+    "maintenance/phase2-step8-part2-review1-validation.md",
+    "maintenance/qualification-plan.md",
+    "maintenance/test-plan.md",
+    "tests/test_desktop_phase2_runtime_b.py"
+  ],
+  "historical_suite_counts": {
+    "restored": 27,
+    "retired": 41,
+    "deferred": 258,
+    "total": 326
+  },
+  "review34_counts": {
+    "additional_whole_restored": 8,
+    "new_retirements": 36,
+    "group_b_deferred": 20,
+    "remapped": 6,
+    "group_c_whole_deferred": 5
+  },
+  "warnings": "Inherited AsyncMock/subprocess cleanup warnings and new inherited Test* import collection warnings retained, not suppressed; 2 inherited skips."
+}

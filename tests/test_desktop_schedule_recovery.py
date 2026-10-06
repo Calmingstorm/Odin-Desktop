@@ -957,3 +957,50 @@ async def test_reminder_catchup_notice_and_report_hook(graph):
     await scheduler.run_now(item["id"])
     report.assert_awaited_once()
     assert report.await_args.args[1:] == ("paginated_embed_v1", "stored report", "run_command")
+
+
+async def _interrupted_one_time(tmp_path):
+    scheduler = Scheduler(str(tmp_path / "schedules.json"), desktop_recovery=True)
+    item = await scheduler.add(
+        description="interrupted reminder", action="reminder", channel_id="conversation",
+        requester_id="owner", message="stubbed effect",
+        run_at=(datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+    )
+    await scheduler._mark_run_started(item)
+    restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    assert restarted.list_all()[0]["_interrupted_run_history"]
+    restarted._callback = AsyncMock(return_value=None)
+    return scheduler.data_path, item, restarted
+
+
+async def test_one_time_success_retires_with_its_unknown_history(tmp_path):
+    data_path, item, scheduler = await _interrupted_one_time(tmp_path)
+    assert (await scheduler.run_now(item["id"]))["status"] == "success"
+    assert scheduler.list_all() == []
+    assert len(await scheduler.history.query(item["id"], status="unknown")) == 1
+    assert Scheduler(str(data_path), desktop_recovery=True).list_all() == []
+
+
+async def test_one_time_success_keeps_unknown_history_until_it_is_durable(tmp_path, monkeypatch):
+    data_path, item, scheduler = await _interrupted_one_time(tmp_path)
+    record = scheduler.history._record_interrupted_sync
+
+    def unavailable(entry):
+        raise OSError("interrupted-history storage unavailable")
+
+    monkeypatch.setattr(scheduler.history, "_record_interrupted_sync", unavailable)
+    assert (await scheduler.run_now(item["id"]))["status"] == "success"
+    scheduler._callback.assert_awaited_once()
+    [kept] = scheduler.list_all()
+    assert kept["_interrupted_run_history"] and kept["_retire_after_history"]
+    assert "next_run" not in kept, "a completed one-time definition must never fire again"
+    reloaded = Scheduler(str(data_path), desktop_recovery=True).list_all()
+    assert reloaded[0]["_interrupted_run_history"]
+    assert await scheduler.history.query(item["id"], status="unknown") == []
+
+    monkeypatch.setattr(scheduler.history, "_record_interrupted_sync", record)
+    await scheduler._tick()
+    scheduler._callback.assert_awaited_once()
+    assert scheduler.list_all() == []
+    assert len(await scheduler.history.query(item["id"], status="unknown")) == 1
+    assert Scheduler(str(data_path), desktop_recovery=True).list_all() == []

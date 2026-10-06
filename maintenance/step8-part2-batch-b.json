@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "batch": "B",
+  "base": "b74056c4",
+  "assignment": "sort(step5 suite paths)[1::4]",
+  "prior_audit": "91c37f3b",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "restored_original_suites": 1,
+  "restored_original_cases": 26,
+  "deferred_suites": 20,
+  "frozen_adapters": [],
+  "transformations": [],
+  "protection": "All21 retained originals hash-checked against frozen archive/map by test_all_batch_b_retained_bytes_match_frozen_archive_and_review_map. Native knowledge directly executes every26 original case and33 assertion node. Zero edits or import replacement; no reverse hunks or partial exports.",
+  "validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_native_knowledge.py tests/test_desktop_phase2_runtime_b.py",
+    "result": "36 passed in 7.39s",
+    "original_cases": 26,
+    "new_boundary_probes": 10,
+    "full_qualification": false,
+    "isolation": "Sanitized env-i, odin UID, private HOME/XDG roots, isolated mount/PID namespace with kill-child. No live install/native desktop. New probes refuse aiohttp.ClientSession and use temporary authenticated Unix IPC/in-memory keyring."
+  },
+  "entries": [
+    {
+      "path": "tests/test_audit_signing.py",
+      "status": "deferred",
+      "blocked_on": "Six inherited REST cases assert literal200/409. Invalid integrity is an ordinary successful Desktop read, not a conflicting-integrity management outcome. A status adapter would invent the missing error semantics.",
+      "references": ["tests/test_audit_signing.py:898-916 and TestAuditVerifyAPI:926-1054", "src/desktop/records.py:RecordsService._handle audit.verify (169-170)", "src/desktop/management.py:ManagementService.invoke (252-265)"],
+      "evidence": "Six real authenticated IPC scenarios in test_real_audit_ipc_reports_integrity_without_invented_conflict pass: invalid active/rotated report remains valid=False, ok=True, no error envelope, no repair/read receipt. Actual domain result has no409 status."
+    },
+    {
+      "path": "tests/test_auth_snapshot_compatibility.py",
+      "status": "deferred",
+      "blocked_on": "Removed _auth_snapshot/_dynamic_auth_required dynamic HTTP credential-inventory contract cannot be replaced by IPC token/UID admission.",
+      "references": ["tests/test_auth_snapshot_compatibility.py:7-32 _auth_snapshot/_dynamic_auth_required", "src/desktop/ipc.py:167-185 local authentication", "src/desktop/secrets.py:ProfileSecretStore.get/set"],
+      "evidence": "Keyring names and local profile admission do not implement dynamic HTTP inventory/fallback behavior."
+    },
+    {
+      "path": "tests/test_campaign_a_coverage_boundaries.py",
+      "status": "deferred",
+      "blocked_on": "Removed setup-token helpers and Discord presence/chunk-delivery/mention resume cases prevent complete export; generic settings redaction is not the arbitrary-config helper contract.",
+      "references": ["tests/test_campaign_a_coverage_boundaries.py:8-79 setup-token/presence/mention cases", "src/desktop/management.py:ManagementService.compose (218-220)", "src/desktop/settings.py:SettingsService.schema"],
+      "evidence": "Composed domain inventory has no Discord delivery/presence owner."
+    },
+    {
+      "path": "tests/test_campaign_openrouter_coverage.py",
+      "status": "deferred",
+      "blocked_on": "No composed legacy OpenRouter catalog-selection owner; endpoint policy-race400/409 outcomes cannot be fabricated from generic provider replacement.",
+      "references": ["tests/test_campaign_openrouter_coverage.py:8-47 catalog-selection/policy-race REST cases", "src/desktop/settings.py:_PROVIDERS (39-52)", "src/desktop/model_settings.py:ModelSettingsService"],
+      "evidence": "Named provider replacement and model settings do not expose the catalog-selection route contract."
+    },
+    {
+      "path": "tests/test_campaign_startup_auth.py",
+      "status": "deferred",
+      "blocked_on": "Legacy bearer inventory and credential_inventory startup argument absent; restoration would add removed web/Discord configuration rather than adapt setup.",
+      "references": ["tests/test_campaign_startup_auth.py:5-30 credential_inventory calls", "src/desktop/core.py:CoreService.start", "src/config/schema.py:Config"],
+      "evidence": "Desktop startup uses local profile token; Config lacks old WebConfig/DiscordConfig contract."
+    },
+    {
+      "path": "tests/test_codex_account_mutation_regressions.py",
+      "status": "deferred",
+      "blocked_on": "Whole file mixes refresh/quota races with canonical/shadow-file and admin-refresh/device HTTP assertions. Keyring account owner has no explicit admin refresh command preserving every inherited case.",
+      "references": ["tests/test_codex_account_mutation_regressions.py:refresh/device/admin cases", "src/desktop/codex_accounts.py:CodexAccountsService.METHODS", "src/desktop/secrets.py:ProfileSecretStore"],
+      "evidence": "Individual refresh/vault invariants are viable subsets, not complete file equivalence."
+    },
+    {
+      "path": "tests/test_computer_config_toolloop_coverage_r10.py",
+      "status": "deferred",
+      "blocked_on": "Config validator subset cannot restore generic admin/read-only routes and computer runner cleanup/frame cases; no composed activation/turn owner.",
+      "references": ["tests/test_computer_config_toolloop_coverage_r10.py:generic-route/tool-loop cases", "src/desktop/settings.py:_handler computer.activation.set (103-104)", "src/desktop/management.py:ManagementService.compose"],
+      "evidence": "Settings labels computer owner but management graph does not compose it."
+    },
+    {
+      "path": "tests/test_direct_chat_reasoning_records.py",
+      "status": "deferred",
+      "blocked_on": "Requires real intake/delivery/turn recorder/handoff composition, not merely provider wire or usage.get; complete Desktop turn path not composed.",
+      "references": ["tests/test_direct_chat_reasoning_records.py:8-14 intake/gateway/recorder imports;55-87 end-to-end assertions", "src/desktop/runtime.py:RuntimeService.METHODS", "src/desktop/management.py:ManagementService.compose"],
+      "evidence": "Runtime methods only status.get/usage.get/runtime.reload; no full chat/recording path."
+    },
+    {
+      "path": "tests/test_host_access_removal_audit_v412.py",
+      "status": "deferred",
+      "blocked_on": "Multi-user host-preference deletion/signed admin mutation audit has no equivalent Desktop mutation owner; inventory/enrollment is a distinct contract.",
+      "references": ["tests/test_host_access_removal_audit_v412.py:8-46 host-access removal/audit cases", "src/desktop/hosts.py:HostsService.METHODS", "src/desktop/management.py:ManagementService.compose HostAccessManager"],
+      "evidence": "Single profile owner and host registry do not implement removed multi-user access API."
+    },
+    {
+      "path": "tests/test_knowledge_dedup.py",
+      "status": "deferred",
+      "blocked_on": "Complete suite requires duplicate discovery/merge management endpoints absent from KnowledgeService; adapter invoking store primitives would invent a management capability.",
+      "references": ["tests/test_knowledge_dedup.py:duplicate-discovery/merge REST cases", "src/desktop/knowledge.py:KnowledgeService.METHODS (16-20)"],
+      "evidence": "Store invariants remain viable but no published duplicates/merge method exists."
+    },
+    {
+      "path": "tests/test_learning_disabled_crud.py",
+      "status": "deferred",
+      "blocked_on": "No Desktop learned-context CRUD owner; memory/knowledge do not preserve reflector/prompt semantics.",
+      "references": ["tests/test_learning_disabled_crud.py:learned-context CRUD cases", "src/desktop/state.py:StateService.METHODS", "src/desktop/knowledge.py:KnowledgeService.METHODS"],
+      "evidence": "Memory/lists and documents are not learned-context prompt records."
+    },
+    {
+      "path": "tests/test_native_knowledge.py",
+      "status": "restored",
+      "restoration": {
+        "mode": "direct-original",
+        "selectors": ["tests/test_native_knowledge.py"],
+        "reason": "Every inherited case executes intact retained KnowledgeTools handlers with original narrow dependency fakes; no setup or byte changes.",
+        "test_file": "tests/test_native_knowledge.py",
+        "cases": 26,
+        "assertion_nodes": 33
+      },
+      "references": ["tests/test_native_knowledge.py:39-238 entire seven-class corpus", "src/discord/native_tools/knowledge.py:KnowledgeTools", "src/desktop/management.py:ManagementService.compose"],
+      "evidence": "26 passed direct-original; final combined36 passed. Coverage is retained native-handler behavior, NOT ManagementService publication or Desktop conversation intake. Compose wires KnowledgeService, not KnowledgeTools. Original hash418046d5ffe538ac586ccc89fa17b2430347fca1838c3dcbb5b404e556c25bac verified against archive."
+    },
+    {
+      "path": "tests/test_output_executor_fences.py",
+      "status": "deferred",
+      "blocked_on": "Positive _authorize_output assertion uses literal owner, but actual owner identity is canonical UUID. Privileged caller remapping changes assertion meaning; imported helper requires removed WebConfig/ApiTokenManager and disabled continuation lacks is_available.",
+      "references": ["tests/test_output_executor_fences.py:_authorize_output literal owner and disabled-continuation fixtures", "src/tools/executor.py:_authorize_output", "tests/desktop_adapters/tools_cases.py:owner_fixture"],
+      "evidence": "Authentic owner setup cannot make literal-owner assertion true without rewriting its semantics."
+    },
+    {
+      "path": "tests/test_pr356_tokenless_upgrade.py",
+      "status": "deferred",
+      "blocked_on": "HTTP health/live, wildcard-to-loopback binding and legacy initialization completion do not map to startup-after-load_token IPC/fresh state provisioning.",
+      "references": ["tests/test_pr356_tokenless_upgrade.py:tokenless HTTP upgrade/startup cases", "src/desktop/core.py:CoreService.start", "src/desktop/provisioning.py:ensure_profile"],
+      "evidence": "No real HTTP listener or legacy tokenless upgrade owner in composed Desktop."
+    },
+    {
+      "path": "tests/test_recovery.py",
+      "status": "deferred",
+      "blocked_on": "Whole suite includes /api/recovery/stats and /recent with no Desktop telemetry method; executor fixtures also need real owner/policy adaptation.",
+      "references": ["tests/test_recovery.py:recovery stats/recent REST cases", "src/desktop/records.py:METHODS (20-22)", "src/desktop/runtime.py:RuntimeService.METHODS"],
+      "evidence": "Neither read owner publishes recovery telemetry."
+    },
+    {
+      "path": "tests/test_startup_diagnostics.py",
+      "status": "deferred",
+      "blocked_on": "Imports removed check_discord_token and asserts discord_token rows plus nine config checks; dropping those cases cannot restore whole suite.",
+      "references": ["tests/test_startup_diagnostics.py:12-27 imports and check_discord_token cases146-175, _CONFIG_CHECKS count assertion", "src/health/startup.py:_CONFIG_CHECKS"],
+      "evidence": "Desktop startup diagnostics no longer contains Discord token check."
+    },
+    {
+      "path": "tests/test_trajectories.py",
+      "status": "deferred",
+      "blocked_on": "Complete file includes management list/read/search routes; no trajectory reader composed.",
+      "references": ["tests/test_trajectories.py:trajectory REST cases", "src/desktop/records.py:RecordsService.METHODS", "src/desktop/management.py:ManagementService.compose"],
+      "evidence": "Saver/model/search neutral subsets cannot restore absent management cases."
+    },
+    {
+      "path": "tests/test_web_api_knowledge_mem.py",
+      "status": "deferred",
+      "blocked_on": "Chunks, duplicate/merge, version diff, learned-context CRUD, user/admin tiers and unauthenticated mode exceed available single-owner document/memory commands.",
+      "references": ["tests/test_web_api_knowledge_mem.py:knowledge/memory/learned-context REST matrix", "src/desktop/knowledge.py:KnowledgeService.METHODS", "src/desktop/state.py:StateService.METHODS", "src/desktop/core.py:CoreService admission"],
+      "evidence": "Supported command subset cannot satisfy full legacy endpoint/auth matrix."
+    },
+    {
+      "path": "tests/test_web_api_security_helpers_coverage.py",
+      "status": "deferred",
+      "blocked_on": "Absent dynamic-auth snapshot/inventory helper contract; test-only compatibility implementation would manufacture removed behavior.",
+      "references": ["tests/test_web_api_security_helpers_coverage.py:5-22 legacy helper imports/inventory cases", "src/desktop/ipc.py:167-185 local authentication", "src/desktop/secrets.py:ProfileSecretStore"],
+      "evidence": "Local keyring/token owners have no dynamic API bearer inventory contract."
+    },
+    {
+      "path": "tests/test_web_campaign_streams.py",
+      "status": "deferred",
+      "blocked_on": "Dynamic-token subscriptions/revocation fences and newline-sensitive log tailing are not implemented by durable events.subscribe or bounded logs.search.",
+      "references": ["tests/test_web_campaign_streams.py:dynamic-token matrix and in-flight revocation cases", "src/desktop/events.py:EventJournal", "src/desktop/records.py:RecordsService logs.search (171-184)"],
+      "evidence": "Events replay and bounded search do not emulate streaming bearer revocation/log-tail semantics."
+    },
+    {
+      "path": "tests/test_webhook_campaign.py",
+      "status": "deferred",
+      "blocked_on": "Three CRUD-route tests require literal503/200 absent from domain results. Rejected-row case additionally asserts saved desired URL survives divergent boot state; actual Desktop owner rewrites from in-memory rejected boot config. Adapter would require product changes.",
+      "references": ["tests/test_webhook_campaign.py:test_persistence_failure_leaves_runtime_unchanged (188-215)", "tests/test_webhook_campaign.py:test_crud_keeps_unregistered_configured_target (218-256)", "tests/test_webhook_campaign.py:test_delete_legacy_target_reindexes_runtime_ids_for_immediate_update (259-312)", "src/desktop/integrations.py:_mutate (217), _desired_rows (144-173)", "src/desktop/settings.py:save_changes (446-460)"],
+      "evidence": "New real-owner probes pass: saved metadata URL overwrites externally saved good URL, unlike inherited252-254 assertion; persistence refusal yields MethodError internal_error with no runtime/config/vault residue, not HTTP503. Direct YAML comments/environment cases315-351 remain retained config.persistence coverage, neither discarded nor counted separately."
+    }
+  ]
+}

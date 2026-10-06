@@ -28,6 +28,8 @@ def load_runner():
 def configure_runner(tmp_path, monkeypatch):
     runner = load_runner()
     monkeypatch.setattr(runner, "ROOT", tmp_path)
+    # Pytest's tmp_path is itself under /tmp; model a host /tmp elsewhere.
+    monkeypatch.setattr(runner, "PRIVATE_TMP", tmp_path / "host-tmp")
     monkeypatch.delenv("ODIN_TEST_SCRATCH", raising=False)
     monkeypatch.setattr(runner, "os", SimpleNamespace(
         getuid=lambda: 1234, geteuid=lambda: 1234,
@@ -463,6 +465,7 @@ def test_default_selection_runs_full_adapter_instead_of_obsolete_original(tmp_pa
 
     runner = load_runner()
     monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner, "PRIVATE_TMP", tmp_path / "host-tmp")
     monkeypatch.setattr(runner.sys, "argv", ["runner"])
     (tmp_path / "maintenance").mkdir()
     (tmp_path / "tests").mkdir()
@@ -490,6 +493,7 @@ def test_additional_flag_keeps_namespace_supervisor_and_receipt(tmp_path, monkey
 
     runner = load_runner()
     monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner, "PRIVATE_TMP", tmp_path / "host-tmp")
     (tmp_path / "maintenance").mkdir()
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests/test_plan.py").touch()
@@ -520,6 +524,30 @@ def test_additional_flag_refuses_selection_overrides_before_launch(
     monkeypatch.setattr(runner, "run_namespace", lambda command: pytest.fail("must not launch"))
     with pytest.raises(SystemExit, match="accepts only"):
         runner.main(["--additional-desktop-boundaries", *arguments])
+
+
+def test_scratch_hidden_by_the_helpers_private_tmp_is_refused(tmp_path, monkeypatch):
+    runner = configure_runner(tmp_path, monkeypatch)
+    runner.os.getuid, runner.os.geteuid = os.getuid, os.geteuid
+    monkeypatch.setattr(runner, "PRIVATE_TMP", tmp_path / "host-tmp")
+    monkeypatch.setenv("ODIN_TEST_SCRATCH", str(tmp_path / "host-tmp" / "scratch"))
+    monkeypatch.setattr(runner.sys, "argv", ["runner", "tests/test_neutral.py"])
+    probe_results(runner, monkeypatch, [0])
+    monkeypatch.setattr(runner, "run_namespace",
+                        lambda cmd: pytest.fail("must refuse before launch"))
+    with pytest.raises(SystemExit, match="private /tmp hides"):
+        runner.main()
+
+
+def test_checkout_hidden_by_the_helpers_private_tmp_is_refused(tmp_path, monkeypatch):
+    runner = configure_runner(tmp_path, monkeypatch)
+    monkeypatch.setattr(runner, "PRIVATE_TMP", tmp_path)
+    monkeypatch.setattr(runner.sys, "argv", ["runner", "tests/test_neutral.py"])
+    probe_results(runner, monkeypatch, [0])
+    monkeypatch.setattr(runner, "run_namespace",
+                        lambda cmd: pytest.fail("must refuse before launch"))
+    with pytest.raises(SystemExit, match="Use a checkout outside /tmp"):
+        runner.main()
 
 
 def test_ci_scratch_root_moves_isolated_state_to_private_tmpfs(tmp_path, monkeypatch):

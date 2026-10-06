@@ -507,10 +507,9 @@
     {
       "name": "neutral-subsystem-guard",
       "files": [
-        "tests/test_subsystem_guard.py"
+        "tests/test_desktop_phase2_runtime_guard.py"
       ],
-      "exclude_expression": "real_bot_guard_is_always_constructed_with_supported_thresholds",
-      "reason": "Only removed bot composition requires Phase 2; neutral guard thresholds remain direct."
+      "reason": "Complete inherited guard corpus and real Desktop constructor; no exclusions."
     },
     {
       "name": "neutral-fd-health",
@@ -1751,6 +1750,7 @@
       "reason": "Exact remaining configuration, evidence digest, model identity, skill listing and timeout definitions with real profile boundaries; removed schema/intake contracts receive named replacements."
     },
     {
+      "name": "phase2-core-transport",
       "files": [
         "tests/test_desktop_core_entry.py",
         "tests/test_desktop_receipt_retention.py",
@@ -1772,12 +1772,13 @@
         "tests/test_desktop_package_status.py",
         "tests/test_desktop_core_contracts.py",
         "tests/test_desktop_phase2_closure.py",
-        "tests/test_desktop_fresh_profile_parity.py"
+        "tests/test_desktop_fresh_profile_parity.py",
+        "tests/test_desktop_harness_deadlines.py"
       ],
-      "name": "phase2-core-transport",
       "reason": "Phase 2 step 1 Desktop-origin temporary-profile process, parent EOF, private framing/authentication, durable receipts and retention. Step 5 adapts lifecycle/IPC/retention to minor 3 and served management, not upstream corpus assertions. Step 8 part 1 restores eight unchanged inherited helper suites and every process-manager case through a frozen adapter with authentic temporary owner/workspace; mapping binds all 326 historical suites. Step 8 closure items add real-profile notice-only package/lifecycle status, previously uncovered core seam pins, temporary-data report-only exit accounting, and pinned fresh-install D17 defaults/host parity. No native desktop input or installer execution."
     },
     {
+      "name": "phase2-step5-profile-management",
       "files": [
         "tests/test_desktop_codex_accounts.py",
         "tests/test_desktop_hosts.py",
@@ -1806,9 +1807,46 @@
         "tests/test_desktop_step5_records_methods.py",
         "tests/test_desktop_step5_sensitivity.py",
         "tests/test_desktop_step5_traces_frozen.py",
-        "tests/test_desktop_step5_traces_methods.py"
+        "tests/test_desktop_step5_traces_methods.py",
+        "tests/test_desktop_phase2_runtime_a.py",
+        "tests/test_desktop_phase2_runtime_c.py",
+        "tests/test_desktop_phase2_runtime_d.py",
+        "tests/test_native_knowledge.py",
+        "tests/test_provider_shutdown_budget.py",
+        "tests/test_search_small_delivery_budget.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_turn_recorder_webhook_campaign.py",
+        "tests/test_desktop_phase2_runtime_b.py",
+        "tests/test_desktop_phase2_review_integrations.py",
+        "tests/test_desktop_phase2_review_health.py",
+        "tests/test_desktop_review_provider_reload.py",
+        "tests/test_desktop_review_provider_quota.py",
+        "tests/test_desktop_review_provider_hosts.py",
+        "tests/test_desktop_review_provider_image_inherited.py",
+        "tests/test_desktop_phase2_review_llm.py",
+        "tests/test_desktop_review_audit_authority.py",
+        "tests/test_desktop_review_quota_lifecycle.py",
+        "tests/test_desktop_review_provider_hosts_provenance.py",
+        "tests/test_desktop_review_provider_image.py",
+        "tests/test_desktop_review_provider_image_provenance.py",
+        "tests/test_desktop_review_provider_llm.py",
+        "tests/test_desktop_review_provider_llm_provenance.py",
+        "tests/test_desktop_review_provider_policy_reload.py",
+        "tests/test_desktop_review_provider_quota_provenance.py",
+        "tests/test_desktop_review_provider_reload_provenance.py",
+        "tests/test_desktop_provider_round3.py",
+        "tests/test_desktop_records_round3_threads.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_secret_domain_threads.py",
+        "tests/test_desktop_first_run.py",
+        "tests/test_desktop_helper_bundle.py",
+        "tests/test_packaging_models.py",
+        "tests/test_packaging_runtime.py",
+        "tests/packaging/test_chromium_runtime.py",
+        "tests/packaging/test_chromium_staging.py",
+        "tests/test_desktop_phase2_review_health_round3.py",
+        "tests/test_desktop_phase2_review_health_accounting.py"
       ],
-      "name": "phase2-step5-profile-management",
       "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification. Step-five completion additionally executes all 21 requested original filenames through whole hash/corpus-bound adapters, plus named-method and authenticated transport proofs. No original selection is removed, no new skip/exclusion is added."
     },
     {

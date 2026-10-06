@@ -434,6 +434,9 @@ class Scheduler:
                 schedule["_interrupted_run_history"] = remaining
             else:
                 schedule.pop("_interrupted_run_history", None)
+        # A completed one-time definition retires with its last durable entry.
+        candidate = [s for s in candidate if not (
+            s.get("_retire_after_history") and "_interrupted_run_history" not in s)]
         writer = copy.copy(self)
         writer._schedules = candidate
         write = asyncio.create_task(asyncio.to_thread(writer._save))
@@ -1592,7 +1595,13 @@ class Scheduler:
                             current["paused"] = True
                     if schedule.get("one_time"):
                         if not schedule.get("last_error"):
-                            candidate.remove(current)
+                            if current.get("_interrupted_run_history"):
+                                # As delete() does, retire only once earlier
+                                # unknown-run evidence is durable. Never fire again.
+                                current["_retire_after_history"] = True
+                                current.pop("next_run", None)
+                            else:
+                                candidate.remove(current)
                         elif "next_run" not in schedule:
                             current.pop("next_run", None)
                     await self._publish(candidate)

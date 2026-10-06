@@ -101,6 +101,31 @@ def test_shards_balance_longest_first_and_unmeasured_take_the_median():
         [0, 4], [1, 2, 3]]
 
 
+def test_groups_selecting_one_file_share_a_shard():
+    # Once-only ownership is invocation-local, so overlapping groups must share a shard.
+    module = runner()
+    groups = [{"name": "a", "files": ["tests/test_x.py"]},
+              {"name": "b", "files": ["tests/test_y.py"]},
+              {"name": "c", "files": ["tests/test_x.py::TestCase"]},
+              {"name": "d", "files": ["tests/test_z.py"]}]
+    shards = module.assign_shards(groups, {"a": 1, "b": 3, "c": 1, "d": 2}, 3)
+    assert sorted(index for shard in shards for index in shard) == [0, 1, 2, 3]
+    shard_of = {index: number for number, shard in enumerate(shards) for index in shard}
+    assert shard_of[0] == shard_of[2]
+
+
+def test_committed_plan_never_selects_one_file_on_two_shards():
+    module = runner()
+    plan = json.loads((module.ROOT / "maintenance/qualification-plan.json").read_text())
+    minutes = json.loads((module.ROOT / module.WEIGHTS).read_text())["minutes"]
+    owners = {}
+    for number, shard in enumerate(module.assign_shards(plan["groups"], minutes, 5)):
+        for index in shard:
+            for selector in plan["groups"][index]["files"]:
+                path = selector.split("::", 1)[0]
+                assert owners.setdefault(path, number) == number, path
+
+
 def test_shard_runs_only_its_groups_but_validates_all(tmp_path, monkeypatch):
     module = runner()
     monkeypatch.setattr(module, "ROOT", tmp_path)

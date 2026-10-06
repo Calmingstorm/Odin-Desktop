@@ -437,6 +437,7 @@ class CoreService:
         # Hydration/status now await workers. Commit the initial event before
         # admitting any handshake, preserving welcome/catch-up's high watermark.
         await self.server.start()
+        await self.management.start_background()
         self._receipt_pruner = asyncio.create_task(self._prune_receipts())
         self._publication_task = asyncio.create_task(self._publication_loop())
         schedule_owner = self.authority.authenticate_local(peer_uid=self.authority.owner_uid)
@@ -968,6 +969,8 @@ class CoreService:
             # Failed cleanup must not release ownership beneath a surviving
             # execution task. The caller's containment exit remains the barrier.
             try:
+                if self.management is not None:
+                    await self.management.stop_background()
                 if self.resume_manager is not None:
                     await self.resume_manager.close()
                 if self.requests is not None:

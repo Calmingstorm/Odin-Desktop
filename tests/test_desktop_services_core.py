@@ -127,6 +127,7 @@ async def test_parent_loss_cancels_service_qualification_before_publication(tmp_
     paths, socket_path, token_file = profile(tmp_path)
     read_fd, write_fd = os.pipe()
     entered, cleaned = asyncio.Event(), asyncio.Event()
+    background_calls = []
 
     async def suspended():
         entered.set()
@@ -138,7 +139,15 @@ async def test_parent_loss_cancels_service_qualification_before_publication(tmp_
     async def close():
         pass
 
-    manager = SimpleNamespace(start=suspended, close=close, methods={})
+    async def start_background():
+        background_calls.append("start")
+
+    async def stop_background():
+        background_calls.append("stop")
+
+    manager = SimpleNamespace(start=suspended, close=close, methods={},
+                              start_background=start_background,
+                              stop_background=stop_background)
     monkeypatch.setattr(ManagementService, "compose", lambda *args, **kwargs: manager)
     core = CoreService(paths, socket_path, token_file)
     startup = asyncio.create_task(core.start(read_fd))
@@ -150,11 +159,13 @@ async def test_parent_loss_cancels_service_qualification_before_publication(tmp_
             await asyncio.wait_for(startup, 2)
         assert cleaned.is_set() and core.server is None
         assert not socket_path.exists()
+        assert background_calls == []
     finally:
         await core.close()
         os.close(read_fd)
         if write_fd is not None:
             os.close(write_fd)
+    assert background_calls == ["stop"]
 
 
 async def test_failed_close_does_not_strand_other_transport_owners():

@@ -664,7 +664,8 @@ async def test_composed_skill_dependency_resolution_and_actual_admitted_executio
         assert ("Auto-installed dependencies" if pip_status == 0 else
                 "Failed to install dependencies") in diagnostics
     await turn(graph, await conversation(graph), "d19_dependency")
-    assert any("dependency execution marker 1.2.3" in str(content) for content in tool_results(graph))
+    results = [str(content) for content in tool_results(graph)]
+    assert any("dependency execution marker 1.2.3" in content for content in results)
     assert sys.modules[skill.module_name].EXECUTIONS == 1
     assert "d19_dependency" in {item["name"] for item in graph.provider.calls[0]["tools"]}
     assert len(calls) == (0 if pip_status is None else 1)

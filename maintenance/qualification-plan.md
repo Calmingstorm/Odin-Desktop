@@ -46,3 +46,23 @@ The plan now includes foundation and ordinary-profile migration adapters, every
 new Desktop boundary test, and exact historical passed nodes in all49 mixed
 files. Actual-browser endpoint cases are explicitly not selected. Unmapped
 neutral cases block Phase1. No acceptance or blanket surface waiver is claimed.
+
+## Step8 part2 current qualification
+
+All30 merged groups remain. Step5 gains the ten complete inherited runtime
+corpora and their behavioral provenance/boundary tests. The old neutral guard
+subset is replaced by the complete frozen module, including actual Desktop
+construction. This explicit full-corpus replacement has no constructor exclusion.
+Current results and validation scope are recorded in
+`phase2-step8-part2-result.json` and `phase2-step8-part2-validation.md`.
+Group executions may overlap; totals are not unique inherited-case counts.
+
+## PR34 review dispositions
+
+Eight further complete frozen corpora are admitted, plus explicitly partitioned
+image/LLM/log cases that never count as whole-suite restoration. The signed audit,
+host, provider rollback, quota, agent-policy, output-fence and webhook assertions
+are bound to real Desktop owners/verdicts. Thirty groups remain. Main step2/3/4
+source and qualification additions are preserved through two-parent merges.
+`phase2-step8-part2-review1-validation.md` and the final review1 result receipt
+supersede earlier numeric totals without erasing their historical provenance.

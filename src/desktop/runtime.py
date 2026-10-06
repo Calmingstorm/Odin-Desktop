@@ -59,6 +59,7 @@ class RuntimeService:
         self.core = core
         self.settings = settings
         self.llm_gateway = llm
+        self.subsystem_guard = getattr(llm, "subsystem_guard", None)
         self.usage = usage
         self.context = context
         directory = getattr(getattr(settings.config, "context", None), "directory", None)
