@@ -135,6 +135,17 @@ async def test_real_core_status_ping_events_and_shutdown_are_ordered():
             assert str(uuid.UUID(instance)) == instance
             result = await request(reader, writer, "status.get")
             status = result["result"]
+            assert {key: status[key] for key in (
+                "phase", "core_instance_id", "version", "capabilities", "limits", "diagnostics",
+            )} == {
+                "phase": "ready", "core_instance_id": instance,
+                "version": welcome["core"]["version"], "capabilities": welcome["capabilities"],
+                "limits": service.attachments.limits,
+                "diagnostics": {
+                    "turn_durability": {"state": "on", "reason": None},
+                    "compatible_provider": {"state": "off", "reason": None},
+                },
+            }
             assert status["phase"] == "ready"
             assert status["core_instance_id"] == instance
             assert status["version"] == welcome["core"]["version"]
@@ -394,7 +405,11 @@ async def wait_connected(process, socket_path):
             return await connect(socket_path)
         except (FileNotFoundError, ConnectionRefusedError):
             await asyncio.sleep(0.01)
-    pytest.fail("core did not publish its listener")
+    process.stdin.close()
+    stdout, stderr = await asyncio.wait_for(process.communicate(), 10)
+    pytest.fail(
+        f"core did not publish its listener within eight seconds: {stdout!r} {stderr!r}"
+    )
 
 
 @pytest.mark.asyncio

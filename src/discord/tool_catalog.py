@@ -30,12 +30,16 @@ class ToolCatalog:
         computer_available: Callable | None = None,
         get_usage_rollup: Callable | None = None,
         get_email_config: Callable | None = None,
+        get_builtin_definitions: Callable | None = None,
     ) -> None:
         self.get_config = get_config
         self.computer_available = computer_available
         self.skill_manager = skill_manager
         self.get_usage_rollup = get_usage_rollup
         self.get_email_config = get_email_config
+        # The desktop composition supplies the existing readiness-gated
+        # registry, never the static documentation catalog.
+        self.get_builtin_definitions = get_builtin_definitions
         # Published MCP tool definitions (MCP campaign P3). None keeps the
         # catalog MCP-free; the provider returns ONLY tools satisfying the
         # publication predicate, and every publication transition invalidates
@@ -56,7 +60,8 @@ class ToolCatalog:
 
         if self.cached is not None:
             return apply_shell_contracts(self.cached, config.tools.command_shell)
-        builtin = get_tool_definitions(command_shell=None)
+        builtin = (self.get_builtin_definitions() if self.get_builtin_definitions is not None
+                   else get_tool_definitions(command_shell=None))
         computer_cfg = getattr(config, "computer", None)
         if (
             computer_cfg is not None

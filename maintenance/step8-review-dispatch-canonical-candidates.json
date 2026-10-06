@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "scope": "PR35 dispatcher-only lawful alternative candidate; not restored and not shared qualification accounting",
+  "source_path": "tests/characterization/test_executor_dispatch_parity.py",
+  "source_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
+  "original_case_count": 22,
+  "original_assertion_count": 56,
+  "original_bytes_unchanged": true,
+  "all_original_assertion_asts_unchanged": true,
+  "identity_literal_substitutions": [],
+  "setup_hunks": [{
+    "line": 75,
+    "column": 4,
+    "before_ast_sha256": "a07c36085d26e68c5404b3e69309f6563bda30c68d0ec1cd9a7e128c3cd97ba4",
+    "before_source": "return ToolExecutor(config=kwargs.pop(\"config\", ToolsConfig()), **kwargs)",
+    "after_source": "return desktop_executor(config=kwargs.pop('config', ToolsConfig()), **kwargs)",
+    "mechanism": "Reuse existing exact helper adaptation and complete AST reverse replay; no helper edits."
+  }],
+  "approved_case_retirement": {
+    "case": "TestMiddlewarePins.test_rbac_denial_shape_and_metrics",
+    "reviewer": "Claude, review of #35",
+    "reason": "Removed guest-tier RBAC; sole inherited case excluded at discovery, retained in source/AST."
+  },
+  "executed_alternative": {
+    "fixture": "two_profiles and ProfileExecutorFacade in tests/desktop_adapters/step8_review_dispatch.py",
+    "admission": "Each route authenticates its actual temporary profile at submit; unchanged ExecutorAdmission invokes actual RequestService.submit/after_commit, and actual worker reauthenticates persisted owner. Canonical ToolExecutor owner gate remains unchanged.",
+    "shared_resource": "Actual src.tools.executor._user_id_ctx module ContextVar, accessed directly by the common original-style report_identity handler fixture.",
+    "asserted_evidence": [
+      "Two genuinely distinct generated profile owner IDs and two distinct executor objects.",
+      "Both actual desktop-request worker tasks reach a shared two-arrival barrier before reading their identity again.",
+      "Both results are successful and exactly equal uid=<their actual canonical owner>, without output rewriting.",
+      "Each handler sees only its own profile PermissionManager.is_owner true and the other false.",
+      "Caller ContextVar is restored and every persisted request is completed with its profile's owner.",
+      "alice and bob remain denied and do not add handler arrivals.",
+      "A single original executor rejects the second authentic profile ID without calling its handler.",
+      "memory_manage receives the actual canonical owner keyword exactly; u-42 remains denied and does not add a handler invocation."
+    ],
+    "limitation": "Supplemental proof of task isolation across two genuine profile executors sharing the actual ContextVar is not the inherited same-executor, two-distinct-caller property. Current per-profile PermissionManager authenticates only one sealed canonical owner, so sharing a single executor across both profiles would require a forbidden authority substitution. No inherited assertion expected literal is changed."
+  },
+  "targeted_validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_dispatch.py --tb=short",
+    "boundary": "Existing runner uses PID/mount namespaces, clean env, odin OS user, no desktop/session variables.",
+    "result": "2 failed, 23 passed in 9.43s; 19 inherited passes, 2 inherited failures, 4 supplemental passes.",
+    "blocked_cases": [{
+      "case": "TestPatchSeam.test_memory_manage_receives_user_id_kwarg",
+      "observed": "Original line 290 raises KeyError user_id: u-42 denied before handler; supplemental test confirms this denial."
+    }, {
+      "case": "TestMiddlewarePins.test_contextvar_isolation_concurrent",
+      "observed": "Original line 399 assert uid=alice in res_a.output fails; both foreign-ID requests are denied before handler."
+    }],
+    "initial_fixture_fix": "First supplemental-only run: 3 passed, 1 failed because empty registration namespace lacked __name__; added an explicit namespace name, then all four supplemental tests passed in the combined run."
+  },
+  "disposition": "Blocked inherited whole-suite candidate retained honestly. Meaningful lawful alternate coverage passed but cannot be promoted to full original restoration without reviewer authorization of identity fixture/assertion substitutions.",
+  "ownership": "Only three new files: tests/desktop_adapters/step8_review_dispatch.py, tests/test_desktop_step8_review_dispatch.py, this candidate JSON. No production, other adapter, shared accounting, git commit/push/reset, fullgate, native/live or service operations."
+}

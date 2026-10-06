@@ -59,6 +59,24 @@ def test_retained_neutral_modules_byte_identical(path):
         substitutions = (
             ("import importlib.util\n", ""),
             (
+                '        get_email_config: Callable | None = None,\n',
+                '        get_email_config: Callable | None = None,\n'
+                '        get_builtin_definitions: Callable | None = None,\n',
+            ),
+            (
+                '        self.get_email_config = get_email_config\n',
+                '        self.get_email_config = get_email_config\n'
+                '        # The desktop composition supplies the existing readiness-gated\n'
+                '        # registry, never the static documentation catalog.\n'
+                '        self.get_builtin_definitions = get_builtin_definitions\n',
+            ),
+            (
+                '        builtin = get_tool_definitions(command_shell=None)\n',
+                '        builtin = (self.get_builtin_definitions() '
+                'if self.get_builtin_definitions is not None\n'
+                '                   else get_tool_definitions(command_shell=None))\n',
+            ),
+            (
                 '        static_names = {t["name"] for t in builtin}\n'
                 '        if computer_cfg is not None and computer_cfg.enabled:\n'
                 '            static_names.update({"computer_session", "computer_observe", '
@@ -96,10 +114,21 @@ def test_root_entrypoints_gate_before_operations(monkeypatch):
     from src.discord.delivery import DeliveryService
 
     monkeypatch.setattr(__main__.sys, "argv", ["desktop"])
-    for entry in (__main__.main, cli.main):
-        with pytest.raises(SystemExit) as rejected:
-            entry()
-        assert rejected.value.code == 2
+    with pytest.raises(SystemExit) as rejected:
+        __main__.main()
+    assert rejected.value.code == 2
+    # The supported optional CLI is a function returning a failure status;
+    # unlike the supervised core parser, empty prompt is help, not a daemon.
+    import io
+    from unittest.mock import Mock
+
+    stdin = io.StringIO(" ")
+    stdin.isatty = lambda: False
+    monkeypatch.setattr(cli.sys, "stdin", stdin)
+    transport = Mock(side_effect=AssertionError("empty prompt contacted the core"))
+    monkeypatch.setattr(cli.local_client, "main", transport)
+    assert cli.main() == 1
+    transport.assert_not_called()
     for entry in (setup_wizard.is_setup_needed, DeliveryService):
         with pytest.raises(RuntimeError, match="Phase 2"):
             entry()

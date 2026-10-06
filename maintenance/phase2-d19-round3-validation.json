@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "reviewed_head": "c299b9f6482a484f90d30a39c310e79d1dde2c58",
+  "merged_main": "c680b15d",
+  "isolation": "Restricted PID/mount namespace, ordinary odin UID 1003, sanitized HOME/XDG, no display or live profile",
+  "counts": {
+    "internal_unreachable_guard": 12,
+    "pending_restoration": 28,
+    "approved_behavioural": 5,
+    "removed_by_restored_behaviour": 5,
+    "proposed_behavioural": 0,
+    "proposed_mechanical": 0,
+    "pending_unassigned": 4,
+    "total": 50
+  },
+  "gate_tests_passed": 92,
+  "gate_statement_coverage": {"covered_lines": 252, "num_statements": 258, "percent_covered": 97.67441860465117},
+  "guard_composed_and_health_tests_passed": 63,
+  "short_fixture_and_ownership_tests_passed": 68,
+  "full_qualification_run": false,
+  "model_facing_source_changed_by_round3": false,
+  "approval_table_changed": false,
+  "limitations": [
+    "Never-invoked guards cover representative composed flows, not arbitrary malformed legacy callers.",
+    "Background execution remains admission-refusal-only pending PR #37.",
+    "Row049 is composed health restoration, not removal of legitimate readiness diagnostics.",
+    "Initial gate run exposed an unhashable malformed status regression; tuple membership restored safe rejection.",
+    "First coverage selector collected no data; corrected directory coverage yields the recorded per-file metric.",
+    "Process manager start hit global 20-job capacity; foreground isolated runs used instead.",
+    "Ledger union retained all surviving parent paths; main intentionally removed three obsolete Docker-only lab CI files."
+  ],
+  "artifacts": [
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round3-20261006/composed-tests.log", "bytes": 173, "sha256": "15fa7970873a6ed52abe2ab226339554ed03cd9453ec8e01f3f6f40445ed7921"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round3-20261006/d19-report.json", "bytes": 291, "sha256": "983aa94e0813f069a033bb14c65dbd63740a3a4cd9f5794d3012f4af53fdb054"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round3-20261006/drift-pre-record.json", "bytes": 88562, "sha256": "72d7dcd52886f1e8aa53fb4018c0db92c9fa44153a4e8b5bc06633f1dd86cb9f"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round3-20261006/drift-report.json", "bytes": 88453, "sha256": "40882adc2333917edeee306167be3df87774be87ef2136b04e0d9a5a8cbb9dfb"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round3-20261006/gate-coverage-final.log", "bytes": 1536, "sha256": "54160762a642eb21e4e1c797dd7b46dd5a11dcb80a9fd4810ccdad4ded96925a"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round3-20261006/gate-coverage.json", "bytes": 53325, "sha256": "ab9fbd6e1c277547bdd6b4ef831dfa7bd3b6a8dd0c36e1a41ec5e901a9828e8d"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round3-20261006/gate-tests-final.log", "bytes": 1201, "sha256": "214a04ff902340abcca4785dabb9ce714bcac4c70bc92f585c3e3628353ed87c"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round3-20261006/gate-tests.log", "bytes": 9432, "sha256": "00068577d099d77907a9f710ff842a86d2920ec88724f8589eb072d2183e1c33"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round3-20261006/lint-report.json", "bytes": 52, "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round3-20261006/plan-report.json", "bytes": 972, "sha256": "ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48"},
+    {"path": "/mnt/storage/odin-desktop-evidence/pr63-round3-20261006/short-fixtures.log", "bytes": 161, "sha256": "3387630366684bb93e87ce1ead9f4f46aa7997b862f4c7c1073ddf41c77fdbd1"}
+  ]
+}

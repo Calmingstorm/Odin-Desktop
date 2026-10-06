@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.12.*"
 
 [[package]]
@@ -330,6 +330,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ce/45/6a40fbe886d60a8c26f480e7d12535502b5ba123814b3b9a0b002ebca198/dbus_next-0.2.3.tar.gz", hash = "sha256:f4eae26909332ada528c0a3549dda8d4f088f9b365153952a408e28023a626a5", size = 71112, upload-time = "2021-07-25T22:11:28.398Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d2/fc/c0a3f4c4eaa5a22fbef91713474666e13d0ea2a69c84532579490a9f2cc8/dbus_next-0.2.3-py3-none-any.whl", hash = "sha256:58948f9aff9db08316734c0be2a120f6dc502124d9642f55e90ac82ffb16a18b", size = 57885, upload-time = "2021-07-25T22:11:25.466Z" },
+]
+
+[[package]]
+name = "discord-py"
+version = "2.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ef/57/9a2d9abdabdc9db8ef28ce0cf4129669e1c8717ba28d607b5ba357c4de3b/discord_py-2.7.1.tar.gz", hash = "sha256:24d5e6a45535152e4b98148a9dd6b550d25dc2c9fb41b6d670319411641249da", size = 1106326, upload-time = "2026-03-03T18:40:46.24Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f7/a7/17208c3b3f92319e7fad259f1c6d5a5baf8fd0654c54846ced329f83c3eb/discord_py-2.7.1-py3-none-any.whl", hash = "sha256:849dca2c63b171146f3a7f3f8acc04248098e9e6203412ce3cf2745f284f7439", size = 1227550, upload-time = "2026-03-03T18:40:44.492Z" },
 ]
 
 [[package]]
@@ -809,6 +821,7 @@ dependencies = [
     { name = "keyring" },
     { name = "packaging" },
     { name = "pillow" },
+    { name = "pip" },
     { name = "playwright" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -823,9 +836,9 @@ dependencies = [
 dev = [
     { name = "aioresponses" },
     { name = "dbus-next", marker = "sys_platform == 'linux'" },
+    { name = "discord-py" },
     { name = "mypy" },
     { name = "pillow" },
-    { name = "pip" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -853,6 +866,7 @@ requires-dist = [
     { name = "croniter", specifier = ">=2.0.0" },
     { name = "dbus-next", specifier = ">=0.2.3,<1" },
     { name = "dbus-next", marker = "sys_platform == 'linux' and extra == 'dev'", specifier = ">=0.2.3,<1" },
+    { name = "discord-py", marker = "extra == 'dev'", specifier = "==2.7.1" },
     { name = "fastembed", specifier = ">=0.8.0" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "jsonschema", specifier = ">=4.23,<5" },
@@ -861,7 +875,7 @@ requires-dist = [
     { name = "packaging", specifier = ">=23.2" },
     { name = "pillow", specifier = ">=12.3,<13" },
     { name = "pillow", marker = "extra == 'dev'", specifier = ">=12.3,<13" },
-    { name = "pip", marker = "extra == 'dev'", specifier = ">=26.2" },
+    { name = "pip", specifier = ">=26.2,<27" },
     { name = "playwright", specifier = ">=1.40.0" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.24.0" },

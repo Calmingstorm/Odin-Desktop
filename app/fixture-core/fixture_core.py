@@ -479,7 +479,7 @@ class Core:
             "protocol": PROTOCOL,
             "core": {"instance_id": self.instance_id, "version": "fixture-0"},
             "profile_id": self.profile,
-            "capabilities": ["chat"],
+            "capabilities": ["chat", "skills.test"],
             "features": [],
             "max_frame": MAX_FRAME,
             "event_high": str(self.seq),
@@ -565,7 +565,7 @@ class Core:
     # -------------------------------------------------------------- methods
     def m_status(self, _params: dict, _writer) -> dict:
         return {
-            "phase": "ready", "core_instance_id": self.instance_id, "version": "fixture-0", "capabilities": ["chat"],
+            "phase": "ready", "core_instance_id": self.instance_id, "version": "fixture-0", "capabilities": ["chat", "skills.test"],
             "model": {"main": "fixture-echo", "effort": "none", "provider": "fixture"},
             "providers": [{"name": "fixture", "health": "ok"}],
             "limits": {"chunk_bytes": CHUNK_BYTES, "attachment_bytes": ATTACHMENT_BYTES,

@@ -1,0 +1,61 @@
+{
+  "request": "/home/odin/reviews/desktop-pr31-merge-main.md",
+  "pull_request": 31,
+  "tested_source": "12073633e141d6f406954f503fc5ffa3c93679aa",
+  "merge_commit": "c774cc524552bd6204944369bb27784dc85568bc",
+  "merge_parents": [
+    "5201dc7454a07d311e0757d038c966eee5e64a85",
+    "f597c1af3e6b3796d7f6753d4d3b455be2f57b3c"
+  ],
+  "fresh_checkout": "/home/odin/desktop-pr31-main-isolation-fresh-20261006",
+  "evidence_root": "/home/odin/desktop-pr31-main-isolation-evidence-20261006",
+  "started_utc": "2026-10-06T06:59:47Z",
+  "finished_utc": "2026-10-06T07:05:41Z",
+  "identity": {"user": "odin", "uid": 1003, "gid": 1003},
+  "tools": {"node": "22.23.3", "python": "3.12.3", "uv": "0.11.26"},
+  "gates": {
+    "check": {"exit": 0, "tests_passed": 770, "files_passed": 80, "typecheck": "pass", "build": "pass"},
+    "smoke": {"exit": 0, "fixture": true},
+    "test_real_core": {"exit": 0, "contracts_passed": 39, "contract_files": 3, "onboarding_passed": 6, "skipped": 0},
+    "smoke_real_core": {"exit": 0, "management_checkpoints": 39, "chat_checkpoints": 11, "output_pages": 4},
+    "test_a11y": {"exit": 0, "expected": 15, "unexpected": 0, "skipped": 0, "flaky": 0}
+  },
+  "isolation": {
+    "actual_selected_helper": "/usr/local/sbin/odin-desktop-isolate",
+    "sudo_journal": "smoke-helper-journal.log",
+    "generic_fallback_selected": false,
+    "runner_pid1_requirement_unchanged": true,
+    "launcher_unchanged_from_main": true,
+    "helper_unchanged": true,
+    "descendant_guard_regression": "passed",
+    "local_ci_style_not_github_actions_claim": true
+  },
+  "smoke": {
+    "typed_resume_request_id": "r_896374237db14729931d98d7f14302d8",
+    "typed_resume_generation": 2,
+    "typed_resume_user_messages": 1,
+    "attachment_bytes": 700000,
+    "retained_output_characters": 119698,
+    "committed_failure_notice": true
+  },
+  "validation": {"verdict": "pass", "passed": 5, "total": 5},
+  "qualification_failures": 0,
+  "qualification_reruns": 0,
+  "clean_before_and_after": true,
+  "dependencies_changed": false,
+  "npm_audit": {"high": 10, "critical": 1, "security_qualified": false},
+  "selected_hashes": {
+    "restricted_helper": "d18cfe85b021b48ad6aa32d5101c08204e3525b6d9362fe4e3f676ab4b193580",
+    "real_core_isolation": "6e3b34da225503a9932d23cbee06a96925af835de401c6138276367dece587eb",
+    "real_smoke_log": "19105467fc9ebdd394c3980f3176b567f665ade9311e18ab758147807dd25b1c",
+    "real_evidence_json": "be327a42cb593b74f6d663dad9d333eaa8197b3f72b94275b00a2c4587f794b5",
+    "a11y_report": "2b6de837b76692711cf57e7f98ac205e70d0b0e6539fc39ae6172ff392cf9075"
+  },
+  "rebase": false,
+  "force_push": false,
+  "pull_request_merge": false,
+  "deployment": false,
+  "live_service_changes": false,
+  "active_desktop_changes": false,
+  "final_evidence_only": true
+}

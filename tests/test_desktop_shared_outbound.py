@@ -125,10 +125,10 @@ async def test_actual_graph_shares_retained_owner_and_management_adoption(graph)
     from src.desktop.resource_cleanup import ResourceCleanupError
     with pytest.raises(ResourceCleanupError):
         await core.management.close()
+    await core.management.integrations.close()
     assert transport.closes == 0
-    await core.requests.close()
-    await core.engine.close()
-    await core.engine.close()
+    await core.close()
+    await core.close()
     assert transport.closes == 1
     assert await owner.dispatch("loop.stuck", {}) == []
 
@@ -178,6 +178,7 @@ async def test_injected_runtime_dispatcher_is_shared_and_engine_closes_once(tmp_
         from src.desktop.resource_cleanup import ResourceCleanupError
         with pytest.raises(ResourceCleanupError):
             await core.management.close()
+        await core.management.integrations.close()
         assert transport.closes == 0
     finally:
         await core.close()
@@ -245,7 +246,7 @@ async def test_constructor_is_inert_and_close_cancels_delivery():
         await borrowed.handle("webhooks.outbound.list", {})
 
 
-async def test_locked_keyring_refuses_new_rows_without_partial_adoption(graph):
+async def test_locked_keyring_delivers_public_targets_and_reports_credentialed_skips(graph):
     owner = graph.engine.deps.outbound_webhook_dispatcher
     transport = Transport()
     owner._session = transport
@@ -254,16 +255,38 @@ async def test_locked_keyring_refuses_new_rows_without_partial_adoption(graph):
     })
     assert saved["ok"], saved
     ident = saved["result"]["id"]
-    await owner.dispatch("health", {})
-    original = owner.get(ident)
+    signed = await graph.management.invoke("webhooks.outbound.save", {
+        "name": "signed", "url": "https://example.invalid/signed", "secret": "fixture-signing",
+    })
+    private = await graph.management.invoke("webhooks.outbound.save", {
+        "name": "private", "url": "https://user:fixture-password@example.invalid/private",
+    })
+    assert signed["ok"] and private["ok"]
+    signed_id, private_id = signed["result"]["id"], private["result"]["id"]
+    assert len(await owner.dispatch("health", {})) == 3
     graph.settings.config.outbound_webhooks.targets.append(OutboundWebhookTarget(
-        id="new", name="new", url="https://example.invalid/new"))
+        id="new", name="new", url="https://example.invalid/new",
+        signing_key_stored=False, private_url_stored=False))
     graph.settings.secrets._backend.locked = True
-    with pytest.raises(MethodError, match="keyring is unavailable"):
-        await owner.dispatch("health", {})
-    assert owner.get(ident) is original
-    assert owner.get("new") is None
-    assert len(transport.requests) == 1
+    transport.requests.clear()
+    results = await owner.dispatch("health", {})
+    assert len(results) == 2 and all(result.success for result in results)
+    assert {url for url, _ in transport.requests} == {
+        "https://example.invalid/existing", "https://example.invalid/new"}
+    assert owner.get(ident) is not None and owner.get("new") is not None
+    assert owner.get(signed_id) is None and owner.get(private_id) is None
+    listed = await graph.management.invoke("webhooks.outbound.list", {})
+    assert listed["ok"], listed
+    skipped = listed["result"]["skipped_webhooks"]
+    assert {row["id"] for row in skipped} == {signed_id, private_id}
+    assert all("keyring" in row["reason"] for row in skipped)
+    assert "fixture-signing" not in json.dumps(listed)
+    assert "fixture-password" not in json.dumps(listed)
+    tested = await graph.management.invoke("webhooks.outbound.test", {"id": signed_id})
+    assert not tested["ok"] and tested["error"]["code"] == "unavailable"
+    graph.settings.secrets._backend.locked = False
+    assert len(await owner.dispatch("health", {})) == 4
+    assert "skipped_webhooks" not in owner.get_status()
 
 
 class WorkerKeyring(TemporaryKeyring):
@@ -351,12 +374,14 @@ async def test_shared_live_config_keyring_wait_keeps_loop_responsive(graph, oper
     owner._session = transport
     saved = await graph.management.invoke("webhooks.outbound.save", {
         "name": "existing", "url": "https://example.invalid/existing", "events": ["all"],
+        "secret": "fixture-key",
     })
     assert saved["ok"], saved
     ident = saved["result"]["id"]
     await owner.dispatch("health", {})
     previous = owner.get(ident)
     backend = WorkerKeyring()
+    backend.values.update(graph.settings.secrets._backend.values)
     graph.settings.secrets._backend = backend
     graph.settings.config.outbound_webhooks.targets[0].url = "https://example.invalid/slow"
     backend.release.clear()

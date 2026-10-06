@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from src.desktop.management import ManagementService
 from src.desktop.resource_cleanup import (
     ResourceCleanupError,
     ResourceCleanupJournal,
@@ -196,3 +197,183 @@ async def test_partial_owner_barrier_results_survive_cancellation():
     assert retained["processes"] == {"state": "unknown", "error_type": "CancelledError"}
     computer.close.assert_awaited_once()
     registry.shutdown.assert_awaited_once()
+
+
+def _management_owner(calls, name, *, fails=False, synchronous=False):
+    def close_sync():
+        calls.append(name)
+        if fails:
+            raise RuntimeError("private owner failure")
+
+    async def close_async():
+        close_sync()
+
+    return SimpleNamespace(close=close_sync if synchronous else close_async,
+                           METHODS=(), READ_METHODS=())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failing_owner", [None, "browser", "second", "providers", "ssh"])
+async def test_management_shutdown_orders_all_owners_and_journals_after_continuation(
+    tmp_path, failing_owner,
+):
+    calls = []
+    path = tmp_path / "receipt.json"
+    journal = ResourceCleanupJournal(path)
+    finish = journal.finish
+
+    def finish_after_owners(resources):
+        calls.append("journal")
+        finish(resources)
+
+    journal.finish = finish_after_owners
+    core = SimpleNamespace(
+        computer=_management_owner(calls, "computer"), resource_cleanup=journal,
+    )
+    first = _management_owner(calls, "first")
+    second = _management_owner(calls, "second", fails=failing_owner == "second",
+                               synchronous=True)
+    browser = _management_owner(calls, "browser", fails=failing_owner == "browser")
+    manager = ManagementService(core, services=(first, second), identity_key=b"m" * 32)
+    manager.lifecycle_services = (*manager.services, browser)
+    manager.providers = _management_owner(calls, "providers", fails=failing_owner == "providers")
+    manager.executor = SimpleNamespace(
+        _process_registry=SimpleNamespace(shutdown=AsyncMock(
+            side_effect=lambda: calls.append("processes"))),
+        ssh_pool=_management_owner(calls, "ssh", fails=failing_owner == "ssh",
+                                   synchronous=True),
+    )
+
+    if failing_owner is None:
+        await manager.close()
+    else:
+        with pytest.raises(ResourceCleanupError, match="unverified"):
+            await manager.close()
+
+    assert calls == ["computer", "processes", "browser", "second", "first",
+                     "providers", "ssh", "journal"]
+    saved = json.loads(path.read_text())
+    assert saved["resources"]["computer"]["state"] == "released"
+    assert saved["resources"]["processes"]["state"] == "released"
+    assert saved["resources"]["services"] == {
+        "state": "released" if failing_owner is None else "unknown",
+    }
+    assert saved["state"] == ("complete" if failing_owner is None else "unknown")
+    assert "private owner failure" not in json.dumps(saved)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("with_journal", [False, True])
+@pytest.mark.parametrize("barrier", [None, False])
+async def test_management_unsettled_producers_never_close_shared_owners(
+    tmp_path, monkeypatch, with_journal, barrier,
+):
+    calls = []
+    engine = SimpleNamespace()
+    if barrier is not None:
+        engine.producers_quiesced = barrier
+    core = SimpleNamespace(engine=engine)
+    if with_journal:
+        core.resource_cleanup = ResourceCleanupJournal(tmp_path / "receipt.json")
+    service = _management_owner(calls, "service")
+    manager = ManagementService(core, services=(service,), identity_key=b"m" * 32)
+    manager.lifecycle_services = (service, _management_owner(calls, "browser"))
+    manager.providers = _management_owner(calls, "providers")
+    manager.executor = SimpleNamespace(ssh_pool=_management_owner(calls, "ssh"))
+
+    async def execution_barriers(actual_core, actual_manager):
+        assert actual_core is core and actual_manager is manager
+        calls.append("execution_barriers")
+        return {"processes": {"state": "released"}}
+
+    monkeypatch.setattr("src.desktop.resource_cleanup.close_existing_execution_owners",
+                        execution_barriers)
+    with pytest.raises(ResourceCleanupError):
+        await manager.close()
+    assert calls == ["execution_barriers"]
+    if with_journal:
+        saved = json.loads(core.resource_cleanup.path.read_text())
+        assert saved["state"] == "unknown"
+        assert saved["resources"] == {
+            "processes": {"state": "released"},
+            "services": {"state": "unknown", "reason": "producers_not_quiesced"},
+        }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unknown_owner", [None, "computer", "service", "providers", "ssh"])
+async def test_management_no_journal_unknown_is_unverified_and_others_still_close(unknown_owner):
+    calls = []
+    core = SimpleNamespace(computer=_management_owner(
+        calls, "computer", fails=unknown_owner == "computer"))
+    manager = ManagementService(core, services=(_management_owner(
+        calls, "service", fails=unknown_owner == "service"),), identity_key=b"m" * 32)
+    manager.providers = _management_owner(calls, "providers", fails=unknown_owner == "providers")
+    manager.executor = SimpleNamespace(ssh_pool=_management_owner(
+        calls, "ssh", fails=unknown_owner == "ssh"))
+    if unknown_owner is None:
+        await manager.close()
+    else:
+        with pytest.raises(ResourceCleanupError, match="unverified"):
+            await manager.close()
+    assert calls == ["computer", "service", "providers", "ssh"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine_state", ["released", "unknown"])
+async def test_management_engine_owned_transports_are_not_closed_again(tmp_path, engine_state):
+    calls = []
+    engine = SimpleNamespace(
+        producers_quiesced=True,
+        execution_cleanup_results={"computer": {"state": "released"},
+                                   "processes": {"state": "released"}},
+        cleanup_outcome={"state": engine_state},
+    )
+    core = SimpleNamespace(engine=engine, computer=SimpleNamespace(close=AsyncMock()),
+                           resource_cleanup=ResourceCleanupJournal(tmp_path / "receipt.json"))
+    manager = ManagementService(core, services=(_management_owner(calls, "service"),),
+                                identity_key=b"m" * 32)
+    manager.lifecycle_services = (*manager.services, _management_owner(calls, "browser"))
+    manager._engine_owned = True
+    manager.providers = SimpleNamespace(close=AsyncMock())
+    registry = SimpleNamespace(shutdown=AsyncMock())
+    pool = SimpleNamespace(close=AsyncMock())
+    manager.executor = SimpleNamespace(_process_registry=registry, ssh_pool=pool)
+
+    if engine_state == "unknown":
+        with pytest.raises(ResourceCleanupError, match="unverified"):
+            await manager.close()
+    else:
+        await manager.close()
+
+    assert calls == ["browser", "service"]
+    core.computer.close.assert_not_called()
+    registry.shutdown.assert_not_called()
+    manager.providers.close.assert_not_called()
+    pool.close.assert_not_called()
+    saved = json.loads(core.resource_cleanup.path.read_text())
+    assert saved["resources"]["services"]["state"] == "released"
+    assert saved["resources"]["engine"]["state"] == engine_state
+
+
+@pytest.mark.asyncio
+async def test_management_start_qualifies_lifecycle_before_publishing_available_methods():
+    calls = []
+    service = SimpleNamespace(METHODS=("read", "effect"), READ_METHODS=("read",))
+    manager = ManagementService(SimpleNamespace(), services=(service,), identity_key=b"m" * 32)
+
+    def start_service():
+        calls.append("service")
+        service.management_methods = ("read",)
+
+    async def start_browser():
+        assert calls == ["service"]
+        assert "effect" in manager.methods
+        calls.append("browser")
+
+    service.start = start_service
+    manager.lifecycle_services = (service, SimpleNamespace(start=start_browser))
+    await manager.start()
+    assert calls == ["service", "browser"]
+    assert manager.methods == {"read": service}
+    assert manager.read_methods == {"read"}

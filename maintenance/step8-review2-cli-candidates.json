@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "status": "restored-six-original-executions-with-three-approved-http-retirements",
+  "review": "Claude, review of #35, round 2",
+  "reason": "HTTP API client replaced by the authenticated local IPC client",
+  "baseline": {
+    "path": "tests/test_campaign_cli_coverage.py",
+    "sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b",
+    "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+    "test_functions": 5,
+    "original_executions": 9,
+    "retained_original_executions": 6,
+    "retired_original_executions": 3,
+    "assertions_including_helper": 15,
+    "assertions_sha256": "ce89be0834a03f04484af200f264281ef08965163613e99470d3185bedd231d8",
+    "original_ast_sha256": "dac359fa4d48eb9ccacd46ca93837ac12fbae328d22705ddaec9466472583dae",
+    "adapted_ast_sha256": "18d2b3e4cc140aad1aabd80882d2c16fe549d68fb76887cf9c4c03786ecce7f2"
+  },
+  "artifacts": [
+    {"path": "tests/desktop_adapters/step8_review_cli_exact.py", "sha256": "f1df70f57ee381c24dd811c17f383c86f8feb9fb9fe6b5121a866be74e4a4caf"},
+    {"path": "tests/test_desktop_step8_review_cli_exact.py", "sha256": "a60229883fd8432cf8629eac1f47e1a9b6f8df544a8283fa4cb4e0baf0c1a8f7"}
+  ],
+  "unchanged_production_hashes": {
+    "src/cli.py": "cd9e5e59688fe0c9431fcc55e83d9620d9e7f40675959b759e072ea4f9bdf0eb",
+    "src/desktop/local_client.py": "14fbd5eef13a632e4c311017235a65fbd780990979975a8b600953d0d4f0a5e6"
+  },
+  "case_retirements": [
+    {"case": "test_piped_prompt_and_environment_build_real_authenticated_request", "reviewer": "Claude, review of #35, round 2", "reason": "HTTP API client replaced by the authenticated local IPC client", "source_path": "tests/test_campaign_cli_coverage.py", "source_sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b"},
+    {"case": "test_transport_failure_is_nonzero_even_in_json_mode", "reviewer": "Claude, review of #35, round 2", "reason": "HTTP API client replaced by the authenticated local IPC client", "source_path": "tests/test_campaign_cli_coverage.py", "source_sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b"}
+  ],
+  "case_associations": [
+    {
+      "case": "test_empty_prompt_prints_help_without_transport",
+      "case_ast_sha256": "f23033802acc55d281d377e2c52e6316e1eea0ad71f34ac1d365184304d9bb06",
+      "signature_sha256": "95f01b7ebeb8d4179a6abfabaa12f2ab9e1869cacf399e5b6ccc4acc25186196",
+      "decorators_sha256": "9bae367b2ee10488063232058320d01a8cfa480c28d9f4fa41c2f99bd00dd1be",
+      "assertions_sha256": "b6479c8e3bd5d05cbe1d8634b386bdf62ed07fe66d5aa59af2a460c8717d1414",
+      "disposition": "retained-original",
+      "executions": 2,
+      "passed_selectors": [
+        "tests/test_desktop_step8_review_cli_exact.py::test_test_campaign_cli_coverage_empty_prompt_prints_help_without_transport[True]",
+        "tests/test_desktop_step8_review_cli_exact.py::test_test_campaign_cli_coverage_empty_prompt_prints_help_without_transport[False]"
+      ]
+    },
+    {
+      "case": "test_unreadable_prompt_path_does_not_prevent_normal_prose",
+      "case_ast_sha256": "9bd34ecdabe7a546bba2058849d649394032d0f290f03e71922a91b28649bf11",
+      "signature_sha256": "48d7b70d2081aab6236846f0dbdb5a2e2ee525ff0e92b916277483282b97cbd2",
+      "decorators_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "assertions_sha256": "4dc996fb041eafa5dac3aeb9061087a0c6ed91d1250797b3b1c5028799ed7b9d",
+      "disposition": "retained-original",
+      "executions": 1,
+      "passed_selectors": ["tests/test_desktop_step8_review_cli_exact.py::test_test_campaign_cli_coverage_unreadable_prompt_path_does_not_prevent_normal_prose"]
+    },
+    {
+      "case": "test_python_client_refuses_legacy_daemon_arguments_before_network",
+      "case_ast_sha256": "189350979756e1c1721218e79282cc1ea16433dd541a43e5ad912968f47961f2",
+      "signature_sha256": "aa7f6026e028e55e3dde210d3c94e4ca0de2b930bc457f79e9a9d738a72313e6",
+      "decorators_sha256": "41f473e704c235a07eaa9000a0ef32144c9d0263538aaf6858c67a12ece6f671",
+      "assertions_sha256": "3a5f17b7d4c059116352211ae0bd675ac539f33406a5eac29360717964ce3aac",
+      "disposition": "retained-original",
+      "executions": 3,
+      "parameter_values": [["operator.yaml"], ["--config=operator"], ["-coperator"]],
+      "passed_selectors": [
+        "tests/test_desktop_step8_review_cli_exact.py::test_test_campaign_cli_coverage_python_client_refuses_legacy_daemon_arguments_before_network[arguments0]",
+        "tests/test_desktop_step8_review_cli_exact.py::test_test_campaign_cli_coverage_python_client_refuses_legacy_daemon_arguments_before_network[arguments1]",
+        "tests/test_desktop_step8_review_cli_exact.py::test_test_campaign_cli_coverage_python_client_refuses_legacy_daemon_arguments_before_network[arguments2]"
+      ]
+    },
+    {
+      "case": "test_piped_prompt_and_environment_build_real_authenticated_request",
+      "case_ast_sha256": "64c14dcdae156ef00f1fe1826cbcf30c2f07b22aa59e6eedba8f7c36d1342e4e",
+      "signature_sha256": "b3e171180adb8aa2be9af63d28a6491e4aff8ae6188be6de89ee44725bd5d84a",
+      "decorators_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "assertions_sha256": "559836abeae1597c18710a9160a801746b93198a08b3fa3877a7f949b6c667c6",
+      "disposition": "approved-retired-http",
+      "executions": 1,
+      "coverage": "HTTP URL, Authorization header and request data construction. Original nested helper and all assertions remain compiled, not exposed as passing or synthesized on IPC."
+    },
+    {
+      "case": "test_transport_failure_is_nonzero_even_in_json_mode",
+      "case_ast_sha256": "ac4942b5da5719b5387429f2f114fd6df9c8f212ac6bde720d223c1f26dbe626",
+      "signature_sha256": "72446f8a0d7287cc83cfbb6ea9f02890a6f2f676893aec7286e3852aef57e162",
+      "decorators_sha256": "6c03bf1559f31058e8fbf93987ab0d13f6b7c6934f163e03a556895857a2b2b3",
+      "assertions_sha256": "04ed3174f42b3a082dd5daa0ffaa4f45ea25d08389363f0c4c270419ad404486",
+      "disposition": "approved-retired-http",
+      "executions": 2,
+      "parameter_sources": ["urllib.error.URLError('connection refused')", "urllib.error.HTTPError('http://example.invalid', 403, 'Forbidden', {}, None)"],
+      "coverage": "The two proposed obsolete urllib executions approved in round2; original empty stdout and Connection/API error stderr assertions remain frozen, not rewritten to structured IPC JSON."
+    }
+  ],
+  "setup_hunks": [
+    {"line": 19, "column": 4, "before_ast_sha256": "b4f4214a88955ad6c5c1e0a0676005a5a1315a13bb1fc0e4e46f2ed891dd1b1f", "after_ast_sha256": "fe570eff37051a6c5452f838538f13b21fad4d82be504f72c688f2030e569405", "before": "monkeypatch.setattr(cli.urllib.request, \"urlopen\", transport)", "after": "monkeypatch.setattr(cli.local_client.LocalClient, 'connect', transport)"},
+    {"line": 70, "column": 4, "before_ast_sha256": "650953cd53bc04a1878232f1c8766f9de6e889aed0c47cbd944db257068e3c98", "after_ast_sha256": "2f635b2fc789bbeb1815c7cd85548d3bff6a2532983ee8b80f63b54e9af2c5ca", "before": "monkeypatch.setattr(cli.urllib.request, \"urlopen\", network)", "after": "monkeypatch.setattr(cli.local_client.LocalClient, 'connect', network)"}
+  ],
+  "integrity": {
+    "all_assertions_signatures_decorators_parameters_unchanged": true,
+    "complete_ast_reverse_replay": true,
+    "compiled_original_function_identity_export": true,
+    "no_fake_http_facade": true,
+    "export": "load(globals()) exports the six executions through shared discovery rebasing; only exact literal case-retirement metadata projects the two excluded functions.",
+    "hash_definition": "case_ast_sha256 hashes complete original function ast.dump(include_attributes=False). Assertion hashes use fixture_corpus.case_mapping: json.dumps(list of ast.dump for all assertions in that function, including nested helper assertions)."
+  },
+  "results": {
+    "dependency_sync": {"command": "uv sync --locked --extra dev --python 3.12", "pid": 1353735, "exit_code": 0, "venv": "workspace-local .venv owned by odin"},
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_cli_exact.py tests/test_desktop_step8_review_cli.py --tb=short -vv",
+    "pid": 1393321,
+    "output_generation": "92fb11df4c58e4c25fb04b6e39c2b608",
+    "exit_code": 0,
+    "collected": 31,
+    "passed": 31,
+    "failed": 0,
+    "duration_seconds": 27.90,
+    "restored_original_executions": 6,
+    "new_integrity_executions": 5,
+    "existing_ipc_integration_and_guard_executions": 20,
+    "isolation": "Unchanged runner: unshare mount/PID namespace, mount-proc, env -i, non-root odin, private HOME/XDG, no desktop/session environment or live profile.",
+    "lint_and_diff": "ruff check on two owned Python files and git diff --check passed",
+    "static_association": "Existing checker lacks round2 review policy in this branch and returns false. Diagnostic _full_adapter with only round2 reviewer/source/reason policy supplied in memory returns true. Shared checker and suite-map admission remain parent-owned, unchanged here."
+  },
+  "scope": "Only the CLI exact adapter/export/guards and this new candidate record. No production, frozen bytes, old candidate records, shared ledger/plans/maps/runners, full gate, live desktop/service/install, push or rebase changes.",
+  "blockers": ["Parent must admit the round2 literal retirements and CLI selector in shared checker/suite map; this lane does not edit shared maintenance artifacts."]
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "path": "src/desktop/skills.py",
+      "reason": "PR38 D2 review restores Odin's owner-invoked skills.test endpoint in the existing 6A service, rather than withholding an existing feature.",
+      "contract": "Publish skills.test, reject unknown names with not_found, execute the retained SkillManager with empty input and authenticated owner identity under inherited live tool/host scope, and return scrubbed bounded result/is_error using Odin's exact prefixes.",
+      "invariant": "No caller-supplied identity or scope grants, fabricated conversation admission, automatic retry, traceback response, keyring change, or live service operation; disabled-skill behavior and mutation receipt deduplication remain retained.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_skills.py", "tests/test_desktop_services_core.py"]
+    },
+    {
+      "path": "tests/test_desktop_skills.py",
+      "reason": "Exercise the restored PR38 skills.test behavior through the actual retained manager, authenticated local owner, and harmless skill code.",
+      "contract": "Verify empty input and owner identity, inherited live tool/host constraints and cleanup, disabled/unknown/unauthenticated behavior, exact is_error prefixes, output and exception scrubbing/bounds, and cancellation without replay.",
+      "invariant": "Existing loading/input/pip regression coverage remains; no real pip installation, remote command, live credentials, network, manufactured owner authority, or immutable upstream test edits.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_skills.py"]
+    },
+    {
+      "path": "tests/test_desktop_services_core.py",
+      "reason": "Replace obsolete withheld skills.test assertions with authenticated real-core capability, execution, error and receipt proofs.",
+      "contract": "A saved harmless skill executes once with a durable mutation receipt; the same command ID does not execute again; disabled and unknown names return retained domain outcomes, with readiness and shared owners still exercised.",
+      "invariant": "Existing parent/cleanup/native-seam coverage remains; no live service, secret, network, manufactured authentication, or new native-input qualification claim.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_services_core.py"]
+    },
+    {
+      "path": "tests/test_desktop_receipt_retention.py",
+      "reason": "Remove skills.test from the obsolete deferred-capability refusal cases after restoring the real mutation service in PR38.",
+      "contract": "The cheap refusal selection includes only genuinely unserved methods; served skills.test follows the shared durable mutation receipt path tested through authenticated real-core transport.",
+      "invariant": "No mutation journal, retention quota, served-read classification, recovery semantics, or immutable upstream corpus changed.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_receipt_retention.py", "tests/test_desktop_services_core.py"]
+    }
+  ]
+}

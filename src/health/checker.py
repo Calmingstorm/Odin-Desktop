@@ -138,10 +138,10 @@ def check_open_files(_bot: Any) -> ComponentStatus:
 
 
 def check_delivery(core: Any) -> ComponentStatus:
-    """Read a broker-owned readiness snapshot, never infer admission authority.
+    """Read the composed delivery owner's live snapshot, never admission authority.
 
-    Phase 2 must supply ``delivery_readiness`` as an observed boolean. Missing
-    wiring is unavailable, not a healthy transport or an execution permit.
+    Missing observation is unavailable; a known absent or closed owner is down.
+    Neither readiness nor a configured provider grants an execution permit.
     """
     observed = getattr(core, "delivery_readiness", None)
     if type(observed) is not bool:
@@ -149,9 +149,11 @@ def check_delivery(core: Any) -> ComponentStatus:
             name="delivery", healthy=False, status="unavailable",
             detail="Authenticated delivery readiness is not wired (Phase 2)",
         )
+    reason = getattr(core, "delivery_readiness_reason", None)
     return ComponentStatus(
         name="delivery", healthy=observed, status="ok" if observed else "down",
         detail="Delivery ready" if observed else "Delivery not ready",
+        metadata={"reason": reason} if not observed and isinstance(reason, str) else {},
     )
 
 

@@ -1,0 +1,30 @@
+{
+  "request": "req-42fb772d",
+  "artifacts": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/d19-043-req42fb772d/d19-043-req42fb772d-coverage.json",
+      "sha256": "33a131bfdfd9ea63d49098abfcc912176dc57518a697d9cdc33cbaabc91bdb2a",
+      "bytes": 91204
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/d19-043-req42fb772d/d19-043-req42fb772d-focused.xml",
+      "sha256": "fce1e508821f946ae7b15399d2e1b2c6e77958c5272337ce6d922e97ae59d52f",
+      "bytes": 1825
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/d19-043-req42fb772d/d19-043-req42fb772d-inventory.json",
+      "sha256": "0ae24d7c980f396b1b046a4996aa28e1aaba922c5a6ca99fe47b5e529480c57b",
+      "bytes": 89599
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/d19-043-req42fb772d/d19-043-req42fb772d-regression.xml",
+      "sha256": "c24f89dac7fd92d975ed0c237dcbf1c818c13996b5ef7c8bc49182ce20048af9",
+      "bytes": 86103
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/d19-043-req42fb772d/d19-043-req42fb772d-tests.log",
+      "sha256": "41111c1caeb928abaa4e4887c48c4f86f6aabeb20b7d949c2f990bdbb553f632",
+      "bytes": 702
+    }
+  ]
+}

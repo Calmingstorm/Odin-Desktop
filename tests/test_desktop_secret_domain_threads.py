@@ -12,6 +12,7 @@ from src.desktop.integrations import IntegrationsService
 from src.desktop.management import MethodError
 from src.desktop.model_settings import ModelSettingsService
 from src.desktop.providers import ProviderOwner
+from src.notifications.outbound_webhooks import OutboundWebhookDispatcher
 
 
 class WorkerSecrets:
@@ -259,7 +260,9 @@ async def test_integrations_cancelled_write_settles_adoption_before_gate_release
         release.set()
     with pytest.raises(asyncio.CancelledError):
         await mutation
-    assert service.dispatcher.get_status()["webhook_count"] == 1
+    # The profile owner's get_status() re-qualifies keyring rows and belongs on
+    # a worker thread; the base status reads only what adoption published.
+    assert OutboundWebhookDispatcher.get_status(service.dispatcher)["webhook_count"] == 1
     assert len(settings.config.outbound_webhooks.targets) == 1
 
 

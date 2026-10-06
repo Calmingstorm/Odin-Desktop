@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import type { BuiltinTool } from '../../../../shared/api'
 import { loadTools, management, saveTimeouts, setToolEnabled } from '../../stores/management'
 import { unavailableText } from '../../capability'
+import { browser, browserRetryNote, loadBrowserStatus } from '../../stores/browser'
 
 const filter = ref('')
 const expanded = reactive<Record<string, boolean | undefined>>({})
@@ -58,17 +59,32 @@ async function save(): Promise<void> {
 }
 
 onMounted(async () => {
-  await loadTools()
+  await Promise.all([loadTools(), loadBrowserStatus()])
   editTimeouts()
 })
 </script>
 
 <template>
+  <section class="panel" aria-label="Browser runtime">
+    <header class="panel-head">
+      <h3>Browser</h3>
+      <button class="ghost" aria-label="Refresh status for browser" :disabled="browser.busy" @click="loadBrowserStatus">Refresh status</button>
+    </header>
+    <p v-if="browser.error" class="warn" role="status">Couldn't read browser status: {{ browser.error }}{{ browser.status ? ' Showing the last read.' : '' }}</p>
+    <template v-if="browser.status">
+      <p class="manage-desc">State: {{ browser.status.state }}. {{ browser.status.ready ? 'Core reports ready.' : 'Not ready.' }}</p>
+      <p v-if="browser.status.reason" class="manage-desc">Reason: {{ browser.status.reason }}</p>
+      <p class="manage-desc" role="status">{{ browserRetryNote(browser.status) }}</p>
+    </template>
+    <p v-else-if="browser.loaded" class="capability-unavailable" role="status">This core does not report browser runtime status.</p>
+    <p v-else-if="!browser.error" class="manage-desc" role="status">Browser status has not been read.</p>
+  </section>
+
   <section class="panel" aria-label="Built-in tools">
     <header class="panel-head">
       <h3>Built-in tools</h3>
-      <span v-if="!management.unavailable.tools" class="panel-hint">
-        {{ management.tools?.tools.length ?? 0 }} tools, {{ management.tools?.disabled_count ?? 0 }} switched off. A tool that is off
+      <span v-if="!management.unavailable.tools && management.tools" class="panel-hint">
+        {{ management.tools.tools.length }} tools, {{ management.tools.disabled_count }} switched off. A tool that is off
         is not offered to Odin at all.
       </span>
       <label v-if="!management.unavailable.tools">Filter tools <input v-model="filter" class="panel-filter" type="search" placeholder="Filter" /></label>
@@ -95,6 +111,7 @@ onMounted(async () => {
           </button>
         </div>
         <p class="manage-desc">{{ tool.description }}</p>
+        <p class="panel-hint">Cost: {{ tool.cost ?? 'not reported' }}. Risk: {{ tool.risk ?? 'not reported' }}.</p>
         <div :id="`tool-parameters-${encodeURIComponent(tool.name)}`"><pre v-if="expanded[tool.name]" class="manage-json">{{ JSON.stringify(tool.input_schema, null, 2) }}</pre></div>
         <p v-if="management.notes[`tool:${tool.name}`]" class="manage-note" role="status">{{ management.notes[`tool:${tool.name}`] }}</p>
       </li>

@@ -211,7 +211,11 @@ class EngineServices:
         await release(d.channel_state, "shutdown_steering")
         await release(d.loop_manager, "shutdown")
         await release(d.scheduler, "stop")
-        await release(getattr(d.runtime_context, "mcp_manager", None), "shutdown")
+        mcp_service = getattr(d, "management_mcp_service", None)
+        if mcp_service is not None:
+            await release(mcp_service, "close")
+        else:
+            await release(getattr(d.runtime_context, "mcp_manager", None), "shutdown")
         active = [agent for agent in d.agent_manager._agents.values() if agent._sm.is_active]
         tasks = [agent._task for agent in d.agent_manager._agents.values()
                  if getattr(agent, "_task", None) is not None and not agent._task.done()]
@@ -255,7 +259,9 @@ class EngineServices:
             # Keep its shared transports and persistence until containment.
             raise RuntimeError("Desktop engine cleanup did not fully complete") from failures[0]
         await release(getattr(d.tool_executor, "ssh_pool", None), "close_all")
-        await release(d.browser_manager, "shutdown")
+        if not getattr(d, "management_owned_browser", False):
+            method = "close" if callable(getattr(d.browser_manager, "close", None)) else "shutdown"
+            await release(d.browser_manager, method)
         try:
             close = getattr(d.llm_gateway, "close", None)
             if callable(close):
@@ -265,13 +271,15 @@ class EngineServices:
         except Exception as error:
             failed("providers", error)
         await release(getattr(d, "outbound_webhook_dispatcher",
-                              getattr(d.runtime_context, "outbound_webhook_dispatcher", None)),
-                      "close")
+                              getattr(d.runtime_context, "outbound_webhook_dispatcher", None)), "close")
         try:
             await asyncio.to_thread(d.sessions.save)
         except Exception as error:
             failed("sessions_save", error)
-        await release(getattr(d.runtime_context, "knowledge_store", None), "close")
+        knowledge = getattr(d, "knowledge_store", None)
+        if knowledge is None:
+            knowledge = getattr(d.runtime_context, "knowledge_store", None)
+        await release(knowledge, "close")
         await release(d.turn_store, "close")
         if failures:
             raise RuntimeError("Desktop engine cleanup did not fully complete") from failures[0]
@@ -416,10 +424,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..discord.native_tools.media import MediaTools
     from ..discord.native_tools.scheduling import SchedulingTools
     from ..health.subsystem_guard import SubsystemGuard
+    from ..knowledge.store import KnowledgeStore
     from ..learning import ConversationReflector
     from ..learning.loop_reflection import LoopReflectionGate
     from ..llm import CodexChatClient, OllamaClient, OpenAICompatibleClient
     from ..llm.codex_auth import CodexAuthPool
+    from ..llm.context_compressor import CompressionStats
     from ..llm.cost_tracker import CostTracker
     from ..llm.model_breaker import ModelBreakerRegistry
     from ..llm.recovery import RecoveryPolicy
@@ -452,6 +462,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     context = getattr(runtime, "context_loader", None) or ContextLoader(cfg.context.directory)
     context.load()
     knowledge, embedder = getattr(runtime, "knowledge_store", None), getattr(runtime, "embedder", None)
+    if knowledge is None:
+        # Management and native/model tools must share one durable store. A
+        # saved management document is not an absent request-side capability.
+        # Embeddings remain the actual injected owner, never fabricated or
+        # downloaded during profile construction; retained FTS works without it.
+        knowledge = KnowledgeStore(str(paths.data_dir / "knowledge.db"))
     sessions = session_manager or getattr(runtime, "sessions", None)
     if sessions is None:
         sessions = SessionManager(max_history=cfg.sessions.max_history,
@@ -469,7 +485,11 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         path=paths.config_dir / "host-preferences.json", available_hosts_provider=hosts.active_aliases,
         permission_manager=permissions)
     browser = getattr(runtime, "browser_manager", None)
-    if browser is None and cfg.browser.enabled:
+    if browser is None and settings is not None:
+        from .browser_runtime import BrowserRuntime
+
+        browser = BrowserRuntime(settings, paths)
+    elif browser is None and cfg.browser.enabled:
         from ..tools.browser import BrowserManager
 
         browser = BrowserManager(cdp_url=cfg.browser.cdp_url,
@@ -479,13 +499,19 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             allow_private_targets=cfg.browser.allow_private_targets)
     executor = getattr(runtime, "tool_executor", None) or ToolExecutor(cfg.tools,
         memory_path=str(paths.data_dir / "memory.json"), app_config=cfg, profile_paths=paths,
-        browser_manager=browser, host_registry=hosts, host_access_manager=access,
+        browser_manager=browser if cfg.browser.enabled else None,
+        host_registry=hosts, host_access_manager=access,
         permission_manager=permissions, email_config=cfg.email)
     executor._command_shell_config = lambda: get_config().tools.command_shell
+    skill_config_store = None
+    if settings is not None:
+        from .skills import _ConfigStore
+
+        skill_config_store = _ConfigStore(settings.secrets, paths.data_dir / "skills" / "config")
     skills = getattr(runtime, "skill_manager", None) or SkillManager(
         str(paths.data_dir / "skills"), tool_executor=executor,
         memory_path=str(paths.data_dir / "memory.json"), tool_timeouts=cfg.tools.tool_timeouts,
-        allowed_urls=tuple(cfg.tools.skill_allowed_urls))
+        allowed_urls=tuple(cfg.tools.skill_allowed_urls), config_store=skill_config_store)
     scheduler = getattr(runtime, "scheduler", None) or Scheduler(
         str(paths.data_dir / "schedules.json"), desktop_recovery=True)
     skills.set_services(knowledge_store=knowledge, embedder=embedder, session_manager=sessions, scheduler=scheduler)
@@ -605,7 +631,9 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         ready = {name: callable(executor._resolve_handler(name))
                  for name in PHASE1_EXECUTOR_TOOL_NAMES}
         for name in ("browser_read_page", "browser_read_table", "browser_click", "browser_fill", "browser_evaluate"):
-            ready[name] = browser is not None and get_config().browser.enabled
+            available = getattr(browser, "available", None)
+            ready[name] = (available() if callable(available)
+                           else browser is not None and get_config().browser.enabled)
         for name in ("email_send", "email_search", "email_read", "email_list_recent"):
             ready[name] = bool(executor._email_config and executor._email_config.enabled)
         ready["analyze_pdf"] = importlib.util.find_spec("fitz") is not None
@@ -724,6 +752,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     dispatcher = _ReadyDispatcher(owners=owners, skill_manager=skills, tool_catalog=catalog,
         prompt_builder=prompt, channel_state=state, builtin_policy=policy)
     compression = getattr(runtime, "context_compressor", cc.context_compression if cc.context_compression.enabled else None)
+    compression_stats = getattr(runtime, "compression_stats", None) or CompressionStats()
     d = SimpleNamespace(get_config=get_config, paths=paths, permissions=permissions,
         sessions=sessions, tool_executor=executor, channel_state=state, turn_store=ledger,
         durability_reason=durability_reason, compatible_skipped=compatible_skipped,
@@ -732,12 +761,13 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         skill_manager=skills, audit=audit, agent_manager=agents, loop_manager=loops,
         host_registry=hosts, host_access_manager=access, scheduler=scheduler, reflector=reflector,
         context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime,
+        knowledge_store=knowledge, embedder=embedder, compression_stats=compression_stats,
         outbound_webhook_dispatcher=outbound)
     d.native_owners = owners
     engine = EngineServices(d, None)
     runner = ToolLoopRunner(ToolLoopDeps(get_config=get_config,
         get_default_system_prompt=lambda: prompt.default_prompt, get_context_compressor=lambda: compression,
-        get_compression_stats=lambda: getattr(runtime, "compression_stats", None),
+        get_compression_stats=lambda: compression_stats,
         llm_gateway=gateway, prompt_builder=prompt, tool_catalog=catalog, channel_state=state,
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         native_tools=dispatcher, tool_executor=executor, permissions=permissions,
