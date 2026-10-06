@@ -27,6 +27,8 @@ def inventory(rows, findings):
             "source_table": {"path": gate.SOURCE_TABLE, "section": 4},
             "rows": [{**row, "status": "proposed_behavioural", "reviewer": "Aaron",
                       "behaviour_change": "Refuse an unavailable execution path.",
+                      "when_odin_sees_it": "A handler is unavailable during a stale call.",
+                      "odin_v4130_equivalent": "No equivalent state in Odin.",
                       "observations": gate.observe(row, findings), "evidence_tests": []}
                      for row in rows]}
 
@@ -163,17 +165,18 @@ def test_structurally_dead_string_requires_test_even_when_retained(tmp_path):
 )
 def test_proposal_and_pending_owner_fields(tmp_path, status):
     rows = parsed()
-    data = inventory(rows, [])
+    findings = gate.scan_source('value = "fence complete"', "src/example.py")
+    data = inventory(rows, findings)
     record = data["rows"][0]
     record["status"] = status
     record.pop("behaviour_change")
     record.pop("reviewer")
-    assert gate.validate(data, rows, [], tmp_path)["errors"]
-    record.update(owner="lane", pending_reference="PR 42", odin_string="old",
+    assert gate.validate(data, rows, findings, tmp_path)["errors"]
+    record.update(owner="Odin", pending_reference="PR #42 (step 7)", odin_string="old",
                   desktop_string="new",
                   reviewer="Claude" if status == "proposed_mechanical" else "Aaron",
                   behaviour_change="Change the admission contract.")
-    assert not gate.validate(data, rows, [], tmp_path)["errors"]
+    assert not gate.validate(data, rows, findings, tmp_path)["errors"]
 
 
 def test_committed_inventory_gate():

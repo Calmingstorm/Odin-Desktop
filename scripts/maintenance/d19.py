@@ -14,7 +14,12 @@ BASELINE_SHA = "16e35e8f370661a2baf8e7030a27919b3e658b3b"
 SOURCE_TABLE = "maintenance/pr2-model-facing-string-approvals.md"
 STATUSES = {
     "removed_by_restored_behaviour", "pending_restoration",
-    "proposed_mechanical", "proposed_behavioural",
+    "proposed_mechanical", "proposed_behavioural", "internal_unreachable_guard",
+}
+PENDING_REFERENCES = {
+    "PR #37 (6B)", "PR #42 (step 7)", "PR #48 (media publication)",
+    "PR #62 (skill delivery, lane 3)", "PR #61 (step 8 closure, lane 2)",
+    "P3.3", "P3.5", "unassigned",
 }
 
 
@@ -241,6 +246,47 @@ def validate(inventory, rows, findings, root):
         elif status == "pending_restoration":
             if not record.get("owner") or not record.get("pending_reference"):
                 errors.append(f"{ident}: pending needs owner and pending_reference")
+            reference = record.get("pending_reference")
+            if not isinstance(reference, str) or reference not in PENDING_REFERENCES:
+                errors.append(f"{ident}: pending reference must name "
+                              "an existing PR/phase or unassigned")
+            if reference == "unassigned" and record.get("owner") != "unassigned":
+                errors.append(f"{ident}: unassigned pending row must not invent an owner")
+            # Recompute from current source, not the recorded observation. A
+            # merged restoration must force a disposition/evidence update even
+            # if the diagnostic survives only after an unconditional terminator.
+            fragment_paths = record.get("pending_fragment_paths", {})
+            if (not isinstance(fragment_paths, dict)
+                    or any(fragment not in row["strings"] for fragment in fragment_paths)
+                    or any(not isinstance(paths, list) or not paths
+                           or any(not isinstance(path, str) or not path.startswith("src/")
+                                  or ".." in Path(path).parts or not path.endswith(".py")
+                                  for path in paths) for paths in fragment_paths.values())):
+                errors.append(f"{ident}: invalid pending fragment source paths")
+                fragment_paths = {}
+            for fragment in row["strings"]:
+                for path in fragment_paths.get(fragment, [row["source_path"]]):
+                    if not any(i["path"] == path and i["reachability"] == "active"
+                               and fragment in i.get("matched_strings", []) for i in observations):
+                        errors.append(f"{ident}: pending string no longer has an active AST match; "
+                                      "update the disposition and evidence")
+        elif status == "internal_unreachable_guard":
+            if record.get("reviewer") != "Claude" or not record.get("guard_proof") or not evidence:
+                errors.append(f"{ident}: internal guard requires "
+                              "Claude reviewer, spy proof and tests")
+            targets = record.get("guard_targets")
+            if (not isinstance(targets, list) or not targets
+                    or any(not isinstance(t, dict)
+                           or not isinstance(t.get("path"), str)
+                           or not isinstance(t.get("selector"), str) for t in targets)):
+                errors.append(f"{ident}: internal guard requires source path/selector targets")
+            else:
+                declared_targets = {(t["path"], t["selector"]) for t in targets}
+                current_targets = {(i["path"], i["selector"]) for i in observations
+                                   if i["reachability"] != "absent"}
+                if not current_targets or declared_targets != current_targets:
+                    errors.append(f"{ident}: internal guard moved/disappeared "
+                                  "or has unproved source targets")
         elif status == "proposed_mechanical":
             if (not record.get("odin_string") or not record.get("desktop_string")
                     or record.get("reviewer") != "Claude"):
@@ -248,6 +294,9 @@ def validate(inventory, rows, findings, root):
         elif status == "proposed_behavioural":
             if not record.get("behaviour_change") or record.get("reviewer") != "Aaron":
                 errors.append(f"{ident}: behavioural needs behaviour_change and Aaron reviewer")
+            for field in ("when_odin_sees_it", "odin_v4130_equivalent"):
+                if not isinstance(record.get(field), str) or not record[field].strip():
+                    errors.append(f"{ident}: behavioural needs {field} for a decidable review")
     return {"errors": errors, "counts": dict(Counter(str(r.get("status")) for r in records)),
             "source_row_count": len(rows),
             "proof_limit": "Static gate does not prove composed restoration or approve wording."}
