@@ -108,3 +108,8 @@ jobs:
       - name: Full classified qualification in PID namespaces
         if: ${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}
         run: .venv/bin/python scripts/run-qualified-tests.py
+      - name: Qualification lab orchestration (offline, no host daemon)
+        if: ${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}
+        run: |
+          .venv/bin/ruff check scripts/qualification/lab tests/test_desktop_qualification_lab.py tests/test_lab_*.py
+          .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_qualification_lab.py tests/test_lab_cinnamon.py tests/test_lab_common.py tests/test_lab_gnome.py tests/test_lab_kde.py tests/test_lab_hyprland.py tests/test_lab_guest_smoke.py
