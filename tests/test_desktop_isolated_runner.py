@@ -428,11 +428,16 @@ def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():
     assert "scripts/maintenance/phase2_plan.py" in light_commands
     assert "scripts/run-phase1-tests.py tests/test_desktop_phase2_plan.py" not in full_commands
     assert "scripts/run-qualified-tests.py" in full_commands
-    namespace_commands = [step["run"] for step in full["steps"]
-                          if "run-phase1-tests.py" in step.get("run", "")]
-    assert namespace_commands == [
-        ".venv/bin/python scripts/run-phase1-tests.py --additional-desktop-boundaries",
-    ]
+    namespace_commands = [line for step in full["steps"]
+                          for line in step.get("run", "").splitlines()
+                          if line.startswith(".venv/bin/python scripts/run-phase1-tests.py")]
+    assert len(namespace_commands) == 2
+    assert namespace_commands[0] == (
+        ".venv/bin/python scripts/run-phase1-tests.py --additional-desktop-boundaries")
+    lab_files = namespace_commands[1].split()[2:]
+    assert lab_files and all(path.startswith("tests/") for path in lab_files)
+    assert len(lab_files) == len(set(lab_files))
+    assert not any(Path(path).name.startswith("test_desktop_") for path in lab_files)
     pass_now = next(step for step in full["steps"] if step.get("id") == "pass-now")
     assert "continue-on-error" not in pass_now
     for script in ("run-qualified-tests.py", "run-lab-fixture-tests.py"):
