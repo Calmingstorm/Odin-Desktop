@@ -269,7 +269,7 @@ class EngineServices:
             await asyncio.to_thread(d.sessions.save)
         except Exception as error:
             failed("sessions_save", error)
-        await release(d.knowledge_store, "close")
+        await release(getattr(d, "knowledge_store", None), "close")
         await release(d.turn_store, "close")
         if failures:
             raise RuntimeError("Desktop engine cleanup did not fully complete") from failures[0]
