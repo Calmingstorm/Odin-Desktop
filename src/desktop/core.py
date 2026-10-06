@@ -237,6 +237,37 @@ class CoreService:
         # The admitted attachment service supplies the actual protocol limits.
         self.limits = {}
 
+    @property
+    def delivery_readiness_reason(self) -> str | None:
+        """Observe the live durable request binding, not configuration or startup flags.
+
+        This diagnostic grants no request authority and performs no publication.
+        IPC reads the committed journal directly; an optional sink is not required.
+        """
+        if self._closed:
+            return "core_closed"
+        if not isinstance(self.delivery, DurableDelivery):
+            return "delivery_not_composed"
+        if self.store is None or self.store._closed:
+            return "delivery_store_closed"
+        if (self.delivery.store is not self.store or self.delivery.events is not self.events):
+            return "delivery_store_unbound"
+        if (self.requests is None or self.requests.delivery is not self.delivery
+                or self.requests.store is not self.store):
+            return "delivery_request_unbound"
+        if self.requests._closed:
+            return "delivery_requests_closed"
+        if (self.engine is None or self.engine.requests is not self.requests
+                or self.engine.deps.delivery is not self.delivery):
+            return "delivery_engine_unbound"
+        if self.engine._close_attempted:
+            return "delivery_engine_closed"
+        return None
+
+    @property
+    def delivery_readiness(self) -> bool:
+        return self.delivery_readiness_reason is None
+
     def status(self) -> dict:
         package = ({"package": self.package_status.snapshot()}
                    if self.package_status is not None else {})

@@ -283,6 +283,20 @@ class DebTransactionTests(unittest.TestCase):
             self.call('postinst', 'configure')
         self.assertEqual(actual.read_text(), 'sentinel')
 
+    def test_writable_source_directories_are_rejected_without_repair(self):
+        for directory in (self.install, self.profile_source.parent):
+            for mode in (0o775, 0o777):
+                with self.subTest(directory=directory, mode=oct(mode)):
+                    directory.chmod(mode)
+                    self.call('preinst', 'install')
+                    with self.assertRaisesRegex(deb.Refusal, 'source directory is not immutable'):
+                        self.call('postinst', 'configure')
+                    self.assertEqual(directory.stat().st_mode & 0o777, mode)
+                    self.assertFalse((self.apparmor_dir / 'odin-desktop').exists())
+                    self.assertTrue((self.root / 'transaction.json').exists())
+                    self.assertFalse(self.parser_log.exists())
+                    directory.chmod(0o755)
+
     def test_writable_source_is_rejected_without_installing(self):
         self.profile_source.chmod(0o666)
         self.call('preinst', 'install')

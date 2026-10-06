@@ -1,5 +1,6 @@
 """Behaviour checks against inventory verifier, package scanner and isolation."""
 import io
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -362,12 +363,22 @@ class NamespaceBehaviour(unittest.TestCase):
                 'Package: odin-desktop\nVersion: 0.0.0\nArchitecture: all\nMaintainer: test <test@example.invalid>\n'
                 'Description: disposable packaging behaviour test\n')
             postinst = package.joinpath('DEBIAN/postinst')
-            postinst.write_text('#!/bin/bash\necho safe > /dev/null || exit 1\nprintf "configured\\n" > /maintainer-proof\n')
-            postinst.chmod(0o755)
+            spec = importlib.util.spec_from_file_location('fixture_control',
+                Path(qualify.__file__).with_name('build-deb-control.py'))
+            build = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(build)
+            build.generate(package / 'DEBIAN')
+            postinst.write_text(postinst.read_text().replace('set -eu\n',
+                'set -eu\nprintf "configured\\n" > /maintainer-proof\n'))
+            package.joinpath('opt/Odin/resources').mkdir(parents=True)
+            for directory in ('opt', 'opt/Odin', 'opt/Odin/resources'):
+                package.joinpath(directory).chmod(0o755)
+            package.joinpath('opt/Odin/resources/apparmor-profile').write_text('profile fixture\n')
+            package.joinpath('opt/Odin/resources/apparmor-profile').chmod(0o644)
             package.joinpath('opt/qualification').mkdir(parents=True)
             package.joinpath('opt/qualification/payload').write_text('package payload')
             deb, installed = base / 'candidate.deb', base / 'installed'
-            qualify.run(['dpkg-deb', '--build', str(package), str(deb)])
+            qualify.run(['dpkg-deb', '--root-owner-group', '--build', str(package), str(deb)])
             qualify.install_deb(deb, package, installed, account.pw_name)
             self.assertEqual(installed.joinpath('maintainer-proof').read_text(), 'configured\n')
             self.assertEqual(installed.joinpath('opt/qualification/payload').read_text(), 'package payload')
