@@ -2,12 +2,14 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import type { ScheduleRow, WorkKind } from '../../../../shared/api'
 import WorkList from '../../components/WorkList.vue'
+import WebhookIngress from '../../components/WebhookIngress.vue'
 import { ask } from '../../dialog'
 import { ACTIONS, blankForm, buildSave, formFor, REPORT_FORMATS, WEBHOOK_METHODS, type ScheduleForm } from '../../schedule-form'
 import { analyzeLocalDateTime } from '../../schedule-time'
 import { scheduleRecovery, scheduleRunLabel } from '../../schedule-observations'
 import { state } from '../../store'
 import { management } from '../../stores/management'
+import { settings } from '../../stores/settings'
 import { unavailableText } from '../../capability'
 import { checkCron, deleteSchedule, loadHistory, loadSchedules, resetFailures, runNow, saveSchedule, schedules, setPaused } from '../../stores/schedules'
 import { loadWork } from '../../stores/work'
@@ -29,7 +31,8 @@ const errorField = computed(() => {
     ['Choose when', 'run_at'], ['That run time', 'run_at'], ["That time doesn't", 'run_at'],
     ['That time happens', 'occurrence'], ['Choose the tool', 'tool_name'], ['The tool input', 'tool_input'],
     ['Steps are', 'steps'], ['Enter the URL', 'webhook_url'], ['Headers are', 'webhook_headers'],
-    ['Expected statuses', 'webhook_expected'], ['Retries are', 'max_retries'], ['The wait between', 'retry_backoff_seconds']
+    ['Expected statuses', 'webhook_expected'], ['Retries are', 'max_retries'], ['The wait between', 'retry_backoff_seconds'],
+    ['Trigger must', 'trigger_source']
   ]
   return fields.find(([prefix]) => formError.value.startsWith(prefix))?.[1]
 })
@@ -212,11 +215,22 @@ async function remove(row: ScheduleRow): Promise<void> {
       <div class="field-input">
         <label class="toggle-inline"><input v-model="f.timing" type="radio" value="cron" /> On a schedule</label>
         <label class="toggle-inline"><input v-model="f.timing" type="radio" value="once" /> Once</label>
-        <label v-if="editing.original?.trigger" class="toggle-inline">
-          <input v-model="f.timing" type="radio" value="trigger" /> On its trigger, as it is
+        <label class="toggle-inline">
+          <input v-model="f.timing" type="radio" value="trigger" data-testid="schedule-timing-trigger" /> On a webhook trigger
         </label>
       </div>
-      <p v-if="f.timing === 'trigger'" class="manage-desc">It runs when its trigger fires. Choose a schedule or a time to replace that.</p>
+      <template v-if="f.timing === 'trigger'">
+        <p class="manage-desc">All supplied filters must match. Save this schedule, then configure its inbound source and write-only secret below. The outgoing Webhook action calls a URL; it is not this listener.</p>
+        <label class="field-input">Trigger source
+          <select v-model="f.trigger_source" v-bind="fieldError('trigger_source')" data-testid="schedule-trigger-source">
+            <option value="">Unspecified (any matching source)</option>
+            <option value="generic">Generic</option><option value="github">GitHub</option><option value="gitea">Gitea</option>
+            <option value="gitlab">GitLab (scheduler supported; ingress unavailable)</option>
+          </select>
+        </label>
+        <label class="field-input">Trigger event <input v-model="f.trigger_event" data-testid="schedule-trigger-event" placeholder="Any event when empty" /></label>
+        <label class="field-input">Repository filter <input v-model="f.trigger_repo" data-testid="schedule-trigger-repo" placeholder="Case-insensitive substring; any when empty" /></label>
+      </template>
       <template v-if="f.timing === 'cron'">
         <label class="field-input">Cron <input v-model="f.cron" :aria-invalid="errorField === 'cron' || Boolean(schedules.cron?.error && schedules.cron.expression === f.cron) ? 'true' : undefined" :aria-describedby="errorField === 'cron' ? 'schedule-form-error' : schedules.cron?.error && schedules.cron.expression === f.cron ? 'schedule-cron-error' : undefined" placeholder="0 9 * * 1-5" spellcheck="false" /></label>
         <label class="field-input">Time zone <input v-model="f.cron_timezone" list="zones" placeholder="The core's time zone" /></label>
@@ -275,6 +289,9 @@ async function remove(row: ScheduleRow): Promise<void> {
       <p v-else-if="management.notes[formKey]" class="manage-note" role="status">{{ management.notes[formKey] }}</p>
     </template>
   </section>
+
+  <WebhookIngress v-if="!schedules.unavailable && !settings.unavailable" />
+  <section v-else class="panel" aria-label="Webhook ingress"><h3>Webhook ingress</h3><p class="capability-unavailable" role="status">Webhook ingress setup unavailable from this core.</p></section>
 
   <section class="panel" aria-label="Running work">
     <header class="panel-head">

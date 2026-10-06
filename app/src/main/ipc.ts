@@ -31,6 +31,7 @@ import {
   copyTextSchema,
   fetchArtifactSchema,
   firstRunStatusSchema,
+  webhookIngressStatusSchema,
   reportPageSchema,
   attachBytesSchema,
   attachPathsSchema,
@@ -143,10 +144,18 @@ export function registerIpc(deps: IpcDeps): void {
     if (!answer.ok) return answer
     const raw = answer.result as Record<string, unknown> | null
     if (!raw || typeof raw !== 'object') return { ok: false, error: { code: 'internal', message: 'Invalid core status.' } }
-    if (raw.first_run === undefined) return fromSettled(answer)
-    const projection = firstRunStatusSchema.safeParse(raw.first_run)
-    if (!projection.success) return { ok: false, error: { code: 'internal', message: 'Invalid core readiness status.' } }
-    return { ok: true, result: { ...raw, first_run: projection.data } }
+    const projected = { ...raw }
+    if (raw.first_run !== undefined) {
+      const projection = firstRunStatusSchema.safeParse(raw.first_run)
+      if (!projection.success) return { ok: false, error: { code: 'internal', message: 'Invalid core readiness status.' } }
+      projected.first_run = projection.data
+    }
+    if (raw.webhook_ingress !== undefined) {
+      const ingress = webhookIngressStatusSchema.safeParse(raw.webhook_ingress)
+      if (!ingress.success) return { ok: false, error: { code: 'internal', message: 'Invalid webhook ingress status.' } }
+      projected.webhook_ingress = ingress.data
+    }
+    return { ok: true, result: projected }
   })
   handle(IPC.checkReleases, releaseNoticeSchema, async () => ({ ok: true, result: await deps.releases.check() }))
   handle(IPC.openRelease, releaseNoticeSchema, () => deps.releases.open())
