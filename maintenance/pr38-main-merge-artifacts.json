@@ -1,0 +1,19 @@
+{
+  "qualified_head": "8d9f028f27821affef9e42b436da48d04c541d21",
+  "root": "/mnt/storage/odin-desktop-evidence/pr38-merge-req1114759e",
+  "artifacts": [
+    {"path": "app-check-main4.log", "sha256": "cfead03bcf04ae19c1586a82ea6686007a82f9213d7af7bc3f52807e5919cb36"},
+    {"path": "real-core-main4.log", "sha256": "b8b940f13d27f747135063f8bfdb67e47a907116795cfadb15a1c64765243e60"},
+    {"path": "real-smoke-main4.log", "sha256": "04fb18b5f8f93d10393a41ed521652ab9996389019ab98514747024ab70dd870"},
+    {"path": "main4-real-smoke-evidence.json", "sha256": "5605b07e47588e9a203ce04ea3db43e3a4d844907a17de29d5b622e4dcf033ce"},
+    {"path": "main4-real-smoke-settings-5.png", "sha256": "846c9eafdaac1e55e754dfe285aa28573c7ce567232d0e7968fea17108dd7a0c"},
+    {"path": "main4-real-smoke-chat.png", "sha256": "32656aef9cea8ba5594b0d9c34581077a7a550a934dbc3ace01aa33e122932e6"},
+    {"path": "fixture-smoke-main4.log", "sha256": "c2011fc45da581d9b38500d7f81608ae54a44c9e8a7a5ea952fd5eefea574d2f"},
+    {"path": "main4-fixture-smoke.png", "sha256": "f9426a7b4fc85c6946230562496d342752f145e5ff15f3abe2e6143e7e2a95a7"},
+    {"path": "short-main4.log", "sha256": "57efc22c81dfb8c9b5a5ddc4ca8ed21451cfb8ed2204accb110642b6bcd7a87a"},
+    {"path": "drift-main4.json", "sha256": "97688617b70321b47493ed13c075d7f13b191eedb1c3ce19935eb237f85c84fd"},
+    {"path": "lint-main4.json", "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"},
+    {"path": "plan-main4.json", "sha256": "ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48"},
+    {"path": "ledger-resolution-summary.json", "sha256": "dbe62681d8be2241058c7a2777ade49408bd96b5fd691947138f591e522fc868"}
+  ]
+}

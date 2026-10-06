@@ -5,7 +5,7 @@ import { unavailableText } from '../../capability'
 import { basis, count, percent } from '../../format'
 import { state } from '../../store'
 import { management } from '../../stores/management'
-import { auditVerificationNote, loadAudit, loadComputer, loadHealth, loadRecords, loadTurns, loadUsage, logLevel, logMessage, reasonText, reconcileComputer, records, searchLogs, verifyAudit } from '../../stores/records'
+import { auditVerificationNote, computerGeneration, computerReadiness, computerReleaseUncertain, computerSession, isDesktopComputer, legacyComputer, loadAudit, loadComputer, loadHealth, loadRecords, loadTurns, loadUsage, logLevel, logMessage, reasonText, reconcileComputer, records, searchLogs, verifyAudit } from '../../stores/records'
 
 onMounted(loadRecords)
 
@@ -21,7 +21,10 @@ const usagePeriod = computed(() => {
   const shown = records.usage?.period
   return shown && shown in PERIODS ? PERIODS[shown as keyof typeof PERIODS] : shown
 })
-const computerKey = computed(() => `computer:${records.computer?.session_id ?? ''}`)
+const session = computed(() => computerSession(records.computer))
+const readiness = computed(() => computerReadiness(records.computer))
+const legacy = computed(() => legacyComputer(records.computer))
+const computerKey = computed(() => `computer:${session.value?.session_id ?? ''}`)
 const fullyVerified = computed(() => {
   const check = records.verify
   return check?.valid === true && check.availability !== 'not_enabled' &&
@@ -32,6 +35,10 @@ const fullyVerified = computed(() => {
 async function reconcile(): Promise<void> {
   const status = records.computer
   if (!status) return
+  if (isDesktopComputer(status)) {
+    await reconcileComputer(status)
+    return
+  }
   const confirmed = await ask({
     title: 'Release this session?',
     message: `Odin couldn't verify that session ${status.session_id} let go of the mouse and keyboard. Check the computer first. Releasing it records that you checked; Odin still treats the cleanup as unverified.`,
@@ -194,23 +201,31 @@ async function reconcile(): Promise<void> {
   <section v-else class="panel" aria-label="Computer use">
     <header class="panel-head">
       <h3>Computer use</h3>
-      <span v-if="records.computer" class="panel-hint">{{ records.computer.enabled ? 'On' : 'Off' }}: {{ records.computer.state }}.</span>
+      <span v-if="legacy" class="panel-hint">{{ legacy.enabled ? 'On' : 'Off' }}: {{ legacy.state }}.</span>
       <button class="ghost" aria-label="Refresh computer use" @click="loadComputer">Refresh</button>
     </header>
     <p v-if="records.errors.computer" class="warn">Couldn't read computer use: {{ records.errors.computer }}{{ records.computer ? ' Showing the last read.' : '' }}</p>
-    <template v-if="records.computer?.session_id">
+    <template v-if="readiness">
+      <p class="manage-desc">Management: {{ readiness.management_available ? 'available' : 'unavailable' }}.</p>
+      <p class="capability-unavailable" role="status">Foreground computer use is unavailable. Native input is not qualified or supported. Dispatch: {{ readiness.dispatch }}. Reason: {{ reasonText(readiness.reason) }}.</p>
+      <p v-if="!session" class="manage-desc">No computer-use session is reported by this status. This is not proof of input release or cleanup.</p>
+      <p v-else class="manage-desc">Reconciliation checks recorded recovery only. It does not start a session, send input, or assert that you checked the computer.</p>
+    </template>
+    <template v-if="session?.session_id">
       <div class="manage-line">
-        <code class="manage-name">{{ records.computer.session_id }}</code>
-        <span class="manage-count">generation {{ records.computer.session_generation ?? records.computer.generation }}</span>
-        <span :class="['state-chip', records.computer.state === 'quarantined' ? 'failed' : 'connected']">{{ records.computer.state }}</span>
-        <span v-if="records.computer.state === 'quarantined'" class="manage-actions">
-          <button class="ghost danger-item" :aria-label="`Release session ${records.computer.session_id}…`" :disabled="management.busy[computerKey]" @click="reconcile">Release…</button>
+        <code class="manage-name">{{ session.session_id }}</code>
+        <span class="manage-count">generation {{ records.computer ? computerGeneration(records.computer) : '' }}</span>
+        <span :class="['state-chip', session.state === 'quarantined' ? 'failed' : 'disabled']">{{ session.state }}</span>
+        <span v-if="session.state === 'quarantined'" class="manage-actions">
+          <button v-if="readiness" class="ghost" :aria-label="`Reconcile session ${session.session_id}`" :disabled="management.busy[computerKey] || !readiness.management_available" @click="reconcile">Reconcile</button>
+          <button v-else class="ghost danger-item" :aria-label="`Release session ${session.session_id}…`" :disabled="management.busy[computerKey]" @click="reconcile">Release…</button>
         </span>
       </div>
-      <p v-if="records.computer.recovery" :class="records.computer.recovery.complete ? 'manage-desc' : 'warn'">
-        Recovery: {{ records.computer.recovery.status.replace(/_/g, ' ') }}, because {{ reasonText(records.computer.recovery.reason) }}.
-        {{ records.computer.recovery.complete ? 'Complete.' : 'Not complete: the cleanup is unverified.' }}
+      <p v-if="session.recovery" :class="session.recovery.complete ? 'manage-desc' : 'warn'">
+        Recovery: {{ session.recovery.status.replace(/_/g, ' ') }}, because {{ reasonText(session.recovery.reason) }}.
+        {{ session.recovery.complete ? 'Core records recovery complete; native input remains unqualified.' : 'Not complete: the cleanup is unverified.' }}
       </p>
+      <p v-if="computerReleaseUncertain(session)" class="warn">Input release remains unverified.</p>
       <p v-if="management.notes[computerKey]" class="manage-note" role="status">{{ management.notes[computerKey] }}</p>
     </template>
   </section>

@@ -1,7 +1,7 @@
 // Development-only assertions, invoked exclusively by the isolated smoke runner.
 // Exercise the named preload bridge and rendered app, not a second mock client.
 import { strict as assert } from 'node:assert'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import type { BrowserWindow } from 'electron'
 import type { Broker } from './broker'
 import type { ConversationSnapshot } from '../shared/api'
@@ -26,7 +26,7 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
   'control.stop', 'control.steer', 'control.resume',
   'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete', 'webhooks.outbound.test', 'integrations.email.get',
-  'skills.list', 'skills.get', 'skills.validate', 'skills.save', 'skills.delete',
+  'skills.list', 'skills.get', 'skills.validate', 'skills.save', 'skills.delete', 'skills.test',
   'skills.set_enabled', 'skills.config.get', 'skills.config.set',
   'mcp.list', 'mcp.status', 'mcp.tools', 'mcp.save', 'mcp.set_enabled', 'mcp.delete',
   'mcp.reconnect', 'mcp.refresh_tools', 'mcp.set_global_enabled', 'mcp.set_limits',
@@ -67,16 +67,19 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(status.core_instance_id, broker.coreInstanceId)
   assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? '0.1.0.dev1')
   for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
+    'conversations.list', 'conversations.create', 'messages.list', 'conversation.snapshot', 'search.query',
+    'submission.send', 'control.stop', 'control.steer', 'control.resume',
     'tools.list', 'tools.timeouts.get', 'personality.get', 'hosts.list', 'hosts.public_key',
     'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get',
-    'skills.list', 'mcp.list', 'mcp.status', 'computer.status']) {
+    'skills.list', 'skills.save', 'skills.validate', 'skills.test', 'mcp.status', 'mcp.save', 'mcp.tools', 'computer.status', 'computer.reconcile']) {
     assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
   }
 
-  // Part B dispatch, work and schedules remain genuine refusals. Step 6A
-  // management being served does not grant skill execution or native input.
-  for (const method of ['work.list', 'schedules.list', 'turns.create', 'skills.test',
+  // Part B dispatch, work and schedules remain genuine refusals. The approved
+  // owner-only skill Test does not grant background dispatch or native input.
+  for (const method of ['work.list', 'schedules.list', 'turns.create',
     'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
+    assert(!status.capabilities.includes(method), `${method} must not be advertised as served`)
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
@@ -182,6 +185,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   const emptySnapshot = await broker.request('conversation.snapshot', { conversation_id: conversationId })
   assert(emptySnapshot.ok, 'new conversation snapshot must be served')
   assert.deepEqual((emptySnapshot.result as { messages: { items: unknown[] } }).messages.items, [])
+  const emptyMessages = await broker.request('messages.list', { conversation_id: conversationId, limit: 100 })
+  assert(emptyMessages.ok, 'real empty transcript must succeed')
+  assert.deepEqual((emptyMessages.result as { items: unknown[] }).items, [])
   screens.push({ screen: 'Conversation sidebar', text: await text('nav[aria-label="Conversations"]') })
 
   // Slash commands remain useful without a provider. Exercise the actual command
@@ -215,8 +221,12 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   })()`)
   await until(async () => (await text('.search-panel .search-note')).includes('No matches.'), 'served empty conversation search')
   assert.equal(await count('#conversation-search-error'), 0, 'served search must not claim capability refusal')
-  screens.push({ screen: 'Search', text: await text('.search-panel') })
   assert.equal(await run('document.querySelectorAll(".search-hits li").length'), 0)
+  const searched = await broker.request('search.query', { query: 'smoke query' })
+  assert(searched.ok, 'real search must succeed')
+  assert.deepEqual((searched.result as { hits: unknown[] }).hits, [])
+  assert.equal((searched.result as { next_cursor: string | null }).next_cursor, null)
+  screens.push({ screen: 'Search', text: await text('.search-panel') })
   await click('.work-toggle')
   await recordUnavailable('Work', '.work-panel')
   assert.equal(await run('document.querySelectorAll(".work-item").length'), 0)
@@ -236,7 +246,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     Personality: [['section[aria-label="Personality"]', /preset|personality/i]],
     Tools: [['section[aria-label="Built-in tools"]', /run_command/], ['section[aria-label="Tool timeouts"]', /Default|seconds/i]],
     Skills: [['section[aria-label="Skills"]', /New skill/]],
-    'MCP servers': [['section[aria-label="MCP"]', /0 of 0 servers connected.*0 tools offered/s], ['section[aria-label="MCP servers"]', /Add server/]],
+    'MCP servers': [['section[aria-label="MCP"]', /1 of 1 servers connected.*1 tools offered/s], ['section[aria-label="MCP servers"]', /Add server/]],
     'Hosts and trust': [['section[aria-label="Hosts"]', /localhost/]],
     State: [['section[aria-label="Memory"]', /0 entries/], ['section[aria-label="Named lists"]', /No lists\./], ['section[aria-label="Knowledge"]', /Knowledge/]],
     Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /not measured: Odin doesn't know this value/], ['section[aria-label="Audit"]', /Nothing recorded\./], ['section[aria-label="Logs"]', /No entries\./], ['section[aria-label="Turn state"]', /Turn state is off\./], ['section[aria-label="Computer use"]', /Refresh/]]
@@ -268,6 +278,51 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.deepEqual(observations.computer!.result, reads['computer.status'])
   assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [])
   assert.equal((observations.turns!.result as { availability: string }).availability, 'not_enabled')
+  // All operations cross the named preload bridge. The fixture is local stdio,
+  // implements initialize/tools-list, and has no account or network listener.
+  const invoke = <T = unknown>(name: string, params: unknown = {}): Promise<T> =>
+    run(`window.odin[${JSON.stringify(name)}](${JSON.stringify(params)})`)
+  type Answer = { ok: boolean; result?: unknown; error?: { code: string; message: string } }
+  const observedService = async (name: string, params: unknown = {}): Promise<unknown> => {
+    const answer = await invoke<Answer>(name, params)
+    assert(answer.ok, `${name}: ${JSON.stringify(answer.error)}`)
+    observations[name] = answer
+    return answer.result
+  }
+  const skillCode = readFileSync(process.env.ODIN_SMOKE_SKILL_FIXTURE!, 'utf8')
+  const validation = await observedService('skillsValidate', { code: skillCode }) as { valid: boolean }
+  assert(validation.valid, 'harmless constant must validate')
+  await observedService('skillsSave', { name: 'slice4_constant', code: skillCode, create: true })
+  const skill = await observedService('skillsGet', { name: 'slice4_constant' }) as { code: string }
+  assert.equal(skill.code, skillCode)
+  type SkillRow = { name: string; total_executions: number }
+  const initialSkills = await observedService('skillsList') as SkillRow[]
+  assert.equal(initialSkills.find((row) => row.name === 'slice4_constant')?.total_executions, 0)
+  const tested = await observedService('skillsTest', { name: 'slice4_constant' }) as { result: string; is_error: boolean }
+  assert.deepEqual(tested, { result: 'harmless constant', is_error: false }, 'named bridge must execute the harmless skill with empty input')
+  const testedSkills = await observedService('skillsList') as SkillRow[]
+  assert.equal(testedSkills.find((row) => row.name === 'slice4_constant')?.total_executions, 1, 'bridge Test must count a genuine execution')
+  type McpStatus = { revision: string; server_count: number; servers: Array<{ name: string; state: string; published_count: number }> }
+  const mcpMutation = async (name: string, params: Record<string, unknown>): Promise<void> => {
+    const before = await observedService('mcpStatus') as McpStatus
+    await observedService(name, { ...params, expected_revision: before.revision })
+  }
+  await mcpMutation('mcpSave', { name: 'slice4_local', transport: 'stdio', command: process.env.ODIN_DESKTOP_ENGINE_PYTHON, args: ['-B', process.env.ODIN_SMOKE_MCP_FIXTURE] })
+  await mcpMutation('mcpSetGlobalEnabled', { enabled: true })
+  await until(async () => (await observedService('mcpStatus') as McpStatus).servers.some((row) => row.name === 'slice4_local' && row.state === 'connected'), 'real stdio MCP handshake')
+  const tools = await observedService('mcpTools', { name: 'slice4_local' }) as { tools: unknown[] }
+  assert.equal(tools.tools.length, 1, 'real discovery must publish the constant tool')
+  assert(JSON.stringify(tools.tools).includes('constant'))
+  await mcpMutation('mcpRefreshTools', { name: 'slice4_local' })
+  // Saving a server adds exact server-local settings fields. Compare rendered
+  // paths with a fresh authoritative schema, never the pre-mutation snapshot.
+  reads['settings.schema'] = await observedService('settingsSchema')
+  const sliceComputer = await observedService('computerStatus') as { session: unknown; readiness: { input_supported: boolean; native_qualified: boolean } }
+  assert.equal(sliceComputer.session, null)
+  assert.equal(sliceComputer.readiness.input_supported, false)
+  assert.equal(sliceComputer.readiness.native_qualified, false)
+  const health = await observedService('healthGet') as { browser: { state: string; ready: boolean; retry_available: boolean } }
+  assert.deepEqual({ state: health.browser.state, ready: health.browser.ready, retry_available: health.browser.retry_available }, { state: 'disabled', ready: false, retry_available: false })
   for (let i = 0; i < sections.length; i++) {
     await click(`.settings-nav-item:nth-of-type(${i + 2})`)
     if (sections[i] === 'Models and providers') {
@@ -283,6 +338,30 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     if (sections[i] === 'Tools') {
       await until(async () => (await count('section[aria-label="Built-in tools"] .manage-row')) > 0, 'real built-in tools')
       assert((await text('section[aria-label="Tool timeouts"]')).includes('Timeouts'))
+      await until(async () => /disabled/i.test(await text('section[aria-label="Browser runtime"]')), 'real disabled browser state')
+    }
+    if (sections[i] === 'Skills') {
+      await until(async () => (await text('section[aria-label="Skills"]')).includes('slice4_constant'), 'real skill card')
+      assert(!(await text('section[aria-label="Skills"]')).includes('Test is unavailable in this core.'), 'a capable core must not show Test unavailable')
+      assert((await text('section[aria-label="Skills"] .manage-count')).includes('1 runs'), 'the card must show the bridge execution')
+      await click('button[aria-label="Open slice4_constant"]')
+      await until(async () => await run<boolean>('Boolean(document.querySelector(".skill-editor"))'), 'real skill editor')
+      const testButton = '.skill-editor button[aria-label="Test slice4_constant"]'
+      assert.equal(await run(`document.querySelector(${JSON.stringify(testButton)}).disabled`), false)
+      await click(testButton)
+      await until(async () => (await text('.skill-editor .manage-json')) === 'harmless constant', 'real rendered Test result')
+      await until(async () => (await text('section[aria-label="Skills"] .manage-count')).includes('2 runs'), 'rendered execution count after UI Test')
+      const afterUiTest = await observedService('skillsList') as SkillRow[]
+      const runs = afterUiTest.find((row) => row.name === 'slice4_constant')?.total_executions
+      assert.equal(runs, 2, 'one named-bridge Test and one UI Test must produce exactly two executions')
+      assert.equal(await run('document.querySelector(".skill-editor .manage-json").classList.contains("warn")'), false)
+      process.stdout.write(`real-core-smoke: skills.test result=${JSON.stringify(tested.result)} is_error=${tested.is_error} rendered=${JSON.stringify(await text('.skill-editor .manage-json'))} runs=${runs}\n`)
+    }
+    if (sections[i] === 'MCP servers') {
+      await until(async () => (await text('section[aria-label="MCP servers"]')).includes('slice4_local'), 'real MCP row')
+      assert((await text('section[aria-label="MCP servers"]')).includes('connected'), 'MCP UI must show real handshake state')
+      await click('button[aria-label="Tools for slice4_local"]')
+      await until(async () => (await text('.mcp-tools')).includes('constant'), 'rendered real MCP tools disclosure')
     }
     if (sections[i] === 'Hosts and trust') {
       await until(async () => (await text('section[aria-label=Hosts]')).includes('localhost'), 'real localhost row')
@@ -297,7 +376,14 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     for (const [selector, expected] of servedPanels[sections[i]!] ?? []) {
       await until(async () => expected.test(await text(selector)), `served ${sections[i]} / ${selector}`)
       assert(!/Service is not available yet|Loading…|Searching…/.test(await text(selector)), `${selector} must settle its served read`)
-      assert.equal(await run(`document.querySelectorAll(${JSON.stringify(selector + ' .capability-unavailable')}).length`), 0, `${selector} must not claim its served capability unavailable`)
+      if (selector === 'section[aria-label="Computer use"]') {
+        // Served management and unqualified native input are separate claims.
+        assert.equal(await count(selector + ' .capability-unavailable'), 1)
+        assert.match(await text(selector + ' .capability-unavailable'), /Foreground computer use is unavailable.*Native input is not qualified or supported.*Dispatch: none/s)
+        assert.equal(await run(`document.querySelector(${JSON.stringify('button[aria-label="Refresh computer use"]')})?.disabled`), false)
+      } else {
+        assert.equal(await count(selector + ' .capability-unavailable'), 0, `${selector} must not claim its served capability unavailable`)
+      }
       screens.push({ screen: `Settings / ${sections[i]} / ${selector}`, text: await text(selector) })
     }
     if (sections[i] === 'State') {
@@ -311,13 +397,14 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     }
     if (sections[i] === 'Records') {
       assert((await text('section[aria-label="Health"]')).includes('host(s) configured'), 'real health must observe profile hosts')
-      // The legacy Records renderer still expects a flat session shape. Prove
-      // the served read/refresh and absence of session controls, not a usable
-      // native surface or an invented enabled/state projection.
+      await until(async () => /no .*session|no .*task/i.test(await text('section[aria-label="Computer use"]')), 'real absent computer session')
+      assert(/unqualified|not qualified|qualification/i.test(await text('section[aria-label="Computer use"]')), 'computer input must remain explicitly unqualified')
+      // Slice 4 reads the real envelope. No absent-session recovery/input action
+      // may be invented while the retained management Refresh remains offered.
       assert.equal(await count('section[aria-label="Computer use"] .manage-name, section[aria-label="Computer use"] .manage-actions'), 0, 'fresh computer management must not invent a session or recovery action')
     }
     if (sections[i] === 'Skills' || sections[i] === 'MCP servers') {
-      assert.equal(await count('.settings-body .manage-row'), 0, 'fresh Step 6A management must not display fixture skills or servers')
+      assert.equal(await count('.settings-body .manage-row'), 1, 'Step 6A management must show exactly its saved real-core fixture, not renderer-seeded rows')
       assert.equal(await count('.settings-body .warn'), 0, 'served Step 6A reads must not present a renderer fault')
     }
     assert.equal(await run('document.querySelectorAll(".settings-body [role=alert]").length'), 0, `${sections[i]} must not present capability refusal as a fault`)
@@ -334,6 +421,20 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     writeFileSync(out.replace(/\.png$/i, '') + `-settings-${i + 1}.png`, (await win.webContents.capturePage()).toPNG())
   }
   writeFileSync(out.replace(/\.png$/i, '') + '-settings.png', (await win.webContents.capturePage()).toPNG())
+  await observedService('skillsDelete', { name: 'slice4_constant' })
+  await mcpMutation('mcpSetGlobalEnabled', { enabled: false })
+  await mcpMutation('mcpDelete', { name: 'slice4_local' })
+  // Served controls fence a missing request without invoking desktop input or a provider.
+  for (const method of ['control.stop', 'control.steer', 'control.resume']) {
+    const controlled = await broker.request(method, {
+      control_command_id: `smoke-${method}`, conversation_id: conversationId,
+      request_id: 'r_missing_smoke', generation: 1,
+      ...(method === 'control.steer' ? { text: 'smoke steering' } : {})
+    })
+    assert.deepEqual(controlled, { ok: true, result: method === 'control.resume'
+      ? { disposition: 'rejected', reason: 'stale_binding' } : { disposition: 'stale_binding' } },
+    `${method} must serve its concrete request-binding disposition`)
+  }
   // Keep provider failure after the fresh management/empty-log checkpoints:
   // executing a real request legitimately records its failure in core logs.
   await click('.settings-nav .back')
@@ -360,6 +461,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     { role: 'notice', text: 'No LLM provider available. Please try again later.' }
   ])
   assert.equal(failedSnapshot.recent.length, 1)
+  assert.match(failedSnapshot.recent[0]!.request_id, /^r_[a-f0-9]+$/)
+  assert.match(failedSnapshot.messages.items[0]!.id, /^m_[a-f0-9]+$/)
+  assert.equal(failedSnapshot.messages.items[0]!.request_id, failedSnapshot.recent[0]!.request_id,
+    'the committed user message must belong to the actual admitted request')
   assert.equal(failedSnapshot.recent[0]!.outcome, 'failed')
   assert.equal(failedSnapshot.recent[0]!.unknown_effects, 0)
   assert.deepEqual(failedSnapshot.unresolved, [])
