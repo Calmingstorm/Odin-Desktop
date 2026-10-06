@@ -67,7 +67,10 @@ jobs:
         run: .venv/bin/python scripts/run-phase1-tests.py tests/test_lab_cinnamon.py tests/test_lab_gnome.py -rs
   full-suites:
     runs-on: [self-hosted, odin-desktop-ci]
-    timeout-minutes: 45
+    # The explicit default selection and classified qualification deliberately
+    # replay the broad boundary corpus. Bound the whole job without cancelling
+    # its last groups when this self-hosted machine is running parallel lanes.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:

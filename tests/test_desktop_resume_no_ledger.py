@@ -46,7 +46,10 @@ async def test_no_ledger_rejects_preserved_resume_but_stop_and_steer_work(
             "result"]["conversation"]["id"]
         rid = (await request(reader, writer, "submission.send", {
             "client_submission_id": "preserved", "conversation_id": cid,
-            "text": "Keep this original request."}))["result"]["request_id"]
+            # Initial submission builds the real executor/tool catalog. Shared
+            # self-hosted CI can exceed the generic 3s IPC fixture wait here.
+            # Keep a finite bound and every admission/durability assertion.
+            "text": "Keep this original request."}, timeout=15))["result"]["request_id"]
         await settled(core)
         assert core.requests.get_request(rid)["state"] == "suspended"
     finally:
@@ -98,7 +101,7 @@ async def test_no_ledger_rejects_preserved_resume_but_stop_and_steer_work(
 
         live_rid = (await request(reader, writer, "submission.send", {
             "client_submission_id": "legacy-active", "conversation_id": cid,
-            "text": "A controllable legacy request."}))["result"]["request_id"]
+            "text": "A controllable legacy request."}, timeout=15))["result"]["request_id"]
         await asyncio.wait_for(provider.entered.wait(), 2)
         binding = {"conversation_id": cid, "request_id": live_rid, "generation": 1}
         steer = await request(reader, writer, "control.steer", {
