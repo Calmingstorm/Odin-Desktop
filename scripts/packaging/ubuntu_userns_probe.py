@@ -80,6 +80,12 @@ def gui(output, command):
             raise AssertionError('One-shot GUI deadline exceeded; no retry')
     text = (output / 'launch.log').read_text()
     appimage = command[0].endswith('.AppImage')
+    # Preserve sandbox witnesses even when the subsequent GUI checkpoint fails.
+    # Earlier lane7 run lacked this file; do not reconstruct missing evidence.
+    observations = {'command': command, 'exit': child.returncode,
+                    'renderers': rows, 'fuse_mounts': sorted(set(mount_rows)),
+                    'dialog_commands': sorted(set(dialogs))}
+    (output / 'observations.json').write_text(json.dumps(observations, indent=2) + '\n')
     if appimage:
         assert child.returncode > 0 and child.returncode < 128, text
         assert '.deb' in text and 'sandbox' in text.lower(), text
@@ -90,9 +96,7 @@ def gui(output, command):
         assert child.returncode == 0 and 'smoke: ok link=ready' in text, text
         assert rows, 'No Electron renderer sandbox evidence'
         assert (output / 'electron.png').is_file(), 'No rendered app screenshot'
-    return {'passed': True, 'command': command, 'exit': child.returncode,
-            'renderers': rows, 'fuse_mounts': sorted(set(mount_rows)),
-            'dialog_commands': sorted(set(dialogs)), 'case': 'appimage' if appimage else 'deb'}
+    return {'passed': True, **observations, 'case': 'appimage' if appimage else 'deb'}
 
 
 if __name__ == '__main__':
