@@ -62,6 +62,10 @@ intact. `test_image_model_config_api.py`, `test_web_api_llm_admin.py`, and
 - Final health/accounting, exact-byte drift and no-new-lint results accompany
   the full qualification receipt.
 
+Parent final accounting/maintenance/health/runtime and audit threading gate:
+**234 passed in 164.57s**, zero failures/errors/skips. Drift and map checkers
+returned zero errors; lint retained seven inherited findings with none new.
+
 ## Qualification and safety boundary
 
 The full qualification is run once from a fresh detached checkout of the
@@ -76,3 +80,23 @@ partial rerun substitution or clean claim before that receipt exists.
 No deployment, installed-package claim, real provider/keyring access, upstream
 change, live service/configuration change or active desktop operation. Native
 packaging tests use their disposable namespaces; no owner desktop is touched.
+
+## Actual full outcome: not merge-qualified
+
+The single fresh full invocation at `2281b211` returned **15,214 passed,
+2 failed, 2 skipped**, zero errors. Group29 failed the 0777-parent socketpair
+startup case at the three-second listener wait. Group30 failed the actual
+management shell-tools/readiness case at a three-second `tools.set_enabled`
+response wait. Exact cases, group counts and JUnit hashes are in the result
+JSON. No test assertion or deadline was relaxed.
+
+Both exact failures passed together in a diagnostic-only isolated rerun on the
+same unchanged checkout: **2 passed in 8.90s**. This proves intermittence under
+the observed schedules, not their cause, harmlessness or full qualification.
+It is not combined into a passing total. The once-only full-run instruction
+was preserved; there was no second full invocation.
+
+The health closure and requested #24/#30 catch-up are implemented, but the
+requested clean full merge gate **was not achieved**. Main also advanced to
+`0b7d596f` when PR32 lifecycle landed during qualification. That later main is
+not merged or covered by this receipt. This handoff is not merge-ready.
