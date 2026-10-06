@@ -7,6 +7,7 @@ Neither path reads compactable LLM sessions.
 """
 from __future__ import annotations
 
+import asyncio
 import inspect
 import math
 import re
@@ -175,7 +176,6 @@ class TranscriptSearch:
         transcript keeps visible history until deletion. The admitted request
         authenticates the search and never selects or narrows it.
         """
-        from ..search.fts import FullTextIndex
         from ..search.hybrid import reciprocal_rank_fusion
 
         try:
@@ -184,25 +184,17 @@ class TranscriptSearch:
         except ConversationError:
             raise InvalidSearchQuery("Invalid history query or limit") from None
         cid = self._current(request)
-        messages, _ = self._snapshot()
+        with domain_transaction(self.transcript.store):
+            self.transcript.conversations.get(cid)
+            messages = self.transcript.all_messages()
         visible = {item["id"]: item for item in messages}
-        index = FullTextIndex(":memory:")
         try:
-            if not index.available:
-                raise SearchExecutionError("Transcript search is unavailable")
-            for message in messages:
-                text = _searchable_text(message)
-                if not index.index_session(message["id"], text, message["conversation_id"],
-                                           _timestamp(message["created_at"])):
-                    raise SearchExecutionError("Transcript search is unavailable")
-            lexical = index.search_sessions(query, limit=limit * 2)
+            # Scrubbing and indexing a whole profile is CPU work: keep it off the core loop.
+            lexical = await asyncio.to_thread(_lexical_ranking, messages, query, limit * 2)
         except InvalidSearchQuery:
             raise
         except Exception:
             raise SearchExecutionError("Transcript search is unavailable") from None
-        finally:
-            if index._conn is not None:
-                index._conn.close()
         semantic = []
         if self.semantic_search is not None:
             try:
@@ -220,26 +212,58 @@ class TranscriptSearch:
             except Exception:
                 raise SearchExecutionError("Transcript search is unavailable") from None
         ranked = reciprocal_rank_fusion(lexical, semantic, limit=limit)
-        # Awaiting semantic retrieval permits deletion or a new durable revision.
-        # Re-read before delivery, discard stale/deleted hits, and never deliver
+        # Awaiting retrieval permits deletion or a new durable revision. Re-read
+        # the hits before delivery, discard stale/deleted ones, and never deliver
         # payloads supplied by a derived index.
         if self._current(request) != cid:
             raise PermissionError("Authenticated conversation context changed")
+        wanted = {item["doc_id"] for item in ranked}
+        fresh = {}
         with domain_transaction(self.transcript.store):
             self.transcript.conversations.get(cid)  # The requester must still exist.
-        fresh, _ = self._snapshot()
-        visible = {item["id"]: item for item in fresh}
+            for conversation_id in {visible[mid]["conversation_id"] for mid in wanted
+                                    if mid in visible}:
+                try:
+                    rows = self.transcript.all_messages(conversation_id)
+                except ConversationError:
+                    continue  # Deleted while searching: its hits are stale.
+                fresh.update({row["id"]: row for row in rows if row["id"] in wanted})
         result = []
         for item in ranked:
-            message = visible.get(item["doc_id"])
+            message = fresh.get(item["doc_id"])
             if message is None:
                 continue
+            message = _scrub(message)
             result.append({"conversation_id": message["conversation_id"],
                            "message_id": message["id"],
                            "content": _searchable_text(message),
                            "timestamp": _timestamp(message["created_at"]),
                            "type": message["role"], "rrf_score": item["rrf_score"]})
         return result
+
+
+def _lexical_ranking(messages: list[dict], query: str, limit: int) -> list[dict]:
+    """Rank a profile snapshot in a private in-memory index, in a worker thread."""
+    from ..search.fts import FullTextIndex
+
+    rows = []
+    for message in messages:
+        text = _searchable_text(_scrub(message))
+        rows.append((message["id"], text, message["conversation_id"],
+                     str(_timestamp(message["created_at"]))))
+    index = FullTextIndex(":memory:")
+    try:
+        if not index.available:
+            raise SearchExecutionError("Transcript search is unavailable")
+        # A fresh index holds no prior rows: one bulk insert, no per-row replace.
+        with index._conn:
+            index._conn.executemany(
+                "INSERT INTO session_fts (doc_id, content, channel_id, last_active) "
+                "VALUES (?, ?, ?, ?)", rows)
+        return index.search_sessions(query, limit=limit)
+    finally:
+        if index._conn is not None:
+            index._conn.close()
 
 
 def _timestamp(value: str) -> float:

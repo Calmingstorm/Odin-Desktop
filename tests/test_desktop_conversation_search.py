@@ -278,6 +278,34 @@ def test_optional_semantic_rrf_uses_visible_profile_payload_not_index_payload(gr
     assert calls == [(None, "wisdom", 20)]
 
 
+def test_profile_ranking_runs_off_the_event_loop(graph, monkeypatch):
+    import threading
+
+    from src.desktop import search as search_module
+
+    cid = create(graph)
+    graph[3].commit(cid, "user", "needle off the loop")
+    released, waited = threading.Event(), []
+    real = search_module._lexical_ranking
+
+    def held(*args):
+        # Only the event loop releases this; a blocked loop would time out here.
+        waited.append(released.wait(timeout=5))
+        return real(*args)
+
+    monkeypatch.setattr(search_module, "_lexical_ranking", held)
+
+    async def scenario():
+        task = asyncio.create_task(graph[4].search_history({"bound": cid}, "needle"))
+        await asyncio.sleep(0.05)
+        released.set()
+        return await task
+
+    results = asyncio.run(scenario())
+    assert waited == [True]
+    assert [item["content"] for item in results] == ["needle off the loop"]
+
+
 def test_semantic_await_deletion_discards_hit(graph):
     cid = create(graph)
     message = graph[3].commit(cid, "assistant", "visible needle")
@@ -293,6 +321,22 @@ def test_semantic_await_deletion_discards_hit(graph):
     with pytest.raises(ConversationError) as failure:
         asyncio.run(search.search_history(cid, "needle"))
     assert failure.value.code == "not_found"
+
+
+def test_hit_in_a_conversation_deleted_mid_search_is_dropped(graph):
+    cid, other = create(graph), create(graph)
+    graph[3].commit(cid, "assistant", "needle kept here")
+    gone = graph[3].commit(other, "assistant", "needle about to go")
+
+    async def remove_other(scope, query, *, limit):
+        graph[2].delete(other, graph[2].get(other)["rev"])
+        return [{"message_id": gone["id"], "conversation_id": other}]
+
+    search = TranscriptSearch(graph[3], graph[1], current_conversation=lambda request: request,
+                              semantic_search=remove_other)
+    results = asyncio.run(search.search_history(cid, "needle"))
+    assert [(item["conversation_id"], item["content"]) for item in results] == [
+        (cid, "needle kept here")]
 
 
 def test_fts_backend_failure_is_scrubbed_explicit_error(graph, monkeypatch):
