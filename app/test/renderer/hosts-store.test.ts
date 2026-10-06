@@ -28,7 +28,7 @@ beforeEach(async () => {
         return ok({ candidate_token: `tok-${calls.length}`, alias: params.alias, host_id: 'h', fingerprints: [SCANNED], trust_mode: params.trust_mode, tested: false })
       },
       hostsTest: async (params: Record<string, unknown>) => (record('test', params), testAnswer),
-      hostsCommit: async (params: Record<string, unknown>) => (record('commit', params), ok({ result: 'saved', alias: 'gpu', host_id: 'h' })),
+      hostsCommit: async (params: Record<string, unknown>) => (record('commit', params), ok({ saved: true, active: true, targetable: true, trust_state: 'pinned', last_test: null, draining: false, pending_references: [], registry_generation: 2, ssh_paths: {} })),
       hostsReferences: async (params: Record<string, unknown>) => (record('references', params), ok({ alias: String(params.alias), references })),
       hostsDelete: async (params: Record<string, unknown>) => (record('delete', params), ok({ result: 'saved', alias: String(params.alias), host_id: 'h' }))
     }
@@ -131,7 +131,7 @@ describe('review round 4: hosts', () => {
     expect(held.management.notes['host:gpu']).toMatch(/never sent twice/)
     expect(hosts.hosts.enrollment).not.toBeNull()
     const store = await import('../../src/renderer/src/store')
-    store.applyReceipt({ id: 'cmd-commit', settled: ok({ result: 'saved', alias: 'gpu', host_id: 'h' }) })
+    store.applyReceipt({ id: 'cmd-commit', settled: ok({ saved: true, active: true, targetable: true, trust_state: 'pinned' }) })
     expect(hosts.hosts.enrollment).toBeNull()
     const management = await import('../../src/renderer/src/stores/management')
     expect(management.management.notes['host:gpu']).toBe('Added and live.')

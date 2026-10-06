@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import type { CodexAccount, QuotaWindow } from '../../../shared/api'
 import { ask } from '../dialog'
-import { accountIdentity, activateAccount, beginLogin, labelAccount, loadCodex, removeAccount, settings, stopLogin } from '../stores/settings'
+import { accountIdentity, activateAccount, beginLogin, labelAccount, loadCodex, removeAccount, retryLogin, settings, stopLogin } from '../stores/settings'
 import { unavailableText } from '../capability'
 
 onMounted(loadCodex)
@@ -11,7 +11,7 @@ const loginAnnouncement = computed(() => {
   const login = settings.codex.login
   if (!login) return ''
   if (login.status === 'waiting') return 'Waiting for sign-in approval in the browser.'
-  if (login.status === 'stopped') return 'Stopped waiting. A login you finish in the browser is still added.'
+  if (login.status === 'stopped') return 'Stopped waiting. This app is no longer checking or finishing that login. Add an account to start again.'
   return login.message ?? (login.status === 'done' ? 'Account added.' : `Sign-in ${login.status}.`)
 })
 watch(() => settings.codex.login?.code, () => { copyStatus.value = '' })
@@ -67,7 +67,7 @@ async function remove(account: CodexAccount): Promise<void> {
     <header class="panel-head">
       <h3>Codex accounts</h3>
       <span class="panel-hint">Odin uses one at a time and moves to the next when one hits its limit.</span>
-      <button v-if="!settings.codex.unavailable" class="ghost" :disabled="settings.codex.login?.status === 'waiting'" @click="beginLogin">Add account</button>
+      <button v-if="!settings.codex.unavailable" class="ghost" :disabled="settings.codex.beginning || settings.codex.login?.status === 'waiting'" @click="beginLogin">Add account</button>
     </header>
     <p v-if="settings.codex.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Codex accounts') }}</p>
     <template v-else>
@@ -84,8 +84,9 @@ async function remove(account: CodexAccount): Promise<void> {
         <p v-if="copyStatus" role="status">{{ copyStatus }}</p>
         <button class="ghost" @click="stopLogin">Stop waiting</button>
       </template>
+      <button v-if="settings.codex.login.status === 'failed'" class="ghost" @click="retryLogin">Retry login</button>
       </div>
-      <p v-if="settings.codex.error" class="warn" role="status">{{ settings.codex.error }}</p>
+      <p v-if="settings.codex.error" class="warn" role="status">{{ settings.codex.error }} <button class="ghost" @click="loadCodex">Retry</button></p>
       <p v-if="settings.codex.busy" role="status">Updating Codex accounts.</p>
       <p v-if="settings.codex.stale && !settings.codex.busy" class="warn">
         The list couldn't be refreshed after your last change, so it may be out of date.

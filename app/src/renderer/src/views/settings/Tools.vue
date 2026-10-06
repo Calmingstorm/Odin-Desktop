@@ -35,6 +35,7 @@ function editTimeouts(): void {
 
 async function save(): Promise<void> {
   timeoutError.value = ''
+  const draft = JSON.stringify([defaultTimeout.value, overrides.value])
   timeoutErrorField.value = null
   const parsed: Record<string, number> = {}
   for (const [index, row] of overrides.value.entries()) {
@@ -53,7 +54,7 @@ async function save(): Promise<void> {
     timeoutErrorField.value = 'default'
     return
   }
-  if (await saveTimeouts({ default_timeout: fallback, overrides: parsed })) editTimeouts()
+  if (await saveTimeouts({ default_timeout: fallback, overrides: parsed }) && JSON.stringify([defaultTimeout.value, overrides.value]) === draft) editTimeouts()
 }
 
 onMounted(async () => {

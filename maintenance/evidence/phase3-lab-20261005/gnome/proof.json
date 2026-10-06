@@ -1,0 +1,93 @@
+{
+  "passed": true,
+  "session": {
+    "Desktop": "",
+    "Type": "wayland",
+    "Active": "yes",
+    "State": "active"
+  },
+  "orca_pids": [
+    "747"
+  ],
+  "desktop_identity": "GNOME",
+  "screenshot_size": [
+    1280,
+    800
+  ],
+  "timestamp": 1791238697,
+  "capture_output": "GNOME screenshot captured: /var/tmp/odq-smoke.png\n",
+  "listeners": "udp UNCONN 0      0                              127.0.0.54:53  0.0.0.0:* users:((\"systemd-resolve\",pid=348,fd=16))\nudp UNCONN 0      0                           127.0.0.53%lo:53  0.0.0.0:* users:((\"systemd-resolve\",pid=348,fd=14))\nudp UNCONN 0      0                   10.150.152.185%enp5s0:68  0.0.0.0:* users:((\"systemd-network\",pid=294,fd=21))\nudp UNCONN 0      0      [fe80::1266:6aff:fee7:875d]%enp5s0:546    [::]:* users:((\"systemd-network\",pid=294,fd=23))\ntcp LISTEN 0      4096                        127.0.0.53%lo:53  0.0.0.0:* users:((\"systemd-resolve\",pid=348,fd=15))\ntcp LISTEN 0      4096                           127.0.0.54:53  0.0.0.0:* users:((\"systemd-resolve\",pid=348,fd=17))",
+  "limits": "Orca process start only, not verified speech or app accessibility",
+  "instance": "odq-gnome",
+  "image": {
+    "name": "odq-gnome",
+    "remote": "images",
+    "alias": "ubuntu/24.04",
+    "fingerprint": "7420d4416f4d8bfb3ad6098d2395f86ca5aaf298c2696283ee61200d0b5c9714",
+    "serial": "20261005_07:42",
+    "architecture": "amd64",
+    "os": "Ubuntu",
+    "release": "noble",
+    "variant": "default",
+    "type": "virtual-machine",
+    "desktop": "GNOME",
+    "session": "wayland",
+    "guest_script": "guest/gnome.sh",
+    "software_renderer": "Mesa llvmpipe via GALLIUM_DRIVER=llvmpipe; unset LIBGL_ALWAYS_SOFTWARE for native Wayland EGL",
+    "provenance": {
+      "source": "https://images.linuxcontainers.org/streams/v1/images.json",
+      "observed_at": "2026-10-05",
+      "product": "ubuntu:noble:amd64:default",
+      "metadata_path": "images/ubuntu/noble/amd64/default/20261005_07:42/incus.tar.xz",
+      "metadata_sha256": "445dd26112d73bf5df65d6bb1769aec57be204b4034689445a59249965b0d0e1",
+      "disk_path": "images/ubuntu/noble/amd64/default/20261005_07:42/disk.qcow2",
+      "disk_sha256": "3f5e2568f600c491aca4bb7512e27614ce3def2eeeb4118b61f0f21aee7a656d",
+      "disk_size_bytes": 305733632,
+      "fingerprint_kind": "combined_disk-kvm-img_sha256"
+    },
+    "limitations": [
+      "The image fingerprint pins the base only. GNOME 46 family packages come from Ubuntu noble apt repositories at provisioning time; exact installed versions must be captured by smoke evidence.",
+      "No tray extensions installed or enabled; dconf pins enabled-extensions to an empty typed string array and disables user extensions. The GNOME Wayland-only session name, GDM WaylandEnable and AccountsService SessionType are preferences, not proof: smoke rejects X11 fallback.",
+      "gnome-screenshot is attempted in the guest user session, then GNOME Shell Screenshot D-Bus. Wayland caller restrictions may reject capture; no unsafe Shell mode, caller-name spoof or XWayland-only capture is used. Failure produces no screenshot proof.",
+      "Virtual software rendering exercises desktop/session/protocol behavior, not physical GPU/display performance, hardware input/audio, multi-monitor fidelity or passthrough. No host GPU device is requested.",
+      "Runtime smoke observations and the native EGL renderer fix are recorded in maintenance/phase3-lab.md, not here."
+    ]
+  },
+  "screenshot_sha256": "5efa7117ab96cb392a5617320292fd69eb2a874e06988b57f092424f1597390b",
+  "visual_inspection": "required",
+  "source_sha": "dcb2d349f5fadd012f25b30eca3d6d054057fc7d",
+  "source_dirty": false,
+  "host_files_sha256": {
+    "scripts/qualification/lab/lab.py": "d8c69bc6eecd35141834f7cac8386a3bf5d332b1a0764be1f02cbe8bab00f82c",
+    "scripts/qualification/lab/guest/common.sh": "d5f29f77f918814a35e76b388c2c98660b99c7ecbeed7417e40ade153f7fbe8d",
+    "scripts/qualification/lab/guest/smoke.py": "26b1eb215747c0cb93a1e6b8ca24eb43544d919a883644306c36fad2a88f3153",
+    "scripts/qualification/lab/guest/gnome.sh": "5068818e3938f1c313f22dace6beb17fc8967a61a5c6d4e320061cb8eb41a8a0",
+    "scripts/qualification/lab/images/gnome.json": "8d0e1fd70d57f40b6b042042a1899f382d82db8ff408045b8ba4b72d83fc8b16"
+  },
+  "guest_files_sha256": {
+    "/root/odq/common.sh": "d5f29f77f918814a35e76b388c2c98660b99c7ecbeed7417e40ade153f7fbe8d",
+    "/root/odq/smoke.py": "26b1eb215747c0cb93a1e6b8ca24eb43544d919a883644306c36fad2a88f3153",
+    "/root/odq/gnome.sh": "5068818e3938f1c313f22dace6beb17fc8967a61a5c6d4e320061cb8eb41a8a0",
+    "/usr/local/lib/odq/capture": "51a44cc70552a22b4fbe51975a8020c34e9b0bbaa63a73cef3b5d37c06d8cd45"
+  },
+  "source_comparison": {
+    "/root/odq/common.sh": {
+      "host_path": "scripts/qualification/lab/guest/common.sh",
+      "matches": true
+    },
+    "/root/odq/smoke.py": {
+      "host_path": "scripts/qualification/lab/guest/smoke.py",
+      "matches": true
+    },
+    "/root/odq/gnome.sh": {
+      "host_path": "scripts/qualification/lab/guest/gnome.sh",
+      "matches": true
+    },
+    "/usr/local/lib/odq/capture": {
+      "host_path": null,
+      "matches": null,
+      "reason": "Generated guest artifact; no host byte-equivalent comparison"
+    }
+  },
+  "source_matches": true
+}

@@ -105,6 +105,12 @@ beforeEach(async () => {
 })
 
 describe('saving a setting', () => {
+  it('does not submit the derived provider as a main-model change', async () => {
+    expect(await store.saveField(field('llm_provider.active_provider', { apply_handler: 'models.main.set' }), 'ollama')).toBe(false)
+    expect(calls.edit).toEqual([])
+    expect(calls.set).toEqual([])
+  })
+
   it('saves through settings.set with the revision it was read at, and shows the records the core returned', async () => {
     expect(await store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')).toBe(true)
     expect(calls.set).toEqual([{ expected_revision: 'rev-1', changes: [{ path: 'timezone', value: 'Europe/Paris' }] }])
@@ -116,7 +122,7 @@ describe('saving a setting', () => {
   it("saves a field Odin applies through a dedicated method through that method, then rereads Odin's records", async () => {
     const before = calls.schema
     expect(await store.saveField(store.settings.meta!.fields[1]!, 'gpt-6-luna')).toBe(true)
-    expect(calls.edit).toEqual([{ method: 'models.main.set', params: { model: 'gpt-6-luna' } }])
+    expect(calls.edit).toEqual([{ method: 'models.main.set', params: { model: 'gpt-6-luna', expected_revision: 'rev-1' } }])
     expect(calls.set).toEqual([])
     expect(calls.schema).toBe(before + 1)
   })

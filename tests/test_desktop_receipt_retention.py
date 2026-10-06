@@ -9,6 +9,8 @@ from src.desktop import core
 from src.desktop.commands import CommandJournal, JournalStorageError, JournalStore, response_error
 from tests.test_desktop_core_lifecycle import connect, profile, receive, request, send
 
+# Conversation/search, results, controls and management reads are now served. Keep only methods
+# unavailable in the composed core, not either branch's pre-composition list.
 UNAVAILABLE = (
     "work.list",
     "unknown.method",

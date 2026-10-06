@@ -23,11 +23,14 @@ def test_engine_requires_python312_and_bundled_capabilities():
     assert project["name"] == "odin-desktop-engine"
     assert project["requires-python"] == ">=3.12,<3.13"
     requirements = [item.lower() for item in project["dependencies"]]
-    for required in ("playwright", "pymupdf", "fastembed", "python-xlib", "dbus-next"):
+    for required in ("playwright", "fastembed", "python-xlib", "dbus-next"):
         assert any(item.startswith(required) for item in requirements)
+    assert not any(item.startswith("pymupdf") for item in requirements)
     for removed in ("discord.py", "sqlalchemy", "asyncpg", "odin-bot"):
         assert not any(removed in item for item in requirements)
-    assert set(project.get("optional-dependencies", {})) == {"dev"}
+    extras = project.get("optional-dependencies", {})
+    assert set(extras) == {"dev", "pdf"}
+    assert extras["pdf"] == ["PyMuPDF>=1.24.0"]
     assert not project.get("scripts")
 
 

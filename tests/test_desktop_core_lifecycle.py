@@ -144,6 +144,16 @@ async def test_real_core_status_ping_events_and_shutdown_are_ordered():
             assert status["core_instance_id"] == instance
             assert status["version"] == welcome["core"]["version"]
             assert status["capabilities"] == welcome["capabilities"]
+            assert status["capabilities"][:5] == list(CAPABILITIES[:5])
+            assert status["capabilities"][5:] == sorted(
+                (set(CAPABILITIES) | set(service.management.methods)) - set(CAPABILITIES[:5]))
+            assert len(status["capabilities"]) == len(set(status["capabilities"]))
+            assert status["limits"] == service.attachments.limits
+            assert service.management.runtime.status()["limits"] == service.attachments.limits
+            assert status["diagnostics"] == {
+                "turn_durability": {"state": "on", "reason": None},
+                "compatible_provider": {"state": "off", "reason": None},
+            }
             assert "model" in status and "providers" in status and "summary" in status
             await send(writer, {"t": "ping", "n": 42})
             assert await receive(reader) == {"t": "pong", "n": 42}
@@ -153,6 +163,8 @@ async def test_real_core_status_ping_events_and_shutdown_are_ordered():
             ready = await receive(reader)
             assert ready["type"] == "runtime.status"
             assert ready["payload"]["phase"] == "ready"
+            assert ready["payload"]["limits"] == service.attachments.limits
+            assert ready["payload"]["diagnostics"] == status["diagnostics"]
             response = await request(reader, writer, "runtime.shutdown", {"reason": "test"})
             assert response["result"] == {"disposition": "accepted"}
             await asyncio.wait_for(service.lifetime.wait(), 1)

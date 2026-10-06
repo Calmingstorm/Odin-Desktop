@@ -119,6 +119,104 @@ async def test_main_provider_failure_is_not_persisted_or_leaked(service):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("code,disposition", [
+    ("stale_binding", "stale_binding"), ("storage_unavailable", "rejected"),
+])
+async def test_main_preserves_persist_method_error_after_owner_cleanup(service, code, disposition):
+    failure = MethodError(code, "fixture failure", disposition=disposition)
+    cleaned_up = False
+    adopted = []
+
+    def fail(*args, **kwargs):
+        raise failure
+
+    async def switch(provider, persist, *, model_ref):
+        nonlocal cleaned_up
+        try:
+            persist()
+        except MethodError:
+            cleaned_up = True
+            return {"error": "persist failed"}
+        pytest.fail("Persistence failure must abort adoption")
+
+    service.settings.save_changes = fail
+    service.settings.confirm_applied = lambda changes: adopted.append(changes)
+    service.provider.switch_provider = switch
+    with pytest.raises(MethodError) as error:
+        await service.handle("models.main.set", {"model": "ollama:fixture"})
+    assert error.value is failure
+    assert error.value.disposition == disposition
+    assert cleaned_up and not adopted
+    assert service.settings.writes == []
+    assert not service._persisted
+
+
+@pytest.mark.asyncio
+async def test_main_stale_revision_preserved_by_real_owner_without_adoption(tmp_path, monkeypatch):
+    import aiohttp
+
+    from src.desktop.codex_accounts import CodexAccountsService
+    from src.desktop.paths import ProfilePaths
+    from src.desktop.providers import ProviderOwner
+    from src.desktop.settings import SettingsService
+    from src.llm import OllamaClient
+
+    def forbidden_network(*args, **kwargs):
+        pytest.fail("Model adoption regression must not open a network session")
+
+    monkeypatch.setattr(aiohttp, "ClientSession", forbidden_network)
+    paths = ProfilePaths.from_xdg("fixture", home=tmp_path, environ={})
+    paths.create_private()
+    paths.config_file.write_text("{}\n", encoding="utf-8")
+    config = Config()
+    config.ollama.enabled = True
+    config.openai_codex.enabled = False
+    config.openai_codex.auxiliary.enabled = False
+    settings = SettingsService(paths, SimpleNamespace(get=lambda path: None), config=config)
+    owner = ProviderOwner(settings, CodexAccountsService(settings))
+    service = ModelSettingsService(settings, provider=owner)
+    closed = []
+    original_close = OllamaClient.close
+
+    async def close(client):
+        closed.append(client)
+        await original_close(client)
+
+    monkeypatch.setattr(OllamaClient, "close", close)
+    try:
+        stale_revision = settings.revision
+        await service.handle("models.main.set", {
+            "model": "ollama:adopted", "expected_revision": stale_revision,
+        })
+        before_config = settings.config.model_dump()
+        before_bytes = paths.config_file.read_bytes()
+        before_revision = settings.revision
+        before_identity = owner.capture_serving_identity()
+        before_client = owner.ollama
+        before_generation = owner._generation
+        before_closed = len(closed)
+        with pytest.raises(MethodError) as error:
+            await service.handle("models.main.set", {
+                "model": "ollama:rejected", "expected_revision": stale_revision,
+            })
+        assert error.value.code == "stale_binding"
+        assert error.value.disposition == "stale_binding"
+        assert not service._persisted
+        assert settings.config.model_dump() == before_config
+        assert settings.revision == before_revision
+        assert paths.config_file.read_bytes() == before_bytes
+        assert owner.capture_serving_identity() == before_identity
+        assert owner.ollama is before_client
+        assert owner._generation == before_generation
+        assert not getattr(before_client, "_generation_retired", False)
+        assert len(closed) == before_closed + 1
+        assert closed[-1] is not before_client
+        assert closed[-1].model == "rejected"
+    finally:
+        await owner.close()
+
+
+@pytest.mark.asyncio
 async def test_agents_exact_route_fields_normalization_and_catalog(service):
     answer = await service.handle("models.agents.set", {
         "model": " auto ", "auto_model_allowlist": ["gpt-6-luna", "gpt-6-luna"],

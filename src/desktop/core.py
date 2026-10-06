@@ -1,4 +1,4 @@
-"""Owner-authenticated durable requests, runtime management and core lifetime."""
+"""Owner-authenticated conversation and management services with supervised lifetime."""
 from __future__ import annotations
 
 import asyncio
@@ -99,8 +99,8 @@ class _CoreEvents(PublicationEventJournal):
 def profile_config(paths: ProfilePaths):
     """Profile-bound defaults without loading ambient files or credentials.
 
-    Step five supplies configured settings through config_provider. Its explicit
-    operator paths are not narrowed by this default-binding helper.
+    An explicit config_provider may use this test/default-binding helper.
+    Normal startup loads persisted settings through the profile settings owner.
     """
     from ..config import Config
 
@@ -203,9 +203,9 @@ class CoreService:
         self.search: TranscriptSearch | None = None
         self.server: IpcServer | None = None
         self.permissions: PermissionManager | None = None
-        self.config_provider = config_provider or profile_config
+        self.config_provider = config_provider
         self.runtime_provider = runtime_provider
-        self.config = None
+        self.settings = None
         self.engine = None
         self.requests = None
         self.controls = None
@@ -227,19 +227,22 @@ class CoreService:
         self._secret_backend = secret_backend
         self.capabilities = CAPABILITIES
         self.start_time = time.monotonic()
-        # Populated from the upload owner, not a second set of protocol defaults.
+        # The admitted attachment service supplies the actual protocol limits.
         self.limits = {}
 
     def status(self) -> dict:
         if self.management is not None:
-            return {**self.management.runtime.status(),
-                    "diagnostics": self.engine.diagnostics()}
+            return {
+                **self.management.runtime.status(),
+                "limits": self.limits,
+                "diagnostics": self.engine.diagnostics(),
+            }
         return {
             "phase": self.phase,
             "core_instance_id": self.authority.runtime_id,
             "version": VERSION,
             "capabilities": list(self.capabilities),
-            "limits": self.attachments.limits,
+            "limits": self.limits,
             "diagnostics": self.engine.diagnostics(),
         }
 
@@ -264,8 +267,6 @@ class CoreService:
         )
         self.commands = CommandJournal(self.store)
         self.events = _CoreEvents(self.store)
-        self.management = ManagementService.compose(self, secret_backend=self._secret_backend)
-        self.capabilities = tuple(dict.fromkeys((*CAPABILITIES, *sorted(self.management.methods))))
         self.conversations = ConversationStore(self.store, self.events)
         self.transcript = TranscriptStore(self.store, self.events, self.conversations)
         self.search = TranscriptSearch(self.transcript, self.events)
@@ -275,11 +276,16 @@ class CoreService:
         self.delivery = DurableDelivery(
             self.store, self.events, transcript_commit=self.transcript.commit,
             assert_context=self._assert_delivery_context)
-        self.config = await _resolve(self.config_provider(self.paths))
+        settings = ManagementService.profile_settings(
+            self, secret_backend=self._secret_backend,
+            config=(await _resolve(self.config_provider(self.paths))
+                    if self.config_provider is not None else None))
+        self.settings = settings
         runtime = (await _resolve(self.runtime_provider(self.config, self.paths, self.permissions))
                    if self.runtime_provider is not None else None)
         self.engine = build_engine_services(self.config, self.paths, self.permissions,
-                                            delivery=self.delivery, runtime_context=runtime)
+                                            delivery=self.delivery, runtime_context=runtime,
+                                            settings=settings)
         executor = self.engine.deps.tool_executor
         output_store = executor._ensure_output_store()
         self.artifacts = ArtifactStore(self.store, output_store=output_store,
@@ -319,6 +325,10 @@ class CoreService:
         self.requests.recover_interrupted()
         self.controls.recover_after_restart()
         await self.delivery.recover()
+        self.management = ManagementService.compose(self, settings=settings)
+        self.capabilities = (*CAPABILITIES[:5],
+                             *sorted((set(CAPABILITIES) | set(self.management.methods))
+                                     - set(CAPABILITIES[:5])))
         self.server = IpcServer(
             self.socket_path, self.token_file, self.paths.profile_id,
             self.authority, self.welcome, self.dispatch,
@@ -334,6 +344,10 @@ class CoreService:
         self._receipt_pruner = asyncio.create_task(self._prune_receipts())
         self._publication_task = asyncio.create_task(self._publication_loop())
         await self.requests.after_commit()
+
+    @property
+    def config(self):
+        return self.settings.config if self.settings is not None else None
 
     def _assert_delivery_context(self, context):
         if self.requests is None:
@@ -472,9 +486,9 @@ class CoreService:
                 raise PermissionError("profile owner authority is no longer current")
             # Existing identities win even if their method is no longer served.
             # Unknown capabilities must not reserve IDs or persist refusal bodies.
-            fresh_read = method in READ_METHODS or method == "attachments.chunk"
-            if self.management is not None:
-                fresh_read = fresh_read or method in self.management.read_methods
+            fresh_read = (method in READ_METHODS or method == "attachments.chunk"
+                          or (self.management is not None
+                              and method in self.management.read_methods))
             try:
                 bound = (self.management.check(command_id, method, params)
                          if self.management is not None
@@ -510,8 +524,12 @@ class CoreService:
                         raise PermissionError("profile owner authority is no longer current")
                     await connection.send(frame)
                 return None
-            if (self.management is not None and method in self.management.methods
-                    and method != "status.get"):
+            if method == "status.get":
+                result = validate_params(method, params)
+                if result is None:
+                    result = {"ok": True, "result": self.status()}
+                return {"t": "res", "id": command_id, **result}
+            if self.management is not None and method in self.management.methods:
                 if method in self.management.read_methods:
                     result = await self.management.invoke(method, params)
                 elif not self.lifetime.admitting:
