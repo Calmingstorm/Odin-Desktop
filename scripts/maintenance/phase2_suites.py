@@ -53,6 +53,29 @@ KINDS = ("excluded", "phase2", "retained_adaptation_gated", "retained_support",
 MAP_PATH = "maintenance/phase2-suite-map.json"
 PLAN_PATH = "maintenance/test-plan.json"
 QUALIFICATION_PATH = "maintenance/qualification-plan.json"
+PART4_REVIEWER = "Claude, review of step 8 part 4"
+PART4_PATH = "maintenance/phase2-step8-part4-lane8-dispositions.json"
+# Replaced with the exact parent-audited artifact digest before qualification.
+PART4_SHA256 = "pending"
+PART4_GROUPS = {
+    "phase2-step6a-tools-restored-corpus": {
+        "tests/test_desktop_step8_6a_tools_corpus.py",
+    },
+    "phase2-step6a-computer-restored-corpus": {
+        "tests/test_desktop_step8_6a_computer_corpus.py",
+    },
+    "phase2-step6a-hyprland-restored-corpus": {
+        "tests/test_desktop_step8_6a_hyprland_corpus.py",
+        "tests/test_desktop_step8_6a_hyprland_support.py",
+    },
+    "phase2-step6a-campaigns-restored-corpus": {
+        "tests/test_desktop_step8_6a_campaigns_corpus.py",
+        "tests/test_desktop_step8_6a_characterization_corpus.py",
+        "tests/test_desktop_step8_6a_characterization_provenance.py",
+        "tests/test_desktop_step8_6a_characterization_wiring.py",
+        "tests/test_desktop_step8_6a_empty_fields_corpus.py",
+    },
+}
 
 # Reviewed PR28 additions only. These are byte-pinned full original imports,
 # not the generic frozen-adapter protocol used by Phase 2 restorations.
@@ -177,7 +200,52 @@ def _adapter_modules(root: Path, selector: str) -> list[ast.Module]:
     return trees
 
 
-def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> bool:
+def _part4_dispositions(root: Path) -> dict:
+    data = _regular(root, PART4_PATH).read_bytes()
+    if _digest(data) != PART4_SHA256:
+        raise ValueError("part4 exact audited dispositions artifact hash changed")
+    result = _json(data)
+    if result.get("reviewer") != PART4_REVIEWER:
+        raise ValueError("part4 work-order retirement authority changed")
+    return _indexed(result.get("dispositions"), "part4 dispositions", [])
+
+
+def _case_retirements(root: Path, path: str, inherited_hash: str, rows) -> bool:
+    if rows == []:
+        return True
+    if not isinstance(rows, list):
+        return False
+    approved = _part4_dispositions(root).get(path, {})
+    if (approved.get("inherited_sha256") != inherited_hash
+            or rows != approved.get("retired_cases")):
+        return False
+    source = _regular(root, path).read_bytes()
+    if _digest(source) != inherited_hash:
+        return False
+    tree = ast.parse(source)
+    cases = set()
+    for node in tree.body:
+        if (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name.startswith("test_")):
+            cases.add(node.name)
+        elif isinstance(node, ast.ClassDef):
+            cases.update(f"{node.name}.{child.name}" for child in node.body
+                         if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                         and child.name.startswith("test_"))
+    names = []
+    for row in rows:
+        if (not isinstance(row, dict) or set(row) != {
+                "case", "reviewer", "reason", "source_path", "source_sha256"}
+                or row.get("case") not in cases or row.get("reviewer") != PART4_REVIEWER
+                or row.get("source_path") != path or row.get("source_sha256") != inherited_hash
+                or not isinstance(row.get("reason"), str) or not row["reason"].strip()):
+            return False
+        names.append(row["case"])
+    return names == sorted(set(names))
+
+
+def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
+                  case_retirements=None) -> bool:
     """Fail-closed static full-export association for frozen corpus loaders.
 
     A literal admission alone is insufficient: the reachable loader must read
@@ -185,6 +253,10 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
     complete module. Runtime qualification remains the named group's job.
     """
     trees = _adapter_modules(root, selector)
+    reviewed = [] if case_retirements is None else case_retirements
+    if not _case_retirements(root, path, inherited_hash, reviewed):
+        return False
+    declared = None
     admitted = False
     pinned = False
     frozen = False
@@ -211,8 +283,18 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                 return False
             admitted = True
         exclusions = constants.get("CORPUS_EXCLUSIONS", {})
-        if not isinstance(exclusions, dict) or any(exclusions.values()):
+        if not isinstance(exclusions, dict):
             return False
+        if stem in exclusions:
+            declared = exclusions[stem]
+        for excluded_stem, cases in exclusions.items():
+            if cases:
+                matches = [entry for entry in _part4_dispositions(root).values()
+                           if PurePosixPath(entry["path"]).stem == excluded_stem]
+                if len(matches) != 1 or not _case_retirements(
+                    root, matches[0]["path"], matches[0]["inherited_sha256"], cases
+                ):
+                    return False
         if (constants.get("SOURCE_PATH") == path
                 and constants.get("SOURCE_SHA256") == inherited_hash):
             pinned = True
@@ -230,10 +312,16 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                 invokes_loader |= name == "load" and any(
                     isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name)
                     and arg.func.id == "globals" for arg in node.args)
-                if name == "register_module" and any(
-                    kw.arg in {"selected", "excluded"} for kw in node.keywords
-                ):
-                    return False
+                if name == "register_module":
+                    for kw in node.keywords:
+                        if kw.arg == "selected":
+                            return False
+                        if kw.arg == "excluded":
+                            allowed = [ast.parse(
+                                f"[item['case'] for item in CORPUS_EXCLUSIONS.get({variable}, ())]",
+                                mode="eval").body for variable in ("stem", "name")]
+                            if not any(ast.dump(kw.value) == ast.dump(item) for item in allowed):
+                                return False
             if isinstance(node, (ast.If, ast.Assert)):
                 condition = node.test
                 calls = [n for n in ast.walk(condition) if isinstance(n, ast.Call)
@@ -250,7 +338,8 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                               and isinstance(n.func, ast.Attribute)
                               and n.func.attr in {"sha256", "hexdigest"}]
                 hash_guard |= bool(hash_calls and guards and correct_operator)
-    return (admitted and pinned and frozen and export and corpus_guard and hash_guard
+    return ((declared == reviewed if declared is not None else not reviewed)
+            and admitted and pinned and frozen and export and corpus_guard and hash_guard
             and compile_frozen and invokes_loader)
 
 
@@ -394,8 +483,15 @@ def _check(root: Path) -> tuple[list[str], dict]:
     merged_names = {group["name"] for group in merged_groups}
     additions = set(named) - merged_names
     if (not old_names <= merged_names or not merged_names <= set(named)
-            or additions - {STEP6A_GROUP}):
+            or additions - {STEP6A_GROUP, *PART4_GROUPS}):
         errors.append("qualification: preserve all historical and merged main named groups")
+    for name, selectors in PART4_GROUPS.items():
+        if name in named:
+            group = named[name]
+            if (set(group) != {"name", "files", "reason"}
+                    or set(group.get("files", [])) != selectors
+                    or not isinstance(group.get("reason"), str) or not group["reason"].strip()):
+                errors.append(f"qualification: exact part4 selector required for {name}")
     if STEP6A_GROUP in named:
         group = named[STEP6A_GROUP]
         if (set(group) != {"name", "files", "reason"}
@@ -480,7 +576,14 @@ def _check(root: Path) -> tuple[list[str], dict]:
         if status == "retired":
             mapped_retired.add(path)
             retirement = row.get("retirement", {})
-            if (path not in RETIRABLE_SUITES or type(step) is not int or step != 1
+            part4 = (_part4_dispositions(root).get(path, {}) if step == 6 else {})
+            task_retired = (part4.get("status") == "retired"
+                            and part4.get("inherited_sha256") == row.get("inherited_sha256")
+                            and retirement == part4.get("retirement")
+                            and _case_retirements(root, path, row.get("inherited_sha256"),
+                                                 part4.get("retired_cases")))
+            if not task_retired and (path not in RETIRABLE_SUITES
+                    or type(step) is not int or step != 1
                     or not isinstance(retirement, dict)
                     or retirement.get("reviewer") != RETIREMENT_REVIEWER
                     or retirement.get("reason") != RETIREMENT_REASONS.get(path)):
@@ -506,8 +609,12 @@ def _check(root: Path) -> tuple[list[str], dict]:
                 errors.append(f"mapping: deferred suite carries restoration: {path}")
             continue
         mapped_restored.add(path)
-        if type(step) is not int or step != 1:
-            errors.append(f"mapping: restored suite must belong to step 1: {path}")
+        part4 = (_part4_dispositions(root).get(path, {}) if step == 6 else {})
+        if type(step) is not int or (step != 1 and not (
+            step == 6 and part4.get("status") == "restored"
+            and part4.get("inherited_sha256") == row.get("inherited_sha256")
+        )):
+            errors.append(f"mapping: restored suite lacks step-specific authority: {path}")
         if row.get("blocked_on", "missing") is not None:
             errors.append(f"mapping: restored suite must have blocked_on null: {path}")
         if path not in classified["safe_pass_now"] or path not in restored_paths:
@@ -547,7 +654,8 @@ def _check(root: Path) -> tuple[list[str], dict]:
                         f"mapping: direct-original must select entire original suite: {path}"
                     )
                 if mode == "frozen-adapter" and not _full_adapter(
-                    root, selector, path, row.get("inherited_sha256", "")
+                    root, selector, path, row.get("inherited_sha256", ""),
+                    restoration.get("retired_cases", [])
                 ):
                     errors.append(
                         f"mapping: adapter lacks immutable full-suite corpus association: {path}"

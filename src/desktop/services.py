@@ -211,6 +211,7 @@ class EngineServices:
         await release(d.channel_state, "shutdown_steering")
         await release(d.loop_manager, "shutdown")
         await release(d.scheduler, "stop")
+        await release(getattr(d, "usage_rollup", None), "stop")
         if not getattr(d, "management_owned_mcp", False):
             await release(getattr(d.runtime_context, "mcp_manager", None), "shutdown")
         active = [agent for agent in d.agent_manager._agents.values() if agent._sm.is_active]
@@ -433,6 +434,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..tools.time_parser import set_default_timezone
     from ..trajectories.saver import TrajectorySaver
     from ..turn_state import TurnStateStore
+    from ..usage.rollup import UsageRollup
 
     runtime = runtime_context or SimpleNamespace()
     get_config = (lambda: settings.config) if settings is not None else getattr(runtime, "get_config", lambda: config)
@@ -502,6 +504,18 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     trajectories = getattr(runtime, "trajectory_saver", None) or TrajectorySaver(str(paths.data_dir / "trajectories"))
     agent_trajectories = getattr(runtime, "agent_trajectory_saver", None) or AgentTrajectorySaver(
         str(paths.data_dir / "agent_trajectories"))
+    usage = getattr(runtime, "usage_rollup", None) or UsageRollup(
+        str(paths.data_dir / "usage"), trajectory_directory=str(trajectories.directory),
+        agent_trajectory_directory=str(agent_trajectories.directory), audit=audit)
+    trajectories.set_usage_observer(usage)
+    agent_trajectories.set_usage_observer(usage)
+    window_observer = getattr(runtime, "window_observer", None)
+    agents.set_calibration_observer(window_observer)
+    if window_observer is not None:
+        from ..llm.context_budget import WorkloadScope
+
+        loops.set_calibration_releaser(lambda loop_id: window_observer.release_workload(
+            WorkloadScope("loop", str(loop_id))))
     # D17: feature-off or failed-open is Odin's legacy, uncheckpointed run.
     # Keep a successfully opened owner attached: later failure must refuse
     # admission, not silently convert the runtime to legacy execution.
@@ -646,7 +660,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     catalog = _ReadyCatalog(policy=policy, get_config=get_config, skill_manager=skills,
         get_mcp_definitions=mcp.get_tool_definitions if mcp else None,
         computer_available=lambda: bool(getattr(owners.get("computer"), "enabled", False)),
-        get_email_config=lambda: executor._email_config)
+        get_email_config=lambda: executor._email_config, get_usage_rollup=lambda: usage)
     if settings is not None:
         gateway.tool_catalog, gateway.prompt_builder = catalog, prompt
     gateway.on_provider_switch = catalog.invalidate
@@ -732,7 +746,9 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         skill_manager=skills, audit=audit, agent_manager=agents, loop_manager=loops,
         host_registry=hosts, host_access_manager=access, scheduler=scheduler, reflector=reflector,
-        context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime)
+        context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime,
+        usage_rollup=usage, trajectory_saver=trajectories,
+        agent_trajectory_saver=agent_trajectories, window_observer=window_observer)
     engine = EngineServices(d, None)
     runner = ToolLoopRunner(ToolLoopDeps(get_config=get_config,
         get_default_system_prompt=lambda: prompt.default_prompt, get_context_compressor=lambda: compression,
@@ -741,7 +757,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         native_tools=dispatcher, tool_executor=executor, permissions=permissions,
         skill_manager=skills, audit=audit, loop_manager=loops, stuck_loop_tracker_cls=StuckLoopTracker,
-        turn_store=ledger, window_observer=getattr(runtime, "window_observer", None), mcp_manager=mcp,
+        turn_store=ledger, window_observer=window_observer, mcp_manager=mcp,
         kill_agents_for_turn=agents.kill_for_turn, get_computer=lambda: owners.get("computer"),
         assert_request=engine._assert_request, request_admission=engine._admit_turn))
     engine.runner = runner
@@ -756,7 +772,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     # admitted request's durable transcript, never compacted session history.
     dispatcher._handlers["search_history"] = ("transcript_history", "search_history", "msg_input")
     d.housekeeping = Housekeeping(get_config=get_config, sessions=sessions, channel_state=state,
-        prompt_builder=prompt, agent_manager=agents, channel_logger=None, fts_index=None, turn_store=ledger)
+        prompt_builder=prompt, agent_manager=agents, channel_logger=None, fts_index=None,
+        turn_store=ledger, window_observer=window_observer)
     prompt.rebuild_default()
     if request_service is not None:
         engine.bind_requests(request_service)

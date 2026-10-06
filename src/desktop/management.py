@@ -541,10 +541,13 @@ class ManagementService:
         journal = getattr(self.core, "resource_cleanup", None)
         if journal is not None:
             journal.finish(resources)
-        elif errors or any(row["state"] == "unknown" for row in resources.values()):
+        elif any(row["state"] == "unknown" for name, row in resources.items()
+                 if name != "services"):
             from .resource_cleanup import ResourceCleanupError
 
             raise ResourceCleanupError("Runtime resource cleanup is unverified")
+        elif errors:
+            raise MethodError("unavailable", "Runtime cleanup is unproven", "outcome_unknown")
     async def start(self) -> None:
         """Qualify configured service owners before the core publishes methods."""
         for service in getattr(self, "lifecycle_services", self.services):

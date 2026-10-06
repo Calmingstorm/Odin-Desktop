@@ -232,13 +232,19 @@ def verify_transform(path, original, adapted, *, root=ROOT):
     return True
 
 
-def register_module(namespace, module, *, prefix=None, full_class_name=False):
+def register_module(namespace, module, *, prefix=None, full_class_name=False, excluded=()):
     """Rebase pytest fixture discovery; original globals retain real factories."""
+    excluded = set(excluded)
     for name, value in list(vars(module).items()):
+        if name in excluded:
+            continue
         if name.startswith("test_") and callable(value):
             value.__module__ = namespace["__name__"]
             namespace[f"test_{prefix}_{name[5:]}" if prefix else name] = value
         elif name.startswith("Test") and isinstance(value, type):
+            for method_name in list(vars(value)):
+                if f"{name}.{method_name}" in excluded:
+                    delattr(value, method_name)
             value.__module__ = namespace["__name__"]
             for method in vars(value).values():
                 if isinstance(method, (staticmethod, classmethod)):
@@ -347,7 +353,8 @@ def adapter_case_associations(adapter_path, declaration_path, *, root=ROOT,
         data = frozen_source(path, root=root)
         tree = ast.parse(data)
         allowed = None if selected is None else set(selected)
-        excluded = set(constants.get("CORPUS_EXCLUSIONS", {}).get(stem, ()))
+        exclusions = constants.get("CORPUS_EXCLUSIONS", {}).get(stem, ())
+        excluded = {row["case"] if isinstance(row, dict) else row for row in exclusions}
         for symbol, node in nodes(tree):
             if (not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
                     or not node.name.startswith("test_")):
