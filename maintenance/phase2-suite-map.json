@@ -3335,7 +3335,7 @@
       "qualification_group": "phase2-webhook-ingress",
       "inherited_sha256": "b35ba5e742419b25a2d04d9ffac2fa539db75c0817e9553fe2e2d03015cecf3c",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. GitHub source authentication, event parsing/routing, scheduler trigger matching and config are retained inbound integration contracts. Adapt HTTP endpoint assertions to explicit ingress, not Phase3 management UI."
+      "blocked_on": "Step 7 executes 19 exactly selected original functions through tests/test_desktop_webhook_adapters.py against genuine temporary ingress/scheduler/transcript owners. Source/assertion/parameter seals and explicit remaining cases are recorded in docs/work/phase-2-step7-inherited-adapters.md. This is partial execution, not whole-suite restoration: global legacy channel/config and remaining callback setup assertions stay pending exact disposition/review."
     },
     {
       "path": "tests/test_gitlab_webhook.py",

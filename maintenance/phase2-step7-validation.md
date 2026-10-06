@@ -1,0 +1,252 @@
+# Phase 2 step 7 validation
+
+## Scope and source
+
+Inbound generic/GitHub/Gitea schedule triggers, stacked on PR #37 at
+`4ede9e75fb079a0a305c7b24f89700d7fb7c4416`. Frozen Odin v4.13.0 is the native
+authentication, JSON response and message-formatting source. The core, scheduler,
+settings/secrets, transcript and durable publication owners are composed rather
+than replaced by a new executor or a management HTTP service.
+
+Section 8 of `docs/design/core-contracts.md` is updated for the approved D17
+clarification: identical sequential deliveries run twice, with independent
+durable core-issued receipt identities. No freshness/rate/TLS requirement or
+identical-body deduplication is added. Retained scheduler in-flight exclusion
+still skips overlapping executions; this is not an ingress backlog.
+
+## Targeted preflight
+
+The final targeted run completed **242 passed, zero failures** in 50.30 seconds:
+
+- New ingress tests and exact inherited webhook adapters.
+- Existing settings, schedule recovery, core lifecycle, real background core,
+  foundation config and runtime tests.
+- Temporary profiles, ephemeral loopback only, sanitized PID namespace and
+  throwaway HOME/config/data/cache. No LAN exposure or active desktop.
+
+The ingress proofs cover per-trigger authentication and candidate isolation,
+duplicates, known/unknown failure separation, immediate receipt-storage refusal,
+unavailable keyring fencing, revocation, bounded JSON/header/body handling,
+10 MiB boundary, delivery-only routes, same-conversation notices after callbacks,
+notice repair without effects, actual profile reopen and actual core parent EOF.
+
+The inherited adapter selection preserves **74 original functions**, expanding
+to **104 inherited cases** plus six source/AST/real-graph checks. Exact selected
+names, frozen hashes and partial-suite limitations are in
+`docs/work/phase-2-step7-inherited-adapters.md`. Text/persistence helpers are
+outbound YAML coverage, not proof of inbound receipt-storage behavior. Mixed
+GitHub/persistence/scheduler suites are not falsely declared fully restored.
+
+Preflight byte drift is clean under the explicit per-path adaptation plan;
+lint has seven inherited findings and **zero new findings**. All implementation
+records remain pending independent Claude review, not author-approved.
+
+## Final fresh-checkout gate
+
+The requested **single full qualification run** completed all **30 groups**
+from fresh checkout `e8e5b27b820f1bd2f889e1fce524e016722f96b3`. Parent and checkout
+were `2775`, owned by `odin:odin`; the runner used the sanitized PID namespace
+and throwaway HOME/config/data/cache. Result: **14,707 passed, 11 failed,
+2 skipped, zero errors**. Four groups failed; this is **not a green full gate**.
+
+One failure was a genuine omitted settings subgroup description for
+`webhook.triggers`. Commit `a653ac7e51daf6c041ecb90bffeb5ad2def07585` adds the
+description and updates its exact drift record. The other ten failures were
+existing 3/5/15-second IPC/startup/handoff/process-output deadlines. The full
+run remains preserved, and no assertion, deadline or selection was weakened.
+Concurrent host load was observed, but that observation does not prove the
+cause of these failures.
+
+A second **fresh targeted checkout**, not a second full run, exercised every
+failed case and its parameter family, subgroup descriptions, all new ingress
+cases and all inherited webhook adapters on `a653ac7e`: **166 passed, zero
+failures**, in 80.92 seconds. The ten deadline failures did not reproduce in
+this run. The subgroup failure is fixed and its original assertion passes.
+All ingress/adapters had also passed in the single full run. This targeted
+regression evidence is separate from, not a replacement for, full acceptance.
+
+Final evidence:
+
+- `/home/odin/desktop-step7-20261006/qualification-final.log`
+- `/home/odin/desktop-step7-20261006/final/.test-state/qualification-*.xml`
+- `/home/odin/desktop-step7-20261006/failed-case-regression.log`
+- `/home/odin/desktop-step7-20261006/targeted-final.log`
+- Fresh full tree: `/home/odin/desktop-step7-20261006/final/`
+- Fresh regression tree: `/home/odin/desktop-step7-20261006/regression/`
+
+Final byte drift, ownership/suite accounting and lint are clean with **zero new
+lint findings**. The final evidence-only commit does not change tested source
+or test bytes. Independent Claude review and full-gate acceptance remain
+pending. No second full qualification was run, as requested.
+
+## PR42 review round 1 follow-up
+
+The ingress review findings are implemented without changing its authentication,
+limits, matching or delivery-only surface:
+
+- Unknown receipt recovery no longer mutates or pauses schedule definitions.
+  Receipt settlement failures attempt a durable unknown marker; an already
+  persisted dispatching marker becomes unknown on reopen if storage is still
+  unavailable. Neither path admits internal replay.
+- Status reports the durable unknown-delivery count. Lost handoff acknowledgement
+  is covered through two actual scheduler reconstructions, with the original
+  receipt still unknown and each new authenticated delivery executing once.
+- Adopted scheduler/settings changes and worker-thread keyring hydration notify
+  a coalescing listener watcher. Idle ingress does not scan/copy schedules.
+  Missing owner events and cached availability/admission changes have a 1 Hz
+  fallback. Failed binds share a bounded retry seam, including direct mutation
+  hooks, and never broaden the address.
+- Notification tests cover failed versus cancelled durable writes, rollback
+  recovery, native scheduler edits, worker hydration, coalescing, close during
+  bind, bounded retry and subscription cleanup.
+
+Latest targeted run of ingress/adapters/settings/background/lifecycle/runtime/
+schedule recovery: **243 passed, 1 failed**, under the sanitized namespace
+runner. The sole failing case is
+`test_cancelled_handoff_fences_and_recovers_notice_only`: the inherited #37
+scheduler still quarantines an interrupted recurring run. The test is retained,
+not weakened or excluded from acceptance. Its two-restart/new-delivery proof
+cannot run past that assertion until lane 9's P2-1 base fix lands.
+
+Earlier narrower pre-base runs were **265 passed, 1 deselected**, then
+**48 passed, 1 deselected**; the dependency case was explicitly omitted only
+from those diagnostics. Five durable-notification/rollback/bind edge tests also
+passed. These numbers are separate evidence, not an aggregated gate result.
+
+The short gates pass: exact byte drift has no errors, ownership and suite
+accounting are clean, and lint has seven inherited findings with no new ones.
+
+Upstream state at the initial blocked checkpoint:
+
+- PR37 remains open at `4ede9e75fb079a0a305c7b24f89700d7fb7c4416`.
+- PR34 remains open at `78582fc86d53794bb60dd40f4870981327ae1a99`.
+
+A bounded upstream watcher expired without either dependency becoming ready.
+That checkpoint remained blocked. The integration continued afterward rather
+than treating missing upstream movement as successful qualification.
+
+## Continued integration and complete intermediate qualification
+
+Merged main at `0b7d596f` in `1267f730`, preserving webhook and background
+composition alongside lifecycle execution-owner cleanup and producer barriers.
+The foreground computer owner is closed by the shared execution-owner barrier,
+not twice. Outbound dispatcher close uses the composed shared owner once.
+The ledger explicitly unions both sides' contracts and tests; exact witnesses
+are refreshed for independently combined sources. No rebase or force-push.
+
+One complete fresh-checkout qualification on `1267f730` ran all **30 groups**
+under a `2775` parent and checkout, sanitized PID boundary and throwaway HOME.
+Result: **14,736 passed, 3 failed, 2 skipped, zero errors**. This is not green.
+
+Two failures came from PR37 shared-outbound tests invoking management close
+while engine producers were still live. The tests now preserve all original
+shared-owner/transport-close assertions, additionally prove the lifecycle
+barrier refuses premature teardown, and quiesce actual requests before closing
+the engine. No product cleanup guard was weakened. The full shared-outbound
+suite passes **12/12**; the combined main CI/lifecycle/isolation regression
+passes **87/87**.
+
+The third failure is the interrupted-recurring-run dependency already described
+above. It remains selected in the full gate.
+
+During qualification, main advanced to `288ce7b4` with accepted self-hosted CI
+and portable namespace-packaging fixes. Merged that main in `c3b8f01f` without
+changing its bounded harness waits, production deadlines or assertions.
+
+Intermediate full evidence is preserved at
+`/home/odin/desktop-pr42-review1-qualification/full.log` and
+`fresh/.test-state/qualification-*.xml`. Targeted integration evidence:
+`shared-outbound-lifecycle-regression.log`, `main-ci-targeted.log`, and
+`/home/odin/desktop-step7-20261006/review1-integrated-targeted.log`.
+
+## Final-source recovery audit
+
+Because the required PR37 base stayed unchanged, the specific P2-1 correction
+needed by ingress was integrated locally in `24823e9f`, without touching
+PR37's other findings. The broad ingress/adapters/recovery/shared-outbound/native
+scheduler preflight passed **346 tests**. A final-source full run began on that
+head but was stopped after a read-only audit found three history-evidence gaps:
+ambiguous failed read could duplicate unknown history, readback did not prove
+fsync durability, and a scalar pending history slot could overwrite another
+interrupted binding while history storage remained unavailable.
+
+The incomplete run is preserved separately in `final-full.log` and `final/`;
+it is not a full qualification result or added to any pass count. Cancellation
+reported an unknown cleanup receipt; a subsequent scoped process/cwd inspection
+found no remaining PR42 final-checkout qualification processes. No unrelated
+process was killed and no test was replayed automatically.
+
+Final qualification will use the corrected history-evidence source, not that
+audited intermediate head. History evidence fixes remain within the local P2-1
+dependency and do not introduce replay or pause the recurring definition.
+
+## Final accepted-source qualification evidence
+
+The specific interrupted-recurring dependency is now implemented and tested
+locally. Unknown runs retain their full binding in a cumulative, backward-
+compatible list outbox. Recovery history performs a strict full-file read and
+idempotent append under the history lock, flushes/fsyncs the file and directory,
+then retires evidence from the schedule store. Read/write/fsync failures retain
+every pending binding. Deleting a definition must first durably drain this
+evidence; history compaction also fsyncs before/after replacement. There is no
+unknown-effect replay and recurring definitions remain available at normal
+cadence. One-time effecting runs retain exact native quarantine wording.
+
+Main integration includes accepted lifecycle, CI/portable namespace and package
+ownership work through `f597c1af`. Shared-outbound producer-guard assertions are
+retained and strengthened, not replaced by permissive cleanup. No product
+deadline was raised; two real webhook handoff fixture waits were bounded at
+15 seconds after an observed two-second deadline failure on a loaded host.
+
+Final source: `0092ebb3699443f0b9dfea03e3f8b2e72fd52eda`.
+One complete invocation from fresh `space-recovered-final/`, parent and checkout
+both `2775`, completed **30/30 groups: 14,834 passed, 3 skipped, zero failures
+and zero errors**. The sanitized restricted-helper PID harness ran as UID 1003
+with throwaway HOME/config/data/cache and no active graphical session.
+
+Skips are explicit: native Hyprland wire binary not supplied; installed
+Playwright cannot exercise the missing-import path; exact previous-package
+candidate resources are not supplied for package-upgrade proof. None is
+webhook/recurring recovery coverage. Headless tests do not qualify those native
+or previous-package behaviors.
+
+The previous complete intermediate run remains **14,736 passed, 3 failed,
+2 skipped**; its failures were resolved as above. Two later pre-final attempts
+were stopped on source-audit findings and remain incomplete. A subsequent
+attempt exhausted host disk space and did not produce complete group evidence.
+After the host recovered from zero free space to more than 47 GiB, a new fresh
+checkout completed the final clean invocation. No failed/incomplete counts are
+combined with final acceptance, and no source changed during the final run.
+
+Final short gates pass: zero exact byte-drift errors, clean ownership and suite
+accounting, seven inherited lint findings and zero new findings. Focused final
+ingress/adapters/recovery/history/native-scheduler regression passed **358**;
+earlier corrected preflight passed **368**. Counts remain separate runs.
+
+Final log:
+`/home/odin/desktop-pr42-review1-qualification/space-recovered-final-full.log`.
+JUnit and driver result:
+`space-recovered-final/.test-state/qualification-*.xml` and
+`qualification-result.json`. Additional retained source/space-failure attempts
+are in sibling directories/logs, not overwritten.
+
+PR37 remains at its unchanged reviewed base; the requested local P2-1 dependency
+is included without modifying its other findings. PR34 remains unmerged; no
+unreviewed Admin branch was substituted for main. Future base changes require
+a normal merge preserving scoped candidate admission, recurring recovery and
+P3 notifications. No rebase, force-push, attribution trailers or PR merge.
+
+Evidence under `/home/odin/desktop-step7-20261006/`:
+`review1-targeted-final-prebase.log`, `review1-prebase-ingress.log`,
+`review1-ingress-audit.log`, `review1-notification-edges.log`,
+`review1-base-wait.log`. Independent review remains pending.
+
+## Explicit limits
+
+Headless loopback qualification does not prove real LAN/tailnet reachability,
+native keyring prompts or graphical lifecycle. Malformed non-object/pathological
+JSON receives bounded `400 invalid JSON` rather than upstream's incidental
+handler failure. Success says the durable integration notice was published,
+not that the configured task succeeded or a human received it. No GitLab ingress,
+remote chat/settings/control API, app/protocol changes, deployment, live-service
+change, `/opt/odin` write or active-desktop operation. No Phase 2 closure claim.

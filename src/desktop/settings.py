@@ -143,6 +143,20 @@ class SettingsService:
         self._keyring_checked = False
         self._keyring_error = None
         self._transaction_active = False
+        self.ingress = None
+        self._change_subscribers = set()
+
+    def subscribe_changes(self, callback):
+        self._change_subscribers.add(callback)
+        return lambda: self._change_subscribers.discard(callback)
+
+    def _notify_changes(self):
+        for callback in tuple(self._change_subscribers):
+            try:
+                callback()
+            except Exception:
+                # An invalidation subscriber cannot undo adopted settings.
+                pass
 
     @staticmethod
     def _merge(base, updates):
@@ -161,9 +175,13 @@ class SettingsService:
                         stored = self.secrets.get(path)
                         if stored is not None:
                             _put(values, tuple(path.split(".")), stored)
+                        elif path.startswith("webhook.triggers.") and path.endswith(".secret"):
+                            # Imported plaintext is never an ingress credential.
+                            _put(values, tuple(path.split(".")), "")
             except SecretStoreError:
                 self._keyring_error = "Profile keyring is unavailable or locked"
                 self._keyring_checked = True
+                self._notify_changes()
                 return False
             hydrated = Config.model_validate(values, context={"startup": True})
             # Preserve composed config/email/tool references. Publish only
@@ -192,6 +210,7 @@ class SettingsService:
 
             publish(self.config, hydrated)
             self._keyring_checked, self._keyring_error = True, None
+            self._notify_changes()
             return True
 
     def audit_signing_key(self):
@@ -456,6 +475,7 @@ class SettingsService:
                         leaf
                     ).apply_mode == "live_apply":
                         self._applied[leaf] = REDACTED if is_secret(leaf) and value else value
+        self._notify_changes()
 
     def confirm_applied(self, changes):
         """A section owner calls this only after its actual adoption succeeds."""
@@ -679,18 +699,24 @@ class SettingsService:
             self._transaction_active = True
             try:
                 if method in {"secrets.set", "secrets.clear"}:
-                    return await self._secret(method, params)
-                if method == "models.image.intent":
-                    return self._image_intent(params)
-                if set(params) != {"expected_revision", "changes"} or not isinstance(
-                    params["expected_revision"], str
-                ):
-                    raise _error("expected_revision and changes are required")
-                return await self._save_async(
-                    self._normalize_changes(params["changes"]), method, params["expected_revision"]
-                )
+                    result = await self._secret(method, params)
+                elif method == "models.image.intent":
+                    result = self._image_intent(params)
+                else:
+                    if set(params) != {"expected_revision", "changes"} or not isinstance(
+                        params["expected_revision"], str
+                    ):
+                        raise _error("expected_revision and changes are required")
+                    result = await self._save_async(
+                        self._normalize_changes(params["changes"]), method,
+                        params["expected_revision"]
+                    )
             finally:
                 self._transaction_active = False
+                self._notify_changes()
+            if self.ingress is not None:
+                await self.ingress.sync()
+            return result
 
     async def unlock_prompt(self, params):
         """No settings lock is held while an owner's native prompt is pending."""
@@ -732,6 +758,8 @@ class SettingsService:
                             stored = await secret_call(self.secrets.get, path)
                             if stored is not None:
                                 _put(values, tuple(path.split(".")), stored)
+                            elif path.startswith("webhook.triggers.") and path.endswith(".secret"):
+                                _put(values, tuple(path.split(".")), "")
                     desired = Config.model_validate(values)
                 except Exception:
                     raise _error(
@@ -759,5 +787,9 @@ class SettingsService:
                     raise
                 finally:
                     self._transaction_active = False
+                    self._notify_changes()
                 self._publish(desired, changes, hook is not None)
+                self._transaction_active = False
+                if self.ingress is not None:
+                    await self.ingress.sync()
                 return {"revision": self.revision, "fields": self.get_fields()}
