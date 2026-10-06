@@ -315,7 +315,9 @@ class AttachmentProcessor:
             )
             return
         try:
-            import fitz
+            from ..runtime.pdf_resources import ensure_pdf
+
+            fitz = await ensure_pdf()
             data = await att.read()
             doc = fitz.open(stream=data, filetype="pdf")
             try:

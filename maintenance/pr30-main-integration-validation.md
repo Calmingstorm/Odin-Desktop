@@ -97,3 +97,48 @@ account or credential was used or modified. Native prompt acceptance remains
 PR20's VM work. No production OAuth/generation, native Orca qualification,
 Wayland/packaging or full Phase 3 exit is claimed. No PR merge or deployment was
 performed, and commits carry no attribution trailers.
+
+## Additional main24 packaging integration
+
+Main advanced once more before handoff. Merged the accepted P4.1 source/runtime
+packaging change at `5ba8d6dfcacce9eff823af2596290bc417897e0e`, without
+rebasing or importing PR32. Only the ledger conflicted; the strict union utility
+and explicit double-entry regeneration were repeated. Core/request/controls and
+keyring executable bytes remain the same as the 4207-test pass above.
+
+Repository-only dependencies were refreshed with `uv sync --frozen --extra dev`
+and `npm ci --ignore-scripts` plus the explicit locked Electron installation.
+P4.1 removes the development PyMuPDF dependency in favor of its qualified
+first-use resource path. npm's lock reports 11 dependency audit vulnerabilities
+(10 high, 1 critical); these are inherited with the accepted packaging dependency
+graph, not repaired by unrelated version changes in this integration.
+
+All requested app and short gates were repeated on the packaging-merged source:
+
+| Gate | Result |
+| --- | --- |
+| Drift/lint/plan | Passed, zero drift errors or new lint findings |
+| `npm run check` | Typecheck/build passed, 640 tests in 67 files |
+| `npm run smoke` | Passed |
+| `npm run test:real-core` | 20 contracts + 6 onboarding E2E passed |
+| `npm run smoke:real-core` | 23 checkpoints passed |
+| `npm run test:a11y` | 15/15 passed |
+| Packaging/PDF/distribution + focused core/request/keyring | 229 passed, 1 inherited skip, 20 subtests passed |
+
+The final isolated Python selection includes the changed Desktop distribution,
+final history, helper/PDF catalog and strip-root suites; runtime/model/PDF resource
+tests; `tests/packaging`; `app/packaging/tests`; and core lifecycle, request core,
+engine services, keyring retry and plan tests. These are source integration gates,
+not a new package candidate build, bundle qualification or release.
+
+Final additional evidence is in the same external directory:
+
+```text
+aba693f6514d533e74fe1d63a29808d38e3fb2ca8b27e428849381435032c520  packaging-check.log
+eb4956f6ecdd70262d45a279b6fcbf426db536daced4835b7440e5081f74bcf1  packaging-smoke.log
+ab8006292829f8e80f843c9de658245ac287299d8e452819297a05450d596924  packaging-real-tests.log
+d16a27c30669abf2cd2288167084f8776d378113a087b5d4477334caadc52236  packaging-real-smoke.log
+34fcdeff292007e08e6a0cbff88627820d0f9c220f8bace5ebfccd28b97f26dc  packaging-a11y.log
+2122591ea5f3bb484d505ab1f79d16246aaac105986e1ccb50eb813e8584e98a  packaging-python.log
+961d18ad83599fd00cb64a716c93b26e654860ad79746a567b4c17b2b8fe46e4  packaging-drift.json
+```

@@ -417,10 +417,12 @@ class BulkImporter:
         if not url.startswith(("http://", "https://")):
             return ImportResult(source=url, status="error", error="only http/https URLs supported")
 
+        from ..runtime.pdf_resources import PdfUnavailable, ensure_pdf
+
         try:
-            import fitz
-        except ImportError:
-            return ImportResult(source=url, status="error", error="PyMuPDF (fitz) not installed")
+            fitz = await ensure_pdf()
+        except PdfUnavailable as exc:
+            return ImportResult(source=url, status="error", error=str(exc))
 
         # Preserve host/path/query identity rather than replacing unrelated
         # documents sharing a basename. Legacy imports did not record their URL:
