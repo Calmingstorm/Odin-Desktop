@@ -133,9 +133,12 @@ async def test_capacity_recovery_retains_checkpoint_generation_and_reply(
             newer_rid = newer["result"]["request_id"]
             assert core.requests.get_request(newer_rid)["state"] == "suspended"
             # Keep this independent waiter's work explicit for this assertion.
-            waiter = manager._waiters.pop(TurnKey("conversation", cid, newer_rid))
-            waiter.cancel()
-            await asyncio.gather(waiter, return_exceptions=True)
+            waiter = manager._waiters.pop(TurnKey("conversation", cid, newer_rid), None)
+            # The retained revision waiter can already have stood down after
+            # durable accounting. Both outcomes preserve the suspended request.
+            if waiter is not None:
+                waiter.cancel()
+                await asyncio.gather(waiter, return_exceptions=True)
 
         if mode == "queued_during_rebuild":
             rebuild = manager._validate_and_rebuild

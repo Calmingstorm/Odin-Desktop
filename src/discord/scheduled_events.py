@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import re
 from collections.abc import Callable
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -36,9 +37,12 @@ if TYPE_CHECKING:
     from .tool_loop import ToolLoopRunner
 
 log = get_logger("scheduled_events")
+_scheduled_execution = ContextVar("desktop_scheduled_execution", default=None)
 
 
 def _require_phase2() -> None:
+    if _scheduled_execution.get() is not None:
+        return
     raise NonRetryableScheduleError(
         "Scheduled execution requires Phase 2 durable admission, "
         "conversation authority and delivery."
@@ -46,6 +50,15 @@ def _require_phase2() -> None:
 
 
 async def _publish_notice(conversation_id: str, text: str) -> None:
+    active = _scheduled_execution.get()
+    if active is not None:
+        handler, message = active
+        if message.conversation_id != conversation_id:
+            raise NonRetryableScheduleError("Foreign scheduled destination")
+        # Live delivery failures retain the owner's configured retry policy.
+        # Interrupted-run recovery, not publication, owns the no-replay rule.
+        await handler._publish_notice(message, text)
+        return
     raise NonRetryableScheduleError(
         "Conversation publication is unavailable until Phase 2; do not replay the producer."
     )
@@ -63,6 +76,11 @@ class ScheduledEventsDeps:
     agent_task_tools: AgentTaskTools  # agent result collection in workflows
     scheduled_reports: ScheduledReportPaginationService | None = None
     host_registry: HostRegistry | None = None
+    admit_schedule: Callable | None = None  # asynccontextmanager -> sealed EngineRequest
+    publish_notice: Callable | None = None  # (message, text) -> durable publication
+    dispatch_tool: Callable | None = None  # (message, tool_name, tool_input)
+    publish_report: Callable | None = None  # (message, format, output, tool_name)
+    admit_notice: Callable | None = None  # distinct delivery-only identity after failure
 
 
 class ScheduledEventHandlers:
@@ -75,6 +93,11 @@ class ScheduledEventHandlers:
         self._tool_loop = deps.tool_loop
         self._agent_task_tools = deps.agent_task_tools
         self._scheduled_reports = deps.scheduled_reports
+        self._admit_schedule = deps.admit_schedule
+        self._publish_notice = deps.publish_notice
+        self._dispatch_tool = deps.dispatch_tool
+        self._publish_report = deps.publish_report
+        self._admit_notice = deps.admit_notice
 
     async def _on_scheduled_digest(self, schedule: dict) -> None:
         """Run the daily infrastructure digest and post results."""
@@ -262,6 +285,8 @@ class ScheduledEventHandlers:
                     )
                 except Exception:
                     log.warning("Failed to audit scheduled MCP tool %s", tool_name)
+        except NonRetryableScheduleError:
+            raise
         except Exception as e:
             return ToolResult(
                 output=f"Error executing {tool_name}: {e}",
@@ -288,6 +313,13 @@ class ScheduledEventHandlers:
     ) -> ToolResult:
         """No dispatch via synthetic messages; Phase 2 supplies a real context."""
         _require_phase2()
+        active = _scheduled_execution.get()
+        if active is None or active[0] is not self or self._dispatch_tool is None:
+            raise NonRetryableScheduleError("Admitted scheduled tool dispatch unavailable")
+        message = active[1]
+        if message.conversation_id != conversation_id or message.owner_id != execution_id:
+            raise NonRetryableScheduleError("Foreign scheduled tool binding")
+        return await self._dispatch_tool(message, tool_name, tool_input)
 
     async def _run_scheduled_workflow(
         self,
@@ -448,6 +480,17 @@ class ScheduledEventHandlers:
         return workflow_ok
 
     async def _on_schedule_failure(self, schedule: dict, consecutive: int) -> None:
+        if self._admit_notice is None or self._publish_notice is None:
+            return
+        async with self._admit_notice(schedule, consecutive) as message:
+            token = _scheduled_execution.set((self, message))
+            try:
+                await self._on_schedule_failure_inner({**schedule,
+                    "conversation_id": message.conversation_id}, consecutive)
+            finally:
+                _scheduled_execution.reset(token)
+
+    async def _on_schedule_failure_inner(self, schedule: dict, consecutive: int) -> None:
         """Alert callback fired when a schedule crosses the consecutive-failure
         threshold. Previously never wired, so the alerting path was dead."""
         channel_id = schedule.get("conversation_id")
@@ -471,6 +514,19 @@ class ScheduledEventHandlers:
             log.warning("Failed to send schedule failure alert for %s: %s", schedule.get("id"), e)
 
     async def _on_scheduled_task(self, schedule: dict) -> None:
+        if self._admit_schedule is None or self._publish_notice is None:
+            _require_phase2()
+        # Admission hook verifies Scheduler.assert_run_binding and constructs
+        # a sealed request in the existing RequestService, never a proxy.
+        async with self._admit_schedule(schedule) as message:
+            token = _scheduled_execution.set((self, message))
+            try:
+                await self._on_scheduled_task_inner({**schedule,
+                    "conversation_id": message.conversation_id})
+            finally:
+                _scheduled_execution.reset(token)
+
+    async def _on_scheduled_task_inner(self, schedule: dict) -> None:
         """Callback fired by the scheduler when a task is due."""
         # Fence before audit, lookup, validation or producer effects. No retry
         # can turn unavailable delivery into duplicate command execution.
@@ -497,6 +553,11 @@ class ScheduledEventHandlers:
 
         if schedule["action"] == "reminder":
             msg = schedule.get("message", schedule["description"])
+            missed = schedule.get("missed_run")
+            if missed and missed.get("policy") == "coalesced":
+                msg = (f"{msg}\nDue: {missed['due_at']}; late by {missed['lateness_seconds']}s. "
+                       f"Omitted slots: {missed['omitted_count']}"
+                       + (" or more" if missed.get("count_truncated") else ""))
             try:
                 await _publish_notice(
                     channel, scrub_response_secrets(f"**Scheduled reminder:** {msg}")
@@ -552,12 +613,15 @@ class ScheduledEventHandlers:
                 else:
                     report_format = schedule.get("report_format")
                     if report_format:
-                        if self._scheduled_reports is None:
-                            raise RuntimeError("Scheduled report service is unavailable")
+                        active = _scheduled_execution.get()
+                        if self._publish_report is None or active is None:
+                            raise NonRetryableScheduleError("Stored report publication unavailable")
                         try:
                             # The pagination service parses JSON first and scrubs
                             # only validated strings that can reach presentation.
-                            await self._scheduled_reports.post(channel, report_format, str(result))
+                            await self._publish_report(
+                                active[1], report_format, str(result), tool_name
+                            )
                         except (NotImplementedError, NonRetryableScheduleError) as e:
                             raise NonRetryableScheduleError(
                                 "Scheduled report publication unavailable; "
@@ -573,7 +637,7 @@ class ScheduledEventHandlers:
                                 await _publish_notice(channel, scrub_response_secrets(text))
                             except Exception:
                                 pass
-                            raise RuntimeError(
+                            raise NonRetryableScheduleError(
                                 f"Failed to render scheduled report {report_format}: {e}"
                             ) from e
                     else:

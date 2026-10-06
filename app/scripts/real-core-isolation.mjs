@@ -147,7 +147,7 @@ export function createIsolationLauncher({ process: host = process, files = fs, s
     try {
       files.chmodSync(root, 0o700)
       const safeEnv = {
-        PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8', HOME: root,
+        PATH: `${dirname(host.execPath)}:/usr/local/bin:/usr/bin:/bin`, LANG: 'C.UTF-8', HOME: root,
         XDG_CONFIG_HOME: join(root, 'config'), XDG_DATA_HOME: join(root, 'data'),
         XDG_CACHE_HOME: join(root, 'cache'), XDG_RUNTIME_DIR: join(root, 'run'),
         PYTHONDONTWRITEBYTECODE: '1', PYTHONNOUSERSITE: '1',

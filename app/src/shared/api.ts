@@ -3,6 +3,14 @@
 
 export type CorePhase = 'starting' | 'ready' | 'degraded' | 'quiescing'
 
+export interface ReleaseNotice {
+  state: 'cannot-check-private' | 'offline' | 'rate-limited' | 'unavailable' | 'malformed' | 'no-release' |
+    'invalid-current-version' | 'equal' | 'older' | 'newer'
+  currentVersion: string
+  latestVersion?: string
+  releaseUrl?: string
+}
+
 /** Core-authoritative provisioning. Saving a field or signing in is not readiness. */
 export interface FirstRunStatus {
   state: 'fresh' | 'incomplete' | 'saved' | 'effective-ready' | 'degraded'
@@ -40,7 +48,41 @@ export interface UsageResult {
 }
 
 export type WorkKind = 'agent' | 'task' | 'loop' | 'process' | 'schedule' | 'workflow'
-export type WorkAction = 'stop' | 'cancel' | 'restart' | 'pause' | 'resume' | 'run_now'
+export type WorkAction = 'stop' | 'cancel' | 'restart' | 'pause' | 'resume' | 'run_now' | 'steer'
+
+/** Core projections are structured; the older fixture also supplies a text detail. */
+export interface WorkSettlement {
+  state: string
+  resource_release?: string
+  [key: string]: unknown
+}
+
+export interface WorkControlParams {
+  control_command_id: string
+  kind: WorkKind
+  /** Immutable public work ID, never a PID or scheduler manager ID. */
+  id: string
+  action: WorkAction
+  manager_generation?: string
+  run_id?: string
+  generation?: number
+  conversation_id?: string
+  revision?: number
+  text?: string
+}
+
+export interface WorkControlReceipt {
+  disposition: string
+  reason?: string
+  consumed?: boolean
+  sequence?: number
+  settlement?: WorkSettlement
+  run_id?: string
+  generation?: number
+  manager_generation?: string
+  schedule?: Record<string, unknown>
+  detail?: unknown
+}
 
 /** Background work Odin is running or keeps: an agent, task, loop, process, schedule or workflow. */
 export interface WorkItem {
@@ -49,9 +91,15 @@ export interface WorkItem {
   title: string
   state: string
   conversation_id?: string
-  request_id?: string
-  started_at?: string
-  detail: string
+  request_id?: string | null
+  /** Retained managers use epoch seconds; the legacy fixture uses ISO text. */
+  started_at?: string | number | null
+  manager_id?: string
+  manager_generation?: string
+  run_id?: string
+  generation?: number
+  detail: string | Record<string, unknown>
+  settlement?: WorkSettlement
   /** The controls Odin offers for this item now. */
   actions: WorkAction[]
 }
@@ -267,6 +315,8 @@ export interface CleanupWarning {
 }
 
 export interface AppState {
+  /** Desktop product version, not the engine/protocol version. */
+  appVersion?: string
   link: LinkState
   coreInstanceId: string | null
   /** True when the window was opened on a desktop where no tray could be found. */
@@ -338,6 +388,8 @@ export interface SettingsSetResult {
 
 export interface BuiltinTool {
   name: string
+  cost?: 'free' | 'low' | 'medium' | 'high' | 'very_high' | null
+  risk?: 'none' | 'low' | 'medium' | 'high' | 'critical'
   description: string
   is_core: boolean
   enabled: boolean
@@ -407,9 +459,12 @@ export interface McpServer {
   env_keys: string[]
   url_display: string | null
   instructions?: string
+  credential_migration?: string
 }
 
 export interface McpStatus {
+  /** Real core settings binding. Legacy fixture status has no revision. */
+  revision?: string
   enabled: boolean
   max_published_tools_per_server: number
   max_published_tools_global: number
@@ -438,7 +493,8 @@ export interface McpMutation {
 
 export interface McpSave {
   name: string
-  create: boolean
+  create?: boolean
+  expected_revision?: string
   transport?: 'stdio' | 'http'
   command?: string
   args?: string[]
@@ -596,6 +652,20 @@ export interface ScheduleRow {
   last_error_at?: string | null
   /** Why the schedule can no longer fire, such as a one-time run whose time passed while paused. */
   inert_reason?: string | null
+  /** D12 missed effects wait for an explicit run; this is not a failed or automatically replayed check. */
+  recovery_required?: string | null
+  missed_run?: {
+    due_at: string
+    observed_at: string
+    lateness_seconds: number
+    missed_count: number
+    omitted_count: number
+    count_truncated: boolean
+    policy: 'coalesced' | 'manual'
+    workflow_catchup_limit: number
+  } | null
+  /** The scheduler's observation of its last execution, never inferred from paused/active. */
+  settlement?: string | null
 }
 
 /** Fields both creating and changing a schedule take. Changing sends only what changed. */
@@ -624,7 +694,7 @@ export interface ScheduleRun {
   schedule_id: string
   description: string
   action: ScheduleAction
-  status: 'success' | 'failure'
+  status: 'success' | 'failure' | 'skipped' | 'unknown'
   duration_ms: number
   error?: string
   retry_attempt?: number
@@ -734,6 +804,7 @@ export interface HealthComponent {
 }
 
 export interface HealthReport {
+  browser?: BrowserStatus
   overall: string
   components: HealthComponent[]
   healthy_count: number
@@ -789,7 +860,14 @@ export interface ComputerRecovery {
  * Odin's computer-use status (GET /api/computer): one lifecycle at a time. Reconciling binds `session_generation`,
  * the session's own generation, not the runtime's `generation`.
  */
-export interface ComputerStatus {
+export interface BrowserStatus {
+  state: string
+  ready: boolean
+  reason: string | null
+  retry_available?: boolean
+}
+
+export interface LegacyComputerStatus {
   available: boolean
   state: string
   session_id: string
@@ -804,6 +882,37 @@ export interface ComputerStatus {
   recovery?: ComputerRecovery
 }
 
+/** Retained real-core lifecycle data; never a grant of foreground input. */
+export interface ComputerSession {
+  session_id: string
+  generation: number
+  state: string
+  recovery?: ComputerRecovery | null
+  cleanup?: { released?: boolean; unknown_release?: boolean; receiver_release_verified?: boolean; [key: string]: unknown } | null
+  input_supported?: boolean
+  input_readiness?: string
+  last_action?: string
+  last_verification?: string
+  error?: string
+  [key: string]: unknown
+}
+
+export interface DesktopComputerStatus {
+  session: ComputerSession | null
+  readiness: {
+    management_available: boolean
+    foreground_available: false
+    native_qualified: false
+    input_supported: false
+    dispatch: 'none'
+    reason: string
+  }
+}
+
+export type ComputerStatus = LegacyComputerStatus | DesktopComputerStatus
+export type McpRevision = { expected_revision?: string }
+export type McpMutationOutcome = McpStatus | McpMutation
+
 export interface ScheduleRunResult {
   status: 'success' | 'failure' | 'skipped'
   schedule_id: string
@@ -813,8 +922,58 @@ export interface ScheduleRunResult {
 
 type Empty = Record<string, never>
 
+/** Scrubbed service records retain absent/unknown measurements, never substitute zero. */
+export type ManagementRecord = Record<string, unknown>
+export interface FollowRead {
+  lines: string[]
+  cursor: string
+  reset?: boolean
+  truncated?: boolean
+  [key: string]: unknown
+}
+export interface TraceFilter {
+  limit?: number | string
+  channel_id?: string
+  user_id?: string
+  tool_name?: string
+  errors_only?: boolean | string
+}
+
 /** Each management bridge method: its params and its answer. */
 export interface ManagementCalls {
+  auditDiffs: [{ tool?: string; user?: string; date?: string; limit?: number | string }, ManagementRecord]
+  auditFailures: [{ window?: number | string }, ManagementRecord]
+  auditTail: [{ cursor?: string; lines?: number }, FollowRead]
+  logsStats: [Empty, ManagementRecord]
+  logsTail: [{ cursor?: string; lines?: number }, FollowRead]
+  knowledgeChunks: [{ source: string }, ManagementRecord[]]
+  knowledgeDuplicates: [{ threshold?: number | string }, { exact: unknown[]; near: unknown[] }]
+  knowledgeMerge: [{ keep_source: string; remove_source: string }, ManagementRecord]
+  knowledgeVersion: [{ source: string; version: number }, ManagementRecord]
+  knowledgeDiff: [{ source: string; v1: number; v2: number }, ManagementRecord]
+  learnedList: [Empty, ManagementRecord]
+  learnedUpdate: [{ key: string; content?: string; category?: string }, ManagementRecord]
+  learnedDelete: [{ key: string }, ManagementRecord]
+  observabilityStats: [Empty, ManagementRecord]
+  observabilityRisk: [Empty, ManagementRecord]
+  observabilityFreshness: [Empty, ManagementRecord]
+  observabilityBulkheads: [Empty, ManagementRecord]
+  observabilityCompression: [Empty, ManagementRecord]
+  recoveryStats: [Empty, ManagementRecord]
+  recoveryRecent: [{ limit?: number | string }, { entries: unknown[] }]
+  capacitySnapshot: [Empty, ManagementRecord]
+  poolsSsh: [Empty, ManagementRecord]
+  poolsHttp: [Empty, ManagementRecord]
+  poolsClose: [{ host?: string; ssh_user?: string }, { closed?: boolean; closed_count?: number; host?: string }]
+  openrouterCatalogue: [Empty, ManagementRecord]
+  openrouterEndpoints: [{ model: string }, ManagementRecord]
+  openrouterSelect: [{ model: string; provider_tag?: string; expected_revision?: string }, ManagementRecord]
+  providersCompatDiagnostic: [Empty, ManagementRecord]
+  trajectoriesList: [Empty, { files: string[]; count: number }]
+  trajectoriesRead: [TraceFilter & { filename: string }, { entries: ManagementRecord[]; count: number }]
+  trajectoriesSearch: [TraceFilter, { results: ManagementRecord[]; count: number }]
+  trajectoriesMessage: [{ message_id: string }, { entry: ManagementRecord }]
+  codexRefresh: [{ index: number | string }, { status: string; email: string; expired: boolean }]
   toolsList: [Empty, ToolInventory]
   toolsSetEnabled: [{ name: string; enabled: boolean }, ToolInventory]
   toolsTimeoutsGet: [Empty, ToolTimeouts]
@@ -829,14 +988,14 @@ export interface ManagementCalls {
   skillsConfigGet: [{ name: string }, { config: Record<string, unknown>; schema: Record<string, unknown> }]
   skillsConfigSet: [{ name: string; config: Record<string, unknown> }, { config: Record<string, unknown> }]
   mcpStatus: [Empty, McpStatus]
-  mcpSave: [McpSave, McpMutation]
-  mcpSetEnabled: [{ name: string; enabled: boolean }, McpStatus]
-  mcpDelete: [{ name: string }, McpMutation]
-  mcpReconnect: [{ name: string }, McpMutation]
-  mcpRefreshTools: [{ name: string }, McpMutation]
-  mcpTools: [{ name: string }, { server: string; tools: McpTool[] }]
-  mcpSetGlobalEnabled: [{ enabled: boolean }, { saved: boolean; enabled: boolean; connected_count: number }]
-  mcpSetLimits: [{ max_published_tools_per_server?: number; max_published_tools_global?: number }, McpStatus & { saved: boolean }]
+  mcpSave: [McpSave, McpMutationOutcome]
+  mcpSetEnabled: [{ name: string; enabled: boolean } & McpRevision, McpStatus]
+  mcpDelete: [{ name: string } & McpRevision, McpMutationOutcome]
+  mcpReconnect: [{ name: string } & McpRevision, McpMutationOutcome]
+  mcpRefreshTools: [{ name: string } & McpRevision, McpMutationOutcome]
+  mcpTools: [{ name: string }, { server?: string; name?: string; tools: McpTool[] }]
+  mcpSetGlobalEnabled: [{ enabled: boolean } & McpRevision, McpStatus | { saved: boolean; enabled: boolean; connected_count: number }]
+  mcpSetLimits: [{ max_published_tools_per_server?: number; max_published_tools_global?: number } & McpRevision, McpStatus & { saved?: boolean }]
   hostsList: [Empty, HostList]
   hostsSettings: [{ default_host?: string; allow_host_tofu?: boolean }, { saved: boolean; default_host: string; configured_default_host: string; tofu_enabled: boolean; registry_generation: number }]
   hostsPublicKey: [Empty, PublicKeyInfo]
@@ -880,7 +1039,7 @@ export interface ManagementCalls {
   logsSearch: [{ q?: string; level?: 'error' | 'info' | 'all'; tool?: string; start?: string; end?: string; limit?: number }, { entries: LogEntry[]; count: number }]
   turnStateList: [{ limit?: number }, TurnStateReport]
   computerStatus: [Empty, ComputerStatus]
-  computerReconcile: [{ session_id: string; generation: number; acknowledgment: string }, ComputerStatus]
+  computerReconcile: [{ session_id: string; generation: number; acknowledgment?: string }, ComputerStatus]
 }
 
 export type ManagementMethod = keyof ManagementCalls
@@ -894,6 +1053,39 @@ export type ManagementApi = {
  * (schemas.ts, MANAGEMENT_SCHEMAS): there is no generic passthrough.
  */
 export const MANAGEMENT: { [K in ManagementMethod]: { channel: string; core: string; command: boolean } } = {
+  auditDiffs: { channel: 'odin:manage:audit.diffs', core: 'audit.diffs', command: false },
+  auditFailures: { channel: 'odin:manage:audit.failures', core: 'audit.failures', command: false },
+  auditTail: { channel: 'odin:manage:audit.tail', core: 'audit.tail', command: false },
+  logsStats: { channel: 'odin:manage:logs.stats', core: 'logs.stats', command: false },
+  logsTail: { channel: 'odin:manage:logs.tail', core: 'logs.tail', command: false },
+  knowledgeChunks: { channel: 'odin:manage:knowledge.chunks', core: 'knowledge.chunks', command: false },
+  knowledgeDuplicates: { channel: 'odin:manage:knowledge.duplicates', core: 'knowledge.duplicates', command: false },
+  knowledgeMerge: { channel: 'odin:manage:knowledge.merge', core: 'knowledge.merge', command: true },
+  knowledgeVersion: { channel: 'odin:manage:knowledge.version', core: 'knowledge.version', command: false },
+  knowledgeDiff: { channel: 'odin:manage:knowledge.diff', core: 'knowledge.diff', command: false },
+  learnedList: { channel: 'odin:manage:learned.list', core: 'learned.list', command: false },
+  learnedUpdate: { channel: 'odin:manage:learned.update', core: 'learned.update', command: true },
+  learnedDelete: { channel: 'odin:manage:learned.delete', core: 'learned.delete', command: true },
+  observabilityStats: { channel: 'odin:manage:observability.stats', core: 'observability.stats', command: false },
+  observabilityRisk: { channel: 'odin:manage:observability.risk', core: 'observability.risk', command: false },
+  observabilityFreshness: { channel: 'odin:manage:observability.freshness', core: 'observability.freshness', command: false },
+  observabilityBulkheads: { channel: 'odin:manage:observability.bulkheads', core: 'observability.bulkheads', command: false },
+  observabilityCompression: { channel: 'odin:manage:observability.compression', core: 'observability.compression', command: false },
+  recoveryStats: { channel: 'odin:manage:recovery.stats', core: 'recovery.stats', command: false },
+  recoveryRecent: { channel: 'odin:manage:recovery.recent', core: 'recovery.recent', command: false },
+  capacitySnapshot: { channel: 'odin:manage:capacity.snapshot', core: 'capacity.snapshot', command: false },
+  poolsSsh: { channel: 'odin:manage:pools.ssh', core: 'pools.ssh', command: false },
+  poolsHttp: { channel: 'odin:manage:pools.http', core: 'pools.http', command: false },
+  poolsClose: { channel: 'odin:manage:pools.close', core: 'pools.close', command: true },
+  openrouterCatalogue: { channel: 'odin:manage:openrouter.catalogue', core: 'openrouter.catalogue', command: false },
+  openrouterEndpoints: { channel: 'odin:manage:openrouter.endpoints', core: 'openrouter.endpoints', command: false },
+  openrouterSelect: { channel: 'odin:manage:openrouter.select', core: 'openrouter.select', command: true },
+  providersCompatDiagnostic: { channel: 'odin:manage:providers.compat.diagnostic', core: 'providers.compat.diagnostic', command: false },
+  trajectoriesList: { channel: 'odin:manage:trajectories.list', core: 'trajectories.list', command: false },
+  trajectoriesRead: { channel: 'odin:manage:trajectories.read', core: 'trajectories.read', command: false },
+  trajectoriesSearch: { channel: 'odin:manage:trajectories.search', core: 'trajectories.search', command: false },
+  trajectoriesMessage: { channel: 'odin:manage:trajectories.message', core: 'trajectories.message', command: false },
+  codexRefresh: { channel: 'odin:manage:codex.accounts.refresh', core: 'codex.accounts.refresh', command: true },
   toolsList: { channel: 'odin:manage:tools.list', core: 'tools.list', command: false },
   toolsSetEnabled: { channel: 'odin:manage:tools.set_enabled', core: 'tools.set_enabled', command: true },
   toolsTimeoutsGet: { channel: 'odin:manage:tools.timeouts.get', core: 'tools.timeouts.get', command: false },
@@ -1069,6 +1261,8 @@ export interface ControlTarget {
 
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
 export interface OdinApi extends ManagementApi, SettingsShapedApi {
+  checkReleases(): Promise<Result<ReleaseNotice>>
+  openRelease(): Promise<Result<{ opened: true }>>
   status(): Promise<Result<CoreStatus>>
   listConversations(): Promise<Result<{ items: ConversationListItem[]; watermark: string }>>
   createConversation(params: {
@@ -1108,7 +1302,7 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   cancelAttachment(id: string): Promise<Result<{ cancelled: boolean }>>
   onAttachmentProgress(listener: (progress: AttachmentProgress) => void): () => void
   workList(params?: { kind?: WorkKind; conversation_id?: string }): Promise<Result<{ items: WorkItem[] }>>
-  workControl(params: { control_command_id: string; kind: WorkKind; id: string; action: WorkAction }): Promise<Result<{ disposition: string }>>
+  workControl(params: WorkControlParams): Promise<Result<WorkControlReceipt>>
   resumeRequest(params: {
     control_command_id: string
     conversation_id: string
@@ -1173,6 +1367,8 @@ export interface LateReceipt {
 }
 
 export const IPC = {
+  checkReleases: 'odin:check-releases',
+  openRelease: 'odin:open-release',
   status: 'odin:status',
   listConversations: 'odin:conversations:list',
   createConversation: 'odin:conversations:create',

@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "kind": "restoration-candidates-not-dispositions",
+  "review": "Claude, review of #35",
+  "qualification_group": "phase2-step-3-headless",
+  "entries": [
+    {
+      "path": "tests/test_delivery_review_regressions.py",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_review_delivery.py",
+      "adapter": "tests/desktop_adapters/step8_review_delivery.py",
+      "prefix": "step8_review_delivery",
+      "baseline_sha256": "bc0ddcfe244eeee48507dd6a5a16b333f18b421415b3fc1f1f1f856b340ae018",
+      "original_case_definitions": 7,
+      "original_assertions": 31,
+      "inherited_parameterized_cases_passed": 25,
+      "additional_contract_cases_passed": 8,
+      "assertions_sha256": "388f6e40273ce9c98e733cec2693d01b049dfcb6923cd36c38db16075a8851c3",
+      "original_ast_sha256": "f498deb64c0d70e94a0d86e4f17b3110ea27b40a6739ac37b926c552e27997ba",
+      "adapted_ast_sha256": "fdb378b4ca16126b12f469e50ad6808594674cda0143ecd299c74622412b0281",
+      "assertion_signature_decorator_parameter_corpus_equal": true,
+      "complete_ast_reverse_replay_equal": true,
+      "retirements": [],
+      "diagnosis": {
+        "classification": "obsolete embedded transport/consumer setup mismatch, not a Desktop D2 output drop",
+        "not_merely_discord_chunking": true,
+        "frozen_behavior": "Frozen src/tools/runtime_delivery.py deliver_runtime_output used deliver(text, store=None) when type(executor) had no deliver_output method. Therefore object() yielded bounded scrubbed failed-retention head/tail JSON with no cursor, without an authenticated consumer.",
+        "current_behavior": "Current runtime_delivery.py43-58 delegates through the actual executor only after _require_retention_authority checks owner permission and live source readiness. An object() raises RuntimeError: no authenticated executor consumer, do not replay. This is an intentional ownerless-entry guard; DurableDelivery is not involved in that direct object() call.",
+        "actual_desktop_path": "build_engine_services constructs ToolExecutor with real profile paths and PermissionManager, sets live _ReadyPolicy from composed handlers, and binds RequestService. ToolLoopRunner paths at tool_loop.py2808,2898,4010,4368 use self._tool_executor, not an ownerless object. Real output-delivery failure preserves scrubbed head/tail and cursor=None. RequestService commits a sealed guarded reply through DurableDelivery.",
+        "proof": "The frozen runtime parameter now calls the same production deliver_runtime_output using an authenticated composed executor with real OutputStore global_bytes=1. Its unchanged JSON, bound, scrub, head and tail assertions pass. Additional tests preserve object() rejection and foreign-owner/source-readiness rejection. A real admitted run_command request stubs only the inherited command-output seam, preserves HEAD/TAIL and scrubs fixtureSecret through executor/runtime framing, and commits guarded final. A second real admitted search_history request uses the actual transcript search/native dispatcher/runtime failure path and commits native guarded final without replacing a native handler.",
+        "ranked_failure_limitation": "Actual search_history supplies RankedOutput with a 300-character-per-match human summary. Retention failure frames that supplied summary, as frozen output_delivery does; it does not claim a full-match continuation or guarantee the full match tail. The native-path test does not claim tail preservation of unretained ranked full matches. This is separate from the investigated plain-body runtime assertion and no new Desktop regression was observed.",
+        "production_changes": [],
+        "preserved_guards": ["ownerless runtime rejection", "real owner authentication", "live source readiness", "retrieval disable switch", "source/retrieval authorization", "bounded secret scrubbing", "retention quotas", "guarded final reply seal", "request-bound native transcript search"],
+        "disabled_parameter_contract": "The old fake policy only had is_disabled and could disable retrieval while allowing origin delivery. Current product additionally requires is_available on the originating tool. Replace the fake with real config disabling get_tool_output only; search_history remains actually ready. It still proves scrubbed failed-retention evidence when retrieval is disabled, without admitting a disabled originating capability."
+      },
+      "adaptations": [
+        {
+          "line": 14,
+          "column": 0,
+          "before_sha256": "8dce3e2a05cc244e733c19f4bc147ac405041272953870af6f871eadf49345ce",
+          "after_source": "from tests.desktop_adapters.step8_review_delivery import executor, owner_id, runtime_failure_executor",
+          "after_sha256": "ac7e9b22af3d637aa201200ee6a02bab9c28ce62f10d78db85c6e10b031ebe41",
+          "reason": "Authentic owner/profile and actual composed source readiness instead of obsolete executor fixture."
+        },
+        {
+          "line": 34,
+          "column": 8,
+          "before_sha256": "d7ddec0f3cb30c35d687ce4d405495ac7d42b0307d7448e9dce50e790316fed4",
+          "after_source": "ex._app_config.tools.disabled_tools = ['get_tool_output']",
+          "after_sha256": "811c38a87ffa2345272c921d0b62c958cb6daf4dbf51273b12ea4747ffd7c45d",
+          "reason": "Real retrieval disable switch, not replacement of readiness/authorization policy."
+        },
+        {
+          "line": 37,
+          "column": 17,
+          "before_sha256": "cdcdf99b1505ebae3de5a1c671bf32cdabe3e4fde8e3343af6d7258daa4ba0dc",
+          "after_source": "deliver_runtime_output(runtime_failure_executor(tmp_path), body, tool_name='search_history', tool_input={}, user_id=owner_id())",
+          "after_sha256": "a35e53b765c6c2015011363c35fb53564377cf1f4be5b796bf35d0d940d17d7e",
+          "reason": "Same runtime production operation and unchanged failure assertions, with authentic consumer and exhausted real retention quota instead of removed ownerless fallback."
+        },
+        {
+          "locations": [[35,84],[66,80],[85,32],[141,30],[143,71],[150,36]],
+          "before_sha256": "7ed9d3ff0ecb5e0185214cc16df64abe796357eb389d0941d265b4ccf20363c3",
+          "before_source": "user_id='owner'",
+          "after_source": "user_id=owner_id()",
+          "after_sha256": "41c8250b7447d2665dc1c4546d8827e63954b025627789096709de5cc8469b75",
+          "reason": "Use actual temporary authenticated local owner, never a made-up retention principal."
+        }
+      ],
+      "case_mapping": [
+        ["test_failed_retention_preserves_scrubbed_head_tail", "test_step8_review_delivery_failed_retention_preserves_scrubbed_head_tail", 8],
+        ["test_oversized_never_scrubs_full_payload", "test_step8_review_delivery_oversized_never_scrubs_full_payload", 2],
+        ["test_real_executor_oversized_capture_checks_size_before_scrubbing", "test_step8_review_delivery_real_executor_oversized_capture_checks_size_before_scrubbing", 1],
+        ["test_failure_preview_secret_at_slice_edges", "test_step8_review_delivery_failure_preview_secret_at_slice_edges", 1],
+        ["test_long_plain_single_line_retains_tail_with_escaped_content", "test_step8_review_delivery_long_plain_single_line_retains_tail_with_escaped_content", 4],
+        ["test_ranked_clipped_list_stays_plain_until_list_exceeds_budget", "test_step8_review_delivery_ranked_clipped_list_stays_plain_until_list_exceeds_budget", 8],
+        ["test_retrieval_default_schema_and_real_handler_agree", "test_step8_review_delivery_retrieval_default_schema_and_real_handler_agree", 1]
+      ],
+      "qualified_result": {
+        "command": "set -o pipefail; env -i USER=odin HOME=/tmp/odin-pr35-delivery-home PATH=/usr/bin:/bin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_delivery.py --junitxml=.test-state/step8-review-delivery.xml 2>&1 | tee .test-state/step8-review-delivery.log",
+        "isolation": "Existing runner: sudo unshare mount/PID namespace, mount-proc, kill-child; sudo -u odin env -i; repository Python3.12; test-owned HOME/XDG roots; no DISPLAY, DBUS, live config, desktop, install or service activity.",
+        "tests": 33,
+        "passed": 33,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 8.08,
+        "exit_code": 0,
+        "log": ".test-state/step8-review-delivery.log",
+        "log_sha256": "49d6a74f32803769cc0ff5c772aeaed11e8c18e78be79b975d14f262273df3b8",
+        "junit": ".test-state/step8-review-delivery.xml",
+        "junit_sha256": "03c75d64f50ee85b3115914af5a65de0cf1e828e460653c4495f58cb86e40fa7",
+        "ruff": "passed for both new Python files",
+        "diff_check": "passed",
+        "full_qualification": "not run; parent-owned final gate"
+      },
+      "source_hashes": {
+        "tests/desktop_adapters/step8_review_delivery.py": "514133f5c9f5bb9b19f4ebb0e906ebed78408db59fc24f923fb8e4332b2e12cf",
+        "tests/test_desktop_step8_review_delivery.py": "96e6c31bd40b8874001dcd0ccf38c9ef1363d0ba4b306f6306525468fb0ad1de",
+        "src/desktop/delivery.py": "664d01270fe8c3bb15f3b21f74ad4d155458545e7e98f8e502c0170938b84d6c",
+        "src/discord/delivery.py": "2c14cb744d2ffc1e60185fec10f84c43a05b73215346bd763ff2410deabc3c75",
+        "src/tools/runtime_delivery.py": "fd70b56d7db34efb53e8ce29de96206724e96bd5142efec3190467893d163e2f",
+        "src/tools/executor.py": "a693fb5e6e475f4de88afba3fa7d568f186a59adb563a1c2b6d3c87e3576c4de"
+      },
+      "limitations": [
+        "All inherited bytes unchanged and all 25 inherited parameterized cases retained. The runtime setup no longer tests accepting an ownerless embedded consumer; an additional test explicitly proves that removed entry stays rejected.",
+        "New plain-output request proof stubs only command execution output, not containment or delivery; no shell fixture command executes.",
+        "New native search proof executes actual admitted transcript search and runtime delivery, with test-owned stored messages and exhausted quota.",
+        "No shared maps, ledgers, maintenance tooling or qualification scripts changed. Parent must integrate candidate association and run final qualification."
+      ]
+    }
+  ]
+}

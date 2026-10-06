@@ -1,0 +1,6 @@
+[
+  "03:23:52.243011 - SPEECH OUTPUT: 'Orca GTK focused probe frame.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "03:23:52.286859 - SPEECH OUTPUT: 'Probe message text.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "03:23:53.740824 - SPEECH OUTPUT: 'Probe action push button.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}",
+  "03:23:55.312097 - SPEECH OUTPUT: 'Probe message text.' {'established': False, 'family': {'name': None, 'gender': None, 'lang': None, 'dialect': None, 'variant': None}}"
+]

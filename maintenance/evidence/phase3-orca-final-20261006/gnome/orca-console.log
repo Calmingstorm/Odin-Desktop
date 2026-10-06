@@ -1,0 +1,5 @@
+Warning:          Could not load keyboard geometry for :0
+                  BadName (named color or font does not exist)
+                  Resulting keymap file will not describe geometry
+
+(orca:1186): dbind-WARNING **: 07:17:28.573: AT-SPI: Error in GetItems, sender=:1.18, error=Object does not exist at path “/org/a11y/atspi/cache”

@@ -9,12 +9,12 @@
 | Classification | Paths |
 |---|---:|
 | `excluded` | 18 |
-| `phase2` | 258 |
+| `phase2` | 189 |
 | `retained_adaptation_gated` | 38 |
 | `retained_support` | 30 |
-| `safe_pass_now` | 384 |
+| `safe_pass_now` | 431 |
 | `safety_manual_gated` | 100 |
-| `retired` | 41 |
+| `retired` | 63 |
 
 ## Explicit selections
 
@@ -22,11 +22,13 @@ JSON lists `safe_pass_now`, `phase2`, `excluded`, `safety_manual_gated`, `retain
 
 Step 8's current reviewed accounting preserves historical membership as
 `phase2` union `phase2_restored` union `phase2_retired`:
-**258 deferred + 27 complete restored + 41 reviewed retired = 326**.
+**189 deferred + 74 complete restored + 63 reviewed retired = 326**.
 `phase2-suite-map.json` records last-surface ownership and specific blockers;
 `phase2_suites.py` checks it against the hash-pinned pre-restoration plan.
-Restored suites run in the existing core/runtime qualification groups. Retired
-contracts have exact reviewer/path/reason dispositions and never count passing.
+Step-1 restored suites retain `phase2-core-transport`; the complete step-2 to
+step-5 suites run in their explicit owning restoration groups. Retired contracts
+have exact reviewer/path/reason dispositions and never count passing. No inherited
+assertion, parameter corpus or original byte hash changed.
 Original bytes and membership digest remain unchanged. Neither reclassification
 nor this accounting document claims complete Phase 2 parity or approval.
 

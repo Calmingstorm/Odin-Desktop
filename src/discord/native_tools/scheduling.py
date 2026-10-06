@@ -16,9 +16,17 @@ log = get_logger("discord")
 
 
 class SchedulingTools:
-    def __init__(self, *, scheduler, tool_catalog=None) -> None:
+    def __init__(self, *, scheduler, tool_catalog=None, service_provider=None,
+                 request_provider=None) -> None:
         self.scheduler = scheduler
         self.tool_catalog = tool_catalog
+        self.service_provider, self.request_provider = service_provider, request_provider
+
+    def _admitted_service(self, message=None):
+        if self.service_provider is None or self.request_provider is None:
+            raise RuntimeError("Phase 2 scheduled destination admission unavailable")
+        request = self.request_provider(message)
+        return self.service_provider(), request
 
     # -- creation-time validation ---------------------------------------------
 
@@ -102,9 +110,7 @@ class SchedulingTools:
 
     async def _handle_schedule_task(self, message, inp: dict) -> str:
         """Create a scheduled task."""
-        # Validated destination/revision and authenticated requester admission
-        # are Phase 2, not a message-shaped owner shortcut.
-        raise RuntimeError("Phase 2 scheduled destination admission is not implemented.")
+        service, message = self._admitted_service(message)
         # Codex inputs arrive already decoded and checked by RequestToolAdapter.
         # Other providers keep the historical schedule input behavior.
         nested_validated = isinstance(inp, ValidatedNestedPayload)
@@ -112,10 +118,10 @@ class SchedulingTools:
         if validation_error:
             return f"Failed to create schedule: {validation_error}"
         try:
-            schedule = await self.scheduler.add(
+            values = dict(
                 description=inp.get("description", "Unnamed task"),
                 action=inp.get("action", "reminder"),
-                conversation_id=message.conversation_id,
+                channel_id=message.conversation_id,
                 cron=inp.get("cron"),
                 run_at=inp.get("run_at"),
                 message=inp.get("message"),
@@ -124,10 +130,11 @@ class SchedulingTools:
                 steps=inp.get("steps"),
                 trigger=inp.get("trigger"),
                 cron_timezone=inp.get("cron_timezone"),
-                requester_id=message.owner_id,
                 report_format=inp.get("report_format"),
-                **({"nested_payload_validated": True} if nested_validated else {}),
             )
+            schedule = await service.for_request("schedules.save",
+                {k: v for k, v in values.items() if v is not None}, message,
+                nested_payload_validated=nested_validated)
             if schedule.get("trigger"):
                 trigger_desc = ", ".join(f"{k}={v}" for k, v in schedule["trigger"].items())
                 return (
@@ -149,7 +156,12 @@ class SchedulingTools:
 
     def _handle_list_schedules(self) -> str:
         """List all scheduled tasks."""
-        schedules = self.scheduler.list_all()
+        service, message = self._admitted_service()
+        service.assert_request(message)
+        schedules = [
+            s for s in self.scheduler.list_all()
+            if s.get("requester_id") == message.owner_id
+        ]
         if not schedules:
             return "No scheduled tasks."
         lines = []
@@ -173,7 +185,7 @@ class SchedulingTools:
 
     async def _handle_update_schedule(self, inp: dict) -> str:
         """Update an existing schedule."""
-        raise RuntimeError("Phase 2 scheduled destination authorization is not implemented.")
+        service, message = self._admitted_service()
         nested_validated = isinstance(inp, ValidatedNestedPayload)
         if (
             nested_validated
@@ -211,8 +223,12 @@ class SchedulingTools:
             "tool_input",
             "steps",
             "conversation_id",
+            "channel_id",
             "cron_timezone",
             "report_format",
+            "max_retries",
+            "retry_backoff_seconds",
+            "webhook_config",
         ):
             if key in inp:
                 kwargs[key] = inp[key]
@@ -228,10 +244,15 @@ class SchedulingTools:
             return "Error: no fields to update."
         # Updating a legacy schedule's description/format must not retroactively
         # mark its old, never-validated workflow steps as adapter-validated.
-        if nested_validated and ("steps" in kwargs or "tool_input" in kwargs):
-            kwargs["nested_payload_validated"] = True
+        if "conversation_id" in kwargs:
+            kwargs["channel_id"] = kwargs.pop("conversation_id")
         try:
-            result = await self.scheduler.update(schedule_id, **kwargs)
+            result = await service.for_request(
+                "schedules.save", {"id": schedule_id, **kwargs}, message,
+                nested_payload_validated=(
+                    nested_validated and ("steps" in kwargs or "tool_input" in kwargs)
+                ),
+            )
         except ScheduleConnectionUnavailableError as e:
             return f"Scheduling unavailable: {e}"
         except ValueError as e:
@@ -255,8 +276,9 @@ class SchedulingTools:
 
     async def _handle_delete_schedule(self, inp: dict) -> str:
         """Delete a scheduled task."""
+        service, message = self._admitted_service()
         schedule_id = inp.get("schedule_id", "")
-        if await self.scheduler.delete(schedule_id):
+        if await service.for_request("schedules.delete", {"id": schedule_id}, message):
             return f"Deleted schedule {schedule_id}."
         return f"Schedule {schedule_id} not found."
 

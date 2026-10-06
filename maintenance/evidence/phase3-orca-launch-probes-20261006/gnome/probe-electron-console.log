@@ -1,0 +1,26 @@
+2026-10-06T03:23:59.400Z pw:browser <launching> /usr/local/lib/odq/odq-orca-59e6086d1cbe49d6b08584c38c3a0da0-sandbox/electron/electron --inspect=0 --remote-debugging-port=0 /var/tmp/odq-orca-59e6086d1cbe49d6b08584c38c3a0da0/app --force-renderer-accessibility --enable-logging=stderr --ozone-platform=wayland
+2026-10-06T03:23:59.410Z pw:browser <launched> pid=1357
+2026-10-06T03:23:59.547Z pw:browser [pid=1357][err] Debugger listening on ws://127.0.0.1:41505/610f56bc-671b-4615-b230-969324e7db6a
+2026-10-06T03:23:59.547Z pw:browser [pid=1357][err] For help, see: https://nodejs.org/learn/getting-started/debugging
+2026-10-06T03:23:59.547Z pw:browser <ws connecting> ws://127.0.0.1:41505/610f56bc-671b-4615-b230-969324e7db6a
+2026-10-06T03:23:59.553Z pw:browser <ws connected> ws://127.0.0.1:41505/610f56bc-671b-4615-b230-969324e7db6a
+2026-10-06T03:23:59.553Z pw:browser [pid=1357][err] Debugger attached.
+2026-10-06T03:23:59.631Z pw:browser [pid=1357][err] [1357:1006/032359.631650:WARNING:ui/ozone/platform/wayland/common/wayland_object.cc:119] Binding to zwp_pointer_gestures_v1 version 1 but version 3 is available.
+2026-10-06T03:23:59.676Z pw:browser [pid=1357][err] 
+2026-10-06T03:23:59.676Z pw:browser [pid=1357][err] DevTools listening on ws://127.0.0.1:40715/devtools/browser/f70792c1-2df1-4462-bccb-0d3afc71d8cd
+2026-10-06T03:23:59.677Z pw:browser <ws connecting> ws://127.0.0.1:40715/devtools/browser/f70792c1-2df1-4462-bccb-0d3afc71d8cd
+2026-10-06T03:23:59.715Z pw:browser <ws connected> ws://127.0.0.1:40715/devtools/browser/f70792c1-2df1-4462-bccb-0d3afc71d8cd
+2026-10-06T03:23:59.733Z pw:browser [pid=1357][err] [1357:1006/032359.733694:WARNING:ui/ozone/platform/wayland/host/wayland_surface.cc:170] Server doesn't support zcr_alpha_compositing_v1.
+2026-10-06T03:23:59.733Z pw:browser [pid=1357][err] [1357:1006/032359.733711:WARNING:ui/ozone/platform/wayland/host/wayland_surface.cc:185] Server doesn't support overlay_prioritizer.
+2026-10-06T03:23:59.733Z pw:browser [pid=1357][err] [1357:1006/032359.733714:WARNING:ui/ozone/platform/wayland/host/wayland_surface.cc:200] Server doesn't support wp_content_type_v1
+2026-10-06T03:23:59.733Z pw:browser [pid=1357][err] [1357:1006/032359.733718:WARNING:ui/ozone/platform/wayland/host/wayland_surface.cc:214] Server doesn't support wp_color_management_surface_v1.
+2026-10-06T03:23:59.799Z pw:browser [pid=1357][err] [1357:1006/032359.799828:WARNING:components/dbus/xdg/portal.cc:126] Failed to register with org.freedesktop.host.portal.Registry
+2026-10-06T03:23:59.826Z pw:browser [pid=1357][err] [1393:1006/032359.825614:WARNING:sandbox/policy/linux/sandbox_linux.cc:405] InitializeSandbox() called with multiple threads in process gpu-process.
+2026-10-06T03:24:14.007Z pw:browser <ws disconnecting> ws://127.0.0.1:41505/610f56bc-671b-4615-b230-969324e7db6a
+2026-10-06T03:24:14.008Z pw:browser [pid=1357][err] Debugger ending on ws://127.0.0.1:41505/610f56bc-671b-4615-b230-969324e7db6a
+2026-10-06T03:24:14.008Z pw:browser [pid=1357][err] For help, see: https://nodejs.org/learn/getting-started/debugging
+2026-10-06T03:24:14.009Z pw:browser <ws disconnected> ws://127.0.0.1:41505/610f56bc-671b-4615-b230-969324e7db6a code=1005 reason=
+2026-10-06T03:24:14.072Z pw:browser <ws disconnected> ws://127.0.0.1:40715/devtools/browser/f70792c1-2df1-4462-bccb-0d3afc71d8cd code=1006 reason=
+2026-10-06T03:24:14.080Z pw:browser [pid=1357] <process did exit: exitCode=0, signal=null>
+2026-10-06T03:24:14.080Z pw:browser [pid=1357] starting temporary directories cleanup
+2026-10-06T03:24:14.081Z pw:browser [pid=1357] finished temporary directories cleanup

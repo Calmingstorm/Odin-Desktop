@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "artifact": "PR52 review round 1 result",
+  "work_order": "/home/odin/reviews/desktop-pr52-review.md",
+  "reviewed_head": "7e70bd1e6c90b3a3a527469a57a3d58eb7281bcc",
+  "dispositions": {
+    "original_definitions": 274,
+    "restored": 140,
+    "retired": 69,
+    "deferred": 65,
+    "proposed": 0
+  },
+  "changes": [
+    "Eight unshipped operator-document wording cases retired with reviewed rationale and exact surviving behavior citations",
+    "Two remote websocket chat rate-policy cases retired by explicit Claude decision; no local owner quota",
+    "main_exit_codes and restart handoffs now name P3.3 part 2 (lane 7)",
+    "Four new behavior tests cover static registry identity/schema copies, Codex defaults/effort budget, bounded isolated Hyprland IPC and tool-batch versus retained cycle accounting",
+    "Checker conditions documentation retirement on reviewed suite scope, decision and behavior coverage; mutation regressions preserve the condition"
+  ],
+  "validation": {
+    "part5_and_accounting_pid": {"passed": 283, "failed": 0, "errors": 0, "skipped": 0},
+    "existing_behavior_and_package_inventory_pid": {"passed": 28, "failed": 0, "errors": 0, "skipped": 0},
+    "cinnamon_gnome_short_fixtures_pid": {"passed": 38, "failed": 0, "errors": 0, "skipped": 0},
+    "case_and_suite_accounting": "zero errors",
+    "inventory_report": "zero errors; pending independent reviews remain pending",
+    "ownership_plan": "passed",
+    "lint": "zero new findings",
+    "lab_ruff": "passed"
+  },
+  "boundaries": {
+    "original_suite_bytes": "unchanged and checked against inherited SHA256",
+    "frozen_collection_aliases": "unchanged",
+    "autonomous_loop": "entry remains wiring-gated; scheduler-kernel proof does not establish per-cycle LLM cap or live loop readiness",
+    "hyprland": "fake-native activation and isolated socketpair timeout behavior, not native compositor qualification",
+    "pr48": "separate tool-registry parity adapters referenced as related work, not integrated or qualified here",
+    "full_qualification": "not rerun for this review round",
+    "full_app_gate": "not rerun for this review round",
+    "main_merge": "not requested or performed",
+    "deployment_live_services_active_desktop": "untouched",
+    "independent_review": "pending"
+  },
+  "warnings": [
+    "Existing hostile synthetic teardown warnings remain visible in focused PID output",
+    "Initial test-authoring failures retained externally; final behavior tests assert observed xhigh default and root Config pair-validation boundary"
+  ],
+  "external_evidence": "/mnt/storage/odin-desktop-evidence/pr52-review-r1-req450f70e5/"
+}

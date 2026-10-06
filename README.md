@@ -71,3 +71,20 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md). In short:
 - no work in the Odin repository;
 - tests run only in an isolated PID namespace;
 - commits carry no attribution trailers.
+
+## Optional local prompt client
+
+The client connects to an already-running selected profile. It never starts a
+core, authenticates through that profile's private Unix socket and token file,
+and prints only a committed guarded reply. Supply `--socket`, `--token-file`,
+and `--profile`, then a positional prompt or `--prompt`. With no prompt argument,
+noninteractive stdin supplies piped text. `--conversation` continues an existing
+conversation; otherwise the client creates one. `--timeout` bounds the wait and
+`--json` emits structured outcome, conversation/request IDs and response text.
+Timeout is not cancellation and never retries admitted work.
+
+Use `--method status.get` for diagnostics. Positional `status.get` remains the
+legacy diagnostic spelling; use `--prompt status.get` to submit that exact text.
+The optional client is `python -m src.cli`; it is not the core's supervised
+`python -m src` entry. No HTTP listener, URL token, Discord gateway or daemon
+argument compatibility is reintroduced.

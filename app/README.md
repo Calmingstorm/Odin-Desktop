@@ -4,8 +4,9 @@ The desktop app: tray lifecycle (D3), the chat window, and the main-process brok
 the protocol in [`../docs/design/protocol.md`](../docs/design/protocol.md). Current `main` composes real conversations,
 search, requests, attachments, result delivery and Stop/Steer/Resume, plus provider/model configuration,
 device-code accounts, tools/timeouts, personality, hosts/trust, memory/lists/knowledge and records.
-Main also composes Skills/MCP management, browser runtime and retained computer management.
-Computer foreground input, background work/schedules and stored-report paging remain separate review handoffs;
+P3.1 slice 4 adds the Skills/MCP screen integration, owner-only Odin-parity skill Test, browser qualification
+and separate next-use retry observations, plus retained computer management and exact-generation recovery.
+P3.1 slice 5 connects step-6B background work, schedules and stored reports to their actual core services. Computer foreground input remains a separate review handoff;
 uncomposed services stay explicitly unavailable. Real-core sessions never substitute fixture rows or invented successful reads.
 The P3.1 slice-1 launch, authentication, status and durable event replay contracts remain, with P3.3 source-build
 lifecycle qualification for bounded shutdown, quiescing, unknown-cleanup journaling and core loss.
@@ -72,22 +73,49 @@ there; it never uses the active desktop or the user's profile. Missing Python, d
 support or required tools fail with an explanation. There are no silent skips or unisolated fallbacks.
 
 `test:real-core` exercises the actual Broker, profile persistence, revisions/receipt identity, model adoption,
-management writes, knowledge versions, record filtering and write-only credentials. Device authentication uses
+management writes, knowledge versions, record filtering and write-only credentials. Slice 4 adds skill CRUD and
+validation, failed-module cards, a harmless local stdio MCP fixture, publication/enable/reconnect transitions,
+settings revision conflicts without replay, server-local keyring failures, and browser/computer truthfulness.
+`skills.test` executes the harmless constant with empty input, returns its real result, and increments the manager's
+execution count. Disabled and unknown skills retain their actual error outcomes.
+Device authentication uses
 an isolated localhost auth service and an ephemeral injected keyring, never a production account. These tests
 do not qualify native Secret Service unlock behavior or successful model generation.
 
-`smoke:real-core` checks real `status.get` version/phase/instance/capabilities and actual rendered status, exercises
-chat/search/work and every settings section's own service loads, and checks on-demand context reload. A fresh core
-shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge and audit/log
-records; availability and durability must be read from that checkout's actual diagnostics. Health reports absent runtime owners honestly; missing
-keyring access is a distinct failure with Retry, not an empty account success. Skill and MCP management now
-read their real service state; scheduling remains unavailable and computer management does not grant input.
-The gate validates the reviewed management/readiness projections and rejects fixture rows,
-raw capability errors, successful-empty claims for refused reads or duplicate composer usage notices. It exits
-through normal `runtime.shutdown` and parent-EOF cleanup. Evidence includes both direct core reads and named-bridge
-observations; evidence paths and a compact result are printed as JSON. Set
+P3.1 slice 5 also qualifies the named Work, schedule and report methods. Work keeps the immutable public ID and
+manager/run/generation bindings, offered actions, structured details and settlement observations. Schedule Work
+controls and Settings share one lock by manager ID, while the command still names the immutable public work ID.
+Agent steering is queued once to the retained inbox; queued does not mean consumed. Unknown receipts remain locked
+under the original command identity. D12 recovery-required, missed-run counts, inert reasons and unknown settlement
+are shown without pretending the action ran. Report pages read stored output, never implicitly invoke a check.
+
+`smoke:real-core` runs two separate, labelled passes without retries, each in its own disposable namespace and
+fresh profile. **Production entry / fresh real profile** launches `python -B -P -m src`, without the test bootstrap.
+It checks real `status.get` version/phase/instance/capabilities and actual rendered status, chat/search/empty Work,
+every settings section's own service loads, and on-demand context reload. It asserts no fixture messages, an empty
+audit and logs, and the rendered audit's “Nothing recorded.” state. Turn state is actually available on this base.
+
+**Seeded work proof** uses the existing `workProof` harness bootstrap entry. Its screenshots carry a visible seeded
+proof label and metadata-only limitation; its screen names and evidence JSON are labelled too. The test-only
+bootstrap admits work through the canonical owner and retained managers. A harmless real local command finishes
+one background task and produces a two-page report, with independent child-written effect counters. The rendered
+report's Next button reads page two; the counter stays at one. Work displays all six kinds, a journaled task-cancel
+receipt and unproven process release. A real scheduler tick coalesces an overdue reminder into a due/lateness/omitted
+slots notice and leaves a missed check recovery-required. Agent mailbox/process metadata and waiting-tool cleanup
+are controlled seeds, not provider/native execution qualification. Autonomous ticking is stopped only in this
+test bootstrap so clock seeding cannot race it; real tick/admission/history/delivery remain intact.
+The profile shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge,
+actual task/check audit/log records in the seeded pass (empty audit/logs in the production pass), unknown usage and its actual turn-state availability. Missing
+keyring access is a distinct failure with Retry, not an empty account success. Both passes save, validate and
+test a harmless constant skill through the named bridge, add a local stdio MCP fixture and render its discovered
+tools; browser health distinguishes missing bundle/readiness from next-use retry, and computer status says no
+session and no qualified foreground/native input. No remote MCP service or real account is used. The gate exits through normal `runtime.shutdown` and parent-EOF cleanup. Evidence paths
+and a compact result are printed as JSON. Set
 `ODIN_SMOKE_OUT` to retain screenshots of chat and every settings section plus a JSON evidence file alongside the
-named checkpoint; the default screenshots, evidence and profiles are discarded.
+named production checkpoint. The seeded checkpoint adds `-seeded-work-proof.png`, with its own screenshots and JSON.
+The default screenshots, evidence and profiles are discarded. `real-core-work.test.ts` additionally checks ordinary
+`manage_process` list (with actual authorization filtering) and unrelated `run_command` calls pass through the bootstrap to the real executor via admitted
+scheduled workflows. Listing the seeded registry row is not real process admission or process execution qualification.
 
 The fixture smoke gate explicitly clears real-core overrides, so it remains a fixture regression gate rather
 than accidentally running whichever core a developer shell last selected.
@@ -136,14 +164,65 @@ The fixture lane covers chat, native attachment selection/cancel, copying and sa
 paging/copy, conversation menus/children, Stop/Steer/Queue/Resume, work controls, all settings sections, validation,
 password/code privacy, delayed history/search, command suggestions, retained output and 200/400 percent reflow.
 The real-core lane covers keyboard status/usage reports and all eleven Settings sections with axe and Chromium
-AX audits: step five supplies actual settings/management data. Chat now has real core owners; historical accessibility
-evidence predates that composition and does not qualify it merely by inheritance. Uncomposed step-six services retain
-explicit unavailable views. Fresh usage is unknown with history not enabled, not a missing `usage.get` service.
+AX audits: step five supplies actual settings/management data, step 6A supplies Skills/MCP and browser/computer
+management observations, and step 6B serves background work and schedules. Chat now has real core owners;
+historical accessibility evidence predates that composition and does not qualify it merely by inheritance.
+Uncomposed services retain explicit unavailable views. Fresh usage is unknown with history not enabled, not a
+missing `usage.get` service.
 Neither a fixture pass nor a Chromium AX dump proves Orca/AT-SPI speech or Wayland qualification.
 
 Reports, full Chromium AX dumps, axe violations **and incomplete checks**, sandbox/cleanup receipts and screenshots
 are written under ignored `test-results/`. Set `ODIN_APP_A11Y_REPORT` to an absolute JSON path to retain a report
 outside the checkout. Review `../maintenance/phase3-accessibility.md` for findings, dispositions and open native rows.
+
+## Manual version notice (P4.3 notice slice)
+
+The release workflow uses only the runner's completed, version-verified cached Python 3.12 and cached or
+system Node 22. Missing interpreters fail with a provisioning error, never an interpreter download. All three
+jobs select their Python explicitly; build gates also disable uv interpreter downloads. Release and app
+launchers probe the restricted namespace helper first and verify isolation before running suites. A failed
+suite is not replayed through another launcher. The first actual Actions dry-run remains an owner/reviewer
+`workflow_dispatch` on reviewed `main`, not a lane action.
+
+General shows the installed **desktop product** version, separate from the engine version, and a manual
+**Check for updates** control. It performs one named `checkReleases` main-process operation against the fixed
+`Calmingstorm/Odin-Desktop` GitHub Releases endpoint. It does not ask the core to check or apply an update.
+The request uses Node HTTPS, an isolated per-request agent, no Electron session/cookies, authentication,
+credential-store lookup, proxy credential import or redirects. It is bounded to ten seconds, one MiB and
+100 release rows. A further page means incomplete/unavailable metadata, not an invented up-to-date result.
+
+Anonymous checks cannot read this currently private repository. Not-found/unauthorized means **can't check**,
+not **no releases**. Offline, rate-limit, unavailable/incomplete and malformed responses have distinct honest
+status text. Only published stable `major.minor.patch` (optional `v`) versions are compared numerically; draft
+and prerelease rows are ignored. Build/prerelease-tagged or invalid local versions cannot claim stable currency.
+Missing/invalid metadata for a purported stable release fails closed.
+
+The renderer cannot choose a repository, URL or transport. `openRelease` accepts no URL; main revalidates its
+last successful result as an exact HTTPS release-tag page for this repository. Rechecking revokes the old target
+immediately, including during offline failures. Opening hands only that page to the system browser, whose own
+GitHub session is outside the app. Nothing checks automatically, downloads assets, writes/stages executables,
+runs an installer, stops/restarts the core, changes quarantine or replays effects. Upgrade `.deb` with your
+package manager or replace your AppImage yourself.
+
+Targeted development gates:
+
+```bash
+npx vitest run test/release-notice.test.ts test/release-notice-ipc.test.ts test/renderer/release-notice.test.ts
+npm run build
+node scripts/accessibility.mjs release-notice.spec.ts
+```
+
+The last command uses the existing isolated runner and checks actual Electron main/preload/renderer operations
+with debugger-injected controlled GitHub HTTPS responses. It records sandbox, anonymous request options,
+browser-opener calls, write/process-spawn observations, unchanged core incarnation/children and profile
+config/data hashes, axe findings and Chromium AX trees for fixture and real-core sessions. Built `out/` resources
+are scanned for credential signatures and ambient test canaries. This is not a scan of `.deb`/AppImage candidates,
+which P4.1/P4.2 package qualification and the later release-workflow gate must supply. Pattern scans cannot prove
+absence of every possible secret. The IPC unit test additionally supplies a fail-on-use broker and writable
+dependencies and proves neither notice action dispatches core replay/quarantine/lifecycle operations. The Electron
+profile/core comparison is an idle fresh-profile proof, not an active execution/quarantine recovery test.
+Controlled metadata/opener fixtures do not qualify live GitHub access, actual browser launch/login,
+native screen-reader speech, existing active execution or package-manager replacement.
 
 ## Source-build lifecycle qualification (P3.3 part 1)
 

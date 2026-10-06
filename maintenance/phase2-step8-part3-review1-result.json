@@ -1,0 +1,472 @@
+{
+  "schema_version": 1,
+  "artifact": "PR35 review1 single fresh frozen checkout full qualification",
+  "tested_commit": "90cad1e55b094331deb46af4b0ffa9cc4513a51d",
+  "pr": "https://github.com/Calmingstorm/Odin-Desktop/pull/35",
+  "base_commit": "5ba8d6df",
+  "target": "main after controls PR23 merged",
+  "status": "failed-full-gate",
+  "full_invocations_this_review": 1,
+  "groups": 33,
+  "passed_groups": 30,
+  "failed_groups": [
+    {
+      "name": "desktop-boundary-tests",
+      "exit_code": 1
+    },
+    {
+      "name": "final-helper-cases",
+      "exit_code": 1
+    },
+    {
+      "name": "final-distribution-cases",
+      "exit_code": 1
+    }
+  ],
+  "counts": {
+    "passed": 15086,
+    "failed": 10,
+    "errors": 0,
+    "skipped": 2
+  },
+  "fresh_checkout": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final",
+  "checkout_mode": "0o2775",
+  "parent_mode": "0o2775",
+  "command": "USER=odin .venv/bin/python scripts/run-qualified-tests.py",
+  "isolation": "Python3.12 nonroot odin mount/PID namespace env-i throwaway HOME/XDG no display/DBus/credentials/native/live installation",
+  "dependencies": "Fresh uv sync --locked --extra dev; pip check passed",
+  "log": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/full-qualification.log",
+  "log_sha256": "470c4d6b6fb6a4dcdeb266afa126915984024a822fef95570b00d02ada7345e2",
+  "group_results": [
+    {
+      "name": "direct-shared-stores-providers-tools",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-0.xml",
+      "junit_sha256": "86759b8533cf7237bb144b28d45d83a9d6eb74e087e8a4d912fa49c50ddd0ab0",
+      "passed": 3158,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "direct-shared-computer",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-1.xml",
+      "junit_sha256": "b72d7cc5428b560715e27a68417420ec85fa9ba0aa6073063b61fc631823597c",
+      "passed": 3559,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "direct-shared-hyprland",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-2.xml",
+      "junit_sha256": "1c2d27f0f17c2afb3a9c0be3e2710684f47d7c49aa2b5a7e72e376a1c46859c5",
+      "passed": 888,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "failures": []
+    },
+    {
+      "name": "direct-shared-engine",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-3.xml",
+      "junit_sha256": "bea0024dfeb97679ec3961f0878a5972dcbbcce9d15ab792db39ee3dd87fb885",
+      "passed": 1442,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "faithful-computer-recovery",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-4.xml",
+      "junit_sha256": "59ff4bdc6eecf5ebff563e674151eeb816f27e9e4b3e5fdaa43b513cfd5c65f9",
+      "passed": 188,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "faithful-config",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-5.xml",
+      "junit_sha256": "4471e84b47edeaf727c6eb6578d3a6af55b923272843eb9eb5efdb878c306317",
+      "passed": 286,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "faithful-computer-declaration",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-6.xml",
+      "junit_sha256": "cb5c2920cc001c0fbcf90a7e96da326f6718a1649610366c525a56505111478b",
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "faithful-tools",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-7.xml",
+      "junit_sha256": "6eff1aee34996a147389f68b63f33b1cc585c723c346dcaf8577961828d26fe9",
+      "passed": 269,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "failures": []
+    },
+    {
+      "name": "faithful-tools-extra",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-8.xml",
+      "junit_sha256": "21c1d592a6ddc79d2ccf975a49e022f8a435aa9ed7f7ef77761b03c37ec45485",
+      "passed": 135,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "faithful-llm",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-9.xml",
+      "junit_sha256": "5e3e90e7542d21273d52dbe471ef067a9b169850dd7105846eef6d7296e292a5",
+      "passed": 187,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "direct-neutral-metadata",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-10.xml",
+      "junit_sha256": "32c7ba683e386eea3e0b643fa62cd8cf323dcda8f8a51b8ae0d447d20c356d2e",
+      "passed": 36,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "neutral-completion-classifier",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-11.xml",
+      "junit_sha256": "a3e6bfa4809319244bc9be46cb8696ebfe5f61176163f38e322ae250fc8ac7f9",
+      "passed": 28,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "neutral-host-control",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-12.xml",
+      "junit_sha256": "6b77b8c8505c263820d7d0eaf9bd116013eac14d6bdd21a9a934d4423a87b882",
+      "passed": 59,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "neutral-subsystem-guard",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-13.xml",
+      "junit_sha256": "6fa56e2900f4ee1d20dc6c757c094a6e3e6bf11004cafdb3ca4c5eafee8335cc",
+      "passed": 114,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "neutral-fd-health",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-14.xml",
+      "junit_sha256": "88ad7fef9baa0dad252a9ceddc3f6b464a14cc7c6b23bae5f441615c331b2258",
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "neutral-parallel-policy",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-15.xml",
+      "junit_sha256": "62ba54f5cb624e4c47e63928d35c06f84bb76d977e24dec8b99a5e8fe138ca06",
+      "passed": 4,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "faithful-foundation",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-16.xml",
+      "junit_sha256": "f1f012325ebb7fa11eaee77087c1e664975d4ad90cb0e648b53925a1ea72b8da",
+      "passed": 946,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "faithful-migrations",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-17.xml",
+      "junit_sha256": "262913f2c5045957faa586e574b7b70072c32f0fbf81ab3d16171d6ee96540e4",
+      "passed": 33,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "mixed-original-passed-cases",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-18.xml",
+      "junit_sha256": "fd49ba08001d64850f78131cd6ff29cfb21c5c5885d5ab7a8fb46b582be6dafc",
+      "passed": 875,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "desktop-boundary-tests",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-19.xml",
+      "junit_sha256": "b8d4500adf7f51a358803d9bf7374bb91abc13b7a4d8a2402cba9fd08a64502b",
+      "passed": 879,
+      "failed": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failures": [
+        {
+          "classname": "tests.test_desktop_capabilities_owner",
+          "name": "test_unconfigured_dispatch_denies_before_handler_or_host",
+          "message": "Failed: unauthorized execution reached host or handler"
+        },
+        {
+          "classname": "tests.test_desktop_executor_profile",
+          "name": "test_default_executor_resolves_fresh_profile_but_denies_unbound_effects",
+          "message": "AssertionError: unwired capability reached a handler"
+        },
+        {
+          "classname": "tests.test_desktop_strip_root",
+          "name": "test_root_entrypoints_gate_before_operations",
+          "message": "Failed: DID NOT RAISE SystemExit"
+        }
+      ]
+    },
+    {
+      "name": "direct-foundation-neutral-remainder",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-20.xml",
+      "junit_sha256": "4f113265a5f68dfdd41f02f40608977d51ffc3470b5676bb248099f1a1f56f95",
+      "passed": 167,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "direct-isolation-timeout-neutrals",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-21.xml",
+      "junit_sha256": "52098664586a5edf04db2876b5ba38fd8fd87a098b48443b35a509476a028a94",
+      "passed": 5,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "faithful-owner-contracts",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-22.xml",
+      "junit_sha256": "95a9b9ff05cd80faa30c6b5d44886eabdde7046abb7ccb6c1c112366bb593e48",
+      "passed": 122,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "faithful-retirement-corpus",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-23.xml",
+      "junit_sha256": "af7277a9fe5b2b042dc8bc0d736a858fcf338c3cd77929509ce1fa9964943254",
+      "passed": 32,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "final-historical-cases",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-24.xml",
+      "junit_sha256": "18d3f1a6446233bed7c46b44e5c507b0c6a2a7b8b137f6877bdb5c5c9904f742",
+      "passed": 36,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "final-helper-cases",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-25.xml",
+      "junit_sha256": "81cb75e547422d86df9f2d851cdfcc912f2d762aae18491aa047267ce27c383b",
+      "passed": 28,
+      "failed": 6,
+      "errors": 0,
+      "skipped": 0,
+      "failures": [
+        {
+          "classname": "tests.test_desktop_final_helpers",
+          "name": "test_phase2_import_api_no_admitted_dispatch_or_effect[missing_items]",
+          "message": "AssertionError: assert 'unknown_tool' == 'tool_unavailable'\n  \n  - tool_unavailable\n  + unknown_tool"
+        },
+        {
+          "classname": "tests.test_desktop_final_helpers",
+          "name": "test_phase2_import_api_no_admitted_dispatch_or_effect[invalid_items_type]",
+          "message": "AssertionError: assert 'unknown_tool' == 'tool_unavailable'\n  \n  - tool_unavailable\n  + unknown_tool"
+        },
+        {
+          "classname": "tests.test_desktop_final_helpers",
+          "name": "test_phase2_import_api_no_admitted_dispatch_or_effect[directory_import_via_api]",
+          "message": "AssertionError: assert 'unknown_tool' == 'tool_unavailable'\n  \n  - tool_unavailable\n  + unknown_tool"
+        },
+        {
+          "classname": "tests.test_desktop_final_helpers",
+          "name": "test_phase2_import_api_no_admitted_dispatch_or_effect[response_structure]",
+          "message": "AssertionError: assert 'unknown_tool' == 'tool_unavailable'\n  \n  - tool_unavailable\n  + unknown_tool"
+        },
+        {
+          "classname": "tests.test_desktop_final_helpers",
+          "name": "test_phase2_import_api_no_admitted_dispatch_or_effect[unavailable_store]",
+          "message": "AssertionError: assert 'unknown_tool' == 'tool_unavailable'\n  \n  - tool_unavailable\n  + unknown_tool"
+        },
+        {
+          "classname": "tests.test_desktop_final_helpers",
+          "name": "test_phase2_import_api_no_admitted_dispatch_or_effect[mixed_results_via_api]",
+          "message": "AssertionError: assert 'unknown_tool' == 'tool_unavailable'\n  \n  - tool_unavailable\n  + unknown_tool"
+        }
+      ]
+    },
+    {
+      "name": "final-distribution-cases",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-26.xml",
+      "junit_sha256": "e0efb5e778765823961640080a91262d70f5b6c14a7a28ac1216d2c52bfabb2c",
+      "passed": 31,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failures": [
+        {
+          "classname": "tests.test_desktop_final_distribution",
+          "name": "test_real_unwired_entry_rejects_before_effect[cli]",
+          "message": "Failed: DID NOT RAISE SystemExit"
+        }
+      ]
+    },
+    {
+      "name": "final-config-cases",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-27.xml",
+      "junit_sha256": "cd6b1231c19ad988e4fae9fab00990d9b74083e7afeca122e39fbb92e9f0eef7",
+      "passed": 72,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "phase2-core-transport",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-28.xml",
+      "junit_sha256": "305c03ab225e4e580851296793ec66105a663f3afe6c1a07b7d1db34b7056150",
+      "passed": 580,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "phase2-step5-profile-management",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-29.xml",
+      "junit_sha256": "4c571485854a334fcf7f05d392ae9eb2d44bbaf6b0a24a77ba650ce2c2b67fa8",
+      "passed": 303,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "phase2-step2-restored-corpus",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-30.xml",
+      "junit_sha256": "1b17db164f4e3ae3d15c957e0bc2d02f8f7e14ea566a58be7b17c07980712442",
+      "passed": 202,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "phase2-step3-restored-corpus",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-31.xml",
+      "junit_sha256": "00c0c6a611b5359afa328879f617c421b6ac1f8a9f49a51fcae6a8ccb7772c80",
+      "passed": 284,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    {
+      "name": "phase2-step4-restored-corpus",
+      "junit": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/final/.test-state/qualification-32.xml",
+      "junit_sha256": "5f9c7dc5fad9f99ec14671e4442631d786d86bf32f11f33de60a024ccb10a4f9",
+      "passed": 129,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failures": []
+    }
+  ],
+  "suite_dispositions": {
+    "assigned": 47,
+    "restored": 20,
+    "retired": 21,
+    "deferred": 6,
+    "restored_this_review": 6
+  },
+  "unique_retained_inherited_cases": 332,
+  "limitations": [
+    "Six exact deferred suites remain, not complete step2-4 parity",
+    "CLI product built, frozen HTTP CLI suite still deferred pending disposition review",
+    "Whole-suite retirements and four case definitions are not passing coverage",
+    "No native backend qualification, live deploy/restart or active desktop action",
+    "Prior failed full run remains in historical evidence; no retry erases it"
+  ],
+  "pre_gates": {
+    "byte": {
+      "path": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/byte-report.json",
+      "sha256": "e0049a94fe72f243694728b4d87ac1176463dbf2ac7663ecfcfeb22e4f432946"
+    },
+    "map": {
+      "path": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/map-report.json",
+      "sha256": "f12b51c593d7cf1c84a6a6bdc1178d35df7aa9478629fb2d8835b68fb7c1385c"
+    },
+    "lint": {
+      "path": "/home/odin/desktop-phase2-step8-part3/work/../qualification-review1/lint-report.json",
+      "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"
+    }
+  },
+  "post_gate_corrections": {
+    "full_gate_remains_failed": true,
+    "second_full_invocation": false,
+    "runtime_fix": "Classify unknown names statically after owner/scope and before tool middleware; known unready handlers denied before resolution",
+    "desktop_test_adaptations": "Optional CLI return-status/no-effect contract replaces obsolete diagnostic-only SystemExit expectations in two Desktop-native harnesses; inherited originals unchanged",
+    "targeted_command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_capabilities_owner.py tests/test_desktop_executor_profile.py tests/test_desktop_strip_root.py tests/test_desktop_final_helpers.py tests/test_desktop_final_distribution.py tests/test_desktop_step8_review_cli.py tests/test_desktop_step8_review_helpers.py",
+    "targeted_passed": 153,
+    "targeted_failed": 0,
+    "targeted_skipped": 0,
+    "log": "/home/odin/desktop-phase2-step8-part3/review1-postgate-corrections.log",
+    "junit": "/home/odin/desktop-phase2-step8-part3/review1-postgate-corrections.xml",
+    "final_source_not_full_qualified": true,
+    "pr_remains_draft": true,
+    "outer_shell_exit_code": 0,
+    "authoritative_verdict": "failed via qualification-result.json and JUnit; tee shell code ignored",
+    "log_sha256": "c3c97126a91a6f0f24d2c33a3f82a7f5eb0fc94be0e7ab4dfa018522201da8fd",
+    "junit_sha256": "db1116f263597aea47b4ceebad0da453929026e0404543d21e621e3799ddbad9"
+  }
+}

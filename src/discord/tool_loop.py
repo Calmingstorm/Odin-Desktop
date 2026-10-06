@@ -3362,14 +3362,20 @@ class ToolLoopRunner:
         Simplified version of the chat pipeline for autonomous loops: same
         Codex + tool execution pipeline but without detection retries.
         """
-        _require_phase2_wiring()
+        if not callable(getattr(self, "_assert_request", None)):
+            _require_phase2_wiring()
+        message = channel
+        self._assert_request(message)
+        if message.owner_id != user_id:
+            raise PermissionError("Autonomous request owner differs from admission")
         if not self._llm_gateway.active_client:
             from ..tools.autonomous_loop import LoopIterationResult
 
             return LoopIterationResult("LLM provider not available.", is_error=True,
                                        failure_class="provider")
 
-        st = self._prepare_loop_turn(prompt, channel, prev_context, user_id, policy)
+        st = self._prepare_loop_turn(prompt, message.channel, prev_context, user_id, policy,
+                                     admitted_message=message)
 
         for _iteration in range(st.loop_cap):
             if cancel_event is not None and cancel_event.is_set():
@@ -3425,6 +3431,7 @@ class ToolLoopRunner:
         prev_context: str | None,
         user_id: str,
         policy: LoopPolicy,
+        *, admitted_message=None,
     ) -> _LoopTurn:
         """Iteration setup: requester resolution, trajectory/trace init,
         message + system prompt + tool-definition assembly."""
@@ -3435,7 +3442,10 @@ class ToolLoopRunner:
             if loop_info.requester_id == user_id:
                 requester_name = loop_info.requester_name
                 break
-        msg_proxy = _LoopMessageProxy(channel, user_id, requester_name)
+        if admitted_message is None:
+            raise PermissionError("Autonomous loops require an admitted request")
+        self._assert_request(admitted_message)
+        msg_proxy = admitted_message
 
         # Observability: loop iterations get the same trajectory + context
         # trace coverage as chat turns (they were previously invisible —
@@ -3490,7 +3500,7 @@ class ToolLoopRunner:
         if _trace is not None:
             with _trace.phase("system_prompt"):
                 system_prompt = self._prompt_builder.build_full_prompt(
-                    channel=channel,
+                    conversation_id=str(channel.id),
                     user_id=user_id,
                     trace=_trace,
                 )
@@ -3498,7 +3508,8 @@ class ToolLoopRunner:
             if prev_context:
                 _trace.section("loop_prev_context", tokens=len(prev_context) // 4)
         else:
-            system_prompt = self._prompt_builder.build_full_prompt(channel=channel, user_id=user_id)
+            system_prompt = self._prompt_builder.build_full_prompt(
+                conversation_id=str(channel.id), user_id=user_id)
         tools = self._scoped_tools_for_request(user_id=user_id)
 
         channel_id_str = str(getattr(channel, "id", ""))
@@ -4367,6 +4378,12 @@ class ToolLoopRunner:
     ) -> str | dict | ToolResult:
         from ..tools.runtime_delivery import deliver_runtime_result, execution_delivery_scope
 
+        check = getattr(self, "_assert_bound_request", None)
+        if not callable(check):
+            _require_phase2_wiring()
+        check(msg_proxy)
+        if msg_proxy.owner_id != user_id:
+            raise PermissionError("Background dispatch owner differs from admission")
         channel_id = str(getattr(msg_proxy.channel, "id", ""))
         with execution_delivery_scope(
             user_id,
