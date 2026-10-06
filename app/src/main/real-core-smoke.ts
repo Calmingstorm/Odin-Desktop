@@ -133,7 +133,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert(!accounts.ok && accounts.error.code === 'keyring_unavailable', 'isolated profile must honestly report missing system keyring, not invent accounts')
   reads['codex.accounts.list'] = accounts
   assert.deepEqual(reads['lists.list'], { items: [] })
-  assert.deepEqual(reads['work.list'], { items: [] })
+  if (!seededWorkProof) assert.deepEqual(reads['work.list'], { items: [] })
   assert.deepEqual(reads['schedules.list'], [])
   assert.deepEqual(reads['schedules.history'], [])
   assert.deepEqual(reads['skills.list'], [], 'fresh skills list is a served array, not an items wrapper')

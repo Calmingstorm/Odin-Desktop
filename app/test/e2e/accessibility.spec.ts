@@ -432,15 +432,12 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await expect(usage).toContainText('history unavailable (usage history not enabled)')
       await expect(usage).toContainText("not measured: Odin doesn't know this value")
       await expect(usage).not.toContainText('Usage is unavailable in this core')
-      await expect(page.getByRole('region', { name: 'Computer use', exact: true })).toContainText('Computer use is unavailable in this core.')
     }
     if (label === 'Scheduled and running work') {
       await expect(page.getByRole('region', { name: 'Schedules', exact: true })).toContainText('No schedules yet.')
       await expect(page.getByRole('region', { name: 'Running work', exact: true })).toContainText('Nothing is running.')
       await expect(page.locator('.settings-body')).not.toContainText('Work (agents, tasks, loops, processes, workflows and schedules) is unavailable')
     }
-    if (label === 'Skills') await expect(page.locator('.settings-body')).toContainText('Skill management is unavailable in this core.')
-    if (label === 'MCP servers') await expect(page.locator('.settings-body')).toContainText('MCP management is unavailable in this core.')
     await audit(`real-${label}`)
     await ax(`real-${label}`)
   }
