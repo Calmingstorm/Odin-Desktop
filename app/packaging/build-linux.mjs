@@ -15,5 +15,6 @@ if (provision.status !== 0) {
 }
 process.env.ELECTRON_BUILDER_CACHE = provision.stdout.trim().split('\n').at(-1)
 run('python3', [resolve(import.meta.dirname, 'build-runtime.py')])
+run('python3', [resolve(import.meta.dirname, 'build-deb-control.py')])
 run('npm', ['run', 'build'])
 run(resolve(app, 'node_modules/.bin/electron-builder'), ['--linux', 'deb', 'AppImage', '--x64', '--publish', 'never'])

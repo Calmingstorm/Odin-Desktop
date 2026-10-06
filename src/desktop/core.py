@@ -21,6 +21,7 @@ from .ipc import IpcServer
 from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .management import ManagementService
+from .package_state import PackageUpgrade, inspect_profile
 from .paths import ProfilePaths
 from .reports import ReportBinding, ReportDelivery, ReportService
 from .requests import RequestService
@@ -278,10 +279,16 @@ class CoreService:
         }
 
     async def start(self, stdin_fd: int = 0) -> None:
+        from ..version import get_version
+
+        # Refuse newer state before identity/bootstrap/store constructors write.
+        inspect_profile(self.paths, package_version=get_version())
         # The app creates the credential. Validate it before bootstrap adopts any state.
         load_token(self.token_file)
         self.authority = OwnerAuthority(self.paths, app_bootstrap=True)
         self.authority.acquire_runtime()
+        upgrade = PackageUpgrade(self.paths, self.authority, get_version())
+        upgrade.prepare()
         self.permissions = PermissionManager(self.authority)
         self.store = _PublicationStore(
             self.paths.data_dir / "transport.sqlite3", self.paths.profile_id,
@@ -361,6 +368,7 @@ class CoreService:
         # hydration and startup vault reads remain off the event loop.
         await secret_call(settings.hydrate_secrets)
         await self.engine.initialize_profile_provider()
+        upgrade.commit()
         self.capabilities = (*CAPABILITIES[:5],
                              *sorted((set(CAPABILITIES) | set(self.management.methods))
                                      - set(CAPABILITIES[:5])))
