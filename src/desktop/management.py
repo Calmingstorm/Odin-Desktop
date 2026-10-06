@@ -311,6 +311,11 @@ class ManagementService:
 
         async def health():
             observed.config = settings.config
+            # Sample the current composed owner on every read. A compose-time
+            # boolean would remain healthy after request/store/core shutdown.
+            observed.delivery_readiness = getattr(core, "delivery_readiness", False)
+            observed.delivery_readiness_reason = getattr(
+                core, "delivery_readiness_reason", "delivery_not_composed")
             result = check_all(observed)
             result["workspace"] = await diagnostics.snapshot()
             result["browser"] = browser.status()

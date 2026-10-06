@@ -1,0 +1,22 @@
+{
+  "kind": "focused-probes-not-qualification",
+  "guard": {
+    "session": {
+      "User": "1001",
+      "Name": "odq",
+      "Type": "wayland",
+      "Active": "yes"
+    },
+    "orca_pid": 1185,
+    "uid": 1001
+  },
+  "source_sha256": "7b5a2527497565fba7fa8e179ed6372fb61cf49cfcc37080c7655ec217803f3c",
+  "passed": true,
+  "gtk": {
+    "passed": true,
+    "speech_records": 4,
+    "launches": 1,
+    "pid": 1216
+  },
+  "electron_exit_code": 0
+}

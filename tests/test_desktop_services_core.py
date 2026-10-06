@@ -43,9 +43,10 @@ async def connected(tmp_path, monkeypatch):
 async def test_service_readiness_and_integrated_delivery_are_honest(connected):
     service, reader, writer, welcome = connected
     capabilities = set(welcome["capabilities"])
-    assert {"skills.save", "mcp.save", "computer.status", "computer.activation.set"} <= capabilities
+    assert {"skills.save", "skills.test", "mcp.save", "computer.status",
+            "computer.activation.set"} <= capabilities
     assert "submission.send" in capabilities
-    assert not {"skills.test", "computer_act", "schedules.list"} & capabilities
+    assert not {"computer_act", "schedules.list"} & capabilities
     assert (await request(reader, writer, "skills.list"))["result"] == []
     mcp = await request(reader, writer, "mcp.status")
     assert mcp["ok"] and mcp["result"]["server_count"] == 0
@@ -82,11 +83,22 @@ async def test_skill_save_publication_receipt_reload_and_revocation(connected):
     assert await request(reader, writer, "skills.save", {
         "name": "sample", "code": code}, command_id) == saved
     assert (await request(reader, writer, "runtime.reload", {"scope": "skills"}))["ok"]
+    test_id = str(uuid.uuid4())
+    tested = await request(reader, writer, "skills.test", {"name": "sample"}, test_id)
+    assert tested["ok"] and tested["result"] == {"result": "fixture", "is_error": False}
+    assert await request(reader, writer, "skills.test", {"name": "sample"}, test_id) == tested
+    assert (await request(reader, writer, "skills.get", {"name": "sample"}))["result"][
+        "total_executions"] == 1
     assert (await request(reader, writer, "skills.set_enabled", {
         "name": "sample", "enabled": False}))["ok"]
     assert "sample" not in {tool["name"] for tool in manager.tool_catalog.merged_definitions()}
-    assert (await request(reader, writer, "skills.test", {"name": "sample"}))["error"][
-        "code"] == "capability_unavailable"
+    disabled = await request(reader, writer, "skills.test", {"name": "sample"})
+    assert disabled["ok"] and disabled["result"]["is_error"] is True
+    assert disabled["result"]["result"].startswith("Skill 'sample' is disabled.")
+    assert (await request(reader, writer, "skills.get", {"name": "sample"}))["result"][
+        "total_executions"] == 1
+    unknown = await request(reader, writer, "skills.test", {"name": "unknown"})
+    assert unknown["error"]["code"] == "not_found"
 
 
 async def test_computer_activation_transaction_is_not_native_qualification(connected):

@@ -4,6 +4,9 @@ import type { CoreError, ManagementMethod } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
+// Neither notice action accepts a repository, URL, transport, credentials or an update command.
+export const releaseNoticeSchema = z.object({}).strict()
+
 /** Fixed safe strings only; strip extra provider/credential data at the main boundary. */
 export const firstRunStatusSchema = z.object({
   state: z.enum(['fresh', 'incomplete', 'saved', 'effective-ready', 'degraded']),
@@ -232,6 +235,7 @@ const toolName = z.string().min(1).max(128)
 const skillName = z.string().min(1).max(100)
 const skillCode = z.string().min(1).max(50_000)
 const mcpName = z.string().min(1).max(128).regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+const mcpRevision = { expected_revision: z.string().min(1).max(128).optional() }
 const text = z.string().max(16_384)
 const secretMap = z.record(z.string().min(1).max(256), text)
 const hostAlias = z.string().min(1).max(64)
@@ -280,7 +284,8 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
   mcpSave: z
     .object({
       name: mcpName,
-      create: z.boolean(),
+      create: z.boolean().optional(),
+      ...mcpRevision,
       transport: z.enum(['stdio', 'http']).optional(),
       command: text.optional(),
       args: z.array(text).max(256).optional(),
@@ -295,14 +300,15 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
       env_remove: z.array(z.string().max(256)).max(256).optional()
     })
     .strict(),
-  mcpSetEnabled: z.object({ name: mcpName, enabled: z.boolean() }).strict(),
-  mcpDelete: z.object({ name: mcpName }).strict(),
-  mcpReconnect: z.object({ name: mcpName }).strict(),
-  mcpRefreshTools: z.object({ name: mcpName }).strict(),
+  mcpSetEnabled: z.object({ name: mcpName, enabled: z.boolean(), ...mcpRevision }).strict(),
+  mcpDelete: z.object({ name: mcpName, ...mcpRevision }).strict(),
+  mcpReconnect: z.object({ name: mcpName, ...mcpRevision }).strict(),
+  mcpRefreshTools: z.object({ name: mcpName, ...mcpRevision }).strict(),
   mcpTools: z.object({ name: mcpName }).strict(),
-  mcpSetGlobalEnabled: z.object({ enabled: z.boolean() }).strict(),
+  mcpSetGlobalEnabled: z.object({ enabled: z.boolean(), ...mcpRevision }).strict(),
   mcpSetLimits: z
     .object({
+      ...mcpRevision,
       max_published_tools_per_server: z.number().int().min(0).max(1_000_000).optional(),
       max_published_tools_global: z.number().int().min(0).max(1_000_000).optional()
     })
@@ -401,6 +407,6 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
     .strict(),
   turnStateList: z.object({ limit: z.number().int().min(1).max(500).optional() }).strict(),
   computerStatus: empty,
-  computerReconcile: z.object({ session_id: z.string().min(1).max(128), generation: z.number().int().min(0), acknowledgment: z.string().max(300) }).strict()
+  computerReconcile: z.object({ session_id: z.string().min(1).max(128), generation: z.number().int().min(0), acknowledgment: z.string().max(300).optional() }).strict()
 }
 
