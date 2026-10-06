@@ -1,5 +1,33 @@
 # PR39 merge-main validation, 2026-10-06
 
+## Final integration after concurrent PR28 main merge
+
+After the first push, PR28 independently advanced main to
+`cd52a8e2b055a9c4abc051a49566b9daf3e1bd79`. A second true merge incorporates
+that main on top of `76a0da7060b4499777cd4de9a4d866a0107e526d`; no rebase or
+force-push. The smoke conflict now treats Step 6A skills/MCP/computer management
+as served while retaining capability-absence and actual refusal assertions for
+unserved Part B execution/native input. Production behavior on both sides survives.
+
+The automatically merged ledger was independently checked against the supplied
+three-way path-union helper: byte-identical, 372 entries, no differently changed
+shared entry. The whole requested gate set was rerun after a fresh locked venv
+and npm provisioning in the recreated lane worktree. Final run passed:
+inventory zero errors, zero new lint findings, plan, 38 short fixtures,
+49 Python + 9 Node release tests, typecheck/build + 789 app tests,
+39 release-notice + 45 isolation tests, normal-user packaging 79 passed and
+12 expected skips, isolated root transaction file 12 passed, real Broker/core
+22 passed, private-display onboarding 6 passed, both workflow actionlint and
+diff checks. The real-core smoke additionally passed with 40 screen observations
+and the newly served management capabilities; native input remained unavailable.
+
+Final external evidence is under `latest-main/` and
+`latest-main-all-gates.log` in this run's artifact directory. Exact hashes are
+in `pr39-merge-latest-main-artifacts.json`. The initial qualification below is
+retained as history, not substituted for this final rerun. No suite failed or
+was retried; no assertions were relaxed. No package build, native desktop input,
+Actions dispatch, publication, deployment or service changes occurred.
+
 Request: merge main into the approved P4.3 release-notice branch without rebasing,
 preserving both sides, run the requested short/app/release/packaging gates, and push.
 

@@ -26,6 +26,11 @@ class PermissionManager:
         context = _request_owner.get()
         return self.authority.accepts(context) and owner_id == self.authority.owner_id
 
+    def get_request_owner(self) -> OwnerContext | None:
+        """Current OS-authenticated request identity, not a model or payload identity."""
+        context = _request_owner.get()
+        return context if self.authority.accepts(context) else None
+
     def filter_tools(self, owner_id: str, tools: list[dict]) -> list[dict] | None:
         return tools if self.is_owner(owner_id) else None
 

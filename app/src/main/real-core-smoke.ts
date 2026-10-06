@@ -8,7 +8,7 @@ import type { ConversationSnapshot } from '../shared/api'
 
 const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-// Reviewed conversation/request and management surface; never derive expectations from welcome.
+// Reviewed conversation/request and Step 6A management surface; never derive expectations from welcome.
 export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
   'artifacts.read', 'tool.detail', 'tool.output',
@@ -25,7 +25,15 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover', 'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
   'control.stop', 'control.steer', 'control.resume',
-  'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete', 'webhooks.outbound.test', 'integrations.email.get'
+  'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete', 'webhooks.outbound.test', 'integrations.email.get',
+  'skills.list', 'skills.get', 'skills.validate', 'skills.save', 'skills.delete',
+  'skills.set_enabled', 'skills.config.get', 'skills.config.set',
+  'mcp.list', 'mcp.status', 'mcp.tools', 'mcp.save', 'mcp.set_enabled', 'mcp.delete',
+  'mcp.reconnect', 'mcp.refresh_tools', 'mcp.set_global_enabled', 'mcp.set_limits',
+  'computer.status', 'computer.activation.set', 'computer.stop', 'computer.pause',
+  'computer.cancel', 'computer.close', 'computer.reconcile', 'computer.operator_reconcile',
+  'computer.release_owned_input', 'computer.acknowledge_legacy_recovery',
+  'computer.reconcile_hyprland_owner'
 ].sort()]
 export type RealCoreStatus = { phase: string; version: string; core_instance_id: string; capabilities: string[];
   model: { main: string | null; effort: string | null; provider: string | null };
@@ -62,19 +70,22 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     'conversations.list', 'conversations.create', 'messages.list', 'conversation.snapshot', 'search.query',
     'submission.send', 'control.stop', 'control.steer', 'control.resume',
     'tools.list', 'tools.timeouts.get', 'personality.get', 'hosts.list', 'hosts.public_key',
-    'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get']) {
+    'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get',
+    'skills.list', 'mcp.list', 'mcp.status', 'computer.status']) {
     assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
   }
 
-  // Later-slice reads are genuine core refusals, not empty successful lists.
-  for (const method of ['work.list', 'skills.list', 'mcp.list', 'mcp.status', 'schedules.list', 'computer.status']) {
+  // Part B dispatch, work and schedules remain genuine refusals. Step 6A
+  // management being served does not grant skill execution or native input.
+  for (const method of ['work.list', 'schedules.list', 'turns.create', 'skills.test',
+    'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
     assert(!status.capabilities.includes(method), `${method} must not be advertised as served`)
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
 
   const reads: Record<string, unknown> = {}
-  for (const method of ['settings.schema', 'usage.get', 'personality.get', 'tools.list', 'tools.timeouts.get', 'hosts.list', 'memory.list', 'lists.list', 'knowledge.list', 'health.get', 'audit.query', 'logs.search', 'turn_state.list']) {
+  for (const method of ['settings.schema', 'usage.get', 'personality.get', 'tools.list', 'tools.timeouts.get', 'hosts.list', 'memory.list', 'lists.list', 'knowledge.list', 'health.get', 'audit.query', 'logs.search', 'turn_state.list', 'skills.list', 'mcp.list', 'mcp.status', 'computer.status']) {
     const answer = await broker.request(method)
     assert(answer.ok, `${method} management read must succeed`)
     reads[method] = answer.result
@@ -83,6 +94,28 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert(!accounts.ok && accounts.error.code === 'keyring_unavailable', 'isolated profile must honestly report missing system keyring, not invent accounts')
   reads['codex.accounts.list'] = accounts
   assert.deepEqual(reads['lists.list'], { items: [] })
+  assert.deepEqual(reads['skills.list'], [], 'fresh skills list is a served array, not an items wrapper')
+  for (const method of ['mcp.list', 'mcp.status']) {
+    const mcp = reads[method] as { servers: unknown[]; server_count: number; configured_servers: string[];
+      configured_server_count: number; connected_count: number; published_tool_count: number; started: boolean; closed: boolean }
+    assert.deepEqual(mcp.servers, [])
+    assert.deepEqual(mcp.configured_servers, [])
+    assert.equal(mcp.server_count, 0)
+    assert.equal(mcp.configured_server_count, 0)
+    assert.equal(mcp.connected_count, 0)
+    assert.equal(mcp.published_tool_count, 0)
+    assert.equal(mcp.started, true)
+    assert.equal(mcp.closed, false)
+  }
+  const computer = reads['computer.status'] as { session: unknown; readiness: {
+    management_available: boolean; foreground_available: boolean; native_qualified: boolean; input_supported: boolean; dispatch: string } }
+  assert.equal(computer.session, null)
+  assert.equal(computer.readiness.management_available, true)
+  assert.equal(computer.readiness.foreground_available, false)
+  assert.equal(computer.readiness.native_qualified, false)
+  assert.equal(computer.readiness.input_supported, false)
+  assert.equal(computer.readiness.dispatch, 'none')
+  assert(!('input_dispatch' in computer), 'management status must not grant an input dispatch binding')
   assert.deepEqual(reads['audit.query'], [])
   assert.deepEqual(reads['logs.search'], { entries: [], count: 0 })
   assert.equal((reads['turn_state.list'] as { availability: string }).availability, 'not_enabled')
@@ -204,20 +237,19 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   await until(async () => (await count('.settings-group .schema-form')) > 0, 'real settings schema before enumerating all sections')
   const sections = await run<string[]>('Array.from(document.querySelectorAll(".settings-nav-item"), b => b.innerText)')
   assert.deepEqual(sections, ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust', 'Scheduled and running work', 'State', 'Records', 'Other'])
-  // Check unserved owners separately from read-backed management panels.
+  // Check unserved work owners separately from the wired Step 6A read panels.
   const servicePanels: Record<string, string[]> = {
-    Skills: ['section[aria-label="Skills"]'],
-    'MCP servers': ['section[aria-label="MCP servers"]'],
-    'Scheduled and running work': ['section[aria-label="Schedules"]', 'section[aria-label="Running work"]'],
-    Records: ['section[aria-label="Computer use"]']
+    'Scheduled and running work': ['section[aria-label="Schedules"]', 'section[aria-label="Running work"]']
   }
   const servedPanels: Record<string, Array<[string, RegExp]>> = {
     'Models and providers': [['.codex-accounts', /keyring.*(?:locked|unavailable)/i]],
     Personality: [['section[aria-label="Personality"]', /preset|personality/i]],
     Tools: [['section[aria-label="Built-in tools"]', /run_command/], ['section[aria-label="Tool timeouts"]', /Default|seconds/i]],
+    Skills: [['section[aria-label="Skills"]', /New skill/]],
+    'MCP servers': [['section[aria-label="MCP"]', /0 of 0 servers connected.*0 tools offered/s], ['section[aria-label="MCP servers"]', /Add server/]],
     'Hosts and trust': [['section[aria-label="Hosts"]', /localhost/]],
     State: [['section[aria-label="Memory"]', /0 entries/], ['section[aria-label="Named lists"]', /No lists\./], ['section[aria-label="Knowledge"]', /Knowledge/]],
-    Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /not measured: Odin doesn't know this value/], ['section[aria-label="Audit"]', /Nothing recorded\./], ['section[aria-label="Logs"]', /No entries\./], ['section[aria-label="Turn state"]', /Turn state is off\./]]
+    Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /not measured: Odin doesn't know this value/], ['section[aria-label="Audit"]', /Nothing recorded\./], ['section[aria-label="Logs"]', /No entries\./], ['section[aria-label="Turn state"]', /Turn state is off\./], ['section[aria-label="Computer use"]', /Refresh/]]
   }
   const observations = await run<Record<string, { ok: boolean; result?: unknown; error?: { code: string; message: string } }>>(`(async () => ({
     settings: await window.odin.settingsSchema(), hosts: await window.odin.hostsList({}),
@@ -226,7 +258,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     memory: await window.odin.memoryList({}), lists: await window.odin.listsList({}),
     knowledge: await window.odin.knowledgeList({}), audit: await window.odin.auditQuery({}),
     logs: await window.odin.logsSearch({ level: 'all' }), turns: await window.odin.turnStateList({}),
-    usage: await window.odin.usage('7d'), accounts: await window.odin.codexAccounts()
+    usage: await window.odin.usage('7d'), accounts: await window.odin.codexAccounts(),
+    skills: await window.odin.skillsList({}), mcp: await window.odin.mcpStatus({}),
+    computer: await window.odin.computerStatus({})
   }))()`)
   for (const [name, answer] of Object.entries(observations)) {
     if (name === 'accounts') {
@@ -239,6 +273,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(hostData.hosts[0]!.trust_state, 'local')
   assert.equal(hostData.default_host, 'localhost')
   assert.deepEqual(observations.audit!.result, [], 'fresh audit must have no invented tool records')
+  assert.deepEqual(observations.skills!.result, reads['skills.list'])
+  assert.deepEqual(observations.mcp!.result, reads['mcp.status'])
+  assert.deepEqual(observations.computer!.result, reads['computer.status'])
   assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [])
   assert.equal((observations.turns!.result as { availability: string }).availability, 'not_enabled')
   for (let i = 0; i < sections.length; i++) {
@@ -284,6 +321,14 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     }
     if (sections[i] === 'Records') {
       assert((await text('section[aria-label="Health"]')).includes('host(s) configured'), 'real health must observe profile hosts')
+      // The legacy Records renderer still expects a flat session shape. Prove
+      // the served read/refresh and absence of session controls, not a usable
+      // native surface or an invented enabled/state projection.
+      assert.equal(await count('section[aria-label="Computer use"] .manage-name, section[aria-label="Computer use"] .manage-actions'), 0, 'fresh computer management must not invent a session or recovery action')
+    }
+    if (sections[i] === 'Skills' || sections[i] === 'MCP servers') {
+      assert.equal(await count('.settings-body .manage-row'), 0, 'fresh Step 6A management must not display fixture skills or servers')
+      assert.equal(await count('.settings-body .warn'), 0, 'served Step 6A reads must not present a renderer fault')
     }
     assert.equal(await run('document.querySelectorAll(".settings-body [role=alert]").length'), 0, `${sections[i]} must not present capability refusal as a fault`)
     assert.equal(await run('document.querySelectorAll(".settings-body .work-item, .settings-body .account").length'), 0, `${sections[i]} must not display fixture accounts/work`)
