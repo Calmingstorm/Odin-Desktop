@@ -148,7 +148,7 @@ export const controlSchema = z
     control_command_id: z.uuid(),
     conversation_id: coreId,
     request_id: coreId,
-    generation: z.number().int().nonnegative()
+    generation: z.number().int().positive()
   })
   .strict()
 

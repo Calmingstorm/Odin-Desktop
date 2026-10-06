@@ -148,6 +148,22 @@ describe('review round 1: attachment cancellation and cleanup', () => {
     expect(await manager.upload(staged.result.id, conversationId)).toMatchObject({ ok: false, error: { code: 'not_found' } })
   })
 
+  it('cancels the begun upload even if chunk transport and cancellation both throw', async () => {
+    const methods: string[] = []
+    const manager = new AttachmentManager({
+      request: async (method) => {
+        methods.push(method)
+        if (method === 'attachments.begin') return { ok: true, result: { upload_id: 'u_real', chunk_bytes: 4 } }
+        throw new Error('transport unavailable')
+      }
+    }, () => ({ attachment_bytes: 1024, chunk_bytes: 4 }))
+    const staged = manager.stageBytes('notes.txt', 'text/plain', Buffer.from('abcdefgh'))
+    if (!staged.ok) throw new Error('not staged')
+    expect(await manager.upload(staged.result.id, 'c_real')).toMatchObject({ ok: false, error: { code: 'internal' } })
+    expect(methods).toEqual(['attachments.begin', 'attachments.chunk', 'attachments.cancel'])
+    expect(await manager.upload(staged.result.id, 'c_real')).toMatchObject({ ok: false, error: { code: 'not_found' } })
+  })
+
   it('attaches an empty file, as Odin does', async () => {
     const { manager, conversationId, dir } = await setup()
     const path = join(dir, 'empty.txt')

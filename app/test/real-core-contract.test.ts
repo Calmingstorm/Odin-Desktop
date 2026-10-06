@@ -1,13 +1,16 @@
-import { randomUUID } from 'node:crypto'
-import { statSync, writeFileSync } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
+import { readFileSync, readlinkSync, statSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import type { ConversationSnapshot, CoreEvent } from '../src/shared/api'
 import { PROTOCOL, type Settled, type Welcome } from '../src/main/broker'
+import { FILE_CONTENT, IMAGE_BYTES, PAGED_TEXT, REPLY, TOOL_REPLY } from './real-core-provider-fixture.mjs'
 import { AttachmentManager } from '../src/main/attachments'
 import { assertIsolated, onceEvent, RealCoreHarness, waitFor, SERVED_CAPABILITIES } from './real-core-harness'
 import { assertFreshManagementStatus, realCoreCapabilities, type RealCoreStatus } from '../src/main/real-core-smoke'
+import { assertRealCoreIsolation } from '../scripts/real-core-isolation.mjs'
+import { assertIsolated as assertSmokeIsolated } from './real-core-smoke-seed'
 
 // Intentional module-level hard failure if someone invokes this file with the normal/unisolated Vitest gate.
 assertIsolated()
@@ -23,6 +26,22 @@ function refused(answer: Settled, code: string, disposition = 'rejected'): void 
 }
 type Status = RealCoreStatus
 type Subscription = { event_high: string; reset_required: boolean }
+
+test('chat smoke accepts a runner descendant while the exact PID-1 guard still refuses it', () => {
+  expect(process.pid).not.toBe(1)
+  const namespace = readlinkSync('/proc/self/ns/pid')
+  expect(namespace).not.toBe(process.env.ODIN_REAL_CORE_OUTER_PID_NS)
+  expect(readlinkSync('/proc/1/ns/pid')).toBe(namespace)
+  const repository = resolve(__dirname, '../..')
+  expect(readFileSync('/proc/1/cmdline', 'utf8').split('\0').slice(0, 3)).toEqual([
+    process.execPath, join(repository, 'app/scripts/real-core-isolation.mjs'), '--inside-run'
+  ])
+  expect(String(process.getuid!())).toBe(process.env.ODIN_REAL_CORE_UID)
+  expect(String(process.getgid!())).toBe(process.env.ODIN_REAL_CORE_GID)
+  expect(assertSmokeIsolated).toBe(assertIsolated)
+  expect(() => assertSmokeIsolated()).not.toThrow()
+  expect(() => assertRealCoreIsolation()).toThrow('PID 1 and a separate PID namespace with private /proc')
+})
 
 describe('actual app Broker ↔ repository real core', () => {
   let core: RealCoreHarness
@@ -455,5 +474,311 @@ describe('actual app Broker ↔ repository real core', () => {
     await core.start()
     const nextInstance = await next
     expect(successful<Status>(await broker.request('status.get', {}, id)).core_instance_id).toBe(nextInstance)
+  })
+})
+
+type Conversation = { id: string; rev: number; title: string; archived: boolean; parent_id: string | null }
+type Message = { id: string; role: string; text: string; request_id?: string;
+  artifacts?: { ref: string; name: string; mime: string }[]; attachments?: { ref: string }[] }
+type Snapshot = { conversation: Conversation; watermark: string; messages: { items: Message[] };
+  running: { request_id: string; generation: number } | null; queued: { request_id: string }[];
+    recent: { request_id: string; outcome: string; unknown_effects: number }[];
+    tools: Record<string, { invocation_id: string; tool: string }[]>; controls: unknown[] }
+type Submission = { disposition: string; request_id: string; message_id: string }
+
+describe('provider-backed steps 2-4 through the real Broker and real OpenAICompatibleClient', () => {
+  let core: RealCoreHarness
+  beforeEach(async () => {
+    core = new RealCoreHarness()
+    await core.configureProvider()
+    await core.start()
+  })
+  afterEach(async () => { await core?.dispose() })
+
+  async function setup() {
+    const { broker } = await core.connect()
+    const events: CoreEvent[] = []
+    broker.on('event', (event: CoreEvent) => events.push(event))
+    successful(await broker.subscribe())
+    const conversation = successful<{ conversation: Conversation }>(await broker.request(
+      'conversations.create', { title: 'Provider contract' }, randomUUID())).conversation
+    const snapshot = async () => successful<Snapshot>(await broker.request('conversation.snapshot', { conversation_id: conversation.id }))
+    const send = async (text: string, extra = {}) => successful<Submission>(await broker.request('submission.send', {
+      conversation_id: conversation.id, client_submission_id: randomUUID(), text, ...extra
+    }, randomUUID()))
+    const settled = async (request: Submission, outcome = 'completed') => {
+      await waitFor(() => events.some((event) => event.type === `request.${outcome}` && event.payload.request_id === request.request_id),
+        `${request.request_id} ${outcome}`, 12_000)
+      return snapshot()
+    }
+    const replied = async (text = REPLY) => waitFor(() => events.some((event) =>
+      event.type === 'message.committed' && (event.payload.message as Message | undefined)?.text === text), 'committed guarded reply')
+    return { broker, events, conversation, snapshot, send, settled, replied }
+  }
+
+  test('reply and immutable send receipt; CRUD/child/reset/search/jump and watermark catch-up', async () => {
+    const { broker, events, conversation, snapshot, settled, replied } = await setup()
+    const params = { conversation_id: conversation.id, client_submission_id: randomUUID(), text: '[reply] navigation contract' }
+    const sent = successful<Submission>(await broker.request('submission.send', params, randomUUID()))
+    await settled(sent)
+    await replied()
+    expect(successful(await broker.request('submission.send', params, randomUUID()))).toEqual(sent)
+    refused(await broker.request('submission.send', { ...params, text: '[reply] changed' }, randomUUID()), 'id_conflict')
+    let snap = await snapshot()
+    const reply = snap.messages.items.find((message) => message.role === 'assistant')!
+    expect(reply.text).toBe(REPLY)
+    expect(reply.request_id).toBe(sent.request_id)
+    expect(events.filter((event) => event.type === 'message.committed' && (event.payload.message as Message | undefined)?.role === 'assistant')).toHaveLength(1)
+    expect(core.provider!.requests.filter((entry) => entry.body.max_tokens !== 1)).toHaveLength(1)
+    expect(core.provider!.requests.find((entry) => entry.body.max_tokens !== 1)!.body).toMatchObject({ stream: true, model: 'canned-contract' })
+    const child = successful<{ conversation: Conversation }>(await broker.request('conversations.create', {
+      title: 'Child snapshot', parent_id: conversation.id, from_message_id: reply.id
+    }, randomUUID())).conversation
+    expect(child.parent_id).toBe(conversation.id)
+    const childSent = successful<Submission>(await broker.request('submission.send', {
+      conversation_id: child.id, client_submission_id: randomUUID(), text: '[reply] child context'
+    }, randomUUID()))
+    await waitFor(() => events.some((event) => event.type === 'request.completed' && event.payload.request_id === childSent.request_id), 'child real generation')
+    expect(JSON.stringify(core.provider!.requests.find((entry) => JSON.stringify(entry.body.messages).includes('child context'))?.body.messages)).toContain('navigation contract')
+    let current = successful<{ conversation: Conversation }>(await broker.request('conversations.update', {
+      id: conversation.id, expected_rev: snap.conversation.rev, title: 'Renamed provider contract', archived: true
+    }, randomUUID())).conversation
+    expect(current).toMatchObject({ title: 'Renamed provider contract', archived: true })
+    refused(await broker.request('conversations.update', { id: current.id, expected_rev: 1, title: 'stale' }, randomUUID()), 'stale_binding', 'stale_binding')
+    const found = successful<{ hits: { message_id: string }[] }>(await broker.request('search.query', { query: 'real core contract', conversation_id: current.id }))
+    expect(found.hits.some((hit) => hit.message_id === reply.id)).toBe(true)
+    expect(successful<{ items: Message[] }>(await broker.request('messages.around', {
+      conversation_id: current.id, message_id: reply.id, before: 0, after: 0
+    })).items).toEqual([reply])
+    const watermark = (await snapshot()).watermark
+    current = successful<{ conversation: Conversation }>(await broker.request('conversations.reset_context', {
+      id: current.id, expected_rev: current.rev
+    }, randomUUID())).conversation
+    snap = await snapshot()
+    expect(snap.messages.items.at(-1)?.text).toBe('Model context reset.')
+    expect(snap.messages.items).toContainEqual(reply)
+    const reconnected = (await core.connect()).broker
+    const replay: CoreEvent[] = []
+    reconnected.on('event', (event: CoreEvent) => replay.push(event))
+    successful(await reconnected.request('events.subscribe', { after: watermark }))
+    await waitFor(() => replay.some((event) => event.cursor === snap.watermark), 'snapshot watermark catch-up')
+    expect(replay.every((event) => BigInt(event.cursor) > BigInt(watermark))).toBe(true)
+    expect(new Set(replay.map((event) => event.cursor)).size).toBe(replay.length)
+    const afterReset = successful<Submission>(await broker.request('submission.send', {
+      conversation_id: current.id, client_submission_id: randomUUID(), text: '[reply] after reset'
+    }, randomUUID()))
+    await settled(afterReset)
+    const resetInput = core.provider!.requests.find((entry) => JSON.stringify(entry.body.messages).includes('after reset'))!
+    expect(JSON.stringify(resetInput.body.messages)).not.toContain('navigation contract')
+    expect(JSON.stringify(resetInput.body.messages)).not.toContain('child context')
+    current = (await snapshot()).conversation
+    const childCurrent = successful<Snapshot>(await broker.request('conversation.snapshot', { conversation_id: child.id })).conversation
+    successful(await broker.request('conversations.delete', { id: child.id, expected_rev: childCurrent.rev }, randomUUID()))
+    successful(await broker.request('conversations.delete', { id: current.id, expected_rev: current.rev }, randomUUID()))
+    expect(successful<{ items: Conversation[] }>(await broker.request('conversations.list')).items).toEqual([])
+    refused(await broker.request('conversation.snapshot', { conversation_id: current.id }), 'not_found')
+  })
+
+  test('harmless real tool produces activity and scoped detail rather than fixture cards', async () => {
+    const { broker, snapshot, send, settled, replied } = await setup()
+    const sent = await send('[tool] parse a harmless time')
+    await settled(sent)
+    await replied(TOOL_REPLY)
+    const snap = await snapshot()
+    const tool = snap.tools[sent.request_id]![0]!
+    expect(tool).toBeDefined()
+    const detail = successful<Record<string, unknown>>(await broker.request('tool.detail', { request_id: sent.request_id, invocation_id: tool.invocation_id }))
+    expect(JSON.stringify(detail)).toContain('parse_time')
+    expect(JSON.stringify(detail)).toContain('in 2 hours')
+    // The real completion classifier may request another generation. Require
+    // actual tool feedback, not a brittle exact count of model invocations.
+    expect(core.provider!.requests.length).toBeGreaterThanOrEqual(2)
+    expect(core.provider!.requests.some((entry) => entry.body.messages.some((message) => message.role === 'tool'))).toBe(true)
+    refused(await broker.request('tool.detail', { request_id: 'r_missing', invocation_id: tool.invocation_id }), 'not_found')
+  })
+
+  test('real retained tool output pages through the original source without duplicate tails', async () => {
+    const { broker, snapshot, send, settled, replied } = await setup()
+    const sent = await send('[paged-tool] read canned retained evidence')
+    await settled(sent)
+    await replied(TOOL_REPLY)
+    const tool = (await snapshot()).tools[sent.request_id]![0]!
+    const detail = successful<{ output: { cursor: string } }>(await broker.request('tool.detail', { request_id: sent.request_id, invocation_id: tool.invocation_id }))
+    expect(detail.output.cursor, JSON.stringify(detail)).toBeTruthy()
+    let cursor: string | undefined = detail.output.cursor
+    let text = ''
+    let pages = 0
+    while (cursor) {
+      const page: { text: string; next_cursor?: string; eof: boolean } = successful(await broker.request('tool.output', { cursor, limit: 8000 }))
+      text += page.text
+      pages++
+      expect(pages).toBeLessThan(40)
+      cursor = page.next_cursor
+      if (!cursor) expect(page.eof).toBe(true)
+    }
+    expect(pages).toBeGreaterThan(1)
+    expect(text).toContain('Evidence line 0000')
+    expect(text).toContain('Evidence line 0899')
+    expect(text.match(/Evidence line 0000/g)).toHaveLength(1)
+    expect(text.match(/Evidence line 0899/g)).toHaveLength(1)
+    expect(PAGED_TEXT.length).toBeGreaterThan(32_000)
+  })
+
+  test('posted file and decoded image carry real artifact bytes and scoped reads', async () => {
+    const { broker, events, snapshot, send, settled } = await setup()
+    const sent = await send('[artifact] post a canned text file and image')
+    await settled(sent)
+    await waitFor(() => events.filter((event) => event.type === 'artifact.published').length === 2, 'posted file/image events')
+    const artifacts = (await snapshot()).messages.items.flatMap((message) => message.artifacts ?? [])
+    expect(artifacts).toHaveLength(2)
+    const text = artifacts.find((artifact) => artifact.name === 'contract.txt')!
+    const image = artifacts.find((artifact) => artifact.mime === 'image/png')!
+    expect(image).toBeDefined()
+    for (const [artifact, expected] of [[text, Buffer.from(FILE_CONTENT)], [image, IMAGE_BYTES]] as const) {
+      const result = successful<{ data_b64: string }>(await broker.request('artifacts.read', { ref: artifact.ref, offset: 0, length: 4096 }))
+      expect(Buffer.from(result.data_b64, 'base64')).toEqual(expected)
+    }
+    refused(await broker.request('artifacts.read', { ref: 'a_missing', offset: 0, length: 4096 }), 'not_found')
+  })
+
+  test('chunked attachment commit/adoption/cancel runs processing into provider input', async () => {
+    const { broker, conversation, send, settled, snapshot, replied } = await setup()
+    const bytes = Buffer.from('CANNED_ATTACHMENT_TEXT_CONTENT\n')
+    const begin = async () => successful<{ upload_id: string }>(await broker.request('attachments.begin', {
+      client_attachment_id: randomUUID(), conversation_id: conversation.id, name: 'input.txt', mime: 'text/plain', size: bytes.length
+    })).upload_id
+    const upload = await begin()
+    for (const [offset, chunk] of [[0, bytes.subarray(0, 7)], [7, bytes.subarray(7)]] as const) {
+      successful(await broker.request('attachments.chunk', { upload_id: upload, offset, data_b64: chunk.toString('base64') }))
+    }
+    const committed = successful<{ attachment: { ref: string } }>(await broker.request('attachments.commit', {
+      upload_id: upload, sha256: createHash('sha256').update(bytes).digest('hex')
+    }))
+    const sent = await send('[reply] read my attachment', { attachments: [committed.attachment] })
+    await settled(sent)
+    await replied()
+    expect(JSON.stringify(core.provider!.requests.find((entry) => entry.body.max_tokens !== 1)!.body.messages)).toContain('CANNED_ATTACHMENT_TEXT_CONTENT')
+    expect((await snapshot()).messages.items.find((message) => message.id === sent.message_id)?.attachments).toHaveLength(1)
+    const abandoned = await begin()
+    successful(await broker.request('attachments.cancel', { upload_id: abandoned }))
+    refused(await broker.request('attachments.chunk', { upload_id: abandoned, offset: 0, data_b64: bytes.toString('base64') }), 'expired')
+  })
+
+  test('provider failure is terminal failed, never successful, and the next send runs', async () => {
+    const { events, send, settled, replied } = await setup()
+    const failed = await send('[fail] fail on demand')
+    const snap = await settled(failed, 'failed')
+    expect(snap.recent).toContainEqual(expect.objectContaining({ request_id: failed.request_id, outcome: 'failed', unknown_effects: 0 }))
+    expect(events.some((event) => event.type === 'request.completed' && event.payload.request_id === failed.request_id)).toBe(false)
+    expect(snap.messages.items.filter((message) => message.role === 'assistant').every((message) => message.text !== REPLY)).toBe(true)
+    await waitFor(() => events.some((event) => event.type === 'message.committed' &&
+      (event.payload.message as Message | undefined)?.request_id === failed.request_id &&
+      (event.payload.message as Message | undefined)?.role === 'assistant'), 'committed guarded provider error reply')
+    await settled(await send('[reply] recovery after failure'))
+    await replied()
+  })
+
+  test('held generation queues follow-up and consumes an accepted steer once at safe boundary', async () => {
+    const { broker, events, conversation, snapshot, send, settled } = await setup()
+    const active = await send('[hold-steer] hold for steering')
+    await waitFor(() => core.provider!.requests.some((entry) => entry.token === '[hold-steer]'), 'held provider generation')
+    // D9: provider generation is not transcript publication. Only the final
+    // guarded delivery can create a public assistant message.
+    expect((await snapshot()).messages.items.filter((message) => message.role === 'assistant')).toEqual([])
+    const queued = await send('[reply] queued follow-up')
+    expect((await snapshot()).queued.map((item) => item.request_id)).toContain(queued.request_id)
+    const params = { control_command_id: randomUUID(), conversation_id: conversation.id, request_id: active.request_id, generation: 1, text: 'STEERING_DIRECTIVE_CONTRACT' }
+    const receipt = await broker.request('control.steer', params, randomUUID())
+    expect(successful(receipt)).toMatchObject({ disposition: 'queued', sequence: 1 })
+    expect(await broker.request('control.steer', params, randomUUID())).toEqual(receipt)
+    core.provider!.release('[hold-steer]')
+    await settled(active)
+    await settled(queued)
+    await waitFor(() => events.some((event) => event.type === 'control.receipt' && event.payload.disposition === 'consumed'), 'steer consumed receipt')
+    expect(JSON.stringify(core.provider!.requests.map((entry) => entry.body.messages))).toContain('STEERING_DIRECTIVE_CONTRACT')
+    expect((await snapshot()).queued).toEqual([])
+  })
+
+  test('request-bound stop and stale controls never retarget a successor; resume answers honestly', async () => {
+    const { broker, events, conversation, send, settled } = await setup()
+    const active = await send('[hold-stop] wait for stop')
+    await waitFor(() => core.provider!.requests.some((entry) => entry.token === '[hold-stop]'), 'held stop generation')
+    const params = { control_command_id: randomUUID(), conversation_id: conversation.id, request_id: active.request_id, generation: 1 }
+    const stopped = await broker.request('control.stop', params, randomUUID())
+    expect(successful(stopped)).toMatchObject({ disposition: 'requested' })
+    expect(await broker.request('control.stop', params, randomUUID())).toEqual(stopped)
+    await waitFor(() => events.some((event) => ['request.cancelled', 'request.suspended'].includes(event.type) && event.payload.request_id === active.request_id), 'stopped generation settled')
+    expect(events.some((event) => event.type === 'control.receipt' && event.payload.control_command_id === params.control_command_id)).toBe(true)
+    expect(successful(await broker.request('control.stop', { ...params, control_command_id: randomUUID(), generation: 99 }, randomUUID()))).toMatchObject({ disposition: 'stale_binding' })
+    const resumed = await broker.request('control.resume', { ...params, control_command_id: randomUUID() }, randomUUID())
+    expect(successful(resumed)).toMatchObject({ disposition: 'rejected', reason: 'not_resumable' })
+    await settled(await send('[reply] successor after stop'))
+  })
+
+  test.each(['control', 'continue'])('restart interrupted checkpoint resumes the same request on generation 2 via %s, not a new submission', async (path) => {
+    const { broker, conversation, send, snapshot } = await setup()
+    const active = await send('[hold-stop] preserve resumable checkpoint')
+    await waitFor(() => core.provider!.requests.some((entry) => entry.token === '[hold-stop]'), 'checkpoint generation HTTP request')
+    expect((await snapshot()).messages.items.filter((message) => message.role === 'assistant')).toEqual([])
+    // The isolated core loses its process-local worker while retaining the real
+    // durable generation checkpoint. No test-made ledger rows or fake decoder.
+    core.child.kill('SIGKILL')
+    await core.waitExit()
+    broker.close()
+    core.provider!.release('[hold-stop]')
+    await core.start()
+    const restarted = (await core.connect()).broker
+    const events: CoreEvent[] = []
+    restarted.on('event', (event: CoreEvent) => events.push(event))
+    successful(await restarted.subscribe())
+    const params = { control_command_id: randomUUID(), conversation_id: conversation.id,
+      request_id: active.request_id, generation: 1 }
+    const method = path === 'control' ? 'control.resume' : 'submission.send'
+    const submitted = path === 'control' ? params : { conversation_id: conversation.id, client_submission_id: randomUUID(), text: 'continue' }
+    const admitted = await restarted.request(method, submitted, randomUUID())
+    expect(successful(admitted)).toMatchObject(path === 'control' ? { disposition: 'admitted' }
+      : { disposition: 'accepted', request_id: active.request_id, message_id: active.message_id })
+    expect(await restarted.request(method, submitted, randomUUID())).toEqual(admitted)
+    await waitFor(() => events.some((event) => event.type === 'request.completed' && event.payload.request_id === active.request_id), 'resumed completion')
+    const snap = successful<Snapshot>(await restarted.request('conversation.snapshot', { conversation_id: conversation.id }))
+    expect(snap.recent).toContainEqual(expect.objectContaining({ request_id: active.request_id, generation: 2, outcome: 'completed' }))
+    expect(snap.messages.items.filter((message) => message.role === 'user').map((message) => message.id)).toEqual([active.message_id])
+    await waitFor(() => events.some((event) => event.type === 'message.committed' && (event.payload.message as Message | undefined)?.text === REPLY), 'resumed guarded reply')
+  })
+
+  test('continue with no resumable request commits an ordinary message', async () => {
+    const { send, settled } = await setup()
+    const sent = await send('continue')
+    const snap = await settled(sent)
+    expect(snap.messages.items.filter((message) => message.role === 'user')).toEqual([
+      expect.objectContaining({ id: sent.message_id, request_id: sent.request_id, text: 'continue' })
+    ])
+  })
+
+  test('typed resume of unreadable real checkpoint commits one failure notice, no new user message or execution', async () => {
+    const { broker, conversation, send } = await setup()
+    const preserved = await send('[hold-stop] preserve busy resume contract')
+    await waitFor(() => core.provider!.requests.some((entry) => entry.token === '[hold-stop]'), 'real checkpoint before interruption')
+    core.child.kill('SIGKILL')
+    await core.waitExit()
+    broker.close()
+    core.corruptCheckpoint(preserved.request_id)
+    await core.start()
+    const restarted = (await core.connect()).broker
+    const events: CoreEvent[] = []
+    restarted.on('event', (event: CoreEvent) => events.push(event))
+    successful(await restarted.subscribe())
+    const sid = randomUUID()
+    const params = { conversation_id: conversation.id, client_submission_id: sid, text: 'continue' }
+    const failed = await restarted.request('submission.send', params, randomUUID())
+    expect(successful(failed)).toMatchObject({ disposition: 'rejected', reason: 'checkpoint_unavailable', request_id: preserved.request_id, message_id: preserved.message_id })
+    expect(await restarted.request('submission.send', params, randomUUID())).toEqual(failed)
+    const snap = successful<Snapshot>(await restarted.request('conversation.snapshot', { conversation_id: conversation.id }))
+    expect(snap.messages.items.filter((message) => message.role === 'user').map((message) => message.id)).toEqual([preserved.message_id])
+    expect(snap.messages.items.filter((message) => message.role === 'notice' && message.request_id === preserved.request_id)).toEqual([
+      expect.objectContaining({ client_submission_id: sid, text: expect.stringContaining('no longer resumable') })
+    ])
+    expect(snap.running).toBeNull()
+    expect(events.some((event) => event.type === 'request.started' && event.payload.request_id === preserved.request_id && event.payload.generation === 2)).toBe(false)
   })
 })

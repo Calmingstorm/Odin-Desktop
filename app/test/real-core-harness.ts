@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { Broker, type Welcome } from '../src/main/broker'
 import { ensureProfileDirs, ensureToken, profilePaths, type ProfilePaths } from '../src/main/paths'
+import { startCannedProvider } from './real-core-provider-fixture.mjs'
+import { configureCannedProvider } from '../src/main/real-core-smoke'
 
 const repository = resolve(__dirname, '../..')
 
@@ -58,7 +60,7 @@ export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.s
   'computer.operator_reconcile', 'computer.release_owned_input', 'computer.activation.set'
 ].sort()]
 
-type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string; workProof?: boolean }
+type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string; profileRoot?: string; workProof?: boolean }
 
 // Only the external secret/auth boundary is substituted. The entry point, management services,
 // transport, command journal, settings persistence and Broker remain the actual repository code.
@@ -156,6 +158,8 @@ export class RealCoreHarness {
   private output = ''
   private exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }> | null = null
   private readonly brokers = new Set<Broker>()
+  private providerConfigured = false
+  provider: Awaited<ReturnType<typeof startCannedProvider>> | null = null
 
   constructor(private readonly services: IsolatedServices = {}) {
     this.python = enginePython()
@@ -166,7 +170,8 @@ export class RealCoreHarness {
         throw new Error('Isolated auth must be a disposable HTTP server on 127.0.0.1 with an explicit port.')
       }
     }
-    this.root = mkdtempSync(join(process.env.ODIN_REAL_CORE_ROOT!, 'profile-'))
+    if (services.profileRoot && services.profileRoot !== process.env.ODIN_REAL_CORE_ROOT) throw new Error('Shared smoke profile must belong to the isolation runner.')
+    this.root = services.profileRoot ?? mkdtempSync(join(process.env.ODIN_REAL_CORE_ROOT!, 'profile-'))
     this.env = {
       PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8', HOME: this.root,
       XDG_CONFIG_HOME: join(this.root, 'config'), XDG_DATA_HOME: join(this.root, 'data'),
@@ -192,8 +197,10 @@ export class RealCoreHarness {
     assertIsolated()
     if (this.running) throw new Error('Real core is already running.')
     this.output = ''
-    const entry = this.services.workProof ? [join(repository, 'app/test/services-b-core.py')] : this.services.memoryKeyring || this.services.authBaseUrl
-      ? ['-c', isolatedServicesBootstrap, this.services.memoryKeyring ? 'memory' : 'missing', this.services.authBaseUrl ?? '']
+    this.providerConfigured = false
+    const entry = this.services.workProof ? [join(repository, 'app/test/services-b-core.py')]
+      : this.services.memoryKeyring || this.provider || this.services.authBaseUrl
+        ? ['-c', isolatedServicesBootstrap, this.services.memoryKeyring || this.provider ? 'memory' : 'missing', this.services.authBaseUrl ?? '']
       : ['-m', 'src']
     const child = spawn(this.python, ['-B', '-P', ...entry, '--socket', this.paths.socketPath,
       '--token-file', this.paths.tokenPath, '--profile', this.paths.profileId, '--data-dir', this.paths.dataDir],
@@ -223,6 +230,11 @@ export class RealCoreHarness {
     }, 'actual manager proof admission', 12_000)
   }
 
+  async configureProvider(): Promise<void> {
+    if (this.running) throw new Error('Configure the canned provider before core startup.')
+    this.provider = await startCannedProvider({ root: join(this.root, 'provider') })
+  }
+
   broker(wrongToken = false): Broker {
     const broker = new Broker({
       socketPath: this.paths.socketPath,
@@ -242,6 +254,10 @@ export class RealCoreHarness {
     const ready = onceEvent<Welcome>(broker, 'welcome')
     broker.connect()
     const welcome = await ready
+    if (this.provider && !this.providerConfigured) {
+      await configureCannedProvider(broker, this.provider.baseUrl)
+      this.providerConfigured = true
+    }
     return { broker, welcome }
   }
 
@@ -274,6 +290,16 @@ export class RealCoreHarness {
 
   get diagnostics(): string { return this.output }
 
+  /** Damage only an existing checkpoint's integrity proof offline. No invented authority. */
+  corruptCheckpoint(requestId: string): void {
+    assertIsolated()
+    if (this.running) throw new Error('Checkpoint corruption requires the owned core to have exited.')
+    const result = spawnSync(this.python, ['-c',
+      'import sqlite3,sys; db=sqlite3.connect(sys.argv[1]); row=db.execute("UPDATE turns SET payload_digest=? WHERE message_id=? AND payload IS NOT NULL",("invalid-contract-digest",sys.argv[2])); assert row.rowcount==1; db.commit(); db.close()',
+      join(this.paths.dataDir, 'turn_state/turns.db'), requestId], { cwd: repository, env: this.env, encoding: 'utf8', timeout: 5000 })
+    if (result.error || result.status !== 0) throw new Error(`Checkpoint corruption failed: ${result.error?.message ?? result.stderr}`)
+  }
+
   /** Lock only the ephemeral adapter; never touch a host keyring or Secret Service. */
   lockKeyring(): void {
     assertIsolated()
@@ -302,7 +328,8 @@ export class RealCoreHarness {
         }
       }
     } finally {
-      if (!this.running) rmSync(this.root, { recursive: true, force: true })
+      await this.provider?.close()
+      if (!this.running && !this.services.profileRoot) rmSync(this.root, { recursive: true, force: true })
     }
   }
 }
