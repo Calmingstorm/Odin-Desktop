@@ -63,6 +63,31 @@ def test_fresh_inspection_creates_nothing(tmp_path):
     assert not (tmp_path / "empty").exists()
 
 
+@pytest.mark.parametrize("area", ["config", "data"])
+def test_compatible_owned_xdg_ancestor_link_keeps_package_upgrade_supported(tmp_path, area):
+    actual = tmp_path / "real-root"
+    actual.mkdir()
+    linked = tmp_path / "xdg-root"
+    linked.symlink_to(actual, target_is_directory=True)
+    roots = {"XDG_CONFIG_HOME": str(tmp_path / "config"),
+             "XDG_DATA_HOME": str(tmp_path / "data"),
+             "XDG_CACHE_HOME": str(tmp_path / "cache")}
+    roots["XDG_" + area.upper() + "_HOME"] = str(linked)
+    paths = ProfilePaths.from_xdg("linked", environ=roots, home=tmp_path)
+    authority = OwnerAuthority(paths)
+    authority.acquire_runtime()
+    try:
+        store = journal(paths, authority)
+        store.close()
+        upgrade = PackageUpgrade(paths, authority, "linked-candidate")
+        upgrade.prepare()
+        upgrade.commit()
+        assert inspect_profile(paths)["state"] == "committed"
+        assert linked.is_symlink()
+    finally:
+        authority.release_runtime()
+
+
 @pytest.mark.parametrize("key", list(compatibility()))
 def test_newer_independent_versions_refuse_without_writes(profile, key):
     paths, authority = profile

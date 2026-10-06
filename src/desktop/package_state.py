@@ -47,7 +47,12 @@ def _check_versions(value):
 
 @contextlib.contextmanager
 def _reader(path: Path):
-    """Anchor every directory without creating, chmodding or following links."""
+    """Resolve supported XDG ancestor links once, then anchor the real folders.
+
+    The final state file still opens O_NOFOLLOW. Existing XDG root symlinks are
+    supported by the profile owner and must not become a new package policy.
+    """
+    path = path.parent.resolve(strict=False) / path.name
     directory = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
     fd = None
     try:
