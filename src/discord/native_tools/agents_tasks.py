@@ -1121,13 +1121,12 @@ class AgentTaskTools:
             targets = [info.id for info in self._loop_manager._loops.values()
                        if info.status == "running"
                        and info.requester_id == message.owner_id]
-            if not targets:
-                return "No active loops to stop."
             results = []
             for target in targets:
                 results.append(await self._control_work(message, "loop", target, "stop"))
-            return "\n".join(results)
-        result = await self._control_work(message, "loop", loop_id, "stop")
+            result = "\n".join(results) if results else "No active loops to stop."
+        else:
+            result = await self._control_work(message, "loop", loop_id, "stop")
         # Lifecycle webhook: loop.stopped
         fire_and_forget(
             self._turn_recorder._emit_lifecycle_event(

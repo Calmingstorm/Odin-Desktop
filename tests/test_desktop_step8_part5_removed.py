@@ -8,6 +8,7 @@ import asyncio
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -194,20 +195,39 @@ async def test_stop_all_retained_owner_semantics_supplemental(graph):
     manager = engine.deps.loop_manager
     agents = engine.deps.native_tools.owners["agents"]
     assert agents._loop_manager is manager
-    stop = AsyncMock(return_value="stopped 3 loops")
-    original = manager.stop_loop
-    manager.stop_loop = stop
+    from src.tools.autonomous_loop import LoopInfo
+
+    rows = [LoopInfo(id=ident, goal="fixture", mode="silent", interval_seconds=0,
+                     stop_condition=None, max_iterations=3, channel_id="fixture",
+                     requester_id=requester, requester_name="fixture")
+            for ident, requester in (("owned-loop", "fixture-owner"),
+                                     ("foreign-loop", "fixture-other"))]
+    control = AsyncMock(side_effect=lambda message, kind, target, action: f"stopped {target}")
+    emitted = []
+
+    async def emit(event, data):
+        emitted.append((event, data))
+
+    recorder = agents._turn_recorder
+    agents._control_work = control
+    recorder._emit_lifecycle_event = emit
+    manager._loops.update({row.id: row for row in rows})
     try:
-        # This owner is real and composed, but readiness currently hides the
-        # tool and there is no management stop-all IPC. This is supplemental
-        # owner evidence, not restoration of the unavailable app surface.
-        result = await agents._handle_stop_loop({"loop_id": "all"})
-        assert result == "stopped 3 loops"
-        stop.assert_called_once_with("all")
-        # The retained handler emits a nonblocking lifecycle notification.
-        await asyncio.sleep(0)
+        # Stop-all reaches only the caller's running loops, each through the
+        # journaled work control, then emits Odin's single loop.stopped event.
+        result = await agents._handle_stop_loop(
+            SimpleNamespace(owner_id="fixture-owner"), {"loop_id": "all"})
+        assert result == "stopped owned-loop"
+        assert [call.args[1:] for call in control.await_args_list] == [
+            ("loop", "owned-loop", "stop")]
+        for _ in range(3):
+            await asyncio.sleep(0)
+        assert emitted == [("loop.stopped", {"loop_id": "all", "result": result})]
     finally:
-        manager.stop_loop = original
+        del agents._control_work
+        del recorder._emit_lifecycle_event
+        for row in rows:
+            manager._loops.pop(row.id, None)
 
 
 @pytest.mark.asyncio
@@ -255,7 +275,6 @@ async def test_stop_all_retained_owner_waits_for_synthetic_task_settlement(graph
 async def test_tool_batch_budget_and_retained_cycle_count_supplemental(graph, monkeypatch):
     from types import SimpleNamespace
 
-    from src.discord.tool_loop import Phase2WiringRequired
     from src.llm.types import LLMResponse, ToolCall
     from src.tools.autonomous_loop import LoopInfo
 
@@ -309,6 +328,9 @@ async def test_tool_batch_budget_and_retained_cycle_count_supplemental(graph, mo
     row = LoopInfo(id="synthetic-budget", goal="fixture", mode="silent",
         interval_seconds=0, stop_condition=None, max_iterations=3,
         channel_id=cid, requester_id="fixture", requester_name="fixture")
+    # Loop notices go to the owning conversation's publisher (attached at
+    # admission in production), never straight to the delivery channel.
+    row._publish = AsyncMock()
     cycles = []
 
     async def cycle(_prompt, supplied_channel, previous, cancel):
@@ -322,13 +344,15 @@ async def test_tool_batch_budget_and_retained_cycle_count_supplemental(graph, mo
     assert cycles == [1, 2, 3]
     assert row.iteration_count == row.max_iterations == 3
     assert row.status == "completed" and not row._cancel_event.is_set()
-    channel.send.assert_awaited_once_with(
-        "Loop `synthetic-budget` completed after 3 iterations.")
+    row._publish.assert_awaited_once_with(
+        row, "Loop `synthetic-budget` completed after 3 iterations.")
+    channel.send.assert_not_awaited()
     assert len(provider.calls) == 2 and len(executed) == 6
-    # The per-autonomous-cycle LLM cap itself remains unavailable at the
-    # composed entrypoint; these assertions do not claim live loop readiness.
-    with pytest.raises(Phase2WiringRequired):
+    # Step 6B restores the composed autonomous entrypoint. Without the current
+    # admitted request owner it refuses before any provider generation.
+    with pytest.raises(PermissionError, match="current admitted request owner"):
         await engine.runner.run_autonomous("fixture", channel, None, "fixture")
+    assert len(provider.calls) == 2
     assert manager.start_loop("fixture", channel, "fixture", "fixture", cycle,
         max_iterations=3).startswith("Error: Autonomous loops unavailable:")
     assert manager._loops == {}

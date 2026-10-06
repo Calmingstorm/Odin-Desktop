@@ -2,8 +2,8 @@
 
 No readiness override, fake executor, desktop input or production profile. The
 provider/keyring boundaries and Unix RPC helpers are the existing D19 fixtures.
-Background admission is currently refused, not restored: this test deliberately
-does not turn a stale delegate_task request into an invented background owner.
+Restored background admission uses the real request-bound owner. Trace spies
+prove only these bounded flows avoid the old guards, not universal reachability.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from src.tools import output_authorization, runtime_delivery
 from src.tools.result_validator import ToolResult
 from tests.test_desktop_d19_behaviour import composed as composed  # shared pytest fixture
 from tests.test_desktop_d19_behaviour import (
+    configure_agent_fixture,
     conversation,
     rpc,
     tool_results,
@@ -174,7 +175,7 @@ async def guarded_core(guard_spies, composed):
 
 
 @pytest.mark.parametrize("flow", [
-    "chat_history", "background_admission_refusal", "mcp_start_stop", "shutdown",
+    "chat_history", "background_admission", "mcp_start_stop", "shutdown",
 ])
 async def test_composed_flows_never_invoke_legacy_guards(guarded_core, guard_spies, flow):
     """All eleven spies are installed before CoreService.start and through close."""
@@ -194,19 +195,32 @@ async def test_composed_flows_never_invoke_legacy_guards(guarded_core, guard_spi
         assert any(row.get("artifacts") for row in graph.core.transcript.list(cid)["items"])
         assert guard_spies.visited["014"] > 0
         assert guard_spies.visited["015"] > 0
-    elif flow == "background_admission_refusal":
+    elif flow == "background_admission":
         tasks = graph.core.engine.deps.channel_state.background_tasks
-        before = dict(tasks)
+        assert not tasks
         cid = await conversation(graph)
         await turn(graph, cid, "delegate_task", {
             "description": "Bounded background admission proof",
             "steps": [{"tool_name": "memory_manage", "tool_input": {
-                "action": "save", "scope": "global", "key": "never", "value": "run"}}],
-        }, expected_state="failed")
-        assert "delegate_task" not in {row["name"] for row in graph.provider.calls[0]["tools"]}
-        assert "Output capability unavailable" in graph.core.transcript.read_conversation(
-            cid)[-1]["text"]
-        assert tasks == before
+                "action": "save", "scope": "global", "key": "d19_guard_background",
+                "value": "run"}}],
+        })
+        assert "delegate_task" in {row["name"] for row in graph.provider.calls[0]["tools"]}
+        assert len(tasks) == 1
+        async with asyncio.timeout(5):
+            while any(task.status in {"pending", "running"} for task in tasks.values()):
+                await asyncio.sleep(.01)
+        task = next(iter(tasks.values()))
+        assert task.status == "completed", task.results
+        assert task.requester_id == graph.core.authority.owner_id
+        assert graph.core.management.executor._load_all_memory()["global"][
+            "d19_guard_background"] == "run"
+        work = (await rpc(graph, "work.list", {"kind": "task"}))["items"]
+        assert len(work) == 1 and work[0]["state"] == "completed"
+        assert work[0]["conversation_id"] == cid
+        assert graph.core.requests.get_request(work[0]["request_id"])["state"] == "completed"
+        assert guard_spies.visited["014"] > 0
+        assert guard_spies.visited["015"] > 0
     elif flow == "mcp_start_stop":
         from src.tools.mcp.manager import MCPManager
 
@@ -350,59 +364,68 @@ def test_runtime_miscomposition_branch_spies_positive_control(case):
     spy.assert_called_once()
 
 
-async def test_agent_invocation_context_is_dead_after_unconditional_spawn_fence(guarded_core):
-    """D19-006 is not the reachable D19-005 admission refusal.
+async def test_restored_agent_context_requires_admission_and_reaches_real_registration(guarded_core):
+    """Trace the real admission line, not an obsolete unconditional spawn fence.
 
-    Unlike row001, Python does not even emit bytecode for this obsolete raise.
-    Prove that structurally, trace the precise real method, and reach its earlier
-    fence without disabling readiness or fabricating a task-owned agent context.
+    The two old diagnostics are removed, not merely dead after an earlier raise.
+    Stored envelopes still cannot invent current authority. A composed admission
+    reaches registration and settles with the legacy guard spies still active.
     """
     graph = guarded_core
+    configure_agent_fixture(graph)
+    cid = await conversation(graph)
+    receipt = await turn(graph, cid)
+    preserved = graph.core.requests.fetch_request(cid, receipt["request_id"])
     owner = graph.core.engine.deps.native_tools.owners["agents"]
     handler = type(owner)._handle_spawn_agent
     source, start = inspect.getsourcelines(handler)
     node = ast.parse(textwrap.dedent("".join(source))).body[0]
     assert isinstance(node, ast.AsyncFunctionDef)
-    first = node.body[1]  # function docstring precedes the unconditional fence
-    assert isinstance(first, ast.Raise)
-    assert ast.literal_eval(first.exc.args[0]) == (
-        "Phase 2 agent request admission and invocation context is not implemented.")
-    dead = [part for part in node.body if isinstance(part, ast.Raise)
-            and isinstance(part.exc, ast.Call)
-            and part.exc.args
-            and isinstance(part.exc.args[0], ast.Constant)
-            and part.exc.args[0].value == "Phase 2 agent invocation context is not implemented."]
-    assert len(dead) == 1
-    dead_line = start + dead[0].lineno - 1
-    assert dead_line not in {line for _, _, line in handler.__code__.co_lines()}
-    assert "Phase 2 agent invocation context is not implemented." not in handler.__code__.co_consts
+    for obsolete in (
+        "Phase 2 agent request admission and invocation context is not implemented.",
+        "Phase 2 agent invocation context is not implemented.",
+    ):
+        assert obsolete not in handler.__code__.co_consts
+        assert not [part for part in ast.walk(node) if isinstance(part, ast.Constant)
+                    and part.value == obsolete]
+    registration = [part for part in ast.walk(node) if isinstance(part, ast.Call)
+                    and isinstance(part.func, ast.Attribute)
+                    and part.func.attr == "register_background"]
+    assert len(registration) == 1
+    admission_line = start + registration[0].lineno - 1
+    assert admission_line in {line for _, _, line in handler.__code__.co_lines()}
     visited = []
-    spy = Mock(side_effect=AssertionError("D19-006 dead invocation context reached"))
     previous = sys.gettrace()
 
     def trace(frame, event, arg):
         if frame.f_code is handler.__code__:
             if event == "line":
                 visited.append(frame.f_lineno)
-                if frame.f_lineno == dead_line:
-                    spy()
             return trace
         return previous(frame, event, arg) if previous else None
 
     sys.settrace(trace)
     try:
-        # Directly exercise the actual owner to distinguish unreachable 006
-        # from reachable 005. This is deliberately not a composed admission.
-        with pytest.raises(RuntimeError, match="agent request admission and invocation context"):
-            await owner._handle_spawn_agent(None, {"label": "fixture", "goal": "no execution"})
-        assert visited and start + first.lineno - 1 in visited
-        for tool, arguments in [
-            ("spawn_agent", {"label": "fixture", "goal": "no execution", "model": "compat:test"}),
-            ("get_agent_results", {"agent_id": "fixture"}),
-        ]:
-            await turn(graph, await conversation(graph), tool, arguments, expected_state="failed")
-            assert tool not in {row["name"] for row in graph.provider.calls[0]["tools"]}
+        with pytest.raises(PermissionError, match="Foreign request binding"):
+            await owner._handle_spawn_agent(preserved, {"label": "fixture", "goal": "no execution"})
+        assert admission_line in visited
+        assert not graph.core.engine.deps.agent_manager._agents
+        assert not list(graph.core.store.connection.execute(
+            "SELECT request_id FROM desktop_background_requests WHERE kind='agent'"))
+        visited.clear()
+        await turn(graph, cid, "spawn_agent", {"label": "fixture", "goal": "Bounded result"},
+                   background_replies=1)
+        assert admission_line in visited
+        assert "spawn_agent" in {row["name"] for row in graph.provider.calls[0]["tools"]}
+        agents = graph.core.engine.deps.agent_manager._agents
+        assert len(agents) == 1
+        agent = next(iter(agents.values()))
+        await asyncio.wait_for(agent._task, 5)
+        assert agent.requester_id == graph.core.authority.owner_id
+        assert agent.iteration_count <= 4
+        work = (await rpc(graph, "work.list", {"kind": "agent"}))["items"]
+        assert len(work) == 1 and work[0]["state"] == "completed"
+        assert work[0]["settlement"]["state"] == "settled"
+        assert graph.core.requests.get_request(work[0]["request_id"])["state"] == "completed"
     finally:
         sys.settrace(previous)
-    spy.assert_not_called()
-    assert not graph.core.engine.deps.agent_manager._agents

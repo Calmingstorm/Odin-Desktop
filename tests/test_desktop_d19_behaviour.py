@@ -5,9 +5,9 @@ and retains the real admission, executor, runner, authorization and delivery.
 Only the LLM and OS keyring are boundaries replaced here. No readiness override,
 bot/facade, native display, provider network or live profile is involved.
 
-History, file publication and output retention have positive runtime proofs.
-Background/scheduling/computer and skill delivery remain explicitly incomplete:
-the tests prove the actual refusal, not parity inferred from a hidden catalog.
+History, file publication, output retention and restored scheduling/background
+owners have bounded positive runtime proofs. Computer and skill delivery remain
+explicitly incomplete: their actual refusals are not inferred catalog parity.
 """
 
 from __future__ import annotations
@@ -117,12 +117,13 @@ async def conversation(graph, title="D19 proof"):
 
 
 async def turn(graph, cid, tool=None, arguments=None, *, text="Run the requested proof",
-               expected_state="completed"):
+               expected_state="completed", background_replies=0):
     graph.provider.calls.clear()
     graph.provider.responses = (
         [LLMResponse(tool_calls=[ToolCall("d19-call", tool, arguments or {})],
                      stop_reason="tool_use")] if tool else []
-    ) + [LLMResponse(text="The bounded proof has settled.")]
+    ) + [LLMResponse(text="The bounded proof has settled.")
+         for _ in range(1 + background_replies)]
     receipt = await rpc(graph, "submission.send", {
         "client_submission_id": uuid4().hex, "conversation_id": cid, "text": text,
     })
@@ -258,20 +259,126 @@ async def test_identity_string_cannot_admit_or_execute_without_authenticated_own
     assert graph.provider.calls == []
 
 
+@pytest.mark.parametrize("tool", ["schedule_task", "update_schedule"])
+async def test_restored_scheduling_binds_real_owner_and_destination(composed, tool):
+    graph = composed
+    cid = await conversation(graph)
+    await turn(graph, cid, "schedule_task", {
+        "description": "Private reminder", "action": "reminder",
+        "run_at": "2099-01-01T00:00:00Z", "message": "D19 scheduled fixture"})
+    schedules = graph.core.engine.deps.scheduler.list_all()
+    assert len(schedules) == 1
+    saved = schedules[0]
+    assert saved["channel_id"] == cid
+    assert saved["requester_id"] == graph.core.authority.owner_id
+    assert "Scheduled one-time task" in str(tool_results(graph))
+    if tool == "update_schedule":
+        await turn(graph, cid, tool, {"schedule_id": saved["id"], "paused": True})
+        updated = graph.core.engine.deps.scheduler.list_all()
+        assert len(updated) == 1 and updated[0]["paused"] is True
+        assert updated[0]["channel_id"] == cid
+        assert updated[0]["requester_id"] == graph.core.authority.owner_id
+        assert "Updated" in str(tool_results(graph))
+    assert tool in {row["name"] for row in graph.provider.calls[0]["tools"]}
+    owner = graph.core.engine.deps.native_tools.owners["scheduling"]
+    with pytest.raises(PermissionError, match="No current admitted request"):
+        await owner._handle_update_schedule({"schedule_id": saved["id"], "paused": False})
+    assert graph.core.engine.deps.scheduler.list_all() == (updated if tool == "update_schedule"
+                                                         else schedules)
+
+
+async def test_restored_delegate_task_executes_and_settles_owned_background(composed):
+    graph = composed
+    cid = await conversation(graph)
+    receipt = await turn(graph, cid, "delegate_task", {
+        "description": "Bounded D19 memory effect", "steps": [{
+            "tool_name": "memory_manage", "tool_input": {
+                "action": "save", "scope": "global", "key": "d19_background", "value": "run"}}]})
+    tasks = graph.core.engine.deps.channel_state.background_tasks
+    assert len(tasks) == 1
+    async with asyncio.timeout(5):
+        while any(task.status in {"pending", "running"} for task in tasks.values()):
+            await asyncio.sleep(.01)
+    task = next(iter(tasks.values()))
+    assert task.status == "completed", task.results
+    assert task.requester_id == graph.core.authority.owner_id
+    assert task.conversation_id == cid
+    assert graph.core.management.executor._load_all_memory()["global"]["d19_background"] == "run"
+    work = (await rpc(graph, "work.list", {"kind": "task"}))["items"]
+    assert len(work) == 1 and work[0]["state"] == "completed"
+    assert work[0]["conversation_id"] == cid
+    assert work[0]["request_id"] != receipt["request_id"]
+    assert graph.core.requests.get_request(work[0]["request_id"])["state"] == "completed"
+    assert any(row["request_id"] == work[0]["request_id"]
+               for row in graph.core.transcript.list(cid)["items"])
+    assert "delegate_task" in {row["name"] for row in graph.provider.calls[0]["tools"]}
+
+
+async def test_restored_loop_executes_one_sealed_iteration_and_settles(composed):
+    graph = composed
+    cid = await conversation(graph)
+    await turn(graph, cid, "start_loop", {"goal": "Bounded D19 iteration", "mode": "silent",
+                                         "max_iterations": 1, "interval_seconds": 10},
+               background_replies=1)
+    loops = graph.core.engine.deps.loop_manager._loops
+    assert len(loops) == 1
+    await asyncio.wait_for(next(iter(loops.values()))._task, 5)
+    work = (await rpc(graph, "work.list", {"kind": "loop"}))["items"]
+    assert len(work) == 1 and work[0]["state"] == "completed"
+    assert work[0]["settlement"]["state"] == "settled"
+    assert work[0]["conversation_id"] == cid
+    rows = list(graph.core.store.connection.execute(
+        "SELECT r.state,r.owner,r.conversation_id FROM desktop_requests r "
+        "JOIN desktop_background_requests b ON b.request_id=r.request_id "
+        "WHERE b.kind='loop_iteration'"))
+    assert len(rows) == 1 and tuple(rows[0]) == (
+        "completed", graph.core.authority.owner_id, cid)
+    assert "start_loop" in {row["name"] for row in graph.provider.calls[0]["tools"]}
+
+
+def configure_agent_fixture(graph):
+    from src.config.schema import OpenAICompatibleModelProfile
+
+    # A declared compatible-model budget is required, not a readiness override.
+    graph.core.config.agents.model = "compat:test"
+    graph.core.config.openai_compatible.model_profiles["test"] = OpenAICompatibleModelProfile(
+        total_window_tokens=200000, max_output_tokens=10000, supports_thinking_mode=True)
+    graph.core.config.agents.max_iterations = 4
+
+
+@pytest.mark.parametrize("tool", ["spawn_agent", "get_agent_results"])
+async def test_restored_agent_admission_and_owner_scoped_result_read(composed, tool):
+    graph = composed
+    configure_agent_fixture(graph)
+    cid = await conversation(graph)
+    await turn(graph, cid, "spawn_agent", {"label": "d19_fixture", "goal": "Bounded D19 result"},
+               background_replies=1)
+    agents = graph.core.engine.deps.agent_manager._agents
+    assert len(agents) == 1, tool_results(graph)
+    agent = next(iter(agents.values()))
+    await asyncio.wait_for(agent._task, 5)
+    work = (await rpc(graph, "work.list", {"kind": "agent"}))["items"]
+    assert len(work) == 1 and work[0]["state"] == "completed"
+    assert work[0]["settlement"]["state"] == "settled"
+    assert agent.requester_id == graph.core.authority.owner_id
+    assert agent.iteration_count <= 4
+    assert graph.core.requests.get_request(work[0]["request_id"])["state"] == "completed"
+    if tool == "get_agent_results":
+        agent_id = next(iter(agents))
+        await turn(graph, cid, tool, {"agent_id": agent_id})
+        page = json.loads(tool_results(graph)[-1])
+        assert page["id"] == agent_id and page["status"] == "completed"
+        assert page["preview"] == "The bounded proof has settled."
+        assert page["truncated"] is False
+        assert tool in {row["name"] for row in graph.provider.calls[0]["tools"]}
+        await turn(graph, await conversation(graph, "Foreign result scope"), tool,
+                   {"agent_id": agent_id})
+        assert tool_results(graph)[-1] == f"Agent '{agent_id}' not found."
+    else:
+        assert tool in {row["name"] for row in graph.provider.calls[0]["tools"]}
+
+
 @pytest.mark.parametrize("tool,arguments", [
-    pytest.param("schedule_task", {"description": "Private reminder", "action": "reminder",
-                                  "run_at": "2099-01-01T00:00:00Z", "message": "fixture"},
-                 id="schedule_task"),
-    pytest.param("update_schedule", {"schedule_id": "fixture", "paused": True},
-                 id="update_schedule"),
-    pytest.param("delegate_task", {"description": "No background effect", "steps": []},
-                 id="delegate_task"),
-    pytest.param("start_loop", {"goal": "No autonomous effect", "max_iterations": 1},
-                 id="start_loop"),
-    pytest.param("spawn_agent", {"label": "fixture", "goal": "No agent effect",
-                                "model": "compat:test"},
-                 id="spawn_agent"),
-    pytest.param("get_agent_results", {"agent_id": "fixture"}, id="get_agent_results"),
     pytest.param("export_skill", {"name": "fixture"}, id="export_skill"),
     pytest.param("computer_session", {"operation": "start"}, id="computer_session"),
 ])

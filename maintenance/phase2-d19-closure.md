@@ -88,7 +88,7 @@ All nine cite `tests/test_desktop_d19_unreachable.py::test_composed_flows_never_
 
 Rows **014/015** share the composed-flow proof and cite `test_runtime_miscomposition_branch_spies_positive_control` in the same test file. Their exact raises remain live for mis-composed executors; this disposition does not claim they are removed or approve malformed-engine delivery.
 
-**006** cites `tests/test_desktop_d19_unreachable.py::test_agent_invocation_context_is_dead_after_unconditional_spawn_fence`: its exact obsolete inner raise is after the unconditional **005** admission fence, has no executable bytecode line or diagnostic constant, and a fail-on-line code-object spy has zero hits while the direct real-owner trace reaches 005; stale composed agent calls are refused without creating an agent. **005 remains pending PR #37 (6B)**, not an Aaron proposal, and neither agent admission nor background behaviour is claimed restored.
+**006** cites `tests/test_desktop_d19_unreachable.py::test_restored_agent_context_requires_admission_and_reaches_real_registration`: its obsolete inner raise has no executable bytecode line or diagnostic constant, and a fail-on-line code-object spy has zero hits. The restored agent path requires admission and reaches real registration only with a valid admitted context; stale contexts remain refused. The composed-flow proof now exercises `background_admission`, not `background_admission_refusal`; this is scoped admission/registration evidence, not full background qualification.
 
 ## Pending restoration
 

@@ -123,7 +123,7 @@
       "environments": ["Headless original corpus and real core with disabled/unqualified capabilities", "Final .deb/AppImage bundle/catalog/provenance scans and qualified D11 native backends"],
       "evidence": {
         "headless": ["tests/test_desktop_capabilities_publication.py::test_live_policy_revocation_disabled_switch_and_reservation", "tests/test_desktop_distribution.py::test_prompt_is_exactly_the_nine_approved_d7_substitutions", "tests/test_desktop_capabilities_owner.py::test_common_classifier_functions_remain_byte_identical"],
-        "real_core": ["app/test/real-core-contract.test.ts::fresh reads and unserved capabilities do not reserve command IDs", "pending: #38"],
+        "real_core": ["app/test/real-core-contract.test.ts::fresh work/report/schedule reads do not reserve IDs; real schedule execution and report reads never replay effects", "pending: #38"],
         "native": [],
         "package": ["maintenance/r4-evidence-manifest.json::p42-candidate-clean-exit"]
       },
@@ -137,7 +137,7 @@
       "environments": ["Linux final .deb/AppImage unsupported-capability absence", "Windows/macOS deferred to roadmap Phases 6/7 under D15; not part of Linux qualification"],
       "evidence": {
         "headless": ["tests/test_desktop_capabilities_publication.py::test_removed_tools_are_neither_published_nor_reserved", "tests/test_desktop_capabilities_publication.py::test_unavailable_dispatch_is_typed_and_does_not_claim_execution"],
-        "real_core": ["app/test/real-core-contract.test.ts::fresh reads and unserved capabilities do not reserve command IDs"],
+        "real_core": ["app/test/real-core-contract.test.ts::fresh work/report/schedule reads do not reserve IDs; real schedule execution and report reads never replay effects"],
         "native": [],
         "package": []
       },
@@ -333,7 +333,7 @@
       "environments": ["Isolated real Electron/core management with disabled/unconfigured/unqualified services", "Final .deb/AppImage catalog/bundle scans and D11 backends"],
       "evidence": {
         "headless": ["tests/test_desktop_capabilities_publication.py::test_removed_tools_are_neither_published_nor_reserved", "tests/test_desktop_capabilities_owner.py::test_unconfigured_dispatch_denies_before_handler_or_host"],
-        "real_core": ["app/test/real-core-contract.test.ts::fresh reads and unserved capabilities do not reserve command IDs", "pending: #38"],
+        "real_core": ["app/test/real-core-contract.test.ts::fresh work/report/schedule reads do not reserve IDs; real schedule execution and report reads never replay effects", "pending: #38"],
         "native": [],
         "package": []
       },
