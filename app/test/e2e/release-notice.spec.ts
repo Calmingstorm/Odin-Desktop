@@ -26,6 +26,22 @@ function snapshot(directory: string): Record<string, string> {
   return files
 }
 
+/** Baseline after startup's real conversation/settings transactions have committed, not mid-journal. */
+async function settledProfile(): Promise<void> {
+  const deadline = Date.now() + 10_000
+  let previous = '', stable = 0
+  while (Date.now() < deadline) {
+    const files = snapshot(join(root, 'data'))
+    const current = JSON.stringify(files)
+    const hotJournal = Object.keys(files).some((name) => name.endsWith('.sqlite3-journal'))
+    stable = !hotJournal && current === previous ? stable + 1 : 0
+    if (stable >= 3) return
+    previous = current
+    await new Promise((accept) => setTimeout(accept, 100))
+  }
+  throw new Error('Startup profile did not settle before the read-only notice baseline')
+}
+
 async function launch(real: boolean): Promise<void> {
   expect(process.env.ODIN_REAL_CORE_OUTER_PID_NS).toBeTruthy()
   expect(readlinkSync('/proc/self/ns/pid')).not.toBe(process.env.ODIN_REAL_CORE_OUTER_PID_NS)
@@ -48,6 +64,7 @@ async function launch(real: boolean): Promise<void> {
   await page.keyboard.press('Control+,')
   await expect(page.getByRole('region', { name: 'App version and updates' })).toBeVisible()
   await page.evaluate(readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'))
+  await settledProfile()
   // Debugger-side injection into the actual transport used by the named IPC operation.
   await app.evaluate(({ shell }) => {
     const https: any = process.getBuiltinModule('node:https'), fs: any = process.getBuiltinModule('node:fs'), child: any = process.getBuiltinModule('node:child_process')
