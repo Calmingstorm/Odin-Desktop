@@ -406,7 +406,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     assert(typedResume.ok)
     assert(typedResume.result.recent.some((r) => r.request_id === seed.request_id && r.generation === 2 && r.outcome === 'completed'))
     assert.deepEqual(typedResume.result.messages.items.filter((m) => m.role === 'user').map((m) => m.id), [seed.message_id])
-    assert(!await run('Array.from(document.querySelectorAll(".msg.user"), m => m.innerText).includes("continue")'), 'no optimistic continue bubble remains')
+    // Compare message bodies: each user article also renders "You" and its submission state.
+    assert(!await run('Array.from(document.querySelectorAll(".msg.user .body"), m => m.textContent.trim()).includes("continue")'), 'no optimistic continue bubble remains')
     evidence.typedResume = { request_id: seed.request_id, generation: 2, userMessages: 1 }
     await record('Typed continue resumes original request', '.message-scroll')
     // No preserved work remains: now the same trigger is an ordinary user message.

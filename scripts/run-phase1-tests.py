@@ -15,6 +15,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ISOLATION_HELPER = "/usr/local/sbin/odin-desktop-isolate"
+# Mounted privately inside the helper namespace; host paths below it are hidden.
+PRIVATE_TMP = Path("/tmp")
 
 # The same check runs in the capability probe and immediately before pytest.
 # Never infer isolation from a successful unshare invocation alone, or rerun a
@@ -134,6 +136,12 @@ def _run_namespace(command: list[str], *, timeout: int | None = None, quiet: boo
                 signal.signal(sig, handler)
 
 
+def _under_tmp(path: Path) -> bool:
+    """True when the helper's private /tmp would hide this host path."""
+    resolved, hidden = Path(path).resolve(), PRIVATE_TMP.resolve()
+    return resolved == hidden or hidden in resolved.parents
+
+
 def _scratch_root() -> Path | None:
     """An optional private HOME/XDG scratch parent (CI uses tmpfs), never a shared directory.
 
@@ -226,8 +234,17 @@ def main(argv: list[str] | None = None) -> int:
             response.write_text("\n".join(response_arguments) + "\n", encoding="utf-8")
             arguments = [*plugin_arguments, f"@{response}"]
         # env -i excludes credentials, display/socket paths and live config overrides.
+        isolation = namespace_command(environment)
+        if "--private-tmp" in isolation and _under_tmp(ROOT):
+            raise SystemExit(f"Repository {ROOT} is under /tmp, which the isolation helper's "
+                             "private /tmp hides, with its environment. "
+                             "Use a checkout outside /tmp.")
+        if "--private-tmp" in isolation and _under_tmp(home):
+            raise SystemExit(f"Isolation scratch {home} is under /tmp, which the isolation "
+                             "helper's private /tmp hides from pytest. Set ODIN_TEST_SCRATCH "
+                             "to a private directory outside /tmp (CI uses /dev/shm).")
         command = [
-            *namespace_command(environment),
+            *isolation,
             str(ROOT / ".venv/bin/pytest"), "-p", "pytest_asyncio.plugin",
             "-p", "pytest_cov.plugin", "-p", "pytest_timeout", "--timeout=90",
             "--timeout-method=signal", "-q", *arguments,
