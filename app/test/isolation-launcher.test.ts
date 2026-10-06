@@ -44,13 +44,13 @@ function fixture(results: Array<number | Error | 'pending'> = [0, 0, 0]) {
     return child
   })
   const timers = new Map<object, () => void>()
-  const schedule = vi.fn((fn: () => void) => { const handle = {}; timers.set(handle, fn); return handle })
+  const schedule = vi.fn((fn: () => void, _timeoutMs: number) => { const handle = {}; timers.set(handle, fn); return handle })
   const unschedule = vi.fn((handle: object) => {
     expect(handle).toBeTypeOf('object')
     return timers.delete(handle)
   })
   const launcher = createIsolationLauncher({ process: host, files, spawnChild, temporaryDirectory: () => '/tmp', schedule, unschedule })
-  return { ...launcher, host, files, spawnChild, children, timers }
+  return { ...launcher, host, files, spawnChild, children, timers, schedule }
 }
 
 async function flush() { for (let i = 0; i < 12; i++) await Promise.resolve() }
@@ -75,12 +75,15 @@ describe('real-core isolation launcher with fake child_process only', () => {
       expect(args).toContain('RUNNER_TRACKING_ID=runner-cleanup-tag')
       expect(args).toContain('ODIN_REAL_CORE_UID=1001')
       expect(args).toContain('ODIN_REAL_CORE_GID=1002')
+      expect(args).toContain('ODIN_REAL_CORE_TIMEOUT_MS=600000')
       expect(args).toContain(`HOME=${root}`)
       expect(args.join(' ')).not.toMatch(/DISPLAY=|SECRET_TOKEN=|never-inherit/)
     }
     expect(calls(f)[1]![1].at(-1)).toBe('--inside-probe')
     expect(calls(f)[2]![1]).toContain('--inside-run')
     expect(calls(f)[2]![1].slice(-2)).toEqual(['vitest', 'run'])
+    // Probe deadlines stay short; the suite gets its total bound plus the unchanged cleanup allowance.
+    expect(f.schedule.mock.calls.map(([, timeoutMs]) => timeoutMs)).toEqual([10_000, 10_000, 610_000])
     expect(f.files.rmSync).toHaveBeenCalledWith(root, { recursive: true, force: true })
     expect(f.host.kill).not.toHaveBeenCalled()
     expect(f.timers.size).toBe(0)
