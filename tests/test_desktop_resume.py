@@ -20,6 +20,9 @@ from src.trajectories.saver import TrajectoryTurn
 from src.turn_state.codec import compute_content_digest, snapshot_chat_turn
 from src.turn_state.store import OpState, TurnKey, TurnStateStore, TurnStatus
 from tests.test_desktop_controls import ControlHarness
+from tests.test_desktop_engine_services import graph as engine_graph
+
+integrated_graph = engine_graph
 
 
 class ResumeHarness(ControlHarness):
@@ -382,11 +385,6 @@ async def test_resume_quiescence_matches_existing_request_owner_gate(h):
     assert answer["result"] == {"disposition": "rejected", "reason": "quiescing"}
     assert h.ledger.turn_status_sync(h.key) == TurnStatus.SUSPENDED
     assert not h.requests.resumed
-
-
-@pytest.fixture
-def integrated_graph(request):
-    return request.getfixturevalue("graph")
 
 
 @pytest.mark.parametrize(("unknown_effect", "reset_mode"), [
