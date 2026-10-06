@@ -25,6 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # The merged accounting gates read pinned historical Git objects.
           fetch-depth: 0
       - name: Require the runner's cached Python 3.12
         id: cached-python

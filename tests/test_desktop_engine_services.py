@@ -224,6 +224,210 @@ async def test_composed_shutdown_drains_real_owners_once(graph):
     assert engine.deps.turn_store.available is False
 
 
+def cleanup_engine(*, computer=None, registry=None):
+    """Harmless owner graph for lifecycle failure injection."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+
+    from src.desktop.services import EngineServices
+
+    deps = SimpleNamespace(
+        channel_state=SimpleNamespace(shutdown_steering=AsyncMock()),
+        loop_manager=SimpleNamespace(shutdown=AsyncMock(), _loops={}),
+        scheduler=SimpleNamespace(stop=AsyncMock(), _task=None),
+        runtime_context=SimpleNamespace(),
+        agent_manager=SimpleNamespace(_agents={}, cleanup=AsyncMock()),
+        tool_executor=SimpleNamespace(_process_registry=registry),
+        native_tools=SimpleNamespace(owners={"computer": computer} if computer else {}),
+        browser_manager=None, llm_gateway=SimpleNamespace(close=AsyncMock()),
+        sessions=SimpleNamespace(save=Mock()), turn_store=SimpleNamespace(close=Mock()),
+    )
+    return EngineServices(deps, None)
+
+
+@pytest.mark.asyncio
+async def test_shared_injected_owner_barriers_once_after_producers_quiesce(graph):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from src.desktop.resource_cleanup import close_existing_execution_owners
+
+    requests, engine, _provider, _transcript, _cid = graph
+    calls = []
+
+    async def computer_close():
+        assert requests._closed and not requests._tasks
+        assert engine.producers_quiesced
+        calls.append("computer")
+
+    async def process_shutdown():
+        assert engine.producers_quiesced
+        calls.append("processes")
+
+    computer = SimpleNamespace(close=AsyncMock(side_effect=computer_close))
+    registry = SimpleNamespace(shutdown=AsyncMock(side_effect=process_shutdown))
+    engine.deps.native_tools.owners["computer"] = computer
+    engine.deps.tool_executor._process_registry = registry
+    await requests.close()
+    await asyncio.gather(engine.close(), engine.close())
+    results = await close_existing_execution_owners(
+        SimpleNamespace(engine=engine), SimpleNamespace(executor=engine.deps.tool_executor))
+    assert calls == ["computer", "processes"]
+    assert all(row["state"] == "released" for row in results.values())
+    computer.close.assert_awaited_once()
+    registry.shutdown.assert_awaited_once()
+    assert engine.deps.native_tools.owners["computer"] is computer
+    results["processes"]["state"] = "unknown"
+    assert engine.execution_cleanup_results["processes"]["state"] == "released"
+
+
+@pytest.mark.asyncio
+async def test_original_process_failure_durable_unknown_and_never_retried(tmp_path):
+    import json
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from src.desktop.resource_cleanup import (
+        ResourceCleanupError,
+        ResourceCleanupJournal,
+        close_existing_execution_owners,
+    )
+
+    registry = SimpleNamespace(shutdown=AsyncMock(side_effect=RuntimeError("private detail")))
+    computer = SimpleNamespace(close=AsyncMock())
+    engine = cleanup_engine(computer=computer, registry=registry)
+    for _ in range(2):
+        with pytest.raises(RuntimeError, match="cleanup did not fully complete"):
+            await engine.close()
+    assert engine.producers_quiesced
+    computer.close.assert_awaited_once()
+    registry.shutdown.assert_awaited_once()
+    engine.deps.llm_gateway.close.assert_not_called()
+    engine.deps.turn_store.close.assert_not_called()
+    result = await close_existing_execution_owners(SimpleNamespace(engine=engine), None)
+    assert result["processes"] == {"state": "unknown", "error_type": "RuntimeError"}
+    assert result["computer"]["state"] == "released"
+    assert result["engine"]["state"] == "unknown"
+    assert {"stage": "execution_owners", "error_type": "ResourceCleanupError"} in (
+        result["engine"]["failures"])
+    assert "private detail" not in json.dumps(result)
+    journal = ResourceCleanupJournal(tmp_path / "cleanup.json")
+    with pytest.raises(ResourceCleanupError):
+        journal.finish(result)
+    assert json.loads(journal.path.read_text())["resources"] == result
+
+
+@pytest.mark.asyncio
+async def test_provider_failure_preserves_successful_original_owner_evidence():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from src.desktop.resource_cleanup import close_existing_execution_owners
+
+    registry = SimpleNamespace(shutdown=AsyncMock())
+    engine = cleanup_engine(registry=registry)
+    engine.deps.llm_gateway.close.side_effect = ValueError("private provider error")
+    with pytest.raises(RuntimeError):
+        await engine.close()
+    result = await close_existing_execution_owners(SimpleNamespace(engine=engine), None)
+    assert result["processes"]["state"] == "released"
+    assert result["computer"]["state"] == "not_started"
+    assert result["engine"]["state"] == "unknown"
+    assert {"stage": "providers", "error_type": "ValueError"} in result["engine"]["failures"]
+    registry.shutdown.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_injected_native_quarantine_keeps_original_durable_unknown(tmp_path):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from src.computer.models import RequestContext
+    from src.computer.store import ComputerStore
+    from src.desktop.resource_cleanup import close_existing_execution_owners
+
+    store = ComputerStore(tmp_path / "computer.sqlite3", tmp_path / "evidence")
+    grant = store.create_session(
+        RequestContext("owner", "channel", "turn", "localhost", surface="webui"),
+        environment="existing_session")
+    store.set_state(grant.session_id, "quarantined", revoke=True)
+
+    async def close_original_store():
+        store.close()
+
+    owner = SimpleNamespace(controller=SimpleNamespace(store=store),
+                            close=AsyncMock(side_effect=close_original_store))
+    engine = cleanup_engine(computer=owner)
+    try:
+        with pytest.raises(RuntimeError):
+            await engine.close()
+        result = await close_existing_execution_owners(SimpleNamespace(engine=engine), None)
+        assert result["computer"]["state"] == "unknown"
+        assert result["computer"]["unresolved_sessions"] == [grant.session_id]
+        owner.close.assert_awaited_once()
+        assert engine.deps.native_tools.owners["computer"] is owner
+        engine.deps.turn_store.close.assert_not_called()
+    finally:
+        if owner.close.await_count == 0:
+            store.close()
+
+
+@pytest.mark.asyncio
+async def test_producer_failure_preserves_execution_owners_and_persistence():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from src.desktop.resource_cleanup import close_existing_execution_owners
+
+    owner = SimpleNamespace(close=AsyncMock())
+    registry = SimpleNamespace(shutdown=AsyncMock())
+    engine = cleanup_engine(computer=owner, registry=registry)
+    engine.deps.loop_manager.shutdown.side_effect = RuntimeError("producer failure")
+    with pytest.raises(RuntimeError, match="producers"):
+        await engine.close()
+    owner.close.assert_not_called()
+    registry.shutdown.assert_not_called()
+    engine.deps.llm_gateway.close.assert_not_called()
+    engine.deps.turn_store.close.assert_not_called()
+    assert not engine.producers_quiesced
+    result = await close_existing_execution_owners(SimpleNamespace(engine=engine), None)
+    assert all(row["state"] == "unknown" for row in result.values())
+
+
+@pytest.mark.asyncio
+async def test_request_not_quiesced_refuses_any_engine_owner_teardown():
+    from types import SimpleNamespace
+
+    engine = cleanup_engine()
+    engine.bind_requests(SimpleNamespace(_closed=False, _tasks=set()))
+    with pytest.raises(RuntimeError, match="request producers"):
+        await engine.close()
+    engine.deps.channel_state.shutdown_steering.assert_not_called()
+    engine.deps.turn_store.close.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_engine_barrier_cancellation_keeps_partial_results_and_propagates():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from src.desktop.resource_cleanup import close_existing_execution_owners
+
+    owner = SimpleNamespace(close=AsyncMock())
+    registry = SimpleNamespace(shutdown=AsyncMock(side_effect=asyncio.CancelledError()))
+    engine = cleanup_engine(computer=owner, registry=registry)
+    for _ in range(2):
+        with pytest.raises(asyncio.CancelledError):
+            await engine.close()
+    result = await close_existing_execution_owners(SimpleNamespace(engine=engine), None)
+    assert result["computer"]["state"] == "released"
+    assert result["processes"] == {"state": "unknown", "error_type": "CancelledError"}
+    assert result["engine"]["state"] == "unknown"
+    owner.close.assert_awaited_once()
+    registry.shutdown.assert_awaited_once()
+    engine.deps.turn_store.close.assert_not_called()
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("repeat_reset", [False, True])
 async def test_reset_running_retains_real_context_but_fences_next_turn(graph, repeat_reset):

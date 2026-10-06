@@ -3,9 +3,9 @@
 // Odin runs while the app runs (D3). Closing the window keeps Odin working in the tray; Exit (tray, window menu,
 // Ctrl+Q, or the launcher's "Exit Odin" action) shuts Odin down in order and then quits the app.
 import { randomUUID } from 'node:crypto'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, readlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { BrowserWindow, Menu, Notification, app, clipboard, dialog, shell } from 'electron'
+import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, shell } from 'electron'
 import { IPC, type AppState, type CoreEvent, type LinkState, type NotificationSettings, type Settings } from '../shared/api'
 import { ArtifactStore, safeFileName } from './artifacts'
 import { AttachmentManager, type AttachmentLimits } from './attachments'
@@ -15,13 +15,17 @@ import { coreCommand, type CoreLaunch } from './core-command'
 import { CoreSupervisor } from './core-supervisor'
 import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
+import { DeviceLoginBoundary } from './device-login'
 import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
 import { realCoreSmoke } from './real-core-smoke'
+import { onboardingSmoke } from './onboarding-smoke'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
 import { OdinTray, detectTray } from './tray'
+import { boundedShutdown, CleanupJournal, resourceCleanupSource } from './shutdown'
+import { showNativeNotification } from './native-notifications'
 
 registerAppScheme()
 
@@ -29,6 +33,9 @@ const flags = parseLaunchFlags(process.argv)
 
 if (!app.requestSingleInstanceLock()) {
   // Another Odin is running: it receives our argv through 'second-instance' (focus, or exit for --exit).
+  app.quit()
+} else if (flags.exit) {
+  // No running app: Exit is a no-op, before profile/core construction.
   app.quit()
 } else {
   run()
@@ -40,6 +47,10 @@ function run(): void {
   ensureToken(paths)
 
   const appStateFile = paths.appStatePath
+  // Separate app-owned evidence from the engine's identity-checked bootstrap profile.
+  const cleanupPath = join(paths.configDir, '..', `${paths.profileId}-cleanup-state.json`)
+  const cleanup = new CleanupJournal(cleanupPath)
+  cleanup.begin()
   const persisted = readPersisted(appStateFile)
   const lifecycle: LifecycleState = {
     quitting: false,
@@ -47,7 +58,7 @@ function run(): void {
     noTrayNoticeShown: persisted.noTrayNoticeShown === true
   }
   let notificationSettings = loadSettings(persisted.notifications)
-  const savePersisted = (): void =>
+  const savePersisted = (): boolean =>
     writePersisted(appStateFile, { noTrayNoticeShown: lifecycle.noTrayNoticeShown, notifications: notificationSettings })
 
   const resources = join(app.getAppPath(), 'resources')
@@ -59,6 +70,14 @@ function run(): void {
   let win: BrowserWindow | null = null
   let tray: OdinTray | null = null
   let supervisorLink: LinkState | null = null
+  let pendingOpen = !flags.hidden
+  let notificationRouteReady = false
+  let pendingNotificationTarget: { conversationId: string; messageId: string } | null = null
+  const drainNotificationTarget = (): void => {
+    if (!notificationRouteReady || !win || !pendingNotificationTarget || lifecycle.quitting) return
+    win.webContents.send(IPC.openConversation, pendingNotificationTarget)
+    pendingNotificationTarget = null
+  }
 
   let launch: CoreLaunch
   try {
@@ -75,13 +94,19 @@ function run(): void {
     })
     return
   }
-  const supervisor = new CoreSupervisor({ ...launch, logFile: join(paths.logDir, 'core.log') })
+  const supervisor = new CoreSupervisor({ ...launch, logFile: join(paths.logDir, 'core.log'),
+    // A ready core's unexpected loss cannot prove effect/input cleanup. Do not replace it automatically.
+    restartAllowed: () => broker.coreInstanceId === null })
   const broker = new Broker({
     socketPath: paths.socketPath,
     readToken: () => readFileSync(paths.tokenPath, 'utf8').trim(),
     profileId: paths.profileId,
     clientVersion: app.getVersion()
   })
+  const coreRequest = broker.request.bind(broker)
+  broker.request = (method, params, id) => lifecycle.quitting
+    ? Promise.resolve({ ok: false, error: { code: 'busy', message: 'Odin is exiting' } })
+    : coreRequest(method, params, id)
 
   // Titles and unread counts for notifications and the tray. Cosmetic: the window keeps the authoritative view.
   const conversations = new ConversationIndex()
@@ -95,18 +120,22 @@ function run(): void {
     })
   }
   const liveNotifications = new Set<Notification>()
+  const notificationAcks: Array<Record<string, unknown>> = []
   const notifier = new Notifier({
     settings: () => notificationSettings,
     windowFocused: () => Boolean(win?.isVisible() && win.isFocused()),
     titleOf: (id) => conversations.titleOf(id),
-    show: (notification) => showNotification(notification, liveNotifications, iconPath),
-    open: (id) => {
+    show: (notification) => showNativeNotification(notification, liveNotifications, iconPath),
+    open: (id, messageId) => {
+      pendingNotificationTarget = { conversationId: id, messageId }
       showWindow()
-      win?.webContents.send(IPC.openConversation, id)
+      drainNotificationTarget()
     },
     ack: (dedupeKey, outcome) => {
       const id = randomUUID()
-      void broker.request('notifications.ack', { dedupe_key: dedupeKey, outcome }, id)
+      void broker.request('notifications.ack', { dedupe_key: dedupeKey, outcome }, id).then((settled) => {
+        if (process.env.ODIN_APP_E2E === '1') notificationAcks.push({ dedupeKey, outcome, id, settled })
+      })
     },
     now: () => new Date()
   })
@@ -138,6 +167,7 @@ function run(): void {
   }
 
   const drafts = new DraftStore(join(paths.dataDir, 'drafts.json'))
+  const deviceLogin = new DeviceLoginBoundary()
   // Until the core announces its own limits. A chunk stays well inside one frame after base64.
   let limits: AttachmentLimits = { attachment_bytes: 25 * 1024 * 1024, chunk_bytes: 512 * 1024 }
   const attachments = new AttachmentManager(broker, () => limits)
@@ -149,6 +179,20 @@ function run(): void {
   broker.on('welcome', () => {
     listConversations()
     void broker.request('status.get').then((status) => {
+      const resourceCleanup = status.ok
+        ? (status.result as { resource_cleanup?: { reconciliation_required?: boolean; previous_unknown?: unknown;
+          previous_unknown_count?: number; state?: string; resources?: unknown } }).resource_cleanup
+        : undefined
+      if (resourceCleanup?.reconciliation_required) {
+        // Archive app presentation, not core uncertainty/quarantine. Repeated
+        // reports of this exact receipt stay quiet; new evidence/count warns anew.
+        const source = resourceCleanupSource({
+          previous: resourceCleanup.previous_unknown, count: resourceCleanup.previous_unknown_count,
+          current: resourceCleanup.state === 'unknown' ? resourceCleanup.resources : undefined
+        })
+        cleanup.markUnknown('The core reports unresolved resource cleanup from a previous lifetime. Effects are not undone; native resources require reconciliation. No work is replayed.', source)
+        publishAppState()
+      }
       const announced = status.ok ? (status.result as { limits?: Partial<AttachmentLimits> }).limits : undefined
       if (announced?.attachment_bytes && announced.chunk_bytes) {
         limits = { attachment_bytes: announced.attachment_bytes, chunk_bytes: Math.min(announced.chunk_bytes, 2 * 1024 * 1024) }
@@ -160,7 +204,8 @@ function run(): void {
     link: supervisorLink ?? broker.linkState,
     coreInstanceId: broker.coreInstanceId,
     noTray: !lifecycle.trayAvailable,
-    unreceipted: broker.unreceiptedCount
+    unreceipted: broker.unreceiptedCount,
+    cleanupWarning: cleanup.notice
   })
 
   const publishAppState = (): void => {
@@ -169,7 +214,11 @@ function run(): void {
     tray?.setStatus(statusLabel(state.link))
   }
 
-  broker.on('state', publishAppState)
+  broker.on('state', () => {
+    // Existing pending receipts may settle, but Exit must never reconnect/re-send uncertain commands.
+    if (lifecycle.quitting && broker.linkState !== 'ready') broker.close()
+    publishAppState()
+  })
   // A new incarnation rebuilds the cosmetic index. The Broker retains the
   // profile's durable sequence/cursor across core restarts.
   broker.on('core-changed', () => conversations.restart())
@@ -178,7 +227,7 @@ function run(): void {
     onCoreEvent(event)
   })
   broker.on('receipt', (receipt) => {
-    win?.webContents.send(IPC.receipt, receipt)
+    win?.webContents.send(IPC.receipt, deviceLogin.receipt(receipt, broker.coreInstanceId))
     publishAppState()
   })
   // The interval since our cursor is unknown: the window rebuilds every view from fresh snapshots.
@@ -188,6 +237,7 @@ function run(): void {
   })
 
   supervisor.on('restarting', () => {
+    cleanup.markUnknown('Core stopped unexpectedly. Cleanup unknown; replacement must acquire the real profile lock. No work is replayed.')
     supervisorLink = 'core-restarting'
     publishAppState()
   })
@@ -196,12 +246,16 @@ function run(): void {
     publishAppState()
   })
   supervisor.on('failed', () => {
+    cleanup.markUnknown('Core stopped unexpectedly or could not start. Cleanup unknown; no work is replayed.')
     supervisorLink = 'core-failed'
     publishAppState()
   })
 
   const showWindow = (): void => {
+    if (lifecycle.quitting) return
+    pendingOpen = true
     if (!win) return
+    if (win.webContents.isCrashed()) void win.loadURL(`${APP_ORIGIN}/index.html`)
     if (win.isMinimized()) win.restore()
     win.show()
     win.focus()
@@ -209,30 +263,47 @@ function run(): void {
 
   const settings = (): Settings => ({ autostart: isAutostartEnabled(), notifications: notificationSettings })
 
-  let exiting: Promise<void> | null = null
-  const exitOdin = (code = 0): Promise<void> => {
-    if (exiting) return exiting
-    lifecycle.quitting = true
-    tray?.setStatus('Stopping Odin…')
-    exiting = (async () => {
-      try {
-        drafts.flush()
-      } catch {
-        /* a draft that couldn't be saved is the only loss */
-      }
-      if (broker.linkState === 'ready') {
-        await Promise.race([
-          broker.request('runtime.shutdown', { reason: 'exit' }),
-          new Promise((resolve) => setTimeout(resolve, 5_000))
-        ])
-      }
-      await supervisor.stop()
+  const shutdown = boundedShutdown({
+    stopAdmission: () => { lifecycle.quitting = true; broker.quiesce(); tray?.setStatus('Stopping Odin…') },
+    persist: () => { drafts.flush(); if (!savePersisted()) throw new Error('App preferences were not persisted') },
+    requestShutdown: async () => broker.linkState === 'ready'
+      && (await coreRequest('runtime.shutdown', { reason: 'exit' })).ok,
+    stopCore: () => {
+      // No reconnect or command reconciliation during Exit.
       broker.close()
+      return supervisor.stop()
+    },
+    unreceipted: () => broker.unreceiptedCount,
+    finish: (record) => cleanup.finish(record),
+    release: () => {
+      for (const os of liveNotifications) os.close()
+      liveNotifications.clear()
       tray?.destroy()
       tray = null
-      app.exit(code)
-    })()
-    return exiting
+    },
+    exit: (code) => app.exit(code)
+  })
+  const exitOdin = async (code = 0): Promise<void> => { await shutdown(code) }
+
+  // Main-only hooks; not exposed through IPC/preload. The E2E runner enforces isolation before launch.
+  if (!app.isPackaged && process.env.ODIN_APP_E2E === '1'
+    && process.getuid?.() !== 0 && process.env.ODIN_REAL_CORE_ROOT
+    && process.env.HOME === process.env.ODIN_REAL_CORE_ROOT
+    && process.env.ODIN_REAL_CORE_OUTER_PID_NS
+    && readlinkSync('/proc/self/ns/pid') !== process.env.ODIN_REAL_CORE_OUTER_PID_NS
+    && /^:\d+$/.test(process.env.DISPLAY ?? '') && process.env.DBUS_SESSION_BUS_ADDRESS) {
+    Object.assign(globalThis, { __odinE2E: {
+      snapshot: () => ({ pid: process.pid, corePid: supervisor.pid, coreState: supervisor.current,
+        appState: appState(), visible: win?.isVisible() ?? false, windowId: win?.id,
+        rendererPid: win?.webContents.getOSProcessId(), noTrayNoticeShown: lifecycle.noTrayNoticeShown,
+        cleanupUnknown: cleanup.warning, cleanupPath, paths, cursor: broker.cursor }),
+      request: (method: string, params?: Record<string, unknown>, id?: string) => broker.request(method, params, id),
+      notification: (intent: NotificationIntent, emittedAt: string) => notifier.handle(intent, new Date(emittedAt)),
+      notificationAcks,
+      close: () => win?.close(), show: showWindow,
+      rendererCrash: () => win?.webContents.forcefullyCrashRenderer(),
+      exit: () => { void exitOdin() }
+    } })
   }
 
   app.on('second-instance', (_event, argv) => {
@@ -250,9 +321,11 @@ function run(): void {
   })
 
   void app.whenReady().then(async () => {
+    if (lifecycle.quitting) return
     installGuards()
     serveAppScheme(rendererDir)
     registerIpc({
+      admitting: () => !lifecycle.quitting,
       broker,
       windowId: () => win?.webContents.id ?? null,
       drafts,
@@ -275,6 +348,8 @@ function run(): void {
         return chosen.canceled || !chosen.filePath ? null : chosen.filePath
       },
       copyText: (text) => clipboard.writeText(text),
+      openVerification: async (url) => { await shell.openExternal(url) },
+      deviceLogin,
       mainFrame: () => win?.webContents.mainFrame ?? null,
       getSettings: settings,
       setAutostart: (enabled) => {
@@ -291,10 +366,16 @@ function run(): void {
         savePersisted()
         return settings()
       },
-      appState
+      appState,
+      acknowledgeCleanup: (id) => {
+        if (!cleanup.acknowledge(id)) throw new Error('Cleanup notice changed; acknowledge the current notice')
+        publishAppState()
+        return appState()
+      }
     })
 
     lifecycle.trayAvailable = flags.smokeTest ? false : await detectTray()
+    if (lifecycle.quitting) return
     if (lifecycle.trayAvailable) {
       tray = new OdinTray(trayIconPath, { onOpen: showWindow, onExit: () => void exitOdin() })
       refreshTray()
@@ -335,15 +416,37 @@ function run(): void {
       if (decision.showNoTrayNotice) {
         lifecycle.noTrayNoticeShown = true
         savePersisted()
-        new Notification({
+        void showNativeNotification({
           title: 'Odin is still running',
-          body: 'Reopen Odin from your app launcher. To stop Odin, choose Exit Odin in the window menu (Ctrl+Q) or in the launcher’s menu.'
-        }).show()
+          body: 'Reopen Odin from your app launcher. To stop Odin, choose Exit Odin in the window menu (Ctrl+Q) or in the launcher’s menu.',
+          onClick: showWindow
+        }, liveNotifications, iconPath).catch(() => undefined)
       }
     })
     win.webContents.on('did-finish-load', publishAppState)
+    // Keep the no-tray Exit accelerator available even while the renderer is loading or unresponsive.
+    win.webContents.on('before-input-event', (event, input) => {
+      if (input.type === 'keyDown' && input.control && !input.alt && !input.meta && input.key.toLowerCase() === 'q') {
+        event.preventDefault()
+        void exitOdin()
+      }
+    })
+    ipcMain.on(IPC.notificationRouteReady, (event) => {
+      if (!win || lifecycle.quitting || event.sender !== win.webContents
+        || event.senderFrame !== win.webContents.mainFrame
+        || !event.senderFrame.url.startsWith(`${APP_ORIGIN}/`)) return
+      notificationRouteReady = true
+      drainNotificationTarget()
+    })
+    win.webContents.on('did-start-navigation', (_event, _url, _inPlace, mainFrame) => {
+      if (mainFrame) notificationRouteReady = false
+    })
     win.once('ready-to-show', () => {
-      if (!flags.hidden) win?.show()
+      if (pendingOpen && !lifecycle.quitting) win?.show()
+    })
+    win.webContents.on('render-process-gone', (_event, details) => {
+      notificationRouteReady = false
+      process.stderr.write(`renderer ended reason=${details.reason}; core remains supervised\n`)
     })
     void win.loadURL(`${APP_ORIGIN}/index.html`)
 
@@ -351,7 +454,15 @@ function run(): void {
     broker.connect()
     broker.startEvents()
 
-    if (flags.smokeTest && process.env.ODIN_SMOKE_REAL_CORE === '1') {
+    if (!app.isPackaged && flags.smokeTest && process.env.ODIN_SMOKE_ONBOARDING) {
+      void onboardingSmoke(win, broker, process.env.ODIN_SMOKE_OUT ?? '').then(
+        () => exitOdin(),
+        (error: unknown) => {
+          process.stderr.write(`onboarding-smoke: failed: ${String(error)}\n`)
+          return exitOdin(1)
+        }
+      )
+    } else if (flags.smokeTest && process.env.ODIN_SMOKE_REAL_CORE === '1') {
       void realCoreSmoke(win, broker, process.env.ODIN_SMOKE_OUT ?? '').then(
         () => exitOdin(),
         (error: unknown) => {
@@ -399,43 +510,15 @@ function readPersisted(path: string): { noTrayNoticeShown?: boolean; notificatio
 }
 
 /** Writes the whole state every time, so saving one setting never drops another. */
-function writePersisted(path: string, state: PersistedState): void {
+function writePersisted(path: string, state: PersistedState): boolean {
   try {
     writeFileSync(path, JSON.stringify(state), { mode: 0o600 })
+    return true
   } catch {
-    /* a lost write only means the notice may show once more, or a setting reverts at the next start */
+    // Exit records failed persistence as unknown rather than silently declaring
+    // completed clean shutdown. Ordinary UI callers remain available.
+    return false
   }
-}
-
-/** Shows one OS notification. It counts as shown only when the OS reports that it accepted it. */
-function showNotification(
-  notification: { title: string; body: string; onClick: () => void },
-  live: Set<Notification>,
-  icon: string
-): Promise<'shown' | 'failed'> {
-  return new Promise((resolve) => {
-    if (!Notification.isSupported()) return resolve('failed')
-    const os = new Notification({ title: notification.title, body: notification.body, icon })
-    // Electron drops the handlers of a notification nothing references.
-    live.add(os)
-    if (live.size > 50) live.delete(live.values().next().value as Notification)
-    const timer = setTimeout(() => resolve('failed'), 5000)
-    os.once('show', () => {
-      clearTimeout(timer)
-      resolve('shown')
-    })
-    os.once('failed', () => {
-      clearTimeout(timer)
-      live.delete(os)
-      resolve('failed')
-    })
-    os.on('click', () => {
-      live.delete(os)
-      notification.onClick()
-    })
-    os.on('close', () => live.delete(os))
-    os.show()
-  })
 }
 
 /**
@@ -679,7 +762,9 @@ async function interfaceShots(win: BrowserWindow, out: string, broker: Broker): 
     await pause(200)
     const away = Number(await run(`(() => { const s = document.querySelector('.message-scroll'); return Math.round(s.scrollHeight - s.scrollTop - s.clientHeight) })()`))
     if (away < 100) throw new Error(`the conversation is too short to scroll away from its latest message (${away}px)`)
-    win.webContents.send(IPC.openConversation, latest)
+    const messageId = String(await run(`document.querySelector('.msg:last-of-type')?.id?.slice(2) ?? ''`))
+    if (!messageId) throw new Error('notification smoke could not identify the latest real message')
+    win.webContents.send(IPC.openConversation, { conversationId: latest, messageId })
     await pause(600)
     const gap = Number(await run(`(() => { const s = document.querySelector('.message-scroll'); return Math.round(s.scrollHeight - s.scrollTop - s.clientHeight) })()`))
     process.stdout.write(`smoke: a notification click left the view ${gap}px from the latest message\n`)

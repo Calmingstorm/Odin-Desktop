@@ -3,11 +3,19 @@
 
 export type CorePhase = 'starting' | 'ready' | 'degraded' | 'quiescing'
 
+/** Core-authoritative provisioning. Saving a field or signing in is not readiness. */
+export interface FirstRunStatus {
+  state: 'fresh' | 'incomplete' | 'saved' | 'effective-ready' | 'degraded'
+  reason: 'provider_not_configured' | 'provider_configuration_incomplete' | 'provider_runtime_unavailable' | 'provider_identity_not_adopted' | 'provider_effective' | 'provider_health_degraded' | 'provider_health_unknown' | 'keyring_unavailable' | 'credential_state_unavailable'
+  keyring_unavailable: boolean
+}
+
 export interface CoreStatus {
   phase: CorePhase
   core_instance_id: string
   version: string
   capabilities: string[]
+  first_run?: FirstRunStatus
   model?: { main: string; effort: string; provider: string }
   providers?: Array<{ name: string; health: string }>
   limits?: { chunk_bytes: number; attachment_bytes: number; attachments_per_turn: number }
@@ -244,6 +252,20 @@ export type Result<T> = { ok: true; result: T } | { ok: false; error: CoreError 
 /** Connection state as the app's main process sees it. */
 export type LinkState = 'starting' | 'connecting' | 'ready' | 'reconnecting' | 'core-restarting' | 'core-failed'
 
+/** Retained cleanup uncertainty. Acknowledgment archives the notice, not resource quarantine or effects. */
+export interface CleanupWarning {
+  id: string
+  at: string
+  records: Array<{
+    at: string
+    reason: string
+    processOutcome?: string
+    shutdownAccepted?: boolean
+    unsaved?: boolean
+    unreceipted?: number
+  }>
+}
+
 export interface AppState {
   link: LinkState
   coreInstanceId: string | null
@@ -251,6 +273,7 @@ export interface AppState {
   noTray: boolean
   /** Commands that were sent but whose receipt is still pending reconciliation. */
   unreceipted: number
+  cleanupWarning?: CleanupWarning | null
 }
 
 export type ApplyMode = 'live_read' | 'live_apply' | 'live_for_new_work' | 'restart' | 'activation_required' | 'dormant'
@@ -991,10 +1014,12 @@ export interface CodexStatus {
 }
 
 export interface DeviceCode {
-  device_auth_id: string
+  /** Local opaque main-process handle, never the provider's device authorization secret. */
+  login_id: string
   user_code: string
   interval: number
   verify_url: string
+  expires_in: number
 }
 
 export type LoginPoll = { status: 'pending' } | { status: 'authenticated'; email: string; account_id: string }
@@ -1111,6 +1136,8 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   }): Promise<Result<{ image_models: Record<ImageLeaf, ImageModelIntent>; image_models_revision: string; revision: string }>>
   secretsSet(params: { path: string; value: string }): Promise<Result<{ set: boolean }>>
   secretsClear(params: { path: string }): Promise<Result<{ set: boolean }>>
+  /** Explicit owner Retry only. Background reads never unlock or display a keyring prompt. */
+  secretsUnlock(): Promise<Result<{ unlocked: true }>>
   /** A field whose `apply_handler` is a dedicated method: models.main.set or models.agents.set. */
   editLeaf(params: { method: string; params: Record<string, unknown> }): Promise<Result<Record<string, unknown>>>
   codexAccounts(): Promise<Result<CodexStatus>>
@@ -1118,11 +1145,14 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   codexLabel(params: { index: number; label: string }): Promise<Result<{ status: string; label: string }>>
   codexRemove(params: { index: number }): Promise<Result<{ status: string; email: string }>>
   codexLoginBegin(): Promise<Result<DeviceCode>>
-  codexLoginPoll(params: { device_auth_id: string; user_code: string }): Promise<Result<LoginPoll>>
+  codexLoginPoll(params: { login_id: string }): Promise<Result<LoginPoll>>
+  codexOpenVerification(): Promise<Result<{ opened: boolean }>>
   setConversationMuted(params: { conversation_id: string; muted: boolean }): Promise<Result<Settings>>
-  /** A notification was clicked: the window should show that conversation. */
-  onOpenConversation(listener: (conversationId: string) => void): () => void
+  /** A notification was clicked: open its exact committed message, including older history. Main-to-window only. */
+  onOpenConversation(listener: (target: { conversationId: string; messageId: string }) => void): () => void
   getAppState(): Promise<AppState>
+  /** Archives only the current cleanup notice by its opaque ID. Never replays work or reconciles resources. */
+  acknowledgeCleanup(id: string): Promise<Result<AppState>>
   onEvent(listener: (event: CoreEvent) => void): () => void
   onAppState(listener: (state: AppState) => void): () => void
   /** Late receipts for commands whose first answer was 'no_receipt'. */
@@ -1185,6 +1215,7 @@ export const IPC = {
   imageModelIntent: 'odin:core-settings:image-intent',
   secretsSet: 'odin:secrets:set',
   secretsClear: 'odin:secrets:clear',
+  secretsUnlock: 'odin:secrets:unlock',
   editLeaf: 'odin:core-settings:edit-leaf',
   codexAccounts: 'odin:codex:accounts',
   codexActivate: 'odin:codex:activate',
@@ -1192,9 +1223,13 @@ export const IPC = {
   codexRemove: 'odin:codex:remove',
   codexLoginBegin: 'odin:codex:login-begin',
   codexLoginPoll: 'odin:codex:login-poll',
+  codexOpenVerification: 'odin:codex:open-verification',
   setConversationMuted: 'odin:settings:set-muted',
   openConversation: 'odin:open-conversation',
+  /** Preload listener readiness only. No payload, target, command or renderer-controlled core operation. */
+  notificationRouteReady: 'odin:notification-route-ready',
   getAppState: 'odin:app-state:get',
+  acknowledgeCleanup: 'odin:cleanup:acknowledge',
   event: 'odin:event',
   appState: 'odin:app-state',
   receipt: 'odin:receipt',
