@@ -5,7 +5,7 @@
   "scope": "All 37 original test definitions in four inherited suites; parametrized variants inherit their definition's disposition.",
   "rules": {
     "citation": "Claude, review of step 8 part 5",
-    "wording_assertions": "CONTRIBUTING.md prohibits human-written document wording assertions. That prohibition is not approval to retire neutral semantics; proposed cases require Claude's decision.",
+    "wording_assertions": "Claude, PR52 review round 1: retire operator-document wording assertions because Desktop does not ship those documents and CONTRIBUTING.md prohibits wording tests. Surviving Desktop behavior must have concrete supplemental behavior selectors; these do not restore or execute the retired prose cases.",
     "selectors": "Only restored selectors count as restoration. Supplemental selectors and intended counterparts are not claimed as frozen or approved restoration.",
     "suite_status": "Mixed suites remain deferred until the case-level mapping is accepted. No original suite is edited or run by this lane."
   },
@@ -22,24 +22,29 @@
         },
         {
           "case": "test_static_tools_and_packaged_handoffs_use_authoritative_inventory_contracts",
-          "line": 15, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
-          "reason": "Mixed tool-registry and old nfpm handoff/prose assertions. Old server package handoffs are removed, but neutral inventory and core-tool semantics are not. Do not treat a broad desktop catalog test as preserving these exact assertions.",
-          "counterpart": "Desktop merged tool catalog and P4.1 package handoff inventory; supplemental behavior coverage only",
-          "blocker": "Claude must decide replacement scope or retirement of wording-only assertions; no approved retirement for neutral static-tool inventory."
+          "line": 15, "disposition": "retired", "category": "operator-document-wording", "selectors": [],
+          "reason": "Claude, PR52 review round 1: Desktop does not ship the inherited operator documents or nfpm handoffs, and CONTRIBUTING prohibits document wording assertions. Surviving static registry identity/schema/core inventory and P4.1 closed package inventory are tested as behavior, not README prose.",
+          "citation": "Claude, review of step 8 part 5",
+          "decision": "/home/odin/reviews/desktop-pr52-review.md, section 1",
+          "counterpart": "Desktop static tool catalog parity and P4.1 manifest inventory verifier",
+          "supplemental_selectors": ["tests/test_desktop_step8_part5_removed.py::test_static_tool_inventory_preserves_registry_identity_and_core_schemas", "app/packaging/tests/test_qualification.py::ManifestBehaviour::test_closed_inventory_and_relocation", "app/packaging/tests/test_qualification.py::ManifestBehaviour::test_digest_tamper_same_size", "app/packaging/tests/test_qualification.py::ManifestBehaviour::test_missing_file", "app/packaging/tests/test_qualification.py::ManifestBehaviour::test_unlisted_file"],
+          "related_review": "PR48 tool-registry adapters remain on their separate reviewed branch; no PR48 ancestry or full parity gate is claimed here."
         },
         {
           "case": "test_retired_model_documentation_matches_migration_and_successor",
-          "line": 39, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
-          "reason": "Model migration remains relevant. Original exact assertions also require configuration-guide prose, prohibited by CONTRIBUTING. No frozen restoration or retirement approval is claimed.",
-          "counterpart": "Profile loader retained model-default migration; model_defaults.RETIRED_MODEL_SUCCESSOR",
-          "blocker": "Claude decision on prose-case replacement with concrete selected-profile model migration assertions."
+          "line": 39, "disposition": "retired", "category": "operator-document-wording", "selectors": [],
+          "reason": "Claude, PR52 review round 1: retire unshipped configuration-guide wording, not model migration. The frozen Desktop retirement adapter loads explicit main/fixed-agent/auxiliary legacy selections, proves the successor and preserved efforts, and leaves operator bytes unchanged.",
+          "citation": "Claude, review of step 8 part 5", "decision": "/home/odin/reviews/desktop-pr52-review.md, section 1",
+          "counterpart": "Selected-profile load_config model retirement migration",
+          "supplemental_selectors": ["tests/test_desktop_shared_retirement.py::test_codex_55_retirement__load_migrates_legacy_config_without_rewriting_operator_file", "tests/test_desktop_shared_retirement.py::test_selected_profile_retirement_serving_preserves_operator_alias_namespaces"]
         },
         {
           "case": "test_documented_codex_effort_limits_match_authoritative_defaults",
-          "line": 50, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
-          "reason": "Input budgets and unsupported effort defaults survive. Exact guide-wording checks cannot be restored under CONTRIBUTING, and a generic effort UI smoke is not exact case coverage.",
-          "counterpart": "Desktop models.schema and retained CODEX_MODEL_INPUT_BUDGETS/CODEX_MODEL_UNSUPPORTED_EFFORTS",
-          "blocker": "Claude decision on concrete assertions for the inherited numeric budget and unsupported effort semantics."
+          "line": 50, "disposition": "retired", "category": "operator-document-wording", "selectors": [],
+          "reason": "Claude, PR52 review round 1: retire unshipped guide wording. Retained budget registry assertions pin the numeric input floors; a Desktop schema behavior test checks unsupported effort, allowed effort vocabulary, persisted defaults and model input-budget resolution without guide text.",
+          "citation": "Claude, review of step 8 part 5", "decision": "/home/odin/reviews/desktop-pr52-review.md, section 1",
+          "counterpart": "Codex schema effort/default validation and context input-budget authority",
+          "supplemental_selectors": ["tests/test_context_budget.py::TestRegistryFloors::test_floors_match_probe_evidence", "tests/test_desktop_step8_part5_removed.py::test_codex_effort_defaults_and_input_budget_are_schema_behavior"]
         },
         {
           "case": "test_websocket_auth_docs_describe_supported_carriers_and_reject_query_tokens",
@@ -49,40 +54,42 @@
         },
         {
           "case": "test_setup_restart_docs_distinguish_update_from_wizard",
-          "line": 72, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
-          "reason": "Old update re-exec surface is removed but onboarding must remain non-reexec. Original guide/onboarding source-string checks are prohibited human-doc wording assertions, not exact behavioral coverage.",
-          "counterpart": "Desktop profile onboarding via settings; first_run projection and runtime provider adoption",
-          "supplemental_selectors": ["tests/test_desktop_first_run.py::test_commit_default_without_credentials_stays_fresh"],
-          "blocker": "Claude decision on case replacement; supplemental first-run projection does not prove all original source/doc claims."
+          "line": 72, "disposition": "retired", "category": "operator-document-wording", "selectors": [],
+          "reason": "Claude, PR52 review round 1: retire unshipped guide/source wording. Desktop onboarding/profile provisioning and settings save/reload are exercised with request_restart replaced by a failing sentinel and explicitly asserted never called. First-run tests separately cover durable onboarding projection.",
+          "citation": "Claude, review of step 8 part 5", "decision": "/home/odin/reviews/desktop-pr52-review.md, section 1",
+          "counterpart": "Desktop provisioning and settings onboarding never request updater re-exec",
+          "supplemental_selectors": ["tests/test_desktop_step8_part5_removed.py::test_onboarding_image_follow_defaults_persist_without_pinning", "app/test/e2e/onboarding.spec.ts::fresh launch supports setup later, section re-entry and a second launch without a local readiness flag"]
         },
         {
           "case": "test_hyprland_operator_guide_covers_bounded_managed_first_use",
-          "line": 79, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
-          "reason": "Native managed first use is not a removed surface. All inherited assertions inspect a human operator guide. CONTRIBUTING prohibits that style but does not approve removal of bounded activation semantics.",
-          "counterpart": "Retained native computer inventory/session managed activation, only hard-isolated graphical qualification",
-          "blocker": "Claude decision identifying concrete bounded first-use counterpart or approved retirement. No active-desktop qualification attempted."
+          "line": 79, "disposition": "retired", "category": "operator-document-wording", "selectors": [],
+          "reason": "Claude, PR52 review round 1: retire unshipped operator-guide wording. Deterministic native activation tests retain pinned preparation-before-scope, unauthorized refusal, single-load concurrency and no replay after lost ACK; a behavior test proves bounded IPC timeout and socket cleanup. These fake-native tests are not compositor qualification.",
+          "citation": "Claude, review of step 8 part 5", "decision": "/home/odin/reviews/desktop-pr52-review.md, section 1",
+          "counterpart": "Managed Hyprland preparation/activation and bounded authenticated plugin IPC",
+          "supplemental_selectors": ["tests/test_computer_hyprland_preinventory_r42.py::test_inventory_prepares_pinned_plugin_before_opening_scope_and_replaces_proofs", "tests/test_computer_hyprland_preinventory_r42.py::test_failed_inventory_preparation_clears_cached_proofs_without_opening_scope", "tests/test_hyprland_plugin_campaign.py::test_unauthorized_activation_cannot_inspect_or_load", "tests/test_hyprland_plugin_campaign.py::test_same_approved_pin_is_locked_and_loads_once", "tests/test_hyprland_plugin_real_protocol.py::test_lost_ack_and_absent_inventory_never_replays_on_next_activation", "tests/test_desktop_step8_part5_removed.py::test_managed_hyprland_first_use_ipc_timeout_is_bounded_and_closes_peer"]
         },
         {
           "case": "test_provider_overview_includes_generic_compatible_lane",
-          "line": 86, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
-          "reason": "Compatible provider support remains. README/guide vendor-name assertions are wording-only; a compatible-provider probe does not preserve the original documentation claims.",
-          "counterpart": "Desktop ProviderOwner compatible qualification and OpenAICompatibleConfig",
-          "supplemental_selectors": ["tests/test_desktop_providers.py::test_compatible_qualifies_retained_client_before_publication"],
-          "blocker": "Claude decision on documentation-case replacement; neutral compatible provider behavior is retained, not retired."
+          "line": 86, "disposition": "retired", "category": "operator-document-wording", "selectors": [],
+          "reason": "Claude, PR52 review round 1: retire unshipped README/vendor-guide wording, not compatible-provider support. Desktop ProviderOwner tests qualify the actual retained compatible client before publication and roll back settings/close the candidate on probe failure.",
+          "citation": "Claude, review of step 8 part 5", "decision": "/home/odin/reviews/desktop-pr52-review.md, section 1",
+          "counterpart": "Desktop ProviderOwner compatible client qualification and transaction",
+          "supplemental_selectors": ["tests/test_desktop_providers.py::test_compatible_qualifies_retained_client_before_publication", "tests/test_desktop_providers.py::test_compatible_probe_failure_rolls_back_disk_and_closes_candidate"]
         },
         {
           "case": "test_tool_iteration_explanation_distinguishes_batch_and_cycle_budget",
-          "line": 98, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
-          "reason": "Tool-cycle and autonomous-loop budgets remain relevant. Guide wording and tool-loop source identifiers are not behavioral proof and cannot be reproduced as a restored doc test.",
-          "counterpart": "Retained ToolLoopRunner.run_autonomous and per-cycle configured iteration limits",
-          "blocker": "Claude decision for a concrete multi-tool batch versus cycle-budget counterpart or approved retirement."
+          "line": 98, "disposition": "retired", "category": "operator-document-wording", "selectors": [],
+          "reason": "Claude, PR52 review round 1: retire unshipped guide/source wording. A composed Desktop chat test executes six calls in two batches under a two-generation cap; the retained LoopManager independently executes three cycles with preserved previous-cycle context. Autonomous entry remains wiring-gated, so this behavior proof does not claim its unavailable per-cycle LLM cap or live loop readiness.",
+          "citation": "Claude, review of step 8 part 5", "decision": "/home/odin/reviews/desktop-pr52-review.md, section 1",
+          "counterpart": "Composed Desktop chat generation budget and retained autonomous cycle budget kernel",
+          "supplemental_selectors": ["tests/test_desktop_step8_part5_removed.py::test_tool_batch_budget_and_retained_cycle_count_supplemental"]
         },
         {
           "case": "test_docs_do_not_claim_removed_native_grafana_or_prometheus_features",
-          "line": 107, "disposition": "proposed", "selectors": [], "owner": "Claude, case-retirement review",
-          "reason": "Negative claims in README/scheduling docs are wording-only. Their historical feature removal is not itself approval to retire this documentation case under the listed removed surfaces.",
-          "counterpart": "No exact behavioral counterpart for absence of documentation wording",
-          "blocker": "Claude decision required; do not invent an approved retirement category."
+          "line": 107, "disposition": "retired", "category": "operator-document-wording", "selectors": [],
+          "reason": "removed feature; Desktop's docs are reviewed by people, not pinned by tests",
+          "citation": "Claude, review of step 8 part 5", "decision": "/home/odin/reviews/desktop-pr52-review.md, section 1",
+          "counterpart": null
         }
       ]
     },

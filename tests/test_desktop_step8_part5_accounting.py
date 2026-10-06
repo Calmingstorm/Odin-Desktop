@@ -24,6 +24,45 @@ def test_real_case_record_is_complete_and_not_a_runtime_pass_claim():
     assert report["independent_review"] == "pending"
 
 
+def test_reviewed_decisions_account_for_all_274_original_definitions():
+    errors, report = checker.validate(ROOT)
+    assert errors == []
+    assert report["definitions"] == 274
+    assert report["dispositions"] == {"restored": 140, "retired": 69, "deferred": 65}
+    data = manifest()
+    docs = next(suite for suite in data["suites"]
+                if suite["path"] == "tests/test_docs_campaign_contracts.py")
+    assert all(case["disposition"] == "retired" for case in docs["cases"])
+    assert sum(case["category"] == "operator-document-wording" for case in docs["cases"]) == 8
+    for path in ("tests/test_main_exit_codes.py", "tests/test_restart.py"):
+        suite = next(suite for suite in data["suites"] if suite["path"] == path)
+        assert all(case["owner"].startswith("P3.3 part 2 (lane 7)")
+                   for case in suite["cases"] if case["disposition"] == "deferred")
+
+
+@pytest.mark.parametrize("mutation", [
+    "missing_coverage", "unsafe_coverage", "wrong_scope", "missing_decision"])
+def test_document_wording_retirement_keeps_behavior_condition(mutation):
+    data = copy.deepcopy(manifest())
+    docs = next(suite for suite in data["suites"]
+                if suite["path"] == "tests/test_docs_campaign_contracts.py")
+    row = next(case for case in docs["cases"]
+               if case.get("category") == "operator-document-wording")
+    if mutation == "missing_coverage":
+        row["supplemental_selectors"] = []
+    elif mutation == "unsafe_coverage":
+        row["supplemental_selectors"] = ["../outside.py::test_behavior"]
+    elif mutation == "missing_decision":
+        row.pop("decision")
+    else:
+        row = next(case for suite in data["suites"] if suite["path"] != docs["path"]
+                   for case in suite["cases"] if case["disposition"] == "retired")
+        row["category"] = "operator-document-wording"
+        row["decision"] = "wrongly borrowed docs decision"
+    errors, _ = checker.validate(ROOT, data)
+    assert errors
+
+
 @pytest.mark.parametrize("mutation", [
     "missing_suite", "duplicate_suite", "missing_case", "duplicate_case",
     "unknown_case", "changed_hash", "unknown_status", "empty_reason",
