@@ -62,9 +62,12 @@ failure. Diagnostic modules remain outside default qualification selectors.
 
 ## Current main and final gate
 
-Main moved to `ddd054fe` (first-run onboarding) during the first frozen run. It is
-now merged bottom-up into this branch, preserving both exact ledger lineages and
-all new secret/first-run sources and test coverage. No rebase or force-push.
+Main moved to `ddd054fe` (first-run onboarding), then `0b7d596f` (lifecycle PR32).
+Both are now merged bottom-up into this branch, preserving both exact ledger
+lineages and all new secret/first-run/lifecycle sources. Their five pure Desktop
+test files join the final owning boundary group, rather than being accidentally
+omitted from the preexisting explicit list. A282-test current-main integration
+selection passed. No rebase or force-push.
 Final source will receive the explicitly required second fresh-checkout full gate,
 isolated nonroot PID/mount/env-i/throwaway HOME and group-writable parent. Its
 receipt and tested SHA are separate from the first failed run.
