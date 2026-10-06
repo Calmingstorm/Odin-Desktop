@@ -204,7 +204,9 @@ def sandbox(root, work, user, command, root_user=False, pdf_fixture=None, *, use
         command = ['/usr/bin/setpriv', '--reuid=' + str(account.pw_uid), '--regid=' + str(account.pw_gid),
                    '--clear-groups'] + command
     elif root_user:
-        args += ['--dev', '/work/root/dev']
+        # Hooks inspect process lifetimes from the same isolated PID namespace,
+        # including inside dpkg's chroot. Never bind workstation /proc here.
+        args += ['--dev', '/work/root/dev', '--proc', '/work/root/proc']
     return args + ['--'] + command
 
 def probe(root, output, user, gui=False, pdf_fixture=None):
@@ -252,6 +254,78 @@ def extract_appimage(image, destination):
         raise QualificationError('no squashfs payload')
     run(['unsquashfs', '-no-progress', '-d', str(destination), '-offset', str(offset), str(image)], timeout=300)
 
+def copy_install_elf(binary, root, relative):
+    """Copy a trusted install tool and its loader/library closure, not host /usr."""
+    binary = Path(binary)
+    if not binary.is_file():
+        raise QualificationError('disposable install prerequisite missing: ' + str(binary))
+    target = root / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(binary.resolve(), target)
+    dependencies = run(['ldd', str(binary)])
+    if 'not found' in dependencies:
+        raise QualificationError('disposable install ELF prerequisite missing: ' + str(binary))
+    for library in re.findall(r'(?:=>\s*)?(/[^\s]+)', dependencies):
+        source_library = Path(library)
+        if not source_library.is_file():
+            raise QualificationError('disposable install ELF prerequisite missing: ' + library)
+        library_target = root / source_library.relative_to('/')
+        library_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_library.resolve(), library_target)
+    return target
+
+def stage_install_python(root):
+    """Stage Debian's hook prerequisite separately from the candidate runtime.
+
+    Hooks explicitly exec /usr/bin/python3 (Pre-Depends: python3).
+    Use its matching distro stdlib package inventory, never the controller's
+    venv, site-packages, workstation sitecustomize, or a bind of host Python.
+    The returned Python-specific files must be removed before runtime probes.
+    """
+    interpreter = Path('/usr/bin/python3')
+    if not interpreter.is_file() or not os.access(interpreter, os.X_OK):
+        raise QualificationError('disposable install prerequisite missing: /usr/bin/python3 (python3)')
+    try:
+        info = json.loads(run([str(interpreter), '-I', '-B', '-S', '-c',
+            'import json, sys, sysconfig; print(json.dumps({'
+            '"stdlib": sysconfig.get_path("stdlib"), '
+            '"version": "%s.%s" % sys.version_info[:2]}))']))
+        stdlib = Path('/usr/lib/python' + info['version'])
+        if Path(info['stdlib']) != stdlib:
+            raise QualificationError('expected Debian system stdlib at ' + str(stdlib))
+        package = 'libpython' + info['version'] + '-minimal'
+        names = run(['dpkg-query', '-L', package]).splitlines()
+        files = [Path(name) for name in names if Path(name).is_relative_to(stdlib)
+                 and (name.endswith('.py') or '.so' in Path(name).suffixes)
+                 and Path(name).name != 'sitecustomize.py']
+        if stdlib / 'encodings/__init__.py' not in files or stdlib / 'os.py' not in files:
+            raise QualificationError('incomplete minimal stdlib inventory: ' + package)
+        stdlib_package = 'libpython' + info['version'] + '-stdlib'
+        names = run(['dpkg-query', '-L', stdlib_package]).splitlines()
+        files.extend(Path(name) for name in names if Path(name).is_relative_to(stdlib)
+                     and (name.endswith('.py') or '.so' in Path(name).suffixes)
+                     and Path(name).name != 'sitecustomize.py'
+                     and not {'site-packages', 'dist-packages'} & set(Path(name).parts))
+        if stdlib / 'json/__init__.py' not in files:
+            raise QualificationError('hook JSON prerequisite missing: ' + stdlib_package)
+        staged = [copy_install_elf(interpreter, root, 'usr/bin/python3')]
+        for path in files:
+            if not path.is_file():
+                raise QualificationError('minimal stdlib file missing: ' + str(path))
+            relative = path.relative_to('/')
+            if '.so' in path.suffixes:
+                target = copy_install_elf(path, root, relative)
+            else:
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(path.resolve(), target)
+            staged.append(target)
+        # libpython can be an ELF dependency on other Debian architectures.
+        staged.extend(root.glob('**/libpython*.so*'))
+        return staged
+    except (OSError, ValueError, KeyError, subprocess.TimeoutExpired) as exc:
+        raise QualificationError('disposable install python3 prerequisite unavailable: ' + str(exc)) from exc
+
 def install_deb(deb, source, destination, user):
     with tempfile.TemporaryDirectory(prefix='dpkg disposable work ') as temporary:
         work = Path(temporary)
@@ -260,27 +334,33 @@ def install_deb(deb, source, destination, user):
         (work / 'root/var/lib/dpkg/status').touch()
         # Real maintainer-script proof in the disposable dpkg root. Copy only
         # the ELF closure for its small toolset, never writable host /usr.
+        # Python is only the maintainer-hook prerequisite, not candidate Python.
         for directory in ['usr/bin', 'etc/alternatives', 'var/lib/dpkg/alternatives', 'dev']:
             (work / 'root' / directory).mkdir(parents=True, exist_ok=True)
         for name in ['bash', 'sh', 'ln', 'chmod', 'readlink', 'unshare', 'update-alternatives']:
-            binary = Path(shutil.which(name))
-            target = work / 'root' / ('bin/' + name)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(binary.resolve(), target)
-            dependencies = run(['ldd', str(binary)])
-            for library in re.findall(r'(?:=>\s*)?(/[^\s]+)', dependencies):
-                source_library = Path(library)
-                library_target = work / 'root' / source_library.relative_to('/')
-                library_target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source_library.resolve(), library_target)
+            binary = shutil.which(name)
+            if binary is None:
+                raise QualificationError('disposable install prerequisite missing: ' + name)
+            copy_install_elf(binary, work / 'root', 'bin/' + name)
+        staged_python = stage_install_python(work / 'root')
         (work / 'root/etc/passwd').write_text('root:x:0:0:root:/root:/bin/bash\n')
         (work / 'root/etc/group').write_text('root:x:0:\n')
         account = pwd.getpwuid(os.getuid())
-        script = ('PATH=/usr/sbin:/usr/bin:/sbin:/bin /usr/bin/dpkg --root=/work/root '
+        script = ('/usr/sbin/chroot /work/root /usr/bin/python3 -I -B -S -c '
+                  '\'import argparse, fcntl, hashlib, json, os, stat, subprocess, sys; '
+                  'from contextlib import contextmanager; from pathlib import Path\' || '
+                  '{ echo "disposable install python3 prerequisite check failed"; exit 1; }; '
+                  'PATH=/usr/sbin:/usr/bin:/sbin:/bin /usr/bin/dpkg --root=/work/root '
                   '--force-depends --install /work/candidate.deb; '
-                  'result=$?; /bin/chown -R %s:%s /work/root; exit "$result"' %
+                  'result=$?; /usr/bin/find /work/root -xdev '
+                  '\\( -path /work/root/proc -o -path /work/root/dev \\) -prune -o '
+                  '-exec /bin/chown -h %s:%s {} +; exit "$result"' %
                   (account.pw_uid, account.pw_gid))
         log = run(sandbox(source, work, user, ['/bin/sh', '-c', script], root_user=True))
+        # Do not expose copied system Python under /candidate with spaces during
+        # subsequent runtime probes. Their host-Python masks remain unchanged.
+        for path in staged_python:
+            path.unlink(missing_ok=True)
         shutil.copytree(work / 'root', destination, symlinks=True)
     status = (destination / 'var/lib/dpkg/status').read_text()
     if 'Package: odin-desktop\n' not in status or 'Status: install ok installed' not in status:

@@ -54,7 +54,7 @@ deb:
     - --before-remove
     - ../.packaging-stage/deb-control/prerm
     - --deb-pre-depends
-    - python3-minimal
+    - python3
   appArmorProfile: packaging/apparmor-profile
   maintainer: Calmingstorm
   compression: xz
