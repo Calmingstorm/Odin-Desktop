@@ -19,7 +19,11 @@ export interface SupervisorOptions {
   restartWindowMs?: number
   backoffMs?: number[]
   maxLogBytes?: number
+  killWaitMs?: number
+  restartAllowed?: (code: number | null, signal: NodeJS.Signals | null) => boolean
 }
+
+export type StopOutcome = 'exited' | 'terminated' | 'killed' | 'not-running' | 'unknown'
 
 export type SupervisorState = 'idle' | 'starting' | 'running' | 'restarting' | 'stopping' | 'stopped' | 'failed'
 
@@ -29,6 +33,8 @@ export class CoreSupervisor extends EventEmitter {
   private crashTimes: number[] = []
   private restartTimer: NodeJS.Timeout | null = null
   private log: WriteStream | null = null
+  private stopping: Promise<StopOutcome> | null = null
+  private stopRequested = false
   private readonly maxRestarts: number
   private readonly restartWindowMs: number
   private readonly backoffMs: number[]
@@ -51,7 +57,7 @@ export class CoreSupervisor extends EventEmitter {
   }
 
   start(): void {
-    if (this.state === 'starting' || this.state === 'running' || this.state === 'stopping') return
+    if (this.stopRequested || this.state === 'failed' || this.restartTimer || this.state === 'starting' || this.state === 'running') return
     this.openLog()
     this.setState('starting')
     let child: ChildProcess
@@ -91,8 +97,10 @@ export class CoreSupervisor extends EventEmitter {
     child.once('exit', (code, signal) => end(code, signal))
   }
 
-  /** Orderly stop: close the parent-link pipe, wait, then SIGTERM, then SIGKILL. Resolves once the process is gone. */
-  stop(graceMs = 15_000, termMs = 5_000): Promise<'exited' | 'terminated' | 'killed' | 'not-running'> {
+  /** Bounded and shared. Sending a signal is not proof of exit. */
+  stop(graceMs = 15_000, termMs = 5_000): Promise<StopOutcome> {
+    if (this.stopping) return this.stopping
+    this.stopRequested = true
     if (this.restartTimer) {
       clearTimeout(this.restartTimer)
       this.restartTimer = null
@@ -101,34 +109,59 @@ export class CoreSupervisor extends EventEmitter {
     if (!child || child.pid === undefined || child.exitCode !== null || child.signalCode !== null) {
       this.setState('stopped')
       this.closeLog()
-      return Promise.resolve('not-running')
+      this.child = null
+      this.stopping = Promise.resolve('not-running')
+      return this.stopping
     }
     this.setState('stopping')
-    return new Promise((resolve) => {
+    this.stopping = new Promise((resolve) => {
       let outcome: 'exited' | 'terminated' | 'killed' = 'exited'
+      let settled = false
+      const finish = (result: StopOutcome): void => {
+        if (settled) return
+        settled = true
+        clearTimeout(termTimer)
+        clearTimeout(killTimer)
+        clearTimeout(deadline)
+        child.off('exit', onExit)
+        if (result === 'unknown') this.closeLog()
+        resolve(result)
+      }
+      const onExit = (): void => finish(outcome)
+      const signal = (value: NodeJS.Signals): void => {
+        try { child.kill(value) } catch (error) {
+          this.writeLog(Buffer.from(`[supervisor] ${value} failed: ${String(error)}\n`))
+        }
+      }
       const termTimer = setTimeout(() => {
         outcome = 'terminated'
-        child.kill('SIGTERM')
+        signal('SIGTERM')
       }, graceMs)
       const killTimer = setTimeout(() => {
         outcome = 'killed'
-        child.kill('SIGKILL')
+        signal('SIGKILL')
       }, graceMs + termMs)
-      child.once('exit', () => {
-        clearTimeout(termTimer)
-        clearTimeout(killTimer)
-        resolve(outcome)
-      })
-      child.stdin?.end()
+      const deadline = setTimeout(() => finish('unknown'), graceMs + termMs + (this.options.killWaitMs ?? 2_000))
+      child.once('exit', onExit)
+      child.stdin?.on('error', () => undefined)
+      try { child.stdin?.end() } catch { /* escalation retains its bounded deadline */ }
     })
+    return this.stopping
   }
 
   private onEnded(child: ChildProcess | null, code: number | null, signal: NodeJS.Signals | null): void {
     if (child !== this.child) return
+    this.child = null
     this.writeLog(Buffer.from(`[supervisor] core ended code=${code} signal=${signal}\n`))
     this.emit('exited', { code, signal })
-    if (this.state === 'stopping' || this.state === 'stopped') {
+    if (this.stopRequested) {
       this.setState('stopped')
+      this.closeLog()
+      return
+    }
+    if (this.options.restartAllowed && !this.options.restartAllowed(code, signal)) {
+      this.setState('failed')
+      this.emit('failed', { code, signal, cleanup: 'unknown' })
       this.closeLog()
       return
     }

@@ -31,13 +31,13 @@ button:disabled { cursor: default; opacity: 0.5; }
 .shell {
   display: grid;
   grid-template-columns: 240px 1fr;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100%;
 }
 
 /* Sidebar */
 .sidebar {
-  grid-row: 1;
+  grid-row: 2;
   background: var(--panel);
   border-right: 1px solid var(--border);
   display: flex;
@@ -79,7 +79,7 @@ button:disabled { cursor: default; opacity: 0.5; }
 .busy-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
 
 /* Main column */
-.main { grid-row: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: auto; }
+.main { grid-row: 2; display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: auto; }
 .topbar { padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .topbar h1 { margin: 0; font-size: 15px; font-weight: 600; }
 .message-scroll { flex: 1; min-height: 80px; overflow-y: auto; padding: 16px 20px; }
@@ -162,6 +162,7 @@ textarea:focus { border-color: var(--accent-dim); }
 /* Status bar */
 .statusbar {
   grid-column: 1 / -1;
+  grid-row: 3;
   display: flex;
   gap: 16px;
   align-items: center;
