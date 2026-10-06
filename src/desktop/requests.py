@@ -875,7 +875,9 @@ class RequestService:
         with self.store.transaction() as db:
             row = self.binding(cid, rid, original.generation)
             busy = db.execute("""SELECT 1 FROM desktop_requests WHERE conversation_id=?
-                AND state IN ('queued','running','stop_requested') LIMIT 1""", (cid,)).fetchone()
+                AND state IN ('queued','running','stop_requested')
+                AND request_id NOT IN (SELECT request_id FROM desktop_background_requests)
+                LIMIT 1""", (cid,)).fetchone()
             if (self._closed or not row or row["state"] != "suspended" or busy
                     or not self.context_is_current(original)
                     or row["ledger_generation"] != preserved["generation"]

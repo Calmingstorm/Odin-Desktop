@@ -126,6 +126,7 @@ async def test_ipc_schedule_report_read_never_reexecutes_and_control_is_deduplic
         assert history["ok"] and history["result"][-1]["status"] == "success", history
         posture = await request(reader, writer, "turn_state.list", {})
         assert posture["ok"] and posture["result"]["availability"] == "available"
+        assert core.engine.deps.scheduler.list_all() == []
     finally:
         await cleanup(core, writer, rfd, wfd)
 
@@ -270,4 +271,79 @@ async def test_native_process_is_registered_with_immutable_public_work_id(tmp_pa
                 await asyncio.sleep(.01)
         assert items[0]["settlement"]["resource_release"] == "confirmed"
     finally:
+        await cleanup(core, writer, rfd, wfd)
+
+
+@pytest.mark.asyncio
+async def test_schedule_destination_edit_retires_old_work_generation(tmp_path):
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, Provider())
+    try:
+        created = await request(reader, writer, "conversations.create")
+        other = created["result"]["conversation"]["id"]
+        saved = await request(reader, writer, "schedules.save", {
+            "description": "Move reminder", "action": "reminder", "channel_id": cid,
+            "cron": "0 0 * * *", "message": "Bound reminder"})
+        assert saved["ok"]
+        before = (await request(reader, writer, "work.list", {
+            "kind": "schedule"}))["result"]["items"][0]
+        moved = await request(reader, writer, "schedules.save", {
+            "id": saved["result"]["id"], "channel_id": other})
+        assert moved["ok"], moved
+        after = (await request(reader, writer, "work.list", {
+            "kind": "schedule"}))["result"]["items"]
+        assert len(after) == 2
+        assert next(item for item in after if item["id"] == before["id"])["actions"] == []
+        new = next(item for item in after if item["id"] != before["id"])
+        assert new["conversation_id"] == other
+        assert new["manager_generation"] != before["manager_generation"]
+        cancelled = await request(reader, writer, "work.control", {
+            "control_command_id": "retire-reminder", "kind": "schedule", "id": new["id"],
+            "action": "cancel"})
+        assert cancelled["ok"] and cancelled["result"]["disposition"] == "done", cancelled
+        assert core.engine.deps.scheduler.list_all() == []
+    finally:
+        await cleanup(core, writer, rfd, wfd)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fence", ["host", "tool", "scope", "generation"])
+async def test_ipc_process_control_retains_current_host_tool_and_scope_fences(tmp_path, fence):
+    from src.config.schema import ToolHost
+    from src.tools.output_authorization import (
+        host_binding,
+        request_host_authorizer,
+        request_scope_id,
+        request_tool_scope,
+    )
+    from src.tools.process_manager import ProcessInfo
+
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, Provider())
+    owner = core.authority.authenticate_local(peer_uid=core.authority.owner_uid)
+    token = core.permissions.set_request_owner(owner)
+    registry = core.engine.deps.host_registry
+    registry.publish({"test": ToolHost(address="localhost")})
+    info = ProcessInfo(777, "harmless", "localhost", 1, owner_id=owner.owner_id,
+        origin_channel=cid, host_alias="test", generation="stub-generation",
+        host_binding=host_binding(registry.get("test")))
+    try:
+        assert core._authorize_process(info)
+        if fence == "host":
+            changed = request_host_authorizer.set(lambda _alias: False)
+            variable = request_host_authorizer
+        elif fence == "tool":
+            changed = request_tool_scope.set(set())
+            variable = request_tool_scope
+        elif fence == "scope":
+            changed = request_scope_id.set("different-scope")
+            variable = request_scope_id
+        else:
+            info.host_binding = dict(info.host_binding, generation="different-host-generation")
+            changed = variable = None
+        try:
+            assert not core._authorize_process(info)
+        finally:
+            if variable is not None:
+                variable.reset(changed)
+    finally:
+        core.permissions.reset_request_owner(token)
         await cleanup(core, writer, rfd, wfd)

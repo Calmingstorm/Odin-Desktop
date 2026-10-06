@@ -387,7 +387,9 @@ class WorkService:
                 # The retained scheduler returns its own domain response, not
                 # a control receipt. Completion of run_now includes its actual
                 # history status; a skipped run was never dispatched.
-                if "disposition" not in receipt:
+                if type(receipt) is bool:
+                    receipt = {"disposition": "done" if receipt else "not_available"}
+                elif "disposition" not in receipt:
                     receipt = {"disposition": "not_available" if
                         receipt.get("status") == "skipped" else "done", "schedule": receipt}
             updated = self.refresh(current)

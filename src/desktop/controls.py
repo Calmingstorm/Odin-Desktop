@@ -456,9 +456,14 @@ class ControlService:
     def _busy(self, conversation_id: str) -> bool:
         if conversation_id in self.channel_state.active_requests:
             return True
-        return self.store.connection.execute("""SELECT 1 FROM desktop_requests
-            WHERE conversation_id=? AND state IN ('queued','running','stop_requested') LIMIT 1""",
-                                             (conversation_id,)).fetchone() is not None
+        background = self.store.connection.execute("SELECT 1 FROM sqlite_master "
+            "WHERE type='table' AND name='desktop_background_requests'").fetchone()
+        clause = (" AND request_id NOT IN (SELECT request_id FROM desktop_background_requests)"
+                  if background else "")
+        return self.store.connection.execute(
+            "SELECT 1 FROM desktop_requests WHERE conversation_id=? "
+            "AND state IN ('queued','running','stop_requested')" + clause + " LIMIT 1",
+            (conversation_id,)).fetchone() is not None
 
     def _reject_resume(self, params: dict, reason: str) -> dict:
         self._receipt(params, "rejected", emit=False)

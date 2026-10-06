@@ -1218,6 +1218,11 @@ class Scheduler:
                 target.pop("retry_at", None)
 
             target["_revision"] = original.get("_revision", 0) + 1
+            if (self.desktop_recovery and
+                    target.get("channel_id") != original.get("channel_id")):
+                # A definition moved to a new destination is a new immutable
+                # work binding. The old opaque work ID cannot control it.
+                target["_generation"] = uuid.uuid4().hex
             # Descriptive edits preserve outcomes; execution-affecting edits
             # supersede the old run's retry/completion policy.
             if any(target.get(key) != original.get(key) for key in
