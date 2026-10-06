@@ -144,8 +144,8 @@ One full fresh qualification ran all **31 then-configured groups**:
 required exact historical/main named-group set: adding a 31st group was not
 allowed. The three package suites were moved into the existing Desktop boundary
 group, preserving all historical group names/selectors. No assertion was
-weakened. The affected Desktop-boundary and core-transport groups are rerun on
-the corrected 30-group plan; their result is recorded after completion.
+weakened. The affected Desktop-boundary and core-transport groups were rerun on
+the corrected 30-group plan: **905 passed / one opt-in skip**, and **520 passed**.
 The initial failed report remains retained, not relabeled a full pass. The
 previous-candidate opt-in skip is discharged separately by its actual frozen
 candidate execution. Existing inherited skips and coroutine/closed-loop warnings
@@ -155,9 +155,17 @@ The corrected core-transport group passes **520 cases**. The first corrected
 Desktop-boundary rerun had **902 passes, three 3-second IPC timeouts and one
 previous-candidate opt-in skip** while other diagnostic/native lane activity
 was running. All three exact cases passed in a focused isolated retry; no
-assertions/timeouts were changed. A serialized boundary rerun records whether
-the complete gate is stable. These transient failures remain evidence, not
-erased by the focused retry.
+assertions/timeouts were changed. The serialized complete boundary rerun passes
+**905 cases**, with only the separately discharged previous-candidate opt-in
+skip. These transient failures remain evidence, not erased by retries.
+
+The composed final 30-group evidence therefore covers **14,444 passing
+executions, zero final failed/error cases and three visible skips**, using
+unchanged passing groups from the single full run and the two corrected groups.
+It is **not** a second monolithic full-green run. Two inherited skips remain;
+the third opt-in candidate case passed separately against exact P4.1 bytes.
+Logs: `full-qualification.log`, `qualification-corrected-groups.log`,
+`qualification-boundary-serial.log` and the fresh checkout's JUnit XMLs.
 
 ## Open gates and limitations
 
