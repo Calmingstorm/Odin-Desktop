@@ -178,7 +178,10 @@ export class RealCoreHarness {
         throw new Error(`Real core startup failed. Check engine Python/dependencies. ${launchError?.message ?? ''}\n${this.output}`)
       }
       return existsSync(this.paths.socketPath)
-    }, 'real core socket creation')
+    // A cold installed engine imports its complete retained dependency closure.
+    // Allow bounded startup on busy self-hosted runners, without retrying or
+    // substituting a fixture after launch. All Broker operation waits stay 8s.
+    }, 'real core socket creation', 25_000)
   }
 
   broker(wrongToken = false): Broker {
