@@ -37,6 +37,20 @@ class RequestContext:
 
 
 @dataclass(frozen=True)
+class ManagementContext:
+    """Owner/host lifecycle authority without a fabricated conversation or turn.
+
+    Not a RequestContext: it cannot pass foreground admission or own input.
+    The binding authorizer rechecks the authenticated OwnerContext.
+    """
+
+    owner_id: str
+    host_id: str
+    surface: str = field(default="desktop_management", init=False)
+    origin: str = field(default="management", init=False)
+
+
+@dataclass(frozen=True)
 class SessionGrant:
     session_id: str
     owner_id: str
