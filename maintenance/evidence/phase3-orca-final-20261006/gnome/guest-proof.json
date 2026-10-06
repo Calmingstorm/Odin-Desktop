@@ -1,0 +1,124 @@
+{
+  "probe": null,
+  "desktop": "gnome",
+  "session": {
+    "Desktop": "",
+    "Type": "wayland",
+    "Active": "yes",
+    "State": "active"
+  },
+  "session_environment": {
+    "XDG_RUNTIME_DIR": "/run/user/1001",
+    "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1001/bus",
+    "DISPLAY": ":0",
+    "WAYLAND_DISPLAY": "wayland-0",
+    "XAUTHORITY": "/run/user/1001/.mutter-Xwaylandauth.KPNVW3",
+    "XDG_CURRENT_DESKTOP": "GNOME",
+    "XDG_SESSION_DESKTOP": "odq-gnome",
+    "XDG_SESSION_TYPE": "wayland",
+    "HOME": "/home/odq",
+    "USER": "odq",
+    "LOGNAME": "odq",
+    "PATH": "/usr/local/bin:/usr/bin:/bin",
+    "LANG": "C.UTF-8",
+    "XDG_SESSION_ID": "1"
+  },
+  "source_sha256": "88fc373562c2d6c16925873390edfc955cd21a3cbd3d104ee6c36c1c79fe2b36",
+  "real_core_required": true,
+  "orca_version": "46.1",
+  "speech_sink": "private speech-dispatcher Unix socket, sd_dummy only",
+  "passed": true,
+  "cleanup": {
+    "method": "non-delegated-cgroup-v2+pidfd",
+    "owned_children_exited": true,
+    "descendants_exited": true,
+    "cgroup": "odq-orca-c6848e72d7164f5089a8be8f439f1d34",
+    "escalated": false,
+    "members_before_cleanup": [
+      {
+        "pid": 1179,
+        "starttime": 6328,
+        "uid": 1001,
+        "state": "S"
+      },
+      {
+        "pid": 1180,
+        "starttime": 6329,
+        "uid": 1001,
+        "state": "S"
+      },
+      {
+        "pid": 1186,
+        "starttime": 6339,
+        "uid": 1001,
+        "state": "S"
+      },
+      {
+        "pid": 1214,
+        "starttime": 6400,
+        "uid": 1001,
+        "state": "S"
+      }
+    ],
+    "child_exit_codes": [
+      0,
+      -9,
+      -15,
+      0,
+      0
+    ],
+    "cgroup_removed": true,
+    "native_sandbox_removed": true,
+    "uinput_restored": true
+  },
+  "native_sandbox": {
+    "path": "/usr/local/lib/odq/odq-orca-c6848e72d7164f5089a8be8f439f1d34-sandbox/electron/chrome-sandbox",
+    "sha256": "a4f6dfd7325ddd55f94ddc0c487d22726d40ef099ded6475d5dffe236e277896",
+    "uid": 0,
+    "mode": "0o4755"
+  },
+  "native_runtime_mount": "/      rw,relatime",
+  "toolkit_accessibility": "true",
+  "native_dialog_collector": {
+    "type": "ready",
+    "run": "1f73008b2db74c35afbc007868cd92d9",
+    "started_ns": 64076633887,
+    "address": "unix:path=/run/user/1001/at-spi/bus,guid=b1313f4e8ff7d0d66e1b291b6ac4a02c",
+    "collector_peer": ":1.10",
+    "collector": {
+      "pid": 1214,
+      "uid": 1001,
+      "exe": "/usr/bin/python3.12",
+      "start": "6400"
+    }
+  },
+  "gnome_startup_escape": true,
+  "task_exit_code": 0,
+  "orca_running_during_tasks": true,
+  "speechd_running_during_tasks": true,
+  "collector_running_during_tasks": true,
+  "evidence_sha256": {
+    "guest-orca-chat-results-attach-cancel-save-copy-report.png": "1a0f3594261a2d33eed8ba2fc87789dda8960d349dd143670d3325a93787bc69",
+    "native-dialog-collector.log": "141c4b01a647e454e674ff8d0eb2ce46b31d304c2ca29c6c38c29155ce034917",
+    "tasks.json": "afa65700da69de2f6ff2714ca72bab93d5baf9b1e2d2bc161e4973e3714612ef",
+    "orca-debug.log": "10e6c7fdc4c23fa3f55df736f948ed161ad9a2a72fcf0b2533b9c40d1d7650cb",
+    "guest-orca-delayed-history-search-retains-focused-current-message.png": "0994a3f58a982558ed328781be96ab01071d2425884daca451e9225266b188f2",
+    "speech-dispatcher.log": "73e74a64f41dab9031a8cc0abfdf8ebf1bb598ccaaf0362243c79a2eeefe9903",
+    "native-dialog-events.jsonl": "9f89815d19c31bbcbf3e142df7061f7f8a5dd25f0ac2585eb7cab228684ffa3f",
+    "guest-orca-all-eleven-settings-names-roles-states-errors-secret.png": "cea001ab428d39ee2da20ab3627ca27a7a9b381e9dfd4086278e4604774a4642",
+    "guest-orca-busy-steer-consumed-queued-stop-resume-unknown-no-flood.png": "7434cb50f338d8237d9c34d6cf22523bcc8b7b533e72f68491f070bbb93c0ce3",
+    "guest-orca-real-core-services-when-explicitly-provisioned.png": "32733d5758eb4714953e0bab6d70894cd01c16a8f187a91120ae2491092cf4ce",
+    "guest-orca-conversation-child-modal-search.png": "ba56abcd9b519c2dd5592c22593dac7d9ef862abf8cbcc3ebaf340820e982ab8",
+    "orca-console.log": "d4460b117fa702e9d6920b8ee2dce7258ae6413bca902599fa44d4bda9b60862",
+    "tasks.log": "d235aa1c6df376f5c04f09ba1982d2be9af67d9602a1b5663fd8be8cf9e47d89",
+    "guest-orca-bridge-named-message-and-native-button-role.png": "90321cf56af1cc1bb7e302d6e0dd40292712d63b2dc464cb8e7244c7906abc93",
+    "tasks/.last-run.json": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903",
+    "tasks/orca-orca-real-core-services-when-explicitly-provisioned/attachments/guest-desktop-9e49270228fd5cf957253e4d32050ff77c2fe5a0.png": "32733d5758eb4714953e0bab6d70894cd01c16a8f187a91120ae2491092cf4ce",
+    "tasks/orca-orca-conversation-child-modal-search/attachments/guest-desktop-27153a251fc0afe69efcc2f2075af76bd30c53ff.png": "ba56abcd9b519c2dd5592c22593dac7d9ef862abf8cbcc3ebaf340820e982ab8",
+    "tasks/orca-orca-all-eleven-setti-55dbe--roles-states-errors-secret/attachments/guest-desktop-b31f088d07ceb63f229b00167e43a002a609037d.png": "cea001ab428d39ee2da20ab3627ca27a7a9b381e9dfd4086278e4604774a4642",
+    "tasks/orca-orca-busy-steer-consu-23a9a-top-resume-unknown-no-flood/attachments/guest-desktop-dc6d15438a373be9b7e3052facd70155e545fad8.png": "7434cb50f338d8237d9c34d6cf22523bcc8b7b533e72f68491f070bbb93c0ce3",
+    "tasks/orca-orca-chat-results-attach-cancel-save-copy-report/attachments/guest-desktop-7c57425c1ee72da6870c38b9d5e580760c4a41a3.png": "1a0f3594261a2d33eed8ba2fc87789dda8960d349dd143670d3325a93787bc69",
+    "tasks/orca-orca-bridge-named-message-and-native-button-role/attachments/guest-desktop-d521d991c9e9296ad6f85dc7e5b2ffdf02c19b4b.png": "90321cf56af1cc1bb7e302d6e0dd40292712d63b2dc464cb8e7244c7906abc93",
+    "tasks/orca-orca-delayed-history--abed5-ins-focused-current-message/attachments/guest-desktop-6f227736bfa54265742ae394f94d08e157cf324f.png": "0994a3f58a982558ed328781be96ab01071d2425884daca451e9225266b188f2"
+  }
+}

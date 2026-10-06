@@ -1,0 +1,80 @@
+{
+  "kind": "focused-probes-not-qualification",
+  "probe": "native-files",
+  "launches": 1,
+  "passed": true,
+  "profile": "/var/tmp/odq-orca-915066380df648afa4fb0cf9c7832a55/probe-files-070823cf-1416-485b-92c7-7529004c26f7",
+  "window": {
+    "visible": true,
+    "focused": true,
+    "minimized": false,
+    "preferences": {
+      "allowRunningInsecureContent": false,
+      "contextIsolation": true,
+      "disableDialogs": false,
+      "disablePopups": false,
+      "enableBlinkFeatures": "",
+      "experimentalFeatures": false,
+      "javascript": true,
+      "nodeIntegration": false,
+      "nodeIntegrationInSubFrames": false,
+      "nodeIntegrationInWorker": false,
+      "safeDialogs": false,
+      "safeDialogsMessage": "",
+      "sandbox": true,
+      "webSecurity": true,
+      "webviewTag": false
+    },
+    "arguments": [
+      "/usr/local/lib/odq/odq-orca-915066380df648afa4fb0cf9c7832a55-sandbox/electron/electron",
+      "--inspect=0",
+      "--remote-debugging-port=0",
+      "/var/tmp/odq-orca-915066380df648afa4fb0cf9c7832a55/app",
+      "--force-renderer-accessibility",
+      "--enable-logging=stderr",
+      "--ozone-platform=x11"
+    ]
+  },
+  "message_focused": true,
+  "speech_message": true,
+  "native_frame": true,
+  "safe_preferences": true,
+  "attach_dialog_speech": {
+    "records": 12,
+    "patterns": [
+      "/Attach files/i",
+      "/table|file chooser|dialog/i"
+    ],
+    "passed": true
+  },
+  "attach_cancelled": true,
+  "attach_result": {
+    "method": "showOpenDialog",
+    "result": {
+      "canceled": false,
+      "filePaths": [
+        "/var/tmp/odq-orca-915066380df648afa4fb0cf9c7832a55/probe-files-070823cf-1416-485b-92c7-7529004c26f7/keyboard-attachment.txt"
+      ]
+    },
+    "recordedAt": 1791263671935
+  },
+  "attach_selected": true,
+  "attachment_sha256": "73363993e2cd278bf0f17fbdc0063cfefc6574dbda744c6fed1e9e9e9d2f397d",
+  "attachment_visible": true,
+  "generated_notes_visible": true,
+  "save_dialog_speech": {
+    "records": 8,
+    "patterns": [
+      "/Save file/i",
+      "/entry|table|file chooser|dialog/i"
+    ],
+    "passed": true
+  },
+  "saved": {
+    "path": "/var/tmp/odq-orca-915066380df648afa4fb0cf9c7832a55/probe-files-070823cf-1416-485b-92c7-7529004c26f7/keyboard-saved.txt",
+    "bytes": 25,
+    "sha256": "f27a17c0d6373abdf66692172534d178dccfd2204d2b9c46bf3a2f9b60f8b380",
+    "exact_bytes": true
+  },
+  "native_files": true
+}
