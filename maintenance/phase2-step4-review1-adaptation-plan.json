@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "step": 4,
+  "review": "PR23 round 1",
+  "entries": [
+    {
+      "path": "src/desktop/core.py",
+      "reason": "Compose the optional ledger-backed resume manager with configured auto-resume, TTL, suspension hook and orderly waiter cleanup.",
+      "contract": "The same admitted request service owns automatic, bare-trigger and control resume; no ledger leaves resume unavailable without disabling Stop or Steer.",
+      "invariant": "No live state or resume on restart; async resume never holds a journal transaction across await and does not block Stop.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_auto_resume.py", "tests/test_desktop_resume_trigger.py", "tests/test_desktop_resume_no_ledger.py", "tests/test_desktop_control_core.py"]
+    },
+    {
+      "path": "src/discord/turn_resume.py",
+      "reason": "Adapt retained resume execution to the trusted desktop request-service handoff while keeping upstream trigger recognition and checkpoint checks.",
+      "contract": "Automatic capacity and monotonic-session admission still run before original-message, current-policy, budget and single-winner-lease checks.",
+      "invariant": "No fresh-turn fallback for recognized preserved work, no ambiguous-effect execution, no invented checkpoint or changed bare-trigger language.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_auto_resume.py", "tests/test_desktop_resume_trigger.py", "tests/test_desktop_resume.py", "tests/test_desktop_strip_loop.py"]
+    },
+    {
+      "path": "src/desktop/controls.py",
+      "reason": "Use existing generation-bound guarded control admission for bare-command intake and deliver original Odin refusal wording.",
+      "contract": "Both explicit entry paths resume the preserved request through RequestService with admitted context, next generation and durable delivery.",
+      "invariant": "Unknown operations halt without a model call; current owner, queue, lease and quiescing checks remain authoritative.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_controls.py", "tests/test_desktop_resume.py", "tests/test_desktop_auto_resume.py", "tests/test_desktop_resume_trigger.py", "tests/test_desktop_resume_no_ledger.py"]
+    },
+    {
+      "path": "src/desktop/requests.py",
+      "reason": "Recognize exact preserved-work resume commands before model prompt/history construction and dispatch through guarded original-request admission.",
+      "contract": "Recognized commands are consumed, delivered refusal notices use Odin wording, semantic submission identities are durable and never fall through to fresh execution.",
+      "invariant": "Ordinary sentences and triggers with no preserved work retain normal submission behavior; reset fencing, attachment authority and no-replay remain intact.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_resume_trigger.py", "tests/test_desktop_requests.py", "tests/test_desktop_request_core.py", "tests/test_desktop_native_history_binding.py"]
+    },
+    {
+      "path": "tests/test_desktop_auto_resume.py",
+      "reason": "Prove capacity-recovery auto-resume through the actual wired core, admitted request service and retained runner.",
+      "contract": "Recovery publishes generation-two reply; newer conversation activity and configured auto-resume false stand the waiter down.",
+      "invariant": "Only deterministic harmless providers, disposable profile stores and isolated test namespaces.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_auto_resume.py"]
+    },
+    {
+      "path": "tests/test_desktop_resume_trigger.py",
+      "reason": "Prove exact bare-trigger resume, refusal notices and ordinary-message distinctions via real request intake.",
+      "contract": "Continue resumes original generation-two work without a user transcript entry; unresolved operations make no new model call.",
+      "invariant": "No real tool effect is performed and recognized commands cannot start fresh work on refusal.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_resume_trigger.py"]
+    },
+    {
+      "path": "tests/test_desktop_resume_no_ledger.py",
+      "reason": "Exercise disabled and failed-open durability after a real suspended checkpoint and profile reload.",
+      "contract": "Control resume returns durable resume_unavailable refusal while Stop and Steer admit and settle on legacy work.",
+      "invariant": "No manager is built without a ledger; no unknown control outcome or synthetic production effects.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_resume_no_ledger.py"]
+    }
+  ]
+}

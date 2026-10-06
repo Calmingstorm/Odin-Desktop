@@ -88,7 +88,7 @@ async def test_ipc_dedup_queue_disconnect_guarded_delivery_artifact_and_restart(
         assert isinstance(core.engine.runner, ToolLoopRunner)
         reader, writer, welcome = await connect(socket_path)
         assert "submission.send" in welcome["capabilities"]
-        assert "control.stop" not in welcome["capabilities"]
+        assert "control.stop" in welcome["capabilities"]
         created = await request(reader, writer, "conversations.create", {})
         cid = created["result"]["conversation"]["id"]
         params = {"client_submission_id": "dedup", "conversation_id": cid, "text": "First"}
