@@ -389,7 +389,7 @@ def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():
     assert light["runs-on"] == "${{ matrix.labels }}"
     assert light["strategy"]["matrix"]["include"] == [
         {"lane": "light", "labels": ["self-hosted", "odin-desktop-ci-light"]},
-        {"lane": "desktop", "labels": ["self-hosted", "odin-desktop-ci-light", "odin-desktop-ci"]},
+        {"lane": "desktop", "labels": ["self-hosted", "odin-desktop-short"]},
     ]
     assert light["strategy"]["fail-fast"] is False
     assert full["runs-on"] == ["self-hosted", "odin-desktop-ci"]
