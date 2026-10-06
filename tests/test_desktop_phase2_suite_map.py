@@ -153,10 +153,19 @@ def test_whole_suite_restore_preserves_membership_and_counts(repo, adapter, caps
 
 @pytest.mark.parametrize("adapter", [False, True])
 def test_step5_whole_suite_restore_preserves_original_ownership(repo, adapter):
-    path, _ = _restore(repo, adapter=adapter)
+    path, selector = _restore(repo, adapter=adapter)
     mapping = _read(repo, checker.MAP_PATH)
-    next(row for row in mapping["entries"] if row["path"] == path)["step"] = 5
+    qualification = _read(repo, checker.QUALIFICATION_PATH)
+    row = next(row for row in mapping["entries"] if row["path"] == path)
+    row["step"] = 5
+    # Like steps 2 to 4, a step 5 restoration runs in its owning step group.
+    row["qualification_group"] = checker.RESTORATION_GROUPS[5]
+    next(group for group in qualification["groups"]
+         if group["name"] == "phase2-core-transport")["files"].remove(selector)
+    next(group for group in qualification["groups"]
+         if group["name"] == row["qualification_group"])["files"].append(selector)
     _write(repo, checker.MAP_PATH, mapping)
+    _write(repo, checker.QUALIFICATION_PATH, qualification)
     assert checker.validate(repo) == []
     errors, report = checker._evaluate(repo)
     assert errors == []
