@@ -20,7 +20,7 @@ function refused(answer: Settled, code: string, disposition = 'rejected'): void 
 type Status = { phase: string; core_instance_id: string; version: string; capabilities: string[] }
 type Subscription = { event_high: string; reset_required: boolean }
 
-describe('actual app Broker ↔ repository real core (step 5)', () => {
+describe('actual app Broker ↔ repository real core', () => {
   let core: RealCoreHarness
   beforeEach(async () => {
     core = new RealCoreHarness()
@@ -40,7 +40,10 @@ describe('actual app Broker ↔ repository real core (step 5)', () => {
     expect(statSync(core.paths.tokenPath).mode & 0o777).toBe(0o600)
     const status = successful<Status>(await broker.request('status.get'))
     expect(status).toMatchObject({ phase: 'ready', core_instance_id: welcome.core.instance_id,
-      version: welcome.core.version, capabilities })
+      version: welcome.core.version, capabilities,
+      limits: { attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10, chunk_bytes: 512 * 1024 },
+      diagnostics: { turn_durability: { state: 'on', reason: null },
+        compatible_provider: { state: 'off', reason: null } } })
     // A configured model label is not provider readiness. No client is available on a fresh profile.
     expect(status).toMatchObject({ model: { main: expect.any(String), provider: 'codex' },
       providers: expect.arrayContaining([{ name: 'codex', health: 'unavailable' }]) })
@@ -118,12 +121,38 @@ describe('actual app Broker ↔ repository real core (step 5)', () => {
     expect(successful<Status>(await broker.request('status.get', {}, id)).core_instance_id).toBe(welcome.core.instance_id)
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '0' }, id)).reset_required).toBe(false)
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '999999' }, id)).reset_required).toBe(true)
-    refused(await broker.request('conversations.list', {}, id), 'capability_unavailable')
-    refused(await broker.request('conversations.create', { title: 'not admitted before step six' }, id), 'capability_unavailable')
+    expect(successful<{ items: unknown[] }>(await broker.request('conversations.list', {}, id)).items).toEqual([])
+    refused(await broker.request('work.list', {}, id), 'capability_unavailable')
+    refused(await broker.request('schedules.list', {}, id), 'capability_unavailable')
     expect(await broker.request('runtime.shutdown', { reason: 'read ID is still available' }, id)).toEqual({
       ok: true, result: { disposition: 'accepted' }
     })
     expect(await core.waitExit()).toEqual({ code: 0, signal: null })
+  })
+
+  test('reads identical public transcript payloads through paging, snapshot and search navigation', async () => {
+    const { broker } = await core.connect()
+    type Conversation = { id: string; rev: number }
+    const created = successful<{ conversation: Conversation }>(await broker.request(
+      'conversations.create', { title: 'real conversation navigation' }, randomUUID()))
+    const reset = successful<{ conversation: Conversation }>(await broker.request(
+      'conversations.reset_context', { id: created.conversation.id, expected_rev: created.conversation.rev }, randomUUID()))
+    const cid = reset.conversation.id
+    const page = successful<{ items: { id: string; text: string }[] }>(await broker.request(
+      'messages.list', { conversation_id: cid, limit: 100 }))
+    const snapshot = successful<{ messages: { items: unknown[] } }>(await broker.request(
+      'conversation.snapshot', { conversation_id: cid }))
+    expect(page.items).toHaveLength(1)
+    expect(page.items[0]!.text).toBe('Model context reset.')
+    const around = successful<{ items: unknown[] }>(await broker.request('messages.around', {
+      conversation_id: cid, message_id: page.items[0]!.id, before: 0, after: 0
+    }))
+    expect(around.items).toEqual(page.items)
+    expect(around.items).toEqual(snapshot.messages.items)
+    refused(await broker.request('messages.list', { conversation_id: cid, before: 'm_missing', limit: 100 }), 'not_found')
+    const found = successful<{ hits: { message_id: string }[] }>(await broker.request(
+      'search.query', { query: 'context RESET', conversation_id: cid }))
+    expect(found.hits.map((hit) => hit.message_id)).toEqual([page.items[0]!.id])
   })
 
   test('closing the parent stdin pipe exits orderly and releases the profile for a successor', async () => {

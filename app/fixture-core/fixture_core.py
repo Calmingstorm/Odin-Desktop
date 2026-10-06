@@ -2141,8 +2141,10 @@ class Core:
             raise CoreError("not_found", "conversation not found")
         items = self.messages[cid]
         before = params.get("before")
-        if before:
-            index = next((i for i, m in enumerate(items) if m["id"] == before), len(items))
+        if before is not None:
+            index = next((i for i, m in enumerate(items) if m["id"] == before), None)
+            if index is None:
+                raise CoreError("not_found", "message not found")
             items = items[:index]
         limit = max(1, min(int(params.get("limit") or 100), 100))
         return {"items": items[-limit:], "has_more": len(items) > limit, "watermark": str(self.seq)}

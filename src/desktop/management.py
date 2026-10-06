@@ -78,7 +78,25 @@ class ManagementService:
             self.read_methods.update(service.READ_METHODS)
 
     @classmethod
-    def compose(cls, core, *, secret_backend=None):
+    def profile_settings(cls, core, *, secret_backend=None, config=None):
+        """One persisted profile owner, optionally seeded by the test config seam."""
+        from .provisioning import ensure_profile
+        from .secrets import ProfileSecretStore
+        from .settings import SettingsService
+
+        provisioned = ensure_profile(core.paths, authority=core.authority)
+        if core.authority.durability_degraded:
+            raise JournalStorageError()
+        settings = SettingsService(
+            core.paths, ProfileSecretStore(core.paths, backend=secret_backend),
+            config=config if config is not None else provisioned)
+        # Locked keyrings do not block standalone management/login startup.
+        # Config consumers follow this owner's pointer after later hydration.
+        settings.hydrate_secrets()
+        return settings
+
+    @classmethod
+    def compose(cls, core, *, secret_backend=None, settings=None):
         """Compose retained domain owners without starting HTTP or a desktop."""
         from ..config.apply_registry import spec_for
         from ..context.loader import ContextLoader
@@ -96,34 +114,41 @@ class ManagementService:
         from .mcp import MCPService
         from .model_settings import ModelSettingsService
         from .providers import ProviderOwner
-        from .provisioning import ensure_profile
         from .records import RecordsService
         from .runtime import RuntimeService
-        from .secrets import ProfileSecretStore
-        from .settings import SettingsService
         from .skills import SkillsService
         from .state import StateService
         from .tool_catalog import DesktopToolCatalog
         from .workspace_diagnostics import WorkspaceDiagnostics
 
-        config = ensure_profile(core.paths, authority=core.authority)
-        if core.authority.durability_degraded:
-            raise JournalStorageError()
-        secrets = ProfileSecretStore(core.paths, backend=secret_backend)
-        settings = SettingsService(core.paths, secrets, config=config)
-        executor = ToolExecutor(
-            config=settings.config.tools, memory_path=str(core.paths.data_dir / "memory.json"),
-            permission_manager=core.permissions, app_config=settings.config,
-            email_config=settings.config.email, profile_paths=core.paths,
-        )
-        executor._command_shell_config = lambda: settings.config.tools.command_shell
-        executor._host_access = HostAccessManager(
-            path=core.paths.config_dir / "host-preferences.json",
-            available_hosts_provider=executor.host_registry.active_aliases,
-            permission_manager=core.permissions,
-        )
-        codex = CodexAccountsService(settings)
-        providers = ProviderOwner(settings, codex, executor=executor)
+        settings = settings or getattr(core, "settings", None)
+        if settings is None:
+            settings = cls.profile_settings(core, secret_backend=secret_backend)
+        elif secret_backend is not None:
+            # Retain the compose-time isolated keyring injection seam without
+            # constructing a second settings owner beside the request engine.
+            settings.secrets._backend = secret_backend
+            settings.hydrate_secrets()
+        engine = getattr(core, "engine", None)
+        deps = engine.deps if engine is not None else None
+        if deps is not None:
+            executor = deps.tool_executor
+            providers = deps.llm_gateway
+            codex = providers.codex_accounts
+        else:
+            executor = ToolExecutor(
+                config=settings.config.tools, memory_path=str(core.paths.data_dir / "memory.json"),
+                permission_manager=core.permissions, app_config=settings.config,
+                email_config=settings.config.email, profile_paths=core.paths,
+            )
+            executor._command_shell_config = lambda: settings.config.tools.command_shell
+            executor._host_access = HostAccessManager(
+                path=core.paths.config_dir / "host-preferences.json",
+                available_hosts_provider=executor.host_registry.active_aliases,
+                permission_manager=core.permissions,
+            )
+            codex = CodexAccountsService(settings)
+            providers = ProviderOwner(settings, codex, executor=executor)
         codex.providers = providers
         for method in providers.METHODS:
             settings.owners[method] = providers
@@ -149,12 +174,21 @@ class ManagementService:
             return True
 
         settings.owners["settings.set"] = apply_generic
-        hosts = HostsService(settings, executor=executor)
-        browser = BrowserRuntime(settings, core.paths, executor)
+        hosts = HostsService(settings, executor=executor,
+                             registry=deps.host_registry if deps is not None else None,
+                             scheduler=deps.scheduler if deps is not None else None)
+        browser = (deps.browser_manager if deps is not None
+                   and isinstance(deps.browser_manager, BrowserRuntime)
+                   else BrowserRuntime(settings, core.paths, executor))
+        browser.executor = executor
         skills = SkillsService(settings, executor=executor, owner_id=core.authority.owner_id,
-                               permissions=core.permissions)
+                               permissions=core.permissions,
+                               manager=deps.skill_manager if deps is not None else None)
         computer = ComputerBindingService(core, settings)
+        bound_mcp = (getattr(deps.runtime_context, "mcp_manager", None)
+                     if deps is not None else None)
         mcp = MCPService(settings, permissions=core.permissions,
+                         manager=bound_mcp,
                          reserved_names_provider=lambda: {
                              *BUILTIN_TOOL_NAMES,
                              *(tool["name"] for tool in skills.get_tool_definitions()),
@@ -171,15 +205,28 @@ class ManagementService:
                     ready[name] = settings.config.email.enabled
             return ready
 
-        executor.set_builtin_policy(BuiltinToolPolicy(lambda: settings.config, tool_readiness))
-        catalog = DesktopToolCatalog(
-            builtin_policy=executor._builtin_policy, get_config=lambda: settings.config,
-            skill_manager=skills, get_mcp_definitions=mcp.get_tool_definitions,
-            computer_available=lambda: computer.published_available,
-            get_email_config=lambda: settings.config.email,
-        )
+        if deps is None:
+            executor.set_builtin_policy(BuiltinToolPolicy(lambda: settings.config, tool_readiness))
+            catalog = DesktopToolCatalog(
+                builtin_policy=executor._builtin_policy, get_config=lambda: settings.config,
+                skill_manager=skills, get_mcp_definitions=mcp.get_tool_definitions,
+                computer_available=lambda: computer.published_available,
+                get_email_config=lambda: settings.config.email,
+            )
+        else:
+            # Preserve the request engine's policy, catalog and all consumers.
+            catalog = deps.tool_catalog
+            catalog.skill_manager = skills
+            # Part A management is not a new request-dispatch binding. Only
+            # publish MCP through an already bound runtime manager.
+            catalog.get_mcp_definitions = (mcp.get_tool_definitions
+                                           if bound_mcp is mcp.manager else None)
+            catalog.computer_available = lambda: computer.published_available
+            deps.management_owned_browser = browser is deps.browser_manager
+            deps.management_owned_mcp = bound_mcp is mcp.manager
         skills.set_on_catalog_changed(catalog.invalidate)
         mcp.set_on_catalog_changed(catalog.invalidate)
+        catalog.invalidate()
         executor.tool_catalog = providers.tool_catalog = catalog
         settings.owners["computer.activation.set"] = computer
         settings.owners["mcp.save"] = mcp.reject_generic_credentials
@@ -263,7 +310,8 @@ class ManagementService:
 
         records = RecordsService(core.paths, health=health, settings=settings,
                                  get_audit_path=lambda: settings.config.tools.audit_log_path)
-        context = ContextLoader(settings.config.context.directory)
+        context = (deps.context_loader if deps is not None
+                   else ContextLoader(settings.config.context.directory))
         runtime = RuntimeService(core, settings, llm=providers, context=context, skills=skills)
         models = ModelSettingsService(settings, executor=executor, provider=providers)
         integrations = IntegrationsService(settings)
@@ -276,6 +324,7 @@ class ManagementService:
         manager.skills, manager.mcp = skills, mcp
         manager.browser, manager.computer = browser, computer
         manager.tool_catalog, manager.workspace_diagnostics = catalog, diagnostics
+        manager._engine_owned = deps is not None
         return manager
 
     def identity_params(self, params: Any) -> dict:
@@ -375,7 +424,14 @@ class ManagementService:
                     (canonical_json(answer), time.time(), int(unknown), command_id),
                 )
             if event is not None:
-                await self.core._publish(event)
+                flush = getattr(self.core, "_flush_publications", None)
+                if flush is None:
+                    await self.core._publish(event)
+                else:
+                    # Request workers can commit while management awaits an effect.
+                    # Publish the entire pending prefix before advancing a subscriber
+                    # cursor past it with the newer settings frame.
+                    await flush()
             return json.loads(canonical_json(answer))
         except (ValueError, TypeError, RecursionError):
             if admitted:
@@ -392,7 +448,8 @@ class ManagementService:
         errors = []
         # Teardown of one owner cannot strand the other supervised transports.
         owners = [*reversed(getattr(self, "lifecycle_services", self.services)),
-                  getattr(self, "providers", None)]
+                  (getattr(self, "providers", None)
+                   if not getattr(self, "_engine_owned", False) else None)]
         for service in owners:
             close = getattr(service, "close", None)
             if close is not None:
@@ -404,7 +461,7 @@ class ManagementService:
                     errors.append(exc)
         executor = getattr(self, "executor", None)
         pool = getattr(executor, "ssh_pool", None)
-        if pool is not None:
+        if pool is not None and not getattr(self, "_engine_owned", False):
             close = getattr(pool, "close", None)
             if close is not None:
                 try:

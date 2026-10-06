@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "step": 4,
+  "review": "PR23 round 2",
+  "entries": [
+    {
+      "path": "tests/test_desktop_auto_resume.py",
+      "reason": "Add the missing reset-after-capacity-suspension regression through real IPC, core, resume manager and admitted runner; stage recovery with a deterministic waiter barrier.",
+      "contract": "A context reset leaves the session mutation revision unchanged but stands automatic continuation down with no model call or generation advance; owner resume still completes generation two from the original checkpoint.",
+      "invariant": "Preserved checkpoint and reset lineage remain intact, late replies stay visible but out of model context, and all providers and profiles are disposable and harmless.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_auto_resume.py"]
+    },
+    {
+      "path": "tests/test_desktop_resume.py",
+      "reason": "Replace collection-order-dependent graph lookup with an explicit imported fixture under a unique local alias.",
+      "contract": "All four actual guarded-resume integration cases run when this file is selected alone as well as in the desktop boundary group.",
+      "invariant": "The original engine fixture and resume assertions are unchanged; isolated execution never relies on another test module being collected.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_resume.py"]
+    }
+  ]
+}

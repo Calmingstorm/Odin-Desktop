@@ -7,12 +7,13 @@ import os
 import sqlite3
 import stat
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 from .paths import private_directory
+from .schema import validate_domains
 
 
 class JournalStorageError(RuntimeError):
@@ -116,7 +117,8 @@ class JournalStore:
             if existing:
                 tables = {row[0] for row in self.connection.execute(
                     "SELECT name FROM sqlite_master WHERE type='table'")}
-                if tables != {"journal_meta", "command_receipts", "journal_events"}:
+                if not validate_domains(self.connection, tables,
+                                        {"journal_meta", "command_receipts", "journal_events"}):
                     raise JournalStorageError()
                 rows = self.connection.execute(
                     "SELECT profile_id,identity FROM journal_meta").fetchall()
@@ -141,7 +143,7 @@ class JournalStore:
                 tables = {row[0] for row in self.connection.execute(
                     "SELECT name FROM sqlite_master WHERE type='table'")}
                 expected = {"journal_meta", "command_receipts", "journal_events"}
-                if existing and tables != expected:
+                if existing and not validate_domains(self.connection, tables, expected):
                     raise JournalStorageError()
                 self.connection.execute("""CREATE TABLE IF NOT EXISTS journal_meta (
                     singleton INTEGER PRIMARY KEY CHECK(singleton=1),
@@ -305,6 +307,54 @@ class CommandJournal:
                     raise ValueError("Handler returned an invalid response")
                 unknown = not answer["ok"] and answer["error"].get(
                     "disposition") == "outcome_unknown"
+                connection.execute("""UPDATE command_receipts SET state='final',response=?,
+                    finished_at=?,unknown_outcome=? WHERE command_id=?""",
+                                   (encoded, time.time(), int(unknown), command_id))
+            return json.loads(encoded)
+        except (JournalStorageError, sqlite3.Error, OSError):
+            return response_error("storage_unavailable", "Durable command storage is unavailable",
+                                  "outcome_unknown")
+        except Exception:
+            return response_error("internal", "Command outcome is unknown", "outcome_unknown")
+
+    async def execute_async(self, command_id: str, method: str, params: Any,
+                            handler: Callable[[], Awaitable[dict]]) -> dict:
+        """Reserve before asynchronous domain admission, never hold SQLite over await.
+
+        Controls have their own durable semantic identity and domain settlement.
+        A lost envelope receipt remains pending/unknown, never an automatic retry
+        of cancellation, steering or checkpoint acquisition.
+        """
+        if not isinstance(command_id, str) or not command_id:
+            return response_error("bad_request", "Expected a command identifier")
+        try:
+            try:
+                binding = "json:" + canonical_json([self.store.profile_id, method, params])
+            except (ValueError, TypeError, UnicodeError, RecursionError):
+                return self.execute(command_id, method, params, lambda: response_error(
+                    "bad_request", "Expected finite JSON parameters"))
+            if self.store._depth:
+                raise JournalStorageError()
+            with self.store.transaction() as connection:
+                row = connection.execute("SELECT * FROM command_receipts WHERE command_id=?",
+                                         (command_id,)).fetchone()
+                if row is not None:
+                    return self._replay(row, binding)
+                connection.execute("""INSERT INTO command_receipts
+                    (command_id,binding,state,created_at) VALUES (?,?,'pending',?)""",
+                                   (command_id, binding, time.time()))
+            answer = await handler()
+            encoded = canonical_json(answer)
+            if (type(answer) is not dict or type(answer.get("ok")) is not bool
+                    or (answer["ok"] and "result" not in answer)
+                    or (not answer["ok"] and (
+                        type(answer.get("error")) is not dict
+                        or any(type(answer["error"].get(key)) is not str
+                               for key in ("code", "message", "disposition"))))):
+                raise ValueError("Handler returned an invalid response")
+            unknown = not answer["ok"] and answer["error"].get(
+                "disposition") == "outcome_unknown"
+            with self.store.transaction() as connection:
                 connection.execute("""UPDATE command_receipts SET state='final',response=?,
                     finished_at=?,unknown_outcome=? WHERE command_id=?""",
                                    (encoded, time.time(), int(unknown), command_id))

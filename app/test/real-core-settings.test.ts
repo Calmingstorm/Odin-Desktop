@@ -85,7 +85,8 @@ describe('served settings/management through actual Broker and isolated reposito
       components: expect.any(Array), total: expect.any(Number), checked_at: expect.any(String) })
     result(await broker.request('runtime.reload', { scope: 'context' }))
     refused(await broker.request('usage.get', { period: 'invalid' }), 'bad_request')
-    for (const method of ['conversations.list', 'turns.create', 'schedules.list', 'skills.list', 'loops.list', 'agents.list', 'mcp.list', 'shell.execute']) {
+    expect(result(await broker.request('conversations.list'))).toMatchObject({ items: [], watermark: expect.any(String) })
+    for (const method of ['turns.create', 'schedules.list', 'skills.list', 'loops.list', 'agents.list', 'mcp.list', 'shell.execute']) {
       expect(SERVED_CAPABILITIES).not.toContain(method)
       refused(await broker.request(method), 'capability_unavailable')
     }
@@ -347,6 +348,6 @@ describe('served settings/management through actual Broker and isolated reposito
     }
     result(await broker.request('codex.accounts.remove', { index: 0 }))
     expect(result(await broker.request('codex.accounts.list'))).toEqual({ configured: false, accounts: [] })
-    refused(await broker.request('conversations.create', { title: 'Auth does not serve step 6' }), 'capability_unavailable')
+    refused(await broker.request('schedules.list'), 'capability_unavailable')
   })
 })

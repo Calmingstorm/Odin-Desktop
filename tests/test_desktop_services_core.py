@@ -39,11 +39,12 @@ async def connected(tmp_path, monkeypatch):
         os.close(write_fd)
 
 
-async def test_service_readiness_and_absent_delivery_are_honest(connected):
+async def test_service_readiness_and_integrated_delivery_are_honest(connected):
     service, reader, writer, welcome = connected
     capabilities = set(welcome["capabilities"])
     assert {"skills.save", "mcp.save", "computer.status", "computer.activation.set"} <= capabilities
-    assert not {"skills.test", "submission.send", "computer_act", "schedules.list"} & capabilities
+    assert "submission.send" in capabilities
+    assert not {"skills.test", "computer_act", "schedules.list"} & capabilities
     assert (await request(reader, writer, "skills.list"))["result"] == []
     mcp = await request(reader, writer, "mcp.status")
     assert mcp["ok"] and mcp["result"]["server_count"] == 0
@@ -55,6 +56,13 @@ async def test_service_readiness_and_absent_delivery_are_honest(connected):
     assert health["browser"]["state"] == "disabled"
     assert not health["computer"]["native_qualified"]
     assert service.management.executor._browser_manager is None
+    assert service.management.executor is service.engine.deps.tool_executor
+    assert service.management.skills.skill_manager is service.engine.deps.skill_manager
+    assert service.management.tool_catalog is service.engine.deps.tool_catalog
+    assert service.management.browser is service.engine.deps.browser_manager
+    assert service.engine.deps.skill_manager._config_store.secrets is service.settings.secrets
+    # MCP management is not an unbound foreground request-dispatch promise.
+    assert service.engine.deps.tool_catalog.get_mcp_definitions is None
 
 
 async def test_skill_save_publication_receipt_reload_and_revocation(connected):
