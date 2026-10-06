@@ -68,7 +68,9 @@ def namespace_command(environment: dict[str, str]) -> list[str]:
             stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10,
         )
         if permission.returncode == 0:
-            candidates.append(("restricted isolation helper", ["sudo", "-n", ISOLATION_HELPER]))
+            # --private-tmp: a RAM-backed /tmp of its own inside the namespace.
+            candidates.append(("restricted isolation helper",
+                               ["sudo", "-n", ISOLATION_HELPER, "--private-tmp"]))
         else:
             failures.append(f"restricted isolation helper permission: exit {permission.returncode}")
     except (OSError, subprocess.TimeoutExpired) as exc:

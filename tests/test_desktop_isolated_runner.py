@@ -80,8 +80,8 @@ def test_runner_namespaces_and_cleans_ambient_environment(tmp_path, monkeypatch)
     )
     assert runner.main() == 0
     command = captured[0]
-    assert command[:4] == ["sudo", "-n", runner.ISOLATION_HELPER, "env"]
-    assert command[4:6] == [
+    assert command[:5] == ["sudo", "-n", runner.ISOLATION_HELPER, "--private-tmp", "env"]
+    assert command[5:7] == [
         "-i",
         f"PATH={tmp_path / '.venv/bin'}:/usr/bin:/bin",
     ]
