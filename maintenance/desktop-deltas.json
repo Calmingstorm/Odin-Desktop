@@ -19850,29 +19850,29 @@
       ]
     },
     {
-      "after_sha256": "7b362f552b77cf2c93801a216eea5ccaafdb237605bbe95efc3d178d04f3d113",
+      "after_sha256": "2f9e0f95b8bad819460c4fdb79b4d2f3fff35fceec0ed587137a38940fcb9a14",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "CI preserves main lifecycle and package scripts, isolates the Orca suite, and delegates KDE ownership to verified user namespaces.",
+      "contract": "CI selects the separate Orca corpus once, delegates canonical desktop fixtures to their runner, and invokes full qualification once.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "No modeled ownership fixture, Docker fallback, duplicate full qualification invocation or dropped main app entrypoint.",
+      "invariant": "No duplicate canonical fixture selection or full qualification invocation; fixture behaviour remains covered by the canonical fixture tests.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin P3.4 Orca lane",
       "patch": [
         {
           "end": 0,
-          "new_base64": "IiIiTWVyZ2UgcmVncmVzc2lvbnMgZm9yIGluZGVwZW5kZW50bHkgb3duZWQgT3JjYSBhbmQgY2Fub25pY2FsIGZpeHR1cmUgbGFuZXMuIiIiCgppbXBvcnQganNvbgppbXBvcnQgc2hsZXgKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgppbXBvcnQgeWFtbAoKUk9PVCA9IFBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRzWzFdCgoKZGVmIHRlc3RfY2lfcHJlc2VydmVzX2Nhbm9uaWNhbF9maXh0dXJlX3J1bm5lcl93aXRob3V0X2R1cGxpY2F0ZV9maXh0dXJlX3NlbGVjdGlvbigpOgogICAgd29ya2Zsb3cgPSB5YW1sLnNhZmVfbG9hZCgoUk9PVCAvICIuZ2l0aHViL3dvcmtmbG93cy9waGFzZTEtZW5naW5lLnltbCIpLnJlYWRfdGV4dCgpKQogICAgc3RlcHMgPSB3b3JrZmxvd1siam9icyJdWyJmdWxsLXN1aXRlcyJdWyJzdGVwcyJdCiAgICBsYW5lID0gbmV4dChzdGVwIGZvciBzdGVwIGluIHN0ZXBzCiAgICAgICAgICAgICAgICBpZiBzdGVwLmdldCgibmFtZSIsICIiKS5zdGFydHN3aXRoKCJRdWFsaWZpY2F0aW9uIGxhYiIpKQogICAgY29tbWFuZHMgPSBbc2hsZXguc3BsaXQobGluZSkgZm9yIGxpbmUgaW4gbGFuZVsicnVuIl0uc3BsaXRsaW5lcygpCiAgICAgICAgICAgICAgICBpZiBsaW5lLnN0cmlwKCkgYW5kIG5vdCBsaW5lLmxzdHJpcCgpLnN0YXJ0c3dpdGgoIiMiKV0KICAgIGZpeHR1cmVzID0gW2NvbW1hbmQgZm9yIGNvbW1hbmQgaW4gY29tbWFuZHMKICAgICAgICAgICAgICAgIGlmICJzY3JpcHRzL3J1bi1sYWItZml4dHVyZS10ZXN0cy5weSIgaW4gY29tbWFuZAogICAgICAgICAgICAgICAgYW5kIGNvbW1hbmRbMF0uZW5kc3dpdGgoInB5dGhvbiIpXQogICAgYXNzZXJ0IGZpeHR1cmVzID09IFtbIi52ZW52L2Jpbi9weXRob24iLCAic2NyaXB0cy9ydW4tbGFiLWZpeHR1cmUtdGVzdHMucHkiXV0KICAgIG9yY2EgPSBuZXh0KGNvbW1hbmQgZm9yIGNvbW1hbmQgaW4gY29tbWFuZHMKICAgICAgICAgICAgICAgIGlmICJzY3JpcHRzL3J1bi1waGFzZTEtdGVzdHMucHkiIGluIGNvbW1hbmQpCiAgICBhc3NlcnQgeyJ0ZXN0cy90ZXN0X2xhYl9vcmNhLnB5IiwgInRlc3RzL3Rlc3RfbmF0aXZlX2RpYWxvZ19ldmVudHMucHkiLAogICAgICAgICAgICAidGVzdHMvdGVzdF9sYWJfb3JjYV9jaS5weSJ9Lmlzc3Vic2V0KG9yY2EpCiAgICBhc3NlcnQgbm90IHsidGVzdHMvdGVzdF9sYWJfa2RlLnB5IiwgInRlc3RzL3Rlc3RfbGFiX2Npbm5hbW9uLnB5IiwKICAgICAgICAgICAgICAgICJ0ZXN0cy90ZXN0X2xhYl9nbm9tZS5weSJ9LmludGVyc2VjdGlvbihvcmNhKQogICAgYXNzZXJ0IHN1bShzdGVwLmdldCgicnVuIiwgIiIpLnN0cmlwKCkuZW5kc3dpdGgoInNjcmlwdHMvcnVuLXF1YWxpZmllZC10ZXN0cy5weSIpCiAgICAgICAgICAgICAgIGZvciBzdGVwIGluIHN0ZXBzKSA9PSAxCgoKZGVmIHRlc3RfbWVyZ2VfcHJlc2VydmVzX29yY2FfYW5kX21haW5fYXBwX3NjcmlwdF9lbnRyeXBvaW50cygpOgogICAgc2NyaXB0cyA9IGpzb24ubG9hZHMoKFJPT1QgLyAiYXBwL3BhY2thZ2UuanNvbiIpLnJlYWRfdGV4dCgpKVsic2NyaXB0cyJdCiAgICBhc3NlcnQgc2NyaXB0c1sidGVzdDpvcmNhIl0gPT0gInBsYXl3cmlnaHQgdGVzdCAtLWNvbmZpZyB0ZXN0L2UyZS9vcmNhLmNvbmZpZy50cyIKICAgIGFzc2VydCBzY3JpcHRzWyJ0ZXN0OmExMXkiXSA9PSAiZWxlY3Ryb24tdml0ZSBidWlsZCAmJiBub2RlIHNjcmlwdHMvYWNjZXNzaWJpbGl0eS5tanMiCiAgICBhc3NlcnQgc2NyaXB0c1sidGVzdDplMmUiXSA9PSAiZWxlY3Ryb24tdml0ZSBidWlsZCAmJiBub2RlIHNjcmlwdHMvbGlmZWN5Y2xlLWUyZS5tanMiCiAgICBhc3NlcnQgc2NyaXB0c1sicGFja2FnZTpjYW5kaWRhdGUiXSA9PSAibm9kZSBwYWNrYWdpbmcvYnVpbGQtbGludXgubWpzIgogICAgYXNzZXJ0IHNjcmlwdHNbInRlc3Q6cGFja2FnaW5nIl0gPT0gInB5dGhvbjMgLW0gdW5pdHRlc3QgZGlzY292ZXIgLXMgcGFja2FnaW5nL3Rlc3RzIC12IgoKCmRlZiB0ZXN0X2Nhbm9uaWNhbF9rZGVfZml4dHVyZV91c2VzX3JlYWxfbmFtZXNwYWNlX2hlbHBlcl9ub3RfbW9kZWxlZF9vd25lcnNoaXAoKToKICAgIGZpeHR1cmUgPSAoUk9PVCAvICJ0ZXN0cy90ZXN0X2xhYl9rZGUucHkiKS5yZWFkX3RleHQoKQogICAgYXNzZXJ0ICJmcm9tIHNjcmlwdHMucXVhbGlmaWNhdGlvbi5sYWIuZml4dHVyZV91c2VybnMgaW1wb3J0IiBpbiBmaXh0dXJlCiAgICBhc3NlcnQgJ2VtaXRfY29uZmlnKFJFQ0lQRSwgaG9tZSwgcmV0cnk9cmVxdWVzdC5wYXJhbSA9PSAicm9vdC1vd25lZC1yZXRyeSIpJyBpbiBmaXh0dXJlCiAgICBhc3NlcnQgIk9XTkVSU0hJUF9MT0ciIG5vdCBpbiBmaXh0dXJlCiAgICBhc3NlcnQgIm1vZGVsZWRfb3duZXJzIiBub3QgaW4gZml4dHVyZQogICAgYXNzZXJ0ICcic3VkbyIsICItbiInIG5vdCBpbiBmaXh0dXJlCg==",
+          "new_base64": "IiIiTWVyZ2UgcmVncmVzc2lvbnMgZm9yIGluZGVwZW5kZW50bHkgb3duZWQgT3JjYSBhbmQgY2Fub25pY2FsIGZpeHR1cmUgbGFuZXMuIiIiCgppbXBvcnQgc2hsZXgKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgppbXBvcnQgeWFtbAoKUk9PVCA9IFBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRzWzFdCgoKZGVmIHRlc3RfY2lfcHJlc2VydmVzX2Nhbm9uaWNhbF9maXh0dXJlX3J1bm5lcl93aXRob3V0X2R1cGxpY2F0ZV9maXh0dXJlX3NlbGVjdGlvbigpOgogICAgd29ya2Zsb3cgPSB5YW1sLnNhZmVfbG9hZCgoUk9PVCAvICIuZ2l0aHViL3dvcmtmbG93cy9waGFzZTEtZW5naW5lLnltbCIpLnJlYWRfdGV4dCgpKQogICAgc3RlcHMgPSB3b3JrZmxvd1siam9icyJdWyJmdWxsLXN1aXRlcyJdWyJzdGVwcyJdCiAgICBsYW5lID0gbmV4dChzdGVwIGZvciBzdGVwIGluIHN0ZXBzCiAgICAgICAgICAgICAgICBpZiBzdGVwLmdldCgibmFtZSIsICIiKS5zdGFydHN3aXRoKCJRdWFsaWZpY2F0aW9uIGxhYiIpKQogICAgY29tbWFuZHMgPSBbc2hsZXguc3BsaXQobGluZSkgZm9yIGxpbmUgaW4gbGFuZVsicnVuIl0uc3BsaXRsaW5lcygpCiAgICAgICAgICAgICAgICBpZiBsaW5lLnN0cmlwKCkgYW5kIG5vdCBsaW5lLmxzdHJpcCgpLnN0YXJ0c3dpdGgoIiMiKV0KICAgIGZpeHR1cmVzID0gW2NvbW1hbmQgZm9yIGNvbW1hbmQgaW4gY29tbWFuZHMKICAgICAgICAgICAgICAgIGlmICJzY3JpcHRzL3J1bi1sYWItZml4dHVyZS10ZXN0cy5weSIgaW4gY29tbWFuZAogICAgICAgICAgICAgICAgYW5kIGNvbW1hbmRbMF0uZW5kc3dpdGgoInB5dGhvbiIpXQogICAgYXNzZXJ0IGZpeHR1cmVzID09IFtbIi52ZW52L2Jpbi9weXRob24iLCAic2NyaXB0cy9ydW4tbGFiLWZpeHR1cmUtdGVzdHMucHkiXV0KICAgIG9yY2EgPSBuZXh0KGNvbW1hbmQgZm9yIGNvbW1hbmQgaW4gY29tbWFuZHMKICAgICAgICAgICAgICAgIGlmICJzY3JpcHRzL3J1bi1waGFzZTEtdGVzdHMucHkiIGluIGNvbW1hbmQpCiAgICBhc3NlcnQgeyJ0ZXN0cy90ZXN0X2xhYl9vcmNhLnB5IiwgInRlc3RzL3Rlc3RfbmF0aXZlX2RpYWxvZ19ldmVudHMucHkiLAogICAgICAgICAgICAidGVzdHMvdGVzdF9sYWJfb3JjYV9jaS5weSJ9Lmlzc3Vic2V0KG9yY2EpCiAgICBhc3NlcnQgbm90IHsidGVzdHMvdGVzdF9sYWJfa2RlLnB5IiwgInRlc3RzL3Rlc3RfbGFiX2Npbm5hbW9uLnB5IiwKICAgICAgICAgICAgICAgICJ0ZXN0cy90ZXN0X2xhYl9nbm9tZS5weSJ9LmludGVyc2VjdGlvbihvcmNhKQogICAgYXNzZXJ0IHN1bShzdGVwLmdldCgicnVuIiwgIiIpLnN0cmlwKCkuZW5kc3dpdGgoInNjcmlwdHMvcnVuLXF1YWxpZmllZC10ZXN0cy5weSIpCiAgICAgICAgICAgICAgIGZvciBzdGVwIGluIHN0ZXBzKSA9PSAxCg==",
           "old_base64": "",
           "start": 0
         }
       ],
       "path": "tests/test_lab_orca_ci.py",
-      "reason": "Pin conflict resolution retaining main application entrypoints and canonical PR49 fixtures while selecting the separate Orca CI corpus exactly once.",
+      "reason": "Retain the CI step-layout merge regression; remove package-script string and KDE test-source assertions per PR50 review round 2.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -19882,7 +19882,7 @@
       "test_sha256": {
         "tests/test_desktop_lab_fixture_runner.py": "b1b48e1d26e525f224da84d779670b17b0af8197a0ee89462f940cf172d67d35",
         "tests/test_lab_fixture_userns.py": "9bc03fdfa41e5c00d5fc83fed0d681306547943495a4f4363c8fc86ae6cb5539",
-        "tests/test_lab_orca_ci.py": "7b362f552b77cf2c93801a216eea5ccaafdb237605bbe95efc3d178d04f3d113"
+        "tests/test_lab_orca_ci.py": "2f9e0f95b8bad819460c4fdb79b4d2f3fff35fceec0ed587137a38940fcb9a14"
       },
       "tests": [
         "tests/test_desktop_lab_fixture_runner.py",
