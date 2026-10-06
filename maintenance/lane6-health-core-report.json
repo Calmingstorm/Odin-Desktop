@@ -6,17 +6,17 @@
   "reviewer": "Claude, review of step 8 part 4",
   "suites": [
     {"path":"tests/test_config_liveness_wiring.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Reviewer decision: inherited exact channel quota catalog wording versus canonical per-conversation quota wording.","source_sha256":"87127ab087e9d0b7df63d61529227b3495b1cf3bc18a00fee8cb82de05457db9","restored":3,"retired":4,"deferred":0,"proposed":1},
-    {"path":"tests/test_graceful_shutdown.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Four inherited swallow-error assertions conflict with truthful canonical producer/resource cleanup barriers; reviewer decisions required.","source_sha256":"9ce9bf0f2021d3377fdf178e7afe9aee655026d29fb083d60496de7cd03fb5ea","restored":20,"retired":3,"deferred":0,"proposed":4},
+    {"path":"tests/test_graceful_shutdown.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Four inherited swallow-error assertions conflict with truthful canonical producer/resource cleanup barriers; mixed full cleanup/listener order also requires reviewer decision.","source_sha256":"9ce9bf0f2021d3377fdf178e7afe9aee655026d29fb083d60496de7cd03fb5ea","restored":20,"retired":2,"deferred":0,"proposed":5},
     {"path":"tests/test_health_checker.py","status":"restored","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":null,"source_sha256":"ddd7a689876cae2c1b25a5ad9710c1facf6f2445509f734bdeae27f3722d893f","restored":61,"retired":9,"deferred":0,"proposed":0},
     {"path":"tests/test_health_checker_paths.py","status":"restored","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":null,"source_sha256":"cf90cead05a53a9c4701fa9b84e20b6ef6fc6fef77d133565538255ed16d5b40","restored":13,"retired":0,"deferred":0,"proposed":0},
-    {"path":"tests/test_process_api_provenance.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"WorkService lacks named raw process shell/provenance projection preserving effective_shell/status and restoration fields; existing admitted work projection is not this contract.","source_sha256":"a6d0fdd4dd939d26c9ddd375698dc81da3603d0ee72071d4dda1a50aa44273b8","restored":1,"retired":0,"deferred":4,"proposed":0},
-    {"path":"tests/test_process_command_visibility.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Canonical admitted WorkService exposes safe title, not frozen raw-command record projection; complete mixed privacy/dispatch case awaits named projection parity.","source_sha256":"b433e3936ba4c20e14f5dadc2d97ea50a19fd9db5fe743e222697ab13e1917b2","restored":0,"retired":0,"deferred":1,"proposed":0}
+    {"path":"tests/test_process_api_provenance.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"WorkService exposes admitted scrubbed command/effective_shell/termination_reason and manager_record. Frozen suite additionally needs ownerless restored/legacy and manually inserted record provenance without fabricated admission; that projection is absent.","source_sha256":"a6d0fdd4dd939d26c9ddd375698dc81da3603d0ee72071d4dda1a50aa44273b8","restored":1,"retired":0,"deferred":4,"proposed":0},
+    {"path":"tests/test_process_command_visibility.py","status":"deferred","selector":"tests/test_desktop_lane6_health_core.py","blocked_on":"Admitted command projection and immutable lookup exist. Setup-only admitted bridge failed 6/16 exact operator-copy redaction equality cases: safe_text(command) differs from native scrub_output_secrets for refresh-token JSON, Authorization bearer and PEM fixtures. No assertion or scrubber substitution accepted.","source_sha256":"b433e3936ba4c20e14f5dadc2d97ea50a19fd9db5fe743e222697ab13e1917b2","restored":0,"retired":0,"deferred":1,"proposed":0}
   ],
   "case_partition": {
     "contract":"All source cases are discovered from pinned source corpus. DISPOSITIONS and CASE_MAP exported by adapter enumerate exact original selectors, reasons, baseline case AST SHA256 and destination selectors. Runtime metadata proves total partition; only restored cases are exported. Parameter decorators and assertion/signature corpus are unchanged. Restored means the exact corpus complement of the nonrestored case IDs below, not a subset claim.",
     "retired": {
       "tests/test_config_liveness_wiring.py": ["TestHealthServerBacklink.test_set_bot_backlinks_the_server","TestHealthServerBacklink.test_backlink_happens_even_when_the_web_ui_is_disabled","TestHealthServerBacklink.test_stop_is_idempotent","TestHealthServerBacklink.test_failed_cleanup_stays_retryable"],
-      "tests/test_graceful_shutdown.py": ["TestOdinBotClose.test_close_no_components","TestOdinBotClose.test_close_stops_health_server","TestOdinBotClose.test_close_all_components"],
+      "tests/test_graceful_shutdown.py": ["TestOdinBotClose.test_close_no_components","TestOdinBotClose.test_close_stops_health_server"],
       "tests/test_health_checker.py": ["TestCheckDiscord.test_online","TestCheckDiscord.test_not_ready","TestCheckDiscord.test_multiple_guilds","TestCheckDiscord.test_exception","TestCheckAll.test_has_all_component_names","TestCheckerList.test_checker_names","TestExports.test_health_init_exports","TestHealthAPI.test_health_components_has_all_names","TestEdgeCases.test_knowledge_none_member_count"]
     },
     "deferred": {
@@ -25,14 +25,13 @@
     },
     "proposed": {
       "tests/test_config_liveness_wiring.py": ["TestLiveAgentAdmissionSource.test_catalog_limits_share_live_admission_source"],
-      "tests/test_graceful_shutdown.py": ["TestOdinBotClose.test_close_continues_on_component_error","TestProcessRegistryShutdown.test_shutdown_services_closes_image_backend","TestUnprovenCleanupEscalation.test_wiring_reports_cleanup_error_without_raising","test_shutdown_usage_failure_is_nonfatal"]
+      "tests/test_graceful_shutdown.py": ["TestOdinBotClose.test_close_all_components","TestOdinBotClose.test_close_continues_on_component_error","TestProcessRegistryShutdown.test_shutdown_services_closes_image_backend","TestUnprovenCleanupEscalation.test_wiring_reports_cleanup_error_without_raising","test_shutdown_usage_failure_is_nonfatal"]
     }
   },
   "retirement_reasons": {
     "TestHealthServerBacklink":"Removed HTTP HealthServer/WebUI listener backlink and runner ownership. Claude, review of step 8 part 4.",
     "TestOdinBotClose.test_close_no_components":"Removed Discord transport superclass close assertion. Claude, review of step 8 part 4.",
     "TestOdinBotClose.test_close_stops_health_server":"Removed HTTP health listener shutdown ownership. Claude, review of step 8 part 4.",
-    "TestOdinBotClose.test_close_all_components":"Exact full order includes removed HTTP health listener. Claude, review of step 8 part 4.",
     "TestCheckDiscord":"Removed Discord readiness/guild population probe. Claude, review of step 8 part 4.",
     "TestCheckAll.test_has_all_component_names":"Exact inventory includes removed Discord name, now delivery. Claude, review of step 8 part 4.",
     "TestCheckerList.test_checker_names":"Exact checker inventory requires removed check_discord. Claude, review of step 8 part 4.",

@@ -69,16 +69,16 @@ CORPUS_EXCLUSIONS = {
         "test_codex_default_spawn_requires_model_selection"
     ],
 }
-RETIRED_CASES = {
+RETIRED_CASES = {}
+PROPOSED_CASES = {
     (
         "tests/test_mixed_agent_reasoning_contract.py::"
         "test_codex_default_spawn_requires_model_selection"
     ): {
         "reason": (
-            "Exact whole-schema byte hash pins the removed Discord/channel description. The "
-            "only frozen-to-current agents definition diff is Discord/channel to conversation "
-            "wording; restoring these bytes would recreate a removed surface. Model-selection "
-            "covered by real policy and engine tests."
+            "Mixed case asserts retained required model selection and an exact whole-schema "
+            "byte hash that pins removed Discord/channel wording. Reviewer decision required "
+            "for the exact hash; retained model-selection assertion is not retired."
         ),
         "reviewer": "Claude, review of step 8 part 4",
     },

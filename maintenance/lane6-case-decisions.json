@@ -4862,11 +4862,10 @@
     "status": "restored"
   },
   "tests/test_mixed_agent_reasoning_contract.py::test_codex_default_spawn_requires_model_selection": {
-    "reason": "Exact schema byte hash differs only for removed Discord/channel wording; remaining model admission behavior is restored unchanged.",
+    "reason": "Mixed case asserts retained required model selection and an exact whole-schema byte hash that pins removed Discord/channel wording. Reviewer decision required for the exact hash; retained model-selection assertion is not retired.",
     "reviewer": "Claude, review of step 8 part 4",
     "source_sha256": "c94b58bbd2bfb778dfe5ed775c529ed4e5609adc063d056e5a38b336fb20119a",
-    "status": "retired",
-    "surface": "Discord"
+    "status": "proposed"
   },
   "tests/test_mixed_agent_reasoning_contract.py::test_entry_default_and_absolute_neutral_override": {
     "reason": "Actual PID-isolated collection binds original frozen code filename, unwrapped qualname and unchanged parameter IDs to current canonical owner adapters. Runtime execution remains separate.",
@@ -7315,11 +7314,11 @@
     "status": "restored"
   },
   "tests/test_process_api_provenance.py::test_legacy_manifest_never_guesses_shell": {
-    "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+    "reason": "WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute.",
     "status": "deferred"
   },
   "tests/test_process_api_provenance.py::test_real_local_lifecycle_and_restored_facts": {
-    "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+    "reason": "WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute.",
     "status": "deferred"
   },
   "tests/test_process_api_provenance.py::test_real_remote_supervisor_shell_identity_is_sh": {
@@ -7330,15 +7329,15 @@
     "status": "restored"
   },
   "tests/test_process_api_provenance.py::test_remote_launcher_records_its_explicit_shell_and_restores": {
-    "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+    "reason": "WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute.",
     "status": "deferred"
   },
   "tests/test_process_api_provenance.py::test_unknown_in_memory_record_has_no_shell_default": {
-    "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+    "reason": "WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute.",
     "status": "deferred"
   },
   "tests/test_process_command_visibility.py::test_real_registry_retains_command_but_scrubs_every_operator_copy": {
-    "reason": "Retained raw registry command persistence and scrubbed operator-copy assertions need exact owner-checked process provenance/detail projection; current WorkService preview is insufficient.",
+    "reason": "WorkService exposes admitted scrubbed command and immutable work lookup; schema absence is not the blocker. A setup-only RequestService-bound ProcessRegistry/WorkService bridge preserved the full corpus but 6/16 expanded cases failed the exact safe_text(command) equality: native scrub_output_secrets rendering differs for refresh-token JSON, Authorization bearer and PEM fixtures. No scrubber substitution or assertion rewrite; exact operator-copy redaction parity needs review.",
     "status": "deferred"
   },
   "tests/test_provider_argument_acceptance.py::test_rejected_arguments_pair_without_effects": {
@@ -8794,7 +8793,7 @@
     "reviewer": "Claude, review of step 8 part 4",
     "source_sha256": "5e61aabbc2cfe3ff60dde6b4cf960f06f826a54def8c0d0cf9725ae8402fb16d",
     "status": "retired",
-    "surface": "Odin web UI"
+    "surface": "Discord"
   },
   "tests/test_scheduled_report_pagination_listener.py::test_loaded_listener_routes_managed_reaction_to_pagination_service": {
     "reason": "Removed Discord startup extension/cog and on_raw_reaction_add emoji routing.",

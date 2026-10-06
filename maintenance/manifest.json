@@ -21578,11 +21578,11 @@
       "fixtures_closure": "retained-test-support",
       "owner": "Odin",
       "path": "tests/test_mixed_agent_reasoning_contract.py",
-      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "reason": "test_codex_default_spawn_requires_model_selection: Mixed case asserts retained required model selection and an exact whole-schema byte hash that pins removed Discord/channel wording. Reviewer decision required for the exact hash; retained model-selection assertion is not retired.",
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "safe_pass_now",
+      "test_classification": "phase2",
       "test_closure_id": "036b558a6d50a053",
       "upstream_sha256": "de80f566cf7be48ddd03d006b5ba68ce13286e1e01ca04af0c9d2a6873534330"
     },

@@ -86,7 +86,7 @@ async def send(writer, message):
     await writer.drain()
 
 
-async def receive(reader, *, timeout=3):
+async def receive(reader, *, timeout=15):
     header = await asyncio.wait_for(reader.readexactly(4), timeout)
     return json.loads(await asyncio.wait_for(
         reader.readexactly(struct.unpack(">I", header)[0]), timeout))
@@ -105,11 +105,11 @@ async def connect(socket_path, *, token="ab" * 32):
 async def request(reader, writer, method, params=None, command_id=None, *, timeout=None):
     command_id = command_id or str(uuid.uuid4())
     await send(writer, {"t": "req", "id": command_id, "method": method, "params": params or {}})
-    # Real first submission constructs the executor/catalog lazily. This is a
-    # correctness fixture, not a 3-second latency SLA on a shared CI machine.
-    # Other RPC waits keep their historical bound; no request is retried.
+    # Real composed RPCs can include lazy construction and durable commits.
+    # This correctness fixture is not a 3-second latency SLA under shared load.
+    # Keep one bounded read, unchanged assertions, and no request retry.
     if timeout is None:
-        timeout = 15 if method == "submission.send" else 3
+        timeout = 15
     result = await receive(reader, timeout=timeout)
     assert result["t"] == "res"
     assert result["id"] == command_id

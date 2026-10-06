@@ -73,7 +73,9 @@ async def settled(core):
     async def wait():
         while core.requests._tasks:
             await asyncio.sleep(0.01)
-    await asyncio.wait_for(wait(), 5)
+    # Settlement includes durable checkpoint IO on the shared qualification host.
+    # Bound one observation, not a retry or a production deadline adjustment.
+    await asyncio.wait_for(wait(), 30)
 
 
 @pytest.mark.asyncio

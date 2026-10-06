@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "batch": "lane6-accounting-corrections",
+  "scope": "Adapter and component report accounting only; no production owner, shared ledger/manifest/decisions/suite-map, live service, desktop or git commit edits.",
+  "disposition_delta": {"restored": 0, "retired": -3, "deferred": 1, "proposed": 2},
+  "command_visibility_probe": {
+    "result": "6 failed, 11 passed, 102 deselected in 21.47s (16 expanded frozen cases plus partition guard)",
+    "reason": "Authenticated RequestService-bound ProcessRegistry starts and WorkService immutable resolve/list bridge preserved complete corpus, but native scrub_output_secrets command rendering differed from exact frozen safe_text(command) for refresh-token JSON, Authorization bearer and PEM fixtures. Bridge removed; case remains deferred. No assertion, alternate scrubber or source-owner change accepted.",
+    "first_probe": "16 failures were response-envelope setup error (missing text), fixed before final semantic probe; not treated as feature blocker."
+  },
+  "validation": {
+    "command": "sudo -n -u odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_health_core.py tests/test_desktop_lane6_health_resources.py tests/test_desktop_lane6_providers.py --tb=short --junitxml=/home/odin/desktop-phase2-step8-part4b/accounting-audit/final-tests.xml",
+    "result": "613 passed in 156.39s; zero skips",
+    "snapshot": "Isolated scratch test invoked snapshot_loaders for all three modified adapters; 1 passed in 7.94s. Each loader verified pinned source and complete assertion/signature/decorator/parameter corpus before export.",
+    "static": "ruff passed for all four modified Python files; git diff --check passed"
+  },
+  "artifacts": [
+    {"path": "/mnt/storage/odin-desktop-evidence/lane6-accounting-corrections-20261006/loader-corpus-snapshot.json", "sha256": "4f04f6e49aaa3dda453f6ad81f20f54585a894f72ef6dd7ac8c1d350616463a3", "bytes": 266813},
+    {"path": "/mnt/storage/odin-desktop-evidence/lane6-accounting-corrections-20261006/final-tests.xml", "sha256": "e649c036be267a131864ba63d9d39b7d83e74a30cbc001338f96d3ed39422b9e", "bytes": 112795}
+  ],
+  "parent_metadata": [
+    "Resource TestResourceUsageAPI.test_resource_usage_endpoint: retired -> deferred (named resource-usage payload management method absent).",
+    "Graceful TestOdinBotClose.test_close_all_components: retired -> proposed (mixed listener and retained cleanup ordering).",
+    "Mixed-agent test_codex_default_spawn_requires_model_selection: retired -> proposed under tests/test_mixed_agent_reasoning_contract.py (retained required-model assertion plus removed-wording schema hash).",
+    "Process provenance four deferred cases: reason only, ownerless restored/legacy/manual record provenance absent; admitted command/shell/reason schema and manager_record exist.",
+    "Process command visibility: remains deferred, reason only, exact redaction rendering mismatch empirically verified; no schema absence claim.",
+    "Both scheduled-report pagination-listener retirements: surface Discord, not Odin web UI."
+  ]
+}

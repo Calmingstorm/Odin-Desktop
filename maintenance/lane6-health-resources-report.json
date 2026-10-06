@@ -6,7 +6,7 @@
   "adapter": "tests/desktop_adapters/lane6_health_resources.py",
   "review": "Claude, review of step 8 part 4",
   "scope": "Whole frozen suites loaded and corpus-verified before export; exact source bytes and assertion/signature/decorator/parameter corpus. Only restored cases exported. Retired/deferred cases remain fully partitioned in this report, not collected or skipped. Metadata checks exact original partition and export membership. No native desktop calls, HTTP listeners, production edits or live service changes.",
-  "counts": {"restored": 129, "retired": 1, "deferred": 21, "proposed": 0},
+  "counts": {"restored": 129, "retired": 0, "deferred": 22, "proposed": 0},
   "substitutions_for_approval": [],
   "setup_adaptations": [
     "Captured-search MagicMock executor replaced with authentic temporary owner ToolExecutor and requester_id. Production captured-output dispatcher unchanged.",
@@ -23,7 +23,6 @@
   ],
   "disposition_reasons": {
     "restored": "Actual copied engine owner; frozen assertions, signatures, decorators and parameter AST unchanged; temporary authenticated owner.",
-    "retired_resource_endpoint": "Removed HTTP /api/resource-usage web-widget endpoint and HTTP 200 contract. Claude, review of step 8 part 4. Direct collector payload cases remain restored.",
     "deferred_resource": "Desktop ObservabilityService has no named resource-usage management method exposing session/trajectory collector payloads. Direct collector cases restored.",
     "deferred_window": "Desktop ModelSettingsService/ObservabilityService lack context-windows named read/clear methods covering persisted clamp/account/calibration/boot-ceiling management payload parity. This is an LLM observer, not native desktop windows; P3.5 does not apply."
   },
@@ -49,8 +48,8 @@
           "TestExports.test_module_imports", "TestExports.test_init_exports", "TestExports.test_dirstats_is_dataclass", "TestExports.test_session_stats_is_dataclass", "TestExports.test_knowledge_stats_is_dataclass", "TestExports.test_trajectory_stats_is_dataclass",
           "TestEdgeCases.test_scan_directory_with_file_path", "TestEdgeCases.test_collect_all_empty_bot", "TestEdgeCases.test_session_stats_no_persist_dir_attr", "TestEdgeCases.test_knowledge_no_db_path_no_conn", "TestEdgeCases.test_trajectory_count_is_property", "TestEdgeCases.test_collect_all_storage_total_sums", "TestEdgeCases.test_dirstats_to_dict_includes_all_keys", "TestEdgeCases.test_session_stats_to_dict_includes_all_keys", "TestEdgeCases.test_knowledge_stats_to_dict_includes_all_keys", "TestEdgeCases.test_trajectory_stats_to_dict_includes_all_keys"
         ],
-        "retired": ["TestResourceUsageAPI.test_resource_usage_endpoint"],
-        "deferred": ["TestResourceUsageAPI.test_resource_usage_has_session_data", "TestResourceUsageAPI.test_resource_usage_has_trajectory_section"],
+        "retired": [],
+        "deferred": ["TestResourceUsageAPI.test_resource_usage_endpoint", "TestResourceUsageAPI.test_resource_usage_has_session_data", "TestResourceUsageAPI.test_resource_usage_has_trajectory_section"],
         "proposed": []
       }
     },

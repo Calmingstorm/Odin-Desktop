@@ -7,11 +7,11 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 248,
+    "phase2": 249,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
     "retired": 6,
-    "safe_pass_now": 429,
+    "safe_pass_now": 428,
     "safety_manual_gated": 100
   },
   "entries": [
@@ -19248,7 +19248,7 @@
       ]
     },
     {
-      "classification": "safe_pass_now",
+      "classification": "phase2",
       "direct_source_imports": [
         "src/__init__.py",
         "src/config/__init__.py",
@@ -19274,7 +19274,7 @@
         "src/discord/native_tools/__init__.py",
         "src/discord/native_tools/agents_tasks.py"
       ],
-      "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
+      "reason": "test_codex_default_spawn_requires_model_selection: Mixed case asserts retained required model selection and an exact whole-schema byte hash that pins removed Discord/channel wording. Reviewer decision required for the exact hash; retained model-selection assertion is not retired.",
       "sha256": "de80f566cf7be48ddd03d006b5ba68ce13286e1e01ca04af0c9d2a6873534330",
       "string_source_references": [],
       "test_import_closure": [
@@ -36497,6 +36497,7 @@
     "tests/test_mcp_publication_limits.py",
     "tests/test_mcp_transport_http.py",
     "tests/test_mcp_wiring.py",
+    "tests/test_mixed_agent_reasoning_contract.py",
     "tests/test_native_agents_tasks.py",
     "tests/test_native_channel_ops.py",
     "tests/test_native_knowledge.py",
@@ -36623,7 +36624,6 @@
     "tests/test_local_supervisor_wrapper_r10.py",
     "tests/test_log_search.py",
     "tests/test_max_reasoning_effort.py",
-    "tests/test_mixed_agent_reasoning_contract.py",
     "tests/test_openrouter_admin_boundaries.py",
     "tests/test_output_streamer.py",
     "tests/test_predictive_presend.py",
@@ -37068,7 +37068,6 @@
     "tests/test_mcp_protocol.py",
     "tests/test_mcp_transport_stdio.py",
     "tests/test_memory_fail_closed.py",
-    "tests/test_mixed_agent_reasoning_contract.py",
     "tests/test_model_breaker.py",
     "tests/test_model_hints.py",
     "tests/test_multi_provider_schema_coverage.py",

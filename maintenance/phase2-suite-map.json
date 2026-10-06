@@ -3884,30 +3884,28 @@
       ]
     },
     {
-      "blocked_on": null,
+      "blocked_on": "test_codex_default_spawn_requires_model_selection: Mixed case asserts retained required model selection and an exact whole-schema byte hash that pins removed Discord/channel wording. Reviewer decision required for the exact hash; retained model-selection assertion is not retired.",
       "case_deferrals": [],
-      "case_proposals": [],
-      "case_retirements": [
+      "case_proposals": [
         {
+          "adapter": "tests/desktop_adapters/lane6_providers_cases.py",
           "case": "test_codex_default_spawn_requires_model_selection",
-          "reason": "Exact schema byte hash differs only for removed Discord/channel wording; remaining model admission behavior is restored unchanged.",
+          "case_ast_sha256": "c94b58bbd2bfb778dfe5ed775c529ed4e5609adc063d056e5a38b336fb20119a",
+          "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_providers_cases.py",
+          "original": "tests/test_mixed_agent_reasoning_contract.py::test_codex_default_spawn_requires_model_selection",
+          "reason": "Mixed case asserts retained required model selection and an exact whole-schema byte hash that pins removed Discord/channel wording. Reviewer decision required for the exact hash; retained model-selection assertion is not retired.",
           "reviewer": "Claude, review of step 8 part 4",
+          "selector": "tests/test_desktop_lane6_providers.py",
           "source_sha256": "c94b58bbd2bfb778dfe5ed775c529ed4e5609adc063d056e5a38b336fb20119a",
-          "surface": "Discord"
+          "status": "proposed"
         }
       ],
+      "case_retirements": [],
       "inherited_sha256": "de80f566cf7be48ddd03d006b5ba68ce13286e1e01ca04af0c9d2a6873534330",
       "path": "tests/test_mixed_agent_reasoning_contract.py",
       "qualification_group": "phase2-step6-lane6-providers",
       "reason": "Lane6 exact frozen corpus retained through canonical owners; individual source-case decisions bind removed surfaces separately.",
-      "restoration": {
-        "mode": "frozen-case-adapter",
-        "reason": "Whole original hash/corpus-bound source suite; every retained original function exported and parameter/decorator/signature/assertion corpus identical before exact removed-surface nonexports. Verified canonical owners, no hidden skips or sampled promotion.",
-        "selectors": [
-          "tests/test_desktop_lane6_providers.py"
-        ]
-      },
-      "status": "restored",
+      "status": "deferred",
       "step": 6,
       "surfaces": [
         "agent model selection",
@@ -4397,7 +4395,7 @@
       ]
     },
     {
-      "blocked_on": "test_real_local_lifecycle_and_restored_facts: Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults. | test_legacy_manifest_never_guesses_shell: Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults. | test_unknown_in_memory_record_has_no_shell_default: Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults. | test_remote_launcher_records_its_explicit_shell_and_restores: Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+      "blocked_on": "test_real_local_lifecycle_and_restored_facts: WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute. | test_legacy_manifest_never_guesses_shell: WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute. | test_unknown_in_memory_record_has_no_shell_default: WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute. | test_remote_launcher_records_its_explicit_shell_and_restores: WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute.",
       "case_deferrals": [
         {
           "adapter": "tests/desktop_adapters/lane6_health_core.py",
@@ -4405,7 +4403,7 @@
           "case_ast_sha256": "bfa934e20967f49d6877f01195a2602d3b1e6776862e3ee55fb4f15cff9aeecf",
           "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
           "original": "tests/test_process_api_provenance.py::test_real_local_lifecycle_and_restored_facts",
-          "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+          "reason": "WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute.",
           "reviewer": "Claude, review of step 8 part 4",
           "selector": "tests/test_desktop_lane6_health_core.py",
           "status": "deferred"
@@ -4416,7 +4414,7 @@
           "case_ast_sha256": "7c3b2975aa285dc0f045de8ddede1478712b535f7421f289c763a40935fb74a8",
           "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
           "original": "tests/test_process_api_provenance.py::test_legacy_manifest_never_guesses_shell",
-          "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+          "reason": "WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute.",
           "reviewer": "Claude, review of step 8 part 4",
           "selector": "tests/test_desktop_lane6_health_core.py",
           "status": "deferred"
@@ -4427,7 +4425,7 @@
           "case_ast_sha256": "485027b00454acadffdcdfdcd7403d9542ee5d7657e80c37868d76b87b2f422c",
           "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
           "original": "tests/test_process_api_provenance.py::test_unknown_in_memory_record_has_no_shell_default",
-          "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+          "reason": "WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute.",
           "reviewer": "Claude, review of step 8 part 4",
           "selector": "tests/test_desktop_lane6_health_core.py",
           "status": "deferred"
@@ -4438,7 +4436,7 @@
           "case_ast_sha256": "a120a8ada5a07f8029d228170d8987ad0bbd7e18cd32071d4dd5671a4d24f635",
           "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
           "original": "tests/test_process_api_provenance.py::test_remote_launcher_records_its_explicit_shell_and_restores",
-          "reason": "Canonical WorkService exposes admitted process metadata but lacks retained exact restored/legacy/unknown shell fact schema and process-record lookup projection required by frozen case. No inferred shell defaults.",
+          "reason": "WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute.",
           "reviewer": "Claude, review of step 8 part 4",
           "selector": "tests/test_desktop_lane6_health_core.py",
           "status": "deferred"
@@ -4460,7 +4458,7 @@
       ]
     },
     {
-      "blocked_on": "test_real_registry_retains_command_but_scrubs_every_operator_copy: Retained raw registry command persistence and scrubbed operator-copy assertions need exact owner-checked process provenance/detail projection; current WorkService preview is insufficient.",
+      "blocked_on": "test_real_registry_retains_command_but_scrubs_every_operator_copy: WorkService exposes admitted scrubbed command and immutable work lookup; schema absence is not the blocker. A setup-only RequestService-bound ProcessRegistry/WorkService bridge preserved the full corpus but 6/16 expanded cases failed the exact safe_text(command) equality: native scrub_output_secrets rendering differs for refresh-token JSON, Authorization bearer and PEM fixtures. No scrubber substitution or assertion rewrite; exact operator-copy redaction parity needs review.",
       "case_deferrals": [
         {
           "adapter": "tests/desktop_adapters/lane6_health_core.py",
@@ -4468,7 +4466,7 @@
           "case_ast_sha256": "17c8ebb37114cba59e4e36297fbe8e554445316bcd20830b9ab66d4e39692613",
           "metadata_source": "/home/odin/desktop-phase2-step8-part4b/integration/tests/desktop_adapters/lane6_health_core.py",
           "original": "tests/test_process_command_visibility.py::test_real_registry_retains_command_but_scrubs_every_operator_copy",
-          "reason": "Retained raw registry command persistence and scrubbed operator-copy assertions need exact owner-checked process provenance/detail projection; current WorkService preview is insufficient.",
+          "reason": "WorkService exposes admitted scrubbed command and immutable work lookup; schema absence is not the blocker. A setup-only RequestService-bound ProcessRegistry/WorkService bridge preserved the full corpus but 6/16 expanded cases failed the exact safe_text(command) equality: native scrub_output_secrets rendering differs for refresh-token JSON, Authorization bearer and PEM fixtures. No scrubber substitution or assertion rewrite; exact operator-copy redaction parity needs review.",
           "reviewer": "Claude, review of step 8 part 4",
           "selector": "tests/test_desktop_lane6_health_core.py",
           "status": "deferred"
@@ -5278,7 +5276,7 @@
           "reason": "Removed Discord bot self-reaction filter and raw reaction listener.",
           "reviewer": "Claude, review of step 8 part 4",
           "source_sha256": "5e61aabbc2cfe3ff60dde6b4cf960f06f826a54def8c0d0cf9725ae8402fb16d",
-          "surface": "Odin web UI"
+          "surface": "Discord"
         }
       ],
       "inherited_sha256": "afa49c7afd843834fafca21cf7763f19b3bd00c14422ea3960c80a208d438b52",

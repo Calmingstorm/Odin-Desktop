@@ -51,3 +51,17 @@ def test_named_loader_snapshot():
 def test_unknown_override_fails_closed():
     with pytest.raises(ValueError, match="Unknown override"):
         manifest.build_report(overrides={"tests/test_missing.py::test_fake": {"status": "restored"}})
+
+
+def test_exact_override_resolves_missing_historical_claim(monkeypatch):
+    key = "tests/test_mixed_agent_reasoning_contract.py::test_codex_default_spawn_requires_model_selection"
+    monkeypatch.setattr(manifest, "normalize_report", lambda _data: ([], []))
+    monkeypatch.setattr(manifest, "literal_metadata", lambda _path: {})
+    report = manifest.build_report(overrides={key: {
+        "status": "proposed", "reason": "Mixed model-selection and schema-hash case needs review.",
+    }})
+    assert not any(error == "Unresolved source case: " + key for error in report["errors"])
+    case = next(case for row in report["entries"] for case in row["cases"]
+                if case["original"] == key)
+    assert case["status"] == "proposed"
+    assert case["case_ast_sha256"]

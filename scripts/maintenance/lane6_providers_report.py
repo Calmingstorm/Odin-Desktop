@@ -6,6 +6,7 @@ import json
 from tests.desktop_adapters.lane6_providers_cases import (
     CASE_MAP,
     EVIDENCE,
+    PROPOSED_CASES,
     RETIRED_CASES,
     SUITE_NAMES,
     load,
@@ -18,10 +19,14 @@ def report():
     for stem in SUITE_NAMES:
         path = f"tests/{stem}.py"
         selectors = ["tests/test_desktop_lane6_providers.py"]
-        suites.append({"path": path, "status": "restored", "blocked_on": None,
+        mixed_case = path + "::test_codex_default_spawn_requires_model_selection"
+        mixed = mixed_case in PROPOSED_CASES
+        suites.append({"path": path, "status": "deferred" if mixed else "restored",
+            "blocked_on": PROPOSED_CASES[mixed_case]["reason"]
+            if mixed else None,
             "selector": "tests/test_desktop_lane6_providers.py", "selectors": selectors,
             "mode": "frozen-case-adapter"
-            if path + "::test_codex_default_spawn_requires_model_selection" in RETIRED_CASES
+            if mixed
             else "frozen-adapter",
             "adapter": "tests/desktop_adapters/lane6_providers_cases.py",
             "source_sha256": EVIDENCE[path]["source_sha256"],
@@ -35,8 +40,10 @@ def report():
                 "and provider responses stubbed."
             )})
     retired = [{"original": k, "status": "retired", **v} for k, v in RETIRED_CASES.items()]
+    proposed = [{"original": k, "status": "proposed", **v} for k, v in PROPOSED_CASES.items()]
     return {"version": 1, "batch": "lane6-providers", "suites": suites,
-        "cases": cases + retired, "retired_cases": retired, "proposals": [], "substitutions": [],
+        "cases": cases + retired + proposed, "retired_cases": retired,
+        "proposals": proposed, "substitutions": [],
         "lineage": [{"paths": [
             "tests/desktop_adapters/lane6_providers_cases.py",
             "tests/desktop_adapters/lane6_providers_owner.py",

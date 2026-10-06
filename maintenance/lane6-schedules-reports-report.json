@@ -9,8 +9,8 @@
   ],
   "selector_convention": "Prefix each selectors entry with selector plus ::. Class selectors collect exactly the registered retained original functions; CASE_MAP in adapter provides every full per-function mapping. No pytest skips.",
   "retired_cases": [
-    {"original": "tests/test_scheduled_report_pagination_listener.py::test_loaded_listener_routes_managed_reaction_to_pagination_service", "reason": "Removed Discord startup extension/cog and raw reaction routing.", "reviewer": "Claude, review of step 8 part 4"},
-    {"original": "tests/test_scheduled_report_pagination_listener.py::test_listener_ignores_bot_reactions_and_unmanaged_messages", "reason": "Removed Discord bot reaction filter/listener.", "reviewer": "Claude, review of step 8 part 4"},
+    {"original": "tests/test_scheduled_report_pagination_listener.py::test_loaded_listener_routes_managed_reaction_to_pagination_service", "reason": "Removed Discord startup extension/cog and raw reaction routing.", "reviewer": "Claude, review of step 8 part 4", "surface": "Discord"},
+    {"original": "tests/test_scheduled_report_pagination_listener.py::test_listener_ignores_bot_reactions_and_unmanaged_messages", "reason": "Removed Discord bot reaction filter/listener.", "reviewer": "Claude, review of step 8 part 4", "surface": "Discord"},
     {"original": "tests/test_scheduled_report_wiring.py::test_registry_and_pagination_service_are_bot_components", "reason": "Exact static assertions pin removed Discord BotComponents/wiring source, not native registry behavior.", "reviewer": "Claude, review of step 8 part 4"},
     {"original": "tests/test_scheduled_report.py::TestPaginationState::test_navigation_wraps_and_removes_user_reaction", "reason": "Removed Discord message editing/user-reaction removal.", "reviewer": "Claude, review of step 8 part 4"},
     {"original": "tests/test_scheduled_report.py::TestPaginationState::test_missing_message_removes_persisted_state", "reason": "Removed Discord NotFound/fetch_message lifecycle.", "reviewer": "Claude, review of step 8 part 4"},

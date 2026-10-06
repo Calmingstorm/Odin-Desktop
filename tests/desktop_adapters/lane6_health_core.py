@@ -160,7 +160,9 @@ def disposition(stem, case):
         if case == "TestHealthAPI.test_health_components_has_all_names":
             return "retired", "Exact route payload inventory asserts removed Discord component name."
     if stem == "test_graceful_shutdown":
-        if case in {"TestOdinBotClose.test_close_stops_health_server", "TestOdinBotClose.test_close_all_components", "TestOdinBotClose.test_close_no_components"}:
+        if case == "TestOdinBotClose.test_close_all_components":
+            return "proposed", "Mixed exact teardown order asserts removed HTTP health listener and retained component cleanup. Reviewer decision required; retained cleanup is not retired."
+        if case in {"TestOdinBotClose.test_close_stops_health_server", "TestOdinBotClose.test_close_no_components"}:
             return "retired", "Exact case asserts removed transport superclass close and/or removed HTTP health listener in teardown ordering."
         if case in {"TestOdinBotClose.test_close_stops_loop_manager", "TestOdinBotClose.test_close_stops_scheduler", "TestOdinBotClose.test_close_shuts_down_process_registry", "TestOdinBotClose.test_close_does_not_create_unused_process_registry", "TestOdinBotClose.test_close_tolerates_missing_tool_executor", "TestOdinBotClose.test_close_closes_knowledge_store", "TestOdinBotClose.test_close_saves_sessions"}:
             return "restored", "Canonical EngineServices.close ownership; legacy session save_all setup aliases actual save seam."
@@ -175,9 +177,9 @@ def disposition(stem, case):
         if case == "test_shutdown_usage_failure_is_nonfatal":
             return "proposed", "Frozen case requires telemetry stop errors swallowed and legacy log spelling; canonical engine keeps cleanup error outcome truthful. Reviewer decision required."
     if stem == "test_process_api_provenance" and case != "test_real_remote_supervisor_shell_identity_is_sh":
-        return "deferred", "Raw registry entries() via removed /api/processes has no canonical Desktop projection: WorkService requires admitted durable ownership and lacks effective_shell/raw-record schema."
+        return "deferred", "WorkService now exposes scrubbed command, effective_shell, termination_reason and manager_record for admitted work. Frozen cases additionally require ownerless restored/legacy and manually inserted record provenance; that admission-preserving projection is absent. Do not invent ownership or use raw registry entries as a management substitute."
     if stem == "test_process_command_visibility":
-        return "deferred", "Mixed privacy/dispatch test requires raw /api/processes command payload; WorkService exposes admitted title projections, not frozen raw-command record schema."
+        return "deferred", "WorkService exposes admitted scrubbed command and immutable work lookup; schema absence is not the blocker. A setup-only RequestService-bound ProcessRegistry/WorkService bridge preserved the full corpus but 6/16 expanded cases failed the exact safe_text(command) equality: native scrub_output_secrets rendering differs for refresh-token JSON, Authorization bearer and PEM fixtures. No scrubber substitution or assertion rewrite; exact operator-copy redaction parity needs review."
     return "restored", "Actual retained health/storage/process implementation, exact frozen corpus."
 
 

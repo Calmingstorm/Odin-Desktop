@@ -8,7 +8,7 @@
     {"path":"tests/test_context_density_calibration.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"6758f17d838dc83286e4974eaec41962d6db2aab5af30bbe2508d724aa9ed1b9","mode":"frozen-adapter"},
     {"path":"tests/test_generation_duration_contract.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"2b7575b89b1aaea5e230135f2dd557978951a4c52dce6d0dad4f426188c134e2","mode":"frozen-adapter"},
     {"path":"tests/test_max_reasoning_effort.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"b7fd583e10ab910c9523add50131032236a9563dc0ab7241764a997d73b03f5b","mode":"frozen-adapter"},
-    {"path":"tests/test_mixed_agent_reasoning_contract.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"de80f566cf7be48ddd03d006b5ba68ce13286e1e01ca04af0c9d2a6873534330","mode":"frozen-case-adapter"},
+    {"path":"tests/test_mixed_agent_reasoning_contract.py","status":"deferred","selector":"tests/test_desktop_lane6_providers.py","blocked_on":"Reviewer decision: mixed retained required-model assertion plus exact schema hash pins removed Discord/channel wording.","source_sha256":"de80f566cf7be48ddd03d006b5ba68ce13286e1e01ca04af0c9d2a6873534330","mode":"frozen-case-adapter"},
     {"path":"tests/test_predictive_presend.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"085ca193095b1b2d7a831495088eaa4bad4e25167bed1f02a2edde1a4e98f708","mode":"frozen-adapter"},
     {"path":"tests/test_preserved_reasoning_accounting.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"9f86bc04fdb9108e3ea4f1e91ab5adaccfb8c97267b17098bc083c2d2a0484bb","mode":"frozen-adapter"},
     {"path":"tests/test_provider_argument_acceptance.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"9a3183d8b67e55a346fc5945c9e2b65753d13de2911269c2b3d7e6089c711166","mode":"frozen-adapter"},
@@ -22,12 +22,13 @@
     "case_reason": "Exact frozen assertion/signature/decorator/parameter corpus retained; actual canonical provider/context/accounting/engine algorithms execute, external transport and tool effects stubbed.",
     "selector_template": "tests/test_desktop_lane6_providers.py::{CASE_MAP[original]}",
     "fully_expanded_report_generator": "scripts/maintenance/lane6_providers_report.py:report",
-    "retirement_overrides": "retired_cases"
+    "retirement_overrides": "retired_cases",
+    "proposal_overrides": "proposals"
   },
-  "retired_cases": [
-    {"original":"tests/test_mixed_agent_reasoning_contract.py::test_codex_default_spawn_requires_model_selection","reason":"Exact whole-schema byte hash pins removed Discord/channel description. The entire frozen-to-current agents definition diff is Discord/channel to conversation wording. Restoring those bytes would recreate removed surface wording, not improve model policy coverage; all remaining mixed-model policy cases execute unchanged.","reviewer":"Claude, review of step 8 part 4"}
+  "retired_cases": [],
+  "proposals": [
+    {"original":"tests/test_mixed_agent_reasoning_contract.py::test_codex_default_spawn_requires_model_selection","status":"proposed","reason":"Mixed case asserts retained required model selection and an exact whole-schema byte hash that pins removed Discord/channel wording. Reviewer decision required for the exact hash; retained model-selection assertion is not retired.","reviewer":"Claude, review of step 8 part 4"}
   ],
-  "proposals": [],
   "substitutions": [],
   "lineage": [
     {"paths":["tests/desktop_adapters/lane6_providers_cases.py","tests/desktop_adapters/lane6_providers_owner.py","tests/desktop_adapters/lane6_providers_engine.py","tests/desktop_adapters/lane6_providers_timing.py","tests/test_desktop_lane6_providers.py"],"contracts":["Literal suite SHA256 pins, fixture_corpus archive/retained-byte checks, exact corpus equality before export.","Real ProfilePaths, SettingsService, ProfileSecretStore and CodexAccountsService construct the actual ProviderOwner; injected unopened external transport/fault probes only.","Actual authenticated OwnerAuthority, PermissionManager, RequestService durable worker and EngineServices/ToolLoopRunner for chat/autonomous timing, argument rejection and accepted-stream tool dispatch.","Timing submethod helper uses actual EngineServices runner with neutral request/channel data; no removed Discord import or transport reconstruction.","Real provider parser/lifecycle/recovery, budget resolver/compressor, observer density, generation usage and trajectory algorithms run unchanged."],"tests":[".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_providers.py --tb=short"]}

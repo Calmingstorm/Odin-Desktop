@@ -38,8 +38,6 @@ SUITES = {
 CORPUS_EXCLUSIONS = {}
 _owner = contextvars.ContextVar("lane6_health_resources_owner", default=None)
 
-RETIREMENT_CITATION = "Claude, review of step 8 part 4"
-RESOURCE_ENDPOINT = "TestResourceUsageAPI.test_resource_usage_endpoint"
 RESOURCE_MANAGEMENT_BLOCKER = (
     "Desktop ObservabilityService has no named resource-usage method exposing "
     "session and trajectory counters. The collector survives, but management "
@@ -113,12 +111,6 @@ class SetupOnly(ast.NodeTransformer):
 
 
 def disposition(suite, symbol):
-    if suite == "test_resource_usage" and symbol == RESOURCE_ENDPOINT:
-        return "retired", (
-            "Removed HTTP /api/resource-usage web-widget endpoint and its "
-            "HTTP 200 contract; direct collector payload cases remain restored. "
-            + RETIREMENT_CITATION
-        )
     if suite == "test_resource_usage" and symbol.startswith("TestResourceUsageAPI."):
         return "deferred", RESOURCE_MANAGEMENT_BLOCKER
     if suite == "test_window_observer" and symbol.startswith("TestContextWindowsApi."):

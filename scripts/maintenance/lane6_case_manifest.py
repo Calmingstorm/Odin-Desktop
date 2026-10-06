@@ -382,6 +382,9 @@ def build_report(root=ROOT, *, extra_roots=(), overrides=None, snapshot=None, co
                 continue
             symbol = original.split("::", 1)[1]
             row = dict(claims.get(original, {}))
+            # Exact parent decisions can supply cases absent from historical
+            # report metadata. Validate the resolved row, not a missing precursor.
+            row.update(decisions.get(original, {}))
             if not row:
                 if suite.get("status") == "restored" or suite.get("whole_suite") is True:
                     row = {"status": "restored", "metadata_source": "reported whole-suite complement"}
