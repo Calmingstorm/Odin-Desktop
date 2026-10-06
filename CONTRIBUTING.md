@@ -56,7 +56,9 @@ Odin or the desktop session. **Always run the suite in an isolated PID namespace
   starting tests. If neither works, no tests run. Each invocation has a throwaway HOME/XDG tree and
   a clean environment without credentials or live display/session sockets.
 - CI short gates run on `odin-desktop-ci-light` (server-2 or desktop); tests and
-  qualification run only on `odin-desktop-ci` (desktop). Server-2's util-linux 2.37.2
+  qualification run only on `odin-desktop-ci` (desktop). The desktop short gate runs
+  on `odin-desktop-short` (desktop runners only, with a dedicated runner so it does
+  not queue behind full suites). Server-2's util-linux 2.37.2
   cannot preserve the UID in an unprivileged namespace. Both jobs require a cached
   Python 3.12 before setup-python, and newer pushes cancel the old PR run.
 - A current-user-only user namespace reports

@@ -391,7 +391,11 @@ async def wait_connected(process, socket_path):
             return await connect(socket_path)
         except (FileNotFoundError, ConnectionRefusedError):
             await asyncio.sleep(0.01)
-    pytest.fail("core did not publish its listener")
+    process.stdin.close()
+    stdout, stderr = await asyncio.wait_for(process.communicate(), 10)
+    pytest.fail(
+        f"core did not publish its listener within eight seconds: {stdout!r} {stderr!r}"
+    )
 
 
 @pytest.mark.asyncio
