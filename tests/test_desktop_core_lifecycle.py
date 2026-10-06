@@ -17,6 +17,12 @@ import pytest
 from src.desktop.lifecycle import CoreLifetime
 from src.desktop.paths import ProfilePaths
 
+# Fixture budgets for cold imports and busy self-hosted runners, not product
+# latency contracts. Match the real-core CI harness: no command is resent and
+# expiration still fails. One timeout bounds the entire wait, not each poll/read.
+CORE_STARTUP_WAIT_SECONDS = 25
+CORE_RECEIPT_WAIT_SECONDS = 15
+
 
 @pytest.mark.asyncio
 async def test_parent_pipe_eof_is_an_orderly_shutdown_edge():
@@ -86,10 +92,10 @@ async def send(writer, message):
     await writer.drain()
 
 
-async def receive(reader, *, timeout=3):
-    header = await asyncio.wait_for(reader.readexactly(4), timeout)
-    return json.loads(await asyncio.wait_for(
-        reader.readexactly(struct.unpack(">I", header)[0]), timeout))
+async def receive(reader, *, timeout=None):
+    async with asyncio.timeout(CORE_RECEIPT_WAIT_SECONDS if timeout is None else timeout):
+        header = await reader.readexactly(4)
+        return json.loads(await reader.readexactly(struct.unpack(">I", header)[0]))
 
 
 async def connect(socket_path, *, token="ab" * 32):
@@ -105,12 +111,7 @@ async def connect(socket_path, *, token="ab" * 32):
 async def request(reader, writer, method, params=None, command_id=None, *, timeout=None):
     command_id = command_id or str(uuid.uuid4())
     await send(writer, {"t": "req", "id": command_id, "method": method, "params": params or {}})
-    # Real first submission constructs the executor/catalog lazily. This is a
-    # correctness fixture, not a 3-second latency SLA on a shared CI machine.
-    # Other RPC waits keep their historical bound; no request is retried.
-    if timeout is None:
-        timeout = 15 if method == "submission.send" else 3
-    result = await receive(reader, timeout=timeout)
+    result = await (receive(reader) if timeout is None else receive(reader, timeout=timeout))
     assert result["t"] == "res"
     assert result["id"] == command_id
     return result
@@ -393,23 +394,23 @@ async def launch(paths, socket_path, token_file, root):
 
 
 async def wait_connected(process, socket_path):
-    # Match the real-core app harness's bounded cold-start allowance. Count
-    # monotonic elapsed time, not nominal sleep iterations on a loaded runner.
-    loop = asyncio.get_running_loop()
-    deadline = loop.time() + 25
-    while loop.time() < deadline:
-        if process.returncode is not None:
-            stdout, stderr = await process.communicate()
-            pytest.fail(f"core exited {process.returncode}: {stdout!r} {stderr!r}")
-        try:
-            return await connect(socket_path)
-        except (FileNotFoundError, ConnectionRefusedError):
-            await asyncio.sleep(0.01)
-    process.stdin.close()
-    stdout, stderr = await asyncio.wait_for(process.communicate(), 10)
-    pytest.fail(
-        f"core did not publish its listener within eight seconds: {stdout!r} {stderr!r}"
-    )
+    try:
+        async with asyncio.timeout(CORE_STARTUP_WAIT_SECONDS):
+            while True:
+                if process.returncode is not None:
+                    stdout, stderr = await process.communicate()
+                    pytest.fail(f"core exited {process.returncode}: {stdout!r} {stderr!r}")
+                try:
+                    return await connect(socket_path)
+                except (FileNotFoundError, ConnectionRefusedError):
+                    await asyncio.sleep(0.01)
+    except TimeoutError:
+        process.stdin.close()
+        stdout, stderr = await asyncio.wait_for(process.communicate(), 10)
+        pytest.fail(
+            f"core did not publish its listener within {CORE_STARTUP_WAIT_SECONDS} seconds: "
+            f"{stdout!r} {stderr!r}"
+        )
 
 
 @pytest.mark.asyncio

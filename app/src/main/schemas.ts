@@ -374,6 +374,7 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
     })
     .strict(),
   hostsTest: z.object({ token: z.uuid() }).strict(),
+  hostsImportLegacy: z.object({ alias: hostAlias }).strict(),
   hostsCommit: z.object({ token: z.uuid() }).strict(),
   hostsSetEnabled: z.object({ alias: hostAlias, enabled: z.boolean() }).strict(),
   hostsReferences: z.object({ alias: hostAlias }).strict(),

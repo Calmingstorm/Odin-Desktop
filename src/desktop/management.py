@@ -102,6 +102,8 @@ class ManagementService:
         from ..config.apply_registry import spec_for
         from ..context.loader import ContextLoader
         from ..health.checker import check_all
+        from ..health.subsystem_guard import SubsystemGuard
+        from ..llm.codex_quota_check import CodexQuotaCheckService
         from ..llm.system_prompt import register_user_presets
         from ..permissions.host_access import HostAccessManager
         from ..tools.builtin_policy import BUILTIN_TOOL_NAMES, BuiltinToolPolicy
@@ -146,6 +148,15 @@ class ManagementService:
                 email_config=settings.config.email, profile_paths=core.paths,
             )
             executor._command_shell_config = lambda: settings.config.tools.command_shell
+            degradation = settings.config.graceful_degradation
+            subsystem_guard = SubsystemGuard(
+                degraded_threshold=degradation.degraded_threshold,
+                unavailable_threshold=degradation.unavailable_threshold,
+            )
+            for name in ("llm_codex", "llm_ollama", "llm_compat", "codex", "ssh",
+                         "knowledge", "browser"):
+                subsystem_guard.register(name)
+            executor.subsystem_guard = subsystem_guard
             executor._host_access = HostAccessManager(
                 path=core.paths.config_dir / "host-preferences.json",
                 available_hosts_provider=executor.host_registry.active_aliases,
@@ -153,7 +164,16 @@ class ManagementService:
             )
             codex = CodexAccountsService(settings)
             providers = ProviderOwner(settings, codex, executor=executor)
+        subsystem_guard = executor.subsystem_guard
         codex.providers = providers
+        # Resolve the current serving generation on every check. A saved or
+        # retired account pool must never acquire quota refresh authority.
+        def quota_pool():
+            if not settings.config.openai_codex.enabled:
+                return None
+            return getattr(providers.codex_client, "auth", None)
+
+        quota_check = CodexQuotaCheckService(quota_pool)
         for method in providers.METHODS:
             settings.owners[method] = providers
 
@@ -384,11 +404,28 @@ class ManagementService:
         manager.records, manager.knowledge = records, knowledge
         manager.learned, manager.trajectories = learned, trajectories
         manager.observations, manager.openrouter = observations, openrouter
+        manager.subsystem_guard = subsystem_guard
+        manager.codex_quota_check = quota_check
         manager.skills, manager.mcp = skills, mcp
         manager.browser, manager.computer = browser, computer
         manager.tool_catalog, manager.workspace_diagnostics = catalog, diagnostics
         manager._engine_owned = deps is not None
         return manager
+
+    async def start_background(self) -> None:
+        """Start retained profile observers only after core runtime admission."""
+        quota_check = getattr(self, "codex_quota_check", None)
+        if quota_check is not None:
+            await quota_check.start()
+
+    async def stop_background(self) -> None:
+        """Settle observers before the request engine retires provider owners."""
+        if getattr(self, "_background_stopped", False):
+            return
+        quota_check = getattr(self, "codex_quota_check", None)
+        if quota_check is not None:
+            await quota_check.close()
+        self._background_stopped = True
 
     def identity_params(self, params: Any) -> dict:
         """Bind exact semantics without storing write-only secrets in receipts.
@@ -555,6 +592,7 @@ class ManagementService:
             return response_error("internal", "Management outcome is unknown", "outcome_unknown")
 
     async def close(self) -> None:
+        await self.stop_background()
         from .resource_cleanup import ResourceCleanupError, close_existing_execution_owners
 
         # Retained barriers keep ambiguous native owners and independently prove

@@ -48,6 +48,82 @@ RETIREMENT_REASONS = {
         "and step 1's tests prove its handshake authenticates before any method runs."),
 }
 WORK_ORDER = "docs/work/phase-2-desktop-engine.md"
+REVIEW34_REVIEWER = "Claude, review of #34"
+ROUND3_REVIEWER = "Claude, review of #34, round 3"
+ROUND3_CASES = {
+    "tests/test_health_endpoints.py": {
+        "source_sha256": "51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda",
+        "reviewer": ROUND3_REVIEWER,
+        "reasons": {
+            "TestContextWindowsAdminPolicy.test_context_surface_is_centrally_admin_only":
+                "multi-user tiers removed",
+            "TestContextWindowsAdminPolicy.test_get_and_post_reject_user_and_guest_but_allow_admin":
+                "multi-user tiers removed",
+            "TestBuiltinToolsAdminPolicy.test_builtin_tools_surface_is_centrally_admin_only":
+                "multi-user tiers removed",
+            "TestBuiltinToolsAdminPolicy.test_both_routes_reject_user_and_guest_but_allow_admin":
+                "multi-user tiers removed",
+        },
+        "default_reason": "HTTP health endpoints removed with the listener",
+    },
+    "tests/test_campaign_startup_health.py": {
+        "source_sha256": "41666712c09447ad5b362804478f7550a98329dda605db5c61c86b30e298f4ac",
+        "reviewer": ROUND3_REVIEWER,
+        "reasons": {
+            "test_production_health_wiring_keeps_http_bootstrap_ready":
+                "Discord and the HTTP listener removed",
+        },
+        "default_reason": None,
+    },
+}
+# This is a separate authority, not an extension of #26's five dispositions.
+# Exact path/reason pairs are the admission policy; no caller-supplied reason
+# or reviewer string can retire another inherited surface.
+REVIEW34_RETIREMENT_GROUPS = {
+    ("Retired: multi-user API tokens, tiers and ACLs, and bearer and web sessions; "
+     "these surfaces were removed by design from Desktop."): (
+        "test_auth_config_integration_review", "test_auth_entry_preservation",
+        "test_auth_snapshot_compatibility", "test_auth_snapshot_routes",
+        "test_campaign_a_coverage_boundaries", "test_campaign_authorization_persistence",
+        "test_campaign_private_persistence", "test_campaign_startup_auth",
+        "test_pr356_static_recovery_identity", "test_pr356_storage_compatibility",
+        "test_pr356_tokenless_upgrade", "test_startup_auth_middleware_review",
+        "test_web_api_security_helpers_coverage", "test_web_api_security_routes",
+        "test_web_campaign_policy_races", "test_web_campaign_truth",
+        "test_web_persisted_sessions", "test_web_api_codex_admin",
+    ),
+    ("Retired: the HTTP management listener and its bind or consent policy; "
+     "Desktop has no management listener."): (
+        "test_bootstrap_bind_policy", "test_bootstrap_runtime_bind",
+        "test_health_shutdown", "test_listener_consent",
+    ),
+    ("Retired: Discord configuration, setup and diagnostics; "
+     "these surfaces were removed by design from Desktop."): (
+        "test_config", "test_config_campaign_v410", "test_onboarding_campaign",
+        "test_onboarding_partial_publication", "test_setup_helpers",
+        "test_startup_diagnostics", "test_startup_onboarding_context",
+    ),
+    "Retired: credential files with .bak copies; Desktop replaces these files with the keyring.": (
+        "test_listener_credential_provenance", "test_independent_credential_review",
+    ),
+    "Retired: the WebSocket; Desktop uses its authenticated IPC transport instead.": (
+        "test_web_websocket", "test_websocket_bootstrap_auth", "test_websocket_handler",
+    ),
+    "Retired: per-user host preferences, removed by D17.": (
+        "test_host_access_removal_audit_v412",
+    ),
+    ("Retired: Desktop never imports an old Odin config, "
+     "so there is no legacy timeout to migrate."): (
+        "test_compatible_timeout_migration",
+    ),
+}
+REVIEW34_RETIREMENT_REASONS = {
+    f"tests/{stem}.py": reason
+    for reason, stems in REVIEW34_RETIREMENT_GROUPS.items() for stem in stems
+}
+REVIEW34_RETIRABLE_SUITES = frozenset(REVIEW34_RETIREMENT_REASONS)
+if len(REVIEW34_RETIRABLE_SUITES) != 36 or REVIEW34_RETIRABLE_SUITES & RETIRABLE_SUITES:
+    raise RuntimeError("review #34 must admit exactly 36 new, disjoint retirements")
 PR35_REVIEWER = "Claude, review of #35"
 PR35_ROUND2_REVIEWER = "Claude, review of #35, round 2"
 PR35_ROUND2_CASE_REASONS = {
@@ -311,11 +387,57 @@ def _adapter_modules(root: Path, selector: str) -> list[ast.Module]:
                 candidate = name.replace(".", "/") + ".py"
                 if candidate.startswith("tests/") and (root / candidate).is_file():
                     todo.append(candidate)
+            # Follow a named import of a test-local submodule, too.
+            if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                for alias in node.names:
+                    candidate = (node.module + "." + alias.name).replace(".", "/") + ".py"
+                    if candidate.startswith("tests/") and (root / candidate).is_file():
+                        todo.append(candidate)
     return trees
+
+
+def _round3_case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
+    """Validate round-three case dispositions against exact frozen source identities."""
+    if not isinstance(value, list):
+        return False
+    if not value:
+        policy = ROUND3_CASES.get(path)
+        return policy is None or not policy["reasons"]
+    policy = ROUND3_CASES.get(path)
+    if policy is None or inherited_hash != policy["source_sha256"]:
+        return False
+    source = _regular(root, path).read_bytes()
+    if _digest(source) != inherited_hash:
+        return False
+    tree = ast.parse(source, filename=path)
+    cases = set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            cases.add(node.name)
+        elif isinstance(node, ast.ClassDef):
+            cases.update(f"{node.name}.{child.name}" for child in node.body
+                         if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)))
+    names = []
+    for row in value:
+        if not isinstance(row, dict) or set(row) != {
+            "case", "reviewer", "reason", "source_path", "source_sha256"
+        }:
+            return False
+        case = row["case"]
+        reason = policy["reasons"].get(case, policy["default_reason"])
+        if (case not in cases or reason is None or row["reviewer"] != policy["reviewer"]
+                or row["reason"] != reason or row["source_path"] != path
+                or row["source_sha256"] != inherited_hash):
+            return False
+        names.append(case)
+    return names == sorted(set(names))
 
 
 def _case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
     """Exact review dispositions, canonical source case identities, no globs/params."""
+    if path in ROUND3_CASES:
+        # Review of #34, round 3, is a separate authority for its two suites.
+        return _round3_case_retirements(root, path, inherited_hash, value)
     if not isinstance(value, list):
         return False
     if not value:
@@ -447,6 +569,7 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
     pinned = False
     frozen = False
     export = False
+    exclusion_export = False
     corpus_guard = False
     hash_guard = False
     compile_frozen = False
@@ -479,12 +602,21 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
         if not isinstance(exclusions, dict):
             return False
         for excluded_stem, dispositions in exclusions.items():
-            if not isinstance(dispositions, list) or not dispositions:
+            if not isinstance(dispositions, list):
                 return False
-            source_path = (
-                dispositions[0].get("source_path") if isinstance(dispositions[0], dict) else None)
-            sha = (
-                dispositions[0].get("source_sha256") if isinstance(dispositions[0], dict) else None)
+            if not dispositions:
+                continue
+            # Older shared loaders used tuple/name selectors for unrelated
+            # corpora. Preserve that established static representation; only
+            # a declared reviewed case projection uses provenance records.
+            if not isinstance(dispositions[0], dict):
+                if (excluded_stem not in selections
+                        or selections.get(excluded_stem) is None
+                        or any(not isinstance(item, str) for item in dispositions)):
+                    return False
+                continue
+            source_path = dispositions[0].get("source_path")
+            sha = dispositions[0].get("source_sha256")
             if (not _path(source_path) or excluded_stem not in {
                     PurePosixPath(source_path).stem,
                     source_path.removeprefix("tests/").removesuffix(".py")}
@@ -526,6 +658,8 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             if declared_parameters is not None and declared_parameters != current_parameters:
                 return False
             declared_parameters = current_parameters
+        if any(key in exclusions for key in matching_keys) and not declared:
+            return False
         if ((constants.get("SOURCE_PATH") == path or constants.get("PATH") == path)
                 and constants.get("SOURCE_SHA256") == inherited_hash):
             pinned = True
@@ -607,14 +741,16 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             and (not reviewed or exclusion_export))
 
 
-def _check(root: Path) -> tuple[list[str], dict]:
+def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
     errors: list[str] = []
     report = {"original_population": 0, "mapped": 0, "restored": 0,
               "deferred": 0, "retired": 0, "by_step": {}, "classifications": {}}
     try:
-        mapping = _json((root / MAP_PATH).read_bytes())
-        plan = _json((root / PLAN_PATH).read_bytes())
-        qualification = _json((root / QUALIFICATION_PATH).read_bytes())
+        documents = documents or {}
+        mapping, plan, qualification = (
+            documents[path] if path in documents else _json((root / path).read_bytes())
+            for path in (MAP_PATH, PLAN_PATH, QUALIFICATION_PATH)
+        )
         historical_bytes = _git_blob(root, SOURCE_MAIN, PLAN_PATH)
         qualification_bytes = _git_blob(root, SOURCE_MAIN, QUALIFICATION_PATH)
         merged_bytes = _git_blob(root, MERGED_MAIN, QUALIFICATION_PATH)
@@ -790,7 +926,28 @@ def _check(root: Path) -> tuple[list[str], dict]:
             original, adapter = replacements[group["name"]]
             required.remove(original)
             required.add(adapter)
-        if not required <= set(named.get(group["name"], {}).get("files", [])):
+        current_files = set(named.get(group["name"], {}).get("files", []))
+        missing = required - current_files
+        # One explicit transition replaces the old guard subset with the entire
+        # frozen corpus. No other inherited selector can disappear on rebase.
+        if (group["name"] == "neutral-subsystem-guard"
+                and missing == {"tests/test_subsystem_guard.py"}
+                and "tests/test_desktop_phase2_runtime_guard.py" in current_files):
+            guard = next((row for row in mapping.get("entries", [])
+                          if row.get("path") == "tests/test_subsystem_guard.py"), {})
+            neutral = named[group["name"]]
+            if (guard.get("status") == "restored" and guard.get("step") == 5
+                    and guard.get("restoration", {}).get("mode") == "frozen-adapter"
+                    and guard.get("restoration", {}).get("selectors")
+                    == ["tests/test_desktop_phase2_runtime_guard.py"]
+                    and not any(neutral.get(key) for key in (
+                        "exclude_expression", "include_expression", "args",
+                        "pytest_args", "exclusions"))
+                    and _full_adapter(root, "tests/test_desktop_phase2_runtime_guard.py",
+                                      "tests/test_subsystem_guard.py",
+                                      original_entries["tests/test_subsystem_guard.py"]["sha256"])):
+                missing.clear()
+        if missing:
             errors.append(f"qualification: lost merged main selectors in {group['name']}")
     if "phase2-core-transport" not in named:
         errors.append("qualification: phase2-core-transport group missing")
@@ -834,16 +991,38 @@ def _check(root: Path) -> tuple[list[str], dict]:
         if status == "retired":
             mapped_retired.add(path)
             retirement = row.get("retirement", {})
-            expected_reviewer = (RETIREMENT_REVIEWER if path in RETIRABLE_SUITES else PR35_REVIEWER)
-            expected_reason = {**RETIREMENT_REASONS, **PR35_RETIREMENT_REASONS}.get(path)
-            expected_step = (
-                1 if path in RETIRABLE_SUITES else PR35_RETIREMENTS.get(path, (None,))[0])
+            legacy = path in RETIRABLE_SUITES
+            round3_retired = path == "tests/test_health_endpoints.py"
+            if legacy:
+                expected_reviewer, expected_step = RETIREMENT_REVIEWER, 1
+                expected_reason = RETIREMENT_REASONS.get(path)
+            elif round3_retired:
+                expected_reviewer, expected_step = ROUND3_REVIEWER, 5
+                expected_reason = ("HTTP health endpoints removed with the listener; "
+                                   "multi-user tiers removed")
+            elif path in REVIEW34_RETIREMENT_REASONS:
+                expected_reviewer, expected_step = REVIEW34_REVIEWER, 5
+                expected_reason = REVIEW34_RETIREMENT_REASONS[path]
+            else:
+                expected_reviewer = PR35_REVIEWER
+                expected_reason = PR35_RETIREMENT_REASONS.get(path)
+                expected_step = PR35_RETIREMENTS.get(path, (None,))[0]
             if (expected_reason is None or type(step) is not int or step != expected_step
                     or not isinstance(retirement, dict)
                     or retirement != {"reviewer": expected_reviewer, "reason": expected_reason}
                     or row.get("reason") != expected_reason
                     or entries.get(path, {}).get("reason") != expected_reason):
                 errors.append(f"mapping: retired suite needs exact reviewed disposition: {path}")
+            if path == "tests/test_health_endpoints.py":
+                try:
+                    valid_retirements = _case_retirements(
+                        root, path, row.get("inherited_sha256", ""), row.get("case_retirements")
+                    )
+                except (OSError, ValueError, TypeError, SyntaxError):
+                    valid_retirements = False
+                if not valid_retirements or len(row.get("case_retirements", [])) != 22:
+                    errors.append(
+                        f"mapping: health endpoint retirement requires all exact cases: {path}")
             if path not in retired_paths or path not in classified["retired"]:
                 errors.append(f"mapping: retired suite must be retired in test-plan: {path}")
             if entries.get(path, {}).get("retirement") != retirement:
@@ -903,6 +1082,9 @@ def _check(root: Path) -> tuple[list[str], dict]:
             valid_branches = False
         if not valid_cases or (case_retirements and mode != "frozen-adapter"):
             errors.append(f"mapping: invalid reviewed case retirements: {path}")
+        if path == "tests/test_campaign_startup_health.py" and len(case_retirements) != 1:
+            errors.append(
+                f"mapping: startup health must retire exactly the reviewed obsolete case: {path}")
         if (not _parameter_retirements(root, path, row.get("inherited_sha256", ""),
                                       parameter_retirements)
                 or (parameter_retirements and mode != "frozen-adapter")):
@@ -968,9 +1150,9 @@ def _check(root: Path) -> tuple[list[str], dict]:
     return errors, report
 
 
-def _evaluate(root: Path) -> tuple[list[str], dict]:
+def _evaluate(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
     try:
-        errors, report = _check(root)
+        errors, report = _check(root, documents)
         if (root / "maintenance/phase2-step8-part6-cases.json").exists():
             import sys
             if str(ROOT) not in sys.path:
@@ -980,14 +1162,14 @@ def _evaluate(root: Path) -> tuple[list[str], dict]:
             errors.extend(case_errors)
             report["step8_part6_cases"] = counts
         return errors, report
-    except (OSError, ValueError, TypeError, KeyError, AttributeError,
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, SyntaxError,
             subprocess.SubprocessError) as exc:
         return [f"malformed accounting input: {exc}"], {}
 
 
-def validate(root: Path | str = ROOT) -> list[str]:
-    """Return all detected mapping/accounting errors; an empty list is valid."""
-    return _evaluate(Path(root))[0]
+def validate(root: Path | str = ROOT, *, documents: dict | None = None) -> list[str]:
+    """Check on-disk inputs or prospective documents against the same pinned files."""
+    return _evaluate(Path(root), documents)[0]
 
 
 def record_review_retirements(root: Path) -> None:

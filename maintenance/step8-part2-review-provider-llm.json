@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "scope": "PR34 review group C: independent real Desktop LLM behavior plus whole frozen corpus audit; no inherited restoration claim",
+  "review": "Claude, review of #34, /home/odin/reviews/desktop-pr34-review.md",
+  "records": [
+    {
+      "path": "tests/test_web_api_llm_admin.py",
+      "inherited_sha256": "f3fc8276fc85ab39e3234dff0f902e1d800d8f64ec6d0c58c2d5aa01d26980d1",
+      "whole_ast_sha256": "297c4da68b2023f7ca66106315453fef2713fc049d6ba0953a76de3682c72769",
+      "whole_corpus_sha256": "28d3ade7c9f403b97e857707120660433169b8941045e00b33031f9af2a07bf3",
+      "inherited_functions": 122,
+      "inherited_cases": 152,
+      "inherited_assertions": 334,
+      "inherited_classes": 18,
+      "status": "deferred",
+      "blocker": "awaiting the step 5 completion PR",
+      "restored_inherited_cases": 0,
+      "mode": "blocked-whole-frozen-audit-and-independent-behavior",
+      "whole_suite_selector": "tests/test_web_api_llm_admin.py",
+      "adapter": "tests/desktop_adapters/review_provider_llm.py",
+      "entry": "tests/test_desktop_review_provider_llm.py",
+      "provenance_test": "tests/test_desktop_review_provider_llm_provenance.py",
+      "setup_hunks": [],
+      "reversible_hunk_seal": {
+        "approved_hunks": 0,
+        "before_whole_ast_sha256": "297c4da68b2023f7ca66106315453fef2713fc049d6ba0953a76de3682c72769",
+        "after_whole_ast_sha256": "297c4da68b2023f7ca66106315453fef2713fc049d6ba0953a76de3682c72769",
+        "verification": "verify_adaptation requires entire AST equality and identical corpus; no inherited statement changes, removal, selection or execution. load fails closed before namespace export."
+      },
+      "concrete_missing_behavior": [
+        {
+          "symbols": ["TestConnectionPools"],
+          "inherited_cases": 8,
+          "missing": "Private connection-pool stats and close controls. A provider's concrete pool_stats is not a management command owner."
+        },
+        {
+          "symbols": [
+            "TestKimiAdmin.test_openrouter_select_persists_route_profile_and_per_model_pin",
+            "TestKimiAdmin.test_openrouter_catalogue_projects_profiles_endpoints_and_measured_cache",
+            "TestKimiAdmin.test_openrouter_select_rejects_model_absent_from_catalogue",
+            "TestKimiAdmin.test_openrouter_routes_reject_non_openrouter_and_bad_selection"
+          ],
+          "inherited_cases": 4,
+          "missing": "Private OpenRouter catalog selection, endpoint admin, catalog profile/endpoint measured cache projection and validation verdict surface."
+        }
+      ],
+      "missing_behavior_inventory_is_exhaustive": false,
+      "accounting_note": "These confirmed absent domains alone block whole-suite restoration. Independent existing-feature checks cannot restore any of the 152 inherited cases. A separate coordinated agent may supply an explicitly partial adapter in other paths."
+    }
+  ],
+  "changes_by_path": [
+    {
+      "path": "tests/desktop_adapters/review_provider_llm.py",
+      "sha256": "d4aeff32f54ecc8d092942c3a3280e67736f3979964ec5b1143161be1d12a989",
+      "change": "Whole-source/corpus frozen audit, fail-closed incomplete-suite loader, real canonical temporary owner/provider graph and private verdict projection. Only keyring backend seam is faked."
+    },
+    {
+      "path": "tests/test_desktop_review_provider_llm.py",
+      "sha256": "dda9cdc60ad415097ae3c8e2ac4efcbfa5d220a7f3bd76dfdeea2bdcfd78f8a2",
+      "change": "9 independent cases: adopted/persisted main model; three invalid references; stale revision; provider validator; concrete compatible probe failure rollback; cancellation rollback; unavailable auxiliary refusal."
+    },
+    {
+      "path": "tests/test_desktop_review_provider_llm_provenance.py",
+      "sha256": "bbd5f153240c2d9df83de52bc469a9dee25cb631fcb051ef3e65f903e55f14c1",
+      "change": "6 independent provenance cases: 152-case whole inherited seal, fail-closed absent-suite export, three negative whole-tree tamper tests, unknown verdict rejection."
+    }
+  ],
+  "validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_review_provider_llm.py tests/test_desktop_review_provider_llm_provenance.py",
+    "environment": "Repository Python 3.12; runner sanitized env -i and throwaway HOME/XDG; mount/PID namespace; executing OS USER=odin. No live service, full qualification or active desktop.",
+    "result": "15 passed in 6.33s",
+    "initial_result": "14 passed, 1 provenance negative case failed because it selected the first helper class rather than the first Test class. Corrected test target only, rerun all 15 passed.",
+    "independent_behavior_cases": 9,
+    "independent_provenance_cases": 6,
+    "inherited_cases_executed": 0,
+    "full_qualification_run": false
+  },
+  "production_changes": [],
+  "shared_maps_plans_scripts_deltas_changed": false,
+  "git_operations": false
+}

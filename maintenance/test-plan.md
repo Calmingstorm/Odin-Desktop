@@ -9,28 +9,26 @@
 | Classification | Paths |
 |---|---:|
 | `excluded` | 18 |
-| `phase2` | 298 |
+| `phase2` | 189 |
 | `retained_adaptation_gated` | 38 |
 | `retained_support` | 30 |
-| `safe_pass_now` | 380 |
+| `safe_pass_now` | 431 |
 | `safety_manual_gated` | 100 |
-| `retired` | 5 |
+| `retired` | 63 |
 
 ## Explicit selections
 
 JSON lists `safe_pass_now`, `phase2`, `excluded`, `safety_manual_gated`, `retained_adaptation_gated`, `retained_support` contain exact paths. Each entry records original SHA-256/rationale plus direct imports, fixture closure, static spawn/literal line evidence and pinned source closure id. Supplementary `safe_neutral_case_selections` preserves parent-proven neutral cases in mixed suites.
 
-Step 8 part 3 preserves historical membership as `phase2` union
-`phase2_restored` union `phase2_retired`: **298 deferred plus 23 complete restored
-suites plus 5 reviewed nonpassing retirements, still 326**. Part 3 restores
-step 2: **6/8**, step 3: **6/27**, step 4: **2/12**. The other 33 assigned suites
-keep exact blockers in the map and the parent-owned adaptation plan.
+Step 8's current reviewed accounting preserves historical membership as
+`phase2` union `phase2_restored` union `phase2_retired`:
+**189 deferred + 74 complete restored + 63 reviewed retired = 326**.
 `phase2-suite-map.json` records last-surface ownership and specific blockers;
 `phase2_suites.py` checks it against the hash-pinned pre-restoration plan.
-Step-1 restored suites retain `phase2-core-transport`. The new complete step-2,
-step-3 and step-4 suites run in explicit owning restoration groups. No inherited
-assertion, parameter corpus or original byte hash changed. No new retirement
-was approved or applied here.
+Step-1 restored suites retain `phase2-core-transport`; the complete step-2 to
+step-5 suites run in their explicit owning restoration groups. Retired contracts
+have exact reviewer/path/reason dispositions and never count passing. No inherited
+assertion, parameter corpus or original byte hash changed.
 Original bytes and membership digest remain unchanged. Neither reclassification
 nor this accounting document claims complete Phase 2 parity or approval.
 
@@ -1073,3 +1071,11 @@ Real process suites without direct spawn AST still exercise production Registry/
 Static closure is not runtime safety proof: conditional/dynamic imports, aliases, shell expansion and indirect subprocess behavior require clean namespace execution/failure triage. Baseline source closures include optional lazy imports removed by adaptation; no blanket gate of neutral src.discord/tools/guards.
 
 All retained inherited bytes must remain original. Narrow feature-only exclusions may be deleted after records exist; pinned archive preserves original excluded corpus. Mixed suites are retained, not silently weakened. Whole-file initial selection may omit neutral cases in mixed files; supplementary case selections and parent triage can expand without changing assertions.
+
+## Step8 part2 current disposition
+
+The machine plan now retains **326 = 19 restored + 5 reviewer-retired +
+302 deferred** historical Phase2 suites. This lane audits all85 step5 suites:
+10 complete restorations and75 concrete blockers. No original suite or hash was
+dropped; no blocked subset counts as a restored file. Details and qualification
+limits are in `phase2-step8-part2-validation.md` and the batch decision records.
