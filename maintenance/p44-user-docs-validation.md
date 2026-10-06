@@ -324,3 +324,12 @@ Two current source boundaries found while promoting, and kept plain in the guide
 the Records screen's Release request. These are documented limits, not silently
 fixed product code or claimed successful tests/recovery. Validate/save and retained
 status remain separate from those refused operations.
+
+Main subsequently advanced only with #57's full-suite CI timeout at
+`16e35e8f370661a2baf8e7030a27919b3e658b3b`; incorporated via two-parent merge
+`6d63864afaa76e42fd6912936a645eb805b02e74`. This changes CI bounds, not documented
+user behavior. No CI job was cancelled, retried or manually dispatched by this
+lane. The final working-tree link-data check covers **206 links across 13 files**:
+87 local targets/anchors, 115 pinned Git objects and 4 other external URL syntax
+checks, with zero errors. The external raw result records source/file identities;
+its SHA-256 and path are in the small committed artifact manifest.

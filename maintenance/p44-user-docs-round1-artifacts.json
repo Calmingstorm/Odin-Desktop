@@ -1,14 +1,14 @@
 {
   "schema": "p44_documentation_artifacts_v1",
   "request": "req-c55cf225",
-  "source_main": "ed0069674533c23e70a0302652a2fb76901ff385",
+  "source_main": "16e35e8f370661a2baf8e7030a27919b3e658b3b",
   "reviewed_original_head": "3a83d7f5d0cd3c2294d6958f5e3d62242ad439e1",
   "scope": "Eight task-first user guides and maintainer provenance/pending drafts. No application/native qualification rerun.",
   "link_check": {
     "files": 13,
-    "links": 193,
-    "local_targets_and_anchors": 84,
-    "pinned_git_objects": 105,
+    "links": 206,
+    "local_targets_and_anchors": 87,
+    "pinned_git_objects": 115,
     "external_url_syntax_only": 4,
     "errors": 0
   },
@@ -21,8 +21,8 @@
     },
     {
       "path": "/mnt/storage/odin-desktop-evidence/p44-r1-req-c55cf225/links.json",
-      "sha256": "3c626309900afbd529235befd72f4a431d68e761a79965095cf7c960d7a449b2",
-      "bytes": 43022,
+      "sha256": "9bce07d4c2e031d7ffb4c64586b0d7233734d20a249d42fd1487027136cedf1b",
+      "bytes": 46109,
       "purpose": "Per-link outcomes and SHA-256 identities of checked documents."
     }
   ],
