@@ -1,0 +1,39 @@
+{
+  "launches": 1,
+  "passed": true,
+  "window": {
+    "visible": true,
+    "focused": true,
+    "minimized": false,
+    "preferences": {
+      "allowRunningInsecureContent": false,
+      "contextIsolation": true,
+      "disableDialogs": false,
+      "disablePopups": false,
+      "enableBlinkFeatures": "",
+      "experimentalFeatures": false,
+      "javascript": true,
+      "nodeIntegration": false,
+      "nodeIntegrationInSubFrames": false,
+      "nodeIntegrationInWorker": false,
+      "safeDialogs": false,
+      "safeDialogsMessage": "",
+      "sandbox": true,
+      "webSecurity": true,
+      "webviewTag": false
+    },
+    "arguments": [
+      "/usr/local/lib/odq/odq-orca-115f2085bbb048d59f626df70e9ea457-sandbox/electron/electron",
+      "--inspect=0",
+      "--remote-debugging-port=0",
+      "/var/tmp/odq-orca-115f2085bbb048d59f626df70e9ea457/app",
+      "--force-renderer-accessibility",
+      "--enable-logging=stderr",
+      "--ozone-platform=wayland"
+    ]
+  },
+  "message_focused": true,
+  "speech_message": true,
+  "native_frame": true,
+  "safe_preferences": true
+}

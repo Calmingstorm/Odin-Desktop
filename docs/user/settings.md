@@ -134,14 +134,24 @@ seeing a browser tool offered is not proof that its connection works: Odin check
 the browser and its network guards before use. If bundled Chromium is missing,
 repair the installation; do not copy a personal browser profile or disable guards.
 
+Read browser failures as unavailable service, not an empty page or successful
+click. Each browser call uses a fresh, temporary context; cookies, filled fields
+and page state do not carry into a later call. A fresh context is not permission
+to repeat a submission whose outcome is unknown.
+
 ### Check computer use without granting input
 
-Open **Settings → Records → Computer use → Refresh** to read retained status.
+Open **Settings → Records → Computer use → Refresh** to request current status.
+The core retains session and recovery records, but this screen does not currently
+display that retained session record. A blank panel is not proof of no session or
+verified cleanup; preserve any error and obtain operator help with the record.
+
 The current core provides computer management, but not foreground mouse/keyboard
 input authority. Turning computer use on does not start a native desktop session,
-grant consent or make an unsupported backend usable. Native configuration changes
-may be refused. This screen is not a start/resume-input workflow. For a recovery
-warning, follow [Computer-input safety](recovery.md#computer-input-safety).
+grant consent or make an unsupported backend usable. Only its enabled flag can
+be changed through the current management service; other native configuration
+changes are refused. This screen is not a start/resume-input workflow. For a
+recovery warning, follow [Computer-input safety](recovery.md#computer-input-safety).
 
 ## Skills and MCP servers
 
@@ -152,24 +162,27 @@ service problem, not an empty library or a connected server.
 ### Add or change a skill
 
 Skills are Python code loaded into Odin. Use only code you trust; validation is
-not a safety review or a successful execution test.
+not a safety review or a successful execution test. Loading can also install the
+skill's declared package dependencies. Read its diagnostics before proceeding.
 
 1. Open **Settings → Skills**. Read each skill's **Loaded**, **Off** or **Failed to
    load** state and diagnostics. Choose **Open** for a loaded/off skill, or **New
-   skill** to enter a name and code.
+   skill** to enter a name and code. Names start with a lowercase letter, use
+   lowercase letters, digits or underscores, and are at most 50 characters.
 2. Choose **Validate** and correct errors. Validation compiles and inspects code
    without executing it. **Create** or **Save** validates again, then loads the
    code; loading can execute module-level code. Read the returned result and state.
 3. If the skill supplies **Its settings**, edit them and choose **Save its settings**.
-   This is separate from saving its code.
+   This is separate from saving its code and requires the profile's unlocked
+   keyring. An unavailable keyring is not an empty saved configuration.
 4. Use **Turn off** or **Turn on** to change whether it is offered. **Delete…**
    requires confirmation and removes its code; it does not undo earlier effects.
 
 The visible **Test** button requests a real execution with empty input, not another
 validation. In the current core, this management test is unavailable. Do not treat
-that refusal as a failed skill run or proof the code is harmless. Do not use Test
-to investigate an uncertain earlier effect, and do not assume unsaved edits were
-loaded or tested.
+that refusal as a failed skill run or proof the code is harmless: the button does
+not run the skill. Do not use Test to investigate an uncertain earlier effect,
+and do not assume unsaved edits were loaded or tested.
 
 ### Connect an MCP server
 
@@ -194,10 +207,17 @@ to a URL can make network requests. Use servers and credentials you trust.
    the credential was lost.
 
 **Maximum tools per server**, **Maximum tools in all** and **Save limits** limit
-publication, not permission to perform an effect. **Remove…** stops and removes
-that server and its offered tools, with confirmation. Turning off, removing,
-reconnecting or refreshing does not undo or settle earlier tool calls. For an
-unknown result, preserve the original record and use [Recovery](recovery.md).
+publication, not permission to perform an effect. Use **1–128** per server and
+**1–256** in all; zero is rejected even though the input allows you to enter it.
+**Remove…** stops and removes that server and its offered tools, with confirmation.
+Turning off, removing, reconnecting or refreshing does not undo or settle earlier
+tool calls. For an unknown result, preserve the original record and use
+[Recovery](recovery.md).
+
+A connected server and its **Tools** list establish management state, not that
+chat can call those tools. The current default core does not connect this managed
+MCP inventory to chat requests. Do not treat a working settings panel as a
+successful tool execution.
 
 ## Hosts and trust
 

@@ -32,7 +32,7 @@ def main():
     schedules = {}
     for schedule, extras_only in (("before", False), ("after", True)):
         lanes = {}
-        for lane in ("pass-now", "qualified", "checker", "fixtures"):
+        for lane in ("pass-now", "qualified", "checker", "fixtures", "lab"):
             groups = []
 
             def collect(command, **kwargs):
@@ -59,13 +59,22 @@ def main():
                 result = 0 if extras_only else collect([
                     sys.executable, str(ROOT / "scripts/run-phase1-tests.py"),
                     "tests/test_desktop_phase2_plan.py", "--collect-only"])
-            else:
+            elif lane == "fixtures":
                 fixtures = load("ci_fixture_selection", "run-lab-fixture-tests.py")
                 files = list(fixtures.TESTS)
                 if not extras_only:
                     files.insert(0, "tests/test_desktop_qualification_lab.py")
-                # Collection executes no root fixture. Use the verified PID
-                # boundary here; production fixture execution stays container-only.
+                # The fixed fixture wrapper uses this same verified PID boundary.
+                result = collect([sys.executable, str(ROOT / "scripts/run-phase1-tests.py"),
+                                  *files, "--collect-only"])
+            else:
+                files = ["tests/test_lab_orca.py", "tests/test_lab_orca_guest.py",
+                         "tests/test_lab_orca_cleanup.py", "tests/test_orca_guest_tasks.py",
+                         "tests/test_native_dialog_events.py", "tests/test_lab_focused_probe.py",
+                         "tests/test_orca_native_input.py", "tests/test_kde_portal_preparation.py",
+                         "tests/test_lab_orca_ci.py"]
+                if not extras_only:
+                    files.append("tests/test_desktop_lab_fixture_runner.py")
                 result = collect([sys.executable, str(ROOT / "scripts/run-phase1-tests.py"),
                                   *files, "--collect-only"])
             if result:
