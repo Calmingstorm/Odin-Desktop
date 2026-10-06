@@ -96,8 +96,8 @@ class _CoreEvents(PublicationEventJournal):
 def profile_config(paths: ProfilePaths):
     """Profile-bound defaults without loading ambient files or credentials.
 
-    Step five supplies configured settings through config_provider. Its explicit
-    operator paths are not narrowed by this default-binding helper.
+    An explicit config_provider may use this test/default-binding helper.
+    Normal startup loads persisted settings through the profile settings owner.
     """
     from ..config import Config
 
@@ -200,9 +200,9 @@ class CoreService:
         self.search: TranscriptSearch | None = None
         self.server: IpcServer | None = None
         self.permissions: PermissionManager | None = None
-        self.config_provider = config_provider or profile_config
+        self.config_provider = config_provider
         self.runtime_provider = runtime_provider
-        self.config = None
+        self.settings = None
         self.engine = None
         self.requests = None
         self.delivery = None
@@ -271,11 +271,16 @@ class CoreService:
         self.delivery = DurableDelivery(
             self.store, self.events, transcript_commit=self.transcript.commit,
             assert_context=self._assert_delivery_context)
-        self.config = await _resolve(self.config_provider(self.paths))
+        settings = ManagementService.profile_settings(
+            self, secret_backend=self._secret_backend,
+            config=(await _resolve(self.config_provider(self.paths))
+                    if self.config_provider is not None else None))
+        self.settings = settings
         runtime = (await _resolve(self.runtime_provider(self.config, self.paths, self.permissions))
                    if self.runtime_provider is not None else None)
         self.engine = build_engine_services(self.config, self.paths, self.permissions,
-                                            delivery=self.delivery, runtime_context=runtime)
+                                            delivery=self.delivery, runtime_context=runtime,
+                                            settings=settings)
         executor = self.engine.deps.tool_executor
         output_store = executor._ensure_output_store()
         self.artifacts = ArtifactStore(self.store, output_store=output_store,
@@ -298,7 +303,7 @@ class CoreService:
         )
         self.requests.recover_interrupted()
         await self.delivery.recover()
-        self.management = ManagementService.compose(self, secret_backend=self._secret_backend)
+        self.management = ManagementService.compose(self, settings=settings)
         self.capabilities = (*CAPABILITIES[:5],
                              *sorted((set(CAPABILITIES) | set(self.management.methods))
                                      - set(CAPABILITIES[:5])))
@@ -317,6 +322,10 @@ class CoreService:
         self._receipt_pruner = asyncio.create_task(self._prune_receipts())
         self._publication_task = asyncio.create_task(self._publication_loop())
         await self.requests.after_commit()
+
+    @property
+    def config(self):
+        return self.settings.config if self.settings is not None else None
 
     def _assert_delivery_context(self, context):
         if self.requests is None:
