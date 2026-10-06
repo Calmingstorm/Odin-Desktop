@@ -60,10 +60,12 @@ export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.s
   'computer.operator_reconcile', 'computer.release_owned_input', 'computer.activation.set'
 ].sort()]
 
-type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string; profileRoot?: string; workProof?: boolean }
+type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string; profileRoot?: string; workProof?: boolean; stageFileSkill?: string; skillFileDelivery?: 'send' | 'stage' }
 
 // Only the external secret/auth boundary is substituted. The entry point, management services,
 // transport, command journal, settings persistence and Broker remain the actual repository code.
+// stageFileSkill selects the existing dispatcher delivery policy for one disposable fixture;
+// it does not replace skill execution, callbacks, publication or final-reply delivery.
 const isolatedServicesBootstrap = `
 import sys, runpy, os
 from src.desktop.management import ManagementService
@@ -93,7 +95,17 @@ if base:
     device.DEVICE_TOKEN_URL = base + '/device/token'
     device.DEVICE_VERIFY_URL = base + '/verify'
     auth.TOKEN_URL = base + '/oauth/token'
-sys.argv = ['src', *sys.argv[3:]]
+stage_skill = sys.argv[3]
+file_delivery = sys.argv[4]
+if stage_skill:
+    from src.discord.native_tools.registry import NativeToolDispatcher
+    dispatch = NativeToolDispatcher.dispatch
+    async def staged_dispatch(self, tool_name, tool_input, **kwargs):
+        if tool_name == stage_skill or (tool_name == 'invoke_skill' and tool_input.get('name') == stage_skill):
+            kwargs['skill_file_delivery'] = file_delivery
+        return await dispatch(self, tool_name, tool_input, **kwargs)
+    NativeToolDispatcher.dispatch = staged_dispatch
+sys.argv = ['src', *sys.argv[5:]]
 runpy.run_module('src', run_name='__main__')
 `
 
@@ -163,6 +175,9 @@ export class RealCoreHarness {
 
   constructor(private readonly services: IsolatedServices = {}) {
     this.python = enginePython()
+    if (services.stageFileSkill && !/^[a-z][a-z0-9_]{0,49}$/.test(services.stageFileSkill)) {
+      throw new Error('Staging policy must name a disposable fixture skill.')
+    }
     if (services.authBaseUrl) {
       const url = new URL(services.authBaseUrl)
       if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port ||
@@ -199,8 +214,9 @@ export class RealCoreHarness {
     this.output = ''
     this.providerConfigured = false
     const entry = this.services.workProof ? [join(repository, 'app/test/services-b-core.py')]
-      : this.services.memoryKeyring || this.provider || this.services.authBaseUrl
-        ? ['-c', isolatedServicesBootstrap, this.services.memoryKeyring || this.provider ? 'memory' : 'missing', this.services.authBaseUrl ?? '']
+      : this.services.memoryKeyring || this.provider || this.services.authBaseUrl || this.services.stageFileSkill
+        ? ['-c', isolatedServicesBootstrap, this.services.memoryKeyring || this.provider ? 'memory' : 'missing',
+          this.services.authBaseUrl ?? '', this.services.stageFileSkill ?? '', this.services.skillFileDelivery ?? 'stage']
       : ['-m', 'src']
     const child = spawn(this.python, ['-B', '-P', ...entry, '--socket', this.paths.socketPath,
       '--token-file', this.paths.tokenPath, '--profile', this.paths.profileId, '--data-dir', this.paths.dataDir],
@@ -305,6 +321,24 @@ export class RealCoreHarness {
     assertIsolated()
     if (!this.services.memoryKeyring) throw new Error('No ephemeral keyring adapter.')
     writeFileSync(join(this.root, 'keyring.locked'), 'locked', { mode: 0o600 })
+  }
+
+  /** Read committed producer provenance offline, not fabricated descriptor fields or injected bytes. */
+  artifactProvenance(): Array<{ ref: string; conversation_id: string; request_id: string;
+    tool: string; hosts: unknown[]; sha256: string; size: number; mime: string }> {
+    assertIsolated()
+    if (this.running) throw new Error('Artifact provenance inspection requires the real core to have exited.')
+    const result = spawnSync(this.python, ['-c',
+      `import json, sqlite3, sys
+db = sqlite3.connect('file:' + sys.argv[1] + '?mode=ro', uri=True)
+db.row_factory = sqlite3.Row
+rows = [dict(row) for row in db.execute('SELECT ref,conversation_id,request_id,tool,hosts,sha256,size,mime FROM desktop_artifacts ORDER BY rowid')]
+for row in rows: row['hosts'] = json.loads(row['hosts'])
+print(json.dumps(rows))
+db.close()`, join(this.paths.dataDir, 'transport.sqlite3')],
+    { cwd: repository, env: this.env, encoding: 'utf8', timeout: 5_000 })
+    if (result.error || result.status !== 0) throw new Error(`Artifact provenance read failed: ${result.error?.message ?? result.stderr}`)
+    return JSON.parse(result.stdout)
   }
 
   /** Offline time travel, not a fabricated tombstone: startup runs the real receipt pruner. */

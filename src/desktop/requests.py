@@ -87,6 +87,7 @@ class RequestService:
         self._workers = {}
         self._tasks = set()
         self._background_active = {}
+        self._background_finalizing = set()
         self._closed = False
         self._session_epochs = {}
         runner = getattr(engine, "runner", None)
@@ -241,21 +242,69 @@ class RequestService:
             yield message
         except asyncio.CancelledError:
             if settle:
-                self._finish(message, "interrupted")
+                try:
+                    await self._finish_background_files(message)
+                finally:
+                    self._finish(message, "interrupted")
             raise
         except BaseException:
             if settle:
-                self._finish(message, "failed")
+                try:
+                    await self._finish_background_files(message)
+                finally:
+                    self._finish(message, "failed")
             raise
         else:
             if settle:
-                self._finish(message, "completed")
+                try:
+                    await self._finish_background_files(message)
+                except BaseException:
+                    self._finish(message, "failed")
+                    raise
+                else:
+                    self._finish(message, "completed")
         finally:
             _execution.reset(token)
             self.permissions.reset_request_owner(owner_token)
             if not tracked:
                 self._tasks.discard(task)
             self._background_active.pop(message.request_id, None)
+            self._background_finalizing.discard(message.request_id)
+
+    async def _finish_background_files(self, message):
+        # Fence producer callbacks before publication's drain yields. Only the
+        # admitted finalizer may convert the already durable artifact bytes.
+        self._background_finalizing.add(message.request_id)
+        finish_staged = getattr(self.delivery, "finish_staged", None)
+        if finish_staged is not None:
+            await finish_staged(message.request_context)
+
+    async def finish_background(self, message, outcome):
+        """Flush explicit producer files while the exact manager run is bound."""
+        try:
+            async with self.background_execution(message, settle=False):
+                await self._finish_background_files(message)
+        except BaseException:
+            outcome = "failed"
+            raise
+        finally:
+            self.settle_background(message, outcome)
+
+    def queue_background_finish(self, message, outcome, *, on_finished=None):
+        """Track the final publication barrier even after its manager exits."""
+        task = asyncio.create_task(self.finish_background(message, outcome))
+        self._tasks.add(task)
+
+        def finished(done):
+            self._tasks.discard(done)
+            if not done.cancelled():
+                # Conversion/commit failure preserves durable bytes, not replay.
+                done.exception()
+            if on_finished is not None:
+                on_finished()
+
+        task.add_done_callback(finished)
+        return task
 
     def settle_background(self, message, outcome):
         """Project the manager's actual terminal result, never its cancel ACK."""
@@ -578,6 +627,9 @@ class RequestService:
         message = binding[2]
         if context != message.request_context:
             raise PermissionError("Foreign request delivery context")
+        if (self.is_background(message)
+                and self._background_active.get(message.request_id) is not binding[1]):
+            raise PermissionError("Background publication task has retired")
         row = self.binding(context.conversation_id, context.request_id, context.generation)
         if row is None or row["owner"] != context.owner_id:
             raise PermissionError("Request delivery binding is no longer current")
@@ -591,6 +643,8 @@ class RequestService:
         binding = _execution.get()
         if not binding or binding[2] is not message:
             raise PermissionError("Foreign request binding")
+        if message.request_id in self._background_finalizing:
+            raise PermissionError("Background producer delivery has finished")
         self.assert_delivery_context(message.request_context)
 
     def _seed_session_context(self, message):
@@ -805,7 +859,10 @@ class RequestService:
                                      message.generation,
                                      message.owner_id, message.message_id)
             guarded = self.delivery.guarded_reply(context, text)
-            await self.delivery.send_reply(context, text, guarded=guarded)
+            if outcome == "suspended":
+                await self.delivery.send_reply(context, text, guarded=guarded, consume_staged=False)
+            else:
+                await self.delivery.send_reply(context, text, guarded=guarded)
             await self.engine.record_result(message, result)
         except asyncio.CancelledError:
             self._finish(message, "interrupted")

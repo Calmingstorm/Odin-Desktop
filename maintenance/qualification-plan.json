@@ -1516,7 +1516,9 @@
         "tests/test_desktop_webhooks.py",
         "tests/test_desktop_webhook_adapters.py",
         "tests/test_desktop_step8_part6_accounting.py",
-        "tests/test_desktop_step8_part6_retained.py"
+        "tests/test_desktop_step8_part6_retained.py",
+        "tests/test_desktop_skill_delivery.py",
+        "tests/test_desktop_background_skill_delivery.py"
       ],
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups. Preserve merged onboarding/lifecycle pure temporary-profile and synthetic-driver regressions, not native/backend or active desktop qualification."
     },

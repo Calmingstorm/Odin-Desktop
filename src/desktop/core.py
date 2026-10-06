@@ -555,7 +555,10 @@ class CoreService:
         return self._admit_schedule(schedule, notice_id=f"failure:{consecutive}")
 
     async def _publish_scheduled_notice(self, message, text):
-        return await self.delivery.send(message.channel, text)
+        self.requests.assert_bound_request(message)
+        # Scheduled handler notices occur after their producing check/workflow,
+        # not during the skill's own interim message callbacks.
+        return await self.delivery.send(message.channel, text, final=True)
 
     async def _publish_background(self, message, text, kind=None):
         self.requests.assert_bound_request(message)
