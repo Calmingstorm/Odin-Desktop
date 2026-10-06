@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { afterEach, describe, expect, test } from 'vitest'
 import type { Broker, Settled } from '../src/main/broker'
-import { assertIsolated, RealCoreHarness } from './real-core-harness'
+import { assertIsolated, RealCoreHarness, SERVED_CAPABILITIES } from './real-core-harness'
 
 assertIsolated()
 
@@ -27,7 +27,7 @@ describe('step 5 completion methods through the real Broker', () => {
   test('composed capabilities are exact and completion reads return real profile data', async () => {
     const broker = await connect(true)
     const status = result<{ capabilities: string[] }>(await broker.request('status.get'))
-    expect(status.capabilities).toEqual([...status.capabilities].sort())
+    expect(status.capabilities).toEqual(SERVED_CAPABILITIES)
     for (const name of [
       'knowledge.chunks', 'knowledge.duplicates', 'knowledge.merge', 'knowledge.version', 'knowledge.diff',
       'learned.list', 'learned.update', 'learned.delete', 'audit.diffs', 'audit.failures', 'audit.tail',
@@ -91,9 +91,8 @@ describe('step 5 completion methods through the real Broker', () => {
     const id = randomUUID()
     const params = { host: 'profile-local-nonexistent.invalid' }
     const saved = await broker.request('pools.close', params, id)
-    // The isolated profile has no live remote hosts. The pool service may report
-    // unavailable when no SSH pool was constructed; either way journal semantics
-    // must bind the actual outcome and reject re-use for different parameters.
+    expect(result(saved)).toEqual({ closed: false, host: params.host })
+    // A constructed but idle real profile pool is not an unavailable capability.
     expect(await broker.request('pools.close', params, id)).toEqual(saved)
     refused(await broker.request('pools.close', { host: 'different.invalid' }, id), 'id_conflict')
   })

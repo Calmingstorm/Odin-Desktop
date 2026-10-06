@@ -1,0 +1,509 @@
+{
+  "artifact": "Explicit pending completion lineage",
+  "entries": [
+    {
+      "contract": "Actual retained read algorithms, complete diffs, filters and fallback limits; profile/source-bound follow cursors instead of renderer sockets. Historical tier assertions use sealed original policy only, not production Desktop tiers.",
+      "invariant": "No writer construction by fallback readers, no dropped incomplete UTF-8 records, no alteration to any original assertion/parameter/decorator or audit repair.",
+      "owner": "Odin",
+      "path": "src/desktop/records.py",
+      "reason": "Records diffs, rotated failure snapshots and bounded newline/UTF-8 tails",
+      "tests": [
+        "tests/test_desktop_step5_records_corpus.py",
+        "tests/test_desktop_step5_records_methods.py",
+        "tests/test_desktop_records.py"
+      ]
+    },
+    {
+      "contract": "Actual retained read algorithms, complete diffs, filters and fallback limits; profile/source-bound follow cursors instead of renderer sockets. Historical tier assertions use sealed original policy only, not production Desktop tiers.",
+      "invariant": "No writer construction by fallback readers, no dropped incomplete UTF-8 records, no alteration to any original assertion/parameter/decorator or audit repair.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step5_records.py",
+      "reason": "Records diffs, rotated failure snapshots and bounded newline/UTF-8 tails",
+      "tests": [
+        "tests/test_desktop_step5_records_corpus.py",
+        "tests/test_desktop_step5_records_methods.py",
+        "tests/test_desktop_records.py"
+      ]
+    },
+    {
+      "contract": "Actual retained read algorithms, complete diffs, filters and fallback limits; profile/source-bound follow cursors instead of renderer sockets. Historical tier assertions use sealed original policy only, not production Desktop tiers.",
+      "invariant": "No writer construction by fallback readers, no dropped incomplete UTF-8 records, no alteration to any original assertion/parameter/decorator or audit repair.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step5_records_legacy.py",
+      "reason": "Records diffs, rotated failure snapshots and bounded newline/UTF-8 tails",
+      "tests": [
+        "tests/test_desktop_step5_records_corpus.py",
+        "tests/test_desktop_step5_records_methods.py",
+        "tests/test_desktop_records.py"
+      ]
+    },
+    {
+      "contract": "Actual retained read algorithms, complete diffs, filters and fallback limits; profile/source-bound follow cursors instead of renderer sockets. Historical tier assertions use sealed original policy only, not production Desktop tiers.",
+      "invariant": "No writer construction by fallback readers, no dropped incomplete UTF-8 records, no alteration to any original assertion/parameter/decorator or audit repair.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_records.py",
+      "reason": "Records diffs, rotated failure snapshots and bounded newline/UTF-8 tails",
+      "tests": [
+        "tests/test_desktop_step5_records_corpus.py",
+        "tests/test_desktop_step5_records_methods.py",
+        "tests/test_desktop_records.py"
+      ]
+    },
+    {
+      "contract": "Actual retained read algorithms, complete diffs, filters and fallback limits; profile/source-bound follow cursors instead of renderer sockets. Historical tier assertions use sealed original policy only, not production Desktop tiers.",
+      "invariant": "No writer construction by fallback readers, no dropped incomplete UTF-8 records, no alteration to any original assertion/parameter/decorator or audit repair.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_records_corpus.py",
+      "reason": "Records diffs, rotated failure snapshots and bounded newline/UTF-8 tails",
+      "tests": [
+        "tests/test_desktop_step5_records_corpus.py",
+        "tests/test_desktop_step5_records_methods.py",
+        "tests/test_desktop_records.py"
+      ]
+    },
+    {
+      "contract": "Actual retained read algorithms, complete diffs, filters and fallback limits; profile/source-bound follow cursors instead of renderer sockets. Historical tier assertions use sealed original policy only, not production Desktop tiers.",
+      "invariant": "No writer construction by fallback readers, no dropped incomplete UTF-8 records, no alteration to any original assertion/parameter/decorator or audit repair.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_records_methods.py",
+      "reason": "Records diffs, rotated failure snapshots and bounded newline/UTF-8 tails",
+      "tests": [
+        "tests/test_desktop_step5_records_corpus.py",
+        "tests/test_desktop_step5_records_methods.py",
+        "tests/test_desktop_records.py"
+      ]
+    },
+    {
+      "contract": "Pinned store semantics including delete-only merge and generation-disabled CRUD. Authenticated single profile owner has Odin admin access to retained memory scopes; absent personal scopes remain not-found instead of invented records.",
+      "invariant": "Original corpus bytes and native owner admission unchanged; mutations settle actual store commits, corruption refuses writes, no model-facing instruction changes.",
+      "owner": "Odin",
+      "path": "src/desktop/knowledge.py",
+      "reason": "Knowledge chunk/dedup/version and learned-context CRUD completion",
+      "tests": [
+        "tests/test_desktop_step5_knowledge_corpus.py",
+        "tests/test_desktop_step5_knowledge_methods.py",
+        "tests/test_desktop_state.py"
+      ]
+    },
+    {
+      "contract": "Pinned store semantics including delete-only merge and generation-disabled CRUD. Authenticated single profile owner has Odin admin access to retained memory scopes; absent personal scopes remain not-found instead of invented records.",
+      "invariant": "Original corpus bytes and native owner admission unchanged; mutations settle actual store commits, corruption refuses writes, no model-facing instruction changes.",
+      "owner": "Odin",
+      "path": "src/desktop/learned_context.py",
+      "reason": "Knowledge chunk/dedup/version and learned-context CRUD completion",
+      "tests": [
+        "tests/test_desktop_step5_knowledge_corpus.py",
+        "tests/test_desktop_step5_knowledge_methods.py",
+        "tests/test_desktop_state.py"
+      ]
+    },
+    {
+      "contract": "Pinned store semantics including delete-only merge and generation-disabled CRUD. Authenticated single profile owner has Odin admin access to retained memory scopes; absent personal scopes remain not-found instead of invented records.",
+      "invariant": "Original corpus bytes and native owner admission unchanged; mutations settle actual store commits, corruption refuses writes, no model-facing instruction changes.",
+      "owner": "Odin",
+      "path": "src/desktop/state.py",
+      "reason": "Knowledge chunk/dedup/version and learned-context CRUD completion",
+      "tests": [
+        "tests/test_desktop_step5_knowledge_corpus.py",
+        "tests/test_desktop_step5_knowledge_methods.py",
+        "tests/test_desktop_state.py"
+      ]
+    },
+    {
+      "contract": "Pinned store semantics including delete-only merge and generation-disabled CRUD. Authenticated single profile owner has Odin admin access to retained memory scopes; absent personal scopes remain not-found instead of invented records.",
+      "invariant": "Original corpus bytes and native owner admission unchanged; mutations settle actual store commits, corruption refuses writes, no model-facing instruction changes.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step5_knowledge_corpus.py",
+      "reason": "Knowledge chunk/dedup/version and learned-context CRUD completion",
+      "tests": [
+        "tests/test_desktop_step5_knowledge_corpus.py",
+        "tests/test_desktop_step5_knowledge_methods.py",
+        "tests/test_desktop_state.py"
+      ]
+    },
+    {
+      "contract": "Pinned store semantics including delete-only merge and generation-disabled CRUD. Authenticated single profile owner has Odin admin access to retained memory scopes; absent personal scopes remain not-found instead of invented records.",
+      "invariant": "Original corpus bytes and native owner admission unchanged; mutations settle actual store commits, corruption refuses writes, no model-facing instruction changes.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step5_knowledge_services.py",
+      "reason": "Knowledge chunk/dedup/version and learned-context CRUD completion",
+      "tests": [
+        "tests/test_desktop_step5_knowledge_corpus.py",
+        "tests/test_desktop_step5_knowledge_methods.py",
+        "tests/test_desktop_state.py"
+      ]
+    },
+    {
+      "contract": "Pinned store semantics including delete-only merge and generation-disabled CRUD. Authenticated single profile owner has Odin admin access to retained memory scopes; absent personal scopes remain not-found instead of invented records.",
+      "invariant": "Original corpus bytes and native owner admission unchanged; mutations settle actual store commits, corruption refuses writes, no model-facing instruction changes.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_state.py",
+      "reason": "Knowledge chunk/dedup/version and learned-context CRUD completion",
+      "tests": [
+        "tests/test_desktop_step5_knowledge_corpus.py",
+        "tests/test_desktop_step5_knowledge_methods.py",
+        "tests/test_desktop_state.py"
+      ]
+    },
+    {
+      "contract": "Pinned store semantics including delete-only merge and generation-disabled CRUD. Authenticated single profile owner has Odin admin access to retained memory scopes; absent personal scopes remain not-found instead of invented records.",
+      "invariant": "Original corpus bytes and native owner admission unchanged; mutations settle actual store commits, corruption refuses writes, no model-facing instruction changes.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_knowledge_corpus.py",
+      "reason": "Knowledge chunk/dedup/version and learned-context CRUD completion",
+      "tests": [
+        "tests/test_desktop_step5_knowledge_corpus.py",
+        "tests/test_desktop_step5_knowledge_methods.py",
+        "tests/test_desktop_state.py"
+      ]
+    },
+    {
+      "contract": "Pinned store semantics including delete-only merge and generation-disabled CRUD. Authenticated single profile owner has Odin admin access to retained memory scopes; absent personal scopes remain not-found instead of invented records.",
+      "invariant": "Original corpus bytes and native owner admission unchanged; mutations settle actual store commits, corruption refuses writes, no model-facing instruction changes.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_knowledge_methods.py",
+      "reason": "Knowledge chunk/dedup/version and learned-context CRUD completion",
+      "tests": [
+        "tests/test_desktop_step5_knowledge_corpus.py",
+        "tests/test_desktop_step5_knowledge_methods.py",
+        "tests/test_desktop_state.py"
+      ]
+    },
+    {
+      "contract": "Lazy references observe the actual composed counters/breaker/pools, without creating requests, probe admission or connections. Pool close is a journaled mutation; all other methods are reads. Sealed legacy auth proves historical policy separately.",
+      "invariant": "No fabricated unavailable-owner measurements, no provider-cache claims from local prefix equality, no guard relaxations or original test edits.",
+      "owner": "Odin",
+      "path": "src/desktop/observability.py",
+      "reason": "Passive real-owner observability, recovery, capacity and pool methods",
+      "tests": [
+        "tests/test_desktop_step5_observability_http.py",
+        "tests/test_desktop_step5_observability_neutral.py",
+        "tests/test_desktop_step5_observability_turn_state.py",
+        "tests/test_desktop_step5_observability_methods.py"
+      ]
+    },
+    {
+      "contract": "Lazy references observe the actual composed counters/breaker/pools, without creating requests, probe admission or connections. Pool close is a journaled mutation; all other methods are reads. Sealed legacy auth proves historical policy separately.",
+      "invariant": "No fabricated unavailable-owner measurements, no provider-cache claims from local prefix equality, no guard relaxations or original test edits.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step5_observability_http.py",
+      "reason": "Passive real-owner observability, recovery, capacity and pool methods",
+      "tests": [
+        "tests/test_desktop_step5_observability_http.py",
+        "tests/test_desktop_step5_observability_neutral.py",
+        "tests/test_desktop_step5_observability_turn_state.py",
+        "tests/test_desktop_step5_observability_methods.py"
+      ]
+    },
+    {
+      "contract": "Lazy references observe the actual composed counters/breaker/pools, without creating requests, probe admission or connections. Pool close is a journaled mutation; all other methods are reads. Sealed legacy auth proves historical policy separately.",
+      "invariant": "No fabricated unavailable-owner measurements, no provider-cache claims from local prefix equality, no guard relaxations or original test edits.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step5_observability_neutral.py",
+      "reason": "Passive real-owner observability, recovery, capacity and pool methods",
+      "tests": [
+        "tests/test_desktop_step5_observability_http.py",
+        "tests/test_desktop_step5_observability_neutral.py",
+        "tests/test_desktop_step5_observability_turn_state.py",
+        "tests/test_desktop_step5_observability_methods.py"
+      ]
+    },
+    {
+      "contract": "Lazy references observe the actual composed counters/breaker/pools, without creating requests, probe admission or connections. Pool close is a journaled mutation; all other methods are reads. Sealed legacy auth proves historical policy separately.",
+      "invariant": "No fabricated unavailable-owner measurements, no provider-cache claims from local prefix equality, no guard relaxations or original test edits.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step5_observability_turn_state.py",
+      "reason": "Passive real-owner observability, recovery, capacity and pool methods",
+      "tests": [
+        "tests/test_desktop_step5_observability_http.py",
+        "tests/test_desktop_step5_observability_neutral.py",
+        "tests/test_desktop_step5_observability_turn_state.py",
+        "tests/test_desktop_step5_observability_methods.py"
+      ]
+    },
+    {
+      "contract": "Lazy references observe the actual composed counters/breaker/pools, without creating requests, probe admission or connections. Pool close is a journaled mutation; all other methods are reads. Sealed legacy auth proves historical policy separately.",
+      "invariant": "No fabricated unavailable-owner measurements, no provider-cache claims from local prefix equality, no guard relaxations or original test edits.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_observability_http.py",
+      "reason": "Passive real-owner observability, recovery, capacity and pool methods",
+      "tests": [
+        "tests/test_desktop_step5_observability_http.py",
+        "tests/test_desktop_step5_observability_neutral.py",
+        "tests/test_desktop_step5_observability_turn_state.py",
+        "tests/test_desktop_step5_observability_methods.py"
+      ]
+    },
+    {
+      "contract": "Lazy references observe the actual composed counters/breaker/pools, without creating requests, probe admission or connections. Pool close is a journaled mutation; all other methods are reads. Sealed legacy auth proves historical policy separately.",
+      "invariant": "No fabricated unavailable-owner measurements, no provider-cache claims from local prefix equality, no guard relaxations or original test edits.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_observability_neutral.py",
+      "reason": "Passive real-owner observability, recovery, capacity and pool methods",
+      "tests": [
+        "tests/test_desktop_step5_observability_http.py",
+        "tests/test_desktop_step5_observability_neutral.py",
+        "tests/test_desktop_step5_observability_turn_state.py",
+        "tests/test_desktop_step5_observability_methods.py"
+      ]
+    },
+    {
+      "contract": "Lazy references observe the actual composed counters/breaker/pools, without creating requests, probe admission or connections. Pool close is a journaled mutation; all other methods are reads. Sealed legacy auth proves historical policy separately.",
+      "invariant": "No fabricated unavailable-owner measurements, no provider-cache claims from local prefix equality, no guard relaxations or original test edits.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_observability_turn_state.py",
+      "reason": "Passive real-owner observability, recovery, capacity and pool methods",
+      "tests": [
+        "tests/test_desktop_step5_observability_http.py",
+        "tests/test_desktop_step5_observability_neutral.py",
+        "tests/test_desktop_step5_observability_turn_state.py",
+        "tests/test_desktop_step5_observability_methods.py"
+      ]
+    },
+    {
+      "contract": "Lazy references observe the actual composed counters/breaker/pools, without creating requests, probe admission or connections. Pool close is a journaled mutation; all other methods are reads. Sealed legacy auth proves historical policy separately.",
+      "invariant": "No fabricated unavailable-owner measurements, no provider-cache claims from local prefix equality, no guard relaxations or original test edits.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_observability_methods.py",
+      "reason": "Passive real-owner observability, recovery, capacity and pool methods",
+      "tests": [
+        "tests/test_desktop_step5_observability_http.py",
+        "tests/test_desktop_step5_observability_neutral.py",
+        "tests/test_desktop_step5_observability_turn_state.py",
+        "tests/test_desktop_step5_observability_methods.py"
+      ]
+    },
+    {
+      "contract": "Retained public/auth-scoped caches, route profile validation, current-policy revalidation after awaits and persistence before runtime publication. tools.list reports actual affordance cost/risk. Diagnostics are scrubbed copies.",
+      "invariant": "No credential readback or mutation of model-facing inputs, no main-model switch invented by pin selection, no changed original corpus assertions.",
+      "owner": "Odin",
+      "path": "src/desktop/openrouter_admin.py",
+      "reason": "OpenRouter catalog preview, selection/pin, measured cache and diagnostics",
+      "tests": [
+        "tests/test_desktop_step5_llm_corpus.py",
+        "tests/test_desktop_step5_llm_methods.py"
+      ]
+    },
+    {
+      "contract": "Retained public/auth-scoped caches, route profile validation, current-policy revalidation after awaits and persistence before runtime publication. tools.list reports actual affordance cost/risk. Diagnostics are scrubbed copies.",
+      "invariant": "No credential readback or mutation of model-facing inputs, no main-model switch invented by pin selection, no changed original corpus assertions.",
+      "owner": "Odin",
+      "path": "src/desktop/model_settings.py",
+      "reason": "OpenRouter catalog preview, selection/pin, measured cache and diagnostics",
+      "tests": [
+        "tests/test_desktop_step5_llm_corpus.py",
+        "tests/test_desktop_step5_llm_methods.py"
+      ]
+    },
+    {
+      "contract": "Retained public/auth-scoped caches, route profile validation, current-policy revalidation after awaits and persistence before runtime publication. tools.list reports actual affordance cost/risk. Diagnostics are scrubbed copies.",
+      "invariant": "No credential readback or mutation of model-facing inputs, no main-model switch invented by pin selection, no changed original corpus assertions.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step5_llm_bridge.py",
+      "reason": "OpenRouter catalog preview, selection/pin, measured cache and diagnostics",
+      "tests": [
+        "tests/test_desktop_step5_llm_corpus.py",
+        "tests/test_desktop_step5_llm_methods.py"
+      ]
+    },
+    {
+      "contract": "Retained public/auth-scoped caches, route profile validation, current-policy revalidation after awaits and persistence before runtime publication. tools.list reports actual affordance cost/risk. Diagnostics are scrubbed copies.",
+      "invariant": "No credential readback or mutation of model-facing inputs, no main-model switch invented by pin selection, no changed original corpus assertions.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step5_llm_cases.py",
+      "reason": "OpenRouter catalog preview, selection/pin, measured cache and diagnostics",
+      "tests": [
+        "tests/test_desktop_step5_llm_corpus.py",
+        "tests/test_desktop_step5_llm_methods.py"
+      ]
+    },
+    {
+      "contract": "Retained public/auth-scoped caches, route profile validation, current-policy revalidation after awaits and persistence before runtime publication. tools.list reports actual affordance cost/risk. Diagnostics are scrubbed copies.",
+      "invariant": "No credential readback or mutation of model-facing inputs, no main-model switch invented by pin selection, no changed original corpus assertions.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_llm_corpus.py",
+      "reason": "OpenRouter catalog preview, selection/pin, measured cache and diagnostics",
+      "tests": [
+        "tests/test_desktop_step5_llm_corpus.py",
+        "tests/test_desktop_step5_llm_methods.py"
+      ]
+    },
+    {
+      "contract": "Retained public/auth-scoped caches, route profile validation, current-policy revalidation after awaits and persistence before runtime publication. tools.list reports actual affordance cost/risk. Diagnostics are scrubbed copies.",
+      "invariant": "No credential readback or mutation of model-facing inputs, no main-model switch invented by pin selection, no changed original corpus assertions.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_llm_methods.py",
+      "reason": "OpenRouter catalog preview, selection/pin, measured cache and diagnostics",
+      "tests": [
+        "tests/test_desktop_step5_llm_corpus.py",
+        "tests/test_desktop_step5_llm_methods.py"
+      ]
+    },
+    {
+      "contract": "Retained filter-before-limit trajectory algorithms, live configured path and actual runtime saver count; refresh shares serving auth pool/per-account settlement lock.",
+      "invariant": "Path traversal/resolved containment guards, keyring-only persistence, unknown/no-replay semantics and frozen original assertions remain intact.",
+      "owner": "Odin",
+      "path": "src/desktop/trajectories.py",
+      "reason": "Trajectory guarded filtered readers and retained Codex account refresh",
+      "tests": [
+        "tests/test_desktop_step5_traces_frozen.py",
+        "tests/test_desktop_step5_traces_methods.py"
+      ]
+    },
+    {
+      "contract": "Retained filter-before-limit trajectory algorithms, live configured path and actual runtime saver count; refresh shares serving auth pool/per-account settlement lock.",
+      "invariant": "Path traversal/resolved containment guards, keyring-only persistence, unknown/no-replay semantics and frozen original assertions remain intact.",
+      "owner": "Odin",
+      "path": "src/desktop/codex_accounts.py",
+      "reason": "Trajectory guarded filtered readers and retained Codex account refresh",
+      "tests": [
+        "tests/test_desktop_step5_traces_frozen.py",
+        "tests/test_desktop_step5_traces_methods.py"
+      ]
+    },
+    {
+      "contract": "Retained filter-before-limit trajectory algorithms, live configured path and actual runtime saver count; refresh shares serving auth pool/per-account settlement lock.",
+      "invariant": "Path traversal/resolved containment guards, keyring-only persistence, unknown/no-replay semantics and frozen original assertions remain intact.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step5_traces.py",
+      "reason": "Trajectory guarded filtered readers and retained Codex account refresh",
+      "tests": [
+        "tests/test_desktop_step5_traces_frozen.py",
+        "tests/test_desktop_step5_traces_methods.py"
+      ]
+    },
+    {
+      "contract": "Retained filter-before-limit trajectory algorithms, live configured path and actual runtime saver count; refresh shares serving auth pool/per-account settlement lock.",
+      "invariant": "Path traversal/resolved containment guards, keyring-only persistence, unknown/no-replay semantics and frozen original assertions remain intact.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_traces_frozen.py",
+      "reason": "Trajectory guarded filtered readers and retained Codex account refresh",
+      "tests": [
+        "tests/test_desktop_step5_traces_frozen.py",
+        "tests/test_desktop_step5_traces_methods.py"
+      ]
+    },
+    {
+      "contract": "Retained filter-before-limit trajectory algorithms, live configured path and actual runtime saver count; refresh shares serving auth pool/per-account settlement lock.",
+      "invariant": "Path traversal/resolved containment guards, keyring-only persistence, unknown/no-replay semantics and frozen original assertions remain intact.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_traces_methods.py",
+      "reason": "Trajectory guarded filtered readers and retained Codex account refresh",
+      "tests": [
+        "tests/test_desktop_step5_traces_frozen.py",
+        "tests/test_desktop_step5_traces_methods.py"
+      ]
+    },
+    {
+      "contract": "One knowledge store for native tools and management, shared reflector/audit locks, actual trajectory saver and compression tracker passed to the original runner. Measured cache uses real usage summary or a read-only profile query.",
+      "invariant": "No replacement runner or transport, no fabricated measurement, read methods reserve no commands, journaled effects replay without execution.",
+      "owner": "Odin",
+      "path": "src/desktop/management.py",
+      "reason": "Completion composition binds actual request and management owners",
+      "tests": [
+        "tests/test_desktop_step5_completion_core.py",
+        "tests/test_desktop_engine_services.py",
+        "app/test/real-core-completion.test.ts"
+      ]
+    },
+    {
+      "contract": "One knowledge store for native tools and management, shared reflector/audit locks, actual trajectory saver and compression tracker passed to the original runner. Measured cache uses real usage summary or a read-only profile query.",
+      "invariant": "No replacement runner or transport, no fabricated measurement, read methods reserve no commands, journaled effects replay without execution.",
+      "owner": "Odin",
+      "path": "src/desktop/services.py",
+      "reason": "Completion composition binds actual request and management owners",
+      "tests": [
+        "tests/test_desktop_step5_completion_core.py",
+        "tests/test_desktop_engine_services.py",
+        "app/test/real-core-completion.test.ts"
+      ]
+    },
+    {
+      "contract": "One knowledge store for native tools and management, shared reflector/audit locks, actual trajectory saver and compression tracker passed to the original runner. Measured cache uses real usage summary or a read-only profile query.",
+      "invariant": "No replacement runner or transport, no fabricated measurement, read methods reserve no commands, journaled effects replay without execution.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_completion_core.py",
+      "reason": "Completion composition binds actual request and management owners",
+      "tests": [
+        "tests/test_desktop_step5_completion_core.py",
+        "tests/test_desktop_engine_services.py",
+        "app/test/real-core-completion.test.ts"
+      ]
+    },
+    {
+      "contract": "Exact schema key total_window_tokens joins existing public token-count keys so validated OpenRouter derived profiles can persist through the real settings owner.",
+      "invariant": "Credential substring rules, storage-sensitive keys and opaque containers unchanged; no broad token suffix exemption.",
+      "owner": "Odin",
+      "path": "src/config/sensitivity.py",
+      "reason": "Public numeric model-profile window metadata is not a credential",
+      "tests": [
+        "tests/test_desktop_step5_sensitivity.py",
+        "tests/test_desktop_step5_llm_methods.py"
+      ]
+    },
+    {
+      "contract": "Exact schema key total_window_tokens joins existing public token-count keys so validated OpenRouter derived profiles can persist through the real settings owner.",
+      "invariant": "Credential substring rules, storage-sensitive keys and opaque containers unchanged; no broad token suffix exemption.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_sensitivity.py",
+      "reason": "Public numeric model-profile window metadata is not a credential",
+      "tests": [
+        "tests/test_desktop_step5_sensitivity.py",
+        "tests/test_desktop_step5_llm_methods.py"
+      ]
+    },
+    {
+      "contract": "Enumerated 21 whole source/corpus-bound adapters and named tests added to existing management group. Permit restored step5 like Admin lane; preserve all original326 members, original869 hashes, previous selectors and exclusions.",
+      "invariant": "No generic source blessing, no smoke-only restoration, no automatic review approval or passing evidence from static enrollment.",
+      "owner": "Odin",
+      "path": "scripts/maintenance/record_step5_completion.py",
+      "reason": "Exact step-five whole-suite qualification enrollment",
+      "tests": [
+        "tests/test_desktop_phase2_suite_map.py",
+        "tests/test_desktop_step5_accounting.py"
+      ]
+    },
+    {
+      "contract": "Enumerated 21 whole source/corpus-bound adapters and named tests added to existing management group. Permit restored step5 like Admin lane; preserve all original326 members, original869 hashes, previous selectors and exclusions.",
+      "invariant": "No generic source blessing, no smoke-only restoration, no automatic review approval or passing evidence from static enrollment.",
+      "owner": "Odin",
+      "path": "scripts/maintenance/phase2_suites.py",
+      "reason": "Exact step-five whole-suite qualification enrollment",
+      "tests": [
+        "tests/test_desktop_phase2_suite_map.py",
+        "tests/test_desktop_step5_accounting.py"
+      ]
+    },
+    {
+      "contract": "Enumerated 21 whole source/corpus-bound adapters and named tests added to existing management group. Permit restored step5 like Admin lane; preserve all original326 members, original869 hashes, previous selectors and exclusions.",
+      "invariant": "No generic source blessing, no smoke-only restoration, no automatic review approval or passing evidence from static enrollment.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_phase2_suite_map.py",
+      "reason": "Exact step-five whole-suite qualification enrollment",
+      "tests": [
+        "tests/test_desktop_phase2_suite_map.py",
+        "tests/test_desktop_step5_accounting.py"
+      ]
+    },
+    {
+      "contract": "Enumerated 21 whole source/corpus-bound adapters and named tests added to existing management group. Permit restored step5 like Admin lane; preserve all original326 members, original869 hashes, previous selectors and exclusions.",
+      "invariant": "No generic source blessing, no smoke-only restoration, no automatic review approval or passing evidence from static enrollment.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step5_accounting.py",
+      "reason": "Exact step-five whole-suite qualification enrollment",
+      "tests": [
+        "tests/test_desktop_phase2_suite_map.py",
+        "tests/test_desktop_step5_accounting.py"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "unchanged_source_evidence_refresh": [
+    "scripts/run-phase1-tests.py",
+    "src/desktop/settings.py",
+    "tests/desktop_adapters/process_cases.py",
+    "tests/test_desktop_model_settings.py",
+    "tests/test_desktop_round2_acceptance.py",
+    "tests/test_desktop_test_plan.py"
+  ]
+}
