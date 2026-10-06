@@ -128,7 +128,8 @@ export function createIsolationLauncher({ process: host = process, files = fs, s
    * `env` is a sanitized overlay (not inherited wholesale). HOME/XDG/display/session overrides are forbidden.
    * Engine Python is explicit ODIN_DESKTOP_ENGINE_PYTHON or repository .venv/bin/python, never a host fallback.
    */
-  async function launchIsolated(command, args = [], { env = {}, cwd = repositoryRoot, timeoutMs = 120_000, signal } = {}) {
+  // The default bounds a whole gate under CI load, not its individual tests or 10-second capability probes.
+  async function launchIsolated(command, args = [], { env = {}, cwd = repositoryRoot, timeoutMs = 600_000, signal } = {}) {
     const { uid, gid } = caller()
     if (!Number.isFinite(timeoutMs) || timeoutMs < 1) throw new Error('Expected a positive timeoutMs.')
     const python = resolve(cwd, env.ODIN_DESKTOP_ENGINE_PYTHON || host.env.ODIN_DESKTOP_ENGINE_PYTHON || join(repositoryRoot, '.venv/bin/python'))
