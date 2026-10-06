@@ -43,6 +43,8 @@ Inherited child contexts retire with the root, including automatic resume.
 The standalone facade publishes **no native usability capability**. Part A later
 shares its management controller via `bind_foreground`; no second controller is
 created in that composition. All computer tests here use stub backends.
+Unsafe native storage remains unavailable with a typed diagnostic, without
+breaking ordinary core startup or altering symlink/permission safety checks.
 
 ## Evidence and limits
 
@@ -61,5 +63,7 @@ Exact source and test digests are pending independent review in
 
 An initial qualification attempt was stopped after discovering a scheduler
 control response-shape gap during integration review. It is not counted as final
-qualification. The replacement run must finish on the final committed source.
+qualification. A subsequent complete run exposed stale Phase 1 capability
+expectations and native-storage startup isolation; those failed results remain
+in the evidence directory. Final qualification must finish on corrected source.
 No live service, `/opt/odin`, active desktop or destructive test command was used.

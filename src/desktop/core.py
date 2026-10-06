@@ -225,6 +225,7 @@ class CoreService:
         self.schedules = None
         self.turn_state = None
         self.computer_foreground = None
+        self.computer_unavailable_reason = None
         self.lifetime = CoreLifetime()
         self._serial = asyncio.Lock()
         self._closed = False
@@ -243,6 +244,8 @@ class CoreService:
             "capabilities": list(CAPABILITIES),
             "limits": self.attachments.limits,
             "diagnostics": self.engine.diagnostics(),
+            "computer": {"published_available": False,
+                         "reason": self.computer_unavailable_reason or "native_unqualified"},
         }
 
     def welcome(self) -> dict:
@@ -371,9 +374,18 @@ class CoreService:
         self.turn_state = TurnStateService(self.permissions, self.authority,
             store_provider=lambda: deps.turn_store,
             enabled=lambda: deps.get_config().turn_state.enabled)
-        self.computer_foreground = create_foreground(self.requests, self.config)
-        self.requests.computer_foreground = self.computer_foreground
-        deps.native_owners["computer"] = self.computer_foreground
+        from ..computer.provisioning import ComputerProvisioningError
+
+        try:
+            self.computer_foreground = create_foreground(self.requests, self.config)
+        except ComputerProvisioningError as error:
+            # Computer storage has stricter retained native requirements than
+            # the profile transport. Do not weaken those, chmod the profile, or
+            # break ordinary chat because an unqualified subsystem cannot start.
+            self.computer_unavailable_reason = error.code
+        if self.computer_foreground is not None:
+            self.requests.computer_foreground = self.computer_foreground
+            deps.native_owners["computer"] = self.computer_foreground
         agents = deps.native_owners["agents"]
         agents._background_admission = self.requests
         agents._work_service = self.work

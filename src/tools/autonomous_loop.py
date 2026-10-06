@@ -139,7 +139,7 @@ class LoopManager:
         # A send-shaped object is not durable admission. Only the composition
         # root's admitted path may queue a worker.
         return (
-            "Error: Autonomous loops require durable background admission. "
+            "Error: Autonomous loops unavailable: Phase 2 durable admission is not bound. "
             "No loop was started."
         )
 
@@ -659,8 +659,8 @@ class LoopManager:
 
     @staticmethod
     async def _publish(info: LoopInfo, text: str) -> None:
-        if info._publish is None:
+        if getattr(info, "_publish", None) is None:
             raise RuntimeError(
-                "Durable loop publication is not configured. Do not replay the iteration."
+                "Loop conversation delivery unavailable. Do not replay the iteration."
             )
         await info._publish(info, scrub_output_secrets(text))
