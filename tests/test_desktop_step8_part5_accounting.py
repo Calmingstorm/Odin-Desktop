@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import copy
-import json
 from pathlib import Path
 
 import pytest
@@ -13,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def manifest():
-    return json.loads((ROOT / checker.MANIFEST).read_bytes())
+    return checker.load_manifest(ROOT)
 
 
 def test_real_case_record_is_complete_and_not_a_runtime_pass_claim():

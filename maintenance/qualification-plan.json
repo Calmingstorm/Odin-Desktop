@@ -1486,6 +1486,11 @@
         "tests/test_desktop_strip_root.py",
         "tests/test_desktop_strip_web.py",
         "tests/test_desktop_test_plan.py",
+        "tests/test_desktop_step8_part5_accounting.py",
+        "tests/test_desktop_step8_part5_app_contracts.py",
+        "tests/test_desktop_step8_part5_app_frozen.py",
+        "tests/test_desktop_step8_part5_engine.py",
+        "tests/test_desktop_step8_part5_removed.py",
         "tests/test_pdf_resources.py",
         "tests/test_desktop_pdf_catalog.py",
         "tests/test_desktop_transcript.py"

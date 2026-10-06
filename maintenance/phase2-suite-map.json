@@ -3,6 +3,24 @@
   "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
   "source_main": "7d919f0c32402e28179e019dee948be8ed3f5407",
   "work_order": "docs/work/phase-2-desktop-engine.md",
+  "case_dispositions": {
+    "tests/test_campaign_health_coverage.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_campaign_reasoning_contracts.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_docs_campaign_contracts.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_fd_health.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_hosts_web_edges.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_image_default_update_paths.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_internals_bindings_contract.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_local_workspace.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_main_exit_codes.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_onboarding_durable_binding_restart.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_restart.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_schedule_report_format_parity.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_self_update_campaign_rollback.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_ui_effort_mirror.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_web_api_self_update.py": "maintenance/phase2-step8-part5-cases.json",
+    "tests/test_webauth_campaign_regressions.py": "maintenance/phase2-step8-part5-cases.json"
+  },
   "original_population": {
     "count": 326,
     "sha256": "a4bcf41b3ee1660c991df903cccbda1583497c2ec01cea6bb2be6425ba43888f"

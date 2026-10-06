@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import argparse
 import ast
+import base64
 import hashlib
 import io
 import json
 import tarfile
+import zlib
 from collections import Counter
 from pathlib import Path, PurePosixPath
 
@@ -94,12 +96,45 @@ def _file(root: Path, path: str) -> Path:
     return current
 
 
+def load_manifest(root=ROOT):
+    root = Path(root)
+    data = _json(_file(root, MANIFEST))
+    if "fragments" not in data:
+        return data
+    suites = []
+    fragments = data["fragments"]
+    if not isinstance(fragments, list) or not fragments:
+        raise ValueError("fragments must be a nonempty list")
+    seen = set()
+    for row in fragments:
+        path = row["path"]
+        if path in seen or not path.startswith("maintenance/phase2-step8-part5-"):
+            raise ValueError("duplicate or unrelated disposition fragment")
+        seen.add(path)
+        source = _file(root, path).read_bytes()
+        if hashlib.sha256(source).hexdigest() != row["sha256"]:
+            raise ValueError(f"case-disposition fragment hash mismatch: {path}")
+        fragment = _json(root / path)
+        if fragment.get("schema_version") != 1:
+            raise ValueError(f"unsupported fragment schema: {path}")
+        for suite in fragment["suites"]:
+            defaults = suite.get("disposition_defaults", {})
+            cases = []
+            for case in suite["cases"]:
+                row = {**defaults.get(case["disposition"], {}), **case}
+                if "selector" in row:
+                    row["selectors"] = [suite["selector_prefix"] + row.pop("selector")]
+                cases.append(row)
+            suites.append({**suite, "cases": cases})
+    return {**data, "suites": sorted(suites, key=lambda row: row["path"])}
+
+
 def validate(root=ROOT, data=None) -> tuple[list[str], dict]:
     errors = []
     counts = Counter()
     try:
         root = Path(root)
-        data = _json(_file(root, MANIFEST)) if data is None else data
+        data = load_manifest(root) if data is None else data
         if data.get("schema_version") != 1 or type(data.get("schema_version")) is not int:
             errors.append("unsupported case-disposition schema")
         archive_bytes = _file(root, "maintenance/odin-v4.13.0.tar.gz").read_bytes()
@@ -116,8 +151,36 @@ def validate(root=ROOT, data=None) -> tuple[list[str], dict]:
         qualification = _json(_file(root, "maintenance/qualification-plan.json"))
         selected = {selector.split("::")[0] for group in qualification["groups"]
                     for selector in group["files"]}
-        mapped = {row["path"]: row for row in
-                  _json(_file(root, "maintenance/phase2-suite-map.json"))["entries"]}
+        collection = data.get("collection_evidence")
+        if not isinstance(collection, dict):
+            raise ValueError("actual isolated collection evidence required")
+        collection_path = collection["path"]
+        collection_bytes = _file(root, collection_path).read_bytes()
+        if hashlib.sha256(collection_bytes).hexdigest() != collection["sha256"]:
+            raise ValueError("actual collection evidence hash mismatch")
+        collected = _json(root / collection_path)
+        for path, digest in collected["module_hashes"].items():
+            if hashlib.sha256(_file(root, path).read_bytes()).hexdigest() != digest:
+                errors.append(f"collection evidence module bytes stale: {path}")
+        compressed = base64.b64decode(collected["cases_zlib_base64"], validate=True)
+        inflater = zlib.decompressobj()
+        decoded = inflater.decompress(compressed, 1_000_000)
+        if not inflater.eof or inflater.unused_data or inflater.unconsumed_tail:
+            raise ValueError("bounded collection payload invalid")
+        if hashlib.sha256(decoded).hexdigest() != collected["decoded_sha256"]:
+            raise ValueError("collection payload digest mismatch")
+        compact_rows = json.loads(decoded)
+        if (collected.get("encoding") != "compact-zlib-v1"
+                or collected.get("case_count") != len(compact_rows)):
+            raise ValueError("compact collection format/count changed")
+        associations = [{"original": f"tests/test_{row[0]}.py::{row[1]}",
+                         "executable": f"tests/test_desktop_step8_part5_{row[2]}.py::{row[3]}"}
+                        for row in compact_rows]
+        mapping = _json(_file(root, "maintenance/phase2-suite-map.json"))
+        mapped = {row["path"]: row for row in mapping["entries"]}
+        links = mapping.get("case_dispositions", {})
+        if links != dict.fromkeys(SUITES, MANIFEST):
+            errors.append("suite map must link all and only the 16 case dispositions")
         for suite in rows:
             path = suite.get("path")
             if path not in originals:
@@ -135,8 +198,6 @@ def validate(root=ROOT, data=None) -> tuple[list[str], dict]:
             expected = definitions(source)
             if len(names) != len(set(names)) or set(names) != set(expected):
                 errors.append(f"exact original case definitions required: {path}")
-            if mapped.get(path, {}).get("case_dispositions") != MANIFEST:
-                errors.append(f"suite map must link consumed case dispositions: {path}")
             # Cases may be accounted without constituting a complete inherited
             # suite restore. Neither retirement nor counterpart evidence is a
             # license to change the immutable whole-suite historical markers.
@@ -154,7 +215,8 @@ def validate(root=ROOT, data=None) -> tuple[list[str], dict]:
                 if state == "retired":
                     if (case.get("category") not in RETIREMENT_CATEGORIES
                             or case.get("citation") != CITATION):
-                        errors.append(f"retirement needs named removed surface and citation: {label}")
+                        errors.append(
+                            f"retirement needs named removed surface and citation: {label}")
                     if case.get("selectors"):
                         errors.append(f"retirement cannot claim passing selectors: {label}")
                 elif state in {"deferred", "proposed"}:
@@ -175,16 +237,27 @@ def validate(root=ROOT, data=None) -> tuple[list[str], dict]:
                         _file(root, target)
                         if target.startswith("tests/"):
                             if target not in selected:
-                                errors.append(f"counterpart absent from qualification: {label}: {target}")
+                                errors.append(
+                                    f"counterpart absent from qualification: {label}: {target}")
                         elif not (target.startswith("app/test/")
                                   and target.endswith((".test.ts", ".test.mts"))):
                             errors.append(f"unsupported counterpart selector: {label}: {target}")
+                    if case.get("mode") == "exact-frozen":
+                        original = f"{path}::{case['case'].replace('.', '::')}"
+                        matches = [row for row in associations
+                                   if row["original"].split("[", 1)[0] == original]
+                        if not matches or any(not any(
+                            row["executable"] == selector
+                            or row["executable"].startswith(selector + "[")
+                            for selector in selectors) for row in matches):
+                            errors.append(
+                                f"exact frozen alias absent from actual collection: {label}")
         report = {"suites": len(rows), "definitions": sum(counts.values()),
                   "dispositions": dict(sorted(counts.items())),
                   "runtime_pass_claim": False, "independent_review": "pending"}
         return errors, report
     except (OSError, ValueError, TypeError, KeyError, AttributeError,
-            tarfile.TarError, SyntaxError) as exc:
+            tarfile.TarError, SyntaxError, zlib.error) as exc:
         return [*errors, f"malformed case-accounting input: {exc}"], {}
 
 
