@@ -44,9 +44,13 @@ class WorkflowPlanTests(unittest.TestCase):
         self.assertEqual(self.jobs(self.context(event='push', ref='refs/tags/v0.1.0')), ['build'])
         self.assertEqual(self.jobs(self.context(mode='retain-candidate')), ['build'])
         for ctx in [self.context(repo='foreign/repo'), self.context(event='pull_request'),
+                    self.context(event='push', actor='other', ref='refs/tags/v0.1.0'),
+                    self.context(mode='retain-candidate', actor='other'),
+                    self.context(ref='refs/heads/unreviewed'),
                     self.context(mode='publish-approved', actor='other'),
                     self.context(mode='publish-approved', ref='refs/heads/unreviewed')]:
             self.assertEqual(self.jobs(ctx), [])
+        self.assertEqual(self.jobs(self.context(actor='other')), ['build'])
         self.assertEqual(self.jobs(self.context(mode='publish-approved')), ['verify', 'publish'])
         failed = self.context(mode='publish-approved')
         failed['needs'].verify.result = 'failure'

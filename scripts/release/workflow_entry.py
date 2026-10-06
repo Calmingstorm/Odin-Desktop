@@ -23,6 +23,7 @@ def candidate_arguments(env, root=ROOT):
         tag = 'v' + version
     else:
         require(event == 'workflow_dispatch' and mode in ('dry-run', 'retain-candidate'), 'not a candidate request')
+        require(ref == 'refs/heads/main', 'manual candidates require reviewed main')
         require(env.get('RELEASE_VERSION') == version, 'dispatch version must equal current version')
         require(mode == 'dry-run' or env.get('RELEASE_ACTOR') == 'Calmingstorm', 'Aaron-authorized retention required')
         tag = None

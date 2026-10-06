@@ -13,6 +13,13 @@ engine or inherited test corpus edits. Fixed repository:
 Persistent runners must execute reviewed first-party code as a dedicated
 nonprivileged account without owner credentials or active graphical seat.
 No fork or PR trigger is enabled.
+The build job rejects non-Aaron tag pushes before checkout, and manual builds
+require main. This condition protects the reviewed workflow, not a modified copy:
+GitHub loads tag-triggered workflow code from the tagged commit. Repository tag
+rules and runner-access restrictions must therefore restrict `v*` tag creation to
+Aaron and reviewed main ancestry before tag-triggered runs are enabled operationally.
+This task neither installs those external rules nor claims the YAML can constrain
+an attacker who can replace the workflow itself.
 
 ## Production candidate behavior
 
