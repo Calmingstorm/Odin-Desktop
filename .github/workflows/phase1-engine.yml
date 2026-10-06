@@ -21,7 +21,7 @@ jobs:
           - lane: light
             labels: [self-hosted, odin-desktop-ci-light]
           - lane: desktop
-            labels: [self-hosted, odin-desktop-ci-light, odin-desktop-ci]
+            labels: [self-hosted, odin-desktop-short]
     runs-on: ${{ matrix.labels }}
     timeout-minutes: 15
     steps:
