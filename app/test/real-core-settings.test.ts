@@ -127,7 +127,7 @@ describe('served settings/management through actual Broker and isolated reposito
     refused(await broker.request('codex.accounts.list'), 'keyring_unavailable')
     const secret = 'isolated-missing-vault-canary-92fca'
     const answer = await broker.request('secrets.set', { path: 'email.smtp.password', value: secret })
-    refused(answer, 'capability_unavailable')
+    refused(answer, 'keyring_unavailable')
     expect(JSON.stringify(answer)).not.toContain(secret)
     expect(core!.persistedFilesContain(secret)).toBe(false)
     expect(core!.diagnostics).not.toContain(secret)
@@ -186,6 +186,9 @@ describe('served settings/management through actual Broker and isolated reposito
     expect(result<Status>(await broker.request('status.get')).model).toMatchObject({ main: 'contract-model', provider: 'ollama' })
     expect(field(await schema(broker), 'llm_provider.model')).toMatchObject({ desired: 'ollama:contract-model',
       effective: 'ollama:contract-model', apply_state: 'applied' })
+    expect(result(await broker.request('status.get'))).toMatchObject({ first_run: {
+      state: 'effective-ready', reason: 'provider_effective', keyring_unavailable: false
+    } }) // Actual ProviderOwner has no guard: no extra success/probe gate is imposed.
     // The real client is adopted without a generation. This proves identity, not endpoint/generation readiness.
     // Persistence classification survives the owner's unpublished-graph rollback.
     refused(await broker.request('models.main.set', { model: 'ollama:another-model', expected_revision: before.revision }), 'stale_binding', 'stale_binding')

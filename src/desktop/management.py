@@ -5,6 +5,7 @@ shell or HTTP passthrough. Domain services validate their own Odin-shaped bodies
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import inspect
@@ -17,6 +18,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from .commands import JournalStorageError, canonical_json, response_error
+from .secrets import secret_call
 
 
 def _binding_key(paths) -> bytes:
@@ -90,9 +92,8 @@ class ManagementService:
         settings = SettingsService(
             core.paths, ProfileSecretStore(core.paths, backend=secret_backend),
             config=config if config is not None else provisioned)
-        # Locked keyrings do not block standalone management/login startup.
+        # The async core hydrates off-loop before composing provider consumers.
         # Config consumers follow this owner's pointer after later hydration.
-        settings.hydrate_secrets()
         return settings
 
     @classmethod
@@ -126,7 +127,6 @@ class ManagementService:
             # Retain the compose-time isolated keyring injection seam without
             # constructing a second settings owner beside the request engine.
             settings.secrets._backend = secret_backend
-            settings.hydrate_secrets()
         engine = getattr(core, "engine", None)
         deps = engine.deps if engine is not None else None
         if deps is not None:
@@ -188,8 +188,8 @@ class ManagementService:
             executor.set_builtin_policy(BuiltinToolPolicy(lambda: settings.config, tool_readiness))
 
         class ReloadOwner:
-            def prepare_settings(self, desired, changes):
-                change = providers.prepare_reload(desired, changes)
+            async def prepare_settings(self, desired, changes):
+                change = await providers.prepare_reload_async(desired, changes)
                 staged = hosts.registry.stage(desired.tools.hosts,
                                               default_host=desired.tools.default_host)
                 old_app, old_email = executor._app_config, executor._email_config
@@ -341,7 +341,9 @@ class ManagementService:
         except Exception:
             return response_error("internal", "Management operation failed", "outcome_unknown")
 
-    async def execute(self, command_id: str, method: str, params: Any) -> dict:
+    async def execute(
+        self, command_id: str, method: str, params: Any, *, unlock_serial=None,
+    ) -> dict:
         """Reserve before awaiting an effect; final receipt/events commit together.
 
         Domain stores and keyring operations cannot join the SQLite transaction.
@@ -365,10 +367,55 @@ class ManagementService:
                 )
             admitted = True
             settings = getattr(self, "settings", None)
-            previous_fields = ({field["path"]: field for field in settings.get_fields()}
+            previous_fields = ({field["path"]: field for field in
+                                await secret_call(settings.get_fields)}
                                if settings is not None else {})
             previous_revision = settings.revision if settings is not None else None
-            answer = await self.invoke(method, params)
+            if unlock_serial is None:
+                answer = await self.invoke(method, params)
+            else:
+                # Durable admission precedes the prompt. Only the prompt runs
+                # outside serialization: no config mutation or SQLite write
+                # transaction crosses this gap. Ordinary writes retain order.
+                unlock_serial.release()
+                try:
+                    try:
+                        if type(params) is not dict:
+                            raise MethodError("bad_request", "Method params must be an object")
+                        await settings.unlock_prompt(params)
+                        answer = None
+                    except MethodError as exc:
+                        answer = exc.response()
+                finally:
+                    # The outer core async-with still owns this lock envelope.
+                    # Repeated cancellation must not let its __aexit__ release
+                    # another dispatch's lock while reacquisition is pending.
+                    acquiring = asyncio.create_task(unlock_serial.acquire())
+                    reacquire_cancelled = False
+                    while True:
+                        try:
+                            await asyncio.shield(acquiring)
+                            break
+                        except asyncio.CancelledError:
+                            reacquire_cancelled = True
+                            if acquiring.cancelled():
+                                acquiring = asyncio.create_task(unlock_serial.acquire())
+                            elif acquiring.done():
+                                break
+                    if reacquire_cancelled:
+                        raise asyncio.CancelledError
+                # Other ordered mutations may have completed during the prompt.
+                # Snapshot again so their changes aren't attributed to Retry.
+                previous_fields = {field["path"]: field for field in settings.get_fields()}
+                previous_revision = settings.revision
+                if answer is None:
+                    try:
+                        answer = {"ok": True, "result": await settings.finish_unlock()}
+                        codex = getattr(self, "codex", None)
+                        if codex is not None:
+                            await codex.refresh_pool_if_initialized()
+                    except MethodError as exc:
+                        answer = exc.response()
             event = None
             with store.transaction() as connection:
                 if answer["ok"]:

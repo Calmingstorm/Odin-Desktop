@@ -25,6 +25,7 @@ from ..tools.builtin_policy import BUILTIN_TOOL_NAMES, normalize_disabled_tools
 from ..tools.defs.computer import computer_definitions
 from ..tools.registry import get_documentation_tool_definitions
 from ..web.api.llm_admin import _validate_ollama_url
+from .secrets import secret_call
 
 METHODS = frozenset({
     "models.main.set", "models.agents.get", "models.agents.set", "models.discover",
@@ -349,7 +350,7 @@ class ModelSettingsService:
             }).base_url
             # Credential owner is injected. A vault failure never falls back to
             # an on-disk secret or an enabled client's stale credential.
-            key = self.settings.secrets.get("openai_compatible.api_key")
+            key = await secret_call(self.settings.secrets.get, "openai_compatible.api_key")
             if key:
                 headers["Authorization"] = f"Bearer {key}"
             headers["Content-Type"] = "application/json"

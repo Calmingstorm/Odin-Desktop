@@ -16,7 +16,7 @@ export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.s
   'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
   'conversations.reset_context', 'conversations.mark_read', 'messages.list',
   'conversation.snapshot', 'search.query', 'messages.around',
-  'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'models.image.intent',
+  'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'secrets.unlock', 'models.image.intent',
   'providers.codex.set', 'providers.auxiliary.set', 'providers.ollama.set', 'providers.compat.set',
   'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label', 'codex.accounts.refresh',
   'codex.login.begin', 'codex.login.poll',
