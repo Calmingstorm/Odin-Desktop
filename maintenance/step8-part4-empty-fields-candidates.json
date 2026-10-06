@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "dispositions": [
+    {
+      "path": "tests/test_delivery_empty_fields.py",
+      "status": "deferred",
+      "inherited_sha256": "00a2d64470e19838247ca9c89db2162669a1a315f7e3638afb18ab6a064b69c1",
+      "selector": "tests/test_delivery_empty_fields.py",
+      "restoration": {
+        "adapter": "tests/desktop_adapters/step8_6a_empty_fields.py",
+        "status": "partial support only; not whole-suite restoration",
+        "selector": "tests/test_desktop_step8_6a_empty_fields_corpus.py",
+        "loader": "load_support",
+        "case_functions": 5,
+        "parameter_items": 16,
+        "original_case_functions": 7,
+        "original_parameter_items": 32,
+        "preservation": "Five complete supported cases with all retained assertions, signatures, decorators and parameters unchanged; frozen_source binds archive and retained bytes. Authentic temporary OwnerAuthority, PermissionManager and ToolExecutor. Foreign requester denial remains tested. Empty CORPUS_SELECTIONS/SUITES prevents whole-suite restoration claims; SUPPORT_SUITE/SUPPORT_CASES records partial support.",
+        "helper_source_sha256": {
+          "tests/test_process_tail_correctness.py": "1fa6fdfcfb7281790748fe5b6ace0cedae94f7c5e36eb9da97ba95413b37f880",
+          "tests/test_remote_process_streaming.py": "abb4cff59dc49976f34ee9d764fa8cbaa7e0060ac29c886873fe65789470cd50"
+        }
+      },
+      "retired_cases": [],
+      "deferred_cases": [
+        {
+          "case": "test_agent_empty_fields_through_native_dispatch",
+          "status": "deferred",
+          "selector": "tests/test_delivery_empty_fields.py::test_agent_empty_fields_through_native_dispatch",
+          "blocker": "Neutral agent paging/authorization contract, not removed merely because helper imports Discord. Inherited dispatcher helper tests/test_agent_result_pages.py:16-30 constructs legacy tier PermissionManager and MagicMock executor/domain owners; exact real canonical-owner native dispatch adapter is not completed.",
+          "source_path": "tests/test_delivery_empty_fields.py",
+          "source_sha256": "00a2d64470e19838247ca9c89db2162669a1a315f7e3638afb18ab6a064b69c1",
+          "parameter_items": 8
+        },
+        {
+          "case": "test_empty_process_fields_do_not_change_mutation_or_authorization",
+          "status": "deferred",
+          "selector": "tests/test_delivery_empty_fields.py::test_empty_process_fields_do_not_change_mutation_or_authorization",
+          "source_path": "tests/test_delivery_empty_fields.py",
+          "source_sha256": "00a2d64470e19838247ca9c89db2162669a1a315f7e3638afb18ab6a064b69c1",
+          "parameter_items": 8,
+          "blocker": "Inherited assertion line 165 requires 'access denied'; approved production returns 'Permission denied'. Preserve diagnostic and assertion unchanged pending reviewer resolution."
+        }
+      ],
+      "blocker": "Whole suite deferred: approved 'Permission denied' conflicts with inherited 'access denied' assertion, and the neutral native dispatcher case needs an exact canonical-owner service adapter. Both complete eight-parameter cases deferred, neither retired."
+    }
+  ],
+  "entries": [
+    {
+      "path": "tests/desktop_adapters/step8_6a_empty_fields.py",
+      "reason": "Provide exact partial support without restoring or retiring deferred neutral contracts",
+      "contract": "SUPPORT_SUITE binds source hash; SUPPORT_CASES records complete cases; full load refuses deferred suite and load_support registers only supported cases",
+      "invariant": "Unchanged assertions, parameters, diagnostics and foreign identities; no production or live service changes",
+      "owner": "lane8_6A empty-fields support",
+      "tests": ["tests/test_desktop_step8_6a_empty_fields_corpus.py"]
+    },
+    {
+      "path": "tests/test_desktop_step8_6a_empty_fields_corpus.py",
+      "reason": "Execute supported cases and verify exact retained projection and excluded registrations",
+      "contract": "Original seven cases project to five supported cases with unchanged corpus; register_module excluded is checked exactly; full loader and restored-suite declarations remain deferred",
+      "invariant": "All 16 inherited support parameters unchanged; no deferred case registered or claimed restored",
+      "owner": "lane8_6A empty-fields support",
+      "tests": ["tests/test_desktop_step8_6a_empty_fields_corpus.py"]
+    }
+  ],
+  "fixture_proof": [
+    {
+      "path": "tests/test_delivery_empty_fields.py",
+      "source_sha256": "00a2d64470e19838247ca9c89db2162669a1a315f7e3638afb18ab6a064b69c1",
+      "adapter": "tests/desktop_adapters/step8_6a_empty_fields.py",
+      "adapter_sha256": "8c1ac97bf8f9622999e7426241132a70c3748044fe0ee87522df5a36ac03d258",
+      "corpus_test_sha256": "60a8bf611061007f84e2246d9598eb17efeef203107f8c8dddbf62dbf1ad2d67",
+      "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+      "transformations": [
+        {
+          "line": 15,
+          "before_sha256": "d7f42f0766fd5466b204e2bce99d2b3ee7b1b5594b6ba0e999d5cd5eb759a0a1",
+          "after_sha256": null,
+          "before_source": "from tests.test_agent_result_pages import dispatcher",
+          "after_source": null,
+          "reason": "Remove now-unused helper import from partial support after neutral native case deferral, not retirement."
+        },
+        {
+          "line": 16,
+          "before_sha256": "8dce3e2a05cc244e733c19f4bc147ac405041272953870af6f871eadf49345ce",
+          "after_sha256": "634c1cb2b35ef8ae3ef278e986c00ac6ccbf6583f1a302de034f5d86a9f232b9",
+          "before_source": "from tests.test_executor_output_retention import executor",
+          "after_source": "from tests.desktop_adapters.step8_6a_empty_fields import executor"
+        },
+        {
+          "line": 17,
+          "before_sha256": "6ec9c85f60c45f1329f5f8f3a7f420ae5e9660bc5128c8871dcd5091b1f1f736",
+          "after_sha256": "82a34c0394c976b451b5a332dd0256cdc33ba46318faa1156550b64bc6ffa721",
+          "before_source": "from tests.test_process_tail_correctness import delivered, job, preview",
+          "after_source": "from tests.desktop_adapters.step8_6a_empty_fields import delivered, job, preview"
+        },
+        {
+          "lines": [36, 70, 87, 92, 117, 220, 222, 224, 227],
+          "before_sha256": "b2de7a0b892c7480fc8487adc4adac61e17adca8ef942042af20476268fc4836",
+          "after_sha256": "ad316c9094c5604669e4e1b9d1327b1843f1311431a55345fba0905bda245dc9",
+          "before_source": "'owner'",
+          "after_source": "desktop_fixture_owner_id()",
+          "reason": "Bind fixture setup to real canonical local owner. No foreign other identity is replaced."
+        }
+      ]
+    }
+  ],
+  "observed_production_gaps": [
+    {
+      "case": "test_empty_process_fields_do_not_change_mutation_or_authorization",
+      "parameter_items": 8,
+      "assertion_line": 165,
+      "expected_fragment": "access denied",
+      "observed_fragment": "Permission denied",
+      "source": "src/tools/executor.py:check_permission",
+      "action": "Approved production diagnostic must remain unchanged. Whole inherited case and suite deferred; no diagnostic, assertion or foreign requester edits."
+    }
+  ],
+  "validation": {
+    "isolated_pid_namespace": true,
+    "nonroot_user": "odin",
+    "sanitized_home": true,
+    "initial_result": {"passed": 17, "failed": 8, "extra_corpus_checks": 1},
+    "status": "passed focused partial support verification; whole suite remains deferred",
+    "focused_result": {"passed": 19, "failed": 0, "inherited_parameter_items": 16, "support_checks": 3, "seconds": 12.03},
+    "ruff": "Both owned Python files: all checks passed",
+    "runner": "sudo -n unshare --mount --pid --fork --mount-proc --kill-child; runuser -u odin; env -i; disposable HOME/XDG; worktree .venv; no active display or DBUS",
+    "diff_check": "git diff --check clean for all three owned files",
+    "data_substitutions": []
+  },
+  "counts": {"restored_suites": 0, "supported_case_functions": 5, "supported_parameter_items": 16, "retired_case_functions": 0, "retired_parameter_items": 0, "deferred_suites": 1, "deferred_case_functions": 2, "deferred_parameter_items": 16, "proposed": 0}
+}

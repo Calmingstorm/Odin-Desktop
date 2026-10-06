@@ -12147,7 +12147,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "33e0e18806632991",
       "upstream_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
     },
@@ -12327,7 +12327,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "608ebbcf5703cfb9",
       "upstream_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2"
     },
@@ -13542,7 +13542,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "a0118bb2530010d5",
       "upstream_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
     },
@@ -13572,7 +13572,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "45519c4a6e1f5bc8",
       "upstream_sha256": "32036111f71c333db06ecaa87227b8c44bfd9d94de236af843994ea8b6bafa99"
     },
@@ -13887,7 +13887,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "decdc6cf6a42ec92",
       "upstream_sha256": "584ef3fca00a3f88171b0ce10eb4197d1f67972c9706964d140dd4bb9fb4eca6"
     },
@@ -13917,7 +13917,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "b3fc16e9de5b1a08",
       "upstream_sha256": "e59e566e4f2b96d7b9f597845139653e9a40e6ef841e378666914a8c5f4ea167"
     },
@@ -13977,7 +13977,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "0d2d0ddb73cc551c",
       "upstream_sha256": "d74cddea7e7c2b4dcc56aa6b6329fd0cfb34dcea19ba03be5a4bcfcfe759d3a5"
     },
@@ -14532,7 +14532,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "ece2e75fcaa41e6a",
       "upstream_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
     },
@@ -14577,7 +14577,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "b805b8c46c244e25",
       "upstream_sha256": "694371b2f130d6cede610e69334dbef50ff3337ea18e752aa0f996fb52fe05f8"
     },
@@ -14982,7 +14982,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "4456948647c286bf",
       "upstream_sha256": "31ccc09d0d7d34ab0baf55cf8f16e03cadd62212e879c3da89a1d9028ebc4f1b"
     },
@@ -15282,7 +15282,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "e7f4455b2bf7bc89",
       "upstream_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94"
     },
@@ -15312,7 +15312,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "b65214b2a723dbea",
       "upstream_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
     },
@@ -15327,7 +15327,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "cce0768d62ee162d",
       "upstream_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
     },
@@ -16062,7 +16062,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "0fa474f96dd50d13",
       "upstream_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e"
     },
@@ -16182,7 +16182,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "32cb08be10e89767",
       "upstream_sha256": "3ce2e7d22070ce4c670b3ba58a8f17871b4fbfffd355273cd9a9dad62055ed7b"
     },
@@ -16407,7 +16407,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "48e2b3eac9ddcead",
       "upstream_sha256": "0ef699d85ce2777534041cf8a02f35d849a86d9fe9e5ba3fdaffbec49bfcd572"
     },
@@ -16587,7 +16587,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "51059cddee43ecc8",
       "upstream_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
     },
@@ -16707,7 +16707,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "31340f8879cac146",
       "upstream_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
     },
@@ -16767,7 +16767,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "87a8d5a29c026594",
       "upstream_sha256": "7c87c683ff57c163749534fb114e869a8414ca3d679d9e6c75015a2e854ec92b"
     },
@@ -17082,7 +17082,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "d68f87169b093c90",
       "upstream_sha256": "d4680ea395e2a6359f70be870df3cafe69bae6df064119daab10d41c6485fa00"
     },
@@ -17217,7 +17217,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "80313a9258f8824b",
       "upstream_sha256": "f3c4f80c1d8aafa864c1781355698f17cb03228f72b759cf1ee8430e996c646b"
     },
@@ -17277,7 +17277,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "60891706dfdc391c",
       "upstream_sha256": "e8cf8cbdaf2d417110b59044585c92282ff17370c412387587b4a34b362eb05f"
     },
@@ -17517,7 +17517,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "35fccb383fa4ac03",
       "upstream_sha256": "9805950ec34b39f95250034c1389c660e7e660a5443d3ffd44432ae25fe3218f"
     },
@@ -17787,7 +17787,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "96bcd15e15876681",
       "upstream_sha256": "86c1759ee2bb5f127e022b8bc41206dc143273a4ca3d4dc302ef33b39f8b46a2"
     },
@@ -19482,7 +19482,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "4338000abd6076d8",
       "upstream_sha256": "702606233a69db0b2793ce4a6a0d104dd17e66cd87a4c3c644531c6ee10e2f88"
     },
@@ -19797,7 +19797,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "40fed1ec8717b99e",
       "upstream_sha256": "9277c54475cead8f7a5a00d8a0d064841fdfa53a82b40d42af55f53720f7c462"
     },
@@ -21387,7 +21387,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "f3d0fd9d31cf8d27",
       "upstream_sha256": "62c51bc82631c0554f09138ceccf7461c069e7231da58377ca55751a8cdc73a8"
     },
@@ -21417,7 +21417,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "c312cb3b146afcb4",
       "upstream_sha256": "42dcd4392df123a0be27bc081b3a612eb4241814805e559084f4858515a69df3"
     },
@@ -21432,7 +21432,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "30076460fb7e72ec",
       "upstream_sha256": "e1bc52991260c7890115df0d4b26df7afa8a47c8160df580d5633fc682939ed3"
     },
@@ -21447,7 +21447,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "d0130a73023ca332",
       "upstream_sha256": "b753c0ce54463d2d0eaa161974ea9ffe970066bfb4494f62ded245f699580ef6"
     },
@@ -21522,7 +21522,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "7a975cb5f190cafc",
       "upstream_sha256": "be86586786e7cb0f22d94649bb82df033f212476831ded04b077cf2352b83301"
     },
@@ -21912,7 +21912,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "267328db6713acd9",
       "upstream_sha256": "8e98a27813ed4e8fa9c5aa61196441b047324d78de27eef3a72ca36825ba7ec0"
     },
@@ -21927,7 +21927,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "0483ccd35c2f934f",
       "upstream_sha256": "4832a6b1241ab4198d1936d35daa4e4fe1ebe52463ff3b9e71ec18046b809183"
     },
@@ -23052,7 +23052,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "safe_pass_now",
       "test_closure_id": "f11d5a2ab78951ab",
       "upstream_sha256": "93148dd08a347b3ac078ea19347c41a9a3b401694c3561eebd6b60bac4369c57"
     },
@@ -24612,7 +24612,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "3432bef7d086ed9b",
       "upstream_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
     },
@@ -24762,7 +24762,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "5c85ed138473a2c0",
       "upstream_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
     },
@@ -24777,7 +24777,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "e6407a86c9808b3b",
       "upstream_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
     },
@@ -24822,7 +24822,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "9670092b154cc177",
       "upstream_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c"
     },
@@ -24927,7 +24927,7 @@
       "reuse_verdict": "keep as is",
       "selected": true,
       "selection_override": null,
-      "test_classification": "phase2",
+      "test_classification": "retired",
       "test_closure_id": "51bfcce93468dda9",
       "upstream_sha256": "ad710cb8fdef1f7219ecd941cb413c971624d681c39c03a9c78413e755083081"
     },

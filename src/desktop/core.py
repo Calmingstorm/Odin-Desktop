@@ -379,6 +379,14 @@ class CoreService:
         self.engine.bind_requests(self.requests)
         deps = self.engine.deps
         if deps.turn_store is not None:
+            from ..llm.context_budget import chat_workload_scope
+
+            def release_resumed_workload(key):
+                observer = getattr(deps, "window_observer", None)
+                scope = chat_workload_scope(key.source, key.channel_id, key.message_id)
+                if observer is not None and scope is not None:
+                    observer.release_workload(scope)
+
             self.resume_manager = TurnResumeManager(
                 store=deps.turn_store, tool_loop=self.engine.runner, llm_gateway=deps.llm_gateway,
                 channel_state=deps.channel_state, sessions=deps.sessions, delivery=self.delivery,
@@ -387,7 +395,8 @@ class CoreService:
                 assert_preserved_request=self.requests.assert_preserved_request,
                 auto_resume_enabled=self.config.turn_state.auto_resume,
                 resume_ttl_hours=self.config.turn_state.resume_ttl_hours,
-                launch_auto_resume=self.requests.launch_auto_resume)
+                launch_auto_resume=self.requests.launch_auto_resume,
+                release_workload=release_resumed_workload)
             self.engine.runner._on_turn_suspended = self.resume_manager.on_turn_suspended
         self.controls = ControlService(
             self.store, self.events, self.requests, deps.channel_state,

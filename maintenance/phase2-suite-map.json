@@ -18,10 +18,65 @@
         "settings and records",
         "work/skills/MCP/computer"
       ],
-      "qualification_group": "management-inventory-parity",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pins the complete ordered 231-route inventory, distinct closure ownership and public patch/import seams, including skills, MCP, computer, agents and schedules. Adapt the retained named-command/domain inventory and precedence/identity assertions together; exact obsolete HTTP/social route spellings need reviewed transport disposition, not a recreated management listener. No inbound webhook trigger is exercised."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "TestImportSurface.test_helpers_canonical_home_is_api_common",
+          "reason": "Removed HTTP API import surface.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestImportSurface.test_process_web_chat_patch_seam",
+          "reason": "Removed web chat patch seam.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestImportSurface.test_public_entry_points",
+          "reason": "Removed HTTP listener entrypoints.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestImportSurface.test_shared_helpers_importable_from_api",
+          "reason": "Removed HTTP API import surface.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestRouteTableParity.test_exact_route_list_and_order",
+          "reason": "Removed HTTP route table.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestRouteTableParity.test_handlers_close_over_the_given_bot",
+          "reason": "Removed HTTP handler table.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestRouteTableParity.test_no_duplicate_method_path_pairs",
+          "reason": "Removed HTTP route table.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        }
+      ]
     },
     {
       "path": "tests/characterization/test_autonomous_loop.py",
@@ -129,7 +184,16 @@
       "qualification_group": "engine-composition-parity",
       "inherited_sha256": "5781096ed17b7dd88c88ee8047197f169e4782a4518c8e8dffdd67427be977d4",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Positive contract constructs the full service/component graph including scheduler, agents, loops, browser and MCP; also asserts live properties, late-bound absence, forbidden retired/private access and a real chat-loop request. Rebind to Desktop composition without replacing real handles with privileged shims or dropping negative/static assertions."
+      "blocked_on": "Mixed transport/neutral flat surface lists and absent live knowledge setter.",
+      "retired_cases": [
+        {
+          "case": "TestWebChatRoute.test_process_web_chat_drives_real_tool_loop",
+          "reason": "Removed HTTP web chat route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_facade_contract.py",
+          "source_sha256": "5781096ed17b7dd88c88ee8047197f169e4782a4518c8e8dffdd67427be977d4"
+        }
+      ]
     },
     {
       "blocked_on": null,
@@ -162,7 +226,16 @@
       "qualification_group": "native-skill-dispatch-parity",
       "inherited_sha256": "b1639873c2af9332df8e0d2ac57177c39efb721e1a822b22187b9da085cabfb2",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Exercises native-versus-executor partition, real wired native registrations, skill CRUD cache/prompt effects, schema-required invocation failure/success and export/send/stage callbacks. Stubbed manager boundaries do not erase the skill dispatcher/publication/delivery surface. Adapt conversation-bound callbacks preserving all cache, failure and attachment assertions."
+      "blocked_on": "Neutral file staging is Phase2 unavailable; exact native registration table changed.",
+      "retired_cases": [
+        {
+          "case": "TestFileDelivery.test_file_cb_send_mode_posts_to_channel",
+          "reason": "Removed Discord channel file callback.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_native_skill_dispatch_pins.py",
+          "source_sha256": "b1639873c2af9332df8e0d2ac57177c39efb721e1a822b22187b9da085cabfb2"
+        }
+      ]
     },
     {
       "path": "tests/characterization/test_p1_carve_semantics.py",
@@ -176,7 +249,7 @@
       "qualification_group": "request-background-ordering",
       "inherited_sha256": "011f3a955b54720e5023ed485c4ab267ccf324d085449371dbc6196771b709dc",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pins caller-history immutability, reversed parallel completion preserving call order and accumulating operation details across iterations; the last case dispatches real list_schedules through the wired native owner. Preserve runner mutation assertions with real schedule-read owner/durable destination, not a stub replacing the final original dispatch."
+      "blocked_on": "Real list_schedules output authority unavailable; post-turn detail storage changed."
     },
     {
       "path": "tests/characterization/test_p2_composition.py",
@@ -191,7 +264,16 @@
       "qualification_group": "engine-composition-parity",
       "inherited_sha256": "0195fbb4c590d4bb523f1333581456bb957c3d12049e8faf2ecc05ee4dc45f1e",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pins shared service/component identities and scheduler callback wiring, agent/loop calibration release, guarded-resume release hook, auxiliary-provider binding/live swap and both trajectory savers' shared usage rollup. Requires complete background composition; adapt lifecycle/source-spelling check to equivalent real core callback wiring while preserving identities and scope release."
+      "blocked_on": "Exact inherited pipeline facade and auxiliary seam unadapted. Real production UsageRollup/calibration/Core resume release hooks fixed and verified.",
+      "retired_cases": [
+        {
+          "case": "TestTwoStageComposition.test_scheduler_start_wires_scheduled_events_methods",
+          "reason": "Removed Discord on_ready/guild lifecycle.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_p2_composition.py",
+          "source_sha256": "0195fbb4c590d4bb523f1333581456bb957c3d12049e8faf2ecc05ee4dc45f1e"
+        }
+      ]
     },
     {
       "blocked_on": null,
@@ -235,10 +317,18 @@
         "runtime backend availability",
         "browser and agent publication"
       ],
-      "qualification_group": "tool-publication-parity",
+      "qualification_group": "phase2-step6a-campaigns-restored-corpus",
       "inherited_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pins exact registry order/schema hashes/static map/cache/reference semantics AND constructs real tool catalogs to assert browser/email/image/provider/dependency visibility. Pure registry checks alone are not the suite. Adapt reviewed Desktop tool wording/name disposition without casually rewriting pins; retain real backend availability/publication assertions."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_tool_parity.py"
+        ],
+        "reason": "All ten frozen case definitions exported by tests/desktop_adapters/tool_parity.py; eight exact assertion/setup bindings explicitly approved in PR48 review round 1 item 1. Derived 63-tool order, exactly eleven prompt-row repins, real isolated Codex auth and composed engine, cache identity and returned-copy isolation retained.",
+        "retired_cases": []
+      }
     },
     {
       "blocked_on": null,
@@ -318,7 +408,7 @@
       "qualification_group": "agents-image-result-history-parity",
       "inherited_sha256": "3a69110269578920064eff8a556e1cf15cbc1491ba6256854d108e792b22319a",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Actual spawn callbacks and agent loop must keep unsupported pixel payloads/prompts out of provider history and trajectories while preserving ordinary conversions and ToolResult identity. Adapt native-agent fixture to genuine Desktop bindings without tightening the inherited image policy."
+      "blocked_on": "All four inherited cases obtain callback via _handle_spawn_agent. src/discord/native_tools/agents_tasks.py:1123 immediately raises Phase 2 agent request admission and invocation context is not implemented. Canonical owner fixture cannot bypass this actual production fence."
     },
     {
       "path": "tests/test_agent_model_admission.py",
@@ -783,10 +873,91 @@
         "settings",
         "workspace diagnostics"
       ],
-      "qualification_group": "workspace-freshness-diagnostics",
+      "qualification_group": "phase2-step6a-tools-restored-corpus",
       "inherited_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Patterns/check failures/warnings/statistics plus executor command/script annotations and management readback need the explicit step6 branch-freshness/workspace-diagnostics replacement. Preserve bounded diagnostics, not a new force-push governor."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_tools_corpus.py"
+        ],
+        "reason": "Test_test_branch_freshness_*; all 106 surviving inherited functions; actual ToolExecutor composed in build_engine_services with canonical owner.",
+        "retired_cases": [
+          {
+            "case": "TestFreshnessAPI.test_recent_endpoint",
+            "reason": "GET /api/freshness/recent is a removed Odin web UI HTTP listener route.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestFreshnessAPI.test_recent_no_executor",
+            "reason": "503 response from GET /api/freshness/recent is a removed Odin web UI HTTP listener contract.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestFreshnessAPI.test_recent_with_limit",
+            "reason": "GET /api/freshness/recent?limit=5 is a removed Odin web UI HTTP listener route.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestFreshnessAPI.test_stats_endpoint",
+            "reason": "GET /api/freshness/stats is a removed Odin web UI HTTP listener route.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestFreshnessAPI.test_stats_no_executor",
+            "reason": "503 response from GET /api/freshness/stats is a removed Odin web UI HTTP listener contract.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          }
+        ]
+      },
+      "retired_cases": [
+        {
+          "case": "TestFreshnessAPI.test_recent_endpoint",
+          "reason": "GET /api/freshness/recent is a removed Odin web UI HTTP listener route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestFreshnessAPI.test_recent_no_executor",
+          "reason": "503 response from GET /api/freshness/recent is a removed Odin web UI HTTP listener contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestFreshnessAPI.test_recent_with_limit",
+          "reason": "GET /api/freshness/recent?limit=5 is a removed Odin web UI HTTP listener route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestFreshnessAPI.test_stats_endpoint",
+          "reason": "GET /api/freshness/stats is a removed Odin web UI HTTP listener route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestFreshnessAPI.test_stats_no_executor",
+          "reason": "503 response from GET /api/freshness/stats is a removed Odin web UI HTTP listener contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        }
+      ]
     },
     {
       "path": "tests/test_browser_wait_timeout.py",
@@ -799,10 +970,18 @@
         "settings apply",
         "headless Chromium"
       ],
-      "qualification_group": "browser-wait-runtime",
+      "qualification_group": "phase2-step6a-tools-restored-corpus",
       "inherited_sha256": "32036111f71c333db06ecaa87227b8c44bfd9d94de236af843994ea8b6bafa99",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. BrowserManager wiring, timeout/schema compilation, Playwright propagation, truthful apply/restart classification and disposable headless delayed-selector/timeouts require actual browser runtime. Run only isolated browser qualification, never operator session."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_tools_corpus.py"
+        ],
+        "reason": "All 11 inherited functions and 52 parametrized cases through actual BrowserRuntime and real packaged headless Chromium; handler Playwright mocks retained only where inherited. Config snapshot remains restart-only.",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_campaign_a_coverage_boundaries.py",
@@ -1014,10 +1193,49 @@
         "audit privacy",
         "process listing and uncertain outcomes"
       ],
-      "qualification_group": "diagnostic-process-privacy",
+      "qualification_group": "phase2-step6a-campaigns-restored-corpus",
       "inherited_sha256": "584ef3fca00a3f88171b0ce10eb4197d1f67972c9706964d140dd4bb9fb4eca6",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Bounded structured scrubbing across provider/Codex errors, audit, shell execution and remote process uncertainty includes process-management list/preview responses. Those work-management cases make step6 last."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_campaigns_corpus.py"
+        ],
+        "reason": "{'adapter': 'tests/desktop_adapters/step8_6a_campaigns.py', 'selector': 'tests/test_desktop_step8_6a_campaigns_corpus.py', 'loader': 'load'}",
+        "retired_cases": [
+          {
+            "case": "test_process_api_scrubs_legacy_and_spoofed_commands_and_output",
+            "reason": "Removed web process inventory HTTP handler.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_campaign_diagnostic_privacy.py",
+            "source_sha256": "584ef3fca00a3f88171b0ce10eb4197d1f67972c9706964d140dd4bb9fb4eca6"
+          },
+          {
+            "case": "test_process_preview_scrubs_multiline_key_before_tail",
+            "reason": "Removed web process inventory HTTP handler.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_campaign_diagnostic_privacy.py",
+            "source_sha256": "584ef3fca00a3f88171b0ce10eb4197d1f67972c9706964d140dd4bb9fb4eca6"
+          }
+        ]
+      },
+      "retired_cases": [
+        {
+          "case": "test_process_api_scrubs_legacy_and_spoofed_commands_and_output",
+          "reason": "Removed web process inventory HTTP handler.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_diagnostic_privacy.py",
+          "source_sha256": "584ef3fca00a3f88171b0ce10eb4197d1f67972c9706964d140dd4bb9fb4eca6"
+        },
+        {
+          "case": "test_process_preview_scrubs_multiline_key_before_tail",
+          "reason": "Removed web process inventory HTTP handler.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_diagnostic_privacy.py",
+          "source_sha256": "584ef3fca00a3f88171b0ce10eb4197d1f67972c9706964d140dd4bb9fb4eca6"
+        }
+      ]
     },
     {
       "blocked_on": null,
@@ -1048,10 +1266,23 @@
         "background delivery",
         "bounded report text"
       ],
-      "qualification_group": "scheduled-digest-fallback",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "e59e566e4f2b96d7b9f597845139653e9a40e6ef841e378666914a8c5f4ea167",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Scheduled digest with missing/failed summarizer retains bounded raw fallback, heading and collection failure across delivery chunks. Requires scheduled callback and durable report destination."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "test_raw_digest_fallback_is_bounded_including_heading_and_failures",
+          "reason": "Removed Discord digest heading/message formatter.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_digest.py",
+          "source_sha256": "e59e566e4f2b96d7b9f597845139653e9a40e6ef841e378666914a8c5f4ea167"
+        }
+      ]
     },
     {
       "path": "tests/test_campaign_discord_final_coverage.py",
@@ -1066,7 +1297,72 @@
       "qualification_group": "background-lifecycle-delivery-boundaries",
       "inherited_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Artifact fallback/no duplicate unknown sends, generation fences, resumed turns and terminal lifecycle combine actual startup audit/quota/computer/MCP/scheduler failures and schedule outage reporting. Background/startup controls make step6 last."
+      "blocked_on": "Neutral startup/lifecycle/runtime resume/scheduler require exact Desktop adapters.",
+      "retired_cases": [
+        {
+          "case": "test_attachment_fallback_cleanup_and_seek_failure_are_fail_closed",
+          "reason": "Removed Discord attachment transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_auto_resume_balances_presence_on_success_and_failure",
+          "reason": "Removed Discord presence transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_delivery_application_change_clears_staged_files_and_presence_work",
+          "reason": "Removed Discord delivery/presence transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_delivery_exhausts_definite_http_failures_without_claiming_a_send",
+          "reason": "Removed Discord HTTP delivery transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_invalid_reply_attachment_fallback_failure_never_retries_or_duplicates",
+          "reason": "Removed Discord reply attachment transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_invalid_reply_reference_recurses_through_lists_without_text_heuristics",
+          "reason": "Removed Discord reply-reference transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_invalid_reply_without_a_safe_attachment_copy_refuses_incomplete_plain_send",
+          "reason": "Removed Discord reply attachment transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_setup_hook_delegates_to_application_start_and_close_only_closes_transport",
+          "reason": "Removed Discord setup_hook transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_startup_config_logging_covers_nonempty_host_and_option_flags",
+          "reason": "Removed Discord-specific startup options.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        }
+      ]
     },
     {
       "blocked_on": null,
@@ -1116,10 +1412,35 @@
         "computer admission",
         "credential-bound authority"
       ],
-      "qualification_group": "agent-display-computer-binding",
+      "qualification_group": "phase2-step6a-campaigns-restored-corpus",
       "inherited_sha256": "d74cddea7e7c2b4dcc56aa6b6329fd0cfb34dcea19ba03be5a4bcfcfe759d3a5",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Truthful pending agent model/effort provenance, unknown nonstring policy and refusal to derive computer authority from unknown credentials are engine background/computer admission, not UI-only display."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_campaigns_corpus.py"
+        ],
+        "reason": "{'adapter': 'tests/desktop_adapters/step8_6a_campaigns.py', 'selector': 'tests/test_desktop_step8_6a_campaigns_corpus.py', 'loader': 'load'}",
+        "retired_cases": [
+          {
+            "case": "test_unknown_backing_credential_never_grants_browser_authority",
+            "reason": "Removed bearer browser session authority.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_campaign_display_binding_coverage.py",
+            "source_sha256": "d74cddea7e7c2b4dcc56aa6b6329fd0cfb34dcea19ba03be5a4bcfcfe759d3a5"
+          }
+        ]
+      },
+      "retired_cases": [
+        {
+          "case": "test_unknown_backing_credential_never_grants_browser_authority",
+          "reason": "Removed bearer browser session authority.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_display_binding_coverage.py",
+          "source_sha256": "d74cddea7e7c2b4dcc56aa6b6329fd0cfb34dcea19ba03be5a4bcfcfe759d3a5"
+        }
+      ]
     },
     {
       "path": "tests/test_campaign_execution_outcomes.py",
@@ -1135,7 +1456,7 @@
       "qualification_group": "execution-skill-outcome-provenance",
       "inherited_sha256": "535d5636bda63bc41cd4ecdffd2f1a3ab91a6ba65ae46724819de41113f87434",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. SSH/local streaming/cleanup, definite versus unknown failure, capture, lease-timeout provenance, durable unknown fencing and recovery retaining uncertainty include real SkillManager exceptions/timeouts and deferred skill delivery. Skills make last requirement6."
+      "blocked_on": "Two parameter items use legacy TurnDurability.admit. Exact RequestService worker-scoped helper and conversation ledger observation missing."
     },
     {
       "path": "tests/test_campaign_execution_risk.py",
@@ -1171,7 +1492,65 @@
       "qualification_group": "background-schedule-runtime-boundaries",
       "inherited_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Archive/search backfill, knowledge reconciliation, startup credentials, setup conflict/readiness and authentication combine disconnected schedule add/update/run availability. Schedule management is last; adapt named services retaining all earlier assertions."
+      "blocked_on": "Neutral envwriter/backfill/reconcile require exact Desktop adapters.",
+      "retired_cases": [
+        {
+          "case": "test_login_valid_identity_without_session_manager_fails_honestly",
+          "reason": "Removed HTTP login route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_nonstring_resolved_token_is_missing_not_truthy",
+          "reason": "Removed Discord token check.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_pending_status_never_exposes_operational_inventory",
+          "reason": "Removed HTTP status route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_schedule_routes_report_disconnected_mutations_as_503",
+          "reason": "Removed HTTP schedule route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_setup_completion_race_returns_conflict",
+          "reason": "Removed HTTP setup route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_setup_gateway_failure_is_not_reported_connected",
+          "reason": "Removed HTTP setup route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_setup_invalid_nested_shapes_never_publish",
+          "reason": "Removed HTTP setup route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_setup_missing_or_recovery_context_never_writes",
+          "reason": "Removed HTTP setup route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        }
+      ]
     },
     {
       "path": "tests/test_campaign_health_coverage.py",
@@ -1490,10 +1869,119 @@
         "request admission",
         "schedule management"
       ],
-      "qualification_group": "background-management-error-boundaries",
+      "qualification_group": "phase2-step6a-campaigns-restored-corpus",
       "inherited_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Credential-safe connection errors, typed guards, bounded params, revoked/invalid chat admission and schedule status/malformed mutation share a mixed suite. Schedule service is last; not app-only HTTP coverage."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_campaigns_corpus.py"
+        ],
+        "reason": "{'adapter': 'tests/desktop_adapters/step8_6a_campaigns.py', 'selector': 'tests/test_desktop_step8_6a_campaigns_corpus.py', 'loader': 'load'}",
+        "retired_cases": [
+          {
+            "case": "test_discord_connection_admin_errors_do_not_expose_credentials",
+            "reason": "Removed Discord connection HTTP route.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_campaign_web_final_coverage.py",
+            "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+          },
+          {
+            "case": "test_discord_connection_rejects_malformed_admin_requests_without_side_effects",
+            "reason": "Removed Discord connection HTTP route.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_campaign_web_final_coverage.py",
+            "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+          },
+          {
+            "case": "test_discord_connection_requires_real_admin_identity_and_supervisor",
+            "reason": "Removed Discord connection HTTP route.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_campaign_web_final_coverage.py",
+            "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+          },
+          {
+            "case": "test_schedule_unavailable_and_bad_json_are_safe",
+            "reason": "Removed schedule HTTP route.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_campaign_web_final_coverage.py",
+            "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+          },
+          {
+            "case": "test_token_guard_accepts_async_bool_and_rejects_non_bool",
+            "reason": "Removed bearer-token HTTP auth guard.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_campaign_web_final_coverage.py",
+            "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+          },
+          {
+            "case": "test_websocket_auth_inventory_and_revoked_chat_are_denied",
+            "reason": "Removed WebSocket listener.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_campaign_web_final_coverage.py",
+            "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+          },
+          {
+            "case": "test_websocket_invalid_chat_inputs_do_not_call_bot",
+            "reason": "Removed WebSocket listener.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_campaign_web_final_coverage.py",
+            "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+          }
+        ]
+      },
+      "retired_cases": [
+        {
+          "case": "test_discord_connection_admin_errors_do_not_expose_credentials",
+          "reason": "Removed Discord connection HTTP route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_discord_connection_rejects_malformed_admin_requests_without_side_effects",
+          "reason": "Removed Discord connection HTTP route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_discord_connection_requires_real_admin_identity_and_supervisor",
+          "reason": "Removed Discord connection HTTP route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_schedule_unavailable_and_bad_json_are_safe",
+          "reason": "Removed schedule HTTP route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_token_guard_accepts_async_bool_and_rejects_non_bool",
+          "reason": "Removed bearer-token HTTP auth guard.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_websocket_auth_inventory_and_revoked_chat_are_denied",
+          "reason": "Removed WebSocket listener.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_websocket_invalid_chat_inputs_do_not_call_bot",
+          "reason": "Removed WebSocket listener.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        }
+      ]
     },
     {
       "blocked_on": null,
@@ -1561,10 +2049,18 @@
         "computer admission",
         "builtin policy"
       ],
-      "qualification_group": "background-capability-catalogue-parity",
+      "qualification_group": "phase2-step6a-campaigns-restored-corpus",
       "inherited_sha256": "694371b2f130d6cede610e69334dbef50ff3337ea18e752aa0f996fb52fe05f8",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Catalogue browser/knowledge availability, effective-versus-desired email and computer disable policy align catalogue with dispatch. Browser/computer admission is last; preserve actual capability truthfulness."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_campaigns_corpus.py"
+        ],
+        "reason": "{'adapter': 'tests/desktop_adapters/step8_6a_campaigns.py', 'selector': 'tests/test_desktop_step8_6a_campaigns_corpus.py', 'loader': 'load'}",
+        "retired_cases": []
+      }
     },
     {
       "blocked_on": null,
@@ -1962,10 +2458,18 @@
         "agent dispatch",
         "audit/export"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6a-tools-restored-corpus",
       "inherited_sha256": "31ccc09d0d7d34ab0baf55cf8f16e03cadd62212e879c3da89a1d9028ebc4f1b",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Whole suite includes provider replay parsing, chat/agent generation replay, checkpoint/session/audit/export privacy and agent tool dispatch. Agent integration is the latest required surface, not merely provider parsing."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_tools_corpus.py"
+        ],
+        "reason": "All 14 inherited functions; retained real converters/stores. Ownerless ToolLoopRunner.__new__ fixture replaced by build_engine_services(...).runner before inherited dispatch spies installed.",
+        "retired_cases": []
+      }
     },
     {
       "blocked_on": null,
@@ -2032,7 +2536,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "9b3ab82395a1586ddc378004fc79c9aa03930a7d4b4259d2acf2f3d0c5fd81e2",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Foreground commands, processes, validation, scheduled checks/workflows, background/delegated tasks and SkillContext require background-work composition. Preserve harmless real subprocess and lease cleanup evidence."
+      "blocked_on": "18 parametrized scheduled_workflow/scheduled_check/delegate_task cases require production owners not implemented: scheduled_events._on_scheduled_task:473, _execute_scheduled_tool:237 and _dispatch_scheduled_tool:286 are unconditional Phase2 fences; agents_tasks._handle_delegate_task:755 also fenced. ROUTES parameter list is immutable, so available 40 cases cannot truthfully restore the whole suite. Safe real runtime helper exposed for dependent suites, but no dispatcher bypass."
     },
     {
       "blocked_on": null,
@@ -2071,7 +2575,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "7b56912212ec81889c6c585ce4c9385d64aee9e3e82f591abc0f72b4d73d1b10",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Shell caller parity includes background work, skill and scheduled transports in addition to command and supervision behavior; latest integrated caller wins."
+      "blocked_on": "Agent parameter obtains native spawn catalog through _handle_spawn_agent; actual production admission is unimplemented and fenced at agents_tasks.py:1123. All three route parameter values must remain unchanged. test_built_system_prompt_byte_identical_to_precampaign_master also asserts frozen upstream source hash; needs reviewer decision for Desktop prompt divergence, not retirement."
     },
     {
       "path": "tests/test_command_shell_scope.py",
@@ -2087,7 +2591,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "93b5b66de8a073cc083c63f806b201c166b8efad942b9227b7e7b076647cf5ba",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real local shell selection and byte-faithful internal tools include skill-context execution plus validation/process/HTTP probe routes."
+      "blocked_on": "Actual test attempt: 20 inherited parametrized cases pass, three embedder variants fail AttributeError execute. src/tools/skill_context.py:146-158 now exclusively calls public executor.execute; inherited Embedder only implements _run_on_host. Reintroducing the private transport shortcut would bypass the current governance seam; no fake wrapper or assertion change applied. Whole suite remains deferred."
     },
     {
       "blocked_on": null,
@@ -2146,10 +2650,49 @@
         "status projection",
         "management authority"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6a-computer-restored-corpus",
       "inherited_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Public admission/status projection and authenticated management must preserve privacy of private native fields with synthetic computer state."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ],
+        "reason": "{'mode': 'frozen-adapter', 'selectors': ['tests/test_desktop_step8_6a_computer_corpus.py'], 'inherited_sha256': '628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94', 'reason': 'Entire retained immutable corpus; only exact approved removed HTTP projections retired.', 'retired_cases': [{'case': 'test_http_attached_has_no_application_allowlist', 'reviewer': 'Claude, review of step 8 part 4', 'reason': 'Removed Odin web UI HTTP GET /api/computer application-profile projection.', 'source_path': 'tests/test_computer_admission_http_r8.py', 'source_sha256': '628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94'}, {'case': 'test_http_exposes_bounded_reason_and_remedy_with_actual_auth', 'reviewer': 'Claude, review of step 8 part 4', 'reason': 'Removed Odin web UI HTTP GET /api/computer bearer-authenticated admission projection.', 'source_path': 'tests/test_computer_admission_http_r8.py', 'source_sha256': '628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94'}]}",
+        "retired_cases": [
+          {
+            "case": "test_http_attached_has_no_application_allowlist",
+            "reason": "Removed Odin web UI HTTP GET /api/computer application-profile projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_admission_http_r8.py",
+            "source_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94"
+          },
+          {
+            "case": "test_http_exposes_bounded_reason_and_remedy_with_actual_auth",
+            "reason": "Removed Odin web UI HTTP GET /api/computer bearer-authenticated admission projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_admission_http_r8.py",
+            "source_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94"
+          }
+        ]
+      },
+      "retired_cases": [
+        {
+          "case": "test_http_attached_has_no_application_allowlist",
+          "reason": "Removed Odin web UI HTTP GET /api/computer application-profile projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_admission_http_r8.py",
+          "source_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94"
+        },
+        {
+          "case": "test_http_exposes_bounded_reason_and_remedy_with_actual_auth",
+          "reason": "Removed Odin web UI HTTP GET /api/computer bearer-authenticated admission projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_admission_http_r8.py",
+          "source_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94"
+        }
+      ]
     },
     {
       "path": "tests/test_computer_api.py",
@@ -2161,10 +2704,93 @@
         "evidence",
         "unknown outcomes"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Owner/session controls, enablement, evidence/artifact handling, validation and uncertain outcomes are computer-management admission, adapted from HTTP without losing cases."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "test_all_routes_require_auth_owner_and_session",
+          "reason": "Removed HTTP operator route auth/session admission.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_auth_disabled_and_owner_fences",
+          "reason": "Removed HTTP operator auth/owner fences.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_dispatched_enable_failure_is_unknown_not_bad_request",
+          "reason": "Removed HTTP enabled-route failure outcome projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_emergency_stop_not_blocked_by_observe_or_disable",
+          "reason": "Removed HTTP stop/pause/observe route concurrency response.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_explicit_frame_download_and_expiration",
+          "reason": "Removed HTTP evidence/download expiration routes.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_export_opaque_then_forced_safe_download",
+          "reason": "Removed HTTP export/download binary headers.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_export_rejects_paths_identity_and_invalid_names",
+          "reason": "Removed HTTP export body validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_provisioning_error_does_not_bypass_auth_or_validation",
+          "reason": "Removed HTTP enabled-route auth/body validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_status_is_private_summary_without_capture",
+          "reason": "Removed HTTP status privacy/cache projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_toggle_fail_closed_without_lifecycle_hook_and_strict_input",
+          "reason": "Removed HTTP enabled-route hook/body validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_typed_provisioning_preflight_is_not_applied_with_safe_remedy",
+          "reason": "Removed HTTP provisioning preflight remedy/status projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        }
+      ]
     },
     {
       "path": "tests/test_computer_api_recovery_r18.py",
@@ -2176,10 +2802,79 @@
         "quarantine",
         "release uncertainty"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Recovery authentication, generations, quarantine and cleanup-versus-receiver-release truth require computer recovery services."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "test_correct_body_preserves_safe_controller_failure",
+          "reason": "Removed HTTP recovery body/error projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_local_cleanup_distinct_from_historical_receiver_uncertainty",
+          "reason": "Removed HTTP reconcile local/historical cleanup projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_native_recovery_status_preserves_distinct_safe_guidance",
+          "reason": "Removed HTTP native recovery guidance projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_optional_accessibility_failure_keeps_status_safe",
+          "reason": "Removed HTTP optional-accessibility failure response.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_quarantined_status_exposes_generations_despite_optional_probe_failure",
+          "reason": "Removed HTTP quarantine/accessibility status projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_quarantined_status_keeps_live_accessibility_indicator",
+          "reason": "Removed HTTP accessibility indicator projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_reconcile_body_validation_never_dispatches",
+          "reason": "Removed HTTP reconcile body validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_reconcile_preserves_operator_auth",
+          "reason": "Removed HTTP reconcile browser/bearer operator auth.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_reconcile_works_disabled_and_does_not_claim_verified_cleanup",
+          "reason": "Removed HTTP reconcile cleanup/status response.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        }
+      ]
     },
     {
       "path": "tests/test_computer_audit_output_r21.py",
@@ -2214,7 +2909,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "3f5024c3079f669f803a7ed1f257240a57a2c6585df567dfff541f83d3e3e45d",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Input outcome/recovery guidance, release uncertainty and no replay run through computer integration and synthetic controller fixtures."
+      "blocked_on": "Remaining service guidance definitions need ComputerIntegration._context foreground service; selected guidance/effects cases support only."
     },
     {
       "path": "tests/test_computer_catalog.py",
@@ -2230,7 +2925,7 @@
       "qualification_group": "phase2-background-catalog-policy",
       "inherited_sha256": "f69e52a4ac9043ff3a9f70cf0cbe8de1134c035a65b83c93aa8ed59bd6f5da7f",
       "status": "deferred",
-      "blocked_on": "Step 6 real BuiltinPolicy reserves computer builtin names even when disabled, but the inherited disabled same-name skill assertion expects a surviving skill. Frozen Config-only adapter failed that actual assertion; not qualified, exact collision-contract disposition/adapter approval pending, no weakened expectations."
+      "blocked_on": "test_disabled_same_name_skill_is_not_changed fails retained collision policy: src/discord/tool_catalog.py reserves built-in computer names even disabled. Eight other definitions support only; not retired."
     },
     {
       "path": "tests/test_computer_checkpoint_privacy_r5.py",
@@ -2266,7 +2961,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "f7b4543b0d6e7a0a771f91571814186d9e7533520038b75765ecba782f515e55",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Computer action interruption classification through service and normal tool loop includes returned pixels and contradictory unknown-release evidence."
+      "blocked_on": "normal/rig inherited service requires _context and canonical foreground ToolLoopRunner delivery, unavailable Desktop ComputerBindingService foreground."
     },
     {
       "path": "tests/test_computer_config_admin_r19.py",
@@ -2328,7 +3023,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "faddd5c7168903f0c3006f3efa28364d81a886509d65923ac55c05266adbc616",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Mixed ordinary/computer dispatch, foreground authorization, frame retirement and bound versus unbound turn contexts require computer binding."
+      "blocked_on": "Actual mixed ToolLoopRunner/native handler and ordinary-tool publication graph needs canonical foreground service, not direct controller replacement."
     },
     {
       "path": "tests/test_computer_emergency_release_campaign.py",
@@ -2342,7 +3037,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "6b6ee9c6575ba86dcf8916ee55c660a5267c76a41aab615ef87a571963cd9db5",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Emergency-release persistence/rollback, recovery fencing and stale-incident refusal require computer recovery with temporary stores and synthetic backends."
+      "blocked_on": "Inherited campaign normal/drawing fixture requires actual foreground dispatch/delivery before release history; Desktop foreground unavailable."
     },
     {
       "path": "tests/test_computer_frame_boundary.py",
@@ -2377,7 +3072,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "7cd016dbd6c71f40230f8b0c0066de18a9c856b09a66f40fe2bdce73da1e824a",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Synthetic same-application/modal transitions, fresh observations and no-replay controller semantics require computer admission; mocks do not qualify a compositor."
+      "blocked_on": "3 normal-fixture cases invoke actual ToolLoopRunner dispatch/delivery. Desktop ComputerBindingService foreground unavailable. 3 pure guidance/effects cases tested as support, not whole suite."
     },
     {
       "path": "tests/test_computer_hyprland_dialog_scope_r35.py",
@@ -2391,7 +3086,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "58914febf57a8660e7d0a81cbbee61bf4cd715dc3264055d292200f4acaa38e0",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Dialog transitions, scope identity and refusal to rebind mid-batch use synthetic backend and raster fixtures."
+      "blocked_on": "test_controller_dialog_delivery_is_new_authority_not_batch_rebind uses real normal turn dispatch/delivery, unavailable Desktop foreground seam. 8 pure backend/scope cases tested unchanged as support."
     },
     {
       "path": "tests/test_computer_hyprland_durable_fence_r42.py",
@@ -2406,7 +3101,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "329499d39c7fce30524220a4b107bd3e656afce03877a5f57c48914487288024",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Restart-safe quarantine, unknown release and reconciliation require durable computer-session recovery."
+      "blocked_on": "Every case obtains session through inherited normal ToolLoopRunner start/observe/dispatch and exact image delivery. Native/controller logic cannot be substituted for missing canonical Desktop turn admission."
     },
     {
       "path": "tests/test_computer_hyprland_failure_r38.py",
@@ -2421,7 +3116,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "ae9b034c0a799da1c300776f5bc6df2dc1961c3c34eec92fe89a70a0dcbad6e2",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Computer-action failure receipts, cleanup and replay prevention exercise controller/store with mocked native transport."
+      "blocked_on": "Both cases use normal fixture and real start/observe dispatch before durable storage/failure assertions. No authentic Desktop foreground turn grants."
     },
     {
       "path": "tests/test_computer_hyprland_failure_r41.py",
@@ -2436,7 +3131,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "7b43167c9a26b3a46e5e4861087a3c02c25bd4a9bea75ed87c4d4b0fe8a3cb96",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Bounded failure evidence, sanitization, cancellation and revocation require computer controller and durable receipts, not native qualification."
+      "blocked_on": "4 normal-fixture cases use real turn dispatch/delivery for roundtrip, malformed detail, cancellation and revocation. 8 real guardian/parser cases tested as unchanged support with frozen DETAIL-only helper closure."
     },
     {
       "path": "tests/test_computer_hyprland_integration_r32.py",
@@ -2447,10 +3142,63 @@
         "capabilities",
         "operator recovery"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6a-hyprland-restored-corpus",
       "inherited_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Backend routing, capability evidence, operator recovery and HTTP recovery domain behavior require computer integration."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_hyprland_corpus.py"
+        ],
+        "reason": "6 remaining frozen cases, 2 exact canonical owner/auth setup expressions, real retained Integration/controller/backend engine. No native startup qualification.",
+        "retired_cases": [
+          {
+            "case": "test_operator_recovery_fences_and_preserves_truth",
+            "reason": "Removed explicit webui RequestContext operator recovery; Desktop uses sealed owner ManagementContext, not web operator authority.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_hyprland_integration_r32.py",
+            "source_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e"
+          },
+          {
+            "case": "test_recovery_api_auth_and_truth",
+            "reason": "Removed HTTP /api/computer/release_owned_input, bearer browser sessions and multi-user tiers.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_hyprland_integration_r32.py",
+            "source_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e"
+          },
+          {
+            "case": "test_recovery_api_no_target_override",
+            "reason": "Removed HTTP /api/computer/release_owned_input route body validation.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_hyprland_integration_r32.py",
+            "source_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e"
+          }
+        ]
+      },
+      "retired_cases": [
+        {
+          "case": "test_operator_recovery_fences_and_preserves_truth",
+          "reason": "Removed explicit webui RequestContext operator recovery; Desktop uses sealed owner ManagementContext, not web operator authority.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_hyprland_integration_r32.py",
+          "source_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e"
+        },
+        {
+          "case": "test_recovery_api_auth_and_truth",
+          "reason": "Removed HTTP /api/computer/release_owned_input, bearer browser sessions and multi-user tiers.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_hyprland_integration_r32.py",
+          "source_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e"
+        },
+        {
+          "case": "test_recovery_api_no_target_override",
+          "reason": "Removed HTTP /api/computer/release_owned_input route body validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_hyprland_integration_r32.py",
+          "source_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e"
+        }
+      ]
     },
     {
       "path": "tests/test_computer_hyprland_receipts_r33.py",
@@ -2465,7 +3213,23 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "4f959d278c7091e25a3a0a7eb4421df9f0cace52f68f567e41cb7fc184db9045",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Durable action receipts, disclosures, replay and delivery interactions run through normal computer tool chain."
+      "blocked_on": "9 remaining cases invoke normal real ToolLoopRunner dispatch/delivery. Missing Desktop foreground receipt/image transport.",
+      "retired_cases": [
+        {
+          "case": "test_authenticated_web_turn_and_revoked_browser_refusal",
+          "reason": "Removed authenticated web foreground browser-session binding and revocation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_hyprland_receipts_r33.py",
+          "source_sha256": "4f959d278c7091e25a3a0a7eb4421df9f0cace52f68f567e41cb7fc184db9045"
+        },
+        {
+          "case": "test_web_turn_without_browser_binding_cannot_start",
+          "reason": "Removed web foreground/browser-session admission.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_hyprland_receipts_r33.py",
+          "source_sha256": "4f959d278c7091e25a3a0a7eb4421df9f0cace52f68f567e41cb7fc184db9045"
+        }
+      ]
     },
     {
       "path": "tests/test_computer_hyprland_settling_r35.py",
@@ -2479,7 +3243,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "b86501febf3bbe5224d80c4a82baf5e862651f1282f524ca145f639b32a64bbf",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Observation settling, scope continuity and refusal/retry boundaries require real computer controllers with synthetic IO."
+      "blocked_on": "All 7 cases require normal fixture authentic turn admission and exact image delivery before actual settling backend logic. Desktop foreground unavailable; synthetic runner would substitute missing product behaviour."
     },
     {
       "path": "tests/test_computer_hyprland_turnloop_r33.py",
@@ -2494,7 +3258,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "529dee92a822edef1da3dad73245be1c4815ed06f12a187651a5ea8f98a051ed",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Session start, observation, action, delivery, recovery and no replay exercise actual turn dispatcher with synthetic native transports."
+      "blocked_on": "12 normal turn/foreground owner lifecycle cases need Desktop admission/delivery; additive factory case constructs old bot lifecycle unavailable as authentic Desktop owner. 2 independent compositor-adapter cases tested unchanged support."
     },
     {
       "path": "tests/test_computer_identity_sequences_r21.py",
@@ -2505,10 +3269,18 @@
         "accessible identity",
         "sequences"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6a-computer-restored-corpus",
       "inherited_sha256": "3ce2e7d22070ce4c670b3ba58a8f17871b4fbfffd355273cd9a9dad62055ed7b",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Accessible-target identity reconciliation and sequence admission exercise controller bindings, not merely a pure identity helper."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ],
+        "reason": "{'mode': 'frozen-adapter', 'selectors': ['tests/test_desktop_step8_6a_computer_corpus.py'], 'inherited_sha256': '3ce2e7d22070ce4c670b3ba58a8f17871b4fbfffd355273cd9a9dad62055ed7b', 'reason': 'Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.', 'retired_cases': []}",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_computer_integration_boundary.py",
@@ -2522,7 +3294,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "fabd208883cc886ca082af90fa18d6bf9f05e5b439c089e52a8c4099b51f938b",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Computer-tool authorization, reservation, dispatch ownership and refusal require integration admission."
+      "blocked_on": "Mixed operator/model-handler suite needs browser-bound grants and ComputerIntegration._context canonical foreground service; not entire removable HTTP suite."
     },
     {
       "path": "tests/test_computer_integration_r5.py",
@@ -2537,7 +3309,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "96095dbf231178732348dd03fa5a87c23df55f1b750c67488c1df60e26f9bedd",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Facade lifecycle ownership, authorization and action-result handling include vision-readiness checks but no actual provider acceptance."
+      "blocked_on": "Remaining real facade context/dispatch definitions require _context foreground admission. Selected factory/config/store cases support only."
     },
     {
       "path": "tests/test_computer_inventory_capabilities_x1.py",
@@ -2551,7 +3323,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "4b7c63ee94a8d00d408ee3380f52976e5173e9f4e69e0256b948baf449d2e99b",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Unsupported inventory projections include foreground integration dispatch and audit outcomes with fake backends; requires computer binding despite no injected IO."
+      "blocked_on": "Remaining foreground inventory publication requires _context and canonical turn admission; one pure unsupported-capability definition support only."
     },
     {
       "path": "tests/test_computer_lifecycle_r5.py",
@@ -2566,7 +3338,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "79577594e8ade40d094bf81af5fd86e35dac2a998ad7dcc747f158f600b6ea4b",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Enable/disable, cleanup, foreground dispatch, evidence retention and API integration require computer-manager composition."
+      "blocked_on": "Inherited owner() bot lifecycle service publication, foreground manager and artifact delivery unavailable in Desktop ComputerBindingService."
     },
     {
       "path": "tests/test_computer_lifecycle_review_r5.py",
@@ -2577,10 +3349,18 @@
         "authority fencing",
         "cleanup"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6a-computer-restored-corpus",
       "inherited_sha256": "0ef699d85ce2777534041cf8a02f35d849a86d9fe9e5ba3fdaffbec49bfcd572",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Disable races, retention failure before enable and cleanup fencing concern computer authority lifecycle, not generic core teardown."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ],
+        "reason": "{'mode': 'frozen-adapter', 'selectors': ['tests/test_desktop_step8_6a_computer_corpus.py'], 'inherited_sha256': '0ef699d85ce2777534041cf8a02f35d849a86d9fe9e5ba3fdaffbec49bfcd572', 'reason': 'Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.', 'retired_cases': []}",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_computer_manager_coverage_r10.py",
@@ -2594,7 +3374,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "85a6651cd31fac0b331911a81ff6b24556dfe6d6f99483ca4587a1579a155cde",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Manager publication, dispatch tracking, authority watchers and operator behavior require computer-management binding."
+      "blocked_on": "Actual bot ComputerLifecycle publication/janitor/authority watcher/operator delegation seam missing; no fabricated replacement service admitted."
     },
     {
       "path": "tests/test_computer_modal_binding_recovery.py",
@@ -2608,7 +3388,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "d50a062b49755e1552305421e370408cf95e3844acce254a274ebbae43158a40",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Delivered-dialog binding and recovery use actual integration/controller code with fake native IO."
+      "blocked_on": "Remaining normal/rig modal recovery definitions require _context foreground delivery; selected pure guardian definition support only."
     },
     {
       "path": "tests/test_computer_native_keyboard_focus_class.py",
@@ -2622,7 +3402,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "b435c3e9fa16c31b4834eb5e8e7f6cedd7813efd8eb6752742408e0044648912",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Keyboard-focus trust and sequences use synthetic native transport; admission/binding behavior does not qualify actual native backend."
+      "blocked_on": "normal.service._context(normal.state) and authentic delivered turn bindings required; Desktop foreground unavailable."
     },
     {
       "blocked_on": null,
@@ -2658,7 +3438,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "5b786fa3bc733d209e6e8598b8a2d804b445bb90f8d74564eeff50ffd732ce6a",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Computer use in a normal turn requires foreground admission and dispatch."
+      "blocked_on": "Actual normal foreground ToolLoopRunner admission/image delivery missing; migration and own-session finish definitions support only."
     },
     {
       "path": "tests/test_computer_observe_session_boundary.py",
@@ -2672,7 +3452,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "3c61516218d2a769d00ba2e4f6d14dbbd4901542ead9522dcc906d9975cfee2e",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Observe/session admission and refusal run through actual computer integration/controller with synthetic backends."
+      "blocked_on": "Inherited normal/rig session observation delivery requires _context and canonical foreground service unavailable on Desktop."
     },
     {
       "path": "tests/test_computer_operator_auth_r5.py",
@@ -2683,10 +3463,128 @@
         "host policy",
         "evidence delivery"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Operator authorization, host policy and evidence delivery require computer-specific management admission."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "test_all_operator_routes_fail_closed",
+          "reason": "Removed HTTP operator bearer/browser scope/tier auth.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_binary_prepare_hook_revocation_sends_no_private_bytes",
+          "reason": "Removed HTTP binary prepare-hook bearer revocation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_binary_revocation_after_headers_aborts_body",
+          "reason": "Removed HTTP authorized binary response revocation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_credential_hosts_override_default_for_every_operator_route",
+          "reason": "Removed HTTP operator credential host scope.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_dynamic_operator_keeps_exact_issuance_across_unchanged_reload",
+          "reason": "Removed browser bearer issuance reload contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_dynamic_operator_requires_live_exact_issued_identity",
+          "reason": "Removed bearer-issued browser operator authority.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_dynamic_rotation_requires_relogin_and_rebinds_exact_session",
+          "reason": "Removed bearer rotation/login/browser rebinding.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_grant_is_current_task_local_and_not_forged_context",
+          "reason": "Removed task-local web-operator grants.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_live_managed_browser_all_operator_routes",
+          "reason": "Removed managed-browser HTTP operator routes.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_operator_effective_host_policy",
+          "reason": "Removed browser/bearer HTTP operator host policy.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_operator_scope_covers_real_integration_and_restores_on_exception",
+          "reason": "Removed web operator_scope bearer host binding.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_real_controller_checks_live_grant_after_capture",
+          "reason": "Removed HTTP observe web-operator live grant bridge.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_real_host_scope_revalidated_after_await",
+          "reason": "Removed HTTP operator host-scope response revalidation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_revalidate_after_backend_await",
+          "reason": "Removed HTTP operator response reauthorization.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_safety_stop_when_disabled_is_minimal_and_not_raw_authority",
+          "reason": "Removed HTTP stop raw-bearer/browser distinction.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_static_legacy_login_and_rotation",
+          "reason": "Removed legacy bearer login/session rotation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        }
+      ]
     },
     {
       "blocked_on": null,
@@ -2719,10 +3617,63 @@
         "capabilities",
         "management projection"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6a-computer-restored-corpus",
       "inherited_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Product status and attached-target capability projections remain computer-management semantics even when inherited HTTP is mocked."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ],
+        "reason": "{'mode': 'frozen-adapter', 'selectors': ['tests/test_desktop_step8_6a_computer_corpus.py'], 'inherited_sha256': '550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb', 'reason': 'Entire retained immutable corpus; only exact approved removed HTTP projections retired.', 'retired_cases': [{'case': 'test_attached_http_omits_invalid_provenance_and_unknown_capabilities', 'reviewer': 'Claude, review of step 8 part 4', 'reason': 'Removed Odin web UI HTTP GET /api/computer provenance projection.', 'source_path': 'tests/test_computer_product_status_r11.py', 'source_sha256': '550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb'}, {'case': 'test_attached_http_provenance_capabilities_and_public_null_app', 'reviewer': 'Claude, review of step 8 part 4', 'reason': 'Removed Odin web UI HTTP GET /api/computer attached status projection.', 'source_path': 'tests/test_computer_product_status_r11.py', 'source_sha256': '550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb'}, {'case': 'test_http_retains_isolated_fixed_launch_list_and_capability_fallback', 'reviewer': 'Claude, review of step 8 part 4', 'reason': 'Removed Odin web UI HTTP GET /api/computer isolated launch-list projection.', 'source_path': 'tests/test_computer_product_status_r11.py', 'source_sha256': '550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb'}]}",
+        "retired_cases": [
+          {
+            "case": "test_attached_http_omits_invalid_provenance_and_unknown_capabilities",
+            "reason": "Removed Odin web UI HTTP GET /api/computer provenance projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_product_status_r11.py",
+            "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+          },
+          {
+            "case": "test_attached_http_provenance_capabilities_and_public_null_app",
+            "reason": "Removed Odin web UI HTTP GET /api/computer attached status projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_product_status_r11.py",
+            "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+          },
+          {
+            "case": "test_http_retains_isolated_fixed_launch_list_and_capability_fallback",
+            "reason": "Removed Odin web UI HTTP GET /api/computer isolated launch-list projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_product_status_r11.py",
+            "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+          }
+        ]
+      },
+      "retired_cases": [
+        {
+          "case": "test_attached_http_omits_invalid_provenance_and_unknown_capabilities",
+          "reason": "Removed Odin web UI HTTP GET /api/computer provenance projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_product_status_r11.py",
+          "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+        },
+        {
+          "case": "test_attached_http_provenance_capabilities_and_public_null_app",
+          "reason": "Removed Odin web UI HTTP GET /api/computer attached status projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_product_status_r11.py",
+          "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+        },
+        {
+          "case": "test_http_retains_isolated_fixed_launch_list_and_capability_fallback",
+          "reason": "Removed Odin web UI HTTP GET /api/computer isolated launch-list projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_product_status_r11.py",
+          "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+        }
+      ]
     },
     {
       "path": "tests/test_computer_provisioning_r29.py",
@@ -2735,10 +3686,18 @@
         "dependency preflight",
         "authority publication"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6a-computer-restored-corpus",
       "inherited_sha256": "7c87c683ff57c163749534fb114e869a8414ca3d679d9e6c75015a2e854ec92b",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Whole suite goes beyond private storage/settings: startup and enable/disable publication, incomplete target/dependency preflight, grant refusal, fallback pinning before authority and cancelled factory-candidate cleanup require computer lifecycle. Preserve all filesystem safety cases without new D17 rules."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ],
+        "reason": "{'mode': 'frozen-adapter', 'selectors': ['tests/test_desktop_step8_6a_computer_corpus.py'], 'inherited_sha256': '7c87c683ff57c163749534fb114e869a8414ca3d679d9e6c75015a2e854ec92b', 'reason': 'Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.', 'retired_cases': []}",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_computer_r19_delivery.py",
@@ -2754,7 +3713,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "d0649a078c3a62b4e673eb577b4871c9232f66a169196bf277c2f6d141a68750",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Whole suite executes real controller actions, denies undelivered/stale input, prevents replay/reissued pixels, settles partial native progress and binds exact post-action image to foreground call. This is computer admission as well as delivery."
+      "blocked_on": "Remaining canonical turn image delivery requires _context foreground service; selected direct receipt/controller cases support only."
     },
     {
       "path": "tests/test_computer_reconciliation_r18.py",
@@ -2768,7 +3727,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "74bcba426d8a581188650f21871e8dbf352e5d571bfdf5778fc83a2c7bfd198f",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Computer session recovery, quarantine and input-release reconciliation require computer recovery services."
+      "blocked_on": "Inherited manager/service/operator reconciliation seam requires actual lifecycle/foreground service, unavailable Desktop binding."
     },
     {
       "path": "tests/test_computer_resources_r21.py",
@@ -2780,10 +3739,18 @@
         "computer authority watcher",
         "controller revocation"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6a-computer-restored-corpus",
       "inherited_sha256": "d4680ea395e2a6359f70be870df3cafe69bae6df064119daab10d41c6485fa00",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Earlier store-construction and disposable probe cleanup cases are neutral, but final actual lifecycle authority watcher must revoke the controller after cleanup exceptions. Latest computer-management dependency wins."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ],
+        "reason": "{'mode': 'frozen-adapter', 'selectors': ['tests/test_desktop_step8_6a_computer_corpus.py'], 'inherited_sha256': 'd4680ea395e2a6359f70be870df3cafe69bae6df064119daab10d41c6485fa00', 'reason': 'Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.', 'retired_cases': []}",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_computer_review_r3.py",
@@ -2798,7 +3765,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "78deda42ceb7327e17f114d8b367deae51dbdb9f4a2115b346b3fbb4870bbe02",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Nonvisual admission retains operation/owner/host/vision scope, exact live observation delivery, stale/tampered/replayed refusal and turn dispatch repair boundaries; real controller synthetic IO is computer admission."
+      "blocked_on": "Inherited facade/turn integration review cases require canonical _context foreground dispatch and actual bot service graph."
     },
     {
       "path": "tests/test_computer_round14_verification.py",
@@ -2813,7 +3780,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "e878244ba73141d938db1cbe166c83f0c385ea8478d74f61dd42fe2f2984be44",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pointer postconditions, native disappearance, crop coordinate mapping and delivery gates run real controller/adapter against inert native endpoints; no live graphical proof."
+      "blocked_on": "Remaining integration definitions require _context foreground delivery; direct pointer/native verification definitions support only."
     },
     {
       "path": "tests/test_computer_scope_readiness_r13.py",
@@ -2825,10 +3792,35 @@
         "admission",
         "status projection"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6a-computer-restored-corpus",
       "inherited_sha256": "f3c4f80c1d8aafa864c1781355698f17cb03228f72b759cf1ee8430e996c646b",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Scope reason retention, target readiness, fresh authority and public HTTP projection include backend start/act boundaries using synthetic IO."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ],
+        "reason": "{'mode': 'frozen-adapter', 'selectors': ['tests/test_desktop_step8_6a_computer_corpus.py'], 'inherited_sha256': 'f3c4f80c1d8aafa864c1781355698f17cb03228f72b759cf1ee8430e996c646b', 'reason': 'Entire retained immutable corpus; only exact approved removed HTTP projections retired.', 'retired_cases': [{'case': 'test_http_retains_only_known_scope_failure_reasons', 'reviewer': 'Claude, review of step 8 part 4', 'reason': 'Removed Odin web UI HTTP GET /api/computer bearer-authenticated scope diagnostic projection.', 'source_path': 'tests/test_computer_scope_readiness_r13.py', 'source_sha256': 'f3c4f80c1d8aafa864c1781355698f17cb03228f72b759cf1ee8430e996c646b'}]}",
+        "retired_cases": [
+          {
+            "case": "test_http_retains_only_known_scope_failure_reasons",
+            "reason": "Removed Odin web UI HTTP GET /api/computer bearer-authenticated scope diagnostic projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_scope_readiness_r13.py",
+            "source_sha256": "f3c4f80c1d8aafa864c1781355698f17cb03228f72b759cf1ee8430e996c646b"
+          }
+        ]
+      },
+      "retired_cases": [
+        {
+          "case": "test_http_retains_only_known_scope_failure_reasons",
+          "reason": "Removed Odin web UI HTTP GET /api/computer bearer-authenticated scope diagnostic projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_scope_readiness_r13.py",
+          "source_sha256": "f3c4f80c1d8aafa864c1781355698f17cb03228f72b759cf1ee8430e996c646b"
+        }
+      ]
     },
     {
       "path": "tests/test_computer_sequence_injection_r21.py",
@@ -2839,10 +3831,18 @@
         "dispatch truth",
         "durable replay"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6a-computer-restored-corpus",
       "inherited_sha256": "e8cf8cbdaf2d417110b59044585c92282ff17370c412387587b4a34b362eb05f",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Controller sequences persist exact injected/unknown/refused truth through durable replay with synthetic backend, never claiming failed dispatch proves injection."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ],
+        "reason": "{'mode': 'frozen-adapter', 'selectors': ['tests/test_desktop_step8_6a_computer_corpus.py'], 'inherited_sha256': 'e8cf8cbdaf2d417110b59044585c92282ff17370c412387587b4a34b362eb05f', 'reason': 'Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.', 'retired_cases': []}",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_computer_sequences_r19.py",
@@ -2858,7 +3858,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "0442f92afc9a10b42ff115cdbdf316f2f967c7ce0ee69cb561b0c2e3ab0c69b1",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Entire finite-plan suite tests dialog/keyboard binding, cancellation ID settlement, budget preflight, pixel-grounded continuation and honest stroke receipts/no replay through actual controller/store with generated rasters."
+      "blocked_on": "Remaining normal sequence/turn delivery needs _context unavailable foreground service; direct controller/stroke cases support only."
     },
     {
       "path": "tests/test_computer_wayland_config_r8.py",
@@ -2870,10 +3870,18 @@
         "backend selection",
         "no activation"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6a-computer-restored-corpus",
       "inherited_sha256": "9805950ec34b39f95250034c1389c660e7e660a5443d3ffd44432ae25fe3218f",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pure settings cases are joined by actual manager enable/restart pinning and real backend/qualifier selection without activation. Latest computer lifecycle composition wins; configured target is not consent."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ],
+        "reason": "{'mode': 'frozen-adapter', 'selectors': ['tests/test_desktop_step8_6a_computer_corpus.py'], 'inherited_sha256': '9805950ec34b39f95250034c1389c660e7e660a5443d3ffd44432ae25fe3218f', 'reason': 'Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.', 'retired_cases': []}",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_computer_web_binding_r5.py",
@@ -2885,10 +3893,44 @@
         "route binding",
         "controller lifecycle"
       ],
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "86c1759ee2bb5f127e022b8bc41206dc143273a4ca3d4dc302ef33b39f8b46a2",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Live session revocation, raw-token refusal and server-owned route binding include stopping owned foreground controller state. Replace browser authority with genuine Desktop owner bindings, never a privileged shim."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "test_bound_authentication_is_live_and_does_not_extend_expiry",
+          "reason": "Removed browser_binding authentication/expiry contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_web_binding_r5.py",
+          "source_sha256": "86c1759ee2bb5f127e022b8bc41206dc143273a4ca3d4dc302ef33b39f8b46a2"
+        },
+        {
+          "case": "test_no_desktop_authority_from_api_token_or_unbound_transport",
+          "reason": "Removed raw bearer/unbound browser admission.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_web_binding_r5.py",
+          "source_sha256": "86c1759ee2bb5f127e022b8bc41206dc143273a4ca3d4dc302ef33b39f8b46a2"
+        },
+        {
+          "case": "test_route_binding_is_server_owned_not_chat_session_input",
+          "reason": "Removed HTTP chat/execute server-owned browser binding.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_web_binding_r5.py",
+          "source_sha256": "86c1759ee2bb5f127e022b8bc41206dc143273a4ca3d4dc302ef33b39f8b46a2"
+        },
+        {
+          "case": "test_session_revocation_stops_owned_foreground_while_model_waits",
+          "reason": "Removed web foreground browser-session revocation bridge.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_web_binding_r5.py",
+          "source_sha256": "86c1759ee2bb5f127e022b8bc41206dc143273a4ca3d4dc302ef33b39f8b46a2"
+        }
+      ]
     },
     {
       "path": "tests/test_computer_x11_focus_controller.py",
@@ -2903,7 +3945,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "7a19bb517b0aea30a78c876e6cbfcb7291dcd4ec675aeabbd38772d8f774d95b",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Focus transition, fresh eligible delivery before typing, unknown release, no-dispatch preflight and schema batch refusal run actual controller with fake X11 backend."
+      "blocked_on": "Remaining normal-turn focus authority requires _context and exact canonical delivery service; direct focus-controller definitions support only."
     },
     {
       "path": "tests/test_config.py",
@@ -3068,7 +4110,7 @@
       "qualification_group": "phase2-step-6-headless",
       "inherited_sha256": "00a2d64470e19838247ca9c89db2162669a1a315f7e3638afb18ab6a064b69c1",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Retained-output paging includes real local/remote process polling/write/kill authorization and native agent-result dispatch. Background process/agent report composition sets latest step."
+      "blocked_on": "Approved Permission denied conflicts with inherited access denied; neutral native dispatcher adapter incomplete. Both eight-parameter cases deferred, neither retired."
     },
     {
       "blocked_on": null,
@@ -3893,7 +4935,7 @@
       "qualification_group": "phase2-background-host-consumers",
       "inherited_sha256": "06fb2ac3ee5207756d8a4cbc68f6e8a6d6ac4ac61c3e502e0ce4b804ebc9c039",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Media/skill host leases, requester-bound schedules and SSH pool generation/cleanup span background consumers. Skill/schedule execution is last beyond host settings."
+      "blocked_on": "test_run_on_host_falls_back_to_raw_executor_output specifically asserts removed private-only executor fallback; SkillContext.run_on_host now always uses execute. test_run_on_host_preserves_tool_executor_generation_lease's spy is on private _exec_command while actual public governance needs canonical owner. test_schedule_task_propagates_requester_id requires fenced Phase2 scheduled admission. SSH pool tests alone do not restore whole suite."
     },
     {
       "path": "tests/test_hosts_web_edges.py",
@@ -3923,7 +4965,7 @@
       "qualification_group": "phase2-background-computer-recovery",
       "inherited_sha256": "a7a16d5d09fb8bccfa22c879785bcab7b89fa38f275303fb57c66af57b2e324c",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Headless computer controller/store continuity after interruption requires genuine turn binding, reconciliation, fresh observation and no replay; native qualification remains separate."
+      "blocked_on": "All 3 cases require drawing fixture, real runner finish_turn/bind_turn and fresh image delivery authority. Desktop foreground turn binding missing."
     },
     {
       "path": "tests/test_hyprland_discovery_campaign.py",
@@ -3935,10 +4977,18 @@
         "native identity",
         "admission"
       ],
-      "qualification_group": "phase2-background-computer-discovery",
+      "qualification_group": "phase2-step6a-hyprland-restored-corpus",
       "inherited_sha256": "702606233a69db0b2793ce4a6a0d104dd17e66cd87a4c3c644531c6ee10e2f88",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Computer runtime construction/discovery, native identity/candidate validation and fail-closed admission are step6 headless contracts. Do not claim native active-desktop qualification from stubbed tests."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_hyprland_corpus.py"
+        ],
+        "reason": "All 15 frozen cases unchanged through real discovery resolver, integration backend constructor/configuration and neutral retained lifecycle _construct. Socket fixtures are disposable Unix paths, never native desktop startup or foreground grants.",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_hyprland_keyboard_raster_grounding.py",
@@ -3953,7 +5003,7 @@
       "qualification_group": "phase2-background-computer-actions",
       "inherited_sha256": "e28f5918b6b1f4db887a85e34d170145210cb7ac23502a75268f2b9d4aa36ce8",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Grounded keyboard/raster input crosses controller, turn admission, native transport and durable receipts. Preserve owner/turn binding and raster evidence through computer service composition."
+      "blocked_on": "3 normal composed-keyboard/pointer cases require missing Desktop foreground image authority. Independent fourth case can use real controller exact canonical-owner keyboard fixture in followup; not claimed whole restored."
     },
     {
       "path": "tests/test_hyprland_multiturn_drawing.py",
@@ -3967,7 +5017,7 @@
       "qualification_group": "phase2-background-computer-actions",
       "inherited_sha256": "e8b5288290ebed4db9d25938ac913f82b3ee8039dfdf821f8036c3c4a0db6bca",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Multi-turn controller/store actions and real turn-loop integration require computer binding/recovery; graphics fixtures must remain disposable and never establish active-desktop qualification."
+      "blocked_on": "Both cases exercise real ToolLoopRunner finish-turn/bind-turn and manager consent across several turns. No Desktop foreground harness exists."
     },
     {
       "path": "tests/test_hyprland_normal_turn_wire_r33.py",
@@ -3978,10 +5028,23 @@
         "foreground turn",
         "transport/receipts"
       ],
-      "qualification_group": "phase2-background-computer-actions",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "9277c54475cead8f7a5a00d8a0d064841fdfa53a82b40d42af55f53720f7c462",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Normal-turn computer action wiring preserves ownership, transport and receipt behavior through genuine foreground-turn bindings."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "test_normal_turn_native_stroke_next_frame_no_replay_and_cleanup",
+          "reason": "Both exact frozen surface parameters discord and webui assert removed Discord/web transport. No Desktop parameter inherited. Native wire backend remains retained; this retirement does not qualify it.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_hyprland_normal_turn_wire_r33.py",
+          "source_sha256": "9277c54475cead8f7a5a00d8a0d064841fdfa53a82b40d42af55f53720f7c462"
+        }
+      ]
     },
     {
       "path": "tests/test_hyprland_popup_focus_working_paths.py",
@@ -3995,7 +5058,7 @@
       "qualification_group": "phase2-background-computer-actions",
       "inherited_sha256": "b5e02b392381ced2541ca7d05eb347815d82258ac8012a9f68e77a7be37bd0ec",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Controller/turn focus and popup working paths require scoped computer binding, with native graphical qualification kept separate."
+      "blocked_on": "All 7 cases use normal/drawing real foreground dispatch and inspection authority. Native backend retained but canonical Desktop foreground seam absent."
     },
     {
       "path": "tests/test_hyprland_release_outcomes_regression.py",
@@ -4010,7 +5073,7 @@
       "qualification_group": "phase2-background-computer-recovery",
       "inherited_sha256": "fec2f274c5b9f98ef361fe27fca59984424ad4362445d23d393e12236c550c7b",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Computer interruption receipts, uncertain release, quarantine and reconciliation are preserved step6 computer contracts, not app-only UI."
+      "blocked_on": "2 normal-fixture cases require real foreground durable receipts/image delivery. 5 independent actual backend-release cases pass unchanged as support, not whole restoration."
     },
     {
       "path": "tests/test_image_default_update_paths.py",
@@ -4027,18 +5090,18 @@
       "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Mixed suite retains step5 image-default migration/provisioning assertions but its real apply/failure/rollback Git updater and scheduled app restart are Desktop app/distribution update obligations, outside the engine. Preserve runtime cases in step5 and defer only actual app-owned update-path equivalence; never resurrect HTTP self-update or import another installation."
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Revisioned image-model settings, validation, atomic persistence and error/cancellation boundaries remain runtime settings contracts despite legacy HTTP fixtures.",
-      "inherited_sha256": "25a525b1f9b5b5b1c45aac61b61f34c814afafc57d4fc5c3f361e635da145a62",
       "path": "tests/test_image_model_config_api.py",
-      "qualification_group": "phase2-runtime-settings",
-      "reason": "Revisioned image-model settings, validation, atomic persistence and error/cancellation boundaries remain runtime settings contracts despite legacy HTTP fixtures.",
-      "status": "deferred",
       "step": 5,
+      "reason": "Revisioned image-model settings, validation, atomic persistence and error/cancellation boundaries remain runtime settings contracts despite legacy HTTP fixtures.",
       "surfaces": [
         "image settings validation",
         "revisioned persistence",
         "failure/cancellation"
-      ]
+      ],
+      "qualification_group": "phase2-runtime-settings",
+      "inherited_sha256": "25a525b1f9b5b5b1c45aac61b61f34c814afafc57d4fc5c3f361e635da145a62",
+      "status": "deferred",
+      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Revisioned image-model settings, validation, atomic persistence and error/cancellation boundaries remain runtime settings contracts despite legacy HTTP fixtures."
     },
     {
       "path": "tests/test_independent_credential_review.py",
@@ -4426,7 +5489,7 @@
       "qualification_group": "phase2-background-mcp",
       "inherited_sha256": "3947e6fa123f9c612d90dac6d4f37b63b279a0854b14fb31ada9e1fcc786b6ef",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. MCP persistence, secret patch/redaction, live reconciliation and status require named Desktop MCP management plus settings, not the old HTTP admin registrar."
+      "blocked_on": "32 legacy web HTTP route cases removable, but TestManagementCancellationDrain's two _drain_mcp_management helper cases are not solely removed listeners and require reviewer disposition or service transaction adapter. Exact full-case removal accounting not completed; no whole-suite retirement claim."
     },
     {
       "path": "tests/test_mcp_client_eras.py",
@@ -4437,10 +5500,18 @@
         "stdio/HTTP transport",
         "discovery/cancellation"
       ],
-      "qualification_group": "phase2-background-mcp",
+      "qualification_group": "phase2-step6a-tools-restored-corpus",
       "inherited_sha256": "62c51bc82631c0554f09138ceccf7461c069e7231da58377ca55751a8cdc73a8",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. MCP negotiation, stdio/HTTP discovery, calls and cancellation with disposable fake servers are retained engine transport contracts."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_tools_corpus.py"
+        ],
+        "reason": "All71 inherited functions unchanged; real stdio subprocess and private fake remote HTTP endpoint transport. These are MCP client HTTP contracts, not removed Odin HTTP listeners or bearer sessions.",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_mcp_dispatch.py",
@@ -4455,7 +5526,7 @@
       "qualification_group": "phase2-background-mcp",
       "inherited_sha256": "c47b22b4afcbb87a666d7bd2eb7a4aa5064773c06ca6982af6d712004f14df73",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Typed MCP failures/uncertainty, argument scrubbing and dispatch through loop/background paths need actual MCP/work owner composition."
+      "blocked_on": "Actual attempt restored manager dispatch through MCPService, but five inherited background calls fail real authenticated output-retention requirement in runtime_delivery.py:87-95 because frozen setup supplies None/MagicMock executor. Exact real executor readiness/retention fixture for synthetic native tool names needs approved setup mapping; do not manufacture permissive policy. Not whole restored."
     },
     {
       "path": "tests/test_mcp_edges.py",
@@ -4467,10 +5538,18 @@
         "publication",
         "HTTP transport"
       ],
-      "qualification_group": "phase2-background-mcp",
+      "qualification_group": "phase2-step6a-tools-restored-corpus",
       "inherited_sha256": "42dcd4392df123a0be27bc081b3a612eb4241814805e559084f4858515a69df3",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. MCP rendering, lifecycle mutation/recovery, publication invalidation and HTTP retry/misuse are MCP engine contracts, not app-only native qualification."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_tools_corpus.py"
+        ],
+        "reason": "All24 inherited functions. MCPManager remains genuine retained engine; execute enters real MCPService with current canonical OwnerAuthority context. Real private transports unchanged.",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_mcp_manager.py",
@@ -4482,10 +5561,18 @@
         "recovery",
         "typed execution"
       ],
-      "qualification_group": "phase2-background-mcp",
+      "qualification_group": "phase2-step6a-tools-restored-corpus",
       "inherited_sha256": "e1bc52991260c7890115df0d4b26df7afa8a47c8160df580d5633fc682939ed3",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real manager control/publication/allowlist/recovery/typed execution assertions need supervised MCP composition; preserve original manager invariants and fake-server boundaries."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_tools_corpus.py"
+        ],
+        "reason": "All39 inherited functions. Same retained real manager and real transport implementation; MCPService handles execute authority, no fake service or permission manager.",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_mcp_media_checkpoint.py",
@@ -4496,10 +5583,18 @@
         "bounded binary evidence",
         "request continuation"
       ],
-      "qualification_group": "phase2-background-mcp-media",
+      "qualification_group": "phase2-step6a-tools-restored-corpus",
       "inherited_sha256": "b753c0ce54463d2d0eaa161974ea9ffe970066bfb4494f62ded245f699580ef6",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Negotiated MCP media parsing, bounded binary handling and image-to-model handoff require MCP composition with request continuation."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_tools_corpus.py"
+        ],
+        "reason": "All11 inherited functions. Real negotiated transport/media ingress. Synthetic outcome injected at retained manager backend, replaces SimpleNamespace manager with actual MCPService; inherited one-dispatch assertion preserved.",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_mcp_media_surfaces_checkpoint.py",
@@ -4514,7 +5609,7 @@
       "qualification_group": "phase2-background-mcp-media",
       "inherited_sha256": "3867dc01832dd100673748535ee26a5190e289d77b79931d84d6d58b2e5f057a",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. MCP image evidence spans chat/provider and agent turns, call grouping and retained-output nondisclosure. Agent/MCP composition wins over earlier delivery."
+      "blocked_on": "Inherited agent and autonomous paths require fenced spawn/autonomous request admission, including callback from test_agent_image_safety. Web API chat case is removed listener surface, but survivor real runner/computer freshness setup needs full RequestService binding. Cannot preserve whole suite by executing removed _tools/make_bot factories."
     },
     {
       "path": "tests/test_mcp_publication_limits.py",
@@ -4528,7 +5623,7 @@
       "qualification_group": "phase2-background-mcp",
       "inherited_sha256": "350d4b9cb725fc5cf3bc7a136dc37908dc174226b98daf1bd784209c55eb1cf6",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Config, live-manager wiring and real publication enforce MCP limits; replace authenticated legacy endpoints with named settings/MCP operations."
+      "blocked_on": "Mixed actual publication with removed HealthServer/ApiTokenIdentity/WebConfig listener fixture. test_apply_registry_classifies_live_limits_not_server_container asserts POST /api/mcp/limits exactly. Surviving dynamic whole-config rebind make_bot fixtures need actual settings transaction adapter, MCPService snapshots effective limits rather than direct config assignment. No full exact restoration completed."
     },
     {
       "path": "tests/test_mcp_transport_http.py",
@@ -4539,10 +5634,18 @@
         "bounds",
         "session lifecycle"
       ],
-      "qualification_group": "phase2-background-mcp",
+      "qualification_group": "phase2-step6a-tools-restored-corpus",
       "inherited_sha256": "be86586786e7cb0f22d94649bb82df033f212476831ded04b077cf2352b83301",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. MCP HTTP headers, redirects, body/SSE bounds and session deletion are direct engine transport assertions. HTTP is not grounds for Phase3 deferral."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_tools_corpus.py"
+        ],
+        "reason": "All11 inherited functions unchanged; client HTTP transport with isolated fake remote endpoints. Remote MCP Authorization header test is not an Odin bearer session and is retained.",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_mcp_wiring.py",
@@ -4556,7 +5659,7 @@
       "qualification_group": "phase2-background-mcp",
       "inherited_sha256": "437864d8d44d4d8e6a6741caff73d9cdb61eb863f71a8c10644a5194cd5d5d83",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. MCP boot adoption/shutdown, health and catalogue invalidation require supervised Desktop MCP startup with runtime reporting; preserve disabled/failed/teardown outcomes."
+      "blocked_on": "Frozen boot fixtures import removed start_mcp/shutdown_services facade paths; surviving manager/health/config/locking cases mixed with model turn integration and production-fenced autonomous dispatch. Whole real CoreService+ManagementService lifecycle adapter not completed. The neutral engine coverage is restored in manager suite, not falsely counted as this suite."
     },
     {
       "path": "tests/test_mixed_agent_reasoning_contract.py",
@@ -4652,7 +5755,7 @@
       "qualification_group": "phase2-background-media",
       "inherited_sha256": "53dd95c883e2c974712b06d1f01d3346e5f9ee68d1fb35ef2304de415d249dbb",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Browser screenshots, file/image posting and SSH host media boundaries require the browser/native media service beyond step3 artifacts and step5 host policy."
+      "blocked_on": "Mixed suite: removed Discord attachment URL/File/send/HTTPException contracts coexist with surviving MIME, validation and image-ingress cases. src/discord/native_tools/media.py lacks _safe_discord_attachment_url and the inherited import therefore fails. Exact case retirement and full real admitted DesktopMediaTools RequestService adapter for survivors not completed. Do not retire all32 merely because import mentions Discord."
     },
     {
       "path": "tests/test_native_monitoring_removal.py",
@@ -4759,10 +5862,30 @@
         "scheduler availability",
         "local admission"
       ],
-      "qualification_group": "phase2-runtime-background-composition",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "8e98a27813ed4e8fa9c5aa61196441b047324d78de27eef3a72ca36825ba7ec0",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Composed fresh-install publication reaches ordinary tool inventory and scheduler availability, fences stale connection generations, and does not widen a listener. Adapt to authenticated local core/runtime plus real background service composition; scheduler availability is beyond step5. Legacy listener presentation is replaced, not copied as a management API."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "test_fresh_bootstrap_becomes_ordinary_composed_api_without_widening",
+          "reason": "Removed Discord/API/bearer onboarding.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_onboarding_full_parity_campaign.py",
+          "source_sha256": "8e98a27813ed4e8fa9c5aa61196441b047324d78de27eef3a72ca36825ba7ec0"
+        },
+        {
+          "case": "test_listener_consent_does_not_rebind_or_restart_composed_server",
+          "reason": "Removed HTTP listener consent/rebind.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_onboarding_full_parity_campaign.py",
+          "source_sha256": "8e98a27813ed4e8fa9c5aa61196441b047324d78de27eef3a72ca36825ba7ec0"
+        }
+      ]
     },
     {
       "path": "tests/test_onboarding_journey_campaign.py",
@@ -4775,10 +5898,37 @@
         "scheduler status",
         "authenticated events"
       ],
-      "qualification_group": "phase2-runtime-background-composition",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "4832a6b1241ab4198d1936d35daa4e4fe1ebe52463ff3b9e71ec18046b809183",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. The composed journey covers pending setup, Codex device-code sign-in, durable completion, credential correction and ordinary scheduler status/event reachability. Preserve authentication and publication invariants over local protocol; schedule status is the last retained domain, not an excuse to restore HTTP/WebSocket management."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "test_completed_install_corrects_discord_credential_only_through_dedicated_admin_route",
+          "reason": "Removed Discord admin onboarding route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_onboarding_journey_campaign.py",
+          "source_sha256": "4832a6b1241ab4198d1936d35daa4e4fe1ebe52463ff3b9e71ec18046b809183"
+        },
+        {
+          "case": "test_pending_install_is_loopback_ui_only_and_codex_stays_loopback_safe",
+          "reason": "Removed web onboarding listener.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_onboarding_journey_campaign.py",
+          "source_sha256": "4832a6b1241ab4198d1936d35daa4e4fe1ebe52463ff3b9e71ec18046b809183"
+        },
+        {
+          "case": "test_submission_immediately_requires_web_credential_and_enables_normal_scheduler_routes",
+          "reason": "Removed web credential/listener onboarding.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_onboarding_journey_campaign.py",
+          "source_sha256": "4832a6b1241ab4198d1936d35daa4e4fe1ebe52463ff3b9e71ec18046b809183"
+        }
+      ]
     },
     {
       "path": "tests/test_onboarding_partial_publication.py",
@@ -5079,7 +6229,7 @@
       "qualification_group": "phase2-background-skill-execution",
       "inherited_sha256": "592b3738e40ef7097f16663ad11ac929a239c3f7761f839ae0520daa5626f7e4",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Containment/wire probes include SkillContext execution and legacy skill embedder behavior in addition to real executor multi/script/file/HTTP routes. Whole-suite restoration needs owner-scoped skill execution, while local supervisor primitives alone are already present. Replace the oversized legacy runtime fixture with genuine temporary profile dependencies, preserving original route/mode/kind/ending matrices and bytes; no readiness bypass."
+      "blocked_on": "Remaining native call/skill/background-task cases need actual tool_executor/skill-manager/ToolLoopRunner service graph. Three supervised-process/static support definitions not whole restoration."
     },
     {
       "path": "tests/test_predictive_presend.py",
@@ -5538,10 +6688,18 @@
         "health",
         "auxiliary clients"
       ],
-      "qualification_group": "phase2-background-regressions",
+      "qualification_group": "phase2-step6a-computer-restored-corpus",
       "inherited_sha256": "93148dd08a347b3ac078ea19347c41a9a3b401694c3561eebd6b60bac4369c57",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Mixed regressions include agent state/depth/tree and branch diagnostics alongside stream delivery, SSH cleanup, health and auxiliary clients. Background agent/diagnostics owners win; keep all containment and failure assertions with harmless boundaries."
+      "status": "restored",
+      "blocked_on": null,
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ],
+        "reason": "{'mode': 'frozen-adapter', 'selectors': ['tests/test_desktop_step8_6a_computer_corpus.py'], 'inherited_sha256': '93148dd08a347b3ac078ea19347c41a9a3b401694c3561eebd6b60bac4369c57', 'reason': 'Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.', 'retired_cases': []}",
+        "retired_cases": []
+      }
     },
     {
       "path": "tests/test_runtime_output_delivery.py",
@@ -5880,7 +7038,58 @@
       "qualification_group": "phase2-runtime-background-composition",
       "inherited_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Import/constructor smoke coverage spans core, runtime and agent/MCP/scheduler/browser symbols plus a real old bot constructor/listener extension contract. Background startup composition is the latest engine owner. Outbound-webhook helper imports/config presence are not inbound ingress and do not require step7; exact obsolete bot/extension assertions need reviewed adaptation."
+      "blocked_on": "Mixed import-sweep includes removed Discord module. Whole case deferred with all parameters unchanged.",
+      "retired_cases": [
+        {
+          "case": "TestEntryPoint.test_client_module_imports",
+          "reason": "Removed Discord OdinBot public facade.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestOdinBotInit.test_bot_has_cog_list",
+          "reason": "Removed Discord cog bootstrap.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestOdinBotInit.test_instantiate_bot",
+          "reason": "Removed Discord OdinBot construction.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestOdinConfig.test_construct_default",
+          "reason": "Removed Discord bootstrap token dataclass.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestOdinConfig.test_construct_with_token",
+          "reason": "Removed Discord token validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestOdinConfig.test_validate_missing_token",
+          "reason": "Removed Discord token validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestPydanticConfig.test_config_has_all_round_fields",
+          "reason": "Exact removed web and multi-user tier fields.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        }
+      ]
     },
     {
       "path": "tests/test_startup_auth_middleware_review.py",
@@ -6039,7 +7248,7 @@
       "qualification_group": "phase2-background-dependencies",
       "inherited_sha256": "f7db630da366641f110d4f433398747dbd6a24f8bdf3be31acb936abacdd0311",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Tool availability must hide an unavailable optional dependency and preserve catalogue publication behavior. Skill/dependency lifecycle owns this contract, not a core import exemption."
+      "blocked_on": "Frozen test patches src.discord.tool_catalog.importlib.util.find_spec and asserts its log.info; retained Desktop catalog module no longer exposes importlib or dependency logging. Actual build_engine_services readiness checks dependency via src.desktop.services.importlib.util.find_spec and hides PDF but does not emit inherited actionable log. Exact setup adapter requires resolving this real diagnostic contract gap, not faking a log or changing assertions."
     },
     {
       "path": "tests/test_tool_failure_visibility.py",
@@ -6386,7 +7595,7 @@
       "qualification_group": "phase2-runtime-background-composition",
       "inherited_sha256": "fccb791f3278f7b0f1feb6cea491a492a96ce85a0cca9d10973059064effb477",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Settings/provisioning/status/personality/transaction and pending-restart assertions are primarily runtime step5, but generic-config MCP refusal exercises a real published MCP manager and catalog preservation, requiring step6. Background counts and catalogue invalidation also need work composition; legacy guild/identity/HTTP/restart presentation requires exact owner adaptation, no new owner ACL."
+      "blocked_on": "Mixed neutral explicit-path config helper and actual HTTP routes. Entire suite deferred pending exact Desktop adapter; no blanket retirement."
     },
     {
       "path": "tests/test_web_api_integrations.py",
@@ -6400,10 +7609,198 @@
         "stable target identity",
         "restart parity"
       ],
-      "qualification_group": "phase2-background-mcp-integrations",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. MCP lifecycle/validation plus real outbound-hook durable CRUD test missing services, secret masking, cancelled publication, hand-edited conflicts, stable/reindexed IDs and YAML/env preservation. MCP management step6 wins over outbound configuration step5; these are not inbound trigger tests."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "TestMcpServers.test_add_validates_before_any_persistence",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestMcpServers.test_enabled_requires_boolean",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestMcpServers.test_list_and_unknown_lookups",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestMcpServers.test_mask_values_rejected",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestMcpServers.test_status_always_works_even_disabled",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_basic_auth_url_password_is_masked_in_all_crud_responses",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_boolean_fields_reject_non_booleans_without_echoing_values",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_cancelled_persistence_commit_propagates_after_swap",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_create",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_create_attaches_missing_targets_key",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_delete_and_test",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_delete_idless_duplicate_url_keeps_remaining_runtime_identity",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_disabled_503",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_edited_idless_row_rebinds_after_earlier_delete",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_failed_persistence_returns_503_without_swapping_state",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_hand_deleted_target_conflicts_without_resurrecting_it",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_hand_edited_legacy_url_conflicts_without_reappending_old_url",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_invalid_boolean_error_names_field_without_echo",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_list_and_stats",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_non_string_update_is_bad_request",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_test_event_success_response",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_unexpected_mutation_error_returns_503",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_update",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_update_and_delete_unexpected_errors_return_503",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_webhook_crud_preserves_exact_trailing_template",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_webhook_round_trip_preserves_config_owned_yaml",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        }
+      ]
     },
     {
       "path": "tests/test_web_api_integrations_validation_coverage.py",
@@ -6485,13 +7882,9 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Provider selection/catalogues/config/pools/device-independent status test schema coercion, immutable reload plans, CAS, settled cancellation, rollback failures, secret scrubbing and boot-effective truth. Agent catalogue eligibility fields are runtime policy projection, not agent execution; retain full original fault/parameter matrices through provider/settings services.",
-      "inherited_sha256": "f3fc8276fc85ab39e3234dff0f902e1d800d8f64ec6d0c58c2d5aa01d26980d1",
       "path": "tests/test_web_api_llm_admin.py",
-      "qualification_group": "phase2-runtime-providers",
-      "reason": "Provider selection/catalogues/config/pools/device-independent status test schema coercion, immutable reload plans, CAS, settled cancellation, rollback failures, secret scrubbing and boot-effective truth. Agent catalogue eligibility fields are runtime policy projection, not agent execution; retain full original fault/parameter matrices through provider/settings services.",
-      "status": "deferred",
       "step": 5,
+      "reason": "Provider selection/catalogues/config/pools/device-independent status test schema coercion, immutable reload plans, CAS, settled cancellation, rollback failures, secret scrubbing and boot-effective truth. Agent catalogue eligibility fields are runtime policy projection, not agent execution; retain full original fault/parameter matrices through provider/settings services.",
       "surfaces": [
         "provider management",
         "model catalogue",
@@ -6500,7 +7893,11 @@
         "rollback",
         "configured versus serving truth",
         "context policy"
-      ]
+      ],
+      "qualification_group": "phase2-runtime-providers",
+      "inherited_sha256": "f3fc8276fc85ab39e3234dff0f902e1d800d8f64ec6d0c58c2d5aa01d26980d1",
+      "status": "deferred",
+      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Provider selection/catalogues/config/pools/device-independent status test schema coercion, immutable reload plans, CAS, settled cancellation, rollback failures, secret scrubbing and boot-effective truth. Agent catalogue eligibility fields are runtime policy projection, not agent execution; retain full original fault/parameter matrices through provider/settings services."
     },
     {
       "blocked_on": null,
@@ -6649,10 +8046,114 @@
         "trajectory records",
         "agent trajectories"
       ],
-      "qualification_group": "phase2-background-records",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Conversation CRUD/search/export and chat execution projections are joined by agent trajectory list/read/search registrars. Agent record ownership step6 is last; preserve filter/path guards and invalid-query/storage-error distinctions through conversation/request/record/work services rather than keeping an HTTP API."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "TestAgentTrajectories.test_all",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestAgentTrajectories.test_unavailable_503",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestChat.test_escaping_exception_never_leaks_its_text",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestChat.test_success_and_error_and_session",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestChat.test_validation",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestExecute.test_validation_and_success",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_clear_bulk",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_get_export_delete",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_list_and_stats_and_search",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_non_admin_access",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_search_invalid_query_and_failure_are_distinct",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_surrogate_query_is_400_at_route_boundary",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestTrajectories.test_all",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestTrajectories.test_unavailable_503",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        }
+      ]
     },
     {
       "path": "tests/test_web_api_skills_and_observability.py",
@@ -6664,10 +8165,72 @@
         "failed definitions",
         "audit integrity"
       ],
-      "qualification_group": "phase2-background-skills",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real SkillManager CRUD/enable/disable/test/failed-definition inventory and prompt filtering sit beside real signed-audit query/verification. Skills publication step6 wins; preserve persistence and no false loaded/enabled inventory semantics through named services."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "TestObservabilityRoutes.test_audit_query_and_verify",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestObservabilityRoutes.test_audit_verify_unsigned_409",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestObservabilityRoutes.test_tools_list_and_stats",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestSkillsRoutes.test_enable_disable_and_config",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestSkillsRoutes.test_get_missing_skill",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestSkillsRoutes.test_list_create_get_delete",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestSkillsRoutes.test_prompt_runtime_filter_and_api_inventory_toggle",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestSkillsRoutes.test_validate_route",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        }
+      ]
     },
     {
       "blocked_on": null,
@@ -6702,10 +8265,44 @@
         "conversation isolation",
         "scheduled scoped authority"
       ],
-      "qualification_group": "phase2-background-authority",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Production-route tier matrix and own-session boundary require explicit replacement with owner-authenticated named-service coverage, not an arbitrary HTTP/RBAC API. The scheduled-tool test also binds scheduler scoped authority and denied user execution; scheduler/native composition is the last required domain."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "test_every_registered_route_tier_matrix",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_campaign_authorization.py",
+          "source_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c"
+        },
+        {
+          "case": "test_falsy_requester_never_bypasses_rbac",
+          "reason": "Removed multi-user tier RBAC: check_permission plus tier PermissionManager, not an HTTP or Discord transport case. The same falsy-requester invariant remains pinned by tests/test_desktop_shared_tools.py::test_real_owner_host_fences_reject_ambient_or_payload_identity and the falsy-identity owner checks in tests/test_desktop_shared_foundation.py.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_campaign_authorization.py",
+          "source_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c"
+        },
+        {
+          "case": "test_session_owner_boundary",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_campaign_authorization.py",
+          "source_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c"
+        },
+        {
+          "case": "test_system_schedule_has_explicit_scoped_authority",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_campaign_authorization.py",
+          "source_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c"
+        }
+      ]
     },
     {
       "path": "tests/test_web_campaign_policy_races.py",
@@ -6853,7 +8450,79 @@
       "qualification_group": "phase2-background-management-validation",
       "inherited_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Mixed scope includes retired HTTP gates/proxies, runtime redaction/settings, preserved tool-specific URL safety/context loader and a cross-route mask fence covering skill/MCP mutation. Background skill/MCP named commands are last; preserve internal http_probe availability versus stricter fetch guards and real-value acceptance, adding no universal owner approval rule."
+      "blocked_on": "Neutral client_ip parser helpers missing exact Desktop adapters. All client_ip helpers deferred, not retired. Redaction, SSRF, outbound probe and context cases are partial support only.",
+      "retired_cases": [
+        {
+          "case": "TestRedactionMaskMiddleware.test_a_masked_body_never_reaches_the_handler",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_malformed_json_is_left_to_the_handler",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_reads_and_malformed_bodies_are_not_inspected",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_real_server_chain_fences_valid_json_with_false_content_type",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_real_values_are_untouched",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_the_fence_is_actually_installed_on_the_real_server",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_valid_json_cannot_bypass_with_a_false_content_type",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "test_admin_only_paths_matched",
+          "reason": "Removed admin HTTP paths.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "test_admin_prefix_exact_and_subpath",
+          "reason": "Removed admin HTTP paths.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "test_non_admin_paths_not_matched",
+          "reason": "Removed admin HTTP paths.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        }
+      ]
     },
     {
       "path": "tests/test_web_skill_identity_v412.py",
@@ -6866,10 +8535,44 @@
         "nested tool admission",
         "output scope cleanup"
       ],
-      "qualification_group": "phase2-background-skill-execution",
+      "qualification_group": "not-applicable-retired",
       "inherited_sha256": "ad710cb8fdef1f7219ecd941cb413c971624d681c39c03a9c78413e755083081",
-      "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real SkillContext execution must have equivalent task-local identity/default-host/output scope to foreground chat, including denied nested tools, error contracts and scope cleanup on manager failure. Adapt removed tier/token presentation to genuine scoped owner/host bindings without adding owner ACLs; skills execution is last."
+      "status": "retired",
+      "blocked_on": null,
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      },
+      "retired_cases": [
+        {
+          "case": "test_manager_failure_preserves_500_contract_and_cleans_identity_scope",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skill_identity_v412.py",
+          "source_sha256": "ad710cb8fdef1f7219ecd941cb413c971624d681c39c03a9c78413e755083081"
+        },
+        {
+          "case": "test_skill_result_error_reporting_unchanged",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skill_identity_v412.py",
+          "source_sha256": "ad710cb8fdef1f7219ecd941cb413c971624d681c39c03a9c78413e755083081"
+        },
+        {
+          "case": "test_skill_test_enforces_selected_skill_and_nested_tool_scope",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skill_identity_v412.py",
+          "source_sha256": "ad710cb8fdef1f7219ecd941cb413c971624d681c39c03a9c78413e755083081"
+        },
+        {
+          "case": "test_skill_test_matches_chat_host_and_tier",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skill_identity_v412.py",
+          "source_sha256": "ad710cb8fdef1f7219ecd941cb413c971624d681c39c03a9c78413e755083081"
+        }
+      ]
     },
     {
       "path": "tests/test_web_skills_v413.py",
@@ -6885,7 +8588,37 @@
       "qualification_group": "phase2-background-skills",
       "inherited_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c",
       "status": "deferred",
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real module reload/flags/error diagnostics, disabled edit/test and publication exclusion, durable enable failure and safe failed-definition deletion belong to skills lifecycle. Preserve native-versus-management deletion distinction and path/alias protection, using temporary skill roots."
+      "blocked_on": "Two direct neutral failed-delete helpers lack exact Desktop adapters; four actual route cases retired.",
+      "retired_cases": [
+        {
+          "case": "test_api_activation_storage_failure_has_no_published_change",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skills_v413.py",
+          "source_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c"
+        },
+        {
+          "case": "test_disabled_edit_test_and_reload_keep_prompt_catalog_exclusion",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skills_v413.py",
+          "source_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c"
+        },
+        {
+          "case": "test_failed_delete_is_web_only_and_clears_disk_error_restart",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skills_v413.py",
+          "source_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c"
+        },
+        {
+          "case": "test_failed_delete_unlink_failure_preserves_card",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skills_v413.py",
+          "source_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c"
+        }
+      ]
     },
     {
       "path": "tests/test_web_websocket.py",

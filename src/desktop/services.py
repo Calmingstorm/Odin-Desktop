@@ -211,6 +211,7 @@ class EngineServices:
         await release(d.channel_state, "shutdown_steering")
         await release(d.loop_manager, "shutdown")
         await release(d.scheduler, "stop")
+        await release(getattr(d, "usage_rollup", None), "stop")
         mcp_service = getattr(d, "management_mcp_service", None)
         if mcp_service is not None:
             await release(mcp_service, "close")
@@ -276,6 +277,7 @@ class EngineServices:
             await asyncio.to_thread(d.sessions.save)
         except Exception as error:
             failed("sessions_save", error)
+        await release(getattr(d, "image_backend", None), "close")
         knowledge = getattr(d, "knowledge_store", None)
         if knowledge is None:
             knowledge = getattr(d.runtime_context, "knowledge_store", None)
@@ -442,6 +444,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..tools.time_parser import set_default_timezone
     from ..trajectories.saver import TrajectorySaver
     from ..turn_state import TurnStateStore
+    from ..usage.rollup import UsageRollup
     from .integrations import ProfileOutboundWebhookDispatcher
 
     runtime = runtime_context or SimpleNamespace()
@@ -523,6 +526,18 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     trajectories = getattr(runtime, "trajectory_saver", None) or TrajectorySaver(str(paths.data_dir / "trajectories"))
     agent_trajectories = getattr(runtime, "agent_trajectory_saver", None) or AgentTrajectorySaver(
         str(paths.data_dir / "agent_trajectories"))
+    usage = getattr(runtime, "usage_rollup", None) or UsageRollup(
+        str(paths.data_dir / "usage"), trajectory_directory=str(trajectories.directory),
+        agent_trajectory_directory=str(agent_trajectories.directory), audit=audit)
+    trajectories.set_usage_observer(usage)
+    agent_trajectories.set_usage_observer(usage)
+    window_observer = getattr(runtime, "window_observer", None)
+    agents.set_calibration_observer(window_observer)
+    if window_observer is not None:
+        from ..llm.context_budget import WorkloadScope
+
+        loops.set_calibration_releaser(lambda loop_id: window_observer.release_workload(
+            WorkloadScope("loop", str(loop_id))))
     # D17: feature-off or failed-open is Odin's legacy, uncheckpointed run.
     # Keep a successfully opened owner attached: later failure must refuse
     # admission, not silently convert the runtime to legacy execution.
@@ -638,6 +653,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     def readiness():
         ready = {name: callable(executor._resolve_handler(name))
                  for name in PHASE1_EXECUTOR_TOOL_NAMES}
+        # D17: registered native owners are capabilities too. The executor-only
+        # Phase 1 set must not silently hide the retained Phase 2 catalog.
+        from ..tools.builtin_policy import BUILTIN_TOOL_NAMES
+
+        ready.update({name: dispatcher.handles(name) for name in BUILTIN_TOOL_NAMES
+                      if name not in PHASE1_EXECUTOR_TOOL_NAMES})
         for name in ("browser_read_page", "browser_read_table", "browser_click", "browser_fill", "browser_evaluate"):
             available = getattr(browser, "available", None)
             ready[name] = (available() if callable(available)
@@ -653,13 +674,19 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
                       "export_skill": engine.requests is not None})
         ready.update({skill["name"]: skills.has_skill(skill["name"])
                       for skill in skills.list_skills()})
+        ready["browser_screenshot"] = ready["browser_read_page"] and engine.requests is not None
+        ready["generate_image"] = (engine.requests is not None
+                                   and image_backend.is_configured()
+                                   and get_config().openai_codex.enabled
+                                   and get_config().image.openai.enabled)
         for name in ("spawn_agent", "send_to_agent", "list_agents", "kill_agent", "get_agent_results",
                      "wait_for_agents", "delegate_task", "list_tasks", "cancel_task", "start_loop",
                      "stop_loop", "list_loops", "schedule_task", "list_schedules", "update_schedule",
                      "delete_schedule"):
             ready[name] = getattr(engine.deps, "background_work_ready", False)
         for name in ("search_knowledge", "ingest_document", "bulk_ingest_knowledge", "list_knowledge", "delete_knowledge"):
-            ready[name] = knowledge is not None and bool(get_config().search.enabled)
+            ready[name] = (knowledge is not None and knowledge.available
+                           and bool(get_config().search.enabled))
         extra = getattr(runtime, "native_readiness", None)
         if extra is not None:
             supplied = extra() if callable(extra) else extra
@@ -685,7 +712,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         get_mcp_definitions=mcp.get_tool_definitions if mcp else None,
         computer_available=lambda: bool(getattr(owners.get("computer"),
                                                 "published_available", False)),
-        get_email_config=lambda: executor._email_config)
+        get_email_config=lambda: executor._email_config, get_usage_rollup=lambda: usage)
     if settings is not None:
         gateway.tool_catalog, gateway.prompt_builder = catalog, prompt
     gateway.on_provider_switch = catalog.invalidate
@@ -779,8 +806,27 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             finally:
                 publication_tool.reset(token)
 
+        async def _handle_generate_image(self, message, inp):
+            token = publication_tool.set("generate_image")
+            try:
+                return await super()._handle_generate_image(message, inp)
+            finally:
+                publication_tool.reset(token)
+
+        async def _handle_browser_screenshot(self, message, inp):
+            token = publication_tool.set("browser_screenshot")
+            try:
+                return await super()._handle_browser_screenshot(message, inp)
+            finally:
+                publication_tool.reset(token)
+
+    from ..tools.image import ImageBackendSelector, OpenAIImageBackend
+
+    image_backend = OpenAIImageBackend(
+        get_auth=lambda: getattr(gateway.codex_client, "auth", None), get_config=get_config)
     owners.setdefault("media", DesktopMediaTools(
-        get_config=get_config, browser_manager=browser, tool_executor=executor))
+        get_config=get_config, browser_manager=browser, tool_executor=executor,
+        image_selector=ImageBackendSelector(get_config=get_config, openai_backend=image_backend)))
     owners["transcript_history"] = TranscriptHistoryTools()
     dispatcher = _ReadyDispatcher(owners=owners, skill_manager=skills, tool_catalog=catalog,
         prompt_builder=prompt, channel_state=state, builtin_policy=policy,
@@ -796,8 +842,10 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         skill_manager=skills, audit=audit, agent_manager=agents, loop_manager=loops,
         host_registry=hosts, host_access_manager=access, scheduler=scheduler, reflector=reflector,
         context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime,
-        knowledge_store=knowledge, embedder=embedder, compression_stats=compression_stats,
-        outbound_webhook_dispatcher=outbound)
+        usage_rollup=usage, trajectory_saver=trajectories,
+        agent_trajectory_saver=agent_trajectories, window_observer=window_observer,
+        knowledge_store=knowledge, image_backend=image_backend, embedder=embedder,
+        compression_stats=compression_stats, outbound_webhook_dispatcher=outbound)
     d.native_owners = owners
     engine = EngineServices(d, None)
     runner = ToolLoopRunner(ToolLoopDeps(get_config=get_config,
@@ -807,7 +855,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         native_tools=dispatcher, tool_executor=executor, permissions=permissions,
         skill_manager=skills, audit=audit, loop_manager=loops, stuck_loop_tracker_cls=StuckLoopTracker,
-        turn_store=ledger, window_observer=getattr(runtime, "window_observer", None), mcp_manager=mcp,
+        turn_store=ledger, window_observer=window_observer, mcp_manager=mcp,
         kill_agents_for_turn=agents.kill_for_turn, get_computer=lambda: owners.get("computer"),
         assert_request=engine._assert_request, request_admission=engine._admit_turn))
     engine.runner = runner
@@ -822,7 +870,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     # admitted request's durable transcript, never compacted session history.
     dispatcher._handlers["search_history"] = ("transcript_history", "search_history", "msg_input")
     d.housekeeping = Housekeeping(get_config=get_config, sessions=sessions, channel_state=state,
-        prompt_builder=prompt, agent_manager=agents, channel_logger=None, fts_index=None, turn_store=ledger)
+        prompt_builder=prompt, agent_manager=agents, channel_logger=None, fts_index=None,
+        turn_store=ledger, window_observer=window_observer)
     prompt.rebuild_default()
     if request_service is not None:
         engine.bind_requests(request_service)

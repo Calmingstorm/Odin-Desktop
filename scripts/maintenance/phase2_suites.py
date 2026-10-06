@@ -256,6 +256,33 @@ KINDS = ("excluded", "phase2", "retained_adaptation_gated", "retained_support",
 MAP_PATH = "maintenance/phase2-suite-map.json"
 PLAN_PATH = "maintenance/test-plan.json"
 QUALIFICATION_PATH = "maintenance/qualification-plan.json"
+PART4_REVIEWER = "Claude, review of step 8 part 4"
+PART4_PATH = "maintenance/phase2-step8-part4-lane8-dispositions.json"
+# Replaced with the exact parent-audited artifact digest before qualification.
+PART4_SHA256 = "641c1e827e1662e4cc09da2ac9364b834d33d7c6f137e6215777bf2894b80c20"
+PART4_GROUPS = {
+    "phase2-step6a-tools-restored-corpus": {
+        "tests/test_desktop_step8_6a_tools_corpus.py",
+    },
+    "phase2-step6a-computer-restored-corpus": {
+        "tests/test_desktop_step8_6a_computer_corpus.py",
+    },
+    "phase2-step6a-hyprland-restored-corpus": {
+        "tests/test_desktop_step8_6a_hyprland_corpus.py",
+        "tests/test_desktop_step8_6a_hyprland_support.py",
+    },
+    "phase2-step6a-campaigns-restored-corpus": {
+        "tests/test_tool_parity.py",
+        "tests/test_desktop_tool_parity_adaptation.py",
+        "tests/test_desktop_tool_parity_accounting.py",
+        "tests/test_desktop_d17_parity_visibility.py",
+        "tests/test_desktop_step8_6a_campaigns_corpus.py",
+        "tests/test_desktop_step8_6a_characterization_corpus.py",
+        "tests/test_desktop_step8_6a_characterization_provenance.py",
+        "tests/test_desktop_step8_6a_characterization_wiring.py",
+        "tests/test_desktop_step8_6a_empty_fields_corpus.py",
+    },
+}
 RESTORATION_GROUPS = {
     1: "phase2-core-transport",
     2: "phase2-step2-restored-corpus",
@@ -396,6 +423,59 @@ def _adapter_modules(root: Path, selector: str) -> list[ast.Module]:
     return trees
 
 
+def _part4_dispositions(root: Path) -> dict:
+    """Part 4's dispositions; none where its audited artifact is wholly absent.
+
+    Offline fixtures carry no part-4 artifact. A present but changed, unreadable or
+    non-regular artifact still fails closed.
+    """
+    artifact = root / PART4_PATH
+    if not (artifact.exists() or artifact.is_symlink()):
+        return {}
+    data = _regular(root, PART4_PATH).read_bytes()
+    if _digest(data) != PART4_SHA256:
+        raise ValueError("part4 exact audited dispositions artifact hash changed")
+    result = _json(data)
+    if result.get("reviewer") != PART4_REVIEWER:
+        raise ValueError("part4 work-order retirement authority changed")
+    return _indexed(result.get("dispositions"), "part4 dispositions", [])
+
+
+def _part4_case_retirements(root: Path, path: str, inherited_hash: str, rows) -> bool:
+    """Step 8 part 4's audited lane-8 case dispositions, exactly as recorded."""
+    if rows == []:
+        return True
+    if not isinstance(rows, list):
+        return False
+    approved = _part4_dispositions(root).get(path, {})
+    if (approved.get("inherited_sha256") != inherited_hash
+            or rows != approved.get("retired_cases")):
+        return False
+    source = _regular(root, path).read_bytes()
+    if _digest(source) != inherited_hash:
+        return False
+    tree = ast.parse(source)
+    cases = set()
+    for node in tree.body:
+        if (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name.startswith("test_")):
+            cases.add(node.name)
+        elif isinstance(node, ast.ClassDef):
+            cases.update(f"{node.name}.{child.name}" for child in node.body
+                         if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                         and child.name.startswith("test_"))
+    names = []
+    for row in rows:
+        if (not isinstance(row, dict) or set(row) != {
+                "case", "reviewer", "reason", "source_path", "source_sha256"}
+                or row.get("case") not in cases or row.get("reviewer") != PART4_REVIEWER
+                or row.get("source_path") != path or row.get("source_sha256") != inherited_hash
+                or not isinstance(row.get("reason"), str) or not row["reason"].strip()):
+            return False
+        names.append(row["case"])
+    return names == sorted(set(names))
+
+
 def _round3_case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
     """Validate round-three case dispositions against exact frozen source identities."""
     if not isinstance(value, list):
@@ -438,6 +518,9 @@ def _case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool
     if path in ROUND3_CASES:
         # Review of #34, round 3, is a separate authority for its two suites.
         return _round3_case_retirements(root, path, inherited_hash, value)
+    if path in _part4_dispositions(root):
+        # Step 8 part 4's audited lane-8 dispositions are a separate authority.
+        return _part4_case_retirements(root, path, inherited_hash, value)
     if not isinstance(value, list):
         return False
     if not value:
@@ -551,6 +634,26 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
     frozen bytes, pin their digest, guard corpus AST identity and export the
     complete module. Runtime qualification remains the named group's job.
     """
+    # PR48 review 1 explicitly permits eight Desktop assertion bindings, not
+    # blanket corpus equality waivers. Pin the exact reversible adapter, full
+    # export and independent proof, while retaining the immutable source hash.
+    if selector == "tests/test_tool_parity.py":
+        source_hash = "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2"
+        if (path != "tests/characterization/test_tool_parity.py"
+                or inherited_hash != source_hash
+                or case_retirements not in (None, [])):
+            return False
+        pins = {
+            "tests/test_tool_parity.py":
+                "e734b9f088569c37109de900f8bbecf48d6d76885d29c23def4fadd8bf4b3849",
+            "tests/desktop_adapters/tool_parity.py":
+                "91c1549e391b702cb7248921069092cec5ed2f099283bfb86f0a56fb1473fcdd",
+            "tests/test_desktop_tool_parity_adaptation.py":
+                "42a97c359c0141011b82e35bfe94f285629fa771d2c8d897f1baa164af4debe9",
+        }
+        return (_digest(_regular(root, path).read_bytes()) == inherited_hash
+                and all(_digest(_regular(root, name).read_bytes()) == digest
+                        for name, digest in pins.items()))
     trees = _adapter_modules(root, selector)
     reviewed = [] if case_retirements is None else case_retirements
     if not _case_retirements(root, path, inherited_hash, reviewed):
@@ -606,12 +709,12 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
                 return False
             if not dispositions:
                 continue
-            # Older shared loaders used tuple/name selectors for unrelated
-            # corpora. Preserve that established static representation; only
-            # a declared reviewed case projection uses provenance records.
+            # Older shared loaders keep name-list exclusions for other selected
+            # corpora (Phase 1 suites included). Only a declared reviewed case
+            # projection uses provenance records: this suite's own exclusions
+            # must still equal its reviewed retirements (declared == reviewed).
             if not isinstance(dispositions[0], dict):
                 if (excluded_stem not in selections
-                        or selections.get(excluded_stem) is None
                         or any(not isinstance(item, str) for item in dispositions)):
                     return False
                 continue
@@ -884,8 +987,15 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
     restoration_names = set(RESTORATION_GROUPS.values()) - {"phase2-core-transport"}
     additions = set(named) - merged_names
     if (not old_names <= merged_names or not merged_names <= set(named)
-            or additions - restoration_names - {STEP6A_GROUP}):
+            or additions - restoration_names - {STEP6A_GROUP, *PART4_GROUPS}):
         errors.append("qualification: preserve all historical and merged main named groups")
+    for name, selectors in PART4_GROUPS.items():
+        if name in named:
+            group = named[name]
+            if (set(group) != {"name", "files", "reason"}
+                    or set(group.get("files", [])) != selectors
+                    or not isinstance(group.get("reason"), str) or not group["reason"].strip()):
+                errors.append(f"qualification: exact part4 selector required for {name}")
     if STEP6A_GROUP in named:
         group = named[STEP6A_GROUP]
         if (set(group) != {"name", "files", "reason"}
@@ -991,9 +1101,20 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
         if status == "retired":
             mapped_retired.add(path)
             retirement = row.get("retirement", {})
+            part4 = (_part4_dispositions(root).get(path, {}) if step == 6 else {})
+            part4_retired = part4.get("status") == "retired"
             legacy = path in RETIRABLE_SUITES
             round3_retired = path == "tests/test_health_endpoints.py"
-            if legacy:
+            if part4_retired:
+                # Step 8 part 4's audited lane-8 dispositions own step-6 retirements.
+                expected_reviewer = (part4.get("retirement") or {}).get("reviewer")
+                expected_reason = (part4.get("retirement") or {}).get("reason")
+                expected_step = 6
+                if (part4.get("inherited_sha256") != row.get("inherited_sha256")
+                        or not _case_retirements(root, path, row.get("inherited_sha256"),
+                                                 part4.get("retired_cases"))):
+                    expected_reason = None
+            elif legacy:
                 expected_reviewer, expected_step = RETIREMENT_REVIEWER, 1
                 expected_reason = RETIREMENT_REASONS.get(path)
             elif round3_retired:
@@ -1010,8 +1131,11 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
             if (expected_reason is None or type(step) is not int or step != expected_step
                     or not isinstance(retirement, dict)
                     or retirement != {"reviewer": expected_reviewer, "reason": expected_reason}
-                    or row.get("reason") != expected_reason
-                    or entries.get(path, {}).get("reason") != expected_reason):
+                    # Step 8 part 4 keeps each suite's own reason; its audited
+                    # retirement record carries the disposition.
+                    or (not part4_retired and (
+                        row.get("reason") != expected_reason
+                        or entries.get(path, {}).get("reason") != expected_reason))):
                 errors.append(f"mapping: retired suite needs exact reviewed disposition: {path}")
             if path == "tests/test_health_endpoints.py":
                 try:
@@ -1044,10 +1168,17 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
                 errors.append(f"mapping: deferred suite carries restoration: {path}")
             continue
         mapped_restored.add(path)
-        if type(step) is not int or step not in RESTORATION_GROUPS:
-            errors.append(f"mapping: restored suite must belong to qualified steps 1 to 5: {path}")
-        elif row.get("qualification_group") != RESTORATION_GROUPS[step]:
+        part4 = (_part4_dispositions(root).get(path, {}) if step == 6 else {})
+        part4_restored = (part4.get("status") == "restored"
+                          and part4.get("inherited_sha256") == row.get("inherited_sha256"))
+        if type(step) is not int or (step not in RESTORATION_GROUPS and not part4_restored):
+            errors.append("mapping: restored suite must belong to qualified steps 1 to 5 "
+                          f"or step 8 part 4: {path}")
+        elif (step in RESTORATION_GROUPS
+              and row.get("qualification_group") != RESTORATION_GROUPS[step]):
             errors.append(f"mapping: restored suite must use its owning step group: {path}")
+        elif part4_restored and row.get("qualification_group") not in PART4_GROUPS:
+            errors.append(f"mapping: step 6 restored suite must use a part 4 group: {path}")
         if row.get("blocked_on", "missing") is not None:
             errors.append(f"mapping: restored suite must have blocked_on null: {path}")
         if path not in classified["safe_pass_now"] or path not in restored_paths:
@@ -1069,7 +1200,9 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
             errors.append(f"mapping: malformed restoration: {path}")
             continue
         mode = restoration.get("mode")
-        case_retirements = restoration.get("case_retirements", [])
+        # Step 8 part 4 records its case dispositions as retired_cases.
+        case_retirements = restoration.get("case_retirements",
+                                           restoration.get("retired_cases", []))
         branch_retirements = restoration.get("branch_retirements", [])
         parameter_retirements = restoration.get("parameter_retirements", {})
         try:
