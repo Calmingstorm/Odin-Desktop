@@ -2,10 +2,14 @@
 
 The desktop app: tray lifecycle (D3), the chat window, and the main-process broker that talks to Odin's core over
 the protocol in [`../docs/design/protocol.md`](../docs/design/protocol.md). P3.1 slice 3 connects the existing chat
-to the real Phase 2 steps 2–4: conversations/transcript/search, guarded replies, tool activity and retained output,
-attachments/artifacts, and generation-bound Stop/Steer/Resume. Settings, management and background-work services
-not served by this stack still show explicit unavailable states, not fixture records, successful empty datasets,
-or endless loading indicators. This is a stacked integration slice, not full P3.1 or release qualification.
+to real conversations/transcript/search, guarded replies, tool activity and retained output, attachments/artifacts,
+and generation-bound Stop/Steer/Resume. It preserves slice 2's real provider/model configuration, device-code
+accounts, tools/timeouts, personality, hosts/trust, memory/lists/knowledge, records and profile runtime observations.
+Services not yet composed, including step-six skills/MCP/background work/computer use, remain explicitly unavailable.
+Real-core sessions never substitute fixture rows, invented successful reads or endless loading indicators.
+The P3.1 slice-1 launch, authentication, status and durable event replay contracts remain, with P3.3 source-build
+lifecycle qualification for bounded shutdown, quiescing, unknown-cleanup journaling and core loss.
+This integration slice is not full P3.1 or release qualification.
 
 ## Build and test
 
@@ -20,6 +24,8 @@ npm run build          # out/main, out/preload, out/renderer
 npm run smoke          # launches the built app on an isolated xvfb display with a throwaway profile
 npm run test:real-core  # separate real engine contract gate; never included in npm run check
 npm run smoke:real-core # built Electron app + real engine, isolated PID namespace and xvfb
+npm run test:a11y     # real Electron keyboard/axe/Chromium AX gate, fixture + real step-five core
+npm run test:e2e       # source lifecycle + private native notification receiver, same isolation
 ```
 
 `npm run smoke` never touches the real desktop session, the user's Odin Desktop profile or their autostart entries. Set
@@ -30,8 +36,10 @@ screenshot path.
 
 `src/main/core-command.ts` explicitly selects `fixture-core/fixture_core.py` in development when no override is
 set. For a development real-core session, `ODIN_DESKTOP_CORE_CMD` is a JSON array of executable and literal argv,
-for example `["/absolute/engine-venv/bin/python", "-B", "-m", "src"]` when the working directory is the repository
-root. No shell parsing, interpolation or shell launcher is allowed. The app appends its own socket, token-file,
+for example `["/absolute/engine-venv/bin/python", "-B", "-P", "-m", "src"]` with the engine installed in that environment
+(the repository's editable install is supported). `-P` keeps the working directory off Python's import path, so
+launching from `app/` cannot shadow the engine with the TypeScript `app/src` namespace. This override works from
+any working directory. No shell parsing, interpolation or shell launcher is allowed. The app appends its own socket, token-file,
 profile and data-directory arguments. Overrides cannot replace these paths or supply credential flags/IPC-token
 values; the token itself remains exclusively in the profile token file.
 
@@ -52,33 +60,138 @@ support or required tools fail with an explanation. There are no silent skips or
 
 The real gates use a canned HTTP/SSE OpenAI-compatible endpoint on loopback. The real core's
 `OpenAICompatibleClient`, guarded runner, original tools, durable delivery and controls execute; neither provider
-client nor tool results are mocked. No real account, ambient credential or live profile is used. Steps 2–4 do not
-load provider settings from the CLI yet, so the test-only `test/real-core-provider-entry.py` injects a disposable
-configuration through the core's existing `config_provider` seam while retaining its real CLI/lifecycle. It is
-not a production settings loader. Provider-backed tests stay out of `npm run check` and fail before engine imports
-unless the real-core isolation runner owns their PID namespace and throwaway HOME.
+client nor tool results are mocked. No real account, ambient credential or live profile is used.
+The provider-backed lanes use the real revision-bound `providers.compat.set`, `secrets.set`, and `models.main.set`
+methods to configure and adopt the endpoint. Only the external vault boundary is replaced with an ephemeral
+in-memory keyring. There is no test-only `config_provider` injection or plaintext credential fallback.
+Provider-backed tests stay out of `npm run check` and fail before engine imports unless the real-core isolation
+runner owns their PID namespace and throwaway HOME.
 
 `test:real-core` exercises immutable receipts, replay/watermarks, conversation CRUD/child/reset/search/jump,
-guarded publication, queueing, Stop/Steer receipts, successful same-request generation-2 Resume after an isolated
+guarded publication, queueing, Stop/Steer receipts, successful same-request generation-2 button and typed Resume after an isolated
 core interruption, real tool-detail/output paging, file/image bytes, chunked attachment adoption/cancel and provider
 failure/recovery. The real Python domain-service contracts also exercise the renderer's catch-up and output reducers.
 
 `smoke:real-core` uses the rendered Electron app and named preload bridge to send a committed reply, inspect a real
 tool card and retained-output pages, upload a multi-chunk attachment, download a posted file and decode a posted
-image, observe provider failure, stop an exact request, steer one and queue a follow-up, search/jump, reset context,
-and exercise conversation lifecycle. It also checks honest unavailable Work and Settings screens, then exits
-through the existing normal shutdown path. Native file/save chooser selections are injected in main only under
+image, assert a committed request-bound provider-failure notice, stop an exact request, steer one and queue a follow-up,
+search/jump, reset context, and exercise conversation lifecycle. Typing `continue` resumes a genuinely preserved
+checkpoint on the same request's generation 2 with one original user message and no stuck optimistic bubble.
+Afterward, the same trigger without a resumable request is an ordinary user message. The preserved checkpoint
+comes from an owned real core interrupted before Electron's normal startup, not synthetic ledger rows or a bypass
+of lifecycle restart restrictions. Native file/save chooser selections are injected in main only under
 the isolated gate; their native UI, default-app launch and folder reveal are not qualified. Successful checkpoint
-Resume is covered by the contract gate, not claimed by the no-checkpoint smoke refusal. Set `ODIN_SMOKE_OUT` to
-retain a screenshot and adjacent `-evidence.json`; default evidence and profiles are discarded.
+Resume is covered by the contract gate. Set `ODIN_SMOKE_OUT` to retain a screenshot and adjacent `-evidence.json`;
+default evidence and profiles are discarded.
 
-At the slice's base, typed `continue` is still an ordinary submission rather than a resume control, and the later
-#22 failure-notice fixes have not reached #23. The app retains real failure outcomes and explains the Resume gap;
-the evidence identifies missing core failure notices rather than fabricating them. These backend handoffs must be
-merged from `phase-2/controls-resume` when they arrive, then the gates rerun.
+The real settings contract also exercises the actual Broker, profile persistence, revisions/receipt identity, model adoption,
+management writes, knowledge versions, record filtering and write-only credentials. Device authentication uses
+an isolated localhost auth service and an ephemeral injected keyring, never a production account. These tests
+do not qualify native Secret Service unlock behavior or successful model generation.
+
+The real smoke retains a separate fresh, missing-keyring management lane as well as the provider-backed chat lane.
+It also checks `status.get` version/phase/instance/capabilities and actual rendered status, exercises
+chat/search/work and every settings section's own service loads, and checks on-demand context reload. A fresh core
+shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge and audit/log
+records, unknown usage and disabled turn-state storage. Health reports absent runtime owners honestly; missing
+keyring access is a distinct failure with Retry, not an empty account success. Skills, MCP, scheduling and computer
+use remain unavailable. The gate validates the reviewed management/readiness projections and rejects fixture rows,
+raw capability errors, successful-empty claims for refused reads or duplicate composer usage notices. It exits
+through normal `runtime.shutdown` and parent-EOF cleanup. Evidence includes both direct core reads and named-bridge
+observations; evidence paths and a compact result are printed as JSON. Set
+`ODIN_SMOKE_OUT` to retain screenshots of chat and every settings section plus a JSON evidence file alongside the
+named checkpoint; the default screenshots, evidence and profiles are discarded.
 
 The fixture smoke gate explicitly clears real-core overrides, so it remains a fixture regression gate rather
 than accidentally running whichever core a developer shell last selected.
+
+## First-run Settings extension (P3.2)
+
+Chat and Settings show the core's additive `status.get.first_run` projection, not a renderer completion flag.
+Its states are fresh, incomplete, saved, effective-ready and degraded. Effective-ready means required provider
+configuration is committed and the actual running owner has adopted the matching client/model/settings. It is
+not a successful generation, connectivity, quota or OAuth acceptance claim. Explicit runtime health failures
+degrade it; missing optional health instrumentation does not add a new setup or execution gate.
+
+The banner opens the existing Models and providers section. Sections remain addressable across re-entry;
+Set up later dismisses only the current window's chat reminder, never core state. Start at login stays opt-in
+and off; notification previews remain on by default. General keeps preview and quiet-hours controls available.
+
+Background keyring reads never unlock or display a system prompt. Only an owner's explicit banner Retry may
+invoke the named, no-argument `secretsUnlock()` bridge (`secrets.unlock` in the core), with a bounded wait off the
+core event loop. After success, Retry rehydrates schema/accounts/status, never replaying credential writes.
+Missing/locked collections remain `keyring_unavailable`; a timed-out prompt is not success, and another Retry
+cannot duplicate an outstanding prompt. No plaintext fallback exists. Submitted secret fields clear immediately,
+even on failure. Native Secret Service prompt acceptance remains the separate VM gate.
+
+Device authorization material stays in main. The renderer sees the intended human verification code and a
+random local `login_id`, never the provider's `device_auth_id` or OAuth tokens. Main projects both direct answers
+and late receipts. `codexOpenVerification()` takes no URL; it opens only the recognized URL retained from the core
+login response. The app does not introduce a generic navigation or renderer provider-network bridge.
+
+`test:real-core` includes `test:onboarding`: five behavior tests with six actual Electron launches cover fresh
+and second launch, navigation, incomplete/saved/effective/degraded states, revision and connection retry, login
+cancel/expiry, missing/locked keyring recovery, write-only secrets and preference persistence. The test-only auth
+adapter blocks outbound HTTP and substitutes external auth/keyring observations without overriding the real
+core transactions, transport or provider adoption. Native Secret Service durability/unlock and production OAuth
+remain separate acceptance work.
+
+## Accessibility regression gate (P3.4 part 1)
+
+`npm run test:a11y` builds the app, then runs pinned Playwright Electron support and axe-core on a separate
+PID namespace, Xvfb display and private session bus. It uses disposable HOME/XDG profiles, forces Chromium
+accessibility on, and retains the renderer sandbox/CSP/context isolation. Direct Playwright invocation outside
+the owned isolation runner is rejected. It requires the real-core Python environment described above, plus
+`dbus-run-session`, `xdotool` and ImageMagick `import` for native-dialog keyboard input and whole-Xvfb zoom captures.
+No workstation display/bus/profile is inherited. Missing prerequisites fail the gate, not silently skip it.
+
+The fixture lane covers chat, native attachment selection/cancel, copying and saving a generated file, report
+paging/copy, conversation menus/children, Stop/Steer/Queue/Resume, work controls, all settings sections, validation,
+password/code privacy, delayed history/search, command suggestions, retained output and 200/400 percent reflow.
+The real-core lane covers keyboard status/usage reports and all eleven Settings sections with axe and Chromium
+AX audits: step five supplies actual settings/management data, while uncomposed step-six services retain
+explicit unavailable views. The suspended Resume banner has both typed-trigger wording and an AX/axe checkpoint.
+Fresh usage is unknown with history not enabled, not a missing `usage.get` service.
+Neither a fixture pass nor a Chromium AX dump proves Orca/AT-SPI speech or Wayland qualification.
+
+Reports, full Chromium AX dumps, axe violations **and incomplete checks**, sandbox/cleanup receipts and screenshots
+are written under ignored `test-results/`. Set `ODIN_APP_A11Y_REPORT` to an absolute JSON path to retain a report
+outside the checkout. Review `../maintenance/phase3-accessibility.md` for findings, dispositions and open native rows.
+
+## Source-build lifecycle qualification (P3.3 part 1)
+
+`test:e2e` uses the shared pinned Playwright 1.63.0 without downloading or substituting a browser. It launches the pinned
+Electron source build inside the real-core isolation runner, on Xvfb and a disposable D-Bus session that has no
+service-activation directories. The notification receiver is an explicitly started `dbus-next` fixture using the
+project Python environment. No installed app, user tray, login autostart, workstation bus or native input is used.
+Run through the wrapper, not `playwright test` directly: the harness rejects an unisolated/root invocation.
+
+Set `ODIN_APP_E2E_OUT` to an external directory to retain Playwright JSON and per-case PID/start-tick/namespace,
+socket, acknowledgement and cleanup evidence. For source/artifact hashes plus the streamed gate log, build first,
+then run `../.venv/bin/python ../scripts/qualification/lifecycle.py --output /absolute/external/evidence` from
+`app/`. The driver reports failed gates unchanged. Default evidence and private profiles are discarded.
+
+Close/relaunch, menu/Ctrl+Q/launcher Exit, no-instance `--exit`, parent EOF/abrupt app loss, renderer recovery,
+stale/live/non-socket occupancy and startup restart budgets are exercised against the actual step-one core.
+Unexpected loss of an already authenticated core stops automatic replacement: a process exit cannot establish
+effect/native-resource release. Exit freezes admission and reconnect reconciliation before persisting state and
+requesting one shutdown. Process escalation has a separate unknown receipt, never an "undone" result.
+Cleanup evidence is fsynced in an app-only sibling file `config/odin-desktop/default-cleanup-state.json`, not in
+the identity-checked engine profile. Previous unknown evidence remains visible in a nonmodal banner on subsequent
+starts and is not cleared by a later ordinary Exit. **Acknowledge** durably archives the displayed warning with its
+time in that same journal. It is an acknowledgment of uncertainty, never proof of undo or release: core resource
+quarantine/reconciliation and no-replay policy are unchanged. The same archived evidence stays quiet on restart;
+a new unknown event raises a fresh notice. Hidden login starts never open a cleanup modal.
+
+Notification tests exercise actual Electron D-Bus requests, acceptance/refusal and native `ActionInvoked`, then
+inspect the exact older conversation/message in the renderer, including renderer loss. Their conversation and
+acknowledgement service is explicitly a fixture: the current core does not serve real delivery, requests, background work,
+notifications or computer input. D11 trays/login, installed package paths, admitted work/descendant cleanup and
+full native desktop input grants remain open, not silently qualified by these tests. The continuation also
+qualifies actual admitted credential-free management work across hide/Exit, original execution-owner escaped
+descendant cleanup, and real isolated X11 guardian-loss quarantine/no-replay. It does not upgrade missing
+native release proof into success. See
+[`../maintenance/phase3-lifecycle.md`](../maintenance/phase3-lifecycle.md).
 
 ## Layout
 

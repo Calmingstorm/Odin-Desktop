@@ -22,10 +22,10 @@ const served: Record<string, unknown> = {
   knowledgeVersions: [{ id: 1, version: 1, action: 'created', created_at: '', diff_summary: 'OLD VERSION' }],
   knowledgeSearch: [{ chunk_id: 'old:0', source: 'old-source', score: 1, content: 'OLD HIT', chunk_index: 0 }],
   auditQuery: [{ timestamp: '', tool_name: 'OLD TOOL' }],
-  auditVerify: { valid: true, total: 1 },
+  auditVerify: { valid: true, availability: 'available', total: 1, verified: 1, unsigned_prefix: 0 },
   usage: { period: '7d', tokens: { kind: 'measured', value: 123 }, quota: [], summary: 'OLD USAGE' },
   healthGet: { overall: 'healthy', components: [{ name: 'OLD HEALTH', status: 'healthy', detail: 'old' }], healthy_count: 1, degraded_count: 0, down_count: 0, unconfigured_count: 0, checked_at: '' },
-  logsSearch: { entries: [{ timestamp: '', level: 'INFO', message: 'OLD LOG' }], count: 1 },
+  logsSearch: { entries: [{ timestamp: '', tool_name: 'read', result_summary: 'OLD LOG' }], count: 1 },
   turnStateList: { availability: 'available', data: { turns: [] } },
   computerStatus: computer
 }

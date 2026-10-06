@@ -1,21 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { statSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import type { CoreEvent } from '../src/shared/api'
+import type { ConversationSnapshot, CoreEvent } from '../src/shared/api'
 import { PROTOCOL, type Settled, type Welcome } from '../src/main/broker'
-import { assertIsolated, onceEvent, RealCoreHarness, waitFor } from './real-core-harness'
 import { FILE_CONTENT, IMAGE_BYTES, PAGED_TEXT, REPLY, TOOL_REPLY } from './real-core-provider-fixture.mjs'
+import { assertIsolated, onceEvent, RealCoreHarness, waitFor, SERVED_CAPABILITIES } from './real-core-harness'
+import { assertFreshManagementStatus, realCoreCapabilities, type RealCoreStatus } from '../src/main/real-core-smoke'
 
 // Intentional module-level hard failure if someone invokes this file with the normal/unisolated Vitest gate.
 assertIsolated()
 
-const capabilities = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
-  'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
-  'conversations.reset_context', 'conversations.mark_read', 'messages.list',
-  'conversation.snapshot', 'search.query', 'messages.around', 'attachments.begin',
-  'attachments.chunk', 'attachments.commit', 'attachments.cancel', 'artifacts.read', 'tool.detail', 'tool.output',
-  'control.stop', 'control.steer', 'control.resume'
-].sort()]
+const capabilities = SERVED_CAPABILITIES
 function successful<T>(answer: Settled): T {
   expect(answer.ok).toBe(true)
   if (!answer.ok) throw new Error(`Expected a real-core receipt, got ${answer.error.code}`)
@@ -24,7 +19,7 @@ function successful<T>(answer: Settled): T {
 function refused(answer: Settled, code: string, disposition = 'rejected'): void {
   expect(answer).toMatchObject({ ok: false, error: { code, disposition } })
 }
-type Status = { phase: string; core_instance_id: string; version: string; capabilities: string[] }
+type Status = RealCoreStatus
 type Subscription = { event_high: string; reset_required: boolean }
 
 describe('actual app Broker ↔ repository real core', () => {
@@ -36,6 +31,9 @@ describe('actual app Broker ↔ repository real core', () => {
   afterEach(async () => { await core?.dispose() })
 
   test('authenticates the handshake, reads real status and replays events after a cursor', async () => {
+    expect(realCoreCapabilities).toEqual(SERVED_CAPABILITIES)
+    expect(realCoreCapabilities).toHaveLength(91)
+    expect(new Set(realCoreCapabilities).size).toBe(realCoreCapabilities.length)
     const { broker, welcome } = await core.connect()
     expect(welcome).toMatchObject({
       protocol: { major: PROTOCOL.major }, profile_id: 'default', capabilities, features: [],
@@ -46,9 +44,15 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(statSync(core.paths.socketPath).mode & 0o777).toBe(0o600)
     expect(statSync(core.paths.tokenPath).mode & 0o777).toBe(0o600)
     const status = successful<Status>(await broker.request('status.get'))
-    expect(status).toEqual({ phase: 'ready', core_instance_id: welcome.core.instance_id,
+    assertFreshManagementStatus(status)
+    expect(status).toMatchObject({ phase: 'ready', core_instance_id: welcome.core.instance_id,
       version: welcome.core.version, capabilities,
-      limits: { attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10, chunk_bytes: 512 * 1024 } })
+      limits: { attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10, chunk_bytes: 512 * 1024 },
+      diagnostics: { turn_durability: { state: 'on', reason: null },
+        compatible_provider: { state: 'off', reason: null } } })
+    // A configured model label is not provider readiness. No client is available on a fresh profile.
+    expect(status).toMatchObject({ model: { main: expect.any(String), provider: 'codex' },
+      providers: expect.arrayContaining([{ name: 'codex', health: 'unavailable' }]) })
 
     const events: CoreEvent[] = []
     broker.on('event', (event: CoreEvent) => events.push(event))
@@ -56,7 +60,7 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(subscribed).toEqual({ event_high: welcome.event_high, reset_required: false })
     await waitFor(() => events.length === 1, 'startup event replay')
     expect(events[0]).toMatchObject({ t: 'evt', seq: 1, cursor: '1', type: 'runtime.status',
-      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: status })
+      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: { ...status, summary: expect.any(String) } })
     expect(events[0]!.at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/)
     expect(Date.parse(events[0]!.at)).not.toBeNaN()
     expect(broker.cursor).toBe('1')
@@ -125,7 +129,10 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '999999' }, id)).reset_required).toBe(true)
     expect(successful<{ items: unknown[] }>(await broker.request('conversations.list', {}, id)).items).toEqual([])
     refused(await broker.request('work.list', {}, id), 'capability_unavailable')
-    refused(await broker.request('settings.schema', {}, id), 'capability_unavailable')
+    refused(await broker.request('schedules.list', {}, id), 'capability_unavailable')
+    expect(successful<{ fields: unknown[] }>(await broker.request('settings.schema', {}, id)).fields.length).toBeGreaterThan(0)
+    refused(await broker.request('codex.accounts.list', {}, id), 'keyring_unavailable')
+    expect(successful<{ tokens: unknown }>(await broker.request('usage.get', {}, id)).tokens).toEqual({ value: null, kind: 'unknown' })
     expect(await broker.request('runtime.shutdown', { reason: 'read ID is still available' }, id)).toEqual({
       ok: true, result: { disposition: 'accepted' }
     })
@@ -155,6 +162,61 @@ describe('actual app Broker ↔ repository real core', () => {
     const found = successful<{ hits: { message_id: string }[] }>(await broker.request(
       'search.query', { query: 'context RESET', conversation_id: cid }))
     expect(found.hits.map((hit) => hit.message_id)).toEqual([page.items[0]!.id])
+  })
+
+  test('served conversations admit a real submission without a provider, publish an honest failure and never repeat it', async () => {
+    const { broker } = await core.connect()
+    expect(successful<{ items: unknown[] }>(await broker.request('conversations.list')).items).toEqual([])
+    const created = successful<{ conversation: { id: string; title: string } }>(await broker.request(
+      'conversations.create', { title: 'unavailable provider conversation' }, randomUUID()))
+    const cid = created.conversation.id
+    expect(created.conversation.title).toBe('unavailable provider conversation')
+    expect(successful<ConversationSnapshot>(await broker.request(
+      'conversation.snapshot', { conversation_id: cid })).messages.items).toEqual([])
+    const events: CoreEvent[] = []
+    broker.on('event', (event: CoreEvent) => events.push(event))
+    successful(await broker.subscribe())
+    const commandId = randomUUID()
+    const params = { client_submission_id: randomUUID(), conversation_id: cid,
+      text: 'real submission with no provider' }
+    const accepted = await broker.request('submission.send', params, commandId)
+    const receipt = successful<{ disposition: string; request_id: string; message_id: string }>(accepted)
+    expect(receipt).toMatchObject({ disposition: 'accepted', request_id: expect.stringMatching(/^r_/),
+      message_id: expect.stringMatching(/^m_/) })
+    await waitFor(() => events.some((event) => event.type === 'request.failed' && event.payload.request_id === receipt.request_id) &&
+      events.some((event) => event.type === 'message.committed' &&
+        (event.payload.message as { role?: string; request_id?: string }).role === 'notice' &&
+        (event.payload.message as { request_id?: string }).request_id === receipt.request_id), 'real provider failure and transcript notice')
+    const snapshot = successful<ConversationSnapshot>(await broker.request('conversation.snapshot', { conversation_id: cid }))
+    expect(snapshot).toMatchObject({ running: null, queued: [], unresolved: [],
+      recent: [{ request_id: receipt.request_id, generation: 1, outcome: 'failed', unknown_effects: 0 }] })
+    expect(snapshot.messages.items.map(({ role, text, request_id }) => ({ role, text, request_id }))).toEqual([
+      { role: 'user', text: params.text, request_id: receipt.request_id },
+      { role: 'notice', text: 'No LLM provider available. Please try again later.', request_id: receipt.request_id }
+    ])
+    expect(snapshot.messages.items[0]).toMatchObject({ id: receipt.message_id, client_submission_id: params.client_submission_id })
+    expect(events.filter((event) => event.type === 'request.started')).toHaveLength(1)
+    expect(events.filter((event) => event.type === 'request.failed')).toHaveLength(1)
+    // Both the command identity and domain submission identity return the same
+    // acceptance, not a fresh execution or a fabricated successful model reply.
+    expect(await broker.request('submission.send', params, commandId)).toEqual(accepted)
+    expect(await broker.request('submission.send', params, randomUUID())).toEqual(accepted)
+    refused(await broker.request('submission.send', { ...params, text: 'changed text' }, randomUUID()), 'id_conflict')
+    expect(successful<ConversationSnapshot>(await broker.request('conversation.snapshot', { conversation_id: cid })).messages.items)
+      .toEqual(snapshot.messages.items)
+    expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
+    broker.close()
+    await core.start()
+    const restarted = (await core.connect()).broker
+    expect(await restarted.request('submission.send', params, commandId)).toEqual(accepted)
+    expect(await restarted.request('submission.send', params, randomUUID())).toEqual(accepted)
+    const restored = successful<ConversationSnapshot>(await restarted.request('conversation.snapshot', { conversation_id: cid }))
+    expect(restored.messages).toEqual(snapshot.messages)
+    expect(restored.recent).toEqual(snapshot.recent)
+    expect(restored.running).toBeNull()
+    expect(restored.queued).toEqual([])
+    expect(successful<Status>(await restarted.request('status.get')).providers)
+      .toContainEqual({ name: 'codex', health: 'unavailable' })
   })
 
   test('closing the parent stdin pipe exits orderly and releases the profile for a successor', async () => {
@@ -281,8 +343,8 @@ describe('provider-backed steps 2-4 through the real Broker and real OpenAICompa
     expect(reply.text).toBe(REPLY)
     expect(reply.request_id).toBe(sent.request_id)
     expect(events.filter((event) => event.type === 'message.committed' && (event.payload.message as Message | undefined)?.role === 'assistant')).toHaveLength(1)
-    expect(core.provider!.requests).toHaveLength(1)
-    expect(core.provider!.requests[0]!.body).toMatchObject({ stream: true, model: 'canned-contract' })
+    expect(core.provider!.requests.filter((entry) => entry.body.max_tokens !== 1)).toHaveLength(1)
+    expect(core.provider!.requests.find((entry) => entry.body.max_tokens !== 1)!.body).toMatchObject({ stream: true, model: 'canned-contract' })
     const child = successful<{ conversation: Conversation }>(await broker.request('conversations.create', {
       title: 'Child snapshot', parent_id: conversation.id, from_message_id: reply.id
     }, randomUUID())).conversation
@@ -409,7 +471,7 @@ describe('provider-backed steps 2-4 through the real Broker and real OpenAICompa
     const sent = await send('[reply] read my attachment', { attachments: [committed.attachment] })
     await settled(sent)
     await replied()
-    expect(JSON.stringify(core.provider!.requests[0]!.body.messages)).toContain('CANNED_ATTACHMENT_TEXT_CONTENT')
+    expect(JSON.stringify(core.provider!.requests.find((entry) => entry.body.max_tokens !== 1)!.body.messages)).toContain('CANNED_ATTACHMENT_TEXT_CONTENT')
     expect((await snapshot()).messages.items.find((message) => message.id === sent.message_id)?.attachments).toHaveLength(1)
     const abandoned = await begin()
     successful(await broker.request('attachments.cancel', { upload_id: abandoned }))
@@ -423,6 +485,9 @@ describe('provider-backed steps 2-4 through the real Broker and real OpenAICompa
     expect(snap.recent).toContainEqual(expect.objectContaining({ request_id: failed.request_id, outcome: 'failed', unknown_effects: 0 }))
     expect(events.some((event) => event.type === 'request.completed' && event.payload.request_id === failed.request_id)).toBe(false)
     expect(snap.messages.items.filter((message) => message.role === 'assistant').every((message) => message.text !== REPLY)).toBe(true)
+    await waitFor(() => events.some((event) => event.type === 'message.committed' &&
+      (event.payload.message as Message | undefined)?.request_id === failed.request_id &&
+      (event.payload.message as Message | undefined)?.role === 'assistant'), 'committed guarded provider error reply')
     await settled(await send('[reply] recovery after failure'))
     await replied()
   })
@@ -430,7 +495,7 @@ describe('provider-backed steps 2-4 through the real Broker and real OpenAICompa
   test('held generation queues follow-up and consumes an accepted steer once at safe boundary', async () => {
     const { broker, events, conversation, snapshot, send, settled } = await setup()
     const active = await send('[hold-steer] hold for steering')
-    await waitFor(() => core.provider!.requests.length === 1, 'held provider generation')
+    await waitFor(() => core.provider!.requests.some((entry) => entry.token === '[hold-steer]'), 'held provider generation')
     // D9: provider generation is not transcript publication. Only the final
     // guarded delivery can create a public assistant message.
     expect((await snapshot()).messages.items.filter((message) => message.role === 'assistant')).toEqual([])
@@ -451,7 +516,7 @@ describe('provider-backed steps 2-4 through the real Broker and real OpenAICompa
   test('request-bound stop and stale controls never retarget a successor; resume answers honestly', async () => {
     const { broker, events, conversation, send, settled } = await setup()
     const active = await send('[hold-stop] wait for stop')
-    await waitFor(() => core.provider!.requests.length === 1, 'held stop generation')
+    await waitFor(() => core.provider!.requests.some((entry) => entry.token === '[hold-stop]'), 'held stop generation')
     const params = { control_command_id: randomUUID(), conversation_id: conversation.id, request_id: active.request_id, generation: 1 }
     const stopped = await broker.request('control.stop', params, randomUUID())
     expect(successful(stopped)).toMatchObject({ disposition: 'requested' })
@@ -464,10 +529,10 @@ describe('provider-backed steps 2-4 through the real Broker and real OpenAICompa
     await settled(await send('[reply] successor after stop'))
   })
 
-  test('restart interrupted checkpoint resumes the same request on a new generation, not a new submission', async () => {
+  test.each(['control', 'continue'])('restart interrupted checkpoint resumes the same request on generation 2 via %s, not a new submission', async (path) => {
     const { broker, conversation, send, snapshot } = await setup()
     const active = await send('[hold-stop] preserve resumable checkpoint')
-    await waitFor(() => core.provider!.requests.length === 1, 'checkpoint generation HTTP request')
+    await waitFor(() => core.provider!.requests.some((entry) => entry.token === '[hold-stop]'), 'checkpoint generation HTTP request')
     expect((await snapshot()).messages.items.filter((message) => message.role === 'assistant')).toEqual([])
     // The isolated core loses its process-local worker while retaining the real
     // durable generation checkpoint. No test-made ledger rows or fake decoder.
@@ -482,13 +547,52 @@ describe('provider-backed steps 2-4 through the real Broker and real OpenAICompa
     successful(await restarted.subscribe())
     const params = { control_command_id: randomUUID(), conversation_id: conversation.id,
       request_id: active.request_id, generation: 1 }
-    const admitted = await restarted.request('control.resume', params, randomUUID())
-    expect(successful(admitted)).toMatchObject({ disposition: 'admitted' })
-    expect(await restarted.request('control.resume', params, randomUUID())).toEqual(admitted)
+    const method = path === 'control' ? 'control.resume' : 'submission.send'
+    const submitted = path === 'control' ? params : { conversation_id: conversation.id, client_submission_id: randomUUID(), text: 'continue' }
+    const admitted = await restarted.request(method, submitted, randomUUID())
+    expect(successful(admitted)).toMatchObject(path === 'control' ? { disposition: 'admitted' }
+      : { disposition: 'accepted', request_id: active.request_id, message_id: active.message_id })
+    expect(await restarted.request(method, submitted, randomUUID())).toEqual(admitted)
     await waitFor(() => events.some((event) => event.type === 'request.completed' && event.payload.request_id === active.request_id), 'resumed completion')
     const snap = successful<Snapshot>(await restarted.request('conversation.snapshot', { conversation_id: conversation.id }))
     expect(snap.recent).toContainEqual(expect.objectContaining({ request_id: active.request_id, generation: 2, outcome: 'completed' }))
     expect(snap.messages.items.filter((message) => message.role === 'user').map((message) => message.id)).toEqual([active.message_id])
     await waitFor(() => events.some((event) => event.type === 'message.committed' && (event.payload.message as Message | undefined)?.text === REPLY), 'resumed guarded reply')
+  })
+
+  test('continue with no resumable request commits an ordinary message', async () => {
+    const { send, settled } = await setup()
+    const sent = await send('continue')
+    const snap = await settled(sent)
+    expect(snap.messages.items.filter((message) => message.role === 'user')).toEqual([
+      expect.objectContaining({ id: sent.message_id, request_id: sent.request_id, text: 'continue' })
+    ])
+  })
+
+  test('typed resume of unreadable real checkpoint commits one failure notice, no new user message or execution', async () => {
+    const { broker, conversation, send } = await setup()
+    const preserved = await send('[hold-stop] preserve busy resume contract')
+    await waitFor(() => core.provider!.requests.some((entry) => entry.token === '[hold-stop]'), 'real checkpoint before interruption')
+    core.child.kill('SIGKILL')
+    await core.waitExit()
+    broker.close()
+    core.corruptCheckpoint(preserved.request_id)
+    await core.start()
+    const restarted = (await core.connect()).broker
+    const events: CoreEvent[] = []
+    restarted.on('event', (event: CoreEvent) => events.push(event))
+    successful(await restarted.subscribe())
+    const sid = randomUUID()
+    const params = { conversation_id: conversation.id, client_submission_id: sid, text: 'continue' }
+    const failed = await restarted.request('submission.send', params, randomUUID())
+    expect(successful(failed)).toMatchObject({ disposition: 'rejected', reason: 'checkpoint_unavailable', request_id: preserved.request_id, message_id: preserved.message_id })
+    expect(await restarted.request('submission.send', params, randomUUID())).toEqual(failed)
+    const snap = successful<Snapshot>(await restarted.request('conversation.snapshot', { conversation_id: conversation.id }))
+    expect(snap.messages.items.filter((message) => message.role === 'user').map((message) => message.id)).toEqual([preserved.message_id])
+    expect(snap.messages.items.filter((message) => message.role === 'notice' && message.request_id === preserved.request_id)).toEqual([
+      expect.objectContaining({ client_submission_id: sid, text: expect.stringContaining('no longer resumable') })
+    ])
+    expect(snap.running).toBeNull()
+    expect(events.some((event) => event.type === 'request.started' && event.payload.request_id === preserved.request_id && event.payload.generation === 2)).toBe(false)
   })
 })

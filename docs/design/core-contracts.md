@@ -44,11 +44,13 @@ Responses identify the command/entity and separate **admission**, **execution se
 | `settled` | Named outcome is known. Publish actual success/failure, exit code where applicable, validation and cleanup evidence separately. |
 | `outcome_unknown` | Dispatch may have occurred and effects cannot be established. Preserve ambiguity; no automatic replay or erasure by later success. |
 | `suspended` | A supported checkpoint is preserved. Not proof every agent, process or loop can resume. |
-| `storage_unavailable` | Required durable admission/checkpoint/publication is unestablished. Do not acknowledge commit or fall back to unledgered execution. |
+| `storage_unavailable` | Required submission/publication storage or an opened turn ledger failed. Do not acknowledge commit or continue fresh effects on a dead ledger. D17 preserves Odin's explicit legacy turn mode when optional turn durability is off or fails to open at startup; diagnostics show durability off. |
 | `stale_binding` | Expected request/revision/generation/host/consent no longer matches. Refuse; do not retarget a successor. |
 | `capability_unavailable` / `incompatible` | Operation unsupported or version cannot satisfy its contract. No silent weaker substitute. |
 
 Errors contain bounded scrubbed explanations and typed reasons, not tracebacks, credentials, raw prompts or bearer tokens. Transport timeout means the client lacks a receipt; it does not determine execution outcome.
+
+Core status diagnostics expose optional turn durability as on, off (configuration or failed startup open), or unavailable (opened ledger later failed). Under D17, an enabled compatible provider without resolved credentials is skipped and logged, with `missing_api_key` in diagnostics; it cannot prevent the core or another configured provider, including Codex, from serving requests.
 
 **No general exactly-once external-effects guarantee.** The core deduplicates admission, records intents and refuses unsafe replay. It cannot atomically commit a remote deployment and its own SQLite row. The UI preserves that distinction.
 
@@ -72,7 +74,7 @@ Core owns validation, secret screening, attachment adoption, IDs, duplicate deci
 
 ### Invariants and admission
 
-1. Record submission, visible input and execution identity durably before acknowledging acceptance. Required storage failure blocks a new effect-capable turn. Desktop does **not** silently inherit today's optional startup-time legacy/no-checkpoint fallback.
+1. Record submission, visible input and execution identity durably before acknowledging acceptance. Required submission/publication storage failure blocks acceptance. Under D17, optional turn durability disabled by configuration or unavailable at startup selects Odin's legacy/no-checkpoint run, with durability off in core diagnostics. A ledger that opened and later dies still blocks fresh turn admission and fenced effects; it never falls back to legacy mid-runtime.
 2. Same submission ID and semantic payload returns original identity/current receipt. Same ID with different text, attachments, target or intent is a conflict, not an edit/second execution.
 3. Resolve lost acknowledgements by lookup or resending the **same** ID. Reconnect, transport recovery or restart cannot mint a replacement automatically.
 4. Retain minimal admitted-ID tombstones for the profile's lifetime, including after visible deletion, without retaining deleted message bodies just for deduplication. A complete profile reset changes profile/journal identity and rejects old-profile submissions. If bounded tombstone retention is later needed, first introduce core-issued admission epochs with explicit expiry and reject retired epochs. Arbitrary client IDs alone cannot distinguish a forgotten old submission from a fresh one; do not promise otherwise. Deliberate new requests use new IDs.
@@ -95,7 +97,7 @@ Core owns validation, secret screening, attachment adoption, IDs, duplicate deci
 |---|---|
 | Secret/duplicate intake: `src/discord/intake_pipeline.py:162-211,279-282,370-386`; attachments: `src/discord/attachments.py:181-250,276-363,365-546`. | Native staged copies, aggregate limits, durable submission IDs and neutral provenance. Current duplicate cache is not persistent protocol. |
 | Conversation lock: `src/discord/intake_pipeline.py:465-470`; owned cancellation/inboxes: `src/discord/channel_state.py:82-115,133-170`. | Client expected bindings, durable queueing, endpoint/profile isolation. |
-| Intent/result/checkpoint invariants: `src/turn_state/durability.py:9-32`; triple fencing: `src/turn_state/store.py:9-37`. | Required desktop durability/native IDs. Current loop admits checkpoints only for Discord: `src/discord/tool_loop.py:1254-1272`. |
+| Intent/result/checkpoint invariants: `src/turn_state/durability.py:9-32`; triple fencing: `src/turn_state/store.py:9-37`. | Required desktop submission/native IDs; optional turn checkpoints retain D17 startup legacy fallback and fail-closed writes once a ledger opened. Current baseline loop admits checkpoints only for Discord: `src/discord/tool_loop.py:1254-1272`. |
 
 ## 2. Conversation service
 

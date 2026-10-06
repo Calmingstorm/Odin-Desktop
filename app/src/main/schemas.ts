@@ -4,6 +4,13 @@ import type { CoreError, ManagementMethod } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
+/** Fixed safe strings only; strip extra provider/credential data at the main boundary. */
+export const firstRunStatusSchema = z.object({
+  state: z.enum(['fresh', 'incomplete', 'saved', 'effective-ready', 'degraded']),
+  reason: z.enum(['provider_not_configured', 'provider_configuration_incomplete', 'provider_runtime_unavailable', 'provider_identity_not_adopted', 'provider_effective', 'provider_health_degraded', 'provider_health_unknown', 'keyring_unavailable', 'credential_state_unavailable']),
+  keyring_unavailable: z.boolean()
+})
+
 /** The window names each conversation command, so a lost answer is reconciled by its late receipt, never re-sent. */
 const commandId = z.uuid()
 
@@ -139,6 +146,9 @@ export const steerSchema = controlSchema.extend({ text: z.string().min(1).max(4_
 
 export const setAutostartSchema = z.object({ enabled: z.boolean() }).strict()
 
+// An opaque notice token, not a path, journal record supplied by the window, or a core operation.
+export const acknowledgeCleanupSchema = z.object({ id: z.string().min(1).max(128).refine((id) => id.trim().length > 0) }).strict()
+
 const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
 
 export const setNotificationsSchema = z
@@ -173,6 +183,7 @@ export const settingsSetSchema = z
 
 export const secretSetSchema = z.object({ path: settingsPath, value: z.string().min(1).max(16_384) }).strict()
 export const secretClearSchema = z.object({ path: settingsPath }).strict()
+export const secretUnlockSchema = z.object({}).strict()
 
 /** The dedicated desktop methods a field may name as its apply handler. Nothing else passes. */
 export const imageIntentSchema = z
@@ -189,12 +200,15 @@ export const LEAF_EDITORS = ['models.main.set', 'models.agents.set'] as const
 export const editLeafSchema = z
   .object({ method: z.enum(LEAF_EDITORS), params: z.record(z.string().regex(/^[A-Za-z0-9_]+$/), leafValue) })
   .strict()
-  .refine((v) => Object.keys(v.params).length === 1, 'one leaf at a time')
+  .refine((v) => Object.keys(v.params).filter((key) => key !== 'expected_revision').length === 1, 'one leaf at a time')
+  .refine((v) => v.params.expected_revision === undefined ||
+    (typeof v.params.expected_revision === 'string' && v.params.expected_revision.length > 0 && v.params.expected_revision.length <= 128),
+  'invalid settings revision')
 
 const accountIndex = z.number().int().min(0).max(63)
 export const codexIndexSchema = z.object({ index: accountIndex }).strict()
 export const codexLabelSchema = z.object({ index: accountIndex, label: z.string().max(80) }).strict()
-export const codexPollSchema = z.object({ device_auth_id: z.string().min(1).max(512), user_code: z.string().min(1).max(64) }).strict()
+export const codexPollSchema = z.object({ login_id: z.uuid() }).strict()
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: CoreError }
 
@@ -228,7 +242,8 @@ const fingerprint = z.string().regex(/^SHA256:[A-Za-z0-9+/]{20,64}$/)
 const scheduleId = z.string().min(1).max(64)
 const memoryScope = z.string().min(1).max(128)
 const memoryKey = z.string().min(1).max(256)
-const knowledgeSource = z.string().min(1).max(500)
+// Existing source labels are exact store identities. Only new ingestion trims and caps them.
+const knowledgeSource = z.string().refine((value) => value.trim().length > 0, 'source is required')
 const scheduleFields = {
   description: z.string().min(1).max(500).optional(),
   channel_id: z.string().max(128).optional(),
@@ -303,6 +318,7 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
       port: z.number().int().min(1).max(65_535).optional(),
       os: z.enum(['linux', 'macos']).optional(),
       description: z.string().max(200).optional(),
+      enabled: z.boolean().optional(),
       trust_mode: z.enum(['pinned', 'ca', 'tofu']),
       expected_fingerprints: z.array(fingerprint).max(16).optional(),
       candidate_fingerprints: z.array(fingerprint).max(16).optional(),
@@ -355,14 +371,15 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
   listsDelete: z.object({ name: z.string().min(1).max(200) }).strict(),
   knowledgeList: empty,
   knowledgeSearch: z.object({ q: z.string().trim().min(1), limit: z.number().int().min(1).max(100).optional() }).strict(),
-  knowledgeIngest: z.object({ source: knowledgeSource, content: z.string().min(1) }).strict(),
+  knowledgeIngest: z.object({ source: z.string().trim().min(1).max(100), content: z.string().trim().min(1).max(500_000) }).strict(),
   knowledgeReingest: z.object({ source: knowledgeSource }).strict(),
   knowledgeDelete: z.object({ source: knowledgeSource }).strict(),
   knowledgeVersions: z.object({ source: knowledgeSource }).strict(),
-  knowledgeRestore: z.object({ source: knowledgeSource, version: z.number().int().min(1) }).strict(),
+  knowledgeRestore: z.object({ source: knowledgeSource, version: z.number().int().min(0) }).strict(),
   auditQuery: z
     .object({
       tool: z.string().max(128).optional(),
+      user: z.string().max(128).optional(),
       host: z.string().max(128).optional(),
       q: z.string().max(1000).optional(),
       date: z.string().max(32).optional(),

@@ -9,11 +9,13 @@ from dataclasses import dataclass, field
 from uuid import uuid4
 
 from ..discord.response_guards import scrub_response_secrets
+from ..error_presentation import format_user_facing_error
 from ..turn_state.codec import compute_content_digest
 from ..turn_state.durability import TurnDurability
 from ..turn_state.store import TurnKey, TurnStatus
 from .commands import canonical_json, response_error
 from .conversations import ConversationError, domain_transaction, now, require_string
+from .errors import NoLLMProviderError
 
 REQUEST_SCHEMA = {
     "desktop_requests": {"request_id", "conversation_id", "message_id", "owner", "generation",
@@ -155,6 +157,7 @@ class RequestService:
             return error.response()
 
     def submit(self, params):
+        """Ordinary admission; transport intake must use handle_async first."""
         if type(params) is not dict:
             raise ConversationError("bad_request", "Method params must be an object")
         owner = self._owner()
@@ -201,6 +204,78 @@ class RequestService:
             db.execute("INSERT INTO desktop_submissions VALUES (?,?,?)",
                        (sid, binding, canonical_json(response)))
             return response
+
+    async def handle_async(self, method, params, *, controls):
+        """Consume bare resume before attachments, prompt construction or history.
+
+        Reserve a submission receipt before awaited checks. Lost ACKs and
+        restarts cannot reinterpret recognized commands as fresh execution.
+        """
+        if method != "submission.send":
+            return self.handle(method, params)
+        try:
+            if type(params) is not dict:
+                raise ConversationError("bad_request", "Method params must be an object")
+            owner = self._owner()
+            sid = require_string(params.get("client_submission_id"), "client_submission_id")
+            cid = require_string(params.get("conversation_id"), "conversation_id")
+            text, attachments = params.get("text"), params.get("attachments", [])
+            binding = canonical_json(params)
+            from ..discord.turn_resume import TurnResumeManager
+            with domain_transaction(self.store) as db:
+                old = db.execute("SELECT binding,response FROM desktop_submissions "
+                                 "WHERE client_submission_id=?", (sid,)).fetchone()
+                if old is not None:
+                    if old[0] != binding:
+                        raise ConversationError("id_conflict", "Submission ID is already bound")
+                    return {"ok": True, "result": json.loads(old[1])}
+                self.conversations.get(cid)
+                if type(text) is not str or type(attachments) is not list:
+                    raise ConversationError("bad_request", "Invalid text or attachments")
+                if not TurnResumeManager.is_resume_trigger(text):
+                    return {"ok": True, "result": self.submit(params)}
+                row = db.execute("""SELECT * FROM desktop_requests WHERE conversation_id=?
+                    AND state IN ('suspended','interrupted')
+                    ORDER BY (owner=?) DESC, COALESCE(ended_at,created_at) DESC,
+                    request_id DESC LIMIT 1""", (cid, owner)).fetchone()
+                if row is None:
+                    return {"ok": True, "result": self.submit(params)}
+                row = dict(row)
+                pending = {"disposition": "outcome_unknown", "request_id": row["request_id"],
+                           "message_id": row["message_id"]}
+                db.execute("INSERT INTO desktop_submissions VALUES (?,?,?)",
+                           (sid, binding, canonical_json(pending)))
+            noticed = False
+
+            def notice(body):
+                nonlocal noticed
+                self._owner()
+                self.transcript.commit(cid, "notice", body, request_id=row["request_id"],
+                                       client_submission_id=sid)
+                noticed = True
+
+            try:
+                answer = await controls.dispatch("control.resume", {
+                    "control_command_id": "submission-resume:" + sid,
+                    "conversation_id": cid, "request_id": row["request_id"],
+                    "generation": row["generation"]}, on_notice=notice)
+            except Exception:
+                answer = response_error("internal", "Control outcome is unknown", "outcome_unknown")
+            result = {**pending, **answer.get("result", {})}
+            if not noticed and result["disposition"] != "admitted":
+                notice("I recognized the resume command, but resuming failed internally "
+                       "while safely checking the preserved work. Nothing was resumed or "
+                       "started fresh — try `resume` again later.")
+            # submission.send keeps its public admission vocabulary even when
+            # the accepted work is a resumed generation, not a fresh request.
+            if result["disposition"] == "admitted":
+                result["disposition"] = "accepted"
+            with self.store.transaction() as db:
+                db.execute("UPDATE desktop_submissions SET response=? WHERE client_submission_id=?",
+                           (canonical_json(result), sid))
+            return {"ok": True, "result": result}
+        except ConversationError as error:
+            return error.response()
 
     def snapshot(self, conversation_id):
         rows = [dict(row) for row in self.store.connection.execute(
@@ -430,8 +505,10 @@ class RequestService:
         self.assert_request(message)
         store = self.engine.deps.turn_store
         handle = TurnDurability.disabled()
+        if store is None:
+            return handle
         handle.blocked = "admission_error"
-        if store is None or not store.available:
+        if not store.available:
             return handle
         def digest(text):
             return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -502,8 +579,10 @@ class RequestService:
 
     async def _execute(self, message, st=None):
         token = _execution.set((self, asyncio.current_task(), message))
+        failure_notice = False
         try:
             self.assert_request(message)
+            failure_notice = True
             if st is None:
                 self._seed_session_context(message)
             images = []
@@ -546,7 +625,11 @@ class RequestService:
                                 + canonical_json(manifest))
             result = (await self.engine.runner.run_resumed(st) if st is not None
                       else await self.engine.run(message, content=content, image_blocks=images))
-            status = self.engine.deps.turn_store.turn_status_sync(message.turn_key)
+            # A returned result owns its existing guarded reply. Publication or
+            # accounting failures must not add a contradictory execution notice.
+            failure_notice = False
+            ledger = self.engine.deps.turn_store
+            status = ledger.turn_status_sync(message.turn_key) if ledger is not None else None
             outcome = ("suspended" if status == TurnStatus.SUSPENDED else
                        "cancelled" if status == TurnStatus.TERMINAL_CANCELLED else
                        "failed" if result[2] else "completed")
@@ -566,12 +649,26 @@ class RequestService:
             self._finish(message, "interrupted")
             raise
         except Exception as error:
-            # No invented model reply and no effect replay after storage or
-            # execution failure. Durable state reports the independent outcome.
+            # D17: Odin explains pre-reply failures in the conversation. This is
+            # typed core provenance, never an invented model reply or an effect retry.
             self._finish(message, "failed")
             from ..odin_log import get_logger
             get_logger("desktop.requests").error("Admitted request failed: %s",
                                                  type(error).__name__)
+            if failure_notice:
+                text = ("No LLM provider available. Please try again later."
+                        if isinstance(error, NoLLMProviderError) else
+                        f"Tool execution timed out: {format_user_facing_error(error)}"
+                        if isinstance(error, TimeoutError) else
+                        f"Tool execution failed: {format_user_facing_error(error)}")
+                try:
+                    await self.delivery.send(message, text)
+                except Exception as publication_error:
+                    # Keep the terminal request fenced even if its notice cannot
+                    # be stored or published. Never retry the runner to repair it.
+                    get_logger("desktop.requests").error(
+                        "Request failure notice could not be published: %s",
+                        type(publication_error).__name__)
         finally:
             try:
                 self._fence_settled_context(message)
@@ -587,7 +684,10 @@ class RequestService:
                 return
             unknown = json.loads(row["unknown_effects"])
             ledger = self.engine.deps.turn_store
-            if ledger is not None:
+            # A dead store may refuse before obtaining a ledger lease. There
+            # are no admitted effects to project in that case. If a lease did
+            # exist, preserve fail-closed projection instead of losing unknowns.
+            if ledger is not None and (ledger.available or row["ledger_generation"] is not None):
                 # This projection is complete for the bound request, unlike
                 # the deliberately bounded diagnostics observer. Terminal
                 # unknown effects cannot disappear behind its page limit.
@@ -613,6 +713,41 @@ class RequestService:
                                {"conversation_id": message.conversation_id,
                                 "request_id": message.request_id, "generation": message.generation,
                                 "unknown_effects": len(unknown)})
+
+    async def launch_auto_resume(self, st, original, preserved):
+        """Promote a rebuilt checkpoint under the manager's channel lock.
+
+        The caller retains the lease unless this returns True. Admission is
+        synchronous through scheduling, so a queued newer input cannot slip
+        between the busy check and generation transition.
+        """
+        self.assert_preserved_request(original)
+        cid, rid = original.conversation_id, original.request_id
+        with self.store.transaction() as db:
+            row = self.binding(cid, rid, original.generation)
+            busy = db.execute("""SELECT 1 FROM desktop_requests WHERE conversation_id=?
+                AND state IN ('queued','running','stop_requested') LIMIT 1""", (cid,)).fetchone()
+            if (self._closed or not row or row["state"] != "suspended" or busy
+                    or not self.context_is_current(original)
+                    or row["ledger_generation"] != preserved["generation"]
+                    or json.loads(row["unknown_effects"])):
+                return False
+            generation = row["generation"] + 1
+            db.execute("""UPDATE desktop_requests SET generation=?,state='running',
+                started_at=?,ended_at=NULL,ledger_generation=?
+                WHERE request_id=? AND generation=?""",
+                       (generation, now(), st.durability.lease.generation, rid, row["generation"]))
+            self.events.append("request.started", {"kind": "request", "id": rid},
+                               {"conversation_id": cid, "request_id": rid,
+                                "generation": generation})
+        try:
+            await self.launch_resume(self.get_request(rid), st)
+        except BaseException:
+            # The manager releases the acquired lease. Preserve the admitted
+            # generation for explicit recovery, never a running phantom.
+            self._finish(self.fetch_request(cid, rid), "interrupted")
+            raise
+        return True
 
     async def launch_resume(self, row, st):
         message = self.fetch_request(row["conversation_id"], row["request_id"])

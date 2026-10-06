@@ -1,5 +1,9 @@
 # P3.1 slice 3: chat on the real core
 
+This is the original pre-review qualification record at `43c4fff`. Its stacked-base limitations below are
+historical, not the current branch contract. Review round 1 merges `main` without rebasing and records the
+updated behavior and fresh gates in [`p31-slice3-review1.md`](p31-slice3-review1.md).
+
 Stacked on `phase-2/controls-resume` at
 `b8d7191024701d0af41b03ec7bbd9a7a7d6762d8`. No rebase or force push; PR target is that branch.
 The engine is unchanged by this slice. No deployment, active-desktop input, live-service change, real account,

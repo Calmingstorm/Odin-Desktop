@@ -36,6 +36,10 @@ export async function startCannedProvider({ root }) {
       const chunks = []
       for await (const chunk of req) chunks.push(chunk)
       const body = JSON.parse(Buffer.concat(chunks).toString() || '{}')
+      if (req.method === 'GET' && req.url === '/v1/models') {
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ data: [{ id: 'canned-contract', object: 'model' }] })); return
+      }
       if (req.method === 'POST' && req.url === '/release') {
         release(body.token)
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{}'); return
@@ -47,7 +51,7 @@ export async function startCannedProvider({ root }) {
       const lastUserIndex = messages.findLastIndex((message) => message.role === 'user')
       const raw = messages[lastUserIndex]?.content ?? ''
       const text = typeof raw === 'string' ? raw : raw.map((part) => part.text ?? '').join('\n')
-      const token = text.match(/\[(reply|tool|paged-tool|artifact|fail|hold-stop|hold-steer)\]/)?.[0] ?? '[reply]'
+      const token = text.match(/\[(reply|tool|paged-tool|artifact|fail|hold-stop|hold-steer|hold-resume)\]/)?.[0] ?? '[reply]'
       const afterUser = messages.slice(lastUserIndex + 1)
       const tools = afterUser.filter((message) => message.role === 'tool')
       requests.push({ token, body })
@@ -94,16 +98,6 @@ export async function startCannedProvider({ root }) {
   })
   await new Promise((accept, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', accept) })
   const baseUrl = `http://127.0.0.1:${server.address().port}/v1`
-  const configPath = join(root, 'canned-provider.json')
-  writeFileSync(configPath, JSON.stringify({
-    openai_codex: { enabled: false }, ollama: { enabled: false },
-    openai_compatible: { enabled: true, api_key: 'canned-local-test-only', base_url: baseUrl,
-      model: 'canned-contract', preset: 'custom', reasoning_dialect: 'none', reasoning_effort: 'none',
-      max_tokens: 4096, request_timeout_seconds: 60, stream_stall_timeout_seconds: 30,
-      model_profiles: { 'canned-contract': { total_window_tokens: 131072, max_output_tokens: 4096 } } },
-    llm_provider: { model: 'compat:canned-contract' }, browser: { enabled: false },
-    tools: { hosts: { localhost: { address: '127.0.0.1', username: 'unused-test-only' } }, default_host: 'localhost' }
-  }), { mode: 0o600 })
-  return { baseUrl, configPath, imagePath, requests, release,
+  return { baseUrl, imagePath, requests, release,
     async close() { server.closeAllConnections(); await new Promise((accept) => server.close(accept)) } }
 }

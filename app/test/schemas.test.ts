@@ -5,6 +5,7 @@ import {
   attachPathsSchema,
   controlSchema,
   createConversationSchema,
+  editLeafSchema,
   imageIntentSchema,
   parseRequest,
   searchSchema,
@@ -15,6 +16,12 @@ import {
 const uuid = '0b6f1c1e-9a3e-4a8e-9d43-2f1f0c7d5a10'
 
 describe('bridge request validation', () => {
+  it('accepts a revision-bound model leaf without admitting a second change', () => {
+    const base = { method: 'models.main.set', params: { model: 'gpt-6-luna', expected_revision: 'rev-1' } }
+    expect(parseRequest(editLeafSchema, base).ok).toBe(true)
+    expect(parseRequest(editLeafSchema, { ...base, params: { ...base.params, other: true } }).ok).toBe(false)
+    expect(parseRequest(editLeafSchema, { ...base, params: { ...base.params, expected_revision: 2 } }).ok).toBe(false)
+  })
   it('accepts a well-formed submission', () => {
     const r = parseRequest(submitSchema, { client_submission_id: uuid, conversation_id: 'c_1', text: 'hi' })
     expect(r.ok).toBe(true)
@@ -131,7 +138,8 @@ describe('personality, state and records bridge methods', () => {
     expect(parseRequest(MANAGEMENT_SCHEMAS.memorySet, { scope: 'global', key: 'k', value: { nested: [1, 'two'] } }).ok).toBe(true)
     expect(parseRequest(MANAGEMENT_SCHEMAS.memorySet, { scope: 'global', key: '', value: 'x' }).ok).toBe(false)
     expect(parseRequest(MANAGEMENT_SCHEMAS.memoryBulkDelete, { entries: [] }).ok).toBe(false)
-    expect(parseRequest(MANAGEMENT_SCHEMAS.knowledgeRestore, { source: 'a', version: 0 }).ok).toBe(false)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.knowledgeRestore, { source: 'a', version: 0 }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.knowledgeRestore, { source: 'a', version: -1 }).ok).toBe(false)
     expect(parseRequest(MANAGEMENT_SCHEMAS.logsSearch, { level: 'debug' }).ok).toBe(false)
     expect(parseRequest(MANAGEMENT_SCHEMAS.computerReconcile, { session_id: 's', generation: 3, acknowledgment: 'ACKNOWLEDGE UNVERIFIED CLEANUP s' }).ok).toBe(true)
     expect(parseRequest(MANAGEMENT_SCHEMAS.personalitySet, { preset: 'odin', surprise: 1 }).ok).toBe(false)

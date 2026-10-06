@@ -1,4 +1,4 @@
-"""Owner-authenticated durable services and app-supervised core lifetime."""
+"""Owner-authenticated conversation and management services with supervised lifetime."""
 from __future__ import annotations
 
 import asyncio
@@ -20,9 +20,12 @@ from .delivery import ArtifactPublisher, DurableDelivery, PublicationEventJourna
 from .ipc import IpcServer
 from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
+from .management import ManagementService
 from .paths import ProfilePaths
 from .requests import RequestService
+from .resource_cleanup import ResourceCleanupJournal
 from .search import TranscriptSearch
+from .secrets import secret_call
 from .services import build_engine_services
 from .tool_details import ToolDetailsStore
 from .transcript import TranscriptStore
@@ -98,8 +101,8 @@ class _CoreEvents(PublicationEventJournal):
 def profile_config(paths: ProfilePaths):
     """Profile-bound defaults without loading ambient files or credentials.
 
-    Step five supplies configured settings through config_provider. Its explicit
-    operator paths are not narrowed by this default-binding helper.
+    An explicit config_provider may use this test/default-binding helper.
+    Normal startup loads persisted settings through the profile settings owner.
     """
     from ..config import Config
 
@@ -187,6 +190,7 @@ class CoreService:
     def __init__(
         self, paths: ProfilePaths, socket_path: Path, token_file: Path,
         *, release_runtime_on_close: bool = True, config_provider=None, runtime_provider=None,
+        secret_backend=None,
     ) -> None:
         self.paths = paths
         self.socket_path = Path(socket_path)
@@ -201,9 +205,9 @@ class CoreService:
         self.search: TranscriptSearch | None = None
         self.server: IpcServer | None = None
         self.permissions: PermissionManager | None = None
-        self.config_provider = config_provider or profile_config
+        self.config_provider = config_provider
         self.runtime_provider = runtime_provider
-        self.config = None
+        self.settings = None
         self.engine = None
         self.requests = None
         self.controls = None
@@ -221,20 +225,34 @@ class CoreService:
         self._publication_task: asyncio.Task | None = None
         self._publication_ready = asyncio.Event()
         self._published_seq = 0
+        self.management: ManagementService | None = None
+        self.resource_cleanup: ResourceCleanupJournal | None = None
+        self._secret_backend = secret_backend
+        self.capabilities = CAPABILITIES
+        self.start_time = time.monotonic()
+        # The admitted attachment service supplies the actual protocol limits.
+        self.limits = {}
 
     def status(self) -> dict:
+        if self.management is not None:
+            return {
+                **self.management.runtime.status(),
+                "limits": self.limits,
+                "diagnostics": self.engine.diagnostics(),
+            }
         return {
             "phase": self.phase,
             "core_instance_id": self.authority.runtime_id,
             "version": VERSION,
-            "capabilities": list(CAPABILITIES),
-            "limits": self.attachments.limits,
+            "capabilities": list(self.capabilities),
+            "limits": self.limits,
+            "diagnostics": self.engine.diagnostics(),
         }
 
     def welcome(self) -> dict:
         return {
             "core": {"instance_id": self.authority.runtime_id, "version": VERSION},
-            "capabilities": list(CAPABILITIES),
+            "capabilities": list(self.capabilities),
             "features": [],
             "event_high": self.events.high,
         }
@@ -252,19 +270,29 @@ class CoreService:
         )
         self.commands = CommandJournal(self.store)
         self.events = _CoreEvents(self.store)
+        self.resource_cleanup = ResourceCleanupJournal(
+            self.paths.data_dir / "resource-cleanup.json",
+        )
         self.conversations = ConversationStore(self.store, self.events)
         self.transcript = TranscriptStore(self.store, self.events, self.conversations)
         self.search = TranscriptSearch(self.transcript, self.events)
         self.attachments = AttachmentService(
             self.store, self._require_attachment_conversation)
+        self.limits = self.attachments.limits
         self.delivery = DurableDelivery(
             self.store, self.events, transcript_commit=self.transcript.commit,
             assert_context=self._assert_delivery_context)
-        self.config = await _resolve(self.config_provider(self.paths))
+        settings = ManagementService.profile_settings(
+            self, secret_backend=self._secret_backend,
+            config=(await _resolve(self.config_provider(self.paths))
+                    if self.config_provider is not None else None))
+        self.settings = settings
+        await secret_call(settings.hydrate_secrets)
         runtime = (await _resolve(self.runtime_provider(self.config, self.paths, self.permissions))
                    if self.runtime_provider is not None else None)
         self.engine = build_engine_services(self.config, self.paths, self.permissions,
-                                            delivery=self.delivery, runtime_context=runtime)
+                                            delivery=self.delivery, runtime_context=runtime,
+                                            settings=settings)
         executor = self.engine.deps.tool_executor
         output_store = executor._ensure_output_store()
         self.artifacts = ArtifactStore(self.store, output_store=output_store,
@@ -281,13 +309,17 @@ class CoreService:
             attachments=self.attachments)
         self.engine.bind_requests(self.requests)
         deps = self.engine.deps
-        self.resume_manager = TurnResumeManager(
-            store=deps.turn_store, tool_loop=self.engine.runner, llm_gateway=deps.llm_gateway,
-            channel_state=deps.channel_state, sessions=deps.sessions, delivery=self.delivery,
-            permissions=self.permissions, tool_catalog=deps.tool_catalog,
-            get_config=deps.get_config, fetch_message=self.requests.fetch_message,
-            assert_preserved_request=self.requests.assert_preserved_request,
-            auto_resume_enabled=False)
+        if deps.turn_store is not None:
+            self.resume_manager = TurnResumeManager(
+                store=deps.turn_store, tool_loop=self.engine.runner, llm_gateway=deps.llm_gateway,
+                channel_state=deps.channel_state, sessions=deps.sessions, delivery=self.delivery,
+                permissions=self.permissions, tool_catalog=deps.tool_catalog,
+                get_config=deps.get_config, fetch_message=self.requests.fetch_message,
+                assert_preserved_request=self.requests.assert_preserved_request,
+                auto_resume_enabled=self.config.turn_state.auto_resume,
+                resume_ttl_hours=self.config.turn_state.resume_ttl_hours,
+                launch_auto_resume=self.requests.launch_auto_resume)
+            self.engine.runner._on_turn_suspended = self.resume_manager.on_turn_suspended
         self.controls = ControlService(
             self.store, self.events, self.requests, deps.channel_state,
             authority=self.authority, permissions=self.permissions,
@@ -300,21 +332,35 @@ class CoreService:
         self.requests.recover_interrupted()
         self.controls.recover_after_restart()
         await self.delivery.recover()
+        self.management = ManagementService.compose(self, settings=settings)
+        # Compose-time test injection shares this same settings owner. All
+        # hydration and startup vault reads remain off the event loop.
+        await secret_call(settings.hydrate_secrets)
+        await self.engine.initialize_profile_provider()
+        self.capabilities = (*CAPABILITIES[:5],
+                             *sorted((set(CAPABILITIES) | set(self.management.methods))
+                                     - set(CAPABILITIES[:5])))
         self.server = IpcServer(
             self.socket_path, self.token_file, self.paths.profile_id,
             self.authority, self.welcome, self.dispatch,
         )
         self.lifetime.watch_parent(stdin_fd)
         self.lifetime.watch_signals()
-        await self.server.start()
         self.phase = "ready"
         async with self._serial:
             self.commands.prune(time.time() - RECEIPT_RETENTION)
             await self._status_event()
             await self._flush_publications()
+        # Hydration/status now await workers. Commit the initial event before
+        # admitting any handshake, preserving welcome/catch-up's high watermark.
+        await self.server.start()
         self._receipt_pruner = asyncio.create_task(self._prune_receipts())
         self._publication_task = asyncio.create_task(self._publication_loop())
         await self.requests.after_commit()
+
+    @property
+    def config(self):
+        return self.settings.config if self.settings is not None else None
 
     def _assert_delivery_context(self, context):
         if self.requests is None:
@@ -369,8 +415,11 @@ class CoreService:
             self.lifetime.request_stop("storage_unavailable")
 
     async def _status_event(self) -> None:
+        status = (await self.management.runtime.status_async()
+                  if self.management is not None else self.status())
+        status.update(limits=self.limits, diagnostics=self.engine.diagnostics())
         self.events.append(
-            "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id}, self.status(),
+            "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id}, status,
         )
         await self._flush_publications()
 
@@ -413,17 +462,22 @@ class CoreService:
         owner = self.permissions.set_request_owner(connection.owner_context)
         committed = []
         try:
-            if request["method"] in CONTROL_METHODS:
+            if request["method"] in CONTROL_METHODS or request["method"] == "submission.send":
                 async def admit_control():
                     invalid = validate_params(request["method"], request["params"])
                     if invalid:
                         return invalid
                     if not self.lifetime.admitting:
                         return failure("busy", "Core is quiescing")
+                    if request["method"] == "submission.send":
+                        return await self.requests.handle_async(
+                            request["method"], request["params"], controls=self.controls)
                     return await self.controls.dispatch(request["method"], request["params"])
 
                 result = await self.commands.execute_async(
                     request["id"], request["method"], request["params"], admit_control)
+                if request["method"] == "submission.send":
+                    await self._after_command_commit(request["method"], request["params"], result)
                 async with self._serial:
                     await self._flush_publications()
                 return {"t": "res", "id": request["id"], **result}
@@ -448,14 +502,23 @@ class CoreService:
                 raise PermissionError("profile owner authority is no longer current")
             # Existing identities win even if their method is no longer served.
             # Unknown capabilities must not reserve IDs or persist refusal bodies.
-            fresh_read = method in READ_METHODS or method == "attachments.chunk"
-            bound = self.commands.check(command_id, method, params)
+            fresh_read = (method in READ_METHODS or method == "attachments.chunk"
+                          or (self.management is not None
+                              and method in self.management.read_methods))
+            try:
+                bound = (self.management.check(command_id, method, params)
+                         if self.management is not None
+                         else self.commands.check(command_id, method, params))
+            except (ValueError, TypeError, RecursionError):
+                return {"t": "res", "id": command_id, **failure(
+                    "bad_request", "Expected finite JSON parameters",
+                )}
             # Existing command IDs still conflict with differently-bound reads.
             # A read/chunk result itself is never replayed from a receipt.
             if bound is not None and (not fresh_read
                                       or bound.get("error", {}).get("code") == "id_conflict"):
                 return {"t": "res", "id": command_id, **bound}
-            if method not in CAPABILITIES:
+            if method not in self.capabilities:
                 return {"t": "res", "id": command_id, **failure(
                     "capability_unavailable", "Service is not available yet",
                 )}
@@ -477,6 +540,24 @@ class CoreService:
                         raise PermissionError("profile owner authority is no longer current")
                     await connection.send(frame)
                 return None
+            if method == "status.get":
+                result = validate_params(method, params)
+                if result is None:
+                    if self.management is not None:
+                        await self.management.runtime.status_async()
+                    result = {"ok": True, "result": self.status()}
+                return {"t": "res", "id": command_id, **result}
+            if self.management is not None and method in self.management.methods:
+                if method in self.management.read_methods:
+                    result = await self.management.invoke(method, params)
+                elif not self.lifetime.admitting:
+                    result = failure("busy", "Core is quiescing")
+                else:
+                    result = await self.management.execute(
+                        command_id, method, params,
+                        unlock_serial=self._serial if method == "secrets.unlock" else None,
+                    )
+                return {"t": "res", "id": command_id, **result}
             if method in READ_METHODS:
                 result = validate_params(method, params)
                 if result is None:
@@ -565,10 +646,29 @@ class CoreService:
             # Failed cleanup must not release ownership beneath a surviving
             # execution task. The caller's containment exit remains the barrier.
             try:
+                if self.resume_manager is not None:
+                    await self.resume_manager.close()
                 if self.requests is not None:
                     await self.requests.close()
                 if self.engine is not None:
-                    await self.engine.close()
+                    try:
+                        await self.engine.close()
+                    except Exception:
+                        # Requests are settled, but execution cleanup failed.
+                        # Persist its uncertainty and attempt independent
+                        # management cleanup without releasing graph ownership.
+                        self._engine_cleanup_failed = True
+                        try:
+                            if self.management is not None:
+                                await self.management.close()
+                            elif self.resource_cleanup is not None:
+                                self.resource_cleanup.finish({
+                                    **getattr(self.engine, "execution_cleanup_results", {}),
+                                    "engine_services": {"state": "unknown"},
+                                })
+                        except Exception:
+                            pass  # The original engine failure remains authoritative.
+                        raise
             finally:
                 if self._publication_task is not None:
                     self._publication_task.cancel()
@@ -577,8 +677,12 @@ class CoreService:
                     except asyncio.CancelledError:
                         pass
             try:
-                if self.store is not None:
-                    self.store.close()
+                try:
+                    if self.management is not None:
+                        await self.management.close()
+                finally:
+                    if self.store is not None:
+                        self.store.close()
             finally:
                 if self._release_runtime_on_close:
                     self.release_runtime()

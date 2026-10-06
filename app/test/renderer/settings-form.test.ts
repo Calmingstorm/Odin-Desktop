@@ -136,6 +136,7 @@ describe('what the form edits in place', () => {
     field({ type: 'string', path: 'x.y', apply_handler, ...extra })
 
   it('edits generic, secret, leaf-editor and settings-shaped fields, and shows section-owned ones read-only', () => {
+    expect(editableHere(owned('models.main.set', { path: 'llm_provider.active_provider' }))).toBe(false)
     expect(editableHere(owned(null))).toBe(true)
     expect(editableHere(owned('settings.set'))).toBe(true)
     expect(editableHere(owned('providers.compat.set', { sensitivity: 'sensitive' }))).toBe(true) // a secret: set, never shown

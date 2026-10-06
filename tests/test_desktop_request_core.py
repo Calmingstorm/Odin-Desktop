@@ -149,9 +149,10 @@ async def test_ipc_dedup_queue_disconnect_guarded_delivery_artifact_and_restart(
         assert (await request(reader, writer, "artifacts.read", {
             "ref": ref, "offset": 0, "length": 1}, read_id))["ok"]
         core.config.tools.disabled_tools.append("read_file")
-        denied = await request(reader, writer, "artifacts.read", {
+        saved = await request(reader, writer, "artifacts.read", {
             "ref": ref, "offset": 0, "length": 1}, read_id)
-        assert denied["error"]["code"] == "unauthorized"
+        assert saved["ok"]
+        assert base64.b64decode(saved["result"]["data_b64"]) == b"h"
         assert core.store.connection.execute(
             "SELECT COUNT(*) FROM command_receipts WHERE command_id=?", (read_id,)
         ).fetchone()[0] == 0
@@ -242,6 +243,64 @@ async def test_worker_events_replay_live_no_gap_with_zero_replay_retention(tmp_p
         os.close(write_fd)
 
 
+@pytest.mark.asyncio
+async def test_management_commit_flushes_pending_worker_events_in_sequence(tmp_path, monkeypatch):
+    paths, socket_path, token_file = profile(tmp_path)
+    provider = Provider(blocked=True)
+    core = service(paths, socket_path, token_file, provider)
+    read_fd, write_fd = os.pipe()
+    writers = []
+    try:
+        await core.start(read_fd)
+        reader, writer, _ = await connect(socket_path)
+        writers.append(writer)
+        created = await request(reader, writer, "conversations.create")
+        cid = created["result"]["conversation"]["id"]
+        await request(reader, writer, "submission.send", {
+            "client_submission_id": "management-interleave", "conversation_id": cid,
+            "text": "Hello"})
+        await asyncio.wait_for(provider.entered.wait(), 2)
+        events_reader, events_writer, _ = await connect(socket_path)
+        writers.append(events_writer)
+        subscribed = await request(events_reader, events_writer, "events.subscribe", {
+            "after": None})
+        high = int(subscribed["result"]["event_high"])
+        schema = await request(reader, writer, "settings.schema")
+        original_invoke = core.management.invoke
+
+        async def interleave(method, params):
+            if method == "settings.set":
+                # Dispatch holds _serial across this management await. Actual request
+                # workers commit their results while the ordered publisher is waiting.
+                assert core._serial.locked()
+                provider.release.set()
+                await settled(core)
+                assert int(core.events.high) > high
+                assert core._published_seq <= high
+            return await original_invoke(method, params)
+
+        monkeypatch.setattr(core.management, "invoke", interleave)
+        saved = await request(reader, writer, "settings.set", {
+            "expected_revision": schema["result"]["revision"],
+            "changes": [{"path": "tools.command_shell", "value": "sh"}]})
+        assert saved["ok"]
+        final_high = int(core.events.high)
+        frames = []
+        for _ in range(final_high - high):
+            frames.append(await asyncio.wait_for(receive(events_reader), 2))
+        assert [frame["seq"] for frame in frames] == list(range(high + 1, final_high + 1))
+        assert frames[-1]["type"] == "settings.changed"
+        assert "request.completed" in [frame["type"] for frame in frames]
+    finally:
+        provider.release.set()
+        for writer in writers:
+            writer.close()
+            await writer.wait_closed()
+        await core.close()
+        os.close(read_fd)
+        os.close(write_fd)
+
+
 def test_committed_publication_capture_discards_transaction_and_savepoint_rollbacks(tmp_path):
     wakes = []
     store = _PublicationStore(tmp_path / "journal.sqlite3", "test",
@@ -318,6 +377,44 @@ async def test_request_cleanup_failure_preserves_graph_storage_and_profile_owner
             await original_close()
         if core.engine is not None:
             await core.engine.close()
+        if core.store is not None:
+            core.store.close()
+        core.release_runtime()
+        os.close(read_fd)
+        os.close(write_fd)
+
+
+@pytest.mark.asyncio
+async def test_engine_cleanup_failure_records_unknown_without_releasing_graph_owner(tmp_path):
+    paths, socket_path, token_file = profile(tmp_path)
+    core = service(paths, socket_path, token_file, Provider())
+    read_fd, write_fd = os.pipe()
+    try:
+        await core.start(read_fd)
+        original_close = core.engine.close
+        closed = []
+        original_management_close = core.management.close
+
+        async def cannot_finish():
+            await original_close()
+            raise RuntimeError("Engine cleanup unverified")
+
+        async def management_close():
+            closed.append("management")
+            await original_management_close()
+
+        core.engine.close = cannot_finish
+        core.management.close = management_close
+        with pytest.raises(RuntimeError, match="Engine cleanup unverified"):
+            await core.close()
+        assert closed == ["management"]
+        assert core.resource_cleanup.public()["state"] == "unknown"
+        assert core.resource_cleanup.public()["reconciliation_required"]
+        assert not core.store._closed
+        contender = OwnerAuthority(paths, app_bootstrap=True)
+        with pytest.raises(Exception):
+            contender.acquire_runtime()
+    finally:
         if core.store is not None:
             core.store.close()
         core.release_runtime()

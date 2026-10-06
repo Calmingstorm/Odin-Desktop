@@ -12,8 +12,9 @@ import {
   type SettingsSetParams,
   type SettingsSetResult
 } from '../../../shared/api'
-import { dedicatedMethod, imageLeafOf, isSecret, settingsShapedMethod } from '../settings-form'
+import { dedicatedMethod, editableHere, imageLeafOf, isSecret, settingsShapedMethod } from '../settings-form'
 import { isUnavailable } from '../capability'
+import { refreshStatus } from './status'
 
 export interface FieldState {
   status: 'saving' | 'saved' | 'error'
@@ -23,7 +24,7 @@ export interface FieldState {
 export interface LoginState {
   code: string
   url: string
-  deviceAuthId: string
+  loginId: string
   interval: number
   status: 'waiting' | 'done' | 'expired' | 'failed' | 'stopped'
   message?: string
@@ -40,6 +41,7 @@ export const settings = reactive({
     error: '',
     unavailable: false,
     busy: false,
+    beginning: false,
     /** No list read since the last account action is in, so its indexes may be out of date: nothing acts on it. */
     stale: false,
     /** What the last action on an account said, by the account's identity (indexes shift when one is removed). */
@@ -100,17 +102,19 @@ function saverFor(field: ConfigField): (params: SettingsSetParams) => Promise<Re
 
 /** Saves one field: through its dedicated method when Odin applies it that way, otherwise settings.set. */
 export async function saveField(field: ConfigField, value: unknown): Promise<boolean> {
-  if (!settings.meta || isSecret(field)) return false
+  if (!settings.meta || isSecret(field) || !editableHere(field)) return false
   settings.fields[field.path] = { status: 'saving' }
   const method = dedicatedMethod(field)
   if (method) {
     const key = field.path.split('.').pop() as string
-    const result = await window.odin.editLeaf({ method, params: { [key]: value } })
+    const result = await window.odin.editLeaf({ method, params: { [key]: value, expected_revision: settings.meta.revision } })
     if (!result.ok) {
-      settings.fields[field.path] = { status: 'error', message: message(result) }
+      if (result.error.code === 'stale_binding') await changedElsewhere(field.path)
+      else settings.fields[field.path] = { status: 'error', message: message(result) }
       return false
     }
     await loadSettings() // a dedicated method returns its own shape; the records come from the core
+    await refreshStatus()
     settings.fields[field.path] = { status: 'saved' }
     return true
   }
@@ -123,6 +127,7 @@ export async function saveField(field: ConfigField, value: unknown): Promise<boo
   adopt(result.result.revision, result.result.fields)
   if (imageLeafOf(field)) await loadSettings() // its follow/pin intent and revision changed too
   settings.fields[field.path] = { status: 'saved' }
+  await refreshStatus()
   return true
 }
 
@@ -143,6 +148,7 @@ export async function setImageIntent(leaf: ImageLeaf, operation: 'follow' | 'pin
   }
   await loadSettings() // the saved values changed with the intent
   settings.fields[path] = { status: 'saved' }
+  await refreshStatus()
   return true
 }
 
@@ -159,6 +165,7 @@ export async function resetField(field: ConfigField): Promise<boolean> {
   adopt(result.result.revision, result.result.fields)
   if (imageLeafOf(field)) await loadSettings() // back to following, with a new revision
   settings.fields[field.path] = { status: 'saved' }
+  await refreshStatus()
   return true
 }
 
@@ -168,6 +175,7 @@ export async function setSecret(field: ConfigField, value: string): Promise<bool
   const result = await window.odin.secretsSet({ path: field.path, value })
   settings.fields[field.path] = result.ok ? { status: 'saved' } : { status: 'error', message: message(result) }
   if (result.ok) await loadSettings()
+  await refreshStatus()
   return result.ok
 }
 
@@ -176,6 +184,7 @@ export async function clearSecret(field: ConfigField): Promise<boolean> {
   const result = await window.odin.secretsClear({ path: field.path })
   settings.fields[field.path] = result.ok ? { status: 'saved' } : { status: 'error', message: message(result) }
   if (result.ok) await loadSettings()
+  await refreshStatus()
   return result.ok
 }
 
@@ -239,6 +248,7 @@ async function accountAction(account: CodexAccount, run: (index: number) => Prom
     const result = await run(account.index)
     settings.codex.notes[identity] = result.ok ? done : message(result)
     await loadCodex()
+    await refreshStatus()
   } finally {
     settings.codex.busy = false
   }
@@ -255,33 +265,53 @@ let loginRun = 0
 
 /** Starts a device-code login: the user approves in the browser, and the window checks at the code's interval. */
 export async function beginLogin(): Promise<void> {
-  const begun = await window.odin.codexLoginBegin()
+  if (settings.codex.beginning || settings.codex.login?.status === 'waiting') return
+  const run = ++loginRun
+  settings.codex.beginning = true
+  const begun = await window.odin.codexLoginBegin().finally(() => { settings.codex.beginning = false })
+  if (run !== loginRun) return
   if (!begun.ok) {
     settings.codex.error = begun.error.message
     return
   }
-  const run = ++loginRun
-  const { device_auth_id: deviceAuthId, user_code: code, interval, verify_url: url } = begun.result
-  settings.codex.login = { code, url, deviceAuthId, interval, status: 'waiting' }
+  settings.codex.error = ''
+  const { login_id: loginId, user_code: code, interval, verify_url: url } = begun.result
+  settings.codex.login = { code, url, loginId, interval, status: 'waiting' }
+  await pollLogin(run)
+}
+
+/** Retry the same device login after a keyring/transport failure; the core retains authorization until expiry. */
+export async function retryLogin(): Promise<void> {
+  if (settings.codex.login?.status !== 'failed') return
+  settings.codex.login = { ...settings.codex.login, status: 'waiting', message: undefined }
+  await pollLogin(++loginRun)
+}
+
+async function pollLogin(run: number): Promise<void> {
+  const login = settings.codex.login
+  if (!login) return
+  const { loginId, interval } = login
   for (;;) {
     await new Promise((resolve) => setTimeout(resolve, Math.max(1, interval) * 1000))
     if (run !== loginRun || settings.codex.login?.status !== 'waiting') return
-    const polled = await window.odin.codexLoginPoll({ device_auth_id: deviceAuthId, user_code: code })
+    const polled = await window.odin.codexLoginPoll({ login_id: loginId })
     if (run !== loginRun) return
     if (!polled.ok) {
       const expired = polled.error.code === 'expired'
       settings.codex.login = { ...settings.codex.login, status: expired ? 'expired' : 'failed', message: polled.error.message }
+      await refreshStatus()
       return
     }
     if (polled.result.status === 'authenticated') {
       settings.codex.login = { ...settings.codex.login, status: 'done', message: `Signed in as ${polled.result.email}.` }
       await loadCodex()
+      await refreshStatus()
       return
     }
   }
 }
 
-/** Stops waiting here. A login the user still completes in the browser is added by the core all the same, as in Odin. */
+/** Stops polling here; the core does not finish device login without a subsequent poll. */
 export function stopLogin(): void {
   loginRun += 1
   if (settings.codex.login?.status === 'waiting') settings.codex.login = { ...settings.codex.login, status: 'stopped' }

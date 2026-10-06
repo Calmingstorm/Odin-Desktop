@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, useId } from 'vue'
 import type { ToolDetail } from '../../../shared/api'
 import type { ToolEntry } from '../store'
 import { appendPage, type OutputView } from '../tool-output'
@@ -7,6 +7,8 @@ import FileCard from './FileCard.vue'
 
 const props = defineProps<{ entries: ToolEntry[]; requestId?: string; live?: boolean }>()
 const open = ref(Boolean(props.live))
+const uid = useId()
+const notice = ref('')
 
 /** Retained output arrives in pages of this many characters. */
 const OUTPUT_PAGE = 32_768
@@ -44,6 +46,7 @@ async function toggle(entry: ToolEntry): Promise<void> {
   current.loading = false
   if (result.ok) current.detail = result.result
   else current.error = result.error.message
+  notice.value = result.ok ? `Details loaded for ${entry.tool}.` : `Couldn't load details for ${entry.tool}.`
 }
 
 async function more(id: string, tool: string): Promise<void> {
@@ -56,10 +59,12 @@ async function more(id: string, tool: string): Promise<void> {
   current.output.loading = false
   if (!result.ok) {
     current.output.error = result.error.code === 'expired' ? 'Odin no longer keeps this output.' : result.error.message
+    notice.value = `Couldn't load output for ${tool}.`
     return
   }
   current.output.error = ''
   appendPage(current.output, tool, result.result)
+  notice.value = current.output.eof ? `All output loaded for ${tool}.` : `Output page loaded for ${tool}.`
 }
 
 function json(value: unknown): string {
@@ -73,46 +78,49 @@ function until(iso: string): string {
 
 <template>
   <div v-if="entries.length" class="tools">
-    <button class="tools-toggle" :aria-expanded="open" @click="open = !open">
-      {{ entries.length }} tool call{{ entries.length === 1 ? '' : 's' }} {{ open ? '▾' : '▸' }}
+    <p class="tool-announcement" role="status" aria-atomic="true">{{ notice }}</p>
+    <button class="tools-toggle" :aria-expanded="open" :aria-controls="`${uid}-calls`" :aria-label="`${entries.length} tool call${entries.length === 1 ? '' : 's'}: Tool activity`" @click="open = !open">
+      {{ entries.length }} tool call{{ entries.length === 1 ? '' : 's' }} <span aria-hidden="true">{{ open ? '▾' : '▸' }}</span>
     </button>
-    <ul v-if="open" class="tool-list">
+    <ul v-if="open" :id="`${uid}-calls`" class="tool-list">
       <li v-for="e in entries" :key="e.invocation_id" :class="['tool', e.outcome ?? 'running']">
         <button
           class="tool-row"
           :aria-expanded="Boolean(expanded[e.invocation_id])"
+          :aria-controls="`${uid}-${e.invocation_id}`"
           :disabled="!requestId"
           :title="requestId ? 'Show arguments and output' : undefined"
           @click="toggle(e)"
         >
-          <span class="mark" :title="e.outcome ?? 'running'">{{ mark(e) }}</span>
+          <span class="mark" aria-hidden="true">{{ mark(e) }}</span>
+          <span class="sr-only">{{ e.outcome ?? 'running' }}. Show arguments and output. </span>
           <code class="name">{{ e.tool }}</code>
           <span v-if="e.target" class="target">{{ e.target }}</span>
           <span class="summary">{{ e.summary }}</span>
           <span v-if="e.exit_code !== undefined" class="exit">exit {{ e.exit_code }}</span>
           <span v-if="e.duration_ms !== undefined" class="dur">{{ (e.duration_ms / 1000).toFixed(1) }}s</span>
         </button>
-        <div v-if="expanded[e.invocation_id]" class="tool-detail">
+        <div v-if="expanded[e.invocation_id]" :id="`${uid}-${e.invocation_id}`" class="tool-detail">
           <template v-for="x in [expanded[e.invocation_id]!]" :key="e.invocation_id">
             <p v-if="x.loading" class="tool-note">Loading…</p>
             <p v-else-if="x.error" class="warn">{{ x.error }}</p>
             <template v-else-if="x.detail">
-              <h4>Arguments <span class="tool-note">secrets hidden</span></h4>
-              <pre>{{ json(x.detail.arguments) }}</pre>
+              <h2>Arguments <span class="tool-note">secrets hidden</span></h2>
+              <pre tabindex="0" role="region" :aria-label="`Arguments for ${e.tool}`">{{ json(x.detail.arguments) }}</pre>
               <template v-for="(preview, index) in x.detail.previews" :key="index">
-                <h4>
+                <h2>
                   {{ preview.label }}
                   <span v-if="preview.truncated" class="tool-note">preview, cut short</span>
-                </h4>
-                <pre>{{ preview.text }}</pre>
+                </h2>
+                <pre tabindex="0" role="region" :aria-label="`${preview.label} for ${e.tool}`">{{ preview.text }}</pre>
               </template>
               <div v-if="x.detail.output.cursor" class="tool-output">
-                <h4 v-if="x.output.text || x.output.files.length">Full output</h4>
-                <pre v-if="x.output.text">{{ x.output.text }}</pre>
+                <h2 v-if="x.output.text || x.output.files.length">Full output</h2>
+                <pre v-if="x.output.text" tabindex="0" role="region" :aria-label="`Retained output for ${e.tool}`">{{ x.output.text }}</pre>
                 <FileCard v-for="f in x.output.files" :key="f.ref" :artifact="f" />
                 <div class="tool-output-line">
-                  <button v-if="!x.output.eof" class="ghost" :disabled="x.output.loading" @click="more(e.invocation_id, e.tool)">
-                    {{ x.output.text || x.output.files.length ? 'Load more' : 'Show full output' }}
+                  <button class="ghost" :aria-label="`${x.output.loading ? 'Loading…' : x.output.eof ? 'All output loaded' : x.output.text || x.output.files.length ? 'Load more' : 'Show full output'} for ${e.tool}`" :aria-disabled="x.output.loading || x.output.eof" @click="!x.output.eof && more(e.invocation_id, e.tool)">
+                    {{ x.output.loading ? 'Loading…' : x.output.eof ? 'All output loaded' : x.output.text || x.output.files.length ? 'Load more' : 'Show full output' }}
                   </button>
                   <span v-if="x.detail.output.expires_at" class="tool-note">Kept until {{ until(x.detail.output.expires_at) }}</span>
                 </div>
@@ -125,3 +133,9 @@ function until(iso: string): string {
     </ul>
   </div>
 </template>
+
+<style scoped>
+.tool-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+button:focus-visible { outline: 2px solid var(--accent, #91baff); outline-offset: 3px; }
+button[aria-disabled="true"] { opacity: .65; }
+</style>

@@ -122,6 +122,8 @@ export function imageLeafOf(field: ConfigField): ImageLeaf | null {
 
 /** False for a field a section's own controls change (for example tool timeouts): the form shows it, read-only. */
 export function editableHere(field: ConfigField): boolean {
+  // The core derives the provider from the main model. main.set accepts model, not active_provider.
+  if (field.path === 'llm_provider.active_provider') return false
   const handler = field.apply_handler
   return isSecret(field) || !handler || handler === 'settings.set' || dedicatedMethod(field) !== null || settingsShapedMethod(field) !== null
 }
@@ -259,8 +261,8 @@ export class FieldDrafts {
 
 /**
  * New secret values, per field. They are write-only, so the box is all there is: one write runs per field at a time,
- * a value asked for during one is written once it lands unless it is the value just written, and when a write lands
- * the box clears only if it still holds what was sent.
+ * a value asked for during one is written once it lands unless it is the value just written. Clear each submitted
+ * value immediately, even when the write fails. New unsaved typing is independent, never a persisted draft.
  */
 export class SecretDrafts {
   readonly values = reactive<Record<string, string | undefined>>({})
@@ -272,6 +274,7 @@ export class SecretDrafts {
   async save(path: string): Promise<void> {
     const value = this.values[path]
     if (!value) return
+    this.values[path] = undefined
     if (this.writing.has(path)) this.owed.set(path, value)
     else await this.send(path, value)
   }
@@ -279,7 +282,7 @@ export class SecretDrafts {
   private async send(path: string, value: string): Promise<void> {
     this.writing.add(path)
     try {
-      if ((await this.write(path, value)) && this.values[path] === value) this.values[path] = undefined
+      await this.write(path, value)
     } finally {
       this.writing.delete(path)
     }

@@ -94,7 +94,7 @@ async def test_ipc_resume_wired_manager_exact_checkpoint_and_new_generation(
     writer = None
     try:
         await core.start(read_fd)
-        assert core.resume_manager._auto_resume_enabled is False
+        assert core.resume_manager._auto_resume_enabled is core.config.turn_state.auto_resume
         core.engine.deps.llm_gateway._recovery_policy_source = lambda: RecoveryPolicy(
             deadline_seconds=0.05, backoff_base=0.001, backoff_cap=0.002, retry_after_cap=0.005)
 

@@ -12,6 +12,7 @@ import mimetypes
 import time
 from collections.abc import Mapping
 from contextvars import ContextVar
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -89,21 +90,105 @@ class EngineServices:
         self.deps, self.runner = deps, runner
         self.requests = None
         self._recorded = set()
+        self._close_lock = asyncio.Lock()
+        self._close_attempted = False
+        self._cleanup_error = None
+        self._execution_cleanup_results = None
+        self._cleanup_outcome = {"state": "unknown", "reason": "engine_cleanup_not_complete"}
+        self.producers_quiesced = False
 
     def bind_requests(self, requests):
         if self.requests is not None and self.requests is not requests:
             raise RuntimeError("Engine already belongs to another request service")
         self.requests = requests
 
-    async def close(self):
-        """Release this profile's transports after request workers are quiesced."""
-        from ..llm.client_lifecycle import shutdown_provider_clients
+    async def initialize_profile_provider(self):
+        """Build startup Codex credentials off-loop after profile hydration."""
+        from .management import MethodError
+        from .secrets import SecretStoreError, secret_call
 
-        if getattr(self, "_closed", False):
+        gateway = self.deps.llm_gateway
+        settings = getattr(gateway, "settings", None)
+        if settings is None or gateway.codex_client is not None:
             return
-        self._closed = True
+        if not settings.config.openai_codex.enabled:
+            return
+
+        def build():
+            # An empty or locked vault never becomes a cached empty auth pool.
+            if gateway.codex_accounts.vault.read():
+                return gateway._build("codex", settings.config)
+            return None
+
+        try:
+            client = await secret_call(build)
+        except (MethodError, SecretStoreError):
+            log.warning("Desktop Codex provider unavailable at startup")
+            return
+        gateway.codex_client = client
+        if gateway.active_client is not None:
+            gateway.wire_callbacks()
+
+    def diagnostics(self):
+        """Public, credential-free runtime state for optional engine services."""
+        d = self.deps
+        ledger = d.turn_store
+        if ledger is None:
+            durability = {"state": "off", "reason": d.durability_reason,
+                          "message": "Turn durability off; turns run without checkpoints."}
+        elif not ledger.available:
+            durability = {"state": "unavailable", "reason": "runtime_store_failure",
+                          "message": "Turn ledger unavailable; fresh turn admission is refused."}
+        else:
+            durability = {"state": "on", "reason": None}
+        return {"turn_durability": durability,
+                "compatible_provider": {
+                    "state": "skipped" if d.compatible_skipped else
+                             "available" if d.llm_gateway.compatible_client is not None else "off",
+                    "reason": "missing_api_key" if d.compatible_skipped else None}}
+
+    @property
+    def execution_cleanup_results(self):
+        """First original-owner receipts, isolated from journal mutation."""
+        return deepcopy(self._execution_cleanup_results)
+
+    @property
+    def cleanup_outcome(self):
+        return deepcopy(self._cleanup_outcome)
+
+    async def close(self):
+        """Retain original barriers once, including failure and cancellation."""
+        async with self._close_lock:
+            if self._close_attempted:
+                if self._cleanup_error is not None:
+                    raise self._cleanup_error
+                return
+            self._close_attempted = True
+            try:
+                await self._close_once()
+            except BaseException as error:
+                self._cleanup_error = error
+                self._cleanup_outcome["state"] = "unknown"
+                self._cleanup_outcome.setdefault("failures", []).append({
+                    "stage": "engine_close", "error_type": type(error).__name__,
+                })
+                raise
+            else:
+                self._closed = True
+                self._cleanup_outcome = {"state": "released"}
+
+    async def _close_once(self):
+        from ..llm.client_lifecycle import shutdown_provider_clients
+        from .resource_cleanup import ResourceCleanupError, close_execution_owners
+
         d = self.deps
         failures = []
+        failure_evidence = []
+        self._cleanup_outcome = {"state": "unknown", "failures": failure_evidence}
+
+        def failed(stage, error):
+            failures.append(error)
+            failure_evidence.append({"stage": stage, "error_type": type(error).__name__})
 
         async def release(owner, method):
             if owner is None:
@@ -114,35 +199,76 @@ class EngineServices:
                 if hasattr(result, "__await__"):
                     await result
             except Exception as error:
-                failures.append(error)
+                failed(method, error)
                 log.exception("Desktop cleanup failed: %s", method)
 
+        # Never close transports/storage beneath an unsettled admitted request.
+        if self.requests is not None and (
+            not getattr(self.requests, "_closed", False)
+            or any(not task.done() for task in self.requests._tasks)
+        ):
+            raise RuntimeError("Desktop request producers have not quiesced")
         await release(d.channel_state, "shutdown_steering")
         await release(d.loop_manager, "shutdown")
         await release(d.scheduler, "stop")
         await release(getattr(d.runtime_context, "mcp_manager", None), "shutdown")
         active = [agent for agent in d.agent_manager._agents.values() if agent._sm.is_active]
-        tasks = [agent._task for agent in active if getattr(agent, "_task", None) is not None]
+        tasks = [agent._task for agent in d.agent_manager._agents.values()
+                 if getattr(agent, "_task", None) is not None and not agent._task.done()]
         for agent in active:
-            d.agent_manager.kill(agent.id, cascade=True)
-        if tasks:
             try:
-                await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), 10.0)
-            except TimeoutError as error:
-                failures.append(error)
+                d.agent_manager.kill(agent.id, cascade=True)
+            except Exception as error:
+                failed("agent_kill", error)
+        # A terminal state is not proof that the agent's task has settled.
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            done, pending = await asyncio.wait(tasks, timeout=10.0)
+            for task in done:
+                if not task.cancelled():
+                    task.exception()
+            if pending:
+                failed("agent_tasks", TimeoutError())
         await release(d.agent_manager, "cleanup")
-        await release(getattr(d.tool_executor, "_process_registry", None), "shutdown")
+        # Some retained APIs log timeouts rather than raise. Check actual tasks.
+        producer_tasks = [getattr(d.scheduler, "_task", None)]
+        producer_tasks += [getattr(loop, "_task", None)
+                           for loop in getattr(d.loop_manager, "_loops", {}).values()]
+        producer_tasks += tasks
+        if any(task is not None and not task.done() for task in producer_tasks):
+            failed("producer_tasks", RuntimeError("Engine producers are still settling"))
+        if failures:
+            raise RuntimeError("Desktop engine producers did not fully quiesce") from failures[0]
+        self.producers_quiesced = True
+
+        computer = getattr(getattr(d, "native_tools", None), "owners", {}).get("computer")
+        # Retain completed rows even if cancellation interrupts a later barrier.
+        self._execution_cleanup_results = {}
+        await close_execution_owners(
+            computer=computer, registry=getattr(d.tool_executor, "_process_registry", None),
+            resources=self._execution_cleanup_results,
+        )
+        if any(row["state"] == "unknown" for row in self._execution_cleanup_results.values()):
+            failed("execution_owners", ResourceCleanupError("Runtime resource cleanup is unverified"))
+            # Unknown native input/process release can retain live execution.
+            # Keep its shared transports and persistence until containment.
+            raise RuntimeError("Desktop engine cleanup did not fully complete") from failures[0]
         await release(getattr(d.tool_executor, "ssh_pool", None), "close_all")
         await release(d.browser_manager, "shutdown")
         try:
-            await shutdown_provider_clients(d.llm_gateway)
+            close = getattr(d.llm_gateway, "close", None)
+            if callable(close):
+                await close()
+            else:
+                await shutdown_provider_clients(d.llm_gateway)
         except Exception as error:
-            failures.append(error)
+            failed("providers", error)
         await release(getattr(d.runtime_context, "outbound_webhook_dispatcher", None), "close")
         try:
             await asyncio.to_thread(d.sessions.save)
         except Exception as error:
-            failures.append(error)
+            failed("sessions_save", error)
         await release(getattr(d.runtime_context, "knowledge_store", None), "close")
         await release(d.turn_store, "close")
         if failures:
@@ -164,7 +290,9 @@ class EngineServices:
         if not d.permissions.is_owner(uid):
             raise PermissionError("Authenticated profile owner required")
         if d.llm_gateway.active_client is None:
-            raise RuntimeError("No selected LLM provider configured")
+            from .errors import NoLLMProviderError
+
+            raise NoLLMProviderError("No selected LLM provider configured")
         content = message.content if content is None else content
         d.sessions.add_message(cid, "user", f"[{message.owner_name or uid}]: {content}", user_id=uid)
         try:
@@ -237,7 +365,8 @@ class EngineServices:
         d, cid = self.deps, message.conversation_id
         if not error:
             saved = summarize_tool_response(response, tools) if tools else response[:CHAT_RESPONSE_MAX_CHARS]
-        elif d.turn_store.turn_status_sync(message.turn_key) == "SUSPENDED":
+        elif (d.turn_store is not None
+              and d.turn_store.turn_status_sync(message.turn_key) == "SUSPENDED"):
             note = f" after using tools ({', '.join(tools[:5])})" if tools else ""
             saved = ("[Previous request was interrupted by a model-capacity "
                      f"outage{note}. Its work is PRESERVED and resumable.]")
@@ -268,7 +397,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
                           codex_client=None, ollama_client=None, compatible_client=None,
                           codex_auth=None, runtime_context=None, readiness_gate=None,
                           session_manager=None, turn_store=None, channel_state=None,
-                          native_owners=None):
+                          native_owners=None, settings=None):
     """Compose explicit profile settings or injected runtime owners.
 
     readiness_gate is a live zero-argument Mapping[str, bool] provider. It may
@@ -303,7 +432,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..turn_state import TurnStateStore
 
     runtime = runtime_context or SimpleNamespace()
-    get_config = getattr(runtime, "get_config", lambda: config)
+    get_config = (lambda: settings.config) if settings is not None else getattr(runtime, "get_config", lambda: config)
     cfg = get_config()
     set_default_timezone(cfg.timezone)
     paths.create_private()
@@ -360,15 +489,37 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     trajectories = getattr(runtime, "trajectory_saver", None) or TrajectorySaver(str(paths.data_dir / "trajectories"))
     agent_trajectories = getattr(runtime, "agent_trajectory_saver", None) or AgentTrajectorySaver(
         str(paths.data_dir / "agent_trajectories"))
-    ledger = turn_store or getattr(runtime, "turn_store", None) or TurnStateStore(
-        paths.data_dir / "turn_state" / "turns.db")
-    if not ledger.available:
-        raise RuntimeError("Desktop execution requires an available durable turn ledger")
+    # D17: feature-off or failed-open is Odin's legacy, uncheckpointed run.
+    # Keep a successfully opened owner attached: later failure must refuse
+    # admission, not silently convert the runtime to legacy execution.
+    ledger = None
+    durability_reason = None
+    if not cfg.turn_state.enabled:
+        durability_reason = "disabled_by_config"
+        log.info("Desktop turn durability off: disabled by configuration")
+    else:
+        ledger = turn_store if turn_store is not None else getattr(runtime, "turn_store", None)
+        if ledger is None:
+            try:
+                ledger = TurnStateStore(paths.data_dir / "turn_state" / "turns.db")
+            except Exception as error:
+                log.warning("Desktop turn ledger failed to open: %s", type(error).__name__)
+        if ledger is None or not ledger.available:
+            ledger = None
+            durability_reason = "store_open_failed"
+            log.warning("Desktop turn durability off: ledger failed to open; running legacy turns")
     codex_client = codex_client or getattr(runtime, "codex_client", None)
     ollama_client = ollama_client or getattr(runtime, "ollama_client", None)
     compatible_client = compatible_client or getattr(runtime, "compatible_client", None)
+    injected_gateway = getattr(runtime, "llm_gateway", None)
+    if settings is not None and injected_gateway is not None:
+        # Retain injected concrete generations and recovery owners while the
+        # profile-owned gateway remains the single administrative boundary.
+        codex_client = codex_client or injected_gateway.codex_client
+        ollama_client = ollama_client or injected_gateway.ollama_client
+        compatible_client = compatible_client or injected_gateway.compatible_client
     cc = cfg.openai_codex
-    if codex_client is None and cc.enabled:
+    if codex_client is None and cc.enabled and settings is None:
         auth = codex_auth
         if auth is None:
             credential_path = Path(cc.credentials_path)
@@ -388,9 +539,10 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         ollama_client = OllamaClient(base_url=oc.base_url, model=oc.model,
             max_tokens=oc.max_tokens, num_ctx=oc.num_ctx, timeout=oc.timeout, api_key=oc.api_key)
     pc = cfg.openai_compatible
-    if compatible_client is None and pc.enabled:
-        if not pc.api_key:
-            raise ValueError("Compatible backend requires injected profile credentials")
+    compatible_skipped = compatible_client is None and pc.enabled and not pc.api_key
+    if compatible_skipped:
+        log.warning("Desktop compatible provider skipped: enabled without an API key")
+    if compatible_client is None and pc.enabled and pc.api_key:
         from ..llm.openai_compatible import KIMI_TOOL_ENFORCEMENT, preset_context_overflow_pattern
         from ..reasoning import compatible_reasoning_dialect
 
@@ -410,7 +562,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     for provider in ("codex", "ollama", "compat"):
         guard.register(f"llm_{provider}")
     lr = cfg.llm_recovery
-    gateway = getattr(runtime, "llm_gateway", None) or LLMGateway(get_config=get_config,
+    gateway_dependencies = dict(get_config=get_config,
         codex_client=codex_client, ollama_client=ollama_client, kimi_client=None,
         compatible_client=compatible_client, subsystem_guard=guard,
         auxiliary_llm_client=getattr(runtime, "auxiliary_llm_client", None),
@@ -421,6 +573,22 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         recovery_policy_source=lambda: RecoveryPolicy(
             deadline_seconds=get_config().llm_recovery.generation_deadline_seconds,
             backoff_cap=get_config().llm_recovery.backoff_cap_seconds))
+    if settings is not None:
+        from .codex_accounts import CodexAccountsService
+        from .providers import ProviderOwner
+
+        if injected_gateway is not None:
+            for name in ("subsystem_guard", "auxiliary_llm_client", "cost_tracker",
+                         "model_breakers"):
+                gateway_dependencies[name] = getattr(injected_gateway, name)
+            gateway_dependencies["recovery_policy_source"] = injected_gateway._recovery_policy_source
+        codex = CodexAccountsService(settings)
+        gateway = ProviderOwner(settings, codex, executor=executor, **gateway_dependencies)
+        codex.providers = gateway
+        # The async core initializes this vault-backed client off-loop after
+        # composition, retaining one provider/account owner for request work.
+    else:
+        gateway = getattr(runtime, "llm_gateway", None) or LLMGateway(**gateway_dependencies)
     if gateway.active_client is not None:
         gateway.wire_callbacks()
     owners = dict(native_owners or getattr(runtime, "native_owners", {}) or {})
@@ -464,6 +632,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         get_mcp_definitions=mcp.get_tool_definitions if mcp else None,
         computer_available=lambda: bool(getattr(owners.get("computer"), "enabled", False)),
         get_email_config=lambda: executor._email_config)
+    if settings is not None:
+        gateway.tool_catalog, gateway.prompt_builder = catalog, prompt
     gateway.on_provider_switch = catalog.invalidate
     if mcp is not None:
         mcp.set_on_catalog_changed(catalog.invalidate)
@@ -542,6 +712,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     compression = getattr(runtime, "context_compressor", cc.context_compression if cc.context_compression.enabled else None)
     d = SimpleNamespace(get_config=get_config, paths=paths, permissions=permissions,
         sessions=sessions, tool_executor=executor, channel_state=state, turn_store=ledger,
+        durability_reason=durability_reason, compatible_skipped=compatible_skipped,
         llm_gateway=gateway, prompt_builder=prompt, tool_catalog=catalog, native_tools=dispatcher,
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         skill_manager=skills, audit=audit, agent_manager=agents, loop_manager=loops,

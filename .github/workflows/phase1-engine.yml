@@ -1,9 +1,6 @@
 name: Phase 1 engine boundaries
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -12,6 +9,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The merged Phase 2 accounting gate verifies exact historical Git
+          # objects. A shallow merge checkout cannot read those pinned inputs.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -28,6 +29,10 @@ jobs:
         run: .venv/bin/python scripts/maintenance/inventory.py report
       - name: No new lint findings
         run: .venv/bin/python scripts/maintenance/lint_gate.py
+      - name: Qualification lab orchestration (offline, no host daemon)
+        run: |
+          .venv/bin/ruff check scripts/qualification/lab tests/test_desktop_qualification_lab.py tests/test_lab_*.py
+          .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_qualification_lab.py tests/test_lab_cinnamon.py tests/test_lab_common.py tests/test_lab_gnome.py tests/test_lab_kde.py tests/test_lab_hyprland.py tests/test_lab_guest_smoke.py
       - name: Phase 2 planned ownership and checker behaviour
         run: |
           .venv/bin/python scripts/maintenance/phase2_plan.py

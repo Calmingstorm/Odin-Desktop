@@ -57,7 +57,7 @@ class ControlService:
                 disposition TEXT NOT NULL, sequence INTEGER, response TEXT,
                 created_at REAL NOT NULL)""")
 
-    async def dispatch(self, method: str, params: dict) -> dict:
+    async def dispatch(self, method: str, params: dict, *, on_notice=None) -> dict:
         if method not in {"control.stop", "control.steer", "control.resume"}:
             return response_error("not_found", "Unknown control method")
         if (type(params) is not dict
@@ -80,7 +80,7 @@ class ControlService:
                 if cached is not None:
                     return cached
                 if method == "control.resume":
-                    answer = await self._resume(normalized)
+                    answer = await self._resume(normalized, on_notice=on_notice)
                     self._finish(command_id, answer)
                 else:
                     answer = self._stop_or_steer(method, normalized)
@@ -248,39 +248,64 @@ class ControlService:
         self._changed()
         return True
 
-    async def _resume(self, params: dict) -> dict:
+    async def _resume(self, params: dict, *, on_notice=None) -> dict:
+        def reject(reason, notice=None):
+            answer = self._reject_resume(params, reason)
+            if on_notice is not None:
+                on_notice(notice or (
+                    f"I couldn't resume the preserved work: {reason}. "
+                    "Ask again from scratch if you still need it."))
+            return answer
+
         cid = params["conversation_id"]
         async with self.channel_state.lock_for(cid):
             if getattr(self.requests, "_closed", False):
-                return self._reject_resume(params, "quiescing")
+                return reject("quiescing")
             row = self._target(params)
             if row is None:
-                return self._reject_resume(params, "stale_binding")
+                existing = self.requests.get_request(params["request_id"])
+                if (existing and existing["conversation_id"] == cid
+                        and existing.get("owner") != self.authority.owner_id):
+                    return reject("stale_binding",
+                        "There is preserved work in this channel, but only the person "
+                        "who started it can resume it.")
+                return reject("stale_binding")
             if row["state"] not in {"interrupted", "suspended"}:
-                return self._reject_resume(params, "not_resumable")
+                return reject("not_resumable")
             if self._busy(cid):
-                return self._reject_resume(params, "busy")
+                return reject("busy")
             manager = self.resume_manager
             if manager is None:
-                return self._reject_resume(params, "resume_unavailable")
+                return reject("resume_unavailable")
             key = TurnKey("conversation", cid, params["request_id"])
             preserved = await asyncio.to_thread(manager._store.load_resumable_sync, key)
             if preserved is None:
-                return self._reject_resume(params, "checkpoint_unavailable")
+                return reject("checkpoint_unavailable",
+                    "That preserved work is no longer resumable (it was just "
+                    "rejected as unreadable, claimed by another resume, or "
+                    "expired). Nothing was resumed — ask fresh for what you need.")
             if (preserved["generation"] != row.get("ledger_generation")
                     or str(preserved.get("user_id") or "") != self.authority.owner_id):
-                return self._reject_resume(params, "stale_binding")
+                return reject("stale_binding")
             unknown = row.get("unknown_effects")
             if isinstance(unknown, str):
                 unknown = json.loads(unknown)
-            if unknown or manager._unresolved_ops(preserved):
+            unresolved = manager._unresolved_ops(preserved)
+            if unknown or unresolved:
                 # Preserve the same original safety transition, not a fresh run.
                 await asyncio.to_thread(manager._store.mark_ops_manual_sync,
                                         key, preserved["generation"])
                 await asyncio.to_thread(manager._store.reject_resumable_sync,
                                         key, "unresolved operations require manual resolution")
                 manager._release_calibration(key)
-                return self._reject_resume(params, "unknown_effects")
+                names = ", ".join(sorted({str(op.get("tool_name") or "unknown")
+                                          for op in (unresolved or unknown)}))
+                return reject("unknown_effects",
+                    f"I can't safely continue that work: {len(unresolved) or len(unknown)} "
+                    f"interrupted operation(s) ({names or 'unknown'}) have UNKNOWN outcomes — "
+                    "they may or may not have applied, and I will not re-run "
+                    "them automatically. Verify their current state, then ask "
+                    "fresh for whatever is still needed.")
             waiter = manager._waiters.pop(key, None)
             if waiter is not None:
                 waiter.cancel()
@@ -290,7 +315,7 @@ class ControlService:
             # desktop decoder or call try_explicit_resume's latest-row lookup.
             turn, _original, reason = await self._rebuild(manager, key, preserved)
             if turn is None:
-                return self._reject_resume(params, reason or "not_resumable")
+                return reject(reason or "not_resumable")
             try:
                 with self.store.transaction() as connection:
                     current = self._target(params)
@@ -319,7 +344,7 @@ class ControlService:
                     turn.durability._stop_heartbeats()
                     await asyncio.to_thread(manager._store.release_acquired_sync,
                                             turn.durability.lease)
-                    return self._reject_resume(params, "busy_or_revoked")
+                    return reject("busy_or_revoked")
             except BaseException:
                 turn.durability._stop_heartbeats()
                 await asyncio.to_thread(manager._store.release_acquired_sync,

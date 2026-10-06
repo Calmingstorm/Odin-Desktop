@@ -3,11 +3,19 @@
 
 export type CorePhase = 'starting' | 'ready' | 'degraded' | 'quiescing'
 
+/** Core-authoritative provisioning. Saving a field or signing in is not readiness. */
+export interface FirstRunStatus {
+  state: 'fresh' | 'incomplete' | 'saved' | 'effective-ready' | 'degraded'
+  reason: 'provider_not_configured' | 'provider_configuration_incomplete' | 'provider_runtime_unavailable' | 'provider_identity_not_adopted' | 'provider_effective' | 'provider_health_degraded' | 'provider_health_unknown' | 'keyring_unavailable' | 'credential_state_unavailable'
+  keyring_unavailable: boolean
+}
+
 export interface CoreStatus {
   phase: CorePhase
   core_instance_id: string
   version: string
   capabilities: string[]
+  first_run?: FirstRunStatus
   model?: { main: string; effort: string; provider: string }
   providers?: Array<{ name: string; health: string }>
   limits?: { chunk_bytes: number; attachment_bytes: number; attachments_per_turn: number }
@@ -244,6 +252,20 @@ export type Result<T> = { ok: true; result: T } | { ok: false; error: CoreError 
 /** Connection state as the app's main process sees it. */
 export type LinkState = 'starting' | 'connecting' | 'ready' | 'reconnecting' | 'core-restarting' | 'core-failed'
 
+/** Retained cleanup uncertainty. Acknowledgment archives the notice, not resource quarantine or effects. */
+export interface CleanupWarning {
+  id: string
+  at: string
+  records: Array<{
+    at: string
+    reason: string
+    processOutcome?: string
+    shutdownAccepted?: boolean
+    unsaved?: boolean
+    unreceipted?: number
+  }>
+}
+
 export interface AppState {
   link: LinkState
   coreInstanceId: string | null
@@ -251,6 +273,7 @@ export interface AppState {
   noTray: boolean
   /** Commands that were sent but whose receipt is still pending reconciliation. */
   unreceipted: number
+  cleanupWarning?: CleanupWarning | null
 }
 
 export type ApplyMode = 'live_read' | 'live_apply' | 'live_for_new_work' | 'restart' | 'activation_required' | 'dormant'
@@ -281,7 +304,7 @@ export interface ConfigField {
   /** Saved and effective values; redacted for a sensitive field. */
   desired: unknown
   effective: unknown
-  configured: boolean
+  configured: boolean | null
   pending_restart: boolean
   apply_state: ApplyState
 }
@@ -299,7 +322,7 @@ export interface ConfigMeta {
   schema_version: number
   revision: string
   fields: ConfigField[]
-  status: { counts: Record<string, number>; desired_revision: string; effective_revision: string | null }
+  status: { counts: Record<string, number>; desired_revision: string; effective_revision: string | null; keyring_error?: string | null }
   image_models?: Record<ImageLeaf, ImageModelIntent>
   image_models_revision?: string
 }
@@ -433,6 +456,7 @@ export interface McpSave {
 export interface HostTest {
   ok?: boolean
   at?: string
+  checked_at?: number
   detail?: string
   [key: string]: unknown
 }
@@ -461,6 +485,8 @@ export interface HostList {
   hosts: HostRow[]
   /** Empty: Odin needs every command to name its host. */
   default_host: string
+  /** Saved choice can be inactive while the effective default is empty. */
+  configured_default_host?: string
   generation: number
   tofu_enabled: boolean
 }
@@ -473,6 +499,7 @@ export interface HostPrepare {
   port?: number
   os?: 'linux' | 'macos'
   description?: string
+  enabled?: boolean
   trust_mode: 'pinned' | 'ca' | 'tofu'
   expected_fingerprints?: string[]
   candidate_fingerprints?: string[]
@@ -497,9 +524,22 @@ export interface HostTestResult {
 }
 
 export interface HostSaved {
-  result: string
-  alias: string
-  host_id: string
+  saved: boolean
+  active: boolean
+  targetable: boolean
+  trust_state: string
+  last_test: HostTest | null
+  draining: boolean
+  pending_references: HostReference[]
+  registry_generation: number
+  ssh_paths: {
+    desired_key: string
+    effective_key: string
+    desired_known_hosts: string
+    effective_known_hosts: string
+    restart_pending: boolean
+  }
+  host?: HostRow
 }
 
 export interface HostReference {
@@ -507,8 +547,7 @@ export interface HostReference {
   location: string
 }
 
-export interface HostRevoked {
-  result: string
+export interface HostRevoked extends HostSaved {
   leases_interrupted: number
   processes: { attempted: number; killed: number; unknown: number }
 }
@@ -644,8 +683,8 @@ export interface KnowledgeHit {
 export interface KnowledgeIngest {
   source: string
   chunks?: number
-  status: string
-  outcome: 'created' | 'unchanged' | 'duplicate' | 'conflict'
+  status?: string
+  outcome?: 'created' | 'unchanged' | 'duplicate' | 'conflict'
   duplicate_of?: string
   message?: string
 }
@@ -676,8 +715,12 @@ export interface AuditEntry {
 
 export interface AuditVerify {
   valid: boolean
+  availability?: 'available' | 'not_enabled'
   total?: number
   verified?: number
+  unsigned_prefix?: number
+  error?: string | null
+  segments?: Array<Record<string, unknown>>
   first_bad?: number | null
   reason?: string
   [key: string]: unknown
@@ -697,29 +740,31 @@ export interface HealthReport {
   degraded_count: number
   down_count: number
   unconfigured_count: number
+  unavailable_count?: number
   total: number
   checked_at: string
 }
 
-export interface LogEntry {
-  timestamp: string
-  level: string
-  message: string
+export interface LogEntry extends AuditEntry {
+  /** Older fixture rows only. Real core log rows are scrubbed audit entries. */
+  level?: string
+  message?: string
   tool?: string
 }
 
 export interface TurnRecord {
-  conversation_id: string
-  request_id: string
+  source: string
+  channel_id: string
+  message_id: string
   turn_generation: number
   status: string
-  created_at: string
-  last_progress_at: string | null
-  suspended_at: string | null
+  created_at: number
+  last_progress_at: number | null
+  suspended_at: number | null
   has_checkpoint: boolean
   manual_resolution_operations: number
   outcome_unknown_operations: number
-  attention: boolean
+  requires_attention: boolean
 }
 
 /** Odin's turn-state envelope (GET /api/turn-state/turns). */
@@ -793,7 +838,7 @@ export interface ManagementCalls {
   mcpSetGlobalEnabled: [{ enabled: boolean }, { saved: boolean; enabled: boolean; connected_count: number }]
   mcpSetLimits: [{ max_published_tools_per_server?: number; max_published_tools_global?: number }, McpStatus & { saved: boolean }]
   hostsList: [Empty, HostList]
-  hostsSettings: [{ default_host?: string; allow_host_tofu?: boolean }, { result: string }]
+  hostsSettings: [{ default_host?: string; allow_host_tofu?: boolean }, { saved: boolean; default_host: string; configured_default_host: string; tofu_enabled: boolean; registry_generation: number }]
   hostsPublicKey: [Empty, PublicKeyInfo]
   hostsPrepare: [HostPrepare, HostCandidate]
   hostsTest: [{ token: string }, HostTestResult]
@@ -828,7 +873,7 @@ export interface ManagementCalls {
   knowledgeDelete: [{ source: string }, { status: string; chunks_removed: number }]
   knowledgeVersions: [{ source: string }, KnowledgeVersion[]]
   knowledgeRestore: [{ source: string; version: number }, { status: string; source: string; version: number; chunks: number }]
-  auditQuery: [{ tool?: string; host?: string; q?: string; date?: string; error_only?: boolean; limit?: number }, AuditEntry[]]
+  auditQuery: [{ tool?: string; user?: string; host?: string; q?: string; date?: string; error_only?: boolean; limit?: number }, AuditEntry[]]
   auditVerify: [Empty, AuditVerify]
   healthGet: [Empty, HealthReport]
   logsSearch: [{ q?: string; level?: 'error' | 'info' | 'all'; tool?: string; start?: string; end?: string; limit?: number }, { entries: LogEntry[]; count: number }]
@@ -969,10 +1014,12 @@ export interface CodexStatus {
 }
 
 export interface DeviceCode {
-  device_auth_id: string
+  /** Local opaque main-process handle, never the provider's device authorization secret. */
+  login_id: string
   user_code: string
   interval: number
   verify_url: string
+  expires_in: number
 }
 
 export type LoginPoll = { status: 'pending' } | { status: 'authenticated'; email: string; account_id: string }
@@ -1089,6 +1136,8 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   }): Promise<Result<{ image_models: Record<ImageLeaf, ImageModelIntent>; image_models_revision: string; revision: string }>>
   secretsSet(params: { path: string; value: string }): Promise<Result<{ set: boolean }>>
   secretsClear(params: { path: string }): Promise<Result<{ set: boolean }>>
+  /** Explicit owner Retry only. Background reads never unlock or display a keyring prompt. */
+  secretsUnlock(): Promise<Result<{ unlocked: true }>>
   /** A field whose `apply_handler` is a dedicated method: models.main.set or models.agents.set. */
   editLeaf(params: { method: string; params: Record<string, unknown> }): Promise<Result<Record<string, unknown>>>
   codexAccounts(): Promise<Result<CodexStatus>>
@@ -1096,11 +1145,14 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   codexLabel(params: { index: number; label: string }): Promise<Result<{ status: string; label: string }>>
   codexRemove(params: { index: number }): Promise<Result<{ status: string; email: string }>>
   codexLoginBegin(): Promise<Result<DeviceCode>>
-  codexLoginPoll(params: { device_auth_id: string; user_code: string }): Promise<Result<LoginPoll>>
+  codexLoginPoll(params: { login_id: string }): Promise<Result<LoginPoll>>
+  codexOpenVerification(): Promise<Result<{ opened: boolean }>>
   setConversationMuted(params: { conversation_id: string; muted: boolean }): Promise<Result<Settings>>
-  /** A notification was clicked: the window should show that conversation. */
-  onOpenConversation(listener: (conversationId: string) => void): () => void
+  /** A notification was clicked: open its exact committed message, including older history. Main-to-window only. */
+  onOpenConversation(listener: (target: { conversationId: string; messageId: string }) => void): () => void
   getAppState(): Promise<AppState>
+  /** Archives only the current cleanup notice by its opaque ID. Never replays work or reconciles resources. */
+  acknowledgeCleanup(id: string): Promise<Result<AppState>>
   onEvent(listener: (event: CoreEvent) => void): () => void
   onAppState(listener: (state: AppState) => void): () => void
   /** Late receipts for commands whose first answer was 'no_receipt'. */
@@ -1163,6 +1215,7 @@ export const IPC = {
   imageModelIntent: 'odin:core-settings:image-intent',
   secretsSet: 'odin:secrets:set',
   secretsClear: 'odin:secrets:clear',
+  secretsUnlock: 'odin:secrets:unlock',
   editLeaf: 'odin:core-settings:edit-leaf',
   codexAccounts: 'odin:codex:accounts',
   codexActivate: 'odin:codex:activate',
@@ -1170,9 +1223,13 @@ export const IPC = {
   codexRemove: 'odin:codex:remove',
   codexLoginBegin: 'odin:codex:login-begin',
   codexLoginPoll: 'odin:codex:login-poll',
+  codexOpenVerification: 'odin:codex:open-verification',
   setConversationMuted: 'odin:settings:set-muted',
   openConversation: 'odin:open-conversation',
+  /** Preload listener readiness only. No payload, target, command or renderer-controlled core operation. */
+  notificationRouteReady: 'odin:notification-route-ready',
   getAppState: 'odin:app-state:get',
+  acknowledgeCleanup: 'odin:cleanup:acknowledge',
   event: 'odin:event',
   appState: 'odin:app-state',
   receipt: 'odin:receipt',
