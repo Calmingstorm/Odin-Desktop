@@ -149,8 +149,10 @@ Merge commit `21513a9029cbff9a69472116a07f2259c61b2ae3` has first parent
 `2bcb964b510597bebe9f878664ebe81d8f3ff4dd` and that exact main as second
 parent. This is a proper merge, not a rebase. All pre-existing app scripts remain,
 including lifecycle `test:e2e`, alongside the added packaging scripts. No PR #30
-ancestry was adopted, and neither PR was merged. Read-only remote observation
-after the gates still showed main at the fixed pin; no later head was chased.
+ancestry was adopted, and this agent did not merge either PR. Read-only remote
+observation during validation showed main at the fixed pin. The post-push check
+then observed main advanced to `ddd054fe399fef46dd64b6e8ec95b2676af8f09f`.
+That future movement was not adopted or qualified; the requested pin stayed fixed.
 
 Only `app/package.json` and the ledger conflicted. The original supplied strict
 ledger union refused the sole double-change record `src/desktop/providers.py`.
