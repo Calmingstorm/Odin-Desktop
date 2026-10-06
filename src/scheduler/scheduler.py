@@ -1385,6 +1385,15 @@ class Scheduler:
                     raise ValueError("Schedule no longer exists")
                 self._check_desktop_binding(current, expected_binding)
             before = len(self._schedules)
+            current = next((s for s in self._schedules if s["id"] == schedule_id), None)
+            if current is not None and current.get("_interrupted_run_history"):
+                pending = current["_interrupted_run_history"]
+                if isinstance(pending, dict):
+                    pending = [pending]
+                # Retire definitions only after all unknown-run evidence is
+                # durable. Failure leaves the unchanged definition/outbox.
+                for entry in pending:
+                    await self.history.record_interrupted(entry)
             candidate = [s for s in self._schedules if s["id"] != schedule_id]
             if len(candidate) < before:
                 await self._publish(candidate)

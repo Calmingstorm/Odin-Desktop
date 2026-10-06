@@ -409,6 +409,63 @@ async def test_interrupted_history_outbox_retries_failed_history_storage(graph, 
 
 
 @pytest.mark.asyncio
+async def test_delete_retains_unknown_outbox_until_history_is_durable(graph, monkeypatch):
+    scheduler, service, _, _ = graph
+    item = await add(graph)
+    await scheduler._mark_run_started(item)
+    restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    pending = restarted.list_all()[0]["_interrupted_run_history"]
+    with monkeypatch.context() as m:
+        def unavailable(entry):
+            raise OSError("history unavailable")
+        m.setattr(restarted.history, "_record_interrupted_sync", unavailable)
+        await ScheduleService(restarted, authority=service.authority,
+                              conversations=service.conversations).recover()
+        with pytest.raises(OSError):
+            await restarted.delete(item["id"])
+        assert restarted.list_all()[0]["_interrupted_run_history"] == pending
+    assert await restarted.delete(item["id"])
+    assert restarted.list_all() == []
+    assert len(await restarted.history.query(item["id"], status="unknown")) == 1
+
+
+@pytest.mark.asyncio
+async def test_compaction_fsync_preserves_recovery_history_before_replace(graph, monkeypatch):
+    import os
+    import stat
+    from pathlib import Path
+
+    from src.scheduler import history as module
+
+    scheduler, _, _, _ = graph
+    item = await add(graph)
+    await scheduler._mark_run_started(item)
+    restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    pending = restarted.list_all()[0]["_interrupted_run_history"][0]
+    await restarted.history.record_interrupted(pending)
+    for _ in range(3):
+        await restarted.history.record(schedule_id="other", description="other",
+            action="reminder", status="success", duration_ms=0)
+    restarted.history._max_per_schedule = 1
+    real_fsync, real_replace = os.fsync, Path.replace
+    events = []
+    def fsync(fd):
+        events.append("directory" if stat.S_ISDIR(os.fstat(fd).st_mode) else "file")
+        return real_fsync(fd)
+    def replace(path, target):
+        if path == restarted.history.path.with_suffix(".tmp"):
+            assert events == ["file"]
+            events.append("replace")
+        return real_replace(path, target)
+    monkeypatch.setattr(module, "MAX_TOTAL_ENTRIES", 2)
+    monkeypatch.setattr(os, "fsync", fsync)
+    monkeypatch.setattr(Path, "replace", replace)
+    assert await restarted.history.prune() == 2
+    assert events == ["file", "replace", "directory"]
+    assert len(await restarted.history.query(item["id"], status="unknown")) == 1
+
+
+@pytest.mark.asyncio
 async def test_interrupted_existing_history_read_failure_keeps_outbox(graph, monkeypatch):
     from pathlib import Path
 

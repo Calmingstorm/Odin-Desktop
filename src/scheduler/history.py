@@ -276,7 +276,14 @@ class ScheduleHistory:
                 tmp = self.path.with_suffix(".tmp")
                 async with aiofiles.open(tmp, "w") as f:
                     await f.write(content)
+                    await f.flush()
+                    await asyncio.to_thread(os.fsync, f.fileno())
                 tmp.replace(self.path)
+                directory = os.open(self.path.parent, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    await asyncio.to_thread(os.fsync, directory)
+                finally:
+                    os.close(directory)
                 log.info("Pruned %d history entries", removed)
             except Exception as e:
                 log.error("Failed to write pruned history: %s", e)
