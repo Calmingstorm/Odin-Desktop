@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "status": "attempted-exact-assertion-alternative-blocked-not-qualified",
+  "review_scope": "PR35 group B requires CLI restoration; removed-surface group C is not independent authorization to retire CLI executions. No approval or admitted retirement is inferred.",
+  "baseline": {
+    "path": "tests/test_campaign_cli_coverage.py",
+    "sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b",
+    "functions": 5,
+    "parameterized_executions": 9,
+    "assertions_including_helper": 15
+  },
+  "artifacts": [
+    {"path": "tests/desktop_adapters/step8_review_cli_exact.py", "sha256": "c3b98f27d03fa8df425c0f87e9c27ca5ad5329921c4b52330efc79f0c8b75f3f"},
+    {"path": "tests/test_desktop_step8_review_cli_exact.py", "sha256": "0f2909b4440ca5609b9310631af4c514c0537c849b517d09e17790dcf843dbee"}
+  ],
+  "unchanged_product_hashes_before_and_after": {
+    "src/cli.py": "cd9e5e59688fe0c9431fcc55e83d9620d9e7f40675959b759e072ea4f9bdf0eb",
+    "src/desktop/local_client.py": "14fbd5eef13a632e4c311017235a65fbd780990979975a8b600953d0d4f0a5e6"
+  },
+  "integrity": {
+    "all_inherited_assertion_ast_unchanged": true,
+    "all_inherited_signature_decorator_parameter_ast_unchanged": true,
+    "complete_ast_reverse_replay": true,
+    "all_five_original_functions_compiled": true,
+    "exclusions": [],
+    "admitted_retirements": [],
+    "retained_original_executions_passed": 6,
+    "unrestored_original_executions": 3,
+    "warning": "Passing diagnostic probes assert observed original failures. They do not restore those three executions or qualify the whole suite. No known-failing original tests are exported for broad discovery. The piped outer function passes but its nested original helper is not satisfiable by IPC."
+  },
+  "experimental_setup_rules": [
+    {"line": 19, "purpose": "Replace removed urllib no-network spy with actual LocalClient.connect spy; original assertions unchanged."},
+    {"line": 30, "purpose": "Add explicit disposable socket/token/profile arguments to original JSON failure case."},
+    {"line": 31, "purpose": "Record original urllib error parameter as scenario label; actual closed socket or wrong-token handshake causes failure, no fake transport error injected."},
+    {"line": 41, "purpose": "Add explicit disposable socket/token/profile arguments to piped prompt case; original stdin/timeout unchanged."},
+    {"line": 53, "purpose": "Retain original HTTP helper for explicit invocation on actual submission dict. Not a passing helper rebind."},
+    {"line": 70, "purpose": "Replace removed urllib no-network spy with actual LocalClient.connect spy; original assertions unchanged."}
+  ],
+  "retained_mapping": [
+    {"original": "test_empty_prompt_prints_help_without_transport", "executed_by": "test_retained_empty_original", "original_executions": 2, "result": "passed-unchanged-original-assertions"},
+    {"original": "test_unreadable_prompt_path_does_not_prevent_normal_prose", "executed_by": "test_retained_unreadable_original", "original_executions": 1, "result": "passed-unchanged-original-assertions"},
+    {"original": "test_python_client_refuses_legacy_daemon_arguments_before_network", "executed_by": "test_retained_legacy_original", "original_executions": 3, "result": "passed-unchanged-original-assertions"}
+  ],
+  "blocked_mapping": [
+    {
+      "original": "test_piped_prompt_and_environment_build_real_authenticated_request",
+      "executed_by": "test_probe_piped_original_actual_frames_not_http_facade",
+      "original_executions": 1,
+      "observed": "Original outer return0/prose equality pass with explicit IPC setup. Retained helper invoked on actual encoded and server-received submission dict raises AttributeError at original line47 on request.full_url. Dict has no full_url/get_header/data attributes.",
+      "unmappable_unchanged_assertions": [
+        "request.full_url == 'http://example.invalid/api/execute'",
+        "request.get_header('Authorization') == 'Bearer test-credential'",
+        "json.loads(request.data) == {'prompt': 'diagnose the test service'}"
+      ],
+      "replacement_proof": [
+        "Pass-through production encode_frame observer: genuine hello protocol0.2/profile/client/token verified without token output; actual AF_UNIX transport.",
+        "Exact submission req/id/method/params keys; exact client_submission_id/conversation_id/text params; actual submission equals server-dispatched request; stripped prompt exact.",
+        "Actual product timeout12.0; one admitted worker; actual owner; completed request; committed transcript reply; untrusted delivery context rejected by real guard. No payload authority or HTTP facade."
+      ],
+      "disposition": "Blocked proposal only. Eventual retirement would require an explicitly applicable reviewed removed-HTTP-surface disposition with retained replacement coverage attached, not independent approval invented here."
+    },
+    {
+      "original": "test_transport_failure_is_nonzero_even_in_json_mode",
+      "executed_by": "test_probe_original_failure_stdout_blocker[closed_socket/wrong_token]",
+      "original_executions": 2,
+      "observed": "Original error objects retained as parameters. Real socket shutdown or wrong secure token produces original return1 pass then AssertionError at original line34 output.out == ''. Original line35 stderr assertion unreachable, not replaced.",
+      "actual_stdout": "{\"response\": \"Desktop core connection failed\", \"is_error\": true, \"outcome\": \"connection_error\"}\n",
+      "actual_stderr": "",
+      "replacement_proof": [
+        "Exact complete structured failure stdout equality and exact empty stderr checked separately.",
+        "No server-dispatched calls or worker executions; neither disposable token appears in output."
+      ],
+      "disposition": "Blocked beyond obsolete urllib setup: JSON failure output changed contract is not merely removed HTTP transport. Changing assertion literals, hiding stdout or injecting legacy errors violates inherited-assertion boundary. No retirement approved."
+    }
+  ],
+  "results": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_cli_exact.py --tb=short",
+    "isolation": "Existing runner: sudo unshare mount/PID namespace, env-i, non-root odin, isolated HOME/XDG, genuine disposable graph sockets/token/profile stores. No native/live desktop, deployment or fullgate.",
+    "attempts": [
+      {"pid": 931059, "exit_code": 1, "result": "10 failed: reverse-replay traversal attempted Lambda.body iteration. Adapter-only correction, no product change."},
+      {"pid": 933837, "output_generation": "d9003139506fb78e706b9eb254d57dae", "exit_code": 0, "collected": 10, "passed": 10, "duration_seconds": 5.19, "classification": "6 retained original executions + 3 explicit blocked probes + 1 integrity test; NOT9 restored original executions"}
+    ]
+  },
+  "scope": "Only these three new alternative files. No source/original/maps/ledger/scripts/previous candidate edits, git commit/reset, fullgate or live operations.",
+  "conclusion": "Cannot restore all nine exact inherited CLI executions cleanly through real IPC alone. Six replay without assertion drift; three proven blockers. Separate IPC replacements are meaningful evidence, not automatic suite restoration or approval."
+}

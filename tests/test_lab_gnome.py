@@ -10,6 +10,7 @@ import configparser
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -106,17 +107,27 @@ def test_session_wrapper_clears_inherited_force_and_uses_standard_gnome(tmp_path
 
 
 def test_generated_dconf_keyfile_compiles_with_installed_dconf(tmp_path):
+    dconf = shutil.which("dconf")
+    if dconf is None:
+        pytest.skip("dconf binary is not installed; skipping real keyfile compilation")
     render(tmp_path)
     keyfile_dir = tmp_path / "etc/dconf/db/odq.d"
     database = tmp_path / "compiled-dconf"
     # Compile directly from the isolated generated keyfile directory. This
     # exercises the installed dconf parser without reading/writing host DBs.
     result = subprocess.run(
-        ["dconf", "compile", str(database), str(keyfile_dir)],
+        [dconf, "compile", str(database), str(keyfile_dir)],
         capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stderr
     assert database.is_file() and database.stat().st_size > 0
+
+
+def test_dconf_compile_skips_when_binary_unavailable(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda command: None)
+    with pytest.raises(pytest.skip.Exception, match="dconf binary is not installed"):
+        test_generated_dconf_keyfile_compiles_with_installed_dconf(tmp_path)
+    assert not (tmp_path / "etc").exists()
 
 
 @pytest.fixture
@@ -126,7 +137,11 @@ def capture(tmp_path):
     bindir.mkdir()
     # The guest receives python3-pil from common.sh; tests use the repo's Python
     # dependencies instead of requiring host system GI/desktop packages.
-    (bindir / "python3").symlink_to(sys.executable)
+    # Exec the original interpreter path so its venv stays active. An alias
+    # symlink in this temp directory can rediscover the host Python prefix.
+    python = bindir / "python3"
+    python.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} "$@"\n')
+    python.chmod(0o755)
     png = tmp_path / "source.png"
     Image.new("RGB", (16, 12), (24, 42, 64)).save(png)
     env = {

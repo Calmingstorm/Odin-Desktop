@@ -250,6 +250,8 @@ class RuntimeService:
                        ("chunk_bytes", "attachment_bytes", "attachments_per_turn")},
             "summary": render_status(facts),
             "first_run": self._first_run(),
+            "resource_cleanup": (self.core.resource_cleanup.public()
+                                 if getattr(self.core, "resource_cleanup", None) else None),
         })
 
     def _quota(self):

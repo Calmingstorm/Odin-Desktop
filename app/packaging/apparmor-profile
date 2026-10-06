@@ -1,9 +1,19 @@
 abi <abi/4.0>,
 include <tunables/global>
 
-profile odin-desktop "/opt/Odin/odin-desktop" flags=(unconfined) {
+# The public launcher is a shell/Python ownership wrapper. Attach userns to the
+# actual Electron image it executes, not to the wrapper's interpreter chain.
+profile odin-desktop "/opt/Odin/odin-desktop.bin" flags=(unconfined) {
   userns,
 
   # Site-specific additions and overrides. See local/README for details.
   include if exists <local/odin-desktop>
+}
+
+# D14's pinned headless shell is a distinct ELF, staged by python/chromium.py.
+# Keep this attachment aligned with chromium.lock.json, not Playwright's cache.
+profile odin-desktop-headless "/opt/Odin/resources/runtime/browser/chromium/chrome-headless-shell-linux64/chrome-headless-shell" flags=(unconfined) {
+  userns,
+
+  include if exists <local/odin-desktop-headless>
 }

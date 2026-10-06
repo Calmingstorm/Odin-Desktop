@@ -3,6 +3,14 @@
 
 export type CorePhase = 'starting' | 'ready' | 'degraded' | 'quiescing'
 
+export interface ReleaseNotice {
+  state: 'cannot-check-private' | 'offline' | 'rate-limited' | 'unavailable' | 'malformed' | 'no-release' |
+    'invalid-current-version' | 'equal' | 'older' | 'newer'
+  currentVersion: string
+  latestVersion?: string
+  releaseUrl?: string
+}
+
 /** Core-authoritative provisioning. Saving a field or signing in is not readiness. */
 export interface FirstRunStatus {
   state: 'fresh' | 'incomplete' | 'saved' | 'effective-ready' | 'degraded'
@@ -252,13 +260,30 @@ export type Result<T> = { ok: true; result: T } | { ok: false; error: CoreError 
 /** Connection state as the app's main process sees it. */
 export type LinkState = 'starting' | 'connecting' | 'ready' | 'reconnecting' | 'core-restarting' | 'core-failed'
 
+/** Retained cleanup uncertainty. Acknowledgment archives the notice, not resource quarantine or effects. */
+export interface CleanupWarning {
+  id: string
+  at: string
+  records: Array<{
+    at: string
+    reason: string
+    processOutcome?: string
+    shutdownAccepted?: boolean
+    unsaved?: boolean
+    unreceipted?: number
+  }>
+}
+
 export interface AppState {
+  /** Desktop product version, not the engine/protocol version. */
+  appVersion?: string
   link: LinkState
   coreInstanceId: string | null
   /** True when the window was opened on a desktop where no tray could be found. */
   noTray: boolean
   /** Commands that were sent but whose receipt is still pending reconciliation. */
   unreceipted: number
+  cleanupWarning?: CleanupWarning | null
 }
 
 export type ApplyMode = 'live_read' | 'live_apply' | 'live_for_new_work' | 'restart' | 'activation_required' | 'dormant'
@@ -392,9 +417,12 @@ export interface McpServer {
   env_keys: string[]
   url_display: string | null
   instructions?: string
+  credential_migration?: string
 }
 
 export interface McpStatus {
+  /** Real core settings binding. Legacy fixture status has no revision. */
+  revision?: string
   enabled: boolean
   max_published_tools_per_server: number
   max_published_tools_global: number
@@ -423,7 +451,8 @@ export interface McpMutation {
 
 export interface McpSave {
   name: string
-  create: boolean
+  create?: boolean
+  expected_revision?: string
   transport?: 'stdio' | 'http'
   command?: string
   args?: string[]
@@ -719,6 +748,7 @@ export interface HealthComponent {
 }
 
 export interface HealthReport {
+  browser?: BrowserStatus
   overall: string
   components: HealthComponent[]
   healthy_count: number
@@ -774,7 +804,14 @@ export interface ComputerRecovery {
  * Odin's computer-use status (GET /api/computer): one lifecycle at a time. Reconciling binds `session_generation`,
  * the session's own generation, not the runtime's `generation`.
  */
-export interface ComputerStatus {
+export interface BrowserStatus {
+  state: string
+  ready: boolean
+  reason: string | null
+  retry_available?: boolean
+}
+
+export interface LegacyComputerStatus {
   available: boolean
   state: string
   session_id: string
@@ -788,6 +825,37 @@ export interface ComputerStatus {
   error?: string
   recovery?: ComputerRecovery
 }
+
+/** Retained real-core lifecycle data; never a grant of foreground input. */
+export interface ComputerSession {
+  session_id: string
+  generation: number
+  state: string
+  recovery?: ComputerRecovery | null
+  cleanup?: { released?: boolean; unknown_release?: boolean; receiver_release_verified?: boolean; [key: string]: unknown } | null
+  input_supported?: boolean
+  input_readiness?: string
+  last_action?: string
+  last_verification?: string
+  error?: string
+  [key: string]: unknown
+}
+
+export interface DesktopComputerStatus {
+  session: ComputerSession | null
+  readiness: {
+    management_available: boolean
+    foreground_available: false
+    native_qualified: false
+    input_supported: false
+    dispatch: 'none'
+    reason: string
+  }
+}
+
+export type ComputerStatus = LegacyComputerStatus | DesktopComputerStatus
+export type McpRevision = { expected_revision?: string }
+export type McpMutationOutcome = McpStatus | McpMutation
 
 export interface ScheduleRunResult {
   status: 'success' | 'failure' | 'skipped'
@@ -814,14 +882,14 @@ export interface ManagementCalls {
   skillsConfigGet: [{ name: string }, { config: Record<string, unknown>; schema: Record<string, unknown> }]
   skillsConfigSet: [{ name: string; config: Record<string, unknown> }, { config: Record<string, unknown> }]
   mcpStatus: [Empty, McpStatus]
-  mcpSave: [McpSave, McpMutation]
-  mcpSetEnabled: [{ name: string; enabled: boolean }, McpStatus]
-  mcpDelete: [{ name: string }, McpMutation]
-  mcpReconnect: [{ name: string }, McpMutation]
-  mcpRefreshTools: [{ name: string }, McpMutation]
-  mcpTools: [{ name: string }, { server: string; tools: McpTool[] }]
-  mcpSetGlobalEnabled: [{ enabled: boolean }, { saved: boolean; enabled: boolean; connected_count: number }]
-  mcpSetLimits: [{ max_published_tools_per_server?: number; max_published_tools_global?: number }, McpStatus & { saved: boolean }]
+  mcpSave: [McpSave, McpMutationOutcome]
+  mcpSetEnabled: [{ name: string; enabled: boolean } & McpRevision, McpStatus]
+  mcpDelete: [{ name: string } & McpRevision, McpMutationOutcome]
+  mcpReconnect: [{ name: string } & McpRevision, McpMutationOutcome]
+  mcpRefreshTools: [{ name: string } & McpRevision, McpMutationOutcome]
+  mcpTools: [{ name: string }, { server?: string; name?: string; tools: McpTool[] }]
+  mcpSetGlobalEnabled: [{ enabled: boolean } & McpRevision, McpStatus | { saved: boolean; enabled: boolean; connected_count: number }]
+  mcpSetLimits: [{ max_published_tools_per_server?: number; max_published_tools_global?: number } & McpRevision, McpStatus & { saved?: boolean }]
   hostsList: [Empty, HostList]
   hostsSettings: [{ default_host?: string; allow_host_tofu?: boolean }, { saved: boolean; default_host: string; configured_default_host: string; tofu_enabled: boolean; registry_generation: number }]
   hostsPublicKey: [Empty, PublicKeyInfo]
@@ -864,7 +932,7 @@ export interface ManagementCalls {
   logsSearch: [{ q?: string; level?: 'error' | 'info' | 'all'; tool?: string; start?: string; end?: string; limit?: number }, { entries: LogEntry[]; count: number }]
   turnStateList: [{ limit?: number }, TurnStateReport]
   computerStatus: [Empty, ComputerStatus]
-  computerReconcile: [{ session_id: string; generation: number; acknowledgment: string }, ComputerStatus]
+  computerReconcile: [{ session_id: string; generation: number; acknowledgment?: string }, ComputerStatus]
 }
 
 export type ManagementMethod = keyof ManagementCalls
@@ -1052,6 +1120,8 @@ export interface ControlTarget {
 
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
 export interface OdinApi extends ManagementApi, SettingsShapedApi {
+  checkReleases(): Promise<Result<ReleaseNotice>>
+  openRelease(): Promise<Result<{ opened: true }>>
   status(): Promise<Result<CoreStatus>>
   listConversations(): Promise<Result<{ items: ConversationListItem[]; watermark: string }>>
   createConversation(params: {
@@ -1133,9 +1203,11 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   codexLoginPoll(params: { login_id: string }): Promise<Result<LoginPoll>>
   codexOpenVerification(): Promise<Result<{ opened: boolean }>>
   setConversationMuted(params: { conversation_id: string; muted: boolean }): Promise<Result<Settings>>
-  /** A notification was clicked: the window should show that conversation. */
-  onOpenConversation(listener: (conversationId: string) => void): () => void
+  /** A notification was clicked: open its exact committed message, including older history. Main-to-window only. */
+  onOpenConversation(listener: (target: { conversationId: string; messageId: string }) => void): () => void
   getAppState(): Promise<AppState>
+  /** Archives only the current cleanup notice by its opaque ID. Never replays work or reconciles resources. */
+  acknowledgeCleanup(id: string): Promise<Result<AppState>>
   onEvent(listener: (event: CoreEvent) => void): () => void
   onAppState(listener: (state: AppState) => void): () => void
   /** Late receipts for commands whose first answer was 'no_receipt'. */
@@ -1154,6 +1226,8 @@ export interface LateReceipt {
 }
 
 export const IPC = {
+  checkReleases: 'odin:check-releases',
+  openRelease: 'odin:open-release',
   status: 'odin:status',
   listConversations: 'odin:conversations:list',
   createConversation: 'odin:conversations:create',
@@ -1209,7 +1283,10 @@ export const IPC = {
   codexOpenVerification: 'odin:codex:open-verification',
   setConversationMuted: 'odin:settings:set-muted',
   openConversation: 'odin:open-conversation',
+  /** Preload listener readiness only. No payload, target, command or renderer-controlled core operation. */
+  notificationRouteReady: 'odin:notification-route-ready',
   getAppState: 'odin:app-state:get',
+  acknowledgeCleanup: 'odin:cleanup:acknowledge',
   event: 'odin:event',
   appState: 'odin:app-state',
   receipt: 'odin:receipt',

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "artifact": "PR28 review1 fresh qualification receipt",
+  "execution_commit": "9b29bbbb5f920ab662f218a1c7fc0ac30a956ff9",
+  "integration_main": "caa871cdee8017015eef1b994af2c0453f09d5f2",
+  "fresh_checkout": "/home/odin/desktop-pr28-review1/qualification-parent/final-corrected",
+  "workspace_mode": "0775 parent and checkout; umask002",
+  "installation": "Python3.12.3 copied-interpreter venv; uv sync --locked --extra dev --active --link-mode copy; pip26.2.1 from lock; no manual remediation",
+  "runner": "USER=odin .venv/bin/python scripts/run-qualified-tests.py",
+  "isolation": "nonroot odin; mount/PID namespace; sanitized throwaway HOME/XDG; no display/DBus/live credentials",
+  "complete_full_runs": 1,
+  "initial_preflight": "Earlier fresh checkout stopped at inherited PR27 lint before any full-suite group began; preserved separately",
+  "exit_code": 0,
+  "groups": 31,
+  "totals": {"passed": 14244, "failed": 0, "errors": 0, "skipped": 2},
+  "step6a_passed": 166,
+  "core_transport_passed": 581,
+  "profile_management_passed": 300,
+  "extra_plan_tests": 30,
+  "qualification_plan_sha256": "5d4f88d3f467d256e7fc8e35b3d35af019fcc31a51d17048cd2d1b2605900fd4",
+  "drift_errors": 0,
+  "pending_independent_records": 268,
+  "lint": {"inherited_findings": 7, "new_findings": []},
+  "raw_per_group_receipt": "/home/odin/desktop-pr28-review1/fresh-qualification-receipt.json",
+  "raw_log": "/home/odin/desktop-pr28-review1/final-corrected-qualification.log",
+  "limitations": [
+    "Mocked browser/CDP/native/MCP/installer, not package/native qualification",
+    "Inherited mock-coroutine warnings and process transport event-loop-close warning remain",
+    "Legacy unmarked MCP credentials require explicit reconnect after vault unlock; no startup-wide vault probe",
+    "Independent review pending; no deployment or live changes"
+  ]
+}

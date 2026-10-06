@@ -1120,8 +1120,7 @@ class AgentTaskTools:
             # through immutable WorkService binding and ControlService journal.
             targets = [info.id for info in self._loop_manager._loops.values()
                        if info.status == "running"
-                       and info.requester_id == message.owner_id
-                       and info.channel_id == message.conversation_id]
+                       and info.requester_id == message.owner_id]
             if not targets:
                 return "No active loops to stop."
             results = []

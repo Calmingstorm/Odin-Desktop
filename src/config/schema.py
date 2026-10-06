@@ -1354,6 +1354,10 @@ class OutboundWebhookTarget(BaseModel):
     name: str = ""
     url: str = ""
     secret: str = ""  # HMAC-SHA256 signing key; empty = unsigned
+    # Presence metadata only. None preserves legacy rows whose vault entries
+    # predate these markers; False qualifies a credential-free target without I/O.
+    signing_key_stored: bool | None = None
+    private_url_stored: bool | None = None
     events: list[str] = Field(default_factory=list)  # empty = all events
     enabled: bool = True
     scrub_secrets: bool = True
@@ -1953,13 +1957,11 @@ def load_config(path: str | Path | None = None) -> Config:
             "It must contain a YAML mapping.\n"
             "See the desktop configuration documentation for examples."
         )
-    # Reject stripped/unknown top-level fields before any profile upgrade can
-    # write. Config forbids extras; do not migrate an obsolete server config and
-    # only afterwards discover that it cannot be admitted by Desktop.
-    known = set(Config.model_fields)
-    known.update(f.alias for f in Config.model_fields.values() if f.alias)
-    if set(data) - known:
-        raise SystemExit("Config validation failed: unsupported top-level configuration fields")
+    # Match Odin's tolerant file loading without relaxing validated settings
+    # requests. Retired sections still refuse before profile migration writes.
+    data = _ignore_unknown_config_keys(data)
+    if set(data) & _KNOWN_REMOVED_TOP_LEVEL_CONFIG_KEYS:
+        raise SystemExit("Config validation failed: removed top-level configuration fields")
     from .migrations import (
         MigrationCompletionError,
         _require_desktop_config,
@@ -2008,6 +2010,15 @@ def load_config(path: str | Path | None = None) -> Config:
 _KNOWN_REMOVED_TOP_LEVEL_CONFIG_KEYS = frozenset(
     {"comfyui", "issue_tracker", "reaction_triggers", "message_triggers", "slack", "grafana_alerts"}
 )
+
+
+def _ignore_unknown_config_keys(data: dict) -> dict:
+    """Warn and drop file-only extras, retaining retired-section refusals."""
+    _warn_unknown_config_keys(data)
+    known = set(Config.model_fields)
+    known.update(f.alias for f in Config.model_fields.values() if f.alias)
+    return {k: v for k, v in data.items()
+            if k in known or k in _KNOWN_REMOVED_TOP_LEVEL_CONFIG_KEYS}
 
 
 def _warn_unknown_config_keys(data: dict) -> None:

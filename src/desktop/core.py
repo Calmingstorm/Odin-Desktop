@@ -21,9 +21,12 @@ from .ipc import IpcServer
 from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .management import ManagementService
+from .package_state import PackageUpgrade, inspect_profile
+from .package_status import PackageStatus
 from .paths import ProfilePaths
 from .reports import ReportBinding, ReportDelivery, ReportService
 from .requests import RequestService
+from .resource_cleanup import ResourceCleanupJournal
 from .search import TranscriptSearch
 from .secrets import secret_call
 from .services import build_engine_services
@@ -232,6 +235,8 @@ class CoreService:
         self.lifetime = CoreLifetime()
         self._serial = asyncio.Lock()
         self._closed = False
+        self._close_complete = False
+        self.package_status: PackageStatus | None = None
         self._quiescing_persisted = False
         self._release_runtime_on_close = release_runtime_on_close
         self._receipt_pruner: asyncio.Task | None = None
@@ -239,22 +244,58 @@ class CoreService:
         self._publication_ready = asyncio.Event()
         self._published_seq = 0
         self.management: ManagementService | None = None
+        self.resource_cleanup: ResourceCleanupJournal | None = None
         self._secret_backend = secret_backend
         self.capabilities = CAPABILITIES
         self.start_time = time.monotonic()
         # The admitted attachment service supplies the actual protocol limits.
         self.limits = {}
 
+    @property
+    def delivery_readiness_reason(self) -> str | None:
+        """Observe the live durable request binding, not configuration or startup flags.
+
+        This diagnostic grants no request authority and performs no publication.
+        IPC reads the committed journal directly; an optional sink is not required.
+        """
+        if self._closed:
+            return "core_closed"
+        if not isinstance(self.delivery, DurableDelivery):
+            return "delivery_not_composed"
+        if self.store is None or self.store._closed:
+            return "delivery_store_closed"
+        if (self.delivery.store is not self.store or self.delivery.events is not self.events):
+            return "delivery_store_unbound"
+        if (self.requests is None or self.requests.delivery is not self.delivery
+                or self.requests.store is not self.store):
+            return "delivery_request_unbound"
+        if self.requests._closed:
+            return "delivery_requests_closed"
+        if (self.engine is None or self.engine.requests is not self.requests
+                or self.engine.deps.delivery is not self.delivery):
+            return "delivery_engine_unbound"
+        if self.engine._close_attempted:
+            return "delivery_engine_closed"
+        return None
+
+    @property
+    def delivery_readiness(self) -> bool:
+        return self.delivery_readiness_reason is None
+
     def status(self) -> dict:
+        package = ({"package": self.package_status.snapshot()}
+                   if self.package_status is not None else {})
         if self.management is not None:
             return {
                 **self.management.runtime.status(),
+                **package,
                 "limits": self.limits,
                 "diagnostics": self.engine.diagnostics(),
                 "computer": {"published_available": False,
                              "reason": self.computer_unavailable_reason or "native_unqualified"},
             }
         return {
+            **package,
             "phase": self.phase,
             "core_instance_id": self.authority.runtime_id,
             "version": VERSION,
@@ -274,10 +315,17 @@ class CoreService:
         }
 
     async def start(self, stdin_fd: int = 0) -> None:
+        from ..version import get_version
+
+        # Refuse newer state before identity/bootstrap/store constructors write.
+        package_record = inspect_profile(self.paths, package_version=get_version())
         # The app creates the credential. Validate it before bootstrap adopts any state.
         load_token(self.token_file)
         self.authority = OwnerAuthority(self.paths, app_bootstrap=True)
         self.authority.acquire_runtime()
+        upgrade = PackageUpgrade(self.paths, self.authority, get_version())
+        upgrade.prepare()
+        self.package_status = PackageStatus(self, upgrade.record or package_record)
         self.permissions = PermissionManager(self.authority)
         self.store = _PublicationStore(
             self.paths.data_dir / "transport.sqlite3", self.paths.profile_id,
@@ -285,7 +333,14 @@ class CoreService:
             committed=self._committed,
         )
         self.commands = CommandJournal(self.store)
+        # Qualification can await supervised workers. Parent loss must remain
+        # observable while startup is in progress, not only after it succeeds.
+        self.lifetime.watch_parent(stdin_fd)
+        self.lifetime.watch_signals()
         self.events = _CoreEvents(self.store)
+        self.resource_cleanup = ResourceCleanupJournal(
+            self.paths.data_dir / "resource-cleanup.json",
+        )
         self.conversations = ConversationStore(self.store, self.events)
         self.transcript = TranscriptStore(self.store, self.events, self.conversations)
         self.search = TranscriptSearch(self.transcript, self.events)
@@ -354,6 +409,10 @@ class CoreService:
         # hydration and startup vault reads remain off the event loop.
         await secret_call(settings.hydrate_secrets)
         await self.engine.initialize_profile_provider()
+        upgrade.commit()
+        self.package_status.migration_committed()
+        await self._start_management()
+        self._bind_foreground_computer()
         self.capabilities = (*CAPABILITIES[:5],
                              *sorted((set(CAPABILITIES) | set(self.management.methods))
                                      - set(CAPABILITIES[:5])))
@@ -361,8 +420,6 @@ class CoreService:
             self.socket_path, self.token_file, self.paths.profile_id,
             self.authority, self.welcome, self.dispatch,
         )
-        self.lifetime.watch_parent(stdin_fd)
-        self.lifetime.watch_signals()
         self.phase = "ready"
         async with self._serial:
             self.commands.prune(time.time() - RECEIPT_RETENTION)
@@ -386,7 +443,6 @@ class CoreService:
 
     def _bind_background_services(self):
         from ..discord.scheduled_events import ScheduledEventHandlers, ScheduledEventsDeps
-        from .computer_binding import create_foreground
         from .schedules import ScheduleService
         from .turn_state import TurnStateService
         from .work import WorkService
@@ -409,18 +465,6 @@ class CoreService:
             store_provider=lambda: deps.turn_store,
             # Restart-only desired config must not hide the retained live ledger.
             enabled=lambda: deps.durability_reason != "disabled_by_config")
-        from ..computer.provisioning import ComputerProvisioningError
-
-        try:
-            self.computer_foreground = create_foreground(self.requests, self.config)
-        except ComputerProvisioningError as error:
-            # Computer storage has stricter retained native requirements than
-            # the profile transport. Do not weaken those, chmod the profile, or
-            # break ordinary chat because an unqualified subsystem cannot start.
-            self.computer_unavailable_reason = error.code
-        if self.computer_foreground is not None:
-            self.requests.computer_foreground = self.computer_foreground
-            deps.native_owners["computer"] = self.computer_foreground
         agents = deps.native_owners["agents"]
         agents._background_admission = self.requests
         agents._work_service = self.work
@@ -448,6 +492,20 @@ class CoreService:
             else ConnectionReason.UNAVAILABLE, 1))
         deps.background_work_ready = True
         deps.tool_catalog.invalidate()
+
+    def _bind_foreground_computer(self):
+        from .computer_binding import bind_foreground
+
+        service = self.management.computer
+        if not service.readiness()["management_available"]:
+            # Preserve the management owner's storage fence and typed reason.
+            # Ordinary startup remains available; never open a second store.
+            self.computer_unavailable_reason = service.readiness()["reason"]
+            return
+        self.computer_foreground = bind_foreground(service, self.requests)
+        self.requests.computer_foreground = self.computer_foreground
+        self.engine.deps.native_owners["computer"] = self.computer_foreground
+        self.engine.deps.tool_catalog.invalidate()
 
     def _authorize_stored_report(self, _tool, _hosts, owner):
         # D17 durable report pages are stored receipts, not live evidence cursors.
@@ -581,6 +639,20 @@ class CoreService:
         except JournalStorageError:
             self.lifetime.request_stop("storage_unavailable")
 
+    async def _start_management(self) -> None:
+        startup = asyncio.create_task(self.management.start())
+        parent_loss = asyncio.create_task(self.lifetime.wait())
+        try:
+            await asyncio.wait((startup, parent_loss), return_when=asyncio.FIRST_COMPLETED)
+            if not self.lifetime.admitting:
+                raise RuntimeError("Core supervisor stopped during qualification")
+            await startup
+        finally:
+            for task in (startup, parent_loss):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(startup, parent_loss, return_exceptions=True)
+
     async def _prune_receipts(self) -> None:
         """Serialize periodic retention with admission, and fail closed on storage loss."""
         try:
@@ -599,6 +671,8 @@ class CoreService:
         status.update(limits=self.limits, diagnostics=self.engine.diagnostics(),
                       computer={"published_available": False,
                                 "reason": self.computer_unavailable_reason or "native_unqualified"})
+        if self.package_status is not None:
+            status["package"] = self.package_status.snapshot()
         self.events.append(
             "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id}, status,
         )
@@ -809,9 +883,18 @@ class CoreService:
                     return failure("busy", "Core is quiescing")
                 if method == "runtime.shutdown":
                     fresh_shutdown = True
+                    stopping_status = self.status()
+                    if "package" in stopping_status:
+                        # This event is committed before the stop edge. It is
+                        # acceptance, not producer settlement or cleanup proof.
+                        handoff = stopping_status["package"]["handoff"]
+                        handoff.update(state="quiescing", admitting=False,
+                                       stop_reason="runtime.shutdown")
+                        handoff["blockers"] = [reason for reason in handoff["blockers"]
+                                               if reason != "shutdown_not_requested"]
                     self.events.append(
                         "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id},
-                        {**self.status(), "phase": "quiescing"},
+                        {**stopping_status, "phase": "quiescing"},
                     )
                     return {"ok": True, "result": {"disposition": "accepted"}}
                 return self._domain(method, params)
@@ -877,7 +960,24 @@ class CoreService:
                         await self.engine.deps.scheduler.stop()
                     await self.requests.close()
                 if self.engine is not None:
-                    await self.engine.close()
+                    try:
+                        await self.engine.close()
+                    except Exception:
+                        # Requests are settled, but execution cleanup failed.
+                        # Persist its uncertainty and attempt independent
+                        # management cleanup without releasing graph ownership.
+                        self._engine_cleanup_failed = True
+                        try:
+                            if self.management is not None:
+                                await self.management.close()
+                            elif self.resource_cleanup is not None:
+                                self.resource_cleanup.finish({
+                                    **getattr(self.engine, "execution_cleanup_results", {}),
+                                    "engine_services": {"state": "unknown"},
+                                })
+                        except Exception:
+                            pass  # The original engine failure remains authoritative.
+                        raise
                 if self.computer_foreground is not None:
                     await self.computer_foreground.close()
             finally:
@@ -897,6 +997,9 @@ class CoreService:
             finally:
                 if self._release_runtime_on_close:
                     self.release_runtime()
+        # _closed is an entry/idempotency guard, never cleanup success. This
+        # barrier sits outside finally: even a listener failure must stay false.
+        self._close_complete = True
 
     def release_runtime(self) -> None:
         """Entry may defer owner release until its containment finalization barrier."""

@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "artifact": "PR35 Codex real documentation and archived-schema alternatives",
+  "candidate_status": "blocked-original; supplemental-only",
+  "qualification_claim": false,
+  "original_suite_restored": false,
+  "original_assertions_or_matrix_modified": false,
+  "production_or_shared_files_modified": false,
+  "test_selector": "tests/test_desktop_step8_review_codex_alternative.py",
+  "archive": {
+    "path": "maintenance/odin-v4.13.0.tar.gz",
+    "sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+    "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+    "method": "Unique regular archive members; literal evaluation of actual TOOLS_SECTION canonical producers; no archive extraction or historical-code execution"
+  },
+  "attempts": [
+    {
+      "name": "current full documentation catalog and actual reference generator",
+      "result": "63 real documentation names and schemas equal the actual reference producer sections. Frozen inputs have 67 names. Equality remains impossible without changing original catalog or inputs.",
+      "missing": ["add_reaction", "create_poll", "purge_messages", "read_channel", "set_permission"],
+      "new_not_in_frozen": ["read_conversation"],
+      "reference_inspection": "scripts/docs/_reference.py SOURCE_COMMIT is link provenance only. scripts/docs/generate_tool_reference.py uses current get_documentation_tool_definitions and registry.TOOLS, not a historical schema freeze. No reference-only retired-name producer exists."
+    },
+    {
+      "name": "archived actual canonical definitions passed to current real compiler and normalizer",
+      "sources": ["src/tools/defs/system_files.py", "src/tools/defs/media_scheduling.py", "src/tools/defs/browser_web.py", "src/tools/defs/channel_process_loops.py"],
+      "result": "All five real archived removed schemas compile as external_envelope because current TOOL_MAP lacks these names and none is core. Real accept succeeds for JSON envelope and rejects the original raw argument form. Current documentation adapter rejects all five as absent. This is historical external-contract supplemental coverage, not inherited builtin-strict coverage.",
+      "unapproved_alternatives_rejected": ["modify TOOL_MAP or fake builtin classification", "inject is_core solely for tests", "invent synthetic legacy schemas", "union retired schemas into product catalog", "remove read_conversation from actual documentation catalog", "change frozen fixtures/assertions or retire unknown cases"]
+    }
+  ],
+  "validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_codex_alternative.py -s --tb=short",
+    "latest_observed_exit_code": 0,
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0,
+    "elapsed_seconds": 4.37,
+    "ruff": "All checks passed",
+    "test_sha256": "fcc58c3f9f53e0fd3b2ee21738e2e918d66c3a231d36440165b21cfb9f29cf87",
+    "unchanged_original_sha256": "eed93185f30efd619bafbfb1fd0f2d7bcac1eda96879b50214cfc1f8f5585256",
+    "initial_attempt": "9 passed, 5 failed because purge_messages producer was in media_scheduling rather than system_files. Corrected archive producer selection; no original fixture/assertion or production changes.",
+    "isolation": "USER=odin required mount/PID namespace runner; env-i isolated HOME/XDG; explicit selector only; no full gate/native/live/git mutation"
+  },
+  "supplemental_coverage": {
+    "current_catalog_and_reference_gap": 1,
+    "real_archived_removed_external_contracts": 5,
+    "read_conversation_real_strict_normalizer": 3,
+    "read_conversation_invalid_wire_and_foreign_scope": 5,
+    "limitations": "read_conversation schema has integer limit with no declared minimum/maximum; tests do not claim handler clamp validation, SSE/history replay, native execution, or original matrix restoration"
+  },
+  "conclusion": "No defensible setup-only restoration found. Real current full documentation producer does not include retired names. Real archived canonical definitions exist but passing them to current compiler changes retired builtin wire contracts to external envelopes, and an all-historical catalog still is not the actual current documentation equality target. Adding reference-only product schemas requires explicit design approval and still introduces read_conversation coverage mismatch. Keep original unresolved; no blanket waiver, retired cases, skips, xfails or restored-count claim."
+}
