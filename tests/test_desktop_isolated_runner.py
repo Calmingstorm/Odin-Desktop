@@ -353,11 +353,11 @@ def test_runner_refuses_an_empty_unclassified_selection(tmp_path, monkeypatch):
 ])
 def test_ci_uses_only_an_exact_stable_cached_python(tmp_path, versions, expected):
     workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
-    for job in workflow["jobs"].values():
+    for job_name, job in workflow["jobs"].items():
         guard = next(step for step in job["steps"] if step.get("id") == "cached-python")
         setup = next(step for step in job["steps"] if step.get("uses") == "actions/setup-python@v5")
         assert setup["with"]["python-version"] == "${{ steps.cached-python.outputs.version }}"
-        cache = tmp_path / job["runs-on"][-1]
+        cache = tmp_path / job_name
         cache.mkdir()
         for version, actual in versions.items():
             directory = cache / "Python" / version / "x64"
@@ -386,7 +386,12 @@ def test_ci_labels_keep_all_namespace_tests_on_the_desktop():
     workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
     light = workflow["jobs"]["short-gates"]
     full = workflow["jobs"]["full-suites"]
-    assert light["runs-on"] == ["self-hosted", "odin-desktop-ci-light"]
+    assert light["runs-on"] == "${{ matrix.labels }}"
+    assert light["strategy"]["matrix"]["include"] == [
+        {"lane": "light", "labels": ["self-hosted", "odin-desktop-ci-light"]},
+        {"lane": "desktop", "labels": ["self-hosted", "odin-desktop-ci-light", "odin-desktop-ci"]},
+    ]
+    assert light["strategy"]["fail-fast"] is False
     assert full["runs-on"] == ["self-hosted", "odin-desktop-ci"]
     light_commands = "\n".join(step.get("run", "") for step in light["steps"])
     full_commands = "\n".join(step.get("run", "") for step in full["steps"])

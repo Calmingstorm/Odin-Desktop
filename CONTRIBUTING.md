@@ -71,6 +71,13 @@ Odin or the desktop session. **Always run the suite in an isolated PID namespace
 - Never use destructive or attack commands as test input. Test failure paths with harmless failures or stubbed
   primitives.
 - Computer-use and native-lifecycle proofs run only in hard-isolated graphical environments, never on an active desktop.
+- Offline qualification-lab tests that deliberately create root-owned fixture
+  configuration run with `scripts/run-lab-fixture-tests.py` in a separate,
+  disposable Docker container. The fixed source allowlist is copied, never
+  mounted; runtime has no network, host devices, sockets, credentials or display.
+  Pytest stays non-root; root fixture commands remain container-local. The
+  restricted helper and its no-new-privileges setting are never changed for
+  these tests. This lane is not native desktop or VM qualification.
 - Installing dependencies into this repo's own `.venv` (and `node_modules` for `app/`) is fine. System package installs
   need Aaron's OK first.
 
