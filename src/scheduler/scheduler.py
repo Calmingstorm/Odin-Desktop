@@ -226,9 +226,29 @@ class Scheduler:
             schedule["settlement"] = "unknown"
             schedule["last_run_binding"] = schedule.pop("run_binding", None)
             schedule.pop("retry_at", None)
+            schedule["_interrupted_run_history"] = {
+                "schedule_id": schedule["id"],
+                "description": schedule.get("description", ""),
+                "action": schedule.get("action", ""),
+                "status": "unknown",
+                "duration_ms": 0,
+                "error": f"Run started at {started!r}; completion was never recorded",
+                "run_binding": copy.deepcopy(schedule["last_run_binding"]),
+            }
+            if not schedule.get("one_time"):
+                # The interrupted effect is spent, not the definition. Keep a
+                # future cron slot intact; skip elapsed slots rather than
+                # turning this unknown run into D12 catch-up work.
+                if schedule.get("cron") and self._is_usable_cron(schedule["cron"]):
+                    due = self._parse_persisted_time(schedule.get("next_run"))
+                    if due is not None and due <= datetime.now(UTC).replace(tzinfo=None):
+                        schedule["next_run"] = _cron_next_run(
+                            schedule["cron"], schedule.get("timezone")
+                        )
+                return True
         self._quarantine_schedule(
             schedule,
-            f"Schedule started at {started!r} but its completion was never recorded "
+            f"One-time schedule started at {started!r} but its completion was never recorded "
             "(Odin stopped or could not save the result); it may have partly run, so it was not "
             "run again. Check what it did, then set a new run_at to re-arm it",
         )
@@ -383,6 +403,27 @@ class Scheduler:
     async def _publish(self, candidate: list[dict]) -> None:
         """Caller holds _lock; persist detached state before making it visible."""
         candidate = copy.deepcopy(candidate)
+        for schedule in candidate:
+            pending = schedule.get("_interrupted_run_history")
+            if pending is None:
+                continue
+            # History precedes retiring the start marker. A crash between the
+            # two writes recovers the same binding, without duplicating its
+            # unknown entry. If history storage fails, retain the outbox in the
+            # durable definition so a later publication can finish it.
+            def recorded(entries, pending=pending):
+                return any(
+                    entry.get("status") == "unknown"
+                    and entry.get("error") == pending["error"]
+                    and entry.get("run_binding") == pending["run_binding"]
+                    for entry in entries
+                )
+            entries = await self.history.query(schedule["id"], limit=200)
+            if not recorded(entries):
+                await self.history.record(**pending)
+                entries = await self.history.query(schedule["id"], limit=200)
+            if recorded(entries):
+                schedule.pop("_interrupted_run_history", None)
         writer = copy.copy(self)
         writer._schedules = candidate
         write = asyncio.create_task(asyncio.to_thread(writer._save))

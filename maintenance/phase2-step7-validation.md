@@ -116,16 +116,48 @@ passed. These numbers are separate evidence, not an aggregated gate result.
 The short gates pass: exact byte drift has no errors, ownership and suite
 accounting are clean, and lint has seven inherited findings with no new ones.
 
-Required upstream state at the final check:
+Upstream state at the initial blocked checkpoint:
 
 - PR37 remains open at `4ede9e75fb079a0a305c7b24f89700d7fb7c4416`.
 - PR34 remains open at `78582fc86d53794bb60dd40f4870981327ae1a99`.
 
 A bounded upstream watcher expired without either dependency becoming ready.
-No replacement full qualification was run prematurely. The requested base/main
-merges and single final fresh-checkout full gate remain **pending**, not green.
-An exploratory merge of current main was aborted; no partial conflict resolution
-is included in the published branch. No rebase or force-push.
+That checkpoint remained blocked. The integration continued afterward rather
+than treating missing upstream movement as successful qualification.
+
+## Continued integration and complete intermediate qualification
+
+Merged main at `0b7d596f` in `1267f730`, preserving webhook and background
+composition alongside lifecycle execution-owner cleanup and producer barriers.
+The foreground computer owner is closed by the shared execution-owner barrier,
+not twice. Outbound dispatcher close uses the composed shared owner once.
+The ledger explicitly unions both sides' contracts and tests; exact witnesses
+are refreshed for independently combined sources. No rebase or force-push.
+
+One complete fresh-checkout qualification on `1267f730` ran all **30 groups**
+under a `2775` parent and checkout, sanitized PID boundary and throwaway HOME.
+Result: **14,736 passed, 3 failed, 2 skipped, zero errors**. This is not green.
+
+Two failures came from PR37 shared-outbound tests invoking management close
+while engine producers were still live. The tests now preserve all original
+shared-owner/transport-close assertions, additionally prove the lifecycle
+barrier refuses premature teardown, and quiesce actual requests before closing
+the engine. No product cleanup guard was weakened. The full shared-outbound
+suite passes **12/12**; the combined main CI/lifecycle/isolation regression
+passes **87/87**.
+
+The third failure is the interrupted-recurring-run dependency already described
+above. It remains selected in the full gate.
+
+During qualification, main advanced to `288ce7b4` with accepted self-hosted CI
+and portable namespace-packaging fixes. Merged that main in `c3b8f01f` without
+changing its bounded harness waits, production deadlines or assertions.
+
+Intermediate full evidence is preserved at
+`/home/odin/desktop-pr42-review1-qualification/full.log` and
+`fresh/.test-state/qualification-*.xml`. Targeted integration evidence:
+`shared-outbound-lifecycle-regression.log`, `main-ci-targeted.log`, and
+`/home/odin/desktop-step7-20261006/review1-integrated-targeted.log`.
 
 Evidence under `/home/odin/desktop-step7-20261006/`:
 `review1-targeted-final-prebase.log`, `review1-prebase-ingress.log`,

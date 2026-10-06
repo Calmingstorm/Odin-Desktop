@@ -528,7 +528,9 @@ async def test_overlapping_deliveries_follow_retained_inflight_exclusion(tmp_pat
         scheduler._callback = effect
         first = asyncio.create_task(post(ingress))
         try:
-            await asyncio.wait_for(entered.wait(), 2)
+            # Fixture receipt wait, not a webhook product latency contract.
+            # Shared CI can take longer to persist the real scheduler start.
+            await asyncio.wait_for(entered.wait(), 15)
             assert (await post(ingress))[0] == 200
             release.set()
             assert (await first)[0] == 200
@@ -551,7 +553,8 @@ async def test_cancelled_handoff_fences_and_recovers_notice_only(tmp_path):
             await asyncio.Event().wait()
         scheduler._callback = effect
         first = asyncio.create_task(post(ingress))
-        await asyncio.wait_for(entered.wait(), 2)
+        # The same bounded real-handoff fixture allowance, without retries.
+        await asyncio.wait_for(entered.wait(), 15)
         await ingress.close()
         await asyncio.gather(first, return_exceptions=True)
         assert not scheduler.list_all()[0].get('paused')

@@ -221,7 +221,191 @@ async def test_boot_missed_due_and_cancellation_reconciliation(graph):
                                conversations=service.conversations)
     await recovery.recover()
     again = Scheduler(str(scheduler.data_path), desktop_recovery=True)
-    assert again.list_all()[0]["paused"] and again.list_all()[0]["settlement"] == "unknown"
+    assert not again.list_all()[0].get("paused")
+    assert again.list_all()[0]["settlement"] == "unknown"
+    history = await recovery.invoke("schedules.history", {"id": item["id"]}, owner=owner)
+    assert len(history) == 1 and history[0]["status"] == "unknown"
+    assert history[0]["run_binding"] == persisted_binding
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("timing", ["cron", "trigger"])
+@pytest.mark.parametrize("interruption", ["cancel", "boot"])
+async def test_interrupted_definition_keeps_next_run_and_durable_unknown(
+    graph, timing, interruption
+):
+    scheduler, service, owner, _ = graph
+    values = {} if timing == "cron" else {
+        "cron": None, "trigger": {"source": "generic", "event": "push"}
+    }
+    item = await add(graph, "check", tool_name="run_command",
+                     tool_input={"command": "example"}, max_retries=3, **values)
+    next_run = scheduler.list_all()[0].get("next_run")
+    if interruption == "cancel":
+        async def cancelled(schedule):
+            scheduler.assert_run_binding(schedule)
+            raise asyncio.CancelledError
+        scheduler._callback = cancelled
+        notifications = []
+        unsubscribe = scheduler.subscribe_changes(lambda: notifications.append(True))
+        with pytest.raises(asyncio.CancelledError):
+            await scheduler.run_now(item["id"])
+        unsubscribe()
+        assert len(notifications) == 3  # reservation, start, unknown settlement
+    else:
+        # Persist exactly the pre-effect start marker a terminated process
+        # leaves behind, including a retry that must never be replayed.
+        async with scheduler._lock:
+            items = scheduler.list_all()
+            items[0]["retry_at"] = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+            await scheduler._publish(items)
+        await scheduler._mark_run_started(item)
+    binding = item.get("run_binding") or scheduler.list_all()[0]["last_run_binding"]
+    for _ in range(2):
+        restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+        recovery = ScheduleService(restarted, authority=service.authority,
+                                   conversations=service.conversations)
+        await recovery.recover()
+        current = restarted.list_all()[0]
+        assert current["settlement"] == "unknown"
+        assert current["last_run_binding"] == binding
+        assert not current.get("paused") and "inert_reason" not in current
+        assert current.get("next_run") == next_run
+        assert not {"run_started_at", "run_binding", "retry_at",
+                    "_interrupted_run_history"} & current.keys()
+        restarted._callback = AsyncMock()
+        await restarted._tick()
+        restarted._callback.assert_not_awaited()
+        history = await recovery.invoke("schedules.history", {"id": item["id"]}, owner=owner)
+        assert len(history) == 1 and history[0]["status"] == "unknown"
+        assert history[0]["run_binding"] == binding
+    if timing == "cron":
+        # A controllable clock reaches the next real slot without catch-up,
+        # sleeps, or changes to any product deadline.
+        due = datetime.fromisoformat(next_run)
+        from unittest.mock import patch
+        class Clock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return due.astimezone(tz) if tz else due.replace(tzinfo=None)
+        with patch("src.scheduler.scheduler.datetime", Clock):
+            await restarted._tick()
+    else:
+        await restarted.fire_triggers("generic", {"event": "push"})
+    restarted._callback.assert_awaited_once()
+    new_binding = restarted._callback.await_args.args[0]["run_binding"]
+    assert new_binding != binding
+    assert restarted.list_all()[0]["settlement"] == "success"
+    history = await restarted.history.query(item["id"])
+    assert [entry["status"] for entry in history] == ["success", "unknown"]
+    assert history[1]["run_binding"] == binding
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["reminder", "check"])
+async def test_interrupted_elapsed_cron_skips_replay_and_resumes_cadence(graph, action):
+    scheduler, service, _, _ = graph
+    values = {"tool_name": "run_command", "tool_input": {"command": "example"}} \
+        if action == "check" else {}
+    item = await add(graph, action, **values)
+    await overdue(scheduler)
+    await scheduler._mark_run_started(item)
+    restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    await ScheduleService(restarted, authority=service.authority,
+                          conversations=service.conversations).recover()
+    current = restarted.list_all()[0]
+    assert not current.get("paused")
+    assert "recovery_required" not in current and "missed_run" not in current
+    assert datetime.fromisoformat(current["next_run"]) > datetime.now(UTC)
+    restarted._callback = AsyncMock()
+    await restarted._tick()
+    restarted._callback.assert_not_awaited()
+    assert (await restarted.history.query(item["id"]))[0]["status"] == "unknown"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["check", "workflow", "webhook"])
+async def test_interrupted_one_time_stays_quarantined_with_odin_wording(graph, action):
+    scheduler, service, owner, _ = graph
+    values = {
+        "check": {"tool_name": "run_command", "tool_input": {"command": "example"}},
+        "workflow": {"steps": [{"tool_name": "example", "tool_input": {}}]},
+        "webhook": {"webhook_config": {"url": "https://example.com"}},
+    }[action]
+    item = await add(graph, action, cron=None,
+                     run_at=(datetime.now(UTC) + timedelta(hours=1)).isoformat(), **values)
+    await scheduler._mark_run_started(item)
+    started = scheduler.list_all()[0]["run_started_at"]
+    restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    await ScheduleService(restarted, authority=service.authority,
+                          conversations=service.conversations).recover()
+    current = restarted.list_all()[0]
+    reason = (
+        f"One-time schedule started at {started!r} but its completion was never recorded "
+        "(Odin stopped or could not save the result); it may have partly run, so it was not "
+        "run again. Check what it did, then set a new run_at to re-arm it"
+    )
+    assert current["paused"] and current["inert_reason"] == reason[:300]
+    assert current["settlement"] == "unknown"
+    restarted._callback = AsyncMock()
+    restarted._execute_webhook = AsyncMock()
+    await restarted._tick()
+    restarted._callback.assert_not_awaited()
+    restarted._execute_webhook.assert_not_awaited()
+    with pytest.raises(ValueError, match="One-time schedule started at"):
+        await restarted.run_now(item["id"])
+    with pytest.raises(ValueError, match="One-time schedule started at"):
+        await restarted.update(item["id"], paused=False)
+    assert (await restarted.history.query(item["id"]))[0]["run_binding"] == item["run_binding"]
+    rearmed = await restarted.update(
+        item["id"], run_at=(datetime.now(UTC) + timedelta(hours=2)).isoformat()
+    )
+    assert not rearmed["paused"] and "inert_reason" not in rearmed
+
+
+@pytest.mark.asyncio
+async def test_interrupted_history_survives_failed_store_write_without_duplicates(
+    graph, monkeypatch
+):
+    scheduler, service, _, _ = graph
+    item = await add(graph)
+    await scheduler._mark_run_started(item)
+    restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    recovery = ScheduleService(restarted, authority=service.authority,
+                               conversations=service.conversations)
+    with monkeypatch.context() as m:
+        def failed_write(self):
+            raise OSError("injected schedule store write failure")
+        m.setattr(Scheduler, "_save", failed_write)
+        with pytest.raises(OSError, match="injected schedule store"):
+            await recovery.recover()
+    assert len(await restarted.history.query(item["id"])) == 1
+    again = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    await ScheduleService(again, authority=service.authority,
+                          conversations=service.conversations).recover()
+    assert len(await again.history.query(item["id"])) == 1
+    assert not again.list_all()[0].get("paused")
+
+
+@pytest.mark.asyncio
+async def test_interrupted_history_outbox_retries_failed_history_storage(graph, monkeypatch):
+    scheduler, service, _, _ = graph
+    item = await add(graph)
+    await scheduler._mark_run_started(item)
+    restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    with monkeypatch.context() as m:
+        # History append logs storage failures rather than raising; absent
+        # readback must not discard the only pending evidence.
+        m.setattr(restarted.history, "_append", AsyncMock())
+        await ScheduleService(restarted, authority=service.authority,
+                              conversations=service.conversations).recover()
+    assert not await restarted.history.query(item["id"])
+    again = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    assert again.list_all()[0]["_interrupted_run_history"]["run_binding"] == item["run_binding"]
+    await ScheduleService(again, authority=service.authority,
+                          conversations=service.conversations).recover()
+    assert "_interrupted_run_history" not in again.list_all()[0]
+    assert len(await again.history.query(item["id"])) == 1
 
 
 @pytest.mark.asyncio
