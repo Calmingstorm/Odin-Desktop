@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
-import { init, state } from './store'
+import { init, openSettings, state } from './store'
+import FirstRunBanner from './components/FirstRunBanner.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+import CleanupNotice from './components/CleanupNotice.vue'
 import ConversationList from './components/ConversationList.vue'
 import MessageList from './components/MessageList.vue'
 import Composer from './components/Composer.vue'
@@ -40,7 +42,8 @@ function onKey(event: KeyboardEvent): void {
     state.search.open = !state.search.open
   } else if (event.ctrlKey && event.key === ',') {
     event.preventDefault()
-    state.view = state.view === 'settings' ? 'chat' : 'settings'
+    if (state.view === 'settings') state.view = 'chat'
+    else openSettings()
   }
 }
 
@@ -55,6 +58,7 @@ const active = computed(() => state.conversations.find((c) => c.id === state.act
 
 <template>
   <div class="shell">
+    <CleanupNotice />
     <ConversationList class="sidebar" />
     <main v-if="state.view === 'chat'" class="main">
       <header class="topbar">
@@ -62,8 +66,9 @@ const active = computed(() => state.conversations.find((c) => c.id === state.act
         <button class="ghost work-toggle" :aria-expanded="work.open" title="Agents, tasks, loops, processes and schedules" @click="work.open = !work.open">
           Work<span v-if="activeCount()" class="badge">{{ activeCount() }}</span>
         </button>
-        <button class="ghost" title="Settings (Ctrl+,)" @click="state.view = 'settings'">Settings</button>
+        <button class="ghost" title="Settings (Ctrl+,)" @click="openSettings()">Settings</button>
       </header>
+      <FirstRunBanner v-if="!state.setupReminderHidden" dismissible />
       <SearchPanel v-if="state.search.open" />
       <WorkPanel v-if="work.open" />
       <MessageList class="messages" />

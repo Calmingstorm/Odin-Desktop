@@ -23,7 +23,9 @@ from .lifecycle import CoreLifetime
 from .management import ManagementService
 from .paths import ProfilePaths
 from .requests import RequestService
+from .resource_cleanup import ResourceCleanupJournal
 from .search import TranscriptSearch
+from .secrets import secret_call
 from .services import build_engine_services
 from .tool_details import ToolDetailsStore
 from .transcript import TranscriptStore
@@ -224,6 +226,7 @@ class CoreService:
         self._publication_ready = asyncio.Event()
         self._published_seq = 0
         self.management: ManagementService | None = None
+        self.resource_cleanup: ResourceCleanupJournal | None = None
         self._secret_backend = secret_backend
         self.capabilities = CAPABILITIES
         self.start_time = time.monotonic()
@@ -267,6 +270,9 @@ class CoreService:
         )
         self.commands = CommandJournal(self.store)
         self.events = _CoreEvents(self.store)
+        self.resource_cleanup = ResourceCleanupJournal(
+            self.paths.data_dir / "resource-cleanup.json",
+        )
         self.conversations = ConversationStore(self.store, self.events)
         self.transcript = TranscriptStore(self.store, self.events, self.conversations)
         self.search = TranscriptSearch(self.transcript, self.events)
@@ -281,6 +287,7 @@ class CoreService:
             config=(await _resolve(self.config_provider(self.paths))
                     if self.config_provider is not None else None))
         self.settings = settings
+        await secret_call(settings.hydrate_secrets)
         runtime = (await _resolve(self.runtime_provider(self.config, self.paths, self.permissions))
                    if self.runtime_provider is not None else None)
         self.engine = build_engine_services(self.config, self.paths, self.permissions,
@@ -326,6 +333,10 @@ class CoreService:
         self.controls.recover_after_restart()
         await self.delivery.recover()
         self.management = ManagementService.compose(self, settings=settings)
+        # Compose-time test injection shares this same settings owner. All
+        # hydration and startup vault reads remain off the event loop.
+        await secret_call(settings.hydrate_secrets)
+        await self.engine.initialize_profile_provider()
         self.capabilities = (*CAPABILITIES[:5],
                              *sorted((set(CAPABILITIES) | set(self.management.methods))
                                      - set(CAPABILITIES[:5])))
@@ -335,12 +346,14 @@ class CoreService:
         )
         self.lifetime.watch_parent(stdin_fd)
         self.lifetime.watch_signals()
-        await self.server.start()
         self.phase = "ready"
         async with self._serial:
             self.commands.prune(time.time() - RECEIPT_RETENTION)
             await self._status_event()
             await self._flush_publications()
+        # Hydration/status now await workers. Commit the initial event before
+        # admitting any handshake, preserving welcome/catch-up's high watermark.
+        await self.server.start()
         self._receipt_pruner = asyncio.create_task(self._prune_receipts())
         self._publication_task = asyncio.create_task(self._publication_loop())
         await self.requests.after_commit()
@@ -402,8 +415,11 @@ class CoreService:
             self.lifetime.request_stop("storage_unavailable")
 
     async def _status_event(self) -> None:
+        status = (await self.management.runtime.status_async()
+                  if self.management is not None else self.status())
+        status.update(limits=self.limits, diagnostics=self.engine.diagnostics())
         self.events.append(
-            "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id}, self.status(),
+            "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id}, status,
         )
         await self._flush_publications()
 
@@ -527,6 +543,8 @@ class CoreService:
             if method == "status.get":
                 result = validate_params(method, params)
                 if result is None:
+                    if self.management is not None:
+                        await self.management.runtime.status_async()
                     result = {"ok": True, "result": self.status()}
                 return {"t": "res", "id": command_id, **result}
             if self.management is not None and method in self.management.methods:
@@ -535,7 +553,10 @@ class CoreService:
                 elif not self.lifetime.admitting:
                     result = failure("busy", "Core is quiescing")
                 else:
-                    result = await self.management.execute(command_id, method, params)
+                    result = await self.management.execute(
+                        command_id, method, params,
+                        unlock_serial=self._serial if method == "secrets.unlock" else None,
+                    )
                 return {"t": "res", "id": command_id, **result}
             if method in READ_METHODS:
                 result = validate_params(method, params)
@@ -630,7 +651,24 @@ class CoreService:
                 if self.requests is not None:
                     await self.requests.close()
                 if self.engine is not None:
-                    await self.engine.close()
+                    try:
+                        await self.engine.close()
+                    except Exception:
+                        # Requests are settled, but execution cleanup failed.
+                        # Persist its uncertainty and attempt independent
+                        # management cleanup without releasing graph ownership.
+                        self._engine_cleanup_failed = True
+                        try:
+                            if self.management is not None:
+                                await self.management.close()
+                            elif self.resource_cleanup is not None:
+                                self.resource_cleanup.finish({
+                                    **getattr(self.engine, "execution_cleanup_results", {}),
+                                    "engine_services": {"state": "unknown"},
+                                })
+                        except Exception:
+                            pass  # The original engine failure remains authoritative.
+                        raise
             finally:
                 if self._publication_task is not None:
                     self._publication_task.cancel()

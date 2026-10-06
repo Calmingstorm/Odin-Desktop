@@ -21,6 +21,7 @@ import type { Broker, Settled } from './broker'
 import type { DraftStore } from './drafts'
 import type { ReleaseNoticeService } from './release-notice'
 import {
+  acknowledgeCleanupSchema,
   artifactActionSchema,
   releaseNoticeSchema,
   toolDetailSchema,
@@ -29,6 +30,7 @@ import {
   workListSchema,
   copyTextSchema,
   fetchArtifactSchema,
+  firstRunStatusSchema,
   reportPageSchema,
   attachBytesSchema,
   attachPathsSchema,
@@ -57,6 +59,7 @@ import {
   imageIntentSchema,
   secretClearSchema,
   secretSetSchema,
+  secretUnlockSchema,
   settingsSetSchema,
   setNotificationsSchema,
   snapshotConversationSchema,
@@ -64,11 +67,14 @@ import {
   submitSchema
 } from './schemas'
 import { withCommandId } from './command-id'
+import { DeviceLoginBoundary } from './device-login'
 import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-policy'
 
 export interface IpcDeps {
   releases: ReleaseNoticeService
   broker: Broker
+  /** Exit quiesces local app writes as well as core requests before persistence. */
+  admitting?: () => boolean
   windowId: () => number | null
   /** The window's top frame; requests from any other frame are refused. */
   mainFrame: () => FrameIdentity | null
@@ -80,11 +86,15 @@ export interface IpcDeps {
   /** Asks where to save a file; null when the user cancels. */
   chooseSavePath: (name: string) => Promise<string | null>
   copyText: (text: string) => void
+  openVerification: (url: string) => Promise<void>
+  deviceLogin: DeviceLoginBoundary
   getSettings: () => Settings
   setAutostart: (enabled: boolean) => Settings
   setNotifications: (change: NotificationChange) => Settings
   setConversationMuted: (conversationId: string, muted: boolean) => Settings
   appState: () => AppState
+  /** Archives only this notice token; resource quarantine and reconciliation remain unchanged. */
+  acknowledgeCleanup?: (id: string) => AppState
 }
 
 const UNTRUSTED: Result<never> = {
@@ -97,6 +107,7 @@ function fromSettled<T>(settled: Settled): Result<T> {
 }
 
 export function registerIpc(deps: IpcDeps): void {
+  const deviceLogin = deps.deviceLogin
   const trusted = (event: IpcMainInvokeEvent): boolean =>
     isTrustedSender(event.senderFrame?.url, event.sender.id, deps.windowId()) &&
     isSameFrame(event.senderFrame, deps.mainFrame())
@@ -108,6 +119,11 @@ export function registerIpc(deps: IpcDeps): void {
   ): void {
     ipcMain.handle(channel, async (event, raw: unknown) => {
       if (!trusted(event)) return UNTRUSTED
+      if (deps.admitting && !deps.admitting()) {
+        return { ok: false, error: {
+          code: 'busy', message: 'Odin is stopping.', disposition: 'not_dispatched'
+        } }
+      }
       let value: z.infer<S> = undefined as z.infer<S>
       if (schema) {
         const parsed = parseRequest(schema, raw)
@@ -122,7 +138,16 @@ export function registerIpc(deps: IpcDeps): void {
     })
   }
 
-  handle(IPC.status, null, async () => fromSettled(await deps.broker.request('status.get')))
+  handle(IPC.status, null, async () => {
+    const answer = await deps.broker.request('status.get')
+    if (!answer.ok) return answer
+    const raw = answer.result as Record<string, unknown> | null
+    if (!raw || typeof raw !== 'object') return { ok: false, error: { code: 'internal', message: 'Invalid core status.' } }
+    if (raw.first_run === undefined) return fromSettled(answer)
+    const projection = firstRunStatusSchema.safeParse(raw.first_run)
+    if (!projection.success) return { ok: false, error: { code: 'internal', message: 'Invalid core readiness status.' } }
+    return { ok: true, result: { ...raw, first_run: projection.data } }
+  })
   handle(IPC.checkReleases, releaseNoticeSchema, async () => ({ ok: true, result: await deps.releases.check() }))
   handle(IPC.openRelease, releaseNoticeSchema, () => deps.releases.open())
   handle(IPC.listConversations, null, async () => fromSettled(await deps.broker.request('conversations.list')))
@@ -224,6 +249,9 @@ export function registerIpc(deps: IpcDeps): void {
     const id = randomUUID()
     return fromSettled(await deps.broker.request('secrets.clear', v, id))
   })
+  handle(IPC.secretsUnlock, secretUnlockSchema, async () =>
+    fromSettled(await deps.broker.request('secrets.unlock', {}, randomUUID()))
+  )
   handle(IPC.editLeaf, editLeafSchema, async (v) => {
     const id = randomUUID()
     return fromSettled(await deps.broker.request(v.method, v.params, id))
@@ -243,9 +271,28 @@ export function registerIpc(deps: IpcDeps): void {
   })
   handle(IPC.codexLoginBegin, null, async () => {
     const id = randomUUID()
-    return fromSettled(await deps.broker.request('codex.login.begin', {}, id))
+    deviceLogin.clear()
+    deviceLogin.track(id, 'begin')
+    const result = await deps.broker.request('codex.login.begin', {}, id)
+    deviceLogin.settle(id, result)
+    return result.ok ? deviceLogin.begin(result.result, deps.broker.coreInstanceId) : result
   })
-  handle(IPC.codexLoginPoll, codexPollSchema, async (v) => fromSettled(await deps.broker.request('codex.login.poll', v)))
+  handle(IPC.codexLoginPoll, codexPollSchema, async (v) => {
+    const params = deviceLogin.poll(v.login_id, deps.broker.coreInstanceId)
+    if (!params.ok) return params
+    const id = randomUUID()
+    deviceLogin.track(id, 'poll')
+    const result = await deps.broker.request('codex.login.poll', params.result, id)
+    deviceLogin.settle(id, result)
+    if (!result.ok) return result
+    return deviceLogin.pollResult(result.result)
+  })
+  handle(IPC.codexOpenVerification, null, async () => {
+    const target = deviceLogin.verification(deps.broker.coreInstanceId)
+    if (!target.ok) return target
+    await deps.openVerification(target.result.url)
+    return { ok: true, result: { opened: true } }
+  })
   // The management domains: each named method has its own channel and schema and maps to exactly one core method.
   for (const name of Object.keys(MANAGEMENT) as ManagementMethod[]) {
     const { channel, core, command: changes } = MANAGEMENT[name]
@@ -258,6 +305,16 @@ export function registerIpc(deps: IpcDeps): void {
     ok: true,
     result: deps.setConversationMuted(v.conversation_id, v.muted)
   }))
+
+  handle(IPC.acknowledgeCleanup, acknowledgeCleanupSchema, ({ id }) => {
+    if (!deps.acknowledgeCleanup) return { ok: false, error: {
+      code: 'unavailable', message: 'Cleanup acknowledgment is unavailable.', disposition: 'not_dispatched'
+    } }
+    if (deps.appState().cleanupWarning?.id !== id) return { ok: false, error: {
+      code: 'conflict', message: 'This cleanup notice has changed. Review the current notice before acknowledging.', disposition: 'rejected'
+    } }
+    return { ok: true, result: deps.acknowledgeCleanup(id) }
+  })
 
   ipcMain.handle(IPC.getAppState, (event) => (trusted(event) ? deps.appState() : null))
 }

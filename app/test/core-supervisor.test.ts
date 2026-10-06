@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CoreSupervisor } from '../src/main/core-supervisor'
 import { waitFor } from './fixture-harness'
 
@@ -32,6 +32,25 @@ const OBEDIENT = "process.stdin.on('end', () => process.exit(0)); process.stdin.
 const STUBBORN = "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"
 
 describe('core supervisor', () => {
+  it('shares concurrent stops and refuses starts after shutdown', async () => {
+    const s = supervisor(OBEDIENT)
+    s.start()
+    await waitFor(() => s.current === 'running')
+    const first = s.stop(2_000, 1_000)
+    expect(s.stop()).toBe(first)
+    await first
+    s.start()
+    expect(s.pid).toBeUndefined()
+    expect(s.current).toBe('stopped')
+  })
+  it('does not replace a core with unproven cleanup when its admission predicate refuses', async () => {
+    const s = supervisor('process.exit(1)', { restartAllowed: () => false })
+    const restarted = vi.fn()
+    s.on('restarting', restarted)
+    s.start()
+    await waitFor(() => s.current === 'failed')
+    expect(restarted).not.toHaveBeenCalled()
+  })
   it('restarts a crashed core within its budget, then reports failure', async () => {
     const s = supervisor('process.exit(1)', { maxRestarts: 2, restartWindowMs: 60_000 })
     const restarts: number[] = []

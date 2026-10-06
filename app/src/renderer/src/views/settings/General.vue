@@ -27,8 +27,10 @@ function quiet(key: 'start' | 'end', event: Event): void {
       <h3>This app</h3>
       <span class="panel-hint">Local app settings, kept on this computer and available independently of core settings.</span>
     </header>
+    <p class="panel-hint">Start at login is opt-in and initially off. Closing the window keeps work running. Exit stops Odin.</p>
+    <p class="panel-hint">Notification previews are on by default. Change previews or quiet hours below, or mute a conversation from its menu.</p>
     <label class="field-input toggle">
-      <input type="checkbox" :checked="state.autostart" @change="setAutostart(($event.target as HTMLInputElement).checked)" />
+      <input data-testid="start-at-login" type="checkbox" :checked="state.autostart" @change="setAutostart(($event.target as HTMLInputElement).checked)" />
       Start Odin when you log in
     </label>
     <template v-if="notifications">
@@ -40,6 +42,7 @@ function quiet(key: 'start' | 'end', event: Event): void {
         <input
           type="checkbox"
           :checked="notifications.previews"
+          data-testid="notification-previews"
           :disabled="!notifications.enabled"
           @change="change({ previews: ($event.target as HTMLInputElement).checked })"
         />
@@ -51,6 +54,7 @@ function quiet(key: 'start' | 'end', event: Event): void {
           id="quiet-hours-enabled"
           type="checkbox"
           :checked="notifications.quietHours.enabled"
+          data-testid="notification-quiet-hours"
           :disabled="!notifications.enabled"
           @change="change({ quietHours: { enabled: ($event.target as HTMLInputElement).checked } })"
         />

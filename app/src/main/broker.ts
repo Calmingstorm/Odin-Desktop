@@ -73,6 +73,7 @@ export class Broker extends EventEmitter {
   /** The current connection's subscription request; its answer is applied even when it arrives late. */
   private subscriptionId: string | null = null
   private closedByUs = false
+  private quiescing = false
   private reconnectAttempt = 0
   private reconnectTimer: NodeJS.Timeout | null = null
   private helloTimer: NodeJS.Timeout | null = null
@@ -105,8 +106,18 @@ export class Broker extends EventEmitter {
   }
 
   connect(): void {
+    if (this.quiescing) return
     this.closedByUs = false
     this.openSocket()
+  }
+
+  /** Exit freezes reconnect/reconciliation before asking the current core to stop.
+   * Existing receipt handlers remain live. Uncertain commands retain their original identities.
+   */
+  quiesce(): void {
+    this.quiescing = true
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = null
   }
 
   /** Ends the connection on purpose; no reconnect. */
@@ -115,6 +126,9 @@ export class Broker extends EventEmitter {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     if (this.helloTimer) clearTimeout(this.helloTimer)
     this.reconnectTimer = null
+    // Destroying our socket must not discard the in-flight identities before
+    // onClose can see them. Shutdown evidence includes these unknown receipts.
+    this.settleDisconnected()
     this.socket?.destroy()
     this.socket = null
   }
@@ -125,6 +139,11 @@ export class Broker extends EventEmitter {
   }
 
   private send(method: string, params: Record<string, unknown>, id: string, control: boolean): Promise<Settled> {
+    if (this.quiescing && method !== 'runtime.shutdown') {
+      return Promise.resolve({ ok: false, error: {
+        code: 'busy', message: 'Odin is stopping.', disposition: 'not_dispatched'
+      } })
+    }
     const socket = this.socket
     if (this.link !== 'ready' || !socket) return Promise.resolve({ ok: false, error: NOT_CONNECTED })
     const frame = { t: 'req', id, method, params }
@@ -258,8 +277,10 @@ export class Broker extends EventEmitter {
     this.setLink('ready')
     // Re-send commands that never got a receipt, with their original IDs, then renew the one subscription. Both
     // happen before 'welcome' is emitted, so a listener can't add a second subscription on this connection.
-    for (const frame of this.unreceipted.values()) socket.write(encodeFrame(frame, this.maxFrame))
-    if (this.wantEvents) void this.subscribe()
+    if (!this.quiescing) {
+      for (const frame of this.unreceipted.values()) socket.write(encodeFrame(frame, this.maxFrame))
+      if (this.wantEvents) void this.subscribe()
+    }
     this.emit('welcome', welcome)
     if (previous && previous !== welcome.core.instance_id) this.emit('core-changed', welcome.core.instance_id)
   }
@@ -295,21 +316,25 @@ export class Broker extends EventEmitter {
     this.helloTimer = null
     this.socket = null
     this.subscriptionId = null // the next connection makes its own subscription
-    // In-flight commands lost their receipt: keep their frames for same-ID re-send, settle callers honestly.
+    this.settleDisconnected()
+    if (this.closedByUs || this.quiescing) return
+    const delay = this.reconnectDelaysMs[Math.min(this.reconnectAttempt, this.reconnectDelaysMs.length - 1)] ?? 1_000
+    this.reconnectAttempt += 1
+    this.setLink(this.welcomeFrame ? 'reconnecting' : 'connecting')
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      if (!this.closedByUs && !this.quiescing) this.openSocket()
+    }, delay)
+  }
+
+  private settleDisconnected(): void {
+    // In-flight commands lost their receipt: retain the original identities.
     for (const [id, pending] of this.pending) {
       clearTimeout(pending.timer)
       if (!pending.control) this.unreceipted.set(id, pending.frame)
       pending.resolve({ ok: false, error: NO_RECEIPT })
     }
     this.pending.clear()
-    if (this.closedByUs) return
-    const delay = this.reconnectDelaysMs[Math.min(this.reconnectAttempt, this.reconnectDelaysMs.length - 1)] ?? 1_000
-    this.reconnectAttempt += 1
-    this.setLink(this.welcomeFrame ? 'reconnecting' : 'connecting')
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectTimer = null
-      if (!this.closedByUs) this.openSocket()
-    }, delay)
   }
 
   private setLink(state: LinkState): void {

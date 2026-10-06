@@ -17,6 +17,7 @@
 import { reactive } from 'vue'
 import { images } from './artifacts'
 import { isUnavailable, resultMessage } from './capability'
+import { NAV } from './settings-form'
 import type {
   AppState,
   ControlRecord,
@@ -144,6 +145,9 @@ export const state = reactive({
   panel: null as { title: string; text: string } | null,
   /** Chat or the settings menu. */
   view: 'chat' as 'chat' | 'settings',
+  /** Retained section only, never a local readiness or completion flag. */
+  settingsSection: 'general',
+  setupReminderHidden: false,
   /** The app's notification settings, from the main process. */
   notifications: null as NotificationSettings | null,
   /** Resume requests by `request_id:generation`, until the resumed request starts or the core says no. */
@@ -177,6 +181,11 @@ export function onCoreEvent(listener: EventListener): void {
 /** Runs whenever the link becomes ready: at start, and after every recovery. */
 export function onReady(listener: () => void): void {
   readyListeners.push(listener)
+}
+
+export function openSettings(section?: string): void {
+  if (section && NAV.some((entry) => entry.id === section)) state.settingsSection = section
+  state.view = 'settings'
 }
 
 function notifyReady(): void {
@@ -254,8 +263,15 @@ export async function init(): Promise<void> {
   window.odin.onEvent(applyEvent)
   window.odin.onReceipt(applyReceipt)
   window.odin.onReset(() => void resetViews())
-  // A clicked notification brings the window forward on its conversation, at the latest messages, where the news is.
-  window.odin.onOpenConversation((conversationId) => void openLatest(conversationId))
+  // The OS action identifies a committed message, which may no longer be the latest or in the loaded page.
+  // A recreated preload can receive its queued click before the initial app/list/snapshot bootstrap. Let that
+  // bootstrap finish first, or its default conversation selection would fence the user's click navigation.
+  let initialized = false
+  let pendingNotification: { conversationId: string; messageId: string } | null = null
+  window.odin.onOpenConversation((target) => {
+    if (!initialized) pendingNotification = target
+    else void jumpToMessage(target.conversationId, target.messageId)
+  })
   if (typeof document !== 'undefined') {
     // Coming back to the window counts as reading what is on screen.
     const attend = (): void => {
@@ -276,6 +292,11 @@ export async function init(): Promise<void> {
   if (state.app.link === 'ready') {
     notifyReady()
     await loadAll()
+  }
+  initialized = true
+  if (pendingNotification) {
+    const target = pendingNotification as { conversationId: string; messageId: string }
+    void jumpToMessage(target.conversationId, target.messageId)
   }
 }
 
@@ -803,25 +824,30 @@ let jumpPending: string | null = null
 
 /** Opens a hit's conversation at the message: in place when it is loaded, otherwise in a window around it. */
 export async function jumpTo(hit: SearchHit): Promise<void> {
+  return jumpToMessage(hit.conversation_id, hit.message_id)
+}
+
+/** Both search and OS notification clicks use the same generation-fenced exact-message navigation. */
+export async function jumpToMessage(conversationId: string, messageId: string): Promise<void> {
   // Fence what came before, and hold back reading, before anything loads.
   clearNavigation()
   const mine = navigationGeneration
-  jumpPending = hit.conversation_id
-  const current = (): boolean => mine === navigationGeneration && state.activeId === hit.conversation_id
-  await open(hit.conversation_id)
+  jumpPending = conversationId
+  const current = (): boolean => mine === navigationGeneration && state.activeId === conversationId
+  await open(conversationId)
   if (!current()) return
-  const view = state.views[hit.conversation_id]
-  if (view?.messages.some((m) => m.id === hit.message_id)) {
+  const view = state.views[conversationId]
+  if (view?.messages.some((m) => m.id === messageId)) {
     // In place: the latest messages are on screen after all.
     jumpPending = null
     state.jump = null
-    state.highlightId = hit.message_id
-    void markReadIfAttentive(hit.conversation_id)
+    state.highlightId = messageId
+    void markReadIfAttentive(conversationId)
     return
   }
   const result = await window.odin.messagesAround({
-    conversation_id: hit.conversation_id,
-    message_id: hit.message_id,
+    conversation_id: conversationId,
+    message_id: messageId,
     before: 20,
     after: 20
   })
@@ -829,17 +855,17 @@ export async function jumpTo(hit: SearchHit): Promise<void> {
   jumpPending = null
   if (!result.ok) {
     note(result.error.message)
-    void markReadIfAttentive(hit.conversation_id) // the latest messages stay on screen
+    void markReadIfAttentive(conversationId) // the latest messages stay on screen
     return
   }
   state.jump = {
-    conversationId: hit.conversation_id,
-    messageId: hit.message_id,
+    conversationId,
+    messageId,
     items: result.result.items,
     hasBefore: result.result.has_before,
     hasAfter: result.result.has_after
   }
-  state.highlightId = hit.message_id
+  state.highlightId = messageId
 }
 
 /** Ends any jump or highlight, and fences a jump still on its way. */

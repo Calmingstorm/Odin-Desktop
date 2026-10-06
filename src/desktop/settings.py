@@ -33,7 +33,7 @@ from ..config.persistence import (
 from ..config.schema import Config
 from .management import MethodError
 from .provisioning import fresh_config
-from .secrets import SecretStoreError
+from .secrets import SecretStoreError, secret_call
 
 _MISSING = object()
 _PROVIDERS = frozenset(
@@ -46,7 +46,8 @@ _PROVIDERS = frozenset(
 )
 METHODS = (
     frozenset(
-        {"settings.schema", "settings.set", "secrets.set", "secrets.clear", "models.image.intent"}
+        {"settings.schema", "settings.set", "secrets.set", "secrets.clear", "secrets.unlock",
+         "models.image.intent"}
     )
     | _PROVIDERS
 )
@@ -63,13 +64,19 @@ def _get(node, path, default=_MISSING):
 
 def _put(node, path, value):
     for key in path[:-1]:
-        if not isinstance(node.get(key), dict):
-            node[key] = {}
-        node = node[key]
+        if isinstance(node, list):
+            node = node[int(key)]
+        else:
+            if not isinstance(node.get(key), (dict, list)):
+                node[key] = {}
+            node = node[key]
     if value is DELETE_CONFIG_PATH:
-        node.pop(path[-1], None)
+        if isinstance(node, list):
+            node.pop(int(path[-1]))
+        else:
+            node.pop(path[-1], None)
     else:
-        node[path[-1]] = copy.deepcopy(value)
+        node[int(path[-1]) if isinstance(node, list) else path[-1]] = copy.deepcopy(value)
 
 
 def _handler(path):
@@ -158,7 +165,32 @@ class SettingsService:
                 self._keyring_error = "Profile keyring is unavailable or locked"
                 self._keyring_checked = True
                 return False
-            self.config = Config.model_validate(values, context={"startup": True})
+            hydrated = Config.model_validate(values, context={"startup": True})
+            # Preserve composed config/email/tool references. Publish only
+            # validated credential leaves after every keyring read succeeds.
+            def publish(node, validated, prefix=""):
+                if hasattr(type(validated), "model_fields"):
+                    children = [
+                        (key, getattr(validated, key)) for key in type(validated).model_fields
+                    ]
+                elif isinstance(validated, dict):
+                    children = validated.items()
+                elif isinstance(validated, list):
+                    children = enumerate(validated)
+                else:
+                    return
+                for key, value in children:
+                    path = f"{prefix}.{key}" if prefix else str(key)
+                    current = (node[key] if isinstance(node, (dict, list)) else getattr(node, key))
+                    if isinstance(value, str) and is_secret(path):
+                        if isinstance(node, (dict, list)):
+                            node[key] = value
+                        else:
+                            setattr(node, key, value)
+                    else:
+                        publish(current, value, path)
+
+            publish(self.config, hydrated)
             self._keyring_checked, self._keyring_error = True, None
             return True
 
@@ -182,8 +214,13 @@ class SettingsService:
 
     def schema(self):
         with self._lock:
-            if not self._keyring_checked:
-                self.hydrate_secrets()
+            if not self._keyring_checked or self._keyring_error:
+                try:
+                    asyncio.get_running_loop()
+                except RuntimeError:
+                    self.hydrate_secrets()
+                # Async owners preflight off-loop. A synchronous projection on
+                # the loop must never implicitly enter credential I/O.
             metadata = self._image_metadata()
             payload = build_meta_payload(
                 self.config.model_dump(mode="json"),
@@ -404,8 +441,10 @@ class SettingsService:
             self._publish(self.config, changes, True)
 
     async def _prepare_owner(self, hook, desired, changes):
-        if hook is not None and hasattr(hook, "prepare_settings"):
-            token = hook.prepare_settings(desired, changes)
+        prepare = (getattr(hook, "prepare_settings_async", None)
+                   or getattr(hook, "prepare_settings", None))
+        if prepare is not None:
+            token = prepare(desired, changes)
             return await token if inspect.isawaitable(token) else token
         return None
 
@@ -525,11 +564,11 @@ class SettingsService:
             snapshot = self._snapshot()
             before = _MISSING
             try:
-                before = self.secrets.get(path)
+                before = await secret_call(self.secrets.get, path)
                 if method == "secrets.set":
-                    self.secrets.set(path, value)
+                    await secret_call(self.secrets.set, path, value)
                 else:
-                    self.secrets.delete(path)
+                    await secret_call(self.secrets.delete, path)
                 _patch_config_paths([(segments, DELETE_CONFIG_PATH)], path=self.paths.config_file)
                 await self._apply_owner(hook, token, desired, [(segments, value)])
             except BaseException as exc:
@@ -537,9 +576,9 @@ class SettingsService:
                     await self._discard_owner(token)
                     if before is not _MISSING:
                         if before is None:
-                            self.secrets.delete(path)
+                            await secret_call(self.secrets.delete, path)
                         else:
-                            self.secrets.set(path, before)
+                            await secret_call(self.secrets.set, path, before)
                     self._restore(snapshot)
                 except Exception:
                     raise _error(
@@ -549,9 +588,12 @@ class SettingsService:
                     ) from None
                 if isinstance(exc, asyncio.CancelledError):
                     raise
+                if isinstance(exc, SecretStoreError):
+                    self._keyring_checked = True
+                    self._keyring_error = "Profile keyring is unavailable or locked"
                 raise _error(
                     "Credential not applied; previous saved credential restored",
-                    "capability_unavailable"
+                    "keyring_unavailable"
                     if isinstance(exc, SecretStoreError)
                     else "internal_error",
                 ) from None
@@ -604,9 +646,12 @@ class SettingsService:
             raise _error("Unknown settings method", "method_not_found")
         if not isinstance(params, dict):
             raise _error("params must be an object")
+        if method == "secrets.unlock":
+            await self.unlock_prompt(params)
+            return await self.finish_unlock()
         async with self._async_lock:
             if method == "settings.schema":
-                return self.schema()
+                return await secret_call(self.schema)
             self._transaction_active = True
             try:
                 if method in {"secrets.set", "secrets.clear"}:
@@ -622,6 +667,26 @@ class SettingsService:
                 )
             finally:
                 self._transaction_active = False
+
+    async def unlock_prompt(self, params):
+        """No settings lock is held while an owner's native prompt is pending."""
+        if params:
+            raise _error("secrets.unlock accepts an empty object")
+        try:
+            await self.secrets.unlock()
+        except TimeoutError:
+            raise _error("Profile keyring unlock timed out", "keyring_unavailable",
+                         "outcome_unknown") from None
+        except SecretStoreError:
+            raise _error(
+                "Profile keyring is unavailable or locked", "keyring_unavailable",
+            ) from None
+
+    async def finish_unlock(self):
+        async with self._async_lock:
+            if not await secret_call(self.hydrate_secrets):
+                raise _error("Profile keyring is unavailable or locked", "keyring_unavailable")
+            return {"unlocked": True}
 
     async def reload(self):
         """Reload saved state only through an attached atomic composite owner.
@@ -640,7 +705,7 @@ class SettingsService:
                     values = desired.model_dump(mode="json")
                     for path, value in flatten(values):
                         if is_secret(path) and isinstance(value, str):
-                            stored = self.secrets.get(path)
+                            stored = await secret_call(self.secrets.get, path)
                             if stored is not None:
                                 _put(values, tuple(path.split(".")), stored)
                     desired = Config.model_validate(values)
