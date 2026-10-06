@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "candidate_sha": "f489a54cd6db4a6879bdee84db2b642efb16a41e",
+  "independent_review": "pending",
+  "artifacts": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/merge-head-ledger.json",
+      "sha256": "d2fb3e62870ce611b71eae8d22f32e973a72909d40473e6aab8480467cf09b0a",
+      "bytes": 5958898,
+      "role": "Preserved parent HEAD stage raw delta ledger"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/merge-main-ledger.json",
+      "sha256": "a2b1a673d3d8db40ede4e3fd79e9fd92d0a7d8962e12f4b3ae3c16c1efe50f46",
+      "bytes": 5326450,
+      "role": "Preserved parent main stage raw delta ledger"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/existing-targeted.log",
+      "sha256": "6ce15b2386159a6d96516abb1cbce25e3e37627404a0cceb2068fac0b062b00d",
+      "role": "Existing ingress/adapters real sanitized PID target, 161 passed"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/collection.log",
+      "sha256": "04b761c48b9fcb5222f72f5e74787b8d826814cda8e0bef15ba7e99d2fdcbf93",
+      "role": "Actual sanitized collection of retained aliases"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/final-integrated-targeted.log",
+      "sha256": "e4d1d1baebdabaa9a1d12e4ff7a23d1c136fb0f6025c49df851581012fa90033",
+      "role": "Final integrated target before candidate commit: 254 passed, 58.14s"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/short-gates.log",
+      "sha256": "5c2cc9127c91d57fb869472dc2890fbf209b0e670a6b05b0e2e9b14ab88e8380",
+      "role": "Inventory drift, lint, phase2 plan, suite/case accounting, diff check all passed"
+    }
+  ],
+  "full_qualification": {
+    "status": "not_started_guard_blocked",
+    "attempts_to_start_process": 2,
+    "runner_invocations": 0,
+    "blocker": "manage_process.start rejected with Cannot start: 20 processes already running (max 20). Did not bypass process guard, terminate other lanes, or launch an unobservable background runner.",
+    "planned_checkout": "/home/odin/desktop-lane5-task1-fresh-20261006/checkout",
+    "planned_log": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/fresh-qualification.log",
+    "disk_preflight": "122G available before both starts, above 60GB minimum",
+    "cleanup": "No fresh qualification clone created. Shared work preserved pending parent authorization."
+  }
+}

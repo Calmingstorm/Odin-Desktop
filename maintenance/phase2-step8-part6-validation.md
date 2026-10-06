@@ -48,8 +48,13 @@ HTTP response, and Discord gateway health startup case alone are retired.
   Those exact defaults are now named blockers, not changed assertions.
 - First part6 retained/accounting plus existing adapter: 136 passed.
 - Expanded targeted including suite map before final integration: 215 passed.
-- Later final targeted, short gates and single fresh full qualification receipts
-  are recorded in the small artifact manifest and final result.
+- Final integrated targeted: **254 passed in 58.14s**. Drift, lint, Phase2 plan,
+  integrated suite/case accounting and diff checks passed.
+- The once-only fresh full invocation **has not started**. Both process starts
+  were rejected by `manage_process`'s global 20-process cap. No other lane's
+  process was terminated and no unobservable/background bypass was launched.
+  Available disk was 122 GB, not the blocker. Exact artifact hashes, candidate
+  SHA and guard receipt are in `phase2-step8-part6-artifacts.json`.
 
 No frozen test bytes, assertions, data, parameter decorators or production
 features were rewritten. Selected retained bodies are compiled unchanged from
