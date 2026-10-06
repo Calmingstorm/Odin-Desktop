@@ -139,7 +139,7 @@ def _write(path, value):
 
 
 class Lease:
-    def __init__(self, paths, role, app_cleanup, core_cleanup):
+    def __init__(self, paths, role, app_cleanup, core_cleanup, *, provisional=False):
         self.paths, self.role = paths, role
         self.app_cleanup, self.core_cleanup = Path(app_cleanup), Path(core_cleanup)
         self.fd = _open(paths)
@@ -148,16 +148,30 @@ class Lease:
             _pending(paths)
             self.initial_core = _fingerprint(self.core_cleanup)
             self.initial_app = _fingerprint(self.app_cleanup)
-            self.receipt = paths.receipts / f'{os.getuid()}-{uuid.uuid4().hex}-{role}.json'
+            self.receipt = None
             self.record = {'version': 1, 'role': role, 'state': 'running',
                            'uid': os.getuid(), 'app_cleanup': str(self.app_cleanup),
                            'core_cleanup': str(self.core_cleanup)}
-            _write(self.receipt, self.record)
+            if not provisional:
+                self.begin()
         except BaseException:
             self.close()
             raise
 
+    def begin(self):
+        """Publish admission only after read-only compatibility succeeds.
+
+        A provisional lease still fences replacement, but has acquired no
+        profile, process or native resource whose cleanup requires attestation.
+        """
+        if self.receipt is None:
+            self.receipt = self.paths.receipts / (
+                f'{os.getuid()}-{uuid.uuid4().hex}-{self.role}.json')
+            _write(self.receipt, self.record)
+
     def finish(self):
+        if self.receipt is None:
+            return
         if _fingerprint(self.core_cleanup) == self.initial_core:
             raise OwnershipError('No new core cleanup receipt for this lifetime')
         if self.role == 'app' and _fingerprint(self.app_cleanup) == self.initial_app:
@@ -177,10 +191,10 @@ class Lease:
         self.close()
 
 
-def acquire_lifetime(paths, role, app_cleanup, core_cleanup):
+def acquire_lifetime(paths, role, app_cleanup, core_cleanup, *, provisional=False):
     if role not in {'app', 'core'}:
         raise OwnershipError('Unsupported lifetime role')
-    return Lease(paths, role, app_cleanup, core_cleanup)
+    return Lease(paths, role, app_cleanup, core_cleanup, provisional=provisional)
 
 
 @contextmanager
@@ -241,9 +255,15 @@ def main(argv=None):
                 os.close(fd)
         with acquire_lifetime(ownership_paths(args.kind), args.role,
                               args.app_cleanup or app_cleanup,
-                              args.core_cleanup or core_cleanup) as lease:
+                              args.core_cleanup or core_cleanup, provisional=True) as lease:
             if args.action == 'hold':
                 print('READY', flush=True)
+                # The app commits admission after its read-only state check.
+                # EOF before ADMIT is a refused start, not unknown cleanup.
+                if sys.stdin.readline() != 'ADMIT\n':
+                    return 0
+                lease.begin()
+                print('ADMITTED', flush=True)
                 sys.stdin.read()
                 result = 0
             try:

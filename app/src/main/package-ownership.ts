@@ -36,3 +36,29 @@ export function acquirePackagedApp(paths: ProfilePaths, resources: string, env: 
     child.stderr.on('data', () => undefined)
   })
 }
+
+/** Commit lifetime admission only after read-only compatibility has passed. */
+export function admitPackagedApp(child: ChildProcessWithoutNullStreams): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let output = ''
+    const cleanup = (): void => {
+      clearTimeout(timer)
+      child.removeListener('exit', fail)
+      child.stdout.removeListener('data', ready)
+    }
+    const fail = (): void => {
+      cleanup()
+      child.stdin.end()
+      reject(new Error('Package lifetime admission failed. Original profile was not opened.'))
+    }
+    const ready = (data: Buffer): void => {
+      output += String(data)
+      if (output.includes('ADMITTED\n')) { cleanup(); resolve() }
+      else if (output.length > 1024) fail()
+    }
+    const timer = setTimeout(fail, 15_000)
+    child.once('exit', fail)
+    child.stdout.on('data', ready)
+    child.stdin.write('ADMIT\n')
+  })
+}

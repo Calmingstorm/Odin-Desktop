@@ -31,7 +31,7 @@ def acquire_core_lease(paths, *, source_file=None):
         return module.acquire_lifetime(
             module.ownership_paths(kind), "core",
             paths.config_dir.parent / f"{paths.profile_id}-cleanup-state.json",
-            paths.data_dir / "resource-cleanup.json")
+            paths.data_dir / "resource-cleanup.json", provisional=True)
     except Exception:
         raise PackageStateError(
             "Installed core ownership is unavailable; startup refused") from None

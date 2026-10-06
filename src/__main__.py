@@ -502,6 +502,18 @@ def main() -> None:
     # Independent kernel-held lease, not an inherited app process or env flag.
     # Retained through the complete finalization/containment barrier below.
     package_lease = acquire_core_lease(options.paths)
+    if package_lease is not None:
+        try:
+            from src.desktop.package_state import inspect_profile
+            from src.version import get_version
+
+            inspect_profile(options.paths, package_version=get_version())
+            package_lease.begin()
+        except BaseException:
+            # The provisional kernel lease acquired no writable profile or
+            # execution resource. A compatible successor must remain possible.
+            package_lease.close()
+            raise
     # Select paths before service construction. Values are paths, not credentials.
     os.environ["ODIN_DESKTOP_PROFILE"] = options.paths.profile_id
     os.environ["ODIN_DESKTOP_TOKEN_FILE"] = str(options.token_file)

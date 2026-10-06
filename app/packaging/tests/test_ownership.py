@@ -63,6 +63,26 @@ class OwnershipTests(unittest.TestCase):
             self.lease()
         self.assertEqual(list(self.paths.receipts.iterdir()), [])
 
+    def test_readonly_refused_start_leaves_no_dirty_lifetime_receipt(self):
+        with own.acquire_lifetime(self.paths, 'core', self.app, self.core,
+                                  provisional=True):
+            with self.assertRaises(own.OwnershipError):
+                with own.replacement_guard(self.paths):
+                    pass
+            self.assertEqual(list(self.paths.receipts.iterdir()), [])
+        with own.replacement_guard(self.paths):
+            pass
+
+    def test_provisional_admission_publishes_before_owned_work(self):
+        with own.acquire_lifetime(self.paths, 'app', self.app, self.core,
+                                  provisional=True) as lease:
+            lease.begin()
+            self.assertEqual(len(list(self.paths.receipts.iterdir())), 1)
+            self.clean()
+            lease.finish()
+        with own.replacement_guard(self.paths):
+            pass
+
     def test_appimage_recovery_guard_allowed_but_launcher_denied(self):
         with own.replacement_guard(self.paths):
             (self.paths.directory / 'appimage-replacement.json').write_text('{}')

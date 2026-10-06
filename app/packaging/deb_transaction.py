@@ -110,11 +110,14 @@ Launch owners validate current Exit AND resource/quarantine evidence before
 committing clean. Missing/malformed/running/unknown does not mean clean.
 """
     for receipt in (root / 'receipts').iterdir():
-        info = receipt.lstat()
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-            raise Refusal('Untrusted lifetime receipt; replacement remains fenced')
         try:
-            value = json.loads(receipt.read_text())
+            fd = os.open(receipt, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, 'r') as stream:
+                info = os.fstat(stream.fileno())
+                if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                        or info.st_size > 65536):
+                    raise Refusal('Untrusted lifetime receipt; replacement remains fenced')
+                value = json.load(stream)
         except (OSError, ValueError) as error:
             raise Refusal('Unreadable lifetime receipt; replacement remains fenced') from error
         if not isinstance(value, dict) or value.get('state') != 'clean':

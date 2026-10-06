@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { acquirePackagedApp } from '../src/main/package-ownership'
+import { acquirePackagedApp, admitPackagedApp } from '../src/main/package-ownership'
 
 const mocked = vi.hoisted(() => ({ spawn: vi.fn(), read: vi.fn(), exists: vi.fn(() => true) }))
 vi.mock('node:child_process', () => ({ spawn: mocked.spawn }))
@@ -57,5 +57,19 @@ describe('independent packaged app lifetime', () => {
     process.emit('exit', 1)
     await expect(pending).rejects.toThrow('ownership is unavailable')
     expect(process.stdin.writableEnded).toBe(true)
+  })
+
+  it('read-only readiness does not write ADMIT until compatibility succeeds', async () => {
+    const process = child()
+    mocked.spawn.mockReturnValue(process)
+    const pending = acquirePackagedApp(paths, '/candidate/resources', {})
+    process.stdout.write('READY\n')
+    await pending
+    expect(process.stdin.read()).toBeNull()
+    const admitted = admitPackagedApp(process as never)
+    expect(String(process.stdin.read())).toBe('ADMIT\n')
+    process.stdout.write('ADMITTED\n')
+    await admitted
+    process.stdin.end()
   })
 })

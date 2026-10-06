@@ -31,7 +31,8 @@ def test_bundled_core_uses_resource_module_and_exact_cleanup_paths(tmp_path):
     (resources / "ownership.py").write_text('''
 def ownership_paths(kind):
     return kind
-def acquire_lifetime(paths, role, app_cleanup, core_cleanup):
+def acquire_lifetime(paths, role, app_cleanup, core_cleanup, *, provisional=False):
+    assert provisional is True
     return paths,role,app_cleanup,core_cleanup
 ''')
     paths = ProfilePaths.from_xdg("test", environ={}, home=tmp_path)

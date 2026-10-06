@@ -1749,6 +1749,15 @@
         "tests/test_desktop_state.py"
       ],
       "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification."
+    },
+    {
+      "name": "phase4-package-ownership",
+      "files": [
+        "tests/test_desktop_package_ownership.py",
+        "tests/test_desktop_package_ownership_entry.py",
+        "tests/test_desktop_package_state.py"
+      ],
+      "reason": "P4.2 exact package compatibility, durable backup/commit/recovery, future checkpoint/storage refusal, supported XDG paths and independent bundled-core lifetime discovery. Disposable Incus controller behavior uses a fake API, not the live daemon. Previous-candidate opt-in row is qualified separately against actual P4.1 resources and is not counted from a skip. Maintainer/AppImage behavior and real ordinary-user package ownership run separately in hard-isolated namespaces and the marked light Incus container, never host installations or services."
     }
   ],
   "acceptance": {

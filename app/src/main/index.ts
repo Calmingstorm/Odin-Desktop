@@ -20,7 +20,7 @@ import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type Lifecyc
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
 import { inspectPackagedState } from './package-state'
-import { acquirePackagedApp } from './package-ownership'
+import { acquirePackagedApp, admitPackagedApp } from './package-ownership'
 import { realCoreSmoke } from './real-core-smoke'
 import { onboardingSmoke } from './onboarding-smoke'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
@@ -37,13 +37,17 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   if (app.isPackaged) {
     void (async () => {
+      let guardian: Awaited<ReturnType<typeof acquirePackagedApp>> | undefined
       try {
-        const guardian = await acquirePackagedApp(profilePaths(), process.resourcesPath, process.env)
+        guardian = await acquirePackagedApp(profilePaths(), process.resourcesPath, process.env)
+        inspectPackagedState(profilePaths(), process.resourcesPath, process.env)
+        await admitPackagedApp(guardian)
         // Keep stdin open through real process exit. EOF plus fresh cleanup
         // receipts releases the guardian, not a pre-exit event or bare PID.
         guardian.once('exit', () => app.exit(1))
         run()
       } catch (error) {
+        guardian?.stdin.end()
         await app.whenReady()
         dialog.showErrorBox('Odin ownership unavailable', (error as Error).message)
         app.exit(1)
@@ -56,17 +60,6 @@ if (!app.requestSingleInstanceLock()) {
 
 function run(): void {
   const paths = profilePaths()
-  if (app.isPackaged) {
-    try {
-      inspectPackagedState(paths, process.resourcesPath, process.env)
-    } catch (error) {
-      void app.whenReady().then(() => {
-        dialog.showErrorBox('Odin state unavailable', (error as Error).message)
-        app.exit(1)
-      })
-      return
-    }
-  }
   ensureProfileDirs(paths)
   ensureToken(paths)
 
