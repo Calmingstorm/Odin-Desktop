@@ -435,8 +435,8 @@ def _check(root: Path) -> tuple[list[str], dict]:
                 errors.append(f"mapping: deferred suite carries restoration: {path}")
             continue
         mapped_restored.add(path)
-        if type(step) is not int or step != 1:
-            errors.append(f"mapping: restored suite must belong to step 1: {path}")
+        if type(step) is not int or step not in {1, 5}:
+            errors.append(f"mapping: restored suite must belong to merged step 1 or 5: {path}")
         if row.get("blocked_on", "missing") is not None:
             errors.append(f"mapping: restored suite must have blocked_on null: {path}")
         if path not in classified["safe_pass_now"] or path not in restored_paths:

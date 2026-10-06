@@ -91,7 +91,10 @@ class ManagementService:
         from .hosts import HostsService
         from .integrations import IntegrationsService
         from .knowledge import KnowledgeService
+        from .learned_context import LearnedContextService
         from .model_settings import ModelSettingsService
+        from .observability import ObservabilityService
+        from .openrouter_admin import OpenRouterAdminService
         from .providers import ProviderOwner
         from .provisioning import ensure_profile
         from .records import RecordsService
@@ -99,6 +102,7 @@ class ManagementService:
         from .secrets import ProfileSecretStore
         from .settings import SettingsService
         from .state import StateService
+        from .trajectories import TrajectoriesService
 
         config = ensure_profile(core.paths, authority=core.authority)
         if core.authority.durability_degraded:
@@ -215,11 +219,27 @@ class ManagementService:
         runtime = RuntimeService(core, settings, llm=providers, context=context)
         models = ModelSettingsService(settings, executor=executor, provider=providers)
         integrations = IntegrationsService(settings)
+        learned = LearnedContextService(
+            core.paths, reflector_getter=lambda: getattr(providers, "reflector", None),
+            learning_getter=lambda: settings.config.learning,
+        )
+        trajectories = TrajectoriesService(
+            core.paths, get_directory=lambda: settings.config.tools.trajectory_path,
+        )
+        observations = ObservabilityService(
+            executor=executor, gateway=providers, config=lambda: settings.config,
+            model_breakers=providers.model_breakers, graph=lambda: manager,
+        )
+        openrouter = OpenRouterAdminService(settings, provider=providers)
         manager = cls(core, services=[settings, codex, hosts, state, knowledge,
-                                     records, runtime, models, integrations],
+                                     records, runtime, models, integrations,
+                                     learned, trajectories, observations, openrouter],
                       identity_key=_binding_key(core.paths))
         manager.settings, manager.executor, manager.providers = settings, executor, providers
         manager.runtime, manager.hosts, manager.codex = runtime, hosts, codex
+        manager.records, manager.knowledge = records, knowledge
+        manager.learned, manager.trajectories = learned, trajectories
+        manager.observations, manager.openrouter = observations, openrouter
         return manager
 
     def identity_params(self, params: Any) -> dict:
