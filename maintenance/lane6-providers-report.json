@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "batch": "lane6-providers",
+  "adapter": "tests/desktop_adapters/lane6_providers_cases.py",
+  "selector": "tests/test_desktop_lane6_providers.py",
+  "suites": [
+    {"path":"tests/test_context_budget_activation.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"3616a97cbd8aa2c22640614b934b5febfd90311d664c995128dc73bf8e736b6a","mode":"frozen-adapter"},
+    {"path":"tests/test_context_density_calibration.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"6758f17d838dc83286e4974eaec41962d6db2aab5af30bbe2508d724aa9ed1b9","mode":"frozen-adapter"},
+    {"path":"tests/test_generation_duration_contract.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"2b7575b89b1aaea5e230135f2dd557978951a4c52dce6d0dad4f426188c134e2","mode":"frozen-adapter"},
+    {"path":"tests/test_max_reasoning_effort.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"b7fd583e10ab910c9523add50131032236a9563dc0ab7241764a997d73b03f5b","mode":"frozen-adapter"},
+    {"path":"tests/test_mixed_agent_reasoning_contract.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"de80f566cf7be48ddd03d006b5ba68ce13286e1e01ca04af0c9d2a6873534330","mode":"frozen-case-adapter"},
+    {"path":"tests/test_predictive_presend.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"085ca193095b1b2d7a831495088eaa4bad4e25167bed1f02a2edde1a4e98f708","mode":"frozen-adapter"},
+    {"path":"tests/test_preserved_reasoning_accounting.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"9f86bc04fdb9108e3ea4f1e91ab5adaccfb8c97267b17098bc083c2d2a0484bb","mode":"frozen-adapter"},
+    {"path":"tests/test_provider_argument_acceptance.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"9a3183d8b67e55a346fc5945c9e2b65753d13de2911269c2b3d7e6089c711166","mode":"frozen-adapter"},
+    {"path":"tests/test_provider_campaign_regressions.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"6a30d0463fba2d15cf2de86bce84c197b33473ad7c5150ac93add489a7d53448","mode":"frozen-adapter"},
+    {"path":"tests/test_provider_stream_acceptance.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"b3b83f66584b7e8d197b2f4579be2ed21dcc03747a7ee9b02ebb03ca9ed214e3","mode":"frozen-adapter"},
+    {"path":"tests/test_reasoning_generation_records.py","status":"restored","selector":"tests/test_desktop_lane6_providers.py","blocked_on":null,"source_sha256":"43b762f236d0b284426602c309f413eafd94f10bca1c0e757481005dd182c98c","mode":"frozen-adapter"}
+  ],
+  "case_disposition_contract": {
+    "all_case_bindings": "tests.desktop_adapters.lane6_providers_cases.CASE_MAP",
+    "all_case_status": "restored",
+    "case_reason": "Exact frozen assertion/signature/decorator/parameter corpus retained; actual canonical provider/context/accounting/engine algorithms execute, external transport and tool effects stubbed.",
+    "selector_template": "tests/test_desktop_lane6_providers.py::{CASE_MAP[original]}",
+    "fully_expanded_report_generator": "scripts/maintenance/lane6_providers_report.py:report",
+    "retirement_overrides": "retired_cases"
+  },
+  "retired_cases": [
+    {"original":"tests/test_mixed_agent_reasoning_contract.py::test_codex_default_spawn_requires_model_selection","reason":"Exact whole-schema byte hash pins removed Discord/channel description. The entire frozen-to-current agents definition diff is Discord/channel to conversation wording. Restoring those bytes would recreate removed surface wording, not improve model policy coverage; all remaining mixed-model policy cases execute unchanged.","reviewer":"Claude, review of step 8 part 4"}
+  ],
+  "proposals": [],
+  "substitutions": [],
+  "lineage": [
+    {"paths":["tests/desktop_adapters/lane6_providers_cases.py","tests/desktop_adapters/lane6_providers_owner.py","tests/desktop_adapters/lane6_providers_engine.py","tests/desktop_adapters/lane6_providers_timing.py","tests/test_desktop_lane6_providers.py"],"contracts":["Literal suite SHA256 pins, fixture_corpus archive/retained-byte checks, exact corpus equality before export.","Real ProfilePaths, SettingsService, ProfileSecretStore and CodexAccountsService construct the actual ProviderOwner; injected unopened external transport/fault probes only.","Actual authenticated OwnerAuthority, PermissionManager, RequestService durable worker and EngineServices/ToolLoopRunner for chat/autonomous timing, argument rejection and accepted-stream tool dispatch.","Timing submethod helper uses actual EngineServices runner with neutral request/channel data; no removed Discord import or transport reconstruction.","Real provider parser/lifecycle/recovery, budget resolver/compressor, observer density, generation usage and trajectory algorithms run unchanged."],"tests":[".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_providers.py --tb=short"]}
+  ],
+  "production_fixes": [{"path":"src/desktop/providers.py","status":"implemented","coordination":"Parent approved rollback retirement edit; runtime-health confirmed no source-file overlap.","reason":"Unpublished canceled candidate rollback closed transport without retiring generation admission. Add client.retire() before close. Exact frozen cancellation assertion exposed missing retirement.","contracts":["Rollback retires each uncommitted concrete generation before transport close; no further lease admission."],"tests":["tests/test_desktop_lane6_providers.py::test_lane6_providers_test_provider_campaign_regressions_cancelled_compatible_qualification_drains_candidate","tests/test_desktop_providers.py"]}],
+  "test_results": {"command":".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_providers.py tests/test_desktop_providers.py --tb=short --junitxml=.test-state/lane6_providers_final.xml","result":"402 passed in 59.93s","restored_parameterized_cases":378,"retired_cases":1,"deferred_cases":0,"proposed_cases":0,"counts":{"restored_suites":11,"whole_suites":10,"case_restored_suites":1,"additional_regressions":1,"existing_owner_tests":23},"before_fix":"377 passed, 2 failed / 379 cases; only retired removed-description byte hash and real rollback retirement bug failed."}
+}

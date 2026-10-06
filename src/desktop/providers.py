@@ -91,6 +91,9 @@ class _ProviderChange:
             return
         created, self.created = self.created, []
         for client in reversed(created):
+            # A failed candidate must stop accepting generation leases even
+            # when close is overridden or only tears down the wire transport.
+            client.retire()
             await client.close()
 
 
