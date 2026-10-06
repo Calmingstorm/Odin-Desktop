@@ -18,6 +18,7 @@ import { registerIpc } from './ipc'
 import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
+import { inspectPackagedState } from './package-state'
 import { realCoreSmoke } from './real-core-smoke'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
@@ -36,6 +37,17 @@ if (!app.requestSingleInstanceLock()) {
 
 function run(): void {
   const paths = profilePaths()
+  if (app.isPackaged) {
+    try {
+      inspectPackagedState(paths, process.resourcesPath, process.env)
+    } catch (error) {
+      void app.whenReady().then(() => {
+        dialog.showErrorBox('Odin state unavailable', (error as Error).message)
+        app.exit(1)
+      })
+      return
+    }
+  }
   ensureProfileDirs(paths)
   ensureToken(paths)
 
