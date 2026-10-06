@@ -70,6 +70,12 @@
       "sha256": "a1674a4032aa1a38d711ecb054ab2d7ca5c4fedb44feec55bd5040fdf95decf3",
       "bytes": 793,
       "role": "Separate unchanged failing-case diagnostic: 1 passed, not a replacement full result"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/fresh-test-state.tar.gz",
+      "sha256": "78f18cb2253e9dbf534a12a41ba76d247f13c29bbf52bdf48a4740d053da39dd",
+      "bytes": 254030,
+      "role": "All 30 raw JUnit group receipts and aggregate state preserved before fresh-checkout cleanup"
     }
   ],
   "full_qualification": {
