@@ -84,6 +84,9 @@ def replace_locked(source, destination, expected, transaction):
             raise ReplacementError('New image SHA-256 does not match')
         destination_fd = os.open(destination.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)
         original = owned_regular(destination_fd)
+        old_header = os.read(destination_fd, 12)
+        if not old_header.startswith(b'\x7fELF') or old_header[8:11] != b'AI\x02':
+            raise ReplacementError('Destination is not an existing type-2 AppImage')
         old_hash = digest_fd(destination_fd)
         if transaction.exists():
             fd = os.open(transaction, os.O_RDONLY | os.O_NOFOLLOW)

@@ -77,6 +77,14 @@ class UserReplacement(unittest.TestCase):
             self.run_replace()
         self.assertFalse(self.transaction.exists())
 
+    def test_core_command_or_other_executable_cannot_be_destination(self):
+        self.old.write_bytes(b'\x7fELFnot an AppImage interpreter')
+        before = self.old.read_bytes()
+        with self.assertRaises(replacement.ReplacementError):
+            self.run_replace()
+        self.assertEqual(self.old.read_bytes(), before)
+        self.assertFalse(self.transaction.exists())
+
     def test_interrupted_before_rename_preserves_old_and_resumes_exact_stage(self):
         real_replace = os.replace
         def interrupted(source, destination, **kwargs):
