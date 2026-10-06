@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "request": "PR34 round4",
+  "main": "0b7d596f7e870d06699722f151c4d9837c5433f1",
+  "merge_helper_sha256": "e1119a281d4ca320f17b69587510dcb61c48ee8713abafd5f4b82382e685bb89",
+  "concurrent_entries": [
+    {
+      "path": "src/desktop/core.py",
+      "tests": [
+        "app/test/e2e/admitted-work.spec.ts",
+        "app/test/e2e/execution-containment.spec.ts",
+        "app/test/e2e/native-reconciliation.spec.ts",
+        "tests/test_desktop_auto_resume.py",
+        "tests/test_desktop_control_core.py",
+        "tests/test_desktop_conversation_core.py",
+        "tests/test_desktop_core_durability.py",
+        "tests/test_desktop_core_entry.py",
+        "tests/test_desktop_core_lifecycle.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_provider_round3.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_resource_cleanup.py",
+        "tests/test_desktop_resume_no_ledger.py",
+        "tests/test_desktop_resume_trigger.py",
+        "tests/test_desktop_review_quota_lifecycle.py"
+      ],
+      "ours_after_sha256": "085a86dcc09ef7a898ed4237cf6e2fb0d190c6f8e6a84c52d5a2b6a3c5e6b123",
+      "main_after_sha256": "2a0d94b665eb715972b1860d0b434744fb5feb294293c5381d0605f08a6c97f0",
+      "merged_sha256": "aa4c2ed1176efd6067a562af115094e026050ff6ff9ef4747050b433643c1346"
+    },
+    {
+      "path": "src/desktop/management.py",
+      "tests": [
+        "app/test/e2e/admitted-work.spec.ts",
+        "app/test/e2e/execution-containment.spec.ts",
+        "app/test/e2e/native-reconciliation.spec.ts",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_management.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_resource_cleanup.py",
+        "tests/test_desktop_review_provider_quota.py",
+        "tests/test_desktop_review_quota_lifecycle.py",
+        "tests/test_desktop_secret_domain_threads.py"
+      ],
+      "ours_after_sha256": "3ccc601ddffd020f7db6c64e69cb759e5478563027f81fd71b80d0a847d1f808",
+      "main_after_sha256": "bd7c022bd4622ca6ec80404c2158504c6a46a35297e5e7b209b90d397236ed7a",
+      "merged_sha256": "f4ed89b05718870431fdc4273eda36be4e5979eba64980708d4bb6029e36ae0e"
+    },
+    {
+      "path": "src/desktop/providers.py",
+      "tests": [
+        "tests/test_desktop_codex_accounts.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
+        "tests/test_desktop_phase2_review_llm.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_provider_round3.py",
+        "tests/test_desktop_providers.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_requests.py",
+        "tests/test_desktop_review_provider_policy_reload.py",
+        "tests/test_desktop_review_quota_lifecycle.py",
+        "tests/test_desktop_secret_domain_threads.py"
+      ],
+      "ours_after_sha256": "be667cacbe4cbd8a66a6440b6d0924e0fa2afd011a41e821cfcc4f25b2709bc8",
+      "main_after_sha256": "6ddcf5b3268016ffddcb2412bcdfc422cd3bc1fead1da896edb79e2594013cec",
+      "merged_sha256": "be667cacbe4cbd8a66a6440b6d0924e0fa2afd011a41e821cfcc4f25b2709bc8"
+    },
+    {
+      "path": "src/desktop/runtime.py",
+      "tests": [
+        "app/test/e2e/admitted-work.spec.ts",
+        "app/test/e2e/execution-containment.spec.ts",
+        "app/test/e2e/native-reconciliation.spec.ts",
+        "tests/test_desktop_core_lifecycle.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_first_run.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_resource_cleanup.py",
+        "tests/test_desktop_runtime.py"
+      ],
+      "ours_after_sha256": "c0d5e635e15c3bfdb1cf9ec17d173af52eb1c3223fb5f28d8902437533872f4a",
+      "main_after_sha256": "8954d92adaf966e58d250684e27d33acce328a7f4242adb78647a4acfca3d3db",
+      "merged_sha256": "57d0fc2f16ad542d586cc96a9929a80feece6a78cdffa891f3fc7e8d1a7a544c"
+    },
+    {
+      "path": "src/desktop/services.py",
+      "tests": [
+        "tests/desktop_adapters/test_phase2_runner_characterization.py",
+        "tests/test_desktop_core_durability.py",
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_persisted_outputs.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_request_failures.py",
+        "tests/test_desktop_resource_cleanup.py",
+        "tests/test_desktop_review_quota_lifecycle.py"
+      ],
+      "ours_after_sha256": "c8123bc755459e42113d52481a394d01836bf6e1eb2be6166c5a8265a22f0363",
+      "main_after_sha256": "5839cbf3a351901665cb732429c95fc5251a2e18bdd42613c149e5af685a6cb1",
+      "merged_sha256": "20ea58b66b447a32bded51bab57c89f9165a9b45ca596aa398d385bd35f0ac2d"
+    },
+    {
+      "path": "src/desktop/settings.py",
+      "tests": [
+        "app/test/real-core-settings.test.ts",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
+        "tests/test_desktop_providers.py",
+        "tests/test_desktop_review_audit_authority.py",
+        "tests/test_desktop_review_provider_image.py",
+        "tests/test_desktop_review_provider_image_inherited.py",
+        "tests/test_desktop_secret_domain_threads.py",
+        "tests/test_desktop_settings.py"
+      ],
+      "ours_after_sha256": "5f7a13466cba02ec17c7d9408f61cea4b5667d82819e310f6231317f2015e292",
+      "main_after_sha256": "b142040bc7a5c935f4c8e804d47fe9b7da7d0f13caa81f32928984a4441c55ac",
+      "merged_sha256": "5f7a13466cba02ec17c7d9408f61cea4b5667d82819e310f6231317f2015e292"
+    }
+  ],
+  "execution_note": "Exact-byte ledger provenance, not runtime passing evidence."
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "request": "PR34 round4",
+  "harness_budget_seconds": {
+    "startup": 25,
+    "complete_receipt": 15
+  },
+  "production_deadlines_changed": false,
+  "evidence_hash_refreshes": [
+    {
+      "path": "src/__main__.py",
+      "old_test_sha256": "0bda7f7168a00ea89c715c2c6ee00171ecd7788517b0332bbaca24f261809ecd",
+      "new_test_sha256": "b6f29e39a50cfe534c623d836fc6043a5e436d7c891e1030ce15a2eb5ed04955"
+    },
+    {
+      "path": "src/desktop/authority.py",
+      "old_test_sha256": "0bda7f7168a00ea89c715c2c6ee00171ecd7788517b0332bbaca24f261809ecd",
+      "new_test_sha256": "b6f29e39a50cfe534c623d836fc6043a5e436d7c891e1030ce15a2eb5ed04955"
+    },
+    {
+      "path": "src/desktop/commands.py",
+      "old_test_sha256": "0bda7f7168a00ea89c715c2c6ee00171ecd7788517b0332bbaca24f261809ecd",
+      "new_test_sha256": "b6f29e39a50cfe534c623d836fc6043a5e436d7c891e1030ce15a2eb5ed04955"
+    },
+    {
+      "path": "src/desktop/core.py",
+      "old_test_sha256": "0bda7f7168a00ea89c715c2c6ee00171ecd7788517b0332bbaca24f261809ecd",
+      "new_test_sha256": "b6f29e39a50cfe534c623d836fc6043a5e436d7c891e1030ce15a2eb5ed04955"
+    },
+    {
+      "path": "src/desktop/events.py",
+      "old_test_sha256": "0bda7f7168a00ea89c715c2c6ee00171ecd7788517b0332bbaca24f261809ecd",
+      "new_test_sha256": "b6f29e39a50cfe534c623d836fc6043a5e436d7c891e1030ce15a2eb5ed04955"
+    },
+    {
+      "path": "src/desktop/ipc.py",
+      "old_test_sha256": "0bda7f7168a00ea89c715c2c6ee00171ecd7788517b0332bbaca24f261809ecd",
+      "new_test_sha256": "b6f29e39a50cfe534c623d836fc6043a5e436d7c891e1030ce15a2eb5ed04955"
+    },
+    {
+      "path": "src/desktop/ipc_auth.py",
+      "old_test_sha256": "0bda7f7168a00ea89c715c2c6ee00171ecd7788517b0332bbaca24f261809ecd",
+      "new_test_sha256": "b6f29e39a50cfe534c623d836fc6043a5e436d7c891e1030ce15a2eb5ed04955"
+    },
+    {
+      "path": "src/desktop/lifecycle.py",
+      "old_test_sha256": "0bda7f7168a00ea89c715c2c6ee00171ecd7788517b0332bbaca24f261809ecd",
+      "new_test_sha256": "b6f29e39a50cfe534c623d836fc6043a5e436d7c891e1030ce15a2eb5ed04955"
+    },
+    {
+      "path": "src/desktop/protocol.py",
+      "old_test_sha256": "0bda7f7168a00ea89c715c2c6ee00171ecd7788517b0332bbaca24f261809ecd",
+      "new_test_sha256": "b6f29e39a50cfe534c623d836fc6043a5e436d7c891e1030ce15a2eb5ed04955"
+    },
+    {
+      "path": "src/desktop/runtime.py",
+      "old_test_sha256": "0bda7f7168a00ea89c715c2c6ee00171ecd7788517b0332bbaca24f261809ecd",
+      "new_test_sha256": "b6f29e39a50cfe534c623d836fc6043a5e436d7c891e1030ce15a2eb5ed04955"
+    }
+  ]
+}

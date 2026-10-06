@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import inspect
 from typing import Any
 
 from ..config.persistence import DELETE_CONFIG_PATH
@@ -19,8 +20,21 @@ METHODS = frozenset({
     "hosts.list", "hosts.settings", "hosts.prepare", "hosts.test", "hosts.commit",
     "hosts.set_enabled", "hosts.references", "hosts.delete", "hosts.public_key",
     "hosts.force_revoke",
+    "hosts.import_legacy",
 })
 READ_METHODS = frozenset({"hosts.list", "hosts.references", "hosts.public_key"})
+
+
+class HostReferenceConflictError(MethodError):
+    """Retain actionable reference records alongside the conflict verdict."""
+    def __init__(self, references):
+        super().__init__("conflict", "host deletion is blocked by configured references")
+        self.references = references
+
+    def response(self):
+        response = super().response()
+        response["error"]["details"] = {"pending_references": self.references}
+        return response
 
 
 def _leaf_changes(before: dict, after: dict) -> list:
@@ -67,10 +81,18 @@ class HostsService:
     METHODS = METHODS
     READ_METHODS = READ_METHODS
 
-    def __init__(self, settings, *, registry=None, executor=None, scheduler=None):
+    def __init__(self, settings, *, registry=None, executor=None, scheduler=None, audit=None,
+                 prompt_builder=None):
         self.settings = settings
         self.executor = executor
         self.scheduler = scheduler
+        self.prompt_builder = prompt_builder or getattr(executor, "prompt_builder", None)
+        if audit is None:
+            audit = getattr(executor, "audit", None)
+        if audit is None:
+            config = settings.config
+            self._audit_boot = (config.tools.audit_log_path, config.audit.hmac_key)
+        self.audit = audit
         tools = settings.config.tools
         self.registry = registry or getattr(executor, "host_registry", None) or HostRegistry(
             tools.hosts, profile_paths=settings.paths,
@@ -121,7 +143,35 @@ class HostsService:
             background_tasks=getattr(self.executor, "_background_tasks", None),
         )
 
-    def _publish(self, alias, before, desired, *, test_result=None) -> dict:
+    async def _save(self, changes, *, method):
+        result = self.settings.save_changes(
+            changes, method=method, expected_revision=self.settings.revision,
+        )
+        if inspect.isawaitable(result):
+            await result
+
+    async def _audit(self, action, alias, *, metadata=None):
+        from .authority import OwnerAuthority
+        from .secrets import secret_call
+
+        try:
+            if self.audit is None:
+                from ..audit.logger import AuditLogger
+                path, configured_key = self._audit_boot
+                resolve_key = getattr(self.settings, "audit_signing_key", None)
+                key = await secret_call(resolve_key) if callable(resolve_key) else configured_key
+                self.audit = AuditLogger(path, hmac_key=key)
+            await self.audit.log_event(
+                event_type="host", action=action,
+                actor=OwnerAuthority(self.settings.paths).owner_id,
+                detail=alias, metadata=metadata,
+            )
+        except Exception:
+            # Audit failure cannot unpublish a durably committed host revision.
+            from ..odin_log import get_logger
+            get_logger("desktop.hosts").warning("Host audit event could not be persisted")
+
+    async def _publish(self, alias, before, desired, *, test_result=None) -> dict:
         models = {name: ToolHost(**value) for name, value in desired.items()}
         try:
             staged = self.registry.stage(
@@ -132,15 +182,18 @@ class HostsService:
         # This is synchronous: no cancellation/other request can interleave
         # saving the desired revision and publication of its prepared runtime.
         changes = _leaf_changes(before, desired)
-        self.settings.save_changes(
-            changes, method="hosts.settings",
-            expected_revision=self.settings.revision,
-        )
+        await self._save(changes, method="hosts.settings")
         self.registry.publish_staged(staged)
         if test_result and alias in self.settings.config.tools.hosts:
             self.registry.mark_test_result(alias, test_result)
         if hasattr(self.settings, "confirm_applied"):
             self.settings.confirm_applied(changes)
+        if self.prompt_builder is not None:
+            invalidate = getattr(self.prompt_builder, "invalidate", None)
+            if callable(invalidate):
+                invalidate()
+            elif hasattr(self.prompt_builder, "cached_hosts"):
+                self.prompt_builder.cached_hosts.clear()
         return self._response(alias, saved=True)
 
     async def handle(self, method: str, params: dict[str, Any]) -> dict:
@@ -148,6 +201,8 @@ class HostsService:
             raise MethodError("method_not_found", "unknown hosts method")
         if not isinstance(params, dict):
             raise MethodError("bad_request", "params must be an object")
+        if self.registry is None:
+            raise MethodError("unavailable", "host registry not available")
         try:
             return await self._handle(method, params)
         except (HostTrustError, ValueError, TypeError) as exc:
@@ -170,6 +225,7 @@ class HostsService:
             candidate = await self.enrollments.prepare(
                 alias, params, allow_tofu=tools.allow_host_tofu, existing=tools.hosts.get(alias)
             )
+            await self._audit("prepare", alias)
             return {"candidate_token": candidate.token, "alias": candidate.alias,
                     "host_id": candidate.host_id, "fingerprints": list(candidate.fingerprints),
                     "trust_mode": candidate.trust_mode, "tested": candidate.tested}
@@ -182,6 +238,13 @@ class HostsService:
                     (candidate.test_result or {}).get("detail") or "connection test failed"
                 )
             return result
+        if method == "hosts.import_legacy":
+            alias = self._require_host(params)
+            candidate = await self.enrollments.import_legacy(alias, tools.hosts[alias])
+            await self._audit("import_legacy", alias)
+            return {"candidate_token": candidate.token, "alias": candidate.alias,
+                    "host_id": candidate.host_id, "fingerprints": list(candidate.fingerprints),
+                    "trust_mode": candidate.trust_mode, "tested": candidate.tested}
         if method == "hosts.commit":
             candidate = self.enrollments.get(params.get("token", ""))
             if not candidate.tested:
@@ -205,10 +268,11 @@ class HostsService:
                         )
                     desired = {**before, candidate.alias: candidate.as_tool_host().model_dump()}
                     started.set()
-                    result = self._publish(
+                    result = await self._publish(
                         candidate.alias, before, desired, test_result=candidate.test_result
                     )
                     self.enrollments.discard(candidate.token)
+                    await self._audit("add" if definition is None else "update", candidate.alias)
                     return result
             return await _drain_mutation(commit(), commit_started=started)
         if method == "hosts.settings":
@@ -233,9 +297,7 @@ class HostsService:
                 if tofu != tools.allow_host_tofu:
                     changes.append((("tools", "allow_host_tofu"), tofu))
                 staged = self.registry.stage(tools.hosts, default_host=default)
-                self.settings.save_changes(
-                    changes, method=method, expected_revision=self.settings.revision
-                )
+                await self._save(changes, method=method)
                 self.registry.publish_staged(staged)
                 if hasattr(self.settings, "confirm_applied"):
                     self.settings.confirm_applied(changes)
@@ -256,6 +318,10 @@ class HostsService:
             finally:
                 # Cleanup uses existing leases; trip their fences afterwards.
                 revoked = self.registry.force_revoke_keys(alias)
+            await self._audit("force_revoke", alias, metadata={
+                "processes": processes,
+                "process_outcome": "unknown" if processes["unknown"] else "confirmed",
+            })
             return {
                 **self._response(alias), "leases_interrupted": len(revoked), "processes": processes
             }
@@ -269,10 +335,7 @@ class HostsService:
             else:
                 references = self._references(alias)
                 if references:
-                    raise MethodError(
-                        "conflict", "host deletion is blocked by configured references: "
-                        + "; ".join(r["location"] for r in references)
-                    )
+                    raise HostReferenceConflictError(references)
                 desired = dict(before)
                 del desired[alias]
-            return self._publish(alias, before, desired)
+            return await self._publish(alias, before, desired)

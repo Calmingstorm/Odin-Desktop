@@ -167,10 +167,11 @@ describe('hosts and trust', () => {
     const { read, command } = await connect()
     const list = await read<HostList>('hosts.list')
     expect(list).toMatchObject({ default_host: 'localhost', tofu_enabled: false })
-    expect(list.hosts.map((h) => [h.alias, h.trust_mode, h.trust_state, h.targetable])).toEqual([
+    expect(list.hosts.filter((h) => h.alias === 'localhost' || h.alias === 'build_box').map((h) => [h.alias, h.trust_mode, h.trust_state, h.targetable])).toEqual([
       ['localhost', 'legacy', 'local', true],
       ['build_box', 'pinned', 'trusted', true]
     ])
+    expect(list.hosts.some((host) => host.trust_mode === 'legacy' && host.trust_state !== 'local')).toBe(true)
     expect(await command('hosts.settings', { default_host: 'nowhere' })).toMatchObject({ ok: false, error: { message: 'default_host must name a configured host' } })
     expect(await command('hosts.settings', { default_host: '' })).toMatchObject({ ok: true, result: { new_default_host: '' } }) // every command names its host
     expect(await read('hosts.public_key')).toMatchObject({ fingerprint: expect.stringMatching(/^SHA256:/), restart_pending: false })
@@ -194,6 +195,37 @@ describe('hosts and trust', () => {
     expect(await command('hosts.test', { token: candidate.result.candidate_token })).toMatchObject({ ok: true, result: { tested: true } })
     expect(await command('hosts.commit', { token: candidate.result.candidate_token })).toMatchObject({ ok: true, result: { result: 'saved', alias: 'gpu_box' } })
     expect((await read<HostList>('hosts.list')).hosts.map((h) => h.alias)).toContain('gpu_box')
+  })
+
+  it('imports an existing legacy trusted key only as an untested candidate, then tests before pinning', async () => {
+    const { read, command } = await connect()
+    const before = await read<HostList>('hosts.list')
+    const legacy = before.hosts.find((host) => host.trust_mode === 'legacy' && host.trust_state !== 'local')!
+    expect(legacy).toBeDefined()
+    const candidate = (await command('hosts.import_legacy', { alias: legacy.alias })) as Ok<HostCandidate>
+    expect(candidate).toMatchObject({ ok: true, result: { alias: legacy.alias, trust_mode: 'pinned', tested: false } })
+    expect(candidate.result.fingerprints.length).toBeGreaterThan(0)
+    // Fixture rows synthesize a read-time test timestamp; compare all stable host data instead.
+    const stable = (list: HostList) => ({ ...list, hosts: list.hosts.map(({ last_test, ...host }) => ({ ...host, last_test: last_test && { ok: last_test.ok, detail: last_test.detail } })) })
+    expect(stable(await read<HostList>('hosts.list'))).toEqual(stable(before))
+    const token = candidate.result.candidate_token
+    expect(await command('hosts.commit', { token })).toMatchObject({ ok: false, error: { message: 'candidate must pass the connection test before activation' } })
+    expect(await command('hosts.test', { token })).toMatchObject({ ok: true, result: { tested: true } })
+    expect(await command('hosts.commit', { token })).toMatchObject({ ok: true })
+    expect((await read<HostList>('hosts.list')).hosts.find((host) => host.alias === legacy.alias)).toMatchObject({ trust_mode: 'pinned', enabled: legacy.enabled })
+    expect(await command('hosts.import_legacy', { alias: 'not-a-host' })).toMatchObject({ ok: false, error: { code: 'not_found' } })
+    expect(await command('hosts.import_legacy', { alias: 'localhost' })).toMatchObject({ ok: false })
+  })
+
+  it('rejects a legacy candidate if the host changed after import, without overwriting the newer definition', async () => {
+    const { read, command } = await connect()
+    const legacy = (await read<HostList>('hosts.list')).hosts.find((host) => host.trust_mode === 'legacy' && host.trust_state !== 'local')!
+    const candidate = (await command('hosts.import_legacy', { alias: legacy.alias })) as Ok<HostCandidate>
+    const token = candidate.result.candidate_token
+    await command('hosts.test', { token })
+    await command('hosts.set_enabled', { alias: legacy.alias, enabled: !legacy.enabled })
+    expect(await command('hosts.commit', { token })).toMatchObject({ ok: false, error: { code: 'conflict', message: 'host changed after this candidate was prepared' } })
+    expect((await read<HostList>('hosts.list')).hosts.find((host) => host.alias === legacy.alias)).toMatchObject({ trust_mode: 'legacy', enabled: !legacy.enabled })
   })
 
   it('trusts on first use only when allowed, and only with a second confirmation bound to the scanned key', async () => {

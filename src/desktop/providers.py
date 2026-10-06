@@ -207,8 +207,13 @@ class ProviderOwner(LLMGateway):
             if not cfg.enabled:
                 return None
             try:
-                pool = self.codex_accounts.pool
-                if not pool.is_configured():
+                if overrides is not None and "codex.pool" in overrides:
+                    pool = overrides["codex.pool"]
+                    configured = overrides["codex.configured"]
+                else:
+                    pool = self.codex_accounts.pool
+                    configured = pool.is_configured()
+                if not configured:
                     return None
             except SecretStoreError:
                 raise _unavailable("Profile keyring is unavailable or locked") from None
@@ -314,7 +319,9 @@ class ProviderOwner(LLMGateway):
                         raise _unavailable("Auxiliary primary provider is unavailable")
                     return change  # saved auxiliary intent, explicitly unavailable
                 if provider == "codex":
-                    client = self._build("codex", config, model=aux_ref.model, auxiliary=True)
+                    client = self._build(
+                        "codex", config, model=aux_ref.model, auxiliary=True, overrides=overrides
+                    )
                     if client is not None:
                         change.created.append(client)
                 else:
@@ -368,32 +375,58 @@ class ProviderOwner(LLMGateway):
         )
         if needs_codex and config.openai_codex.enabled:
             try:
-                await self.codex_accounts.get_pool()
+                pool = await self.codex_accounts.get_pool()
+                overrides["codex.pool"] = pool
+                overrides["codex.configured"] = await secret_call(pool.is_configured)
             except SecretStoreError:
                 raise _unavailable("Profile keyring is unavailable or locked") from None
         return self._prepare_graph(config, targets, overrides=overrides, **kwargs)
 
     async def prepare_settings_async(self, candidate, changes):
-        return await self.prepare_settings(candidate, changes, _async=True)
+        change = self.prepare_settings(candidate, changes, _async=True)
+        return change if isinstance(change, _ProviderChange) else await change
 
-    def prepare_settings(self, candidate, changes, *, _async=False):
-        paths = [".".join(path) if not isinstance(path, str) else path for path, _ in changes]
+    @staticmethod
+    def _settings_targets(paths, changes):
+        from ..config.apply_registry import flatten, spec_for
+
         targets = set()
         for prefix, name in (
             ("openai_codex.", "codex"),
             ("ollama.", "ollama"),
             ("openai_compatible.", "compat"),
         ):
+            live_paths = []
+            for path, (_, value) in zip(paths, changes):
+                leaves = list(flatten(value, path)) if isinstance(value, dict) else [(path, value)]
+                live_paths.extend(leaf for leaf, _ in leaves
+                                  if name != "codex" or spec_for(leaf).apply_mode == "live_apply")
             if any(
                 path.startswith(prefix) and not path.startswith("openai_codex.auxiliary")
-                for path in paths
+                for path in live_paths
             ):
                 targets.add(name)
+        return targets
+
+    def _policy_change(self, candidate):
+        # Agent policies and boot-bound settings are not transport changes.
+        # Preserve the adopted graph while invalidating actual consumers.
+        return _ProviderChange(
+            self, candidate.model_copy(deep=True), self._generation,
+            {name: getattr(self, attr) for name, attr in _ATTRS.items()},
+            self.auxiliary_llm_client,
+        )
+
+    def prepare_settings(self, candidate, changes, *, _async=False):
+        paths = [".".join(path) if not isinstance(path, str) else path for path, _ in changes]
+        targets = self._settings_targets(paths, changes)
         overrides = {
             path: value
             for path, (_, value) in zip(paths, changes)
             if path in {"ollama.api_key", "openai_compatible.api_key"}
         }
+        if not targets and not any(path.startswith("openai_codex.auxiliary") for path in paths):
+            return self._policy_change(candidate)
         prepare = self._prepare_graph_async if _async else self._prepare_graph
         return prepare(
             candidate.model_copy(deep=True),
@@ -403,7 +436,8 @@ class ProviderOwner(LLMGateway):
         )
 
     async def prepare_reload_async(self, candidate, changes):
-        return await self.prepare_reload(candidate, changes, _async=True)
+        change = self.prepare_reload(candidate, changes, _async=True)
+        return change if isinstance(change, _ProviderChange) else await change
 
     def prepare_reload(self, candidate, changes, *, _async=False):
         """Prepare one graph for a composition-owned whole-config reload.
@@ -414,22 +448,13 @@ class ProviderOwner(LLMGateway):
         publish and rollback expressly for that single composition transaction.
         """
         paths = [".".join(path) if not isinstance(path, str) else path for path, _ in changes]
-        targets = {
-            name
-            for prefix, name in (
-                ("openai_codex.", "codex"),
-                ("ollama.", "ollama"),
-                ("openai_compatible.", "compat"),
-            )
-            if any(
-                path.startswith(prefix) and not path.startswith("openai_codex.auxiliary")
-                for path in paths
-            )
-        }
+        targets = self._settings_targets(paths, changes)
         main = parse_model_ref(candidate.llm_provider.model, allow_auto=False).provider.value
         switching = any(path.startswith("llm_provider.") for path in paths)
         if switching:
             targets.add(main)
+        if not targets and not any(path.startswith("openai_codex.auxiliary") for path in paths):
+            return self._policy_change(candidate)
         overrides = {
             path: value
             for path, (_, value) in zip(paths, changes)

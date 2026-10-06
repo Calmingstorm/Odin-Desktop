@@ -32,6 +32,7 @@ beforeEach(() => {
   bridge = {
     hostsList: vi.fn(async () => ok({ hosts: [host()], default_host: '', generation: 1, tofu_enabled: false } satisfies HostList)),
     hostsPublicKey: vi.fn(async () => ok(key)),
+    hostsImportLegacy: vi.fn(async () => ok({ candidate_token: 'import-candidate', alias: 'build', host_id: 'h', fingerprints: ['SHA256:' + 'A'.repeat(43)], trust_mode: 'pinned', tested: false })),
     hostsSettings: vi.fn(async () => ok({ saved: true, default_host: '', configured_default_host: 'build', tofu_enabled: true, registry_generation: 2 })),
     hostsPrepare: vi.fn(async () => ok({ candidate_token: 'candidate', alias: 'build', host_id: 'h', fingerprints: [], trust_mode: 'legacy', tested: false })),
     hostsTest: vi.fn(async () => ok({ candidate_token: 'candidate', tested: true, last_test: { ok: true, checked_at: 1_791_000_000, detail: 'verified' } })),
@@ -48,6 +49,37 @@ beforeEach(() => {
 afterEach(() => { mounted?.unmount(); mounted = undefined; vi.unstubAllGlobals() })
 
 describe('real step-5 hosts', () => {
+  it('renders a named native button only for remote legacy trust and opens an untested candidate', async () => {
+    bridge.hostsList!.mockResolvedValue(ok({ hosts: [host({ trust_mode: 'legacy', trust_state: 'legacy_unverified' }), host({ alias: 'self', host_id: 'local', address: 'localhost', trust_mode: 'legacy', trust_state: 'local' }), host({ alias: 'pinned', host_id: 'pinned' })], default_host: '', generation: 1, tofu_enabled: false }))
+    mounted = mount((await import('../../src/renderer/src/views/settings/Hosts.vue')).default)
+    await flush()
+    const button = mounted.root.button('Enroll trusted key')
+    expect(button.props['aria-label']).toBe('Enroll trusted key for host build')
+    expect(button.props.type).toBe('button')
+    expect(button.props.tabindex).not.toBe(-1)
+    await button.fire('click')
+    await flush()
+    expect(bridge.hostsImportLegacy).toHaveBeenCalledExactlyOnceWith({ alias: 'build' })
+    expect(bridge.hostsPrepare).not.toHaveBeenCalled()
+    expect(bridge.hostsTest).not.toHaveBeenCalled()
+    expect(bridge.hostsCommit).not.toHaveBeenCalled()
+    expect(mounted.root.textContent()).toContain('Candidate key: SHA256:')
+    expect(mounted.root.textContent()).toContain('Test the connection')
+    expect(mounted.root.findAll((node) => node.tag === 'button' && node.textContent() === 'Save and activate')).toHaveLength(0)
+  })
+
+  it('disables legacy enrollment while an unanswered command owns the host lock', async () => {
+    bridge.hostsList!.mockResolvedValue(ok({ hosts: [host({ trust_mode: 'legacy' })], default_host: '', generation: 1, tofu_enabled: false }))
+    bridge.hostsImportLegacy!.mockResolvedValue({ ok: false, error: { code: 'no_receipt', message: 'No receipt', disposition: 'outcome_unknown', command_id: 'import-held' } })
+    mounted = mount((await import('../../src/renderer/src/views/settings/Hosts.vue')).default)
+    await flush()
+    await mounted.root.button('Enroll trusted key').fire('click')
+    await flush()
+    expect(mounted.root.button('Enroll trusted key').props.disabled).toBe(true)
+    expect(mounted.root.textContent()).toContain("It's never sent twice")
+    const store = await import('../../src/renderer/src/stores/hosts')
+    expect(store.hosts.enrollment).toBeNull()
+  })
   it('keeps a disabled host disabled when preparing its edited endpoint', async () => {
     const store = await import('../../src/renderer/src/stores/hosts')
     store.beginEdit(host({ enabled: false, active: false }))
