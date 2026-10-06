@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "run": "skill-delivery-req-ff273868",
+  "artifacts": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/app-check.log",
+      "bytes": 17200,
+      "sha256": "eb267e05a76b42460571bbe3eb8137edc0e652ca83a1a0c97f9bad1070d61d39"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/app-real-core-final.log",
+      "bytes": 6562,
+      "sha256": "113d565ccaef24ecd27421f8a764855fcad1b5d5603e216dd6a4c049019b2095"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/app-real-core-skills-diagnostic.log",
+      "bytes": 2781,
+      "sha256": "526d4ce2343c998eb347167077f186e31d76b9d9b1693f10aa4dc7dbf6d6bb97"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/app-real-core-skills-diagnostic2.log",
+      "bytes": 5137,
+      "sha256": "d3bead73ce213f4532f95ee5a355659bc1dc918f57e47484f9d2b7c9b62cb66a"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/app-real-core-skills-first.log",
+      "bytes": 3582,
+      "sha256": "accfc2579a4b219a223f6d55d16c2f2c0121a2925c62f3ab34edd2b2a89f5d20"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/app-real-core-skills-ready.log",
+      "bytes": 770,
+      "sha256": "966e23acd11db6c88b6c458e280f7be601d00f69e9ee27d0660d5abc3337100f"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/app-real-core-skills-second.log",
+      "bytes": 3713,
+      "sha256": "927830a44c1c82c715755b526f54f249616f32e53fcaa2d8a4519327d6a71720"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/app-real-core-skills-third.log",
+      "bytes": 3096,
+      "sha256": "96891fa259f05d8bf66820d2273fadc220bab9038617c2f7bf9fdda45081e0db"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/app-skills-contract-regression.log",
+      "bytes": 2513,
+      "sha256": "e98dfe62eefc2573b77916844e6487dbd54dd521825ad3cdb95fc1036ebdf51c"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/app-skills-typecheck.log",
+      "bytes": 111,
+      "sha256": "12cd1940d937dd2545333540e5164514b0ed1b4d69f4a14d5d9df6f8d29fce81"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/engine-focused-final.log",
+      "bytes": 162,
+      "sha256": "68f9b0b7ec653e3e79e00ab60e5934a208a9477c72a2ff434c846ba921ae7371"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/engine-focused.log",
+      "bytes": 1807,
+      "sha256": "acc15756379eed508db23e9febf805a347382adf579395807274a0aec2b41323"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/engine-skill-final.log",
+      "bytes": 161,
+      "sha256": "c2b5a4fcd38d29e9d85fa5b66aaec0d8ecb3e5629df6c258b609a0b2f613e7fa"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/focused-main-corrected.log",
+      "bytes": 253,
+      "sha256": "efd470a320ba94403e73612319739596949584d6c20f64d9c52fb8949c58991f"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/focused-main.log",
+      "bytes": 15815,
+      "sha256": "924d9ca0494b0c07086ed693447152c7853b283b12eaf92ebbb19ceeade453e6"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/focused-settled-guard.log",
+      "bytes": 253,
+      "sha256": "ec1ef1288e4b047470781434e0029d25e9f084cf3c7b37dbeb58837c5ac6bda8"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-drift.json",
+      "bytes": 84937,
+      "sha256": "6b7d01f6c44e41938deb505e406c9cc8f0caefa5e992f7c3581a2556a5b2a4cf"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-drift.json",
+      "bytes": 84937,
+      "sha256": "6b7d01f6c44e41938deb505e406c9cc8f0caefa5e992f7c3581a2556a5b2a4cf"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-gates-full.log",
+      "bytes": 43771,
+      "sha256": "75c2dba0986ba8e00a4561448a6b9b1866471eb7bdfef5498b2bb2aadc37fda8"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-chat.png",
+      "bytes": 90332,
+      "sha256": "fe90c829b2f0e6515198930cb249ec4540f1e6e31360b34b4cfcb16d803df861"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-evidence.json",
+      "bytes": 1363842,
+      "sha256": "3ee2131b99c335b609e981b5c2b06a314a8c0d7d2311b1be9ea8b9553ed5a9ae"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings-1.png",
+      "bytes": 110728,
+      "sha256": "0d213b70a6f5b55abcbc3904c05323ca2c8c7dfbea7f2ef47b830b64bfd9213e"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings-10.png",
+      "bytes": 126964,
+      "sha256": "22287391a080a8ff981d768fabd2aa6d57f1e12a777cd24310d56cbd22e3a6e3"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings-11.png",
+      "bytes": 101148,
+      "sha256": "14548266241d88be030dcf34a8e0466bff256d750c617855e4c3f16a4b197e40"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings-2.png",
+      "bytes": 117902,
+      "sha256": "fad22919a9279f2edfd8cdc52d63b9cd8380bf6607e757f4032de9a6bc0e40ed"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings-3.png",
+      "bytes": 146681,
+      "sha256": "1f48a8a70ba017f4e0523ab3c5314a6b9806691d9a2ed837e25ffb8b75b27699"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings-4.png",
+      "bytes": 182262,
+      "sha256": "7cdf1b730e33d84235aead4b4ebcf1492f911eaa144c1ac91295b2c5e8ccffe6"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings-5.png",
+      "bytes": 59241,
+      "sha256": "489dc11b9e391952cdc204ba5253bf5ba941b4583181ea5346b550daf4d5d9cf"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings-6.png",
+      "bytes": 125875,
+      "sha256": "95f0a4dd698fb8e2a3c4efc6cc1f81be037dc7fbeb47461664dc1570619b4bbb"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings-7.png",
+      "bytes": 111581,
+      "sha256": "d9d7ae5c312ba77eac3046384068f656af96e8e6999a3520dd529f1948b3f106"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings-8.png",
+      "bytes": 113057,
+      "sha256": "3042b33d735cbe1af5dfd4a9607da937eba458cd235a3ec2134e13b58bee80ca"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings-9.png",
+      "bytes": 90119,
+      "sha256": "0bccdc0806870a63329ae46059d817c5b46a0436789b285762fc3ff8da6ce99d"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core-settings.png",
+      "bytes": 101148,
+      "sha256": "14548266241d88be030dcf34a8e0466bff256d750c617855e4c3f16a4b197e40"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-final-real-core.png",
+      "bytes": 58628,
+      "sha256": "ac986cbf9bdf3fd24f780b3d5e7d31a5eda620acc74f4bb94ccd2242d6176227"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-gates-full.log",
+      "bytes": 21272,
+      "sha256": "b23eb267f144e984e48dfb573e241cd3591bb2d7cdc6e3dd8556a52e394c3473"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/fresh-setup.log",
+      "bytes": 2211,
+      "sha256": "7061702ae45f39372932c772939dbe5369bf158e138e2e23fe2460fdb5a90a49"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/junit/fresh-focused-final.xml",
+      "bytes": 13779,
+      "sha256": "12889ccb21ed28b7889fd73db542039432862e801ff55e24fed848f7d5d76240"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/junit/qualification-0.xml",
+      "bytes": 819599,
+      "sha256": "c7ed78b40191959f13b887fa1092d20407e306d732fb0c4d7a67623401782440"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/junit/qualification-1.xml",
+      "bytes": 680146,
+      "sha256": "a9a7a4613488d2081641cfd588f56ebc397247279e1ffc006b0b182a1cf12921"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/junit/qualification-2.xml",
+      "bytes": 141111,
+      "sha256": "0cb909c93f97e8c7ff5bac06597045143acd66102b99c71900b82fa7a7468d7b"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/junit/qualification-3.xml",
+      "bytes": 670446,
+      "sha256": "eb611f6ff95bf61bbaa89b0fda2bc1fea90948916db9854906faae899344db71"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/junit/qualification-4.xml",
+      "bytes": 35985,
+      "sha256": "ec6cd255f075ef343f64cba0fe1d073806576acbde0fcfe6e884d3eb4b337a46"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/setup-corrected.log",
+      "bytes": 5474,
+      "sha256": "52dac602403aeb1d39a4c7644b95c3a7bafb2e54e404dfb88f6487a087f4b60f"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/setup.log",
+      "bytes": 306,
+      "sha256": "acdd0845140adf966ec4657d672884d003a52871e99df870c1d87edfe3407a27"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/short-drift-final.json",
+      "bytes": 84937,
+      "sha256": "6b7d01f6c44e41938deb505e406c9cc8f0caefa5e992f7c3581a2556a5b2a4cf"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/short-drift-guard-final.json",
+      "bytes": 84937,
+      "sha256": "6b7d01f6c44e41938deb505e406c9cc8f0caefa5e992f7c3581a2556a5b2a4cf"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/short-drift.json",
+      "bytes": 84937,
+      "sha256": "6b7d01f6c44e41938deb505e406c9cc8f0caefa5e992f7c3581a2556a5b2a4cf"
+    }
+  ]
+}
