@@ -72899,6 +72899,70 @@
     {
       "original": "tests/test_desktop_workspace_diagnostics.py::test_cancelled_wait_does_not_cancel_or_duplicate_worker",
       "executable": "tests/test_desktop_workspace_diagnostics.py::test_cancelled_wait_does_not_cancel_or_duplicate_worker"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestToolParity::test_exact_names_and_order",
+      "executable": "tests/test_tool_parity.py::TestToolParity::test_exact_names_and_order"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestToolParity::test_no_duplicate_names",
+      "executable": "tests/test_tool_parity.py::TestToolParity::test_no_duplicate_names"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestToolParity::test_schema_deep_equality",
+      "executable": "tests/test_tool_parity.py::TestToolParity::test_schema_deep_equality"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestToolParity::test_tool_map_completeness_and_identity",
+      "executable": "tests/test_tool_parity.py::TestToolParity::test_tool_map_completeness_and_identity"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestBackendGatedVisibility::test_unconfigured_backends_are_invisible",
+      "executable": "tests/test_tool_parity.py::TestBackendGatedVisibility::test_unconfigured_backends_are_invisible"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestBackendGatedVisibility::test_analyze_pdf_follows_its_dependency",
+      "executable": "tests/test_tool_parity.py::TestBackendGatedVisibility::test_analyze_pdf_follows_its_dependency"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestBackendGatedVisibility::test_generate_image_follows_codex_auth_not_chat_provider",
+      "executable": "tests/test_tool_parity.py::TestBackendGatedVisibility::test_generate_image_follows_codex_auth_not_chat_provider"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestRegistryMutabilitySemantics::test_tool_map_static_but_defs_cache_rebuilds",
+      "executable": "tests/test_tool_parity.py::TestRegistryMutabilitySemantics::test_tool_map_static_but_defs_cache_rebuilds"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestRegistryMutabilitySemantics::test_defs_cache_identity",
+      "executable": "tests/test_tool_parity.py::TestRegistryMutabilitySemantics::test_defs_cache_identity"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestRegistryMutabilitySemantics::test_defs_shape_and_schema_identity",
+      "executable": "tests/test_tool_parity.py::TestRegistryMutabilitySemantics::test_defs_shape_and_schema_identity"
+    },
+    {
+      "original": "tests/test_desktop_tool_parity_adaptation.py::test_reviewed_bindings_reverse_to_exact_frozen_bytes",
+      "executable": "tests/test_desktop_tool_parity_adaptation.py::test_reviewed_bindings_reverse_to_exact_frozen_bytes"
+    },
+    {
+      "original": "tests/test_desktop_tool_parity_adaptation.py::test_reviewed_bindings_preserve_every_signature_decorator_and_untouched_case",
+      "executable": "tests/test_desktop_tool_parity_adaptation.py::test_reviewed_bindings_preserve_every_signature_decorator_and_untouched_case"
+    },
+    {
+      "original": "tests/test_desktop_tool_parity_adaptation.py::test_only_eleven_reviewed_hashes_are_re_pinned",
+      "executable": "tests/test_desktop_tool_parity_adaptation.py::test_only_eleven_reviewed_hashes_are_re_pinned"
+    },
+    {
+      "original": "tests/test_desktop_tool_parity_accounting.py::test_reviewed_parity_admission_is_exact_and_rejects_drift",
+      "executable": "tests/test_desktop_tool_parity_accounting.py::test_reviewed_parity_admission_is_exact_and_rejects_drift"
+    },
+    {
+      "original": "tests/test_desktop_d17_parity_visibility.py::test_knowledge_catalog_is_backed_by_durable_profile_store",
+      "executable": "tests/test_desktop_d17_parity_visibility.py::test_knowledge_catalog_is_backed_by_durable_profile_store"
+    },
+    {
+      "original": "tests/test_desktop_d17_parity_visibility.py::test_image_auth_visibility_has_real_selector_and_durable_publication",
+      "executable": "tests/test_desktop_d17_parity_visibility.py::test_image_auth_visibility_has_real_selector_and_durable_publication"
     }
   ],
   "historical_failure_blockers": [

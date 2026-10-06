@@ -229,7 +229,7 @@
         }
       ],
       "path": "scripts/maintenance/fixture_corpus.py",
-      "reason": "Expose explicitly reviewed removed cases after full frozen module compilation without changing retained inherited assertion code.",
+      "reason": "Expose explicitly reviewed removed cases after full frozen module compilation without changing retained inherited assertion code. | PR48 round1 evidence adds only four exact reviewed parity selectors to the task-specific group admission proof; production bytes unchanged unless separately recorded.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -238,7 +238,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_fixture_corpus.py": "f9a98f8822b59c3317500d67d5177f77aa188b5507e764b4f7b5826dd2cfff46",
-        "tests/test_desktop_step8_6a_accounting.py": "1df96b3c8d310b3ec54f1f04da8c562f7ffc3a6db706b87945cd5781a901f208"
+        "tests/test_desktop_step8_6a_accounting.py": "2294440069330631b15168506a16b0a3969017cc83b5add17667887342f5cbf4"
       },
       "tests": [
         "tests/test_desktop_fixture_corpus.py",
@@ -344,7 +344,7 @@
         }
       ],
       "path": "scripts/maintenance/phase2_suites.py",
-      "reason": "Admit the explicitly reviewed whole parity adapter and update the exact 97-suite disposition pin after restoration and RBAC reason correction. | services-a/main merge provenance: Integrate merged PR26 suite accounting with PR28's exact additional service group and two immutable worker-placement adapters. | PR48 round1 exact merged bytes and evidence revalidated; not independent approval.",
+      "reason": "Admit the explicitly reviewed whole parity adapter and update the exact 97-suite disposition pin after restoration and RBAC reason correction. | services-a/main merge provenance: Integrate merged PR26 suite accounting with PR28's exact additional service group and two immutable worker-placement adapters. | PR48 round1 exact merged bytes and evidence revalidated; not independent approval. | PR48 round1 evidence adds only four exact reviewed parity selectors to the task-specific group admission proof; production bytes unchanged unless separately recorded.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -355,7 +355,7 @@
         "tests/test_desktop_accessibility_gi_adaptation.py": "01f8d63a5d5c6f6fa596209fc29623a7a9f344e9475e134a86974bb4d3192955",
         "tests/test_desktop_gi_loading_adaptation.py": "18488dd73087297c17291811744e770730d866d338f563cd3490a411f1e24b8b",
         "tests/test_desktop_phase2_suite_map.py": "f073e2a6cc4df15c8f81d7ca31a11ece05e768a86d6a3ed4e5579d1158d67072",
-        "tests/test_desktop_step8_6a_accounting.py": "1df96b3c8d310b3ec54f1f04da8c562f7ffc3a6db706b87945cd5781a901f208",
+        "tests/test_desktop_step8_6a_accounting.py": "2294440069330631b15168506a16b0a3969017cc83b5add17667887342f5cbf4",
         "tests/test_desktop_tool_parity_accounting.py": "c1ddb85bbc019d837752d8b28671c1720538a34f01272cebea0e601092680966"
       },
       "tests": [
@@ -389,7 +389,7 @@
         }
       ],
       "path": "scripts/maintenance/step8_part4_integrate.py",
-      "reason": "Integrate exactly the assigned 97 audited suite dispositions and derive current suite/case membership without touching the other lane.",
+      "reason": "Integrate exactly the assigned 97 audited suite dispositions and derive current suite/case membership without touching the other lane. | PR48 round1 evidence adds only four exact reviewed parity selectors to the task-specific group admission proof; production bytes unchanged unless separately recorded.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -398,7 +398,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_phase2_suite_map.py": "f073e2a6cc4df15c8f81d7ca31a11ece05e768a86d6a3ed4e5579d1158d67072",
-        "tests/test_desktop_step8_6a_accounting.py": "1df96b3c8d310b3ec54f1f04da8c562f7ffc3a6db706b87945cd5781a901f208"
+        "tests/test_desktop_step8_6a_accounting.py": "2294440069330631b15168506a16b0a3969017cc83b5add17667887342f5cbf4"
       },
       "tests": [
         "tests/test_desktop_phase2_suite_map.py",
@@ -428,7 +428,7 @@
         }
       ],
       "path": "scripts/maintenance/step8_part4_records.py",
-      "reason": "Reconcile exact main and services-part-a merge provenance and explicit audited lane8 adaptations, maintaining pending evidence records.",
+      "reason": "Reconcile exact main and services-part-a merge provenance and explicit audited lane8 adaptations, maintaining pending evidence records. | PR48 round1 evidence adds only four exact reviewed parity selectors to the task-specific group admission proof; production bytes unchanged unless separately recorded.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -437,7 +437,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_maintenance.py": "b3016be348d6f379c1ffa9b7dee6b1af65d0aca0c26faa149ae14f6848837c67",
-        "tests/test_desktop_step8_6a_accounting.py": "1df96b3c8d310b3ec54f1f04da8c562f7ffc3a6db706b87945cd5781a901f208"
+        "tests/test_desktop_step8_6a_accounting.py": "2294440069330631b15168506a16b0a3969017cc83b5add17667887342f5cbf4"
       },
       "tests": [
         "tests/test_desktop_maintenance.py",
@@ -19785,29 +19785,29 @@
       ]
     },
     {
-      "after_sha256": "1df96b3c8d310b3ec54f1f04da8c562f7ffc3a6db706b87945cd5781a901f208",
+      "after_sha256": "2294440069330631b15168506a16b0a3969017cc83b5add17667887342f5cbf4",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Reject altered source hash, unauthorized reviewer/case/reason, metadata additions and coherent unknown case dispositions while keeping inherited code unchanged.",
+      "contract": "Only the campaigns group admits the four literal parity proof selectors; all other groups retain step8-only exact admission.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Only harmless static modules and temporary offline files; no runtime/native service or active desktop effects.",
+      "invariant": "No arbitrary selector waiver, broad prefix exception, cross-group expansion or inherited corpus change.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
       "patch": [
         {
           "end": 0,
-          "new_base64": "IiIiVGFzay1hdXRob3JpemVkIGNhc2UgZXhjbHVzaW9ucyByZW1haW4gZXhhY3QsIGltbXV0YWJsZSBhbmQgZmFpbCBjbG9zZWQuIiIiCmZyb20gX19mdXR1cmVfXyBpbXBvcnQgYW5ub3RhdGlvbnMKCmltcG9ydCBhc3QKaW1wb3J0IGhhc2hsaWIKaW1wb3J0IGpzb24KZnJvbSB0eXBlcyBpbXBvcnQgTW9kdWxlVHlwZQoKaW1wb3J0IHB5dGVzdAoKZnJvbSBzY3JpcHRzLm1haW50ZW5hbmNlIGltcG9ydCBwaGFzZTJfc3VpdGVzIGFzIGNoZWNrZXIKZnJvbSBzY3JpcHRzLm1haW50ZW5hbmNlLmZpeHR1cmVfY29ycHVzIGltcG9ydCByZWdpc3Rlcl9tb2R1bGUKCgpkZWYgdGVzdF9yZWdpc3Rlcl9leGFjdF9yZXRpcmVkX2Nhc2VzX2tlZXBzX290aGVyX2Z1bmN0aW9uc19hbmRfY2xhc3NfbWV0aG9kcygpOgogICAgbW9kdWxlID0gTW9kdWxlVHlwZSgiZnJvemVuX2ZpeHR1cmUiKQogICAgZXhlYyhjb21waWxlKAogICAgICAgICJkZWYgdGVzdF9yZXRpcmVkKCk6IHBhc3NcbmRlZiB0ZXN0X2tlcHQoKTogcGFzc1xuIgogICAgICAgICJjbGFzcyBUZXN0RnJvemVuOlxuICAgIGRlZiB0ZXN0X3JldGlyZWQoc2VsZik6IHBhc3NcbiIKICAgICAgICAiICAgIGRlZiB0ZXN0X2tlcHQoc2VsZik6IHBhc3NcbiIsICJmaXh0dXJlIiwgImV4ZWMiKSwgbW9kdWxlLl9fZGljdF9fKQogICAgbmFtZXNwYWNlID0geyJfX25hbWVfXyI6ICJxdWFsaWZpZWRfZml4dHVyZSJ9CiAgICByZWdpc3Rlcl9tb2R1bGUobmFtZXNwYWNlLCBtb2R1bGUsIHByZWZpeD0iZnJvemVuIiwKICAgICAgICAgICAgICAgICAgICBleGNsdWRlZD1bInRlc3RfcmV0aXJlZCIsICJUZXN0RnJvemVuLnRlc3RfcmV0aXJlZCJdKQogICAgYXNzZXJ0ICJ0ZXN0X2Zyb3plbl9yZXRpcmVkIiBub3QgaW4gbmFtZXNwYWNlCiAgICBhc3NlcnQgInRlc3RfZnJvemVuX2tlcHQiIGluIG5hbWVzcGFjZQogICAgYXNzZXJ0IGhhc2F0dHIobmFtZXNwYWNlWyJUZXN0X2Zyb3plbl9Gcm96ZW4iXSwgInRlc3Rfa2VwdCIpCiAgICBhc3NlcnQgbm90IGhhc2F0dHIobmFtZXNwYWNlWyJUZXN0X2Zyb3plbl9Gcm96ZW4iXSwgInRlc3RfcmV0aXJlZCIpCgoKZGVmIGZpeHR1cmVfcmVjb3JkKHRtcF9wYXRoLCBtb25rZXlwYXRjaCk6CiAgICBwYXRoID0gInRlc3RzL3Rlc3RfZml4dHVyZS5weSIKICAgIHNvdXJjZSA9IGIiZGVmIHRlc3RfcmV0aXJlZCgpOlxuICAgIGFzc2VydCBUcnVlXG5kZWYgdGVzdF9rZXB0KCk6XG4gICAgYXNzZXJ0IFRydWVcbiIKICAgIHRhcmdldCA9IHRtcF9wYXRoIC8gcGF0aAogICAgdGFyZ2V0LnBhcmVudC5ta2RpcigpCiAgICB0YXJnZXQud3JpdGVfYnl0ZXMoc291cmNlKQogICAgc2hhID0gaGFzaGxpYi5zaGEyNTYoc291cmNlKS5oZXhkaWdlc3QoKQogICAgcm93cyA9IFt7ImNhc2UiOiAidGVzdF9yZXRpcmVkIiwgInJldmlld2VyIjogY2hlY2tlci5QQVJUNF9SRVZJRVdFUiwKICAgICAgICAgICAgICJyZWFzb24iOiAiUmVtb3ZlZCBPZGluIHdlYiBVSSBsaXN0ZW5lciIsICJzb3VyY2VfcGF0aCI6IHBhdGgsCiAgICAgICAgICAgICAic291cmNlX3NoYTI1NiI6IHNoYX1dCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKGNoZWNrZXIsICJfcGFydDRfZGlzcG9zaXRpb25zIiwgbGFtYmRhIHJvb3Q6IHsKICAgICAgICBwYXRoOiB7ImluaGVyaXRlZF9zaGEyNTYiOiBzaGEsICJyZXRpcmVkX2Nhc2VzIjogcm93c30sCiAgICB9KQogICAgcmV0dXJuIHBhdGgsIHNoYSwgcm93cwoKCmRlZiB0ZXN0X2Nhc2VfcmV0aXJlbWVudF9yZXF1aXJlc19leGFjdF90YXNrX3JlY29yZF9hbmRfZnJvemVuX2Nhc2UodG1wX3BhdGgsIG1vbmtleXBhdGNoKToKICAgIHBhdGgsIHNoYSwgcm93cyA9IGZpeHR1cmVfcmVjb3JkKHRtcF9wYXRoLCBtb25rZXlwYXRjaCkKICAgIGFzc2VydCBjaGVja2VyLl9jYXNlX3JldGlyZW1lbnRzKHRtcF9wYXRoLCBwYXRoLCBzaGEsIHJvd3MpCiAgICBjaGFuZ2VkID0gW2RpY3Qocm93c1swXSwgY2FzZT0idGVzdF9rZXB0IildCiAgICBhc3NlcnQgbm90IGNoZWNrZXIuX2Nhc2VfcmV0aXJlbWVudHModG1wX3BhdGgsIHBhdGgsIHNoYSwgY2hhbmdlZCkKICAgIGFzc2VydCBub3QgY2hlY2tlci5fY2FzZV9yZXRpcmVtZW50cyh0bXBfcGF0aCwgcGF0aCwgIjAiICogNjQsIHJvd3MpCiAgICAodG1wX3BhdGggLyBwYXRoKS53cml0ZV90ZXh0KCJkZWYgdGVzdF9yZXRpcmVkKCk6IHBhc3NcbiIpCiAgICBhc3NlcnQgbm90IGNoZWNrZXIuX2Nhc2VfcmV0aXJlbWVudHModG1wX3BhdGgsIHBhdGgsIHNoYSwgcm93cykKCgpAcHl0ZXN0Lm1hcmsucGFyYW1ldHJpemUoIm11dGF0aW9uIiwgWyJoYXNoIiwgInJldmlld2VyIiwgImNhc2UiLCAicmVhc29uIiwgImV4dHJhIl0pCmRlZiB0ZXN0X2Nhc2VfcmV0aXJlbWVudF9yZWplY3RzX2NvaGVyZW50X2ludmFsaWRfY2FzZV9tZXRhZGF0YSh0bXBfcGF0aCwgbW9ua2V5cGF0Y2gsIG11dGF0aW9uKToKICAgIHBhdGgsIHNoYSwgcm93cyA9IGZpeHR1cmVfcmVjb3JkKHRtcF9wYXRoLCBtb25rZXlwYXRjaCkKICAgIGlmIG11dGF0aW9uID09ICJoYXNoIjoKICAgICAgICByb3dzWzBdWyJzb3VyY2Vfc2hhMjU2Il0gPSAiMCIgKiA2NAogICAgZWxpZiBtdXRhdGlvbiA9PSAicmV2aWV3ZXIiOgogICAgICAgIHJvd3NbMF1bInJldmlld2VyIl0gPSAiT2RpbiIKICAgIGVsaWYgbXV0YXRpb24gPT0gImNhc2UiOgogICAgICAgIHJvd3NbMF1bImNhc2UiXSA9ICJ0ZXN0X21pc3NpbmciCiAgICBlbGlmIG11dGF0aW9uID09ICJyZWFzb24iOgogICAgICAgIHJvd3NbMF1bInJlYXNvbiJdID0gIiAiCiAgICBlbHNlOgogICAgICAgIHJvd3NbMF1bInNlbGVjdGVkIl0gPSBUcnVlCiAgICBhc3NlcnQgbm90IGNoZWNrZXIuX2Nhc2VfcmV0aXJlbWVudHModG1wX3BhdGgsIHBhdGgsIHNoYSwgcm93cykKCgpkZWYgdGVzdF9wYXJ0NF9kaXNwb3NpdGlvbl9hcnRpZmFjdF9pc19pbmRlcGVuZGVudGx5X2J5dGVfcGlubmVkKHRtcF9wYXRoLCBtb25rZXlwYXRjaCk6CiAgICB0YXJnZXQgPSB0bXBfcGF0aCAvIGNoZWNrZXIuUEFSVDRfUEFUSAogICAgdGFyZ2V0LnBhcmVudC5ta2RpcigpCiAgICBkYXRhID0ganNvbi5kdW1wcyh7InJldmlld2VyIjogY2hlY2tlci5QQVJUNF9SRVZJRVdFUiwgImRpc3Bvc2l0aW9ucyI6IFtdfSkuZW5jb2RlKCkKICAgIHRhcmdldC53cml0ZV9ieXRlcyhkYXRhKQogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihjaGVja2VyLCAiUEFSVDRfU0hBMjU2IiwgaGFzaGxpYi5zaGEyNTYoZGF0YSkuaGV4ZGlnZXN0KCkpCiAgICBhc3NlcnQgY2hlY2tlci5fcGFydDRfZGlzcG9zaXRpb25zKHRtcF9wYXRoKSA9PSB7fQogICAgdGFyZ2V0LndyaXRlX2J5dGVzKGRhdGEgKyBiIiAiKQogICAgd2l0aCBweXRlc3QucmFpc2VzKFZhbHVlRXJyb3IsIG1hdGNoPSJoYXNoIGNoYW5nZWQiKToKICAgICAgICBjaGVja2VyLl9wYXJ0NF9kaXNwb3NpdGlvbnModG1wX3BhdGgpCgoKZGVmIHRlc3RfcGFydDRfZ3JvdXBfYWRtaXNzaW9uX2lzX25vdF9nZW5lcmljX3NlbGVjdG9yX3dhaXZlcigpOgogICAgYXNzZXJ0IHNldChjaGVja2VyLlBBUlQ0X0dST1VQUykgPT0gewogICAgICAgICJwaGFzZTItc3RlcDZhLXRvb2xzLXJlc3RvcmVkLWNvcnB1cyIsICJwaGFzZTItc3RlcDZhLWNvbXB1dGVyLXJlc3RvcmVkLWNvcnB1cyIsCiAgICAgICAgInBoYXNlMi1zdGVwNmEtaHlwcmxhbmQtcmVzdG9yZWQtY29ycHVzIiwgInBoYXNlMi1zdGVwNmEtY2FtcGFpZ25zLXJlc3RvcmVkLWNvcnB1cyIsCiAgICB9CiAgICBmb3IgZmlsZXMgaW4gY2hlY2tlci5QQVJUNF9HUk9VUFMudmFsdWVzKCk6CiAgICAgICAgYXNzZXJ0IGZpbGVzIGFuZCBhbGwocGF0aC5zdGFydHN3aXRoKCJ0ZXN0cy90ZXN0X2Rlc2t0b3Bfc3RlcDhfNmFfIikgZm9yIHBhdGggaW4gZmlsZXMpCgoKZGVmIHRlc3RfcmVnaXN0ZXJfZG9lc19ub3RfY2hhbmdlX2luaGVyaXRlZF9hc3NlcnRpb25fY29kZSgpOgogICAgdHJlZSA9IGFzdC5wYXJzZSgiZGVmIHRlc3Rfa2VwdCgpOlxuICAgIGFzc2VydCAyICsgMiA9PSA0XG4iKQogICAgbW9kdWxlID0gTW9kdWxlVHlwZSgiZnJvemVuIikKICAgIGV4ZWMoY29tcGlsZSh0cmVlLCAiZml4dHVyZSIsICJleGVjIiksIG1vZHVsZS5fX2RpY3RfXykKICAgIGNvZGUgPSBtb2R1bGUudGVzdF9rZXB0Ll9fY29kZV9fCiAgICBuYW1lc3BhY2UgPSB7Il9fbmFtZV9fIjogInF1YWxpZmllZCJ9CiAgICByZWdpc3Rlcl9tb2R1bGUobmFtZXNwYWNlLCBtb2R1bGUsIHByZWZpeD0iZnJvemVuIiwgZXhjbHVkZWQ9W10pCiAgICBhc3NlcnQgbmFtZXNwYWNlWyJ0ZXN0X2Zyb3plbl9rZXB0Il0uX19jb2RlX18gaXMgY29kZQo=",
+          "new_base64": "IiIiVGFzay1hdXRob3JpemVkIGNhc2UgZXhjbHVzaW9ucyByZW1haW4gZXhhY3QsIGltbXV0YWJsZSBhbmQgZmFpbCBjbG9zZWQuIiIiCmZyb20gX19mdXR1cmVfXyBpbXBvcnQgYW5ub3RhdGlvbnMKCmltcG9ydCBhc3QKaW1wb3J0IGhhc2hsaWIKaW1wb3J0IGpzb24KZnJvbSB0eXBlcyBpbXBvcnQgTW9kdWxlVHlwZQoKaW1wb3J0IHB5dGVzdAoKZnJvbSBzY3JpcHRzLm1haW50ZW5hbmNlIGltcG9ydCBwaGFzZTJfc3VpdGVzIGFzIGNoZWNrZXIKZnJvbSBzY3JpcHRzLm1haW50ZW5hbmNlLmZpeHR1cmVfY29ycHVzIGltcG9ydCByZWdpc3Rlcl9tb2R1bGUKCgpkZWYgdGVzdF9yZWdpc3Rlcl9leGFjdF9yZXRpcmVkX2Nhc2VzX2tlZXBzX290aGVyX2Z1bmN0aW9uc19hbmRfY2xhc3NfbWV0aG9kcygpOgogICAgbW9kdWxlID0gTW9kdWxlVHlwZSgiZnJvemVuX2ZpeHR1cmUiKQogICAgZXhlYyhjb21waWxlKAogICAgICAgICJkZWYgdGVzdF9yZXRpcmVkKCk6IHBhc3NcbmRlZiB0ZXN0X2tlcHQoKTogcGFzc1xuIgogICAgICAgICJjbGFzcyBUZXN0RnJvemVuOlxuICAgIGRlZiB0ZXN0X3JldGlyZWQoc2VsZik6IHBhc3NcbiIKICAgICAgICAiICAgIGRlZiB0ZXN0X2tlcHQoc2VsZik6IHBhc3NcbiIsICJmaXh0dXJlIiwgImV4ZWMiKSwgbW9kdWxlLl9fZGljdF9fKQogICAgbmFtZXNwYWNlID0geyJfX25hbWVfXyI6ICJxdWFsaWZpZWRfZml4dHVyZSJ9CiAgICByZWdpc3Rlcl9tb2R1bGUobmFtZXNwYWNlLCBtb2R1bGUsIHByZWZpeD0iZnJvemVuIiwKICAgICAgICAgICAgICAgICAgICBleGNsdWRlZD1bInRlc3RfcmV0aXJlZCIsICJUZXN0RnJvemVuLnRlc3RfcmV0aXJlZCJdKQogICAgYXNzZXJ0ICJ0ZXN0X2Zyb3plbl9yZXRpcmVkIiBub3QgaW4gbmFtZXNwYWNlCiAgICBhc3NlcnQgInRlc3RfZnJvemVuX2tlcHQiIGluIG5hbWVzcGFjZQogICAgYXNzZXJ0IGhhc2F0dHIobmFtZXNwYWNlWyJUZXN0X2Zyb3plbl9Gcm96ZW4iXSwgInRlc3Rfa2VwdCIpCiAgICBhc3NlcnQgbm90IGhhc2F0dHIobmFtZXNwYWNlWyJUZXN0X2Zyb3plbl9Gcm96ZW4iXSwgInRlc3RfcmV0aXJlZCIpCgoKZGVmIGZpeHR1cmVfcmVjb3JkKHRtcF9wYXRoLCBtb25rZXlwYXRjaCk6CiAgICBwYXRoID0gInRlc3RzL3Rlc3RfZml4dHVyZS5weSIKICAgIHNvdXJjZSA9IGIiZGVmIHRlc3RfcmV0aXJlZCgpOlxuICAgIGFzc2VydCBUcnVlXG5kZWYgdGVzdF9rZXB0KCk6XG4gICAgYXNzZXJ0IFRydWVcbiIKICAgIHRhcmdldCA9IHRtcF9wYXRoIC8gcGF0aAogICAgdGFyZ2V0LnBhcmVudC5ta2RpcigpCiAgICB0YXJnZXQud3JpdGVfYnl0ZXMoc291cmNlKQogICAgc2hhID0gaGFzaGxpYi5zaGEyNTYoc291cmNlKS5oZXhkaWdlc3QoKQogICAgcm93cyA9IFt7ImNhc2UiOiAidGVzdF9yZXRpcmVkIiwgInJldmlld2VyIjogY2hlY2tlci5QQVJUNF9SRVZJRVdFUiwKICAgICAgICAgICAgICJyZWFzb24iOiAiUmVtb3ZlZCBPZGluIHdlYiBVSSBsaXN0ZW5lciIsICJzb3VyY2VfcGF0aCI6IHBhdGgsCiAgICAgICAgICAgICAic291cmNlX3NoYTI1NiI6IHNoYX1dCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKGNoZWNrZXIsICJfcGFydDRfZGlzcG9zaXRpb25zIiwgbGFtYmRhIHJvb3Q6IHsKICAgICAgICBwYXRoOiB7ImluaGVyaXRlZF9zaGEyNTYiOiBzaGEsICJyZXRpcmVkX2Nhc2VzIjogcm93c30sCiAgICB9KQogICAgcmV0dXJuIHBhdGgsIHNoYSwgcm93cwoKCmRlZiB0ZXN0X2Nhc2VfcmV0aXJlbWVudF9yZXF1aXJlc19leGFjdF90YXNrX3JlY29yZF9hbmRfZnJvemVuX2Nhc2UodG1wX3BhdGgsIG1vbmtleXBhdGNoKToKICAgIHBhdGgsIHNoYSwgcm93cyA9IGZpeHR1cmVfcmVjb3JkKHRtcF9wYXRoLCBtb25rZXlwYXRjaCkKICAgIGFzc2VydCBjaGVja2VyLl9jYXNlX3JldGlyZW1lbnRzKHRtcF9wYXRoLCBwYXRoLCBzaGEsIHJvd3MpCiAgICBjaGFuZ2VkID0gW2RpY3Qocm93c1swXSwgY2FzZT0idGVzdF9rZXB0IildCiAgICBhc3NlcnQgbm90IGNoZWNrZXIuX2Nhc2VfcmV0aXJlbWVudHModG1wX3BhdGgsIHBhdGgsIHNoYSwgY2hhbmdlZCkKICAgIGFzc2VydCBub3QgY2hlY2tlci5fY2FzZV9yZXRpcmVtZW50cyh0bXBfcGF0aCwgcGF0aCwgIjAiICogNjQsIHJvd3MpCiAgICAodG1wX3BhdGggLyBwYXRoKS53cml0ZV90ZXh0KCJkZWYgdGVzdF9yZXRpcmVkKCk6IHBhc3NcbiIpCiAgICBhc3NlcnQgbm90IGNoZWNrZXIuX2Nhc2VfcmV0aXJlbWVudHModG1wX3BhdGgsIHBhdGgsIHNoYSwgcm93cykKCgpAcHl0ZXN0Lm1hcmsucGFyYW1ldHJpemUoIm11dGF0aW9uIiwgWyJoYXNoIiwgInJldmlld2VyIiwgImNhc2UiLCAicmVhc29uIiwgImV4dHJhIl0pCmRlZiB0ZXN0X2Nhc2VfcmV0aXJlbWVudF9yZWplY3RzX2NvaGVyZW50X2ludmFsaWRfY2FzZV9tZXRhZGF0YSh0bXBfcGF0aCwgbW9ua2V5cGF0Y2gsIG11dGF0aW9uKToKICAgIHBhdGgsIHNoYSwgcm93cyA9IGZpeHR1cmVfcmVjb3JkKHRtcF9wYXRoLCBtb25rZXlwYXRjaCkKICAgIGlmIG11dGF0aW9uID09ICJoYXNoIjoKICAgICAgICByb3dzWzBdWyJzb3VyY2Vfc2hhMjU2Il0gPSAiMCIgKiA2NAogICAgZWxpZiBtdXRhdGlvbiA9PSAicmV2aWV3ZXIiOgogICAgICAgIHJvd3NbMF1bInJldmlld2VyIl0gPSAiT2RpbiIKICAgIGVsaWYgbXV0YXRpb24gPT0gImNhc2UiOgogICAgICAgIHJvd3NbMF1bImNhc2UiXSA9ICJ0ZXN0X21pc3NpbmciCiAgICBlbGlmIG11dGF0aW9uID09ICJyZWFzb24iOgogICAgICAgIHJvd3NbMF1bInJlYXNvbiJdID0gIiAiCiAgICBlbHNlOgogICAgICAgIHJvd3NbMF1bInNlbGVjdGVkIl0gPSBUcnVlCiAgICBhc3NlcnQgbm90IGNoZWNrZXIuX2Nhc2VfcmV0aXJlbWVudHModG1wX3BhdGgsIHBhdGgsIHNoYSwgcm93cykKCgpkZWYgdGVzdF9wYXJ0NF9kaXNwb3NpdGlvbl9hcnRpZmFjdF9pc19pbmRlcGVuZGVudGx5X2J5dGVfcGlubmVkKHRtcF9wYXRoLCBtb25rZXlwYXRjaCk6CiAgICB0YXJnZXQgPSB0bXBfcGF0aCAvIGNoZWNrZXIuUEFSVDRfUEFUSAogICAgdGFyZ2V0LnBhcmVudC5ta2RpcigpCiAgICBkYXRhID0ganNvbi5kdW1wcyh7InJldmlld2VyIjogY2hlY2tlci5QQVJUNF9SRVZJRVdFUiwgImRpc3Bvc2l0aW9ucyI6IFtdfSkuZW5jb2RlKCkKICAgIHRhcmdldC53cml0ZV9ieXRlcyhkYXRhKQogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihjaGVja2VyLCAiUEFSVDRfU0hBMjU2IiwgaGFzaGxpYi5zaGEyNTYoZGF0YSkuaGV4ZGlnZXN0KCkpCiAgICBhc3NlcnQgY2hlY2tlci5fcGFydDRfZGlzcG9zaXRpb25zKHRtcF9wYXRoKSA9PSB7fQogICAgdGFyZ2V0LndyaXRlX2J5dGVzKGRhdGEgKyBiIiAiKQogICAgd2l0aCBweXRlc3QucmFpc2VzKFZhbHVlRXJyb3IsIG1hdGNoPSJoYXNoIGNoYW5nZWQiKToKICAgICAgICBjaGVja2VyLl9wYXJ0NF9kaXNwb3NpdGlvbnModG1wX3BhdGgpCgoKZGVmIHRlc3RfcGFydDRfZ3JvdXBfYWRtaXNzaW9uX2lzX25vdF9nZW5lcmljX3NlbGVjdG9yX3dhaXZlcigpOgogICAgYXNzZXJ0IHNldChjaGVja2VyLlBBUlQ0X0dST1VQUykgPT0gewogICAgICAgICJwaGFzZTItc3RlcDZhLXRvb2xzLXJlc3RvcmVkLWNvcnB1cyIsICJwaGFzZTItc3RlcDZhLWNvbXB1dGVyLXJlc3RvcmVkLWNvcnB1cyIsCiAgICAgICAgInBoYXNlMi1zdGVwNmEtaHlwcmxhbmQtcmVzdG9yZWQtY29ycHVzIiwgInBoYXNlMi1zdGVwNmEtY2FtcGFpZ25zLXJlc3RvcmVkLWNvcnB1cyIsCiAgICB9CiAgICBhcHByb3ZlZF9wYXJpdHkgPSB7CiAgICAgICAgInRlc3RzL3Rlc3RfdG9vbF9wYXJpdHkucHkiLAogICAgICAgICJ0ZXN0cy90ZXN0X2Rlc2t0b3BfdG9vbF9wYXJpdHlfYWRhcHRhdGlvbi5weSIsCiAgICAgICAgInRlc3RzL3Rlc3RfZGVza3RvcF90b29sX3Bhcml0eV9hY2NvdW50aW5nLnB5IiwKICAgICAgICAidGVzdHMvdGVzdF9kZXNrdG9wX2QxN19wYXJpdHlfdmlzaWJpbGl0eS5weSIsCiAgICB9CiAgICBjYW1wYWlnbiA9IGNoZWNrZXIuUEFSVDRfR1JPVVBTWyJwaGFzZTItc3RlcDZhLWNhbXBhaWducy1yZXN0b3JlZC1jb3JwdXMiXQogICAgYXNzZXJ0IGNhbXBhaWduIC0gewogICAgICAgIHBhdGggZm9yIHBhdGggaW4gY2FtcGFpZ24gaWYgcGF0aC5zdGFydHN3aXRoKCJ0ZXN0cy90ZXN0X2Rlc2t0b3Bfc3RlcDhfNmFfIikKICAgIH0gPT0gYXBwcm92ZWRfcGFyaXR5CiAgICBmb3IgZ3JvdXAsIGZpbGVzIGluIGNoZWNrZXIuUEFSVDRfR1JPVVBTLml0ZW1zKCk6CiAgICAgICAgYWxsb3dlZCA9IGFwcHJvdmVkX3Bhcml0eSBpZiBncm91cCA9PSAicGhhc2UyLXN0ZXA2YS1jYW1wYWlnbnMtcmVzdG9yZWQtY29ycHVzIiBlbHNlIHNldCgpCiAgICAgICAgYXNzZXJ0IGZpbGVzIGFuZCBhbGwocGF0aC5zdGFydHN3aXRoKCJ0ZXN0cy90ZXN0X2Rlc2t0b3Bfc3RlcDhfNmFfIikgb3IgcGF0aCBpbiBhbGxvd2VkCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZm9yIHBhdGggaW4gZmlsZXMpCgoKZGVmIHRlc3RfcmVnaXN0ZXJfZG9lc19ub3RfY2hhbmdlX2luaGVyaXRlZF9hc3NlcnRpb25fY29kZSgpOgogICAgdHJlZSA9IGFzdC5wYXJzZSgiZGVmIHRlc3Rfa2VwdCgpOlxuICAgIGFzc2VydCAyICsgMiA9PSA0XG4iKQogICAgbW9kdWxlID0gTW9kdWxlVHlwZSgiZnJvemVuIikKICAgIGV4ZWMoY29tcGlsZSh0cmVlLCAiZml4dHVyZSIsICJleGVjIiksIG1vZHVsZS5fX2RpY3RfXykKICAgIGNvZGUgPSBtb2R1bGUudGVzdF9rZXB0Ll9fY29kZV9fCiAgICBuYW1lc3BhY2UgPSB7Il9fbmFtZV9fIjogInF1YWxpZmllZCJ9CiAgICByZWdpc3Rlcl9tb2R1bGUobmFtZXNwYWNlLCBtb2R1bGUsIHByZWZpeD0iZnJvemVuIiwgZXhjbHVkZWQ9W10pCiAgICBhc3NlcnQgbmFtZXNwYWNlWyJ0ZXN0X2Zyb3plbl9rZXB0Il0uX19jb2RlX18gaXMgY29kZQo=",
           "old_base64": "",
           "start": 0
         }
       ],
       "path": "tests/test_desktop_step8_6a_accounting.py",
-      "reason": "Exercise exact case retirement registration and independent fail-closed task artifact provenance.",
+      "reason": "Protect the exact four review-approved parity selectors alongside the original task-specific step8 selectors.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -19815,10 +19815,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_desktop_step8_6a_accounting.py": "1df96b3c8d310b3ec54f1f04da8c562f7ffc3a6db706b87945cd5781a901f208"
+        "tests/test_desktop_step8_6a_accounting.py": "2294440069330631b15168506a16b0a3969017cc83b5add17667887342f5cbf4",
+        "tests/test_desktop_tool_parity_accounting.py": "c1ddb85bbc019d837752d8b28671c1720538a34f01272cebea0e601092680966"
       },
       "tests": [
-        "tests/test_desktop_step8_6a_accounting.py"
+        "tests/test_desktop_step8_6a_accounting.py",
+        "tests/test_desktop_tool_parity_accounting.py"
       ]
     },
     {

@@ -86,8 +86,20 @@ def test_part4_group_admission_is_not_generic_selector_waiver():
         "phase2-step6a-tools-restored-corpus", "phase2-step6a-computer-restored-corpus",
         "phase2-step6a-hyprland-restored-corpus", "phase2-step6a-campaigns-restored-corpus",
     }
-    for files in checker.PART4_GROUPS.values():
-        assert files and all(path.startswith("tests/test_desktop_step8_6a_") for path in files)
+    approved_parity = {
+        "tests/test_tool_parity.py",
+        "tests/test_desktop_tool_parity_adaptation.py",
+        "tests/test_desktop_tool_parity_accounting.py",
+        "tests/test_desktop_d17_parity_visibility.py",
+    }
+    campaign = checker.PART4_GROUPS["phase2-step6a-campaigns-restored-corpus"]
+    assert campaign - {
+        path for path in campaign if path.startswith("tests/test_desktop_step8_6a_")
+    } == approved_parity
+    for group, files in checker.PART4_GROUPS.items():
+        allowed = approved_parity if group == "phase2-step6a-campaigns-restored-corpus" else set()
+        assert files and all(path.startswith("tests/test_desktop_step8_6a_") or path in allowed
+                             for path in files)
 
 
 def test_register_does_not_change_inherited_assertion_code():
