@@ -50,10 +50,9 @@ class StateService:
         return getattr(self._lists, "state_tools", self._lists)
 
     def _scope(self, params: dict) -> str:
-        scope = _string(params, "scope")
-        if scope not in {"global", f"user_{self.owner_id}"}:
-            raise MethodError("forbidden", "memory access denied")
-        return scope
+        # Transport admits the single profile owner. Pinned Odin's admin
+        # handlers permit every retained scope, including imported user scopes.
+        return _string(params, "scope")
 
     async def handle(self, method: str, params: dict):
         if method not in METHODS:
@@ -69,6 +68,11 @@ class StateService:
             raise
         except StoreCorruptError:
             code = "unavailable" if method in READ_METHODS else "conflict"
+            if method.startswith("memory."):
+                message = ("memory store unavailable (corrupt)" if method in READ_METHODS
+                           else "memory store is corrupt; refusing to modify "
+                           "(a backup was preserved)")
+                raise MethodError(code, message) from None
             raise MethodError(code, "state store is corrupt; refusing unsafe access") from None
         except Exception:
             raise MethodError("internal_error", "state operation failed",
@@ -82,9 +86,12 @@ class StateService:
             entries = params.get("entries")
             if not isinstance(entries, list) or not entries:
                 raise MethodError("bad_request", "entries must be a non-empty list of {scope, key}")
-            # Validate the entire batch, including authority, before touching data.
-            entries = [(self._scope(entry), _string(entry, "key"))
-                       if isinstance(entry, dict) else self._invalid_entry()
+            # Validate the whole batch before touching retained state.
+            entries = [(entry["scope"], entry["key"])
+                       if isinstance(entry, dict)
+                       and isinstance(entry.get("scope"), str) and entry["scope"]
+                       and isinstance(entry.get("key"), str) and entry["key"]
+                       else self._invalid_entry()
                        for entry in entries]
         elif method != "memory.list":
             scope = self._scope(params)
@@ -97,12 +104,13 @@ class StateService:
         async with backend._memory_lock:
             data = await to_thread_settled(backend._load_all_memory)
             if method == "memory.list":
-                return {name: {"keys": list(data.get(name, {})),
-                               "count": len(data.get(name, {}))}
-                        for name in ("global", f"user_{self.owner_id}")}
+                return {name: {"keys": list(entries), "count": len(entries)}
+                        for name, entries in data.items()}
             if method == "memory.get":
                 if key is None:
-                    return {"scope": scope, "entries": data.get(scope, {})}
+                    if scope not in data:
+                        raise MethodError("not_found", "scope not found")
+                    return {"scope": scope, "entries": data[scope]}
                 if key not in data.get(scope, {}):
                     raise MethodError("not_found", "key not found")
                 return {"scope": scope, "key": key, "value": data[scope][key]}

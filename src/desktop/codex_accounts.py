@@ -32,7 +32,7 @@ from .secrets import SecretStoreError, secret_call
 
 METHODS = frozenset({
     "codex.accounts.list", "codex.accounts.activate", "codex.accounts.remove",
-    "codex.accounts.label", "codex.login.begin", "codex.login.poll",
+    "codex.accounts.label", "codex.accounts.refresh", "codex.login.begin", "codex.login.poll",
 })
 READ_METHODS = frozenset({"codex.accounts.list"})
 
@@ -283,6 +283,8 @@ class CodexAccountsService:
                 pool = await self.get_pool()
                 async with pool._pool_lock:
                     return self._list()
+            if method == "codex.accounts.refresh":
+                return await self._refresh(params)
             if method == "codex.login.begin":
                 return await self._begin()
             if method == "codex.login.poll":
@@ -354,6 +356,36 @@ class CodexAccountsService:
         if type(index) is not int or index < 0:
             raise _error("bad_request", "invalid account index")
         return index
+
+    async def _refresh(self, params):
+        # The pinned route parses its path index with int(), unlike the other
+        # existing Desktop mutations. Keep that conversion for this action.
+        try:
+            index = int(params.get("index"))
+        except (ValueError, TypeError, OverflowError):
+            raise _error("bad_request", "index must be an integer") from None
+        if self.providers is not None:
+            client = getattr(self.providers, "codex_client", None)
+            pool = getattr(client, "auth", None) if client is not None else None
+        else:
+            pool = await self.get_pool()
+        if pool is None or not pool.account_count:
+            raise _error("capability_unavailable", "codex not configured")
+        if index < 0 or index >= len(pool._accounts):
+            raise _error("bad_request", f"index {index} out of range")
+        auth = pool._accounts[index]
+        stale_token = auth._load().get("access_token")
+        # Use the SAME pool and per-account refresh lock as serving traffic.
+        # The retained owner settles a rotated single-use credential even if
+        # the requesting task is cancelled. Never bypass it with OAuth here.
+        if not await pool.force_refresh(index, stale_token):
+            raise _error("unavailable", "credential refresh failed", "outcome_unknown")
+        creds = auth._load()
+        from ..observability.diagnostics import scrub_diagnostic
+
+        return scrub_diagnostic({
+            "status": "refreshed", "email": creds.get("email", "unknown"), "expired": False,
+        })
 
     async def _mutate(self, method, params):
         index = self._index(params)

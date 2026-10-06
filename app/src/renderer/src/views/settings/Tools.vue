@@ -83,8 +83,8 @@ onMounted(async () => {
   <section class="panel" aria-label="Built-in tools">
     <header class="panel-head">
       <h3>Built-in tools</h3>
-      <span v-if="!management.unavailable.tools" class="panel-hint">
-        {{ management.tools?.tools.length ?? 0 }} tools, {{ management.tools?.disabled_count ?? 0 }} switched off. A tool that is off
+      <span v-if="!management.unavailable.tools && management.tools" class="panel-hint">
+        {{ management.tools.tools.length }} tools, {{ management.tools.disabled_count }} switched off. A tool that is off
         is not offered to Odin at all.
       </span>
       <label v-if="!management.unavailable.tools">Filter tools <input v-model="filter" class="panel-filter" type="search" placeholder="Filter" /></label>
@@ -111,6 +111,7 @@ onMounted(async () => {
           </button>
         </div>
         <p class="manage-desc">{{ tool.description }}</p>
+        <p class="panel-hint">Cost: {{ tool.cost ?? 'not reported' }}. Risk: {{ tool.risk ?? 'not reported' }}.</p>
         <div :id="`tool-parameters-${encodeURIComponent(tool.name)}`"><pre v-if="expanded[tool.name]" class="manage-json">{{ JSON.stringify(tool.input_schema, null, 2) }}</pre></div>
         <p v-if="management.notes[`tool:${tool.name}`]" class="manage-note" role="status">{{ management.notes[`tool:${tool.name}`] }}</p>
       </li>

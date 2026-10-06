@@ -17,11 +17,24 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'conversation.snapshot', 'search.query', 'messages.around',
   'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'secrets.unlock', 'models.image.intent',
   'providers.codex.set', 'providers.auxiliary.set', 'providers.ollama.set', 'providers.compat.set',
-  'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label', 'codex.login.begin', 'codex.login.poll',
+  'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label', 'codex.accounts.refresh', 'codex.login.begin', 'codex.login.poll',
   'hosts.list', 'hosts.settings', 'hosts.prepare', 'hosts.test', 'hosts.commit', 'hosts.set_enabled', 'hosts.references', 'hosts.delete', 'hosts.public_key', 'hosts.force_revoke',
   'memory.list', 'memory.get', 'memory.set', 'memory.delete', 'memory.bulk_delete', 'lists.list', 'lists.get', 'lists.delete',
   'knowledge.list', 'knowledge.search', 'knowledge.ingest', 'knowledge.reingest', 'knowledge.delete', 'knowledge.versions', 'knowledge.restore', 'knowledge.import',
+  'knowledge.chunks', 'knowledge.duplicates', 'knowledge.merge', 'knowledge.version', 'knowledge.diff',
+  'learned.list', 'learned.update', 'learned.delete',
   'audit.query', 'audit.verify', 'health.get', 'logs.search', 'turn_state.list', 'usage.get', 'runtime.reload',
+  'audit.diffs', 'audit.failures', 'audit.tail', 'logs.stats', 'logs.tail',
+  'trajectories.list', 'trajectories.read', 'trajectories.search', 'trajectories.message',
+  'observability.stats', 'observability.tools', 'observability.risk', 'observability.risk_recent',
+  'observability.governor', 'observability.audit_risk', 'observability.freshness',
+  'observability.freshness_recent', 'observability.bulkheads', 'observability.compression',
+  'observability.validation', 'observability.affordances', 'observability.context',
+  'observability.usage', 'observability.usage_totals', 'observability.subsystems',
+  'recovery.stats', 'recovery.recent', 'capacity.snapshot', 'turn_state.snapshot',
+  'pools.ssh', 'pools.http', 'pools.close',
+  'openrouter.catalogue', 'openrouter.endpoints', 'openrouter.select',
+  'providers.compat.diagnostic', 'models.status', 'models.provider.get', 'models.provider.set',
   'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover', 'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
   'control.stop', 'control.steer', 'control.resume',
@@ -71,6 +84,11 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     'submission.send', 'control.stop', 'control.steer', 'control.resume',
     'tools.list', 'tools.timeouts.get', 'personality.get', 'hosts.list', 'hosts.public_key',
     'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get',
+    'conversations.list', 'conversations.create', 'conversation.snapshot', 'search.query', 'submission.send',
+    'control.stop', 'control.steer', 'control.resume', 'attachments.begin', 'attachments.chunk',
+    'attachments.commit', 'attachments.cancel', 'audit.diffs', 'audit.failures', 'audit.tail', 'logs.stats',
+    'logs.tail', 'knowledge.chunks', 'knowledge.duplicates', 'knowledge.version', 'knowledge.diff',
+    'learned.list', 'observability.stats', 'observability.risk', 'openrouter.catalogue', 'trajectories.list',
     'skills.list', 'skills.save', 'skills.validate', 'skills.test', 'mcp.status', 'mcp.save', 'mcp.tools', 'computer.status', 'computer.reconcile']) {
     assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
   }
@@ -259,12 +277,22 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     knowledge: await window.odin.knowledgeList({}), audit: await window.odin.auditQuery({}),
     logs: await window.odin.logsSearch({ level: 'all' }), turns: await window.odin.turnStateList({}),
     usage: await window.odin.usage('7d'), accounts: await window.odin.codexAccounts(),
+    conversations: await window.odin.listConversations(), search: await window.odin.search({ query: 'smoke query' }),
+    snapshot: await window.odin.snapshotConversation({ conversation_id: ${JSON.stringify(conversationId)} }),
+    diffs: await window.odin.auditDiffs({}), failures: await window.odin.auditFailures({}),
+    logStats: await window.odin.logsStats({}), auditTail: await window.odin.auditTail({ lines: 20 }),
+    logTail: await window.odin.logsTail({ lines: 20 }), duplicates: await window.odin.knowledgeDuplicates({}),
+    learned: await window.odin.learnedList({}), stats: await window.odin.observabilityStats({}),
+    risk: await window.odin.observabilityRisk({}), trajectories: await window.odin.trajectoriesList({}),
+    openrouter: await window.odin.openrouterCatalogue({}),
     skills: await window.odin.skillsList({}), mcp: await window.odin.mcpStatus({}),
     computer: await window.odin.computerStatus({})
   }))()`)
   for (const [name, answer] of Object.entries(observations)) {
     if (name === 'accounts') {
       assert(answer.ok || answer.error?.code === 'keyring_unavailable', 'accounts must report empty accounts or distinct keyring failure')
+    } else if (name === 'openrouter') {
+      assert(!answer.ok && answer.error?.code === 'not_found' && /not recognized/i.test(answer.error.message), 'fresh unconfigured OpenRouter must report not-recognized, not fake catalogue data')
     } else assert(answer.ok, `named bridge ${name} failed: ${JSON.stringify(answer.error)}`)
   }
   const hostData = observations.hosts!.result as { hosts: Array<{ alias: string; trust_state: string }>; default_host: string }
@@ -278,6 +306,24 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.deepEqual(observations.computer!.result, reads['computer.status'])
   assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [])
   assert.equal((observations.turns!.result as { availability: string }).availability, 'not_enabled')
+  assert.deepEqual(observations.duplicates!.result, { exact: [], near: [] }, 'fresh knowledge must have no invented duplicates')
+  assert.deepEqual((observations.learned!.result as { entries: unknown[] }).entries, [])
+  assert.deepEqual((observations.diffs!.result as { entries: unknown[] }).entries, [])
+  assert.deepEqual((observations.trajectories!.result as { files: string[] }).files, [])
+  assert.deepEqual((observations.search!.result as { hits: unknown[] }).hits, [])
+  assert.equal((observations.conversations!.result as { items: unknown[] }).items.length, 2, 'only first Chat and explicitly created New chat may exist')
+  for (const key of ['auditTail', 'logTail']) {
+    const tail = observations[key]!.result as { lines: unknown[]; cursor: string; availability: string }
+    assert.deepEqual(tail.lines, [], 'fresh records tails must not invent activity')
+    assert.equal(typeof tail.cursor, 'string')
+    assert(['available', 'missing'].includes(tail.availability), 'tail must distinguish an empty source from a missing file')
+  }
+  const noSubmission = observations.snapshot!.result as { messages: { items: unknown[] }; running: unknown; queued: unknown[]; recent: unknown[]; unresolved: unknown[] }
+  assert.deepEqual(noSubmission.messages.items, [], 'local slash reports must not submit provider messages')
+  assert.equal(noSubmission.running, null)
+  assert.deepEqual(noSubmission.queued, [])
+  assert.deepEqual(noSubmission.recent, [])
+  assert.deepEqual(noSubmission.unresolved, [])
   // All operations cross the named preload bridge. The fixture is local stdio,
   // implements initialize/tools-list, and has no account or network listener.
   const invoke = <T = unknown>(name: string, params: unknown = {}): Promise<T> =>
@@ -333,6 +379,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert(!/not (?:yet )?available|not served/i.test(await text('.codex-accounts')), 'served account management must not remain capability-unavailable')
       assert.equal(await run('document.querySelectorAll(".account").length'), 0, 'real session must not display fixture accounts')
       await until(async () => (await run<number>('document.querySelectorAll(".schema-form").length')) > 0, 'real provider settings')
+      await until(async () => /OpenRouter endpoint not recognized/i.test(await text('section[aria-label="OpenRouter models"]')), 'honest unconfigured OpenRouter panel')
+      assert.equal(await count('section[aria-label="OpenRouter models"] li'), 0, 'unconfigured OpenRouter must not invent models')
     }
     if (sections[i] === 'Personality') {
       await until(async () => await run<boolean>('Boolean(document.querySelector("section[aria-label=Personality] select"))'), 'real personality settings')
@@ -340,6 +388,11 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     if (sections[i] === 'Tools') {
       await until(async () => (await count('section[aria-label="Built-in tools"] .manage-row')) > 0, 'real built-in tools')
       assert((await text('section[aria-label="Tool timeouts"]')).includes('Timeouts'))
+      const tools = (observations.tools!.result as { tools: Array<{ name: string; cost?: string | null; risk?: string | null }> }).tools
+      const rows = await run<string[]>('Array.from(document.querySelectorAll("section[aria-label=\\"Built-in tools\\"] .manage-row"), row => row.innerText)')
+      for (const tool of tools) {
+        assert(rows.some((row) => row.includes(tool.name) && row.includes(`Cost: ${tool.cost ?? 'not reported'}. Risk: ${tool.risk ?? 'not reported'}.`)), `${tool.name} must render its reported cost and risk without invented measurements`)
+      }
       await until(async () => /unavailable/i.test(await text('section[aria-label="Browser runtime"]')), 'real unqualified browser state')
     }
     if (sections[i] === 'Skills') {
@@ -396,9 +449,24 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       screens.push({ screen: 'Settings / State / Context reload', text: await text('section[aria-label="Context"]') })
       assert(!(await text('.settings-body')).includes('Loading'))
       assert((await text('section[aria-label="Named lists"]')).includes('No lists.'))
+      await until(async () => (await count('pre[aria-label="Learned context JSON"]')) === 1, 'real learned context read')
+      assert.deepEqual(JSON.parse(await text('pre[aria-label="Learned context JSON"]')), observations.learned!.result)
+      await click('form[aria-label="Find knowledge duplicates"] button')
+      await until(async () => (await count('pre[aria-label="Knowledge duplicates JSON"]')) === 1, 'real knowledge duplicates read')
+      assert.deepEqual(JSON.parse(await text('pre[aria-label="Knowledge duplicates JSON"]')), observations.duplicates!.result)
     }
     if (sections[i] === 'Records') {
       assert((await text('section[aria-label="Health"]')).includes('host(s) configured'), 'real health must observe profile hosts')
+      for (const [label, key] of [['Audit diffs', 'diffs'], ['Audit failures', 'failures'], ['Log statistics', 'logStats']] as const) {
+        const selector = `section[aria-label="${label}"]`
+        await click(`${selector} button`)
+        await until(async () => (await text(selector)).includes('Last successful read shown below.'), `real ${label} panel read`)
+        assert.deepEqual(JSON.parse(await text(`${selector} pre`)), observations[key]!.result, `${label} must render the actual core record`)
+      }
+      await click('section[aria-label="Runtime statistics"] button')
+      await until(async () => (await count('section[aria-label="Runtime statistics"] pre')) > 0, 'real runtime statistics panel read')
+      const stats = JSON.parse(await text('section[aria-label="Runtime statistics"] pre')) as { risk: unknown }
+      assert.deepEqual(stats.risk, observations.risk!.result, 'runtime statistics must render the actual risk summary')
       await until(async () => /no .*session|no .*task/i.test(await text('section[aria-label="Computer use"]')), 'real absent computer session')
       assert(/unqualified|not qualified|qualification/i.test(await text('section[aria-label="Computer use"]')), 'computer input must remain explicitly unqualified')
       // Slice 4 reads the real envelope. No absent-session recovery/input action

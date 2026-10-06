@@ -39,7 +39,7 @@ async def test_tool_and_management_share_memory_and_prompt(state):
 
 
 @pytest.mark.asyncio
-async def test_fresh_authorized_scopes_are_discoverable_without_creation(state, monkeypatch):
+async def test_fresh_memory_lists_only_retained_scopes_without_creation(state, monkeypatch):
     service, executor = state
     path = service.paths.data_dir / "memory.json"
     assert not path.exists()
@@ -48,17 +48,16 @@ async def test_fresh_authorized_scopes_are_discoverable_without_creation(state, 
         pytest.fail("Reading absent scopes must not persist memory")
 
     monkeypatch.setattr(executor, "_save_all_memory", unexpected_save)
+    # Executor's retained-store reader supplies the pinned empty global default.
     assert await service.handle("memory.list", {"owner_id": "other"}) == {
-        "global": {"keys": [], "count": 0},
-        "user_owner": {"keys": [], "count": 0},
-    }
-    for scope in ("global", "user_owner"):
-        assert await service.handle("memory.get", {"scope": scope}) == {
-            "scope": scope, "entries": {},
-        }
-    with pytest.raises(MethodError) as error:
-        await service.handle("memory.get", {"scope": "user_other"})
-    assert error.value.code == "forbidden"
+        "global": {"keys": [], "count": 0}}
+    assert await service.handle("memory.get", {"scope": "global"}) == {
+        "scope": "global", "entries": {}}
+    for scope in ("user_owner", "user_other"):
+        with pytest.raises(MethodError) as error:
+            await service.handle("memory.get", {"scope": scope})
+        assert error.value.code == "not_found"
+        assert error.value.message == "scope not found"
     assert not path.exists()
 
 
@@ -70,11 +69,11 @@ async def test_absent_personal_scope_reads_leave_existing_memory_unchanged(state
     before = path.read_bytes()
     assert await service.handle("memory.list", {}) == {
         "global": {"keys": ["existing"], "count": 1},
-        "user_owner": {"keys": [], "count": 0},
     }
-    assert await service.handle("memory.get", {"scope": "user_owner"}) == {
-        "scope": "user_owner", "entries": {},
-    }
+    with pytest.raises(MethodError) as error:
+        await service.handle("memory.get", {"scope": "user_owner"})
+    assert error.value.code == "not_found"
+    assert error.value.message == "scope not found"
     assert path.read_bytes() == before
 
 
@@ -90,29 +89,36 @@ async def test_profile_writes_leave_alongside_state_untouched(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_scope_is_owner_bound_not_params(state):
+async def test_profile_owner_can_manage_all_retained_scopes_not_payload_tiers(state):
     service, executor = state
-    executor._save_all_memory({"global": {}, "user_owner": {}, "user_other": {"hidden": "private"}})
-    assert "user_other" not in await service.handle("memory.list", {"owner_id": "other"})
-    for method in ("memory.get", "memory.set", "memory.delete"):
-        with pytest.raises(MethodError) as error:
-            await service.handle(method, {"scope": "user_other", "key": "hidden", "value": "x"})
-        assert error.value.code == "forbidden"
-    assert executor._load_all_memory()["user_other"] == {"hidden": "private"}
+    executor._save_all_memory({"global": {}, "user_owner": {},
+                               "user_other": {"hidden": "private"}})
+    assert (await service.handle("memory.list", {"owner_id": "other"}))["user_other"] == {
+        "keys": ["hidden"], "count": 1}
+    assert await service.handle("memory.get", {"scope": "user_other", "key": "hidden"}) == {
+        "scope": "user_other", "key": "hidden", "value": "private"}
+    assert await service.handle("memory.set", {
+        "scope": "user_other", "key": "hidden", "value": "x"}) == {
+        "status": "saved", "scope": "user_other", "key": "hidden"}
+    assert await service.handle("memory.delete", {"scope": "user_other", "key": "hidden"}) == {
+        "status": "deleted", "scope": "user_other", "key": "hidden"}
+    assert executor._load_all_memory()["user_other"] == {}
 
 
 @pytest.mark.asyncio
 async def test_bulk_validation_atomic_and_duplicate_count(state):
     service, executor = state
     await service.handle("memory.set", {"scope": "global", "key": "one", "value": ""})
-    for bad in ({"scope": "user_other", "key": "hidden"}, None, {"scope": "global", "key": 3}):
-        with pytest.raises(MethodError):
+    for bad in ({"scope": "", "key": "hidden"}, None, {"scope": "global", "key": 3}):
+        with pytest.raises(MethodError) as error:
             await service.handle("memory.bulk_delete", {
                 "entries": [{"scope": "global", "key": "one"}, bad]})
+        assert error.value.message == "each entry must contain a scope and key"
         assert executor._load_all_memory()["global"] == {"one": ""}
     assert await service.handle("memory.bulk_delete", {"entries": [
         {"scope": "global", "key": "one"}, {"scope": "global", "key": "one"},
-        {"scope": "global", "key": "absent"}]}) == {"status": "deleted", "count": 1}
+        {"scope": "global", "key": "absent"},
+        {"scope": "user_other", "key": "missing"}]}) == {"status": "deleted", "count": 1}
 
 
 @pytest.mark.asyncio
