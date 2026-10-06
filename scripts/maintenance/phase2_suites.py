@@ -185,6 +185,7 @@ RESTORATION_GROUPS = {
     2: "phase2-step2-restored-corpus",
     3: "phase2-step3-restored-corpus",
     4: "phase2-step4-restored-corpus",
+    5: "phase2-step5-profile-management",
 }
 
 # Reviewed PR28 additions only. These are byte-pinned full original imports,
@@ -573,7 +574,7 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
                     if node.func.value.id in {
                             "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS",
                             "CORPUS_BRANCH_RETIREMENTS", "PARAMETER_RETIREMENTS"} \
-                            and node.func.attr not in {"get", "items"}:
+                            and node.func.attr not in {"get", "items", "values"}:
                         return False
             if isinstance(node, (ast.If, ast.Assert)):
                 condition = node.test
@@ -865,7 +866,7 @@ def _check(root: Path) -> tuple[list[str], dict]:
             continue
         mapped_restored.add(path)
         if type(step) is not int or step not in RESTORATION_GROUPS:
-            errors.append(f"mapping: restored suite must belong to qualified steps 1 to 4: {path}")
+            errors.append(f"mapping: restored suite must belong to qualified steps 1 to 5: {path}")
         elif row.get("qualification_group") != RESTORATION_GROUPS[step]:
             errors.append(f"mapping: restored suite must use its owning step group: {path}")
         if row.get("blocked_on", "missing") is not None:

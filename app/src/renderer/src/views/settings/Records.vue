@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import ObservabilityDetails from '../../components/ObservabilityDetails.vue'
+import TrajectoryDetails from '../../components/TrajectoryDetails.vue'
+import RecordDetails from '../../components/RecordDetails.vue'
 import { ask } from '../../dialog'
 import { unavailableText } from '../../capability'
 import { basis, count, percent } from '../../format'
@@ -50,6 +53,9 @@ async function reconcile(): Promise<void> {
 </script>
 
 <template>
+  <ObservabilityDetails />
+  <TrajectoryDetails />
+  <RecordDetails />
   <section v-if="records.unavailable.health" class="panel" aria-label="Health">
     <h3>Health</h3><p class="manage-desc" role="status">{{ unavailableText('Health') }}</p>
   </section>

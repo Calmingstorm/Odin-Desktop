@@ -1791,10 +1791,25 @@
         "tests/test_desktop_records.py",
         "tests/test_desktop_runtime.py",
         "tests/test_desktop_settings.py",
-        "tests/test_desktop_state.py"
+        "tests/test_desktop_state.py",
+        "tests/test_desktop_step5_accounting.py",
+        "tests/test_desktop_step5_completion_core.py",
+        "tests/test_desktop_step5_knowledge_corpus.py",
+        "tests/test_desktop_step5_knowledge_methods.py",
+        "tests/test_desktop_step5_llm_corpus.py",
+        "tests/test_desktop_step5_llm_methods.py",
+        "tests/test_desktop_step5_observability_http.py",
+        "tests/test_desktop_step5_observability_methods.py",
+        "tests/test_desktop_step5_observability_neutral.py",
+        "tests/test_desktop_step5_observability_turn_state.py",
+        "tests/test_desktop_step5_records_corpus.py",
+        "tests/test_desktop_step5_records_methods.py",
+        "tests/test_desktop_step5_sensitivity.py",
+        "tests/test_desktop_step5_traces_frozen.py",
+        "tests/test_desktop_step5_traces_methods.py"
       ],
       "name": "phase2-step5-profile-management",
-      "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification."
+      "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification. Step-five completion additionally executes all 21 requested original filenames through whole hash/corpus-bound adapters, plus named-method and authenticated transport proofs. No original selection is removed, no new skip/exclusion is added."
     },
     {
       "files": [

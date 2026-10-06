@@ -252,12 +252,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Pure diff helpers and temporary audit logger dominate, but the full suite also queries the real audit/diffs management route with filtering, limits and malformed-limit fallback. Config sections compute dict diffs only, not live settings writes. Adapt bounded audit-record query domain to named management service preserving count/entry/filter semantics and all neutral helper assertions.",
+      "blocked_on": null,
       "inherited_sha256": "6f4bf035e5d971fd5d8bca66aa47317b937e067d291d74436c818ac6e62a8596",
       "path": "tests/test_action_diffs.py",
-      "qualification_group": "runtime-audit-records",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Pure diff helpers and temporary audit logger dominate, but the full suite also queries the real audit/diffs management route with filtering, limits and malformed-limit fallback. Config sections compute dict diffs only, not live settings writes. Adapt bounded audit-record query domain to named management service preserving count/entry/filter semantics and all neutral helper assertions.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_records_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "audit diff helpers and persistence",
@@ -495,12 +502,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Complete-record byte cursors, UTF-8/CRLF, backward bounded reads, memory/read budgets, inode rotation/truncation and off-event-loop subscriber output require bounded log records. Core EventJournal is not this byte-log reader/subscriber; do not claim current core preserves those assertions.",
+      "blocked_on": null,
       "inherited_sha256": "563ea02abbd219b6a61d46ca7dbeddfee5e762e169ddabe3a3fe30d6c0603af7",
       "path": "tests/test_audit_tail_v412.py",
-      "qualification_group": "bounded-log-records",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Complete-record byte cursors, UTF-8/CRLF, backward bounded reads, memory/read budgets, inode rotation/truncation and off-event-loop subscriber output require bounded log records. Core EventJournal is not this byte-log reader/subscriber; do not claim current core preserves those assertions.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_records_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "bounded log tail",
@@ -730,12 +744,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Audit rotation/search/stats agreement, stable snapshots, complete retained failure scans, management aggregates, handle closure and line-framed diffs require bounded audit-record observability.",
+      "blocked_on": null,
       "inherited_sha256": "77dc718bbf05897961c4fa61ab129eb4d5f4081823571d507444072b3324387a",
       "path": "tests/test_campaign_audit_observability.py",
-      "qualification_group": "audit-observability-snapshots",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Audit rotation/search/stats agreement, stable snapshots, complete retained failure scans, management aggregates, handle closure and line-framed diffs require bounded audit-record observability.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_records_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "audit records",
@@ -999,12 +1020,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Model selection revalidates endpoint/routing policy after catalogue await and never persists stale configuration. Legacy HTTP provider admin adapts to runtime provider settings, not Phase3.",
+      "blocked_on": null,
       "inherited_sha256": "824f4e1c6e9b969a12b2a3a264215271f5d4f5ad9b9af94956bffa1a22c36974",
       "path": "tests/test_campaign_openrouter_coverage.py",
-      "qualification_group": "runtime-provider-selection-races",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Model selection revalidates endpoint/routing policy after catalogue await and never persists stale configuration. Legacy HTTP provider admin adapts to runtime provider settings, not Phase3.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_llm_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "provider selection",
@@ -1013,12 +1041,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Runtime compression observability starts unmeasured, then reports local-prefix equality/0.5 rate without pretending measured upstream cache. Adapt HTTP projection to truthful runtime records/status.",
+      "blocked_on": null,
       "inherited_sha256": "7358e6be380f5210a689c000dfbce7cb344f87bf58743c09b728b2bb05e5fa5f",
       "path": "tests/test_campaign_prefix_measurement.py",
-      "qualification_group": "runtime-compression-measurement",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Runtime compression observability starts unmeasured, then reports local-prefix equality/0.5 rate without pretending measured upstream cache. Adapt HTTP projection to truthful runtime records/status.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_observability_http.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "compression statistics",
@@ -1135,12 +1170,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Closed/revoked/unreadable audit tails, rotation/disappearance and exact credential revalidation combine transport identity with runtime records. Adapt authenticated record/event delivery retaining every log assertion.",
+      "blocked_on": null,
       "inherited_sha256": "faaf9e25f7f58664271b5f59f392db799c8698694b7a2160511772127f6f1119",
       "path": "tests/test_campaign_websocket_coverage.py",
-      "qualification_group": "runtime-audit-tail-identity",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Closed/revoked/unreadable audit tails, rotation/disappearance and exact credential revalidation combine transport identity with runtime records. Adapt authenticated record/event delivery retaining every log assertion.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_records_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "connection identity",
@@ -1488,12 +1530,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Account pool mutations, OAuth/device-poll refresh races, quota and reload fencing require provider/account runtime services; preserve HTTP domain semantics with temporary credentials and synthetic transport.",
+      "blocked_on": null,
       "inherited_sha256": "3675f61a8df4d3f7824a0911f47a960302449d78a71a16801fb5a41198384132",
       "path": "tests/test_codex_account_mutation_regressions.py",
-      "qualification_group": "phase2-step-5-headless",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Account pool mutations, OAuth/device-poll refresh races, quota and reload fencing require provider/account runtime services; preserve HTTP domain semantics with temporary credentials and synthetic transport.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_traces_frozen.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "Codex accounts",
@@ -2506,12 +2555,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. All pool schema, executor SSH routing, Codex HTTP sessions/metrics, REST pool-management domains and real disposable foreground-master cleanup require runtime/provider/host services. Existing process helpers alone do not require agents or schedules; preserve isolated child ownership proof and adapt HTTP management.",
+      "blocked_on": null,
       "inherited_sha256": "a49030a9d9eac9f6947cc0ee6eafa5d726843e9bf54c926ddd3191bf2adff369",
       "path": "tests/test_connection_pools.py",
-      "qualification_group": "phase2-step-5-headless",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "All pool schema, executor SSH routing, Codex HTTP sessions/metrics, REST pool-management domains and real disposable foreground-master cleanup require runtime/provider/host services. Existing process helpers alone do not require agents or schedules; preserve isolated child ownership proof and adapt HTTP management.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_observability_neutral.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "SSH host runtime",
@@ -3142,12 +3198,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Knowledge hashing/dedup, schema/migrations and durable ingestion belong to explicit runtime knowledge management, not conversation search or app-only HTTP.",
+      "blocked_on": null,
       "inherited_sha256": "f77544f1c865bf02a3ec432b5d7707081e7bfcab37aba8e9c7a41df97a204af8",
       "path": "tests/test_knowledge_dedup.py",
-      "qualification_group": "phase2-runtime-knowledge",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Knowledge hashing/dedup, schema/migrations and durable ingestion belong to explicit runtime knowledge management, not conversation search or app-only HTTP.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_knowledge_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "knowledge storage",
@@ -3184,12 +3247,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Knowledge version schema, migrations, snapshots and ingestion history belong to the explicit knowledge service, not conversation search.",
+      "blocked_on": null,
       "inherited_sha256": "cfe23cff2e90e9f1a8e2e589fe7ceb5eb1c79e7b91b7af83a01b28d05dbdc147",
       "path": "tests/test_knowledge_versions.py",
-      "qualification_group": "phase2-runtime-knowledge",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Knowledge version schema, migrations, snapshots and ingestion history belong to the explicit knowledge service, not conversation search.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_knowledge_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "knowledge versions",
@@ -3197,12 +3267,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Retained learned-context CRUD remains available when generation is disabled; preserve that distinction through knowledge/settings services instead of legacy routes.",
+      "blocked_on": null,
       "inherited_sha256": "d69a0a0e9ce26a14e502ad98087647ac194611ba4bb450c7c70636f5ebb2cd87",
       "path": "tests/test_learning_disabled_crud.py",
-      "qualification_group": "phase2-runtime-learning",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Retained learned-context CRUD remains available when generation is disabled; preserve that distinction through knowledge/settings services instead of legacy routes.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_knowledge_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "learned-context storage",
@@ -3310,12 +3387,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Audit/log filtering and observability projection become bounded scrubbed Desktop records reads. Retain search assertions, replacing HTTP registrar presentation.",
+      "blocked_on": null,
       "inherited_sha256": "8df01eb2ba4d492eb9d99c8f21a5e8de78014fb4ab29ce064d93cc01e239d84d",
       "path": "tests/test_log_search.py",
-      "qualification_group": "phase2-runtime-records",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Audit/log filtering and observability projection become bounded scrubbed Desktop records reads. Retain search assertions, replacing HTTP registrar presentation.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_records_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "audit/log search",
@@ -3698,12 +3782,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Provider catalogue cache/auth scope, scrubbed refresh errors, policy selection/persistence, diagnostics, model eligibility and cancellation are runtime provider-management contracts. Replace routes with named Desktop commands, keeping provider helper/fault assertions and no network traffic.",
+      "blocked_on": null,
       "inherited_sha256": "8c40036891cba7438efd85f569aa31be8cfcce668c17e9887ab9350f97552e17",
       "path": "tests/test_openrouter_admin_boundaries.py",
-      "qualification_group": "phase2-runtime-providers",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Provider catalogue cache/auth scope, scrubbed refresh errors, policy selection/persistence, diagnostics, model eligibility and cancellation are runtime provider-management contracts. Replace routes with named Desktop commands, keeping provider helper/fault assertions and no network traffic.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_llm_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "provider catalogue",
@@ -4097,12 +4188,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Retains tool classification/retry and recovery statistics/configuration assertions. Adapt legacy stats endpoints to named runtime records reads; runtime management is later than pure recovery helpers.",
+      "blocked_on": null,
       "inherited_sha256": "ca668c6b04afc607b73312fa113a5dd5b0cb29dfa7e01ca973d20fa31285eab3",
       "path": "tests/test_recovery.py",
-      "qualification_group": "phase2-runtime-records",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Retains tool classification/retry and recovery statistics/configuration assertions. Adapt legacy stats endpoints to named runtime records reads; runtime management is later than pure recovery helpers.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_observability_neutral.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "tool recovery",
@@ -4773,12 +4871,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Trajectory records, persistence/search and old list/read endpoints require runtime records service over recorder step3. Replace HTTP projections with bounded named record reads, preserving path/error/filter semantics.",
+      "blocked_on": null,
       "inherited_sha256": "24d4529b88240c5a4e875545bbe16fc9413cbc5131791e9b2d919bdf3a3b1d08",
       "path": "tests/test_trajectories.py",
-      "qualification_group": "phase2-runtime-records",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Trajectory records, persistence/search and old list/read endpoints require runtime records service over recorder step3. Replace HTTP projections with bounded named record reads, preserving path/error/filter semantics.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_traces_frozen.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "trajectory recording",
@@ -4992,12 +5097,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real knowledge FTS/dedup/version/import/restore durability plus memory and learned-context CRUD/concurrency require runtime knowledge/state/management. Preserve invalid-query versus storage-error distinction and whole-request authorization-before-mutation; replace multi-user HTTP presentation with profile/conversation isolation without owner allow-lists.",
+      "blocked_on": null,
       "inherited_sha256": "a84b2df4f781a34395ffda41d2ac7ecc0f0b35082a0266ae781fbc99ade750dc",
       "path": "tests/test_web_api_knowledge_mem.py",
-      "qualification_group": "phase2-runtime-knowledge-state",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Real knowledge FTS/dedup/version/import/restore durability plus memory and learned-context CRUD/concurrency require runtime knowledge/state/management. Preserve invalid-query versus storage-error distinction and whole-request authorization-before-mutation; replace multi-user HTTP presentation with profile/conversation isolation without owner allow-lists.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_knowledge_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "knowledge storage",
@@ -5028,12 +5140,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Despite broad docstring this suite only calls the affordance endpoint and checks actual run_command cost/risk table values. Adapt named runtime management metadata projection; retain original table assertions, no fabricated route inventory.",
+      "blocked_on": null,
       "inherited_sha256": "7fe8c3706f7d9c08ae7b2412af59007abb77a7dfd88348e15e605b18d439239f",
       "path": "tests/test_web_api_new_endpoints.py",
-      "qualification_group": "phase2-runtime-records",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Despite broad docstring this suite only calls the affordance endpoint and checks actual run_command cost/risk table values. Adapt named runtime management metadata projection; retain original table assertions, no fabricated route inventory.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_llm_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "runtime tool metadata",
@@ -5041,12 +5160,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Named audit/log/usage/context/stat reads and tool timeout/builtin desired-state writes test bounds, save/publish failure, cancellation settlement and honest unknown durations. Managers are stat collaborators, not executed agents/loops; runtime records/settings own the last surface.",
+      "blocked_on": null,
       "inherited_sha256": "1765d74d7ec40651c9cf21c24033b2192e99db3517b2d603a09105c6fc916c4f",
       "path": "tests/test_web_api_observability.py",
-      "qualification_group": "phase2-runtime-records",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Named audit/log/usage/context/stat reads and tool timeout/builtin desired-state writes test bounds, save/publish failure, cancellation settlement and honest unknown durations. Managers are stat collaborators, not executed agents/loops; runtime records/settings own the last surface.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_observability_http.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "audit and log records",
@@ -5151,12 +5277,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Read-only coherent WAL turn posture/unresolved-effect inspection is step4, but actual capacity-breaker/runtime status projection and unavailable/boot labels require step5. Preserve census versus attention distinctions, omission counts, secret exclusion and no write-lock mutation through named controls/runtime views.",
+      "blocked_on": null,
       "inherited_sha256": "23a20c4e9b712c53499bf638abe64cbb654e681a1ff675bd4de1882d6c0067e3",
       "path": "tests/test_web_api_turn_state.py",
-      "qualification_group": "phase2-runtime-turn-state",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Read-only coherent WAL turn posture/unresolved-effect inspection is step4, but actual capacity-breaker/runtime status projection and unavailable/boot labels require step5. Preserve census versus attention distinctions, omission counts, secret exclusion and no write-lock mutation through named controls/runtime views.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_observability_turn_state.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "turn posture",
@@ -5198,12 +5331,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Subscription/current-policy matrix, publication-versus-inflight-delivery fencing and complete-newline log tailing depend on runtime credential and records publication over core events. Preserve no post-revocation leak and partial-record withholding; replace retired tier/token carriers with genuine local identity provenance.",
+      "blocked_on": null,
       "inherited_sha256": "3e997d843f5d6e171c476526cc2b1a16de3236292a565b2d8a734f90c402697c",
       "path": "tests/test_web_campaign_streams.py",
-      "qualification_group": "phase2-runtime-records",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Subscription/current-policy matrix, publication-versus-inflight-delivery fencing and complete-newline log tailing depend on runtime credential and records publication over core events. Preserve no post-revocation leak and partial-record withholding; replace retired tier/token carriers with genuine local identity provenance.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_records_corpus.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "event streams",
@@ -5416,12 +5556,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Actual TrajectorySaver filtering occurs before limit, including zero limit, and route projection forwards all filters while retaining path guards. This is runtime records behavior, not app rendering despite filename; preserve original selected-file retrieval semantics through named record reads.",
+      "blocked_on": null,
       "inherited_sha256": "1debb7f9aa4dd9e610f149b4611fc7e36c67c1a885b49b0151d26016b486babc",
       "path": "tests/test_webui_selected_trace_filters.py",
-      "qualification_group": "phase2-runtime-records",
+      "qualification_group": "phase2-step5-profile-management",
       "reason": "Actual TrajectorySaver filtering occurs before limit, including zero limit, and route projection forwards all filters while retaining path guards. This is runtime records behavior, not app rendering despite filename; preserve original selected-file retrieval semantics through named record reads.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Entire source-hash-bound frozen suite, with identical assertions, test signatures, decorators and parameter data. Explicit setup projections call actual named management owners; retired tier assertions remain sealed historical policy proofs, not Desktop tiers or production transport.",
+        "selectors": [
+          "tests/test_desktop_step5_traces_frozen.py"
+        ]
+      },
+      "status": "restored",
       "step": 5,
       "surfaces": [
         "trajectory records",
