@@ -8,7 +8,7 @@ import type { ConversationSnapshot } from '../shared/api'
 
 const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-// Reviewed conversation/request and Step 6A management surface; never derive expectations from welcome.
+// Reviewed conversation/request, management and background surface; never derive expectations from welcome.
 export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
   'artifacts.read', 'tool.detail', 'tool.output',
@@ -25,6 +25,9 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover', 'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
   'control.stop', 'control.steer', 'control.resume',
+  'work.list', 'work.control', 'reports.page',
+  'schedules.list', 'schedules.save', 'schedules.delete', 'schedules.run',
+  'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron',
   'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete', 'webhooks.outbound.test', 'integrations.email.get',
   'skills.list', 'skills.get', 'skills.validate', 'skills.save', 'skills.delete', 'skills.test',
   'skills.set_enabled', 'skills.config.get', 'skills.config.set',
@@ -75,9 +78,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
   }
 
-  // Part B dispatch, work and schedules remain genuine refusals. The approved
-  // owner-only skill Test does not grant background dispatch or native input.
-  for (const method of ['work.list', 'schedules.list', 'turns.create',
+  // Raw dispatch aliases and foreground input remain genuine refusals. Served
+  // work management does not grant arbitrary RPC execution or native input.
+  for (const method of ['turns.create',
     'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
     assert(!status.capabilities.includes(method), `${method} must not be advertised as served`)
     const refused = await broker.request(method)
@@ -85,7 +88,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   }
 
   const reads: Record<string, unknown> = {}
-  for (const method of ['settings.schema', 'usage.get', 'personality.get', 'tools.list', 'tools.timeouts.get', 'hosts.list', 'memory.list', 'lists.list', 'knowledge.list', 'health.get', 'audit.query', 'logs.search', 'turn_state.list', 'skills.list', 'mcp.list', 'mcp.status', 'computer.status']) {
+  for (const method of ['settings.schema', 'usage.get', 'personality.get', 'tools.list', 'tools.timeouts.get', 'hosts.list', 'memory.list', 'lists.list', 'knowledge.list', 'health.get', 'audit.query', 'logs.search', 'turn_state.list', 'skills.list', 'mcp.list', 'mcp.status', 'computer.status', 'work.list', 'schedules.list', 'schedules.history']) {
     const answer = await broker.request(method)
     assert(answer.ok, `${method} management read must succeed`)
     reads[method] = answer.result
@@ -94,6 +97,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert(!accounts.ok && accounts.error.code === 'keyring_unavailable', 'isolated profile must honestly report missing system keyring, not invent accounts')
   reads['codex.accounts.list'] = accounts
   assert.deepEqual(reads['lists.list'], { items: [] })
+  assert.deepEqual(reads['work.list'], { items: [] })
+  assert.deepEqual(reads['schedules.list'], [])
+  assert.deepEqual(reads['schedules.history'], [])
   assert.deepEqual(reads['skills.list'], [], 'fresh skills list is a served array, not an items wrapper')
   for (const method of ['mcp.list', 'mcp.status']) {
     const mcp = reads[method] as { servers: unknown[]; server_count: number; configured_servers: string[];
@@ -118,7 +124,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert(!('input_dispatch' in computer), 'management status must not grant an input dispatch binding')
   assert.deepEqual(reads['audit.query'], [])
   assert.deepEqual(reads['logs.search'], { entries: [], count: 0 })
-  assert.equal((reads['turn_state.list'] as { availability: string }).availability, 'not_enabled')
+  assert.equal((reads['turn_state.list'] as { availability: string }).availability, 'available')
   assert.deepEqual((reads['usage.get'] as { tokens: unknown }).tokens, { value: null, kind: 'unknown' })
   assert((reads['settings.schema'] as { fields: unknown[] }).fields.length > 0, 'real management schema must contain fields')
 

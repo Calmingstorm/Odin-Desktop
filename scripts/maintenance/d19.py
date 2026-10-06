@@ -200,6 +200,47 @@ def load_source(root):
     return rows, findings
 
 
+def restored_fragment_proof(root, fragment, proof, row, observations):
+    """A mixed row may retire one absent fragment, never its retained remainder."""
+    if (fragment not in row["strings"] or not isinstance(proof, dict)
+            or set(proof) != {"evidence_tests", "source_targets", "proof_limit"}
+            or not isinstance(proof.get("proof_limit"), str)
+            or not proof["proof_limit"].strip()):
+        return False
+    if any(fragment in item.get("matched_strings", [])
+           and item["reachability"] != "absent" for item in observations):
+        return False
+    tests = proof.get("evidence_tests")
+    if (not isinstance(tests, list) or not tests
+            or any(not test_reference_exists(root, test) for test in tests)):
+        return False
+    targets = proof.get("source_targets")
+    if not isinstance(targets, list) or not targets:
+        return False
+    for target in targets:
+        if (not isinstance(target, dict) or set(target) != {"path", "selector"}
+                or not isinstance(target["path"], str)
+                or not isinstance(target["selector"], str)):
+            return False
+        path = Path(target["path"])
+        if (path.is_absolute() or ".." in path.parts
+                or not target["path"].startswith("src/") or path.suffix != ".py"
+                or not (root / path).resolve().is_relative_to(root.resolve() / "src")):
+            return False
+        try:
+            scope = ast.parse((root / path).read_text(encoding="utf-8"))
+            for name in target["selector"].split("."):
+                matches = [node for node in getattr(scope, "body", [])
+                           if isinstance(node, (ast.ClassDef, ast.FunctionDef,
+                                                ast.AsyncFunctionDef)) and node.name == name]
+                if len(matches) != 1:
+                    return False
+                scope = matches[0]
+        except (OSError, SyntaxError):
+            return False
+    return True
+
+
 def validate(inventory, rows, findings, root):
     errors = []
     if not isinstance(inventory, dict):
@@ -283,7 +324,19 @@ def validate(inventory, rows, findings, root):
                                   for path in paths) for paths in fragment_paths.values())):
                 errors.append(f"{ident}: invalid pending fragment source paths")
                 fragment_paths = {}
+            restored = record.get("restored_fragments", {})
+            if (not isinstance(restored, dict)
+                    or any(key not in row["strings"] for key in restored)
+                    or len(restored) >= len(row["strings"])):
+                errors.append(f"{ident}: invalid partial restoration fragments")
+                restored = {}
             for fragment in row["strings"]:
+                if fragment in restored:
+                    if not restored_fragment_proof(
+                            root, fragment, restored[fragment], row, observations):
+                        errors.append(f"{ident}: partial restoration requires absent fragment, "
+                                      "existing source targets and named runtime evidence")
+                    continue
                 for path in fragment_paths.get(fragment, [row["source_path"]]):
                     if not any(i["path"] == path and i["reachability"] == "active"
                                and fragment in i.get("matched_strings", []) for i in observations):
