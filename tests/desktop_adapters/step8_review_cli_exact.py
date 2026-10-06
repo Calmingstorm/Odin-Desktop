@@ -1,8 +1,8 @@
-"""Unqualified alternative: compile every frozen assertion, observe real IPC.
+"""Round-2 CLI replay: six original executions, three approved HTTP retirements.
 
-The six transport-independent executions can replay unchanged assertions. The
-three obsolete HTTP executions are deliberately probed, not retired or passed.
-No wrapper exposes synthetic full_url/get_header/data fields.
+Only no-transport setup changes to the real LocalClient.connect boundary. The
+complete frozen AST stays compiled; discovery excludes exactly the two approved
+HTTP cases (three parametrized executions), never their assertion bodies.
 """
 from __future__ import annotations
 
@@ -12,23 +12,26 @@ import hashlib
 from types import ModuleType
 
 from scripts.maintenance.fixture_corpus import corpus, dump, frozen_source
+from scripts.maintenance.fixture_corpus import register_module as shared_register_module
 
 SOURCE_PATH = "tests/test_campaign_cli_coverage.py"
 SOURCE_SHA256 = "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b"
 CORPUS_SELECTIONS = {"test_campaign_cli_coverage": None}
-CORPUS_EXCLUSIONS = {}
-# These setup-only rules are experimental, not an admitted suite-map change.
+CORPUS_EXCLUSIONS = {"test_campaign_cli_coverage": [
+    {"case": "test_piped_prompt_and_environment_build_real_authenticated_request",
+     "reviewer": "Claude, review of #35, round 2",
+     "reason": "HTTP API client replaced by the authenticated local IPC client",
+     "source_path": "tests/test_campaign_cli_coverage.py",
+     "source_sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b"},
+    {"case": "test_transport_failure_is_nonzero_even_in_json_mode",
+     "reviewer": "Claude, review of #35, round 2",
+     "reason": "HTTP API client replaced by the authenticated local IPC client",
+     "source_path": "tests/test_campaign_cli_coverage.py",
+     "source_sha256": "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b"},
+]}
 SETUP_RULES = (
     (19, 'monkeypatch.setattr(cli.urllib.request, "urlopen", transport)',
      "monkeypatch.setattr(cli.local_client.LocalClient, 'connect', transport)"),
-    (30, 'monkeypatch.setattr(cli.sys, "argv", ["odin", "hello", "--json"])',
-     "monkeypatch.setattr(cli.sys, 'argv', ['odin', *ipc_arguments, 'hello', '--json'])"),
-    (31, 'monkeypatch.setattr(cli.urllib.request, "urlopen", Mock(side_effect=error))',
-     "arm_real_failure(error)"),
-    (41, 'monkeypatch.setattr(cli.sys, "argv", ["odin", "--timeout", "12"])',
-     "monkeypatch.setattr(cli.sys, 'argv', ['odin', *ipc_arguments, '--timeout', '12'])"),
-    (53, 'monkeypatch.setattr(cli.urllib.request, "urlopen", transport)',
-     "retain_original_transport(transport)"),
     (70, 'monkeypatch.setattr(cli.urllib.request, "urlopen", network)',
      "monkeypatch.setattr(cli.local_client.LocalClient, 'connect', network)"),
 )
@@ -74,10 +77,24 @@ def adapt(source, *, rules=None):
     return original, tree
 
 
-def load(**bindings):
+def register_module(namespace, module, *, prefix=None, excluded=()):
+    """Project pytest discovery only, never substitute test functions/assertions."""
+    expected = [item["case"] for item in
+                CORPUS_EXCLUSIONS["test_campaign_cli_coverage"]]
+    if list(excluded) != expected or len(set(excluded)) != len(excluded):
+        raise ValueError("CLI exact approved retirement projection changed")
+    exposed = ModuleType(module.__name__ + "_exposed")
+    exposed.__dict__.update({name: value for name, value in vars(module).items()
+                             if name not in excluded})
+    shared_register_module(namespace, exposed, prefix=prefix)
+
+
+def load(namespace):
     original, tree = adapt(frozen_source(SOURCE_PATH))
     module = ModuleType("frozen_step8_review_cli_exact")
     module.__file__ = SOURCE_PATH
-    module.__dict__.update(bindings)
     exec(compile(tree, SOURCE_PATH, "exec"), module.__dict__)
+    stem = "test_campaign_cli_coverage"
+    register_module(namespace, module, prefix=stem,
+                    excluded=[item["case"] for item in CORPUS_EXCLUSIONS.get(stem, ())])
     return module, original, tree
