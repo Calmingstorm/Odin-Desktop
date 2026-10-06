@@ -112,6 +112,61 @@ async def test_startup_status_schema_no_unlock(core, collection):
     assert collection.unlock_calls == 0 and collection.calls > 0
 
 
+async def test_unlocked_startup_shares_hydrated_request_and_management_owner(tmp_path, collection):
+    collection.locked = False
+    collection.values["openai_compatible.api_key"] = "private-fixture"
+    paths, socket_path, token_file = profile(tmp_path)
+    read_fd, write_fd = os.pipe()
+    service = CoreService(paths, socket_path, token_file)
+    try:
+        await service.start(read_fd)
+        settings = service.settings
+        assert settings is service.management.settings
+        assert settings._keyring_error is None
+        assert settings.config.openai_compatible.api_key == "private-fixture"
+        assert service.management.providers is service.engine.deps.llm_gateway
+        assert service.management.executor is service.engine.deps.tool_executor
+        assert collection.unlock_calls == 0 and collection.calls > 0
+    finally:
+        await service.close()
+        os.close(read_fd)
+        os.close(write_fd)
+
+
+async def test_startup_codex_vault_and_client_build_run_off_loop():
+    from types import SimpleNamespace
+
+    from src.desktop.services import EngineServices
+
+    client = object()
+    calls = []
+
+    def off_loop(name):
+        with pytest.raises(RuntimeError):
+            asyncio.get_running_loop()
+        calls.append(name)
+
+    def read():
+        off_loop("read")
+        return [{"access_token": "private-fixture"}]
+
+    def build(provider, config):
+        off_loop("build")
+        assert provider == "codex"
+        return client
+
+    gateway = SimpleNamespace(
+        settings=SimpleNamespace(config=SimpleNamespace(openai_codex=SimpleNamespace(enabled=True))),
+        codex_client=None, codex_accounts=SimpleNamespace(vault=SimpleNamespace(read=read)),
+        _build=build, active_client=None,
+    )
+    engine = EngineServices(SimpleNamespace(llm_gateway=gateway), None)
+    await engine.initialize_profile_provider()
+    assert gateway.codex_client is client and calls == ["read", "build"]
+    await engine.initialize_profile_provider()
+    assert calls == ["read", "build"]
+
+
 async def test_retry_one_unlock_rehydrates_and_replays(core, collection):
     service, reader, writer, *_ = core
     collection.values["openai_compatible.api_key"] = "private-fixture"

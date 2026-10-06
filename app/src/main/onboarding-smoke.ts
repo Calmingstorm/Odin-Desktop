@@ -142,9 +142,14 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     assert.equal((await request<{ first_run: FirstRun }>('status.get')).first_run.state, 'fresh', 'setup later never marks provider complete')
     checks.push('setup-later', 'section-reentry', 'defaults')
   } else if (scenario === 'ready-second') {
+    await observeState('effective-ready')
+    await preferences(true)
+    checks.push('startup-provider-adopted')
+  } else if (scenario === 'saved-second') {
     await observeState('saved')
     await preferences(true)
     await section('Models and providers')
+    control({ startup_provider_unavailable: false })
     const previous = String(await savedValue('llm_provider.model'))
     await model(previous.endsWith('gpt-5.4') ? 'codex:gpt-5.3-codex' : 'codex:gpt-5.4')
     await observeState('effective-ready')

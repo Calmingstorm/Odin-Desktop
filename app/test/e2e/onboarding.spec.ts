@@ -111,11 +111,20 @@ describe('real app/core first-run onboarding', () => {
     expect(ready.checks).toEqual(expect.arrayContaining(['revision-retry', 'connection-retry', 'provider-save-retry', 'degraded-health-recovery', 'canceled-login', 'expired-login', 'secret-cleared', 'secret-readback-absent']))
   })
 
-  it('saved model on second launch is not effective until the real provider owner adopts it; app defaults persist', async () => {
+  it('healthy second launch adopts its persisted provider; app defaults persist', async () => {
     const second = await launch('ready-second', 'onboarding-ready', { keyring: 'healthy', auth: 'success', authorized: true })
-    expect(second.states).toContain('saved')
     expect(second.states).toContain('effective-ready')
     expect(second.checks).toContain('preferences-persisted')
+    expect(second.checks).toContain('startup-provider-adopted')
+  })
+
+  it('failed startup provider construction stays saved until the real owner adopts a retry', async () => {
+    const second = await launch('saved-second', 'onboarding-ready', {
+      keyring: 'healthy', auth: 'success', authorized: true, startup_provider_unavailable: true
+    })
+    expect(second.states).toContain('saved')
+    expect(second.states).toContain('effective-ready')
+    expect(second.checks).toContain('saved-not-effective')
   })
 
   for (const keyring of ['locked', 'missing']) {

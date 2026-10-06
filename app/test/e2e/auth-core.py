@@ -75,7 +75,8 @@ def assert_isolation() -> Path:
 
 class Control:
     _KEYS = frozenset({"keyring", "auth", "probe_failure", "saved_only", "unlock_calls",
-                       "guard_degraded", "authorized", "provider_mode", "provider"})
+                       "guard_degraded", "authorized", "provider_mode", "provider",
+                       "startup_provider_unavailable"})
 
     def __init__(self, root: Path):
         self.root = root
@@ -107,7 +108,8 @@ class Control:
             refuse("invalid auth control")
         if type(value.get("unlock_calls", 0)) is not int or not 0 <= value.get("unlock_calls", 0) <= 100:
             refuse("invalid unlock count")
-        for key in ("probe_failure", "saved_only", "guard_degraded", "authorized"):
+        for key in ("probe_failure", "saved_only", "guard_degraded", "authorized",
+                    "startup_provider_unavailable"):
             if key in value and type(value[key]) is not bool:
                 refuse("control flags must be booleans")
         for key in ("provider_mode", "provider"):
@@ -257,6 +259,13 @@ async def run(root: Path, control: Control) -> int:
             # No positive-health admission gate: the real matching adopted graph
             # is effective. This guard supplies only explicit observed failure;
             # it never substitutes for construction/adoption or a generation.
+
+        def _build(self, provider, config, **kwargs):
+            if control.read().get("startup_provider_unavailable"):
+                from src.desktop.management import MethodError
+
+                raise MethodError("unavailable", "Synthetic startup provider unavailable")
+            return super()._build(provider, config, **kwargs)
 
         async def _probe_openai_compatible(self, candidate):
             return "Synthetic provider qualification failed" if control.read().get("probe_failure") else None

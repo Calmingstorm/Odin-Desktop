@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .paths import private_directory
+from .schema import validate_domains
 
 
 class JournalStorageError(RuntimeError):
@@ -116,7 +117,8 @@ class JournalStore:
             if existing:
                 tables = {row[0] for row in self.connection.execute(
                     "SELECT name FROM sqlite_master WHERE type='table'")}
-                if tables != {"journal_meta", "command_receipts", "journal_events"}:
+                if not validate_domains(self.connection, tables,
+                                        {"journal_meta", "command_receipts", "journal_events"}):
                     raise JournalStorageError()
                 rows = self.connection.execute(
                     "SELECT profile_id,identity FROM journal_meta").fetchall()
@@ -141,7 +143,7 @@ class JournalStore:
                 tables = {row[0] for row in self.connection.execute(
                     "SELECT name FROM sqlite_master WHERE type='table'")}
                 expected = {"journal_meta", "command_receipts", "journal_events"}
-                if existing and tables != expected:
+                if existing and not validate_domains(self.connection, tables, expected):
                     raise JournalStorageError()
                 self.connection.execute("""CREATE TABLE IF NOT EXISTS journal_meta (
                     singleton INTEGER PRIMARY KEY CHECK(singleton=1),

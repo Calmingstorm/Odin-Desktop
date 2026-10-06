@@ -112,7 +112,7 @@ class ProviderOwner(LLMGateway):
         }
     )
 
-    def __init__(self, settings, codex, executor=None):
+    def __init__(self, settings, codex, executor=None, **gateway_dependencies):
         self.settings = settings
         self.codex_accounts = codex
         self.executor = executor
@@ -121,7 +121,7 @@ class ProviderOwner(LLMGateway):
         self._closed = False
         self.tool_catalog = getattr(executor, "tool_catalog", None)
         self.prompt_builder = getattr(executor, "prompt_builder", None)
-        super().__init__(
+        dependencies = dict(
             get_config=lambda: self.settings.config,
             codex_client=None,
             ollama_client=None,
@@ -132,6 +132,8 @@ class ProviderOwner(LLMGateway):
             sessions=getattr(executor, "sessions", None),
             reflector=getattr(executor, "reflector", None),
         )
+        dependencies.update(gateway_dependencies)
+        super().__init__(**dependencies)
 
     @property
     def main(self):

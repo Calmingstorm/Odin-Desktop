@@ -9,12 +9,12 @@ from src.desktop import core
 from src.desktop.commands import CommandJournal, JournalStorageError, JournalStore, response_error
 from tests.test_desktop_core_lifecycle import connect, profile, receive, request, send
 
+# Both conversation/search and management reads are now served. Keep only methods
+# unavailable in the composed core, not either branch's pre-composition list.
 UNAVAILABLE = (
-    "work.list", "search.query", "notifications.ack",
-    "conversations.create", "conversations.update", "submission.send", "control.stop",
-    "control.steer", "conversations.list", "messages.list", "conversation.snapshot",
+    "work.list", "control.stop", "control.steer",
     "unknown.method",
-    "messages.around", "artifacts.read", "reports.page", "tool.detail", "tool.output",
+    "reports.page",
     "skills.list", "skills.get", "skills.config.get", "mcp.list", "mcp.status", "mcp.tools",
     "schedules.list", "schedules.history", "schedules.validate_cron", "computer.status",
 )
