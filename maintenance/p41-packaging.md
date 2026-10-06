@@ -2,6 +2,26 @@
 
 ## Last main merge, 2026-10-06
 
+**Moving-main addendum:** #23 landed while #22's rebuilt candidates completed
+all three extracted/installed real-core and sandbox-intact GUI lanes. A second
+two-parent merge therefore adopts
+`main@4ea7aa0f3b423a301854a9f0bdd2a46bc92d9d7b`. Only the ledger conflicted,
+with one same-source providers entry regenerated to combine exact witnesses.
+The ledger now retains 307 entries. Drift/lint/plan and the same 143 focused /
+39 packaging cases pass again. #23 changes six shipped engine files; both
+formats were rebuilt again. No full qualification is claimed for this step.
+
+Latest candidates supersede the #22-only identity below:
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `odin-desktop-0.1.0-candidate-amd64.deb` | 341802466 | `aab1f16f2321956256c908e72fede5ba792b19b5340952c6bf799e1fe86e63d2` |
+| `odin-desktop-0.1.0-candidate-x86_64.AppImage` | 489644585 | `febeeacad714ca276be222985ef7405c3322830a85f0a13d594d55cc3d8c6889` |
+
+Latest resource manifest: 8,481 files/links, 975,600,311 bytes, SHA-256
+`046716680976d48c7a3fc1ab0e5ea327f257cfbad9f926d9ceb4e634267ae6f7`.
+Additional evidence is `last-main-20261006/controls-merge/`.
+
 Two-parent merge of `main@d546c44c29388225015f20747c55930413b03f75`
 (#22 request/delivery composition) into the previous head `8907b96a`.
 Only the delta ledger conflicted. The supplied key-based merge retained 299
