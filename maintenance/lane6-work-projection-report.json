@@ -89,7 +89,7 @@
   ],
   "artifact_sha256": {
     "src/desktop/work.py": "4ab6ebf5e8f7738860c95573d0a797e08f2acd9c4a6c5a789040cd57fbf09b81",
-    "src/desktop/settings.py": "5998e2350539f989a02877711836e3e484ab95b73a69d06ed7a7cdd7302c5ca8",
+    "src/desktop/settings.py": "ec99abff39911a195457afd09739ba3c5b1e9b8acb58d5891271e8c7ecca40a6",
     "src/desktop/work_loops.py": "353cb5edcef905f67ef2929c2f0befd4d9dc668eac2a108cc7398c21e9c32399",
     "src/desktop/work_policy.py": "83ad85d863b1dd4df5de55fb718c062214864930f3ddc5f6c347f7f7f3fae196",
     "tests/desktop_adapters/lane6_work_projection_finish.py": "e924aa6bad5396695697e85a00f824ee5419a2998989b155765238d8bb028255",
