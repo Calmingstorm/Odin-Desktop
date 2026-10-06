@@ -11,7 +11,7 @@ corrections. No product code, test assertions, protocol, release workflow or dep
   two-parent development-branch merge; no GitHub PR was merged by this work. Its delta is isolation/CI/test-wait and
   packaging-test portability work, not a user-feature release. The docs explain both watermarks.
 - Final fresh-checkout execution source: `9ea63666106bd7d912cf95871af98db23fddc6c0`.
-  The subsequent commit adds this evidence only.
+  The subsequent commits add this evidence only.
 - Open service/ownership/notice branches were read, not merged into a combined test candidate:
   #28 `2d91071a692a646b6d8c466daa5711a37cd8c93f`, #37 `4ede9e75fb079a0a305c7b24f89700d7fb7c4416`,
   #36 `30402eb95154d9a4d3076fb5cae165771d4aee36`, #39 `1c48529b0af3ad18d9c413882166cb6ee40702d1`,
@@ -85,6 +85,12 @@ the harmless HTTP effect was admitted. The failure is observed startup readiness
 regression or a clean no-replay pass. No deadline/assertion changed and no retry is counted as qualification.
 The launcher reported failure and verified owned process cleanup. Final native/installed-candidate gates remain open.
 
+After preserving that failure, an unchanged, isolated **diagnostic-only** invocation selected the one failed case
+through the existing lifecycle wrapper: `node scripts/lifecycle-e2e.mjs admitted-work.spec.ts --grep 'completes while hidden'`.
+It passed **1 case in 9.9 seconds**, with retained evidence under
+`/home/odin/desktop-p44-diagnostic-lifecycle-evidence/`. This suggests timing sensitivity, not a demonstrated root
+cause. It is not a clean full gate, not an automatic command replay and is not combined into a 29-pass qualification.
+
 The successful a11y gate emitted private-session portal/FUSE/GVFS and bus warnings. They were not suppressed or
 presented as successful real portal/keyring evidence. The final package suite's dpkg skip is explicitly not a pass.
 
@@ -123,6 +129,7 @@ Temporary synthetic smoke images were discarded by the runners. Final log SHA-25
 | `desktop-p44-final-lifecycle.log` | `e3b250e8dd1230fa99cc6d338a180156494124e37893eecad224d0ac343ba274` |
 | `desktop-p44-final-metadata-tests.log` | `bf2b69f6fdb1f85cb19d0ea08285fdc67d9e28af9525caadc2378fa56dd2d233` |
 | `desktop-p44-final-packaging-tests.log` | `82b11af6a258575111a5a17448196302727d8e376a9276f5074786a864d2a7cf` |
+| `desktop-p44-final-lifecycle-diagnostic.log` | `2828fe1300b137de5342a4bde64f59a3831d35d46c9bd58e814f5016cb91ff27` |
 
 Earlier exploratory logs: `desktop-p44-data-tests.log` SHA-256
 `6dcec17b40826829a5b83be8341ecbbcc1395d4d968ca2ab179a4e77a9ab54ac`, and
