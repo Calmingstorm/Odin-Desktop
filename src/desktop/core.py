@@ -8,11 +8,13 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
+from ..discord.turn_resume import TurnResumeManager
 from ..permissions.manager import PermissionManager
 from .artifacts import ArtifactStore, ResultReadError
 from .attachments import AttachmentError, AttachmentService
 from .authority import OwnerAuthority
 from .commands import CommandJournal, JournalStorageError, JournalStore
+from .controls import ControlService
 from .conversations import ConversationError, ConversationStore
 from .delivery import ArtifactPublisher, DurableDelivery, PublicationEventJournal
 from .ipc import IpcServer
@@ -37,10 +39,11 @@ SEARCH_METHODS = frozenset({"search.query", "messages.around"})
 ATTACHMENT_METHODS = frozenset({"attachments.begin", "attachments.chunk",
                                 "attachments.commit", "attachments.cancel"})
 RESULT_METHODS = frozenset({"artifacts.read", "tool.detail", "tool.output"})
+CONTROL_METHODS = frozenset({"control.stop", "control.steer", "control.resume"})
 CAPABILITIES = ("status.get", "events.subscribe", "runtime.shutdown",
                 "submission.send", "notifications.ack",
                 *sorted(CONVERSATION_METHODS | TRANSCRIPT_METHODS | SEARCH_METHODS
-                        | ATTACHMENT_METHODS | RESULT_METHODS))
+                        | ATTACHMENT_METHODS | RESULT_METHODS | CONTROL_METHODS))
 READ_METHODS = frozenset({
     "status.get", "events.subscribe", "conversations.list", "messages.list",
     "conversation.snapshot", "usage.get", "work.list", "settings.schema", "search.query",
@@ -206,6 +209,8 @@ class CoreService:
         self.settings = None
         self.engine = None
         self.requests = None
+        self.controls = None
+        self.resume_manager = None
         self.delivery = None
         self.attachments = None
         self.artifacts = None
@@ -301,12 +306,29 @@ class CoreService:
             permissions=self.permissions, authority=self.authority, delivery=self.delivery,
             attachments=self.attachments)
         self.engine.bind_requests(self.requests)
+        deps = self.engine.deps
+        if deps.turn_store is not None:
+            self.resume_manager = TurnResumeManager(
+                store=deps.turn_store, tool_loop=self.engine.runner, llm_gateway=deps.llm_gateway,
+                channel_state=deps.channel_state, sessions=deps.sessions, delivery=self.delivery,
+                permissions=self.permissions, tool_catalog=deps.tool_catalog,
+                get_config=deps.get_config, fetch_message=self.requests.fetch_message,
+                assert_preserved_request=self.requests.assert_preserved_request,
+                auto_resume_enabled=self.config.turn_state.auto_resume,
+                resume_ttl_hours=self.config.turn_state.resume_ttl_hours,
+                launch_auto_resume=self.requests.launch_auto_resume)
+            self.engine.runner._on_turn_suspended = self.resume_manager.on_turn_suspended
+        self.controls = ControlService(
+            self.store, self.events, self.requests, deps.channel_state,
+            authority=self.authority, permissions=self.permissions,
+            resume_manager=self.resume_manager)
         self.conversations.delete_hooks += (
             self.requests.delete_conversation, self.delivery.delete_conversation,
             self.artifacts.delete_conversation, self.tool_details.delete_conversation,
             lambda cid: self.attachments.delete_conversation(self.store.connection, cid),
         )
         self.requests.recover_interrupted()
+        self.controls.recover_after_restart()
         await self.delivery.recover()
         self.management = ManagementService.compose(self, settings=settings)
         self.capabilities = (*CAPABILITIES[:5],
@@ -429,6 +451,25 @@ class CoreService:
         owner = self.permissions.set_request_owner(connection.owner_context)
         committed = []
         try:
+            if request["method"] in CONTROL_METHODS or request["method"] == "submission.send":
+                async def admit_control():
+                    invalid = validate_params(request["method"], request["params"])
+                    if invalid:
+                        return invalid
+                    if not self.lifetime.admitting:
+                        return failure("busy", "Core is quiescing")
+                    if request["method"] == "submission.send":
+                        return await self.requests.handle_async(
+                            request["method"], request["params"], controls=self.controls)
+                    return await self.controls.dispatch(request["method"], request["params"])
+
+                result = await self.commands.execute_async(
+                    request["id"], request["method"], request["params"], admit_control)
+                if request["method"] == "submission.send":
+                    await self._after_command_commit(request["method"], request["params"], result)
+                async with self._serial:
+                    await self._flush_publications()
+                return {"t": "res", "id": request["id"], **result}
             response = await self._dispatch(connection, request, committed=committed)
             # Fresh commands alone run this seam, after journal/event commit
             # and outside _serial. Step four can attach asynchronous controls
@@ -589,6 +630,8 @@ class CoreService:
             # Failed cleanup must not release ownership beneath a surviving
             # execution task. The caller's containment exit remains the barrier.
             try:
+                if self.resume_manager is not None:
+                    await self.resume_manager.close()
                 if self.requests is not None:
                     await self.requests.close()
                 if self.engine is not None:

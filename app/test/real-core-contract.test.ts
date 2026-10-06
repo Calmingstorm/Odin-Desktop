@@ -46,7 +46,9 @@ describe('actual app Broker ↔ repository real core', () => {
     assertFreshManagementStatus(status)
     expect(status).toMatchObject({ phase: 'ready', core_instance_id: welcome.core.instance_id,
       version: welcome.core.version, capabilities,
-      limits: { attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10, chunk_bytes: 512 * 1024 } })
+      limits: { attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10, chunk_bytes: 512 * 1024 },
+      diagnostics: { turn_durability: { state: 'on', reason: null },
+        compatible_provider: { state: 'off', reason: null } } })
     // A configured model label is not provider readiness. No client is available on a fresh profile.
     expect(status).toMatchObject({ model: { main: expect.any(String), provider: 'codex' },
       providers: expect.arrayContaining([{ name: 'codex', health: 'unavailable' }]) })
