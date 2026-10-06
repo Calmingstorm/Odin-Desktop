@@ -1,0 +1,1831 @@
+{
+  "schema_version": 1,
+  "suites": [
+    {
+      "path": "tests/test_generated_api_reference.py",
+      "inherited_sha256": "56fc36128326f6f016f2876c16e8eb476a597b6bfeb819b67a5ba83067c94b67",
+      "status": "deferred",
+      "whole_restore": false,
+      "cases": [
+        {
+          "case": "test_committed_api_reference_is_byte_identical",
+          "original": "tests/test_generated_api_reference.py::test_committed_api_reference_is_byte_identical",
+          "definition_sha256": "9d6f2817d492cf7c4f92cc9118378e72452d1d445000b0a466e4f06e4faaf926",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Maintenance offline API-reference generator owner",
+          "blocker": "Retained committed generator drift invariant; legacy generator imports removed REST implementation, Desktop reference inventory projection missing.",
+          "reason": "Retained committed generator drift invariant; legacy generator imports removed REST implementation, Desktop reference inventory projection missing."
+        },
+        {
+          "case": "test_routes_exactly_match_characterization_method_path_name_and_order",
+          "original": "tests/test_generated_api_reference.py::test_routes_exactly_match_characterization_method_path_name_and_order",
+          "definition_sha256": "fcf61b0a57238fa842420f606220987a3e2d845421470e31a54fcbbb484c3b2f",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "rest-rbac",
+          "reason": "Exact removed 231 REST registration/handler ownership or multi-user/admin/local-admin middleware policy characterization; not retirement of offline generation/drift semantics.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "test_every_purpose_and_owner_come_from_the_registered_handler",
+          "original": "tests/test_generated_api_reference.py::test_every_purpose_and_owner_come_from_the_registered_handler",
+          "definition_sha256": "1a43e9bbf93fab564c41d39a958269a7f8451ca220ba7df27c5fdfa33117989f",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Maintenance offline API-reference generator owner",
+          "blocker": "Mixed removed REST handler ownership inventory with retained purpose/source-link introspection provenance; Desktop protocol/service generator projection missing, not a blanket documentation retirement.",
+          "reason": "Mixed removed REST handler ownership inventory with retained purpose/source-link introspection provenance; Desktop protocol/service generator projection missing, not a blanket documentation retirement."
+        },
+        {
+          "case": "test_authentication_policy_characterization",
+          "original": "tests/test_generated_api_reference.py::test_authentication_policy_characterization",
+          "definition_sha256": "0464a626b7632da9166da08ca899773a19a571811d0a0f2b475fdbd9f9f0d624",
+          "expanded_cases": 20,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='POST'), Constant(value='/api/auth/login'), Constant(value=False), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('POST', '/api/auth/login', False, False)",
+              "parameter_sha256": "042184737f9eba425c392aa9ac00d3319fbab8685591a36b424203b3b97dc90c",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('POST', '/api/auth/login', False, False)"
+            },
+            {
+              "index": 1,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='POST'), Constant(value='/api/auth/logout'), Constant(value=False), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('POST', '/api/auth/logout', False, False)",
+              "parameter_sha256": "d7d3a76ec37d95eb4170fc679b58b906e700d7e246e576358f9fc67ed75f5ad3",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('POST', '/api/auth/logout', False, False)"
+            },
+            {
+              "index": 2,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='GET'), Constant(value='/api/auth/session'), Constant(value=False), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('GET', '/api/auth/session', False, False)",
+              "parameter_sha256": "e70c8be2522a5ffa7d5620b7bc55e29c9095149dd0dc65420b50f5304b4980c6",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('GET', '/api/auth/session', False, False)"
+            },
+            {
+              "index": 3,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='POST'), Constant(value='/api/chat'), Constant(value=False), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('POST', '/api/chat', False, False)",
+              "parameter_sha256": "8ee880b30b757b30b7ce38c161670347443ace4edcf3a5fcc65f5f7ec3871ca8",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('POST', '/api/chat', False, False)"
+            },
+            {
+              "index": 4,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='POST'), Constant(value='/api/execute'), Constant(value=False), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('POST', '/api/execute', False, False)",
+              "parameter_sha256": "408abd4d3dd337b20bba0433427ab5e5fb85a3d746492b4b31c6b1dbee5e23c4",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('POST', '/api/execute', False, False)"
+            },
+            {
+              "index": 5,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='GET'), Constant(value='/api/sessions'), Constant(value=False), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('GET', '/api/sessions', False, False)",
+              "parameter_sha256": "e71fe1c1405c362899b7a75608586bba6e9156c21c35395ad8ba33e422595b73",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('GET', '/api/sessions', False, False)"
+            },
+            {
+              "index": 6,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='DELETE'), Constant(value='/api/sessions/{channel_id}'), Constant(value=False), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('DELETE', '/api/sessions/{channel_id}', False, False)",
+              "parameter_sha256": "f36563b5a89d4c6d42f070cc4c1a429b54df8750c2f79bbc3ab094daa97e051b",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('DELETE', '/api/sessions/{channel_id}', False, False)"
+            },
+            {
+              "index": 7,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='GET'), Constant(value='/api/status'), Constant(value=True), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('GET', '/api/status', True, False)",
+              "parameter_sha256": "b5b974038d222c1435749822810e992370d5d95ae028175dcddc38df7d51dc40",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('GET', '/api/status', True, False)"
+            },
+            {
+              "index": 8,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='GET'), Constant(value='/api/subsystems/status'), Constant(value=True), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('GET', '/api/subsystems/status', True, False)",
+              "parameter_sha256": "026d050d24250beb68a063f3f5dc26792c59cd98fc0198751c11280b0cba229a",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('GET', '/api/subsystems/status', True, False)"
+            },
+            {
+              "index": 9,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='GET'), Constant(value='/api/ollama/models'), Constant(value=True), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('GET', '/api/ollama/models', True, False)",
+              "parameter_sha256": "6ce05d905a4f1d8f79d80331ac17ba31d9e6175347e343486fac900769088587",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('GET', '/api/ollama/models', True, False)"
+            },
+            {
+              "index": 10,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='POST'), Constant(value='/api/ollama/model'), Constant(value=True), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('POST', '/api/ollama/model', True, False)",
+              "parameter_sha256": "036a0458cd447de8d1f7e875c67ca17789926d7ec82d1df9f3eff50f5d9342df",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('POST', '/api/ollama/model', True, False)"
+            },
+            {
+              "index": 11,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='GET'), Constant(value='/api/config'), Constant(value=True), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('GET', '/api/config', True, False)",
+              "parameter_sha256": "8deed4c1ff9d912c01dc14c5414773625d73089f1835d1b2a22f76a9ba7cd7ab",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('GET', '/api/config', True, False)"
+            },
+            {
+              "index": 12,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='POST'), Constant(value='/api/config/image-models'), Constant(value=True), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('POST', '/api/config/image-models', True, False)",
+              "parameter_sha256": "666f14b5cc84c9968e8815a2a62016e4b3a9ce37cf7d8b17fa0af2b285779cd8",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('POST', '/api/config/image-models', True, False)"
+            },
+            {
+              "index": 13,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='POST'), Constant(value='/api/mcp/limits'), Constant(value=True), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('POST', '/api/mcp/limits', True, False)",
+              "parameter_sha256": "7f90715c61502fae2d4dc4ee336c871a43650b4d117132f4ebf1fb9d29b4993a",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('POST', '/api/mcp/limits', True, False)"
+            },
+            {
+              "index": 14,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='POST'), Constant(value='/api/computer/reconcile'), Constant(value=True), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('POST', '/api/computer/reconcile', True, False)",
+              "parameter_sha256": "748005b260d70390907a1722b5093f34e3899e453b42ecc05136e4080314dc04",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('POST', '/api/computer/reconcile', True, False)"
+            },
+            {
+              "index": 15,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='GET'), Constant(value='/api/sessions/token-usage'), Constant(value=True), Constant(value=True)], ctx=Load())",
+              "frozen_expression": "('GET', '/api/sessions/token-usage', True, True)",
+              "parameter_sha256": "0568dbd81c3e4fb4c64af338e066d6d07375a90dd1848b398a1151ac1a084e90",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('GET', '/api/sessions/token-usage', True, True)"
+            },
+            {
+              "index": 16,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='GET'), Constant(value='/api/host-access'), Constant(value=True), Constant(value=True)], ctx=Load())",
+              "frozen_expression": "('GET', '/api/host-access', True, True)",
+              "parameter_sha256": "f42da4839c63681be4984d45ffcc4627b31dd44346172085a6e842ea1c635d63",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('GET', '/api/host-access', True, True)"
+            },
+            {
+              "index": 17,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='GET'), Constant(value='/api/hosts'), Constant(value=True), Constant(value=True)], ctx=Load())",
+              "frozen_expression": "('GET', '/api/hosts', True, True)",
+              "parameter_sha256": "c8fb0ee42ca7e048fa8f44a92e062d0f3164eb902492602a60880679971413bb",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('GET', '/api/hosts', True, True)"
+            },
+            {
+              "index": 18,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='GET'), Constant(value='/api/memory'), Constant(value=True), Constant(value=False)], ctx=Load())",
+              "frozen_expression": "('GET', '/api/memory', True, False)",
+              "parameter_sha256": "3b30344943ecc415b2d2bb9260d4c9789120130da1d99186195cc6a6786070f8",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('GET', '/api/memory', True, False)"
+            },
+            {
+              "index": 19,
+              "frozen_parameter_ast": "Tuple(elts=[Constant(value='GET'), Constant(value='/api/turn-state/turns'), Constant(value=True), Constant(value=True)], ctx=Load())",
+              "frozen_expression": "('GET', '/api/turn-state/turns', True, True)",
+              "parameter_sha256": "59a0fb94bef5bbcb9d35356a930e8bafba2bd0b6f029370fc19ea7d7a7ab6e39",
+              "disposition": "retired",
+              "reason": "Removed REST/RBAC row: ('GET', '/api/turn-state/turns', True, True)"
+            }
+          ],
+          "disposition": "retired",
+          "category": "rest-rbac",
+          "reason": "Exact removed 231 REST registration/handler ownership or multi-user/admin/local-admin middleware policy characterization; not retirement of offline generation/drift semantics.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "test_active_policy_is_method_specific_and_not_legacy_prefixes",
+          "original": "tests/test_generated_api_reference.py::test_active_policy_is_method_specific_and_not_legacy_prefixes",
+          "definition_sha256": "212f8b87fc88fd5e0b66b624e18f4148fec75abb3b33f319735523ca15cba7e0",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "rest-rbac",
+          "reason": "Exact removed 231 REST registration/handler ownership or multi-user/admin/local-admin middleware policy characterization; not retirement of offline generation/drift semantics.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "test_flags_match_actual_admin_middleware_without_dispatching_handlers",
+          "original": "tests/test_generated_api_reference.py::test_flags_match_actual_admin_middleware_without_dispatching_handlers",
+          "definition_sha256": "4cb35da9cd548f37b1c524595ea3251f325874369f2eb0af30bdbf4436f17326",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "rest-rbac",
+          "reason": "Exact removed 231 REST registration/handler ownership or multi-user/admin/local-admin middleware policy characterization; not retirement of offline generation/drift semantics.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "test_decorated_gate_and_missing_docstring_without_execution",
+          "original": "tests/test_generated_api_reference.py::test_decorated_gate_and_missing_docstring_without_execution",
+          "definition_sha256": "4511120679a7c3044d442f0cf0a040792a3f6ce83d3a064a2a2cf8c966b36f2a",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Maintenance offline API-reference generator owner",
+          "blocker": "Mixed removed local-admin route gate introspection with retained missing/first-doc-line and no-handler-execution behavior; exact split/projection missing.",
+          "reason": "Mixed removed local-admin route gate introspection with retained missing/first-doc-line and no-handler-execution behavior; exact split/projection missing."
+        },
+        {
+          "case": "test_non_rest_registration_conditions_and_order",
+          "original": "tests/test_generated_api_reference.py::test_non_rest_registration_conditions_and_order",
+          "definition_sha256": "07a9fb74dd46568a1b9df11265de1390d3459b0873decdcaa2ad97657dfd4f9b",
+          "expanded_cases": 7,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": "Tuple(elts=[Dict(keys=[], values=[]), BinOp(left=BinOp(left=BinOp(left=Name(id='HEALTH', ctx=Load()), op=Add(), right=Name(id='WEBHOOKS', ctx=Load())), op=Add(), right=Name(id='UI', ctx=Load())), op=Add(), right=List(elts=[Constant(value='/api/ws')], ctx=Load()))], ctx=Load())",
+              "frozen_expression": "({}, HEALTH + WEBHOOKS + UI + ['/api/ws'])",
+              "parameter_sha256": "5d2558254ef2e8716bba9b27d6d53bca9094232fdd7f70106353a3521f5fdff5",
+              "disposition": "deferred",
+              "reason": "Retained mixed inventory row: ({}, HEALTH + WEBHOOKS + UI + ['/api/ws']); blocked by the function's named projection."
+            },
+            {
+              "index": 1,
+              "frozen_parameter_ast": "Tuple(elts=[Dict(keys=[Constant(value='web_enabled')], values=[Constant(value=False)]), BinOp(left=Name(id='HEALTH', ctx=Load()), op=Add(), right=Name(id='WEBHOOKS', ctx=Load()))], ctx=Load())",
+              "frozen_expression": "({'web_enabled': False}, HEALTH + WEBHOOKS)",
+              "parameter_sha256": "8c065b83d5e9763f58236396e91507802a699efff9e8446cf82d420718cbdd9f",
+              "disposition": "deferred",
+              "reason": "Retained mixed inventory row: ({'web_enabled': False}, HEALTH + WEBHOOKS); blocked by the function's named projection."
+            },
+            {
+              "index": 2,
+              "frozen_parameter_ast": "Tuple(elts=[Dict(keys=[Constant(value='webhooks_enabled')], values=[Constant(value=False)]), BinOp(left=BinOp(left=Name(id='HEALTH', ctx=Load()), op=Add(), right=Name(id='UI', ctx=Load())), op=Add(), right=List(elts=[Constant(value='/api/ws')], ctx=Load()))], ctx=Load())",
+              "frozen_expression": "({'webhooks_enabled': False}, HEALTH + UI + ['/api/ws'])",
+              "parameter_sha256": "c90cdd02db318150cacb53a995a2aa68a171376b2a4281de836d3c9adab1c5d9",
+              "disposition": "deferred",
+              "reason": "Retained mixed inventory row: ({'webhooks_enabled': False}, HEALTH + UI + ['/api/ws']); blocked by the function's named projection."
+            },
+            {
+              "index": 3,
+              "frozen_parameter_ast": "Tuple(elts=[Dict(keys=[Constant(value='ui_exists')], values=[Constant(value=False)]), BinOp(left=BinOp(left=BinOp(left=Name(id='HEALTH', ctx=Load()), op=Add(), right=Name(id='WEBHOOKS', ctx=Load())), op=Add(), right=Name(id='UI', ctx=Load())), op=Add(), right=List(elts=[Constant(value='/api/ws')], ctx=Load()))], ctx=Load())",
+              "frozen_expression": "({'ui_exists': False}, HEALTH + WEBHOOKS + UI + ['/api/ws'])",
+              "parameter_sha256": "b6fa3eb4e9d0b7ba6751e89ef3a0d49369dc9c3f3e0d4e1b0bb9532310d51ab7",
+              "disposition": "deferred",
+              "reason": "Retained mixed inventory row: ({'ui_exists': False}, HEALTH + WEBHOOKS + UI + ['/api/ws']); blocked by the function's named projection."
+            },
+            {
+              "index": 4,
+              "frozen_parameter_ast": "Tuple(elts=[Dict(keys=[Constant(value='dist_exists')], values=[Constant(value=False)]), BinOp(left=BinOp(left=Name(id='HEALTH', ctx=Load()), op=Add(), right=Name(id='WEBHOOKS', ctx=Load())), op=Add(), right=List(elts=[Constant(value='/'), Constant(value='/ui'), Constant(value='/ui/{path:.*}'), Constant(value='/api/ws')], ctx=Load()))], ctx=Load())",
+              "frozen_expression": "({'dist_exists': False}, HEALTH + WEBHOOKS + ['/', '/ui', '/ui/{path:.*}', '/api/ws'])",
+              "parameter_sha256": "d60af88c3147b104c31020e4aeb9a74f5dd9790eea0f10141dad90379ed5403e",
+              "disposition": "deferred",
+              "reason": "Retained mixed inventory row: ({'dist_exists': False}, HEALTH + WEBHOOKS + ['/', '/ui', '/ui/{path:.*}', '/api/ws']); blocked by the function's named projection."
+            },
+            {
+              "index": 5,
+              "frozen_parameter_ast": "Tuple(elts=[Dict(keys=[Constant(value='wire_bot')], values=[Constant(value=False)]), BinOp(left=BinOp(left=Name(id='HEALTH', ctx=Load()), op=Add(), right=Name(id='WEBHOOKS', ctx=Load())), op=Add(), right=Name(id='UI', ctx=Load()))], ctx=Load())",
+              "frozen_expression": "({'wire_bot': False}, HEALTH + WEBHOOKS + UI)",
+              "parameter_sha256": "6e2935ff4f74e6513bc7a4d35c598230030659a656bc7b0afe93e251c35edb07",
+              "disposition": "deferred",
+              "reason": "Retained mixed inventory row: ({'wire_bot': False}, HEALTH + WEBHOOKS + UI); blocked by the function's named projection."
+            },
+            {
+              "index": 6,
+              "frozen_parameter_ast": "Tuple(elts=[Dict(keys=[Constant(value='web_enabled'), Constant(value='webhooks_enabled')], values=[Constant(value=False), Constant(value=False)]), Name(id='HEALTH', ctx=Load())], ctx=Load())",
+              "frozen_expression": "({'web_enabled': False, 'webhooks_enabled': False}, HEALTH)",
+              "parameter_sha256": "69f455815e42debf45b5aaef4dcf35cfe5be57c50eae6f3e03e58faebfc9824c",
+              "disposition": "deferred",
+              "reason": "Retained mixed inventory row: ({'web_enabled': False, 'webhooks_enabled': False}, HEALTH); blocked by the function's named projection."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Maintenance offline API-reference generator owner",
+          "blocker": "Mixed retained webhook ingress inventory with removed health HTTP/UI/WebSocket registration/order; all seven frozen parameter rows retained pending exact split/projection.",
+          "reason": "Mixed retained webhook ingress inventory with removed health HTTP/UI/WebSocket registration/order; all seven frozen parameter rows retained pending exact split/projection."
+        },
+        {
+          "case": "test_generation_does_not_load_config_start_services_or_read_ui",
+          "original": "tests/test_generated_api_reference.py::test_generation_does_not_load_config_start_services_or_read_ui",
+          "definition_sha256": "8b3b96bfab9993f42133a659b8d9d714cc47c910d4ea9caec865b25c76cebf61",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Maintenance offline API-reference generator owner",
+          "blocker": "Retained offline/no-I/O generator invariant mixed with removed 231 REST count; no silent 231-to-Desktop data substitution.",
+          "reason": "Retained offline/no-I/O generator invariant mixed with removed 231 REST count; no silent 231-to-Desktop data substitution."
+        },
+        {
+          "case": "test_cli_is_offline_and_works_outside_repo_without_git",
+          "original": "tests/test_generated_api_reference.py::test_cli_is_offline_and_works_outside_repo_without_git",
+          "definition_sha256": "266ec016d5015c64db59f8dea8404e1d11cc1b32ec13ad25bb0261157de94758",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Maintenance offline API-reference generator owner",
+          "blocker": "Retained offline CLI check outside repo/no Git; legacy generator imports removed web API, Desktop reference generator missing.",
+          "reason": "Retained offline CLI check outside repo/no Git; legacy generator imports removed web API, Desktop reference generator missing."
+        },
+        {
+          "case": "test_check_fails_for_missing_and_stale_files_without_writes",
+          "original": "tests/test_generated_api_reference.py::test_check_fails_for_missing_and_stale_files_without_writes",
+          "definition_sha256": "06f82dd0898b78f62e356d7192a8fd7c57de2f1fd989fa2da2d8e1ef6bc55248",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Maintenance offline API-reference generator owner",
+          "blocker": "Retained missing/stale drift check and write semantics; generator module cannot import removed web API, standalone generator projection missing.",
+          "reason": "Retained missing/stale drift check and write semantics; generator module cannot import removed web API, standalone generator projection missing."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_github_webhook.py",
+      "inherited_sha256": "b35ba5e742419b25a2d04d9ffac2fa539db75c0817e9553fe2e2d03015cecf3c",
+      "status": "deferred",
+      "whole_restore": false,
+      "cases": [
+        {
+          "case": "TestGitHubWebhookSignature.test_valid_signature_accepted",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookSignature::test_valid_signature_accepted",
+          "definition_sha256": "613998629edb9815f345e2333eb59b0f2e534e978c361916649ac7dfca2e2e1a",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookSignature::test_valid_signature_accepted"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubWebhookSignature.test_invalid_signature_rejected",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookSignature::test_invalid_signature_rejected",
+          "definition_sha256": "45044422394f62f2268fa57a60ef974c010eb47b8659956635248823cce920bc",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookSignature::test_invalid_signature_rejected"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubWebhookSignature.test_missing_signature_rejected",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookSignature::test_missing_signature_rejected",
+          "definition_sha256": "8b0763c71e0bec9ebda2a52244c312b2ebc8a15146b58b44b6547693af77d81c",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookSignature::test_missing_signature_rejected"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubWebhookSignature.test_no_secret_configured_rejects",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookSignature::test_no_secret_configured_rejects",
+          "definition_sha256": "e4bdf35d533844cf0a721f26a6b634f70e4bf20e48ee288a80c32d8cd78ea6d2",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookSignature::test_no_secret_configured_rejects"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubWebhookEvents.test_push_event",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_push_event",
+          "definition_sha256": "231865c46fa273cf70733148cbc1f522382be849e157d3a33acc5b9be1818a06",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_push_event"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubWebhookEvents.test_push_truncates_commits",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_push_truncates_commits",
+          "definition_sha256": "2d8e8428dc0745dfe2128f512730ecdd21822d93d390ca168e9adf80ca1e7ba0",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_push_truncates_commits"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubWebhookEvents.test_pull_request_event",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_pull_request_event",
+          "definition_sha256": "6aa461d795d9ead51626748b58f46759b4caeb7f483543f5dd29107765d1212d",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_pull_request_event"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubWebhookEvents.test_issues_event",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_issues_event",
+          "definition_sha256": "4b242a9c6929cee3d7b772099217b73deeb7a83964762580e5240ec66f505b9f",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_issues_event"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubWebhookEvents.test_release_event",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_release_event",
+          "definition_sha256": "e568aee7a9c9c1c79443341d5dad8e58a4247fdad20123dc9353ffdb2975de56",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_release_event"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubWebhookEvents.test_workflow_run_event",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_workflow_run_event",
+          "definition_sha256": "8023c308a9e78f9f4233fa463c0f88a2d9017edbf066bad9fe45d6c2e5f14c48",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_workflow_run_event"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubWebhookEvents.test_unknown_event",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_unknown_event",
+          "definition_sha256": "9bb10f44dc3006269da2db63c1e42c412b6bd6b0aab61d4a622edf66679399fe",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_unknown_event"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubWebhookEvents.test_invalid_json",
+          "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_invalid_json",
+          "definition_sha256": "9994543ea6ecf7b99cf2cf6e579639c18030f53936df4a1d612bce84f0f0adb0",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_invalid_json"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestGitHubTriggerMatching.test_triggers_notified_on_push",
+          "original": "tests/test_github_webhook.py::TestGitHubTriggerMatching::test_triggers_notified_on_push",
+          "definition_sha256": "3133171a2ac324a1745fe7cf6cc3c8b3db6fabc75b7fac07d11f6b8ba31c1878",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitHub schedule dispatch/callback owner",
+          "blocker": "GitHub schedule-specific callback observation adapter missing; mutable global callback cannot fabricate durable dispatch equivalence.",
+          "reason": "GitHub schedule-specific callback observation adapter missing; mutable global callback cannot fabricate durable dispatch equivalence."
+        },
+        {
+          "case": "TestGitHubTriggerMatching.test_triggers_notified_on_pr",
+          "original": "tests/test_github_webhook.py::TestGitHubTriggerMatching::test_triggers_notified_on_pr",
+          "definition_sha256": "0e2e33b5355264f2b641146fbe3f8747c22ec4f68bb0c4b9062404b006d25046",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitHub schedule dispatch/callback owner",
+          "blocker": "GitHub schedule-specific callback observation adapter missing; mutable global callback cannot fabricate durable dispatch equivalence.",
+          "reason": "GitHub schedule-specific callback observation adapter missing; mutable global callback cannot fabricate durable dispatch equivalence."
+        },
+        {
+          "case": "TestGitHubChannelRouting.test_default_channel",
+          "original": "tests/test_github_webhook.py::TestGitHubChannelRouting::test_default_channel",
+          "definition_sha256": "540b70569e76f52b63ef91300f146e38c4edb337d48cc3d2c73e0c4fff684552",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord default/source channel routing or channel_id schema assertion; schedule conversation delivery is not that removed surface.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "TestGitHubChannelRouting.test_github_specific_channel",
+          "original": "tests/test_github_webhook.py::TestGitHubChannelRouting::test_github_specific_channel",
+          "definition_sha256": "eb13ef062998c3df5eae548696ac1e216ec1f2278c0457e05f97e3942522ab82",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord default/source channel routing or channel_id schema assertion; schedule conversation delivery is not that removed surface.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "TestGitHubChannelRouting.test_no_channel",
+          "original": "tests/test_github_webhook.py::TestGitHubChannelRouting::test_no_channel",
+          "definition_sha256": "8492fd96f79a1947269a215aba735a45d969f6f1764e3959b31f5f5479e56290",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord default/source channel routing or channel_id schema assertion; schedule conversation delivery is not that removed surface.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "TestSchedulerGitHubSource.test_validate_github_source",
+          "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_validate_github_source",
+          "definition_sha256": "da281167a5821bc4576f2d9bde0404c5ad9e7bd3b0a18421f1eda6e6399790e0",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_validate_github_source"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestSchedulerGitHubSource.test_validate_invalid_source",
+          "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_validate_invalid_source",
+          "definition_sha256": "83d1a82bbef6ce7d5c75f0a1e6daeb1b5823b0135a978685146278dd55838747",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_validate_invalid_source"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestSchedulerGitHubSource.test_trigger_matches_github",
+          "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_trigger_matches_github",
+          "definition_sha256": "8079fd356bbe9820e49d648232b872349f14e02c90ccd7cdcf7921bdbc1e4124",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_trigger_matches_github"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestSchedulerGitHubSource.test_trigger_no_match_wrong_source",
+          "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_trigger_no_match_wrong_source",
+          "definition_sha256": "56c255408593cdb1f4ef74a9485e55f531df6e335b6062032ea266def092d636",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_trigger_no_match_wrong_source"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestSchedulerGitHubSource.test_trigger_matches_repo_substring",
+          "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_trigger_matches_repo_substring",
+          "definition_sha256": "4e7fbdb012ab3d9674d464c5aa364224860c8fb1e004fe4ee5be4b64100115ac",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_trigger_matches_repo_substring"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestSchedulerGitHubSource.test_trigger_no_match_wrong_event",
+          "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_trigger_no_match_wrong_event",
+          "definition_sha256": "726e291cb6fb304751fa9e55dc47141b6428f45ace3cd144a127ee3bffefc56e",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_trigger_no_match_wrong_event"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestSchedulerGitHubSource.test_add_github_trigger_schedule",
+          "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_add_github_trigger_schedule",
+          "definition_sha256": "f33838984f733b1cdf4fea1656beecfec266a3e393f75923c2994b608c92d2a4",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_add_github_trigger_schedule"
+          ],
+          "reason": "Retain step7 exact selected frozen assertion corpus with sealed real ingress constructor; no new substitutions."
+        },
+        {
+          "case": "TestWebhookConfigGitHub.test_default_empty",
+          "original": "tests/test_github_webhook.py::TestWebhookConfigGitHub::test_default_empty",
+          "definition_sha256": "cf60949ac5f20ce16b57b438fce873baa2b3cbe745d0cdae402ecbccdfc1b869",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord default/source channel routing or channel_id schema assertion; schedule conversation delivery is not that removed surface.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "TestWebhookConfigGitHub.test_set_github_channel",
+          "original": "tests/test_github_webhook.py::TestWebhookConfigGitHub::test_set_github_channel",
+          "definition_sha256": "6354b6ba1143570acc10c7ae4f0a16fd8ac0a8c1f5447359dddfa645482efcd0",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord default/source channel routing or channel_id schema assertion; schedule conversation delivery is not that removed surface.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "TestWebhookConfigGitHub.test_from_dict",
+          "original": "tests/test_github_webhook.py::TestWebhookConfigGitHub::test_from_dict",
+          "definition_sha256": "7608abbf5ff60b6906609a22358e9f3efd5b5b09d0076a1e0fbf4a742e6f69ed",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord default/source channel routing or channel_id schema assertion; schedule conversation delivery is not that removed surface.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_gitlab_webhook.py",
+      "inherited_sha256": "69af5dbd480853daecad94389462663e7a6be8780d479549ef11b4b311446350",
+      "status": "deferred",
+      "whole_restore": false,
+      "cases": [
+        {
+          "case": "TestGitLabWebhookAuth.test_valid_token_accepted",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabWebhookAuth::test_valid_token_accepted",
+          "definition_sha256": "ac00a62eede3904f7eb0c4a79759c2607ad7359bbab2d55e511ba94b1cc454ce",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabWebhookAuth.test_invalid_token_rejected",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabWebhookAuth::test_invalid_token_rejected",
+          "definition_sha256": "ee205a3e93b567efd2d364022be624bd375e96dc75cafc4753a20c8a868aea37",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabWebhookAuth.test_missing_token_rejected",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabWebhookAuth::test_missing_token_rejected",
+          "definition_sha256": "7cb7d957a5561348bd2c2403478cd900bd452d91e7b19fbbe7c906bb4761b69e",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabWebhookAuth.test_no_secret_configured_rejects",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabWebhookAuth::test_no_secret_configured_rejects",
+          "definition_sha256": "cabe0939111d3cb5187456b792286b1152d901530f7910ac7f2f0722fd40c13f",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabWebhookEvents.test_push_event",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabWebhookEvents::test_push_event",
+          "definition_sha256": "026be6e72ac57b5f0ac9691b19fe79b15a2003883c46e56545bf13dc43fa8278",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabWebhookEvents.test_push_truncates_commits",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabWebhookEvents::test_push_truncates_commits",
+          "definition_sha256": "886e88b8675c1ecc153b90ec454302b0250ba94b9a7b8dfd97f953c27b967636",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabWebhookEvents.test_merge_request_event",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabWebhookEvents::test_merge_request_event",
+          "definition_sha256": "972ce77c549b33085ec48539de0fe1e3a922bce66435bbfa7f90816deb7d46bc",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabWebhookEvents.test_tag_push_event",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabWebhookEvents::test_tag_push_event",
+          "definition_sha256": "c2f149521d84312d3e33d77dca80e8fcfa3162f0346d43a2b4b3613b5d160610",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabWebhookEvents.test_pipeline_event",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabWebhookEvents::test_pipeline_event",
+          "definition_sha256": "7f474bce6afd412b8023f00e8c95e43fd09d32317bf50c20774b8db9f0432c1a",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabWebhookEvents.test_unknown_event",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabWebhookEvents::test_unknown_event",
+          "definition_sha256": "9c04aa746f96f061378bfb7f9e8a3926f0ce1efd0f5a0634ffc3d28dc66f7bb7",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabWebhookEvents.test_invalid_json",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabWebhookEvents::test_invalid_json",
+          "definition_sha256": "a95d1aae5c7f19cc1f72a79b5ec90429fca83915fc2a7fc9ab1c4c4925dc2057",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabTriggerMatching.test_triggers_notified_on_push",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabTriggerMatching::test_triggers_notified_on_push",
+          "definition_sha256": "a3b4492e1b7b567b4d5ba85752d2b377fbdca112ad8eca153b6e6784d670785b",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabTriggerMatching.test_triggers_notified_on_mr",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabTriggerMatching::test_triggers_notified_on_mr",
+          "definition_sha256": "162bb5002801c8766f292ff3b5ed251fa877df8207e5df8ed63fc17de083c339",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabTriggerMatching.test_triggers_notified_on_pipeline",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabTriggerMatching::test_triggers_notified_on_pipeline",
+          "definition_sha256": "a103f2c4b49372da0aa2a2aaf8a9dc22c3154a1a75232fd141afafce51cdcacb",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 GitLab authentication/event/ingress configuration owner",
+          "blocker": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority.",
+          "reason": "GitLab ingress not implemented: retain shared-token fail-close, original event normalization/truncation/invalid JSON and dispatch/configuration obligations; missing endpoint is not removal authority."
+        },
+        {
+          "case": "TestGitLabChannelRouting.test_default_channel",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabChannelRouting::test_default_channel",
+          "definition_sha256": "87097c580f5c70a829f0a1cfb229afde60224dd990ad38e26467d9d91ab02098",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord channel override/default/schema assertion; not retirement of GitLab authentication, normalization or ingress configuration.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "TestGitLabChannelRouting.test_gitlab_specific_channel",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabChannelRouting::test_gitlab_specific_channel",
+          "definition_sha256": "75f628226312ca628308df3adc9d91ffa92ee8cc7f1c606a294dc9688b6ccc3c",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord channel override/default/schema assertion; not retirement of GitLab authentication, normalization or ingress configuration.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "TestGitLabChannelRouting.test_no_channel",
+          "original": "tests/test_gitlab_webhook.py::TestGitLabChannelRouting::test_no_channel",
+          "definition_sha256": "06de50b7f1748a0c1b978a5ec379587be86681667a996a2dc9ea470d72e3fa9d",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord channel override/default/schema assertion; not retirement of GitLab authentication, normalization or ingress configuration.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "TestSchedulerGitLabSource.test_validate_gitlab_source",
+          "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_validate_gitlab_source",
+          "definition_sha256": "6fbddd8e398f514b5d22951d208e61a23de2dc88d96253542d4b0daa50b7fee2",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_validate_gitlab_source"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestSchedulerGitLabSource.test_validate_invalid_source",
+          "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_validate_invalid_source",
+          "definition_sha256": "83d1a82bbef6ce7d5c75f0a1e6daeb1b5823b0135a978685146278dd55838747",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_validate_invalid_source"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestSchedulerGitLabSource.test_trigger_matches_gitlab",
+          "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_matches_gitlab",
+          "definition_sha256": "c6ddf0156056db92d1163649e29fe8f96291396ca3aeb43edc1d2517feb80568",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_matches_gitlab"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestSchedulerGitLabSource.test_trigger_no_match_wrong_source",
+          "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_no_match_wrong_source",
+          "definition_sha256": "7c74b4702e415230502f2e3c2515bbe59aef09157139bf46dc7178d5f989e38d",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_no_match_wrong_source"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestSchedulerGitLabSource.test_trigger_matches_repo_substring",
+          "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_matches_repo_substring",
+          "definition_sha256": "2021f13f1e7bf6b280c0ab843aad7093cc889cb09616f1406faedd64f62eb671",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_matches_repo_substring"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestSchedulerGitLabSource.test_trigger_no_match_wrong_event",
+          "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_no_match_wrong_event",
+          "definition_sha256": "6e3354b5ab79541d0c29076b9d6e8da7266f9c5a0367b6cfa2a275f16c6eb4d6",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_no_match_wrong_event"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestSchedulerGitLabSource.test_add_gitlab_trigger_schedule",
+          "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_add_gitlab_trigger_schedule",
+          "definition_sha256": "40759d7a778208458ce5579f4fa9e92cce27771ec1120e07db0f0ab0fb5ceb45",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_add_gitlab_trigger_schedule"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestSchedulerGitLabSource.test_trigger_matches_merge_request",
+          "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_matches_merge_request",
+          "definition_sha256": "1c7ba41ccfc5ff62f61189a2776824a384de4c1b58f1a97da33902693a4d5f2c",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_matches_merge_request"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestSchedulerGitLabSource.test_trigger_matches_pipeline",
+          "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_matches_pipeline",
+          "definition_sha256": "5d819dbf46fb6df291b7faf9aa52817a187687fd48a9a49a1c1332faba5a0992",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_matches_pipeline"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestWebhookConfigGitLab.test_default_empty",
+          "original": "tests/test_gitlab_webhook.py::TestWebhookConfigGitLab::test_default_empty",
+          "definition_sha256": "e13c5f13146d60575fc3379fff54d30310b9d1f4b4a048cd9079e2403d53579c",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord channel override/default/schema assertion; not retirement of GitLab authentication, normalization or ingress configuration.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "TestWebhookConfigGitLab.test_set_gitlab_channel",
+          "original": "tests/test_gitlab_webhook.py::TestWebhookConfigGitLab::test_set_gitlab_channel",
+          "definition_sha256": "fa28083e6df7558e6d5bd528d9f4511fa88e180f9514203eb5b7ddea4875b9f1",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord channel override/default/schema assertion; not retirement of GitLab authentication, normalization or ingress configuration.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "TestWebhookConfigGitLab.test_from_dict",
+          "original": "tests/test_gitlab_webhook.py::TestWebhookConfigGitLab::test_from_dict",
+          "definition_sha256": "c0d43338e3711fe6f6db5beb9317e859b75ea4c56658616f23c018ada4aaab3a",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "Exact Discord channel override/default/schema assertion; not retirement of GitLab authentication, normalization or ingress configuration.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_monitoring_removal.py",
+      "inherited_sha256": "d2156fd1089ae5064cbbf50849324f0664159847043a292671a2d401ab4fa8b0",
+      "status": "deferred",
+      "whole_restore": false,
+      "cases": [
+        {
+          "case": "test_removed_settings_are_inert_and_neighbors_survive",
+          "original": "tests/test_native_monitoring_removal.py::test_removed_settings_are_inert_and_neighbors_survive",
+          "definition_sha256": "00826a59adc32e1cb6e6490ce02389f7d33de4242b7511df08e70d3b88c47aff",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 profile migration/catalogue/runtime health owner",
+          "blocker": "Mixed migration: removed Grafana settings inertness and retained webhook enabled neighbor require exact projection; channel_id is removed but whole migration case cannot retire.",
+          "reason": "Mixed migration: removed Grafana settings inertness and retained webhook enabled neighbor require exact projection; channel_id is removed but whole migration case cannot retire."
+        },
+        {
+          "case": "test_scheduling_catalog_no_longer_advertises_removed_trigger",
+          "original": "tests/test_native_monitoring_removal.py::test_scheduling_catalog_no_longer_advertises_removed_trigger",
+          "definition_sha256": "9e6181cdcf60de1395cdea2eb5b9538d55a58bf26b7b33e8edb6b443ae590958",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 profile migration/catalogue/runtime health owner",
+          "blocker": "Retained schedule catalogue/skill exclusions mixed with removed HTTP AUTH_PUBLIC_PREFIXES; exact unchanged catalogue projection missing.",
+          "reason": "Retained schedule catalogue/skill exclusions mixed with removed HTTP AUTH_PUBLIC_PREFIXES; exact unchanged catalogue projection missing."
+        },
+        {
+          "case": "test_removed_routes_absent_but_component_health_remains",
+          "original": "tests/test_native_monitoring_removal.py::test_removed_routes_absent_but_component_health_remains",
+          "definition_sha256": "f3c0f9b25d7bb193c9ba244c04979dd9fe98783a406cc0d220fd64b20daf985e",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 profile migration/catalogue/runtime health owner",
+          "blocker": "Mixed removed metrics/Grafana HTTP routes and retained healthy readiness component require exact runtime-health/ingress exclusion projection; HTTP response spelling alone cannot retire component health.",
+          "reason": "Mixed removed metrics/Grafana HTTP routes and retained healthy readiness component require exact runtime-health/ingress exclusion projection; HTTP response spelling alone cannot retire component health."
+        },
+        {
+          "case": "test_startup_wires_component_health_without_a_metrics_collector",
+          "original": "tests/test_native_monitoring_removal.py::test_startup_wires_component_health_without_a_metrics_collector",
+          "definition_sha256": "bcc272441e10b2e934d5f2252b47ad16ea3272eeaebdad9c9edbd4553679ce99",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "discord",
+          "reason": "This case asserts only the removed Discord startup component and gateway latency/is_ready wiring, not general component health.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_self_audit_fixes.py",
+      "inherited_sha256": "bc37ab85b43c9348118f4ff8c1163f4ef49b559b90c077d96f671ec08477605b",
+      "status": "deferred",
+      "whole_restore": false,
+      "cases": [
+        {
+          "case": "TestSharedSecretWebhookFailClose.test_verify_shared_secret_rejects_empty_secret",
+          "original": "tests/test_self_audit_fixes.py::TestSharedSecretWebhookFailClose::test_verify_shared_secret_rejects_empty_secret",
+          "definition_sha256": "57216da5974ef92a27dc0e74395ad02cde1632eaeb9a1156e9eea547483bd360",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 generic webhook authentication owner; frozen corpus owner",
+          "blocker": "Retained generic shared-token fail-close/empty-header semantics need exact per-trigger verifier projection; do not retire authentication with legacy HealthServer.",
+          "reason": "Retained generic shared-token fail-close/empty-header semantics need exact per-trigger verifier projection; do not retire authentication with legacy HealthServer."
+        },
+        {
+          "case": "TestSharedSecretWebhookFailClose.test_verify_shared_secret_rejects_bad_token",
+          "original": "tests/test_self_audit_fixes.py::TestSharedSecretWebhookFailClose::test_verify_shared_secret_rejects_bad_token",
+          "definition_sha256": "51c7645ccdafc45a303612e3b31c8a237e1a4c9d56a0e139fcdb60f5244eb30b",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 generic webhook authentication owner; frozen corpus owner",
+          "blocker": "Retained generic shared-token fail-close/empty-header semantics need exact per-trigger verifier projection; do not retire authentication with legacy HealthServer.",
+          "reason": "Retained generic shared-token fail-close/empty-header semantics need exact per-trigger verifier projection; do not retire authentication with legacy HealthServer."
+        },
+        {
+          "case": "TestSharedSecretWebhookFailClose.test_verify_shared_secret_accepts_matching_token",
+          "original": "tests/test_self_audit_fixes.py::TestSharedSecretWebhookFailClose::test_verify_shared_secret_accepts_matching_token",
+          "definition_sha256": "0d7fb95cadbd7b4b33ac5496aac2c8170d0fafbe6fff81a425f6d96b71d8f697",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 generic webhook authentication owner; frozen corpus owner",
+          "blocker": "Frozen literal secret '[REDACTED]' differs from asserted 'correct-secret'; no substitution permitted. Also legacy HealthServer verifier has no exact per-trigger projection.",
+          "reason": "Frozen literal secret '[REDACTED]' differs from asserted 'correct-secret'; no substitution permitted. Also legacy HealthServer verifier has no exact per-trigger projection."
+        },
+        {
+          "case": "TestSharedSecretWebhookFailClose.test_verify_shared_secret_rejects_empty_header",
+          "original": "tests/test_self_audit_fixes.py::TestSharedSecretWebhookFailClose::test_verify_shared_secret_rejects_empty_header",
+          "definition_sha256": "f5c06b1ebf97cbd1b23a1d4acfcf12d4bfb806ab00b2ae6e1e3c102e269a81d2",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 generic webhook authentication owner; frozen corpus owner",
+          "blocker": "Retained generic shared-token fail-close/empty-header semantics need exact per-trigger verifier projection; do not retire authentication with legacy HealthServer.",
+          "reason": "Retained generic shared-token fail-close/empty-header semantics need exact per-trigger verifier projection; do not retire authentication with legacy HealthServer."
+        },
+        {
+          "case": "TestSetupCompleteGate.test_setup_complete_returns_409_when_already_setup",
+          "original": "tests/test_self_audit_fixes.py::TestSetupCompleteGate::test_setup_complete_returns_409_when_already_setup",
+          "definition_sha256": "182011e733508a89b37844aa1def9405ec15491dc33e51c94ab938d02c96f880",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "retired",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "retired",
+          "category": "http-listener-route",
+          "reason": "Exact POST /api/setup/complete 409/error wording and Discord setup payload of removed web wizard; durable installation gate remains covered separately and is not retired here.",
+          "citation": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)",
+          "independent_review": "pending"
+        },
+        {
+          "case": "TestKnowledgeStoreConcurrency.test_busy_timeout_set",
+          "original": "tests/test_self_audit_fixes.py::TestKnowledgeStoreConcurrency::test_busy_timeout_set",
+          "definition_sha256": "81ddfd294bbde21f24360e97ba98d588eab0b535eb1aa30386f500934500eb9a",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_self_audit_fixes_TestKnowledgeStoreConcurrency::test_busy_timeout_set"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestKnowledgeStoreConcurrency.test_write_lock_exists",
+          "original": "tests/test_self_audit_fixes.py::TestKnowledgeStoreConcurrency::test_write_lock_exists",
+          "definition_sha256": "2211e8a46ea67e5b683fb458f4a6e99de652683b3c763beb4565489c73b5b4d4",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_self_audit_fixes_TestKnowledgeStoreConcurrency::test_write_lock_exists"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestKnowledgeStoreConcurrency.test_concurrent_ingest_serializes_cleanly",
+          "original": "tests/test_self_audit_fixes.py::TestKnowledgeStoreConcurrency::test_concurrent_ingest_serializes_cleanly",
+          "definition_sha256": "0ea4b992810d18acabd6a27cef387e12aafd025efeb27a24987ba94bed3d06a7",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_self_audit_fixes_TestKnowledgeStoreConcurrency::test_concurrent_ingest_serializes_cleanly"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestConfigSchemaFields.test_trajectory_path_has_default",
+          "original": "tests/test_self_audit_fixes.py::TestConfigSchemaFields::test_trajectory_path_has_default",
+          "definition_sha256": "b3f23c11faa17dbb3d8512b9c89b5da2df6a6cda2173bec9ef2d677fac8d0043",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 profile-owned configuration owner",
+          "blocker": "Frozen relative ToolsConfig default differs from Desktop profile-owned absolute path default; retained config obligation needs reviewed profile projection, no expected-value rewrite.",
+          "reason": "Frozen relative ToolsConfig default differs from Desktop profile-owned absolute path default; retained config obligation needs reviewed profile projection, no expected-value rewrite."
+        },
+        {
+          "case": "TestConfigSchemaFields.test_trajectory_path_honored_from_yaml",
+          "original": "tests/test_self_audit_fixes.py::TestConfigSchemaFields::test_trajectory_path_honored_from_yaml",
+          "definition_sha256": "016a81386315d42f7b5ec7a52a247eb6d33afa3bdbac79e9cf2ceacfd83f51f8",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_self_audit_fixes_TestConfigSchemaFields::test_trajectory_path_honored_from_yaml"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        },
+        {
+          "case": "TestConfigSchemaFields.test_audit_log_path_has_default",
+          "original": "tests/test_self_audit_fixes.py::TestConfigSchemaFields::test_audit_log_path_has_default",
+          "definition_sha256": "71338f5866e87165560d2dacefd3a287eb0d760d22ad76178116252593c84480",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "deferred",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "deferred",
+          "owner": "Phase2 profile-owned configuration owner",
+          "blocker": "Frozen relative ToolsConfig default differs from Desktop profile-owned absolute path default; retained config obligation needs reviewed profile projection, no expected-value rewrite.",
+          "reason": "Frozen relative ToolsConfig default differs from Desktop profile-owned absolute path default; retained config obligation needs reviewed profile projection, no expected-value rewrite."
+        },
+        {
+          "case": "TestConfigSchemaFields.test_audit_log_path_honored_from_yaml",
+          "original": "tests/test_self_audit_fixes.py::TestConfigSchemaFields::test_audit_log_path_honored_from_yaml",
+          "definition_sha256": "e2c75b394b6eb55c0d54552f6879247bcbaca193a05e58c152e773b375f20783",
+          "expanded_cases": 1,
+          "expanded_rows": [
+            {
+              "index": 0,
+              "frozen_parameter_ast": null,
+              "disposition": "restored",
+              "reason": "Exact non-parameterized case; see case reason."
+            }
+          ],
+          "disposition": "restored",
+          "mode": "exact-frozen",
+          "selectors": [
+            "tests/test_desktop_step8_part6_retained.py::TestPart6_test_self_audit_fixes_TestConfigSchemaFields::test_audit_log_path_honored_from_yaml"
+          ],
+          "reason": "Unchanged frozen body/decorators/data on retained real scheduler, knowledge or config implementation."
+        }
+      ]
+    }
+  ],
+  "independent_review": "pending",
+  "runtime_pass_claim": false,
+  "source_data_substitutions": [],
+  "disposition_authority": "Claude, desktop-lane5-step7-suites.md Task1 (step8 part6)"
+}
