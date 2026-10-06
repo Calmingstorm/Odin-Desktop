@@ -39,7 +39,7 @@ describe('actual app Broker ↔ repository real core', () => {
 
   test('authenticates the handshake, reads real status and replays events after a cursor', async () => {
     expect(realCoreCapabilities).toEqual(SERVED_CAPABILITIES)
-    expect(realCoreCapabilities).toHaveLength(139)
+    expect(realCoreCapabilities).toHaveLength(180)
     expect(new Set(realCoreCapabilities).size).toBe(realCoreCapabilities.length)
     const { broker, welcome } = await core.connect()
     expect(welcome).toMatchObject({
@@ -142,8 +142,26 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '0' }, id)).reset_required).toBe(false)
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '999999' }, id)).reset_required).toBe(true)
     expect(successful<{ items: unknown[] }>(await broker.request('conversations.list', {}, id)).items).toEqual([])
-    refused(await broker.request('work.list', {}, id), 'capability_unavailable')
-    refused(await broker.request('schedules.list', {}, id), 'capability_unavailable')
+    expect(successful<unknown[]>(await broker.request('skills.list', {}, id))).toEqual([])
+    for (const method of ['mcp.list', 'mcp.status']) {
+      expect(successful(await broker.request(method, {}, id))).toMatchObject({
+        servers: [], server_count: 0, configured_servers: [], configured_server_count: 0,
+        connected_count: 0, published_tool_count: 0, started: true, closed: false
+      })
+    }
+    const computer = successful(await broker.request('computer.status', {}, id))
+    expect(computer).toMatchObject({ session: null, readiness: {
+      management_available: true, foreground_available: false, native_qualified: false,
+      input_supported: false, dispatch: 'none'
+    } })
+    expect(computer).not.toHaveProperty('input_dispatch')
+    expect(successful<{ items: unknown[] }>(await broker.request('work.list', {}, id)).items).toEqual([])
+    expect(successful<unknown[]>(await broker.request('schedules.list', {}, id))).toEqual([])
+    for (const method of ['turns.create', 'skills.test',
+      'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
+      expect(capabilities).not.toContain(method)
+      refused(await broker.request(method, {}, id), 'capability_unavailable')
+    }
     expect(successful<{ fields: unknown[] }>(await broker.request('settings.schema', {}, id)).fields.length).toBeGreaterThan(0)
     refused(await broker.request('codex.accounts.list', {}, id), 'keyring_unavailable')
     expect(successful<{ tokens: unknown }>(await broker.request('usage.get', {}, id)).tokens).toEqual({ value: null, kind: 'unknown' })

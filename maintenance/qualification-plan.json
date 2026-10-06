@@ -125,7 +125,6 @@
         "tests/test_fts_channel_and_errors.py",
         "tests/test_fts_inventory_boundaries.py",
         "tests/test_fts_search.py",
-        "tests/test_gi_support_loading.py",
         "tests/test_guard_capacity.py",
         "tests/test_history_replay.py",
         "tests/test_hybrid_search.py",
@@ -229,7 +228,8 @@
         "tests/test_wait_for_agents_deadlines.py",
         "tests/test_web_tools.py",
         "tests/test_webhook_persistence.py",
-        "tests/test_webhook_text.py"
+        "tests/test_webhook_text.py",
+        "tests/test_desktop_gi_loading_adaptation.py"
       ],
       "name": "direct-shared-stores-providers-tools",
       "reason": "Explicit remaining unchanged shared suites in parent309suite9053pass replay; no hidden disposition of259historical failures."
@@ -296,7 +296,6 @@
         "tests/test_computer_recovery_guidance_stance.py",
         "tests/test_computer_region_truthfulness_r21.py",
         "tests/test_computer_round14_grounding.py",
-        "tests/test_computer_runtime_coverage_r10.py",
         "tests/test_computer_runtime_coverage_r10_worker.py",
         "tests/test_computer_runtime_grounding_r4.py",
         "tests/test_computer_selection_campaign.py",
@@ -336,7 +335,8 @@
         "tests/test_computer_x11_native_safety_r11.py",
         "tests/test_computer_x11_popup_r11.py",
         "tests/test_computer_x11_r11.py",
-        "tests/test_computer_x11_topology_r11.py"
+        "tests/test_computer_x11_topology_r11.py",
+        "tests/test_desktop_accessibility_gi_adaptation.py"
       ],
       "name": "direct-shared-computer",
       "reason": "Explicit pure/mocked unchanged computer corpus from parent309suite replay; no native qualification implied."
@@ -1792,7 +1792,7 @@
         "tests/test_desktop_step5_traces_methods.py"
       ],
       "name": "phase2-step5-profile-management",
-      "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification. Step-five completion additionally executes all 21 requested original filenames through whole hash/corpus-bound adapters, plus named-method and authenticated transport proofs. No original selection is removed, no new skip/exclusion is added."
+      "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification. Step-five completion additionally executes all 21 requested original filenames through whole hash/corpus-bound adapters, plus named-method and authenticated transport proofs. No original selection is removed, no new skip/exclusion is added. Accepted6A: Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification."
     },
     {
       "files": [
@@ -1847,6 +1847,20 @@
       ],
       "name": "phase2-step6-lane6-agents",
       "reason": "Assigned lane6 real canonical owner retained-case suites, immutable source/corpus bound. Whole suite accounting in lane6-case-manifest distinguishes restoration from concrete feature deferrals and pending case proposals. No skip/retry or hidden collection cut."
+    },
+    {
+      "files": [
+        "tests/test_desktop_skills.py",
+        "tests/test_desktop_mcp.py",
+        "tests/test_desktop_browser_runtime.py",
+        "tests/test_desktop_computer_binding.py",
+        "tests/test_desktop_dependency_resolver.py",
+        "tests/test_desktop_service_catalog.py",
+        "tests/test_desktop_services_core.py",
+        "tests/test_desktop_workspace_diagnostics.py"
+      ],
+      "name": "phase2-step6a-qualified-local-services",
+      "reason": "Step 6A real skill lifecycle/schema/dependency installation, supervised configured MCP, bundled Chromium startup, bounded local workspace diagnostics and authentic computer management/recovery. Pip, keyring, network, browser and native backends stubbed; benign disposable git only. No foreground/delivery/work/schedule implementation or native qualification claim. Immutable GI original cases run in the direct group through the worker-only resolver adapter without assertion edits. All engine suites remain isolated PID namespace with throwaway HOME."
     }
   ],
   "observed_failures": [

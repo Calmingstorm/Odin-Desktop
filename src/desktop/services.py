@@ -211,7 +211,11 @@ class EngineServices:
         await release(d.channel_state, "shutdown_steering")
         await release(d.loop_manager, "shutdown")
         await release(d.scheduler, "stop")
-        await release(getattr(d.runtime_context, "mcp_manager", None), "shutdown")
+        mcp_service = getattr(d, "management_mcp_service", None)
+        if mcp_service is not None:
+            await release(mcp_service, "close")
+        else:
+            await release(getattr(d.runtime_context, "mcp_manager", None), "shutdown")
         active = [agent for agent in d.agent_manager._agents.values() if agent._sm.is_active]
         tasks = [agent._task for agent in d.agent_manager._agents.values()
                  if getattr(agent, "_task", None) is not None and not agent._task.done()]
@@ -260,7 +264,9 @@ class EngineServices:
             # Keep its shared transports and persistence until containment.
             raise RuntimeError("Desktop engine cleanup did not fully complete") from failures[0]
         await release(getattr(d.tool_executor, "ssh_pool", None), "close_all")
-        await release(d.browser_manager, "shutdown")
+        if not getattr(d, "management_owned_browser", False):
+            method = "close" if callable(getattr(d.browser_manager, "close", None)) else "shutdown"
+            await release(d.browser_manager, method)
         media = getattr(getattr(d, "native_tools", None), "owners", {}).get("media")
         selector = getattr(media, "image_selector", None)
         await release(getattr(selector, "openai", None), "close")
@@ -483,7 +489,11 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         path=paths.config_dir / "host-preferences.json", available_hosts_provider=hosts.active_aliases,
         permission_manager=permissions)
     browser = getattr(runtime, "browser_manager", None)
-    if browser is None and cfg.browser.enabled:
+    if browser is None and settings is not None:
+        from .browser_runtime import BrowserRuntime
+
+        browser = BrowserRuntime(settings, paths)
+    elif browser is None and cfg.browser.enabled:
         from ..tools.browser import BrowserManager
 
         browser = BrowserManager(cdp_url=cfg.browser.cdp_url,
@@ -493,13 +503,19 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             allow_private_targets=cfg.browser.allow_private_targets)
     executor = getattr(runtime, "tool_executor", None) or ToolExecutor(cfg.tools,
         memory_path=str(paths.data_dir / "memory.json"), app_config=cfg, profile_paths=paths,
-        browser_manager=browser, host_registry=hosts, host_access_manager=access,
+        browser_manager=browser if cfg.browser.enabled else None,
+        host_registry=hosts, host_access_manager=access,
         permission_manager=permissions, email_config=cfg.email)
     executor._command_shell_config = lambda: get_config().tools.command_shell
+    skill_config_store = None
+    if settings is not None:
+        from .skills import _ConfigStore
+
+        skill_config_store = _ConfigStore(settings.secrets, paths.data_dir / "skills" / "config")
     skills = getattr(runtime, "skill_manager", None) or SkillManager(
         str(paths.data_dir / "skills"), tool_executor=executor,
         memory_path=str(paths.data_dir / "memory.json"), tool_timeouts=cfg.tools.tool_timeouts,
-        allowed_urls=tuple(cfg.tools.skill_allowed_urls))
+        allowed_urls=tuple(cfg.tools.skill_allowed_urls), config_store=skill_config_store)
     scheduler = getattr(runtime, "scheduler", None) or Scheduler(
         str(paths.data_dir / "schedules.json"), desktop_recovery=True)
     skills.set_services(knowledge_store=knowledge, embedder=embedder, session_manager=sessions, scheduler=scheduler)
@@ -619,7 +635,9 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         ready = {name: callable(executor._resolve_handler(name))
                  for name in PHASE1_EXECUTOR_TOOL_NAMES}
         for name in ("browser_read_page", "browser_read_table", "browser_click", "browser_fill", "browser_evaluate"):
-            ready[name] = browser is not None and get_config().browser.enabled
+            available = getattr(browser, "available", None)
+            ready[name] = (available() if callable(available)
+                           else browser is not None and get_config().browser.enabled)
         for name in ("email_send", "email_search", "email_read", "email_list_recent"):
             ready[name] = bool(executor._email_config and executor._email_config.enabled)
         ready["analyze_pdf"] = importlib.util.find_spec("fitz") is not None
@@ -715,10 +733,15 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
                 get_knowledge_store=lambda: knowledge, embedder=embedder, audit=audit)
             return await bound._handle_search_history(inp)
 
-    owners.setdefault("channel_ops", ChannelOpsTools(read_visible_history=read_history))
-    owners.setdefault("scheduling", SchedulingTools(scheduler=scheduler, tool_catalog=catalog))
-    owners.setdefault("knowledge", KnowledgeTools(sessions=sessions,
-        get_knowledge_store=lambda: knowledge, embedder=embedder, audit=audit))
+    # Injected native owners remain authoritative. Do not eagerly construct an
+    # unused fallback beside them (dict.setdefault evaluates its default first).
+    if "channel_ops" not in owners:
+        owners["channel_ops"] = ChannelOpsTools(read_visible_history=read_history)
+    if "scheduling" not in owners:
+        owners["scheduling"] = SchedulingTools(scheduler=scheduler, tool_catalog=catalog)
+    if "knowledge" not in owners:
+        owners["knowledge"] = KnowledgeTools(sessions=sessions,
+            get_knowledge_store=lambda: knowledge, embedder=embedder, audit=audit)
     publication_tool = ContextVar("desktop_media_publication_tool", default=None)
 
     class DesktopMediaTools(MediaTools):
@@ -755,8 +778,9 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             finally:
                 publication_tool.reset(token)
 
-    owners.setdefault("media", DesktopMediaTools(
-        get_config=get_config, browser_manager=browser, tool_executor=executor))
+    if "media" not in owners:
+        owners["media"] = DesktopMediaTools(
+            get_config=get_config, browser_manager=browser, tool_executor=executor)
     owners["transcript_history"] = TranscriptHistoryTools()
     dispatcher = _ReadyDispatcher(owners=owners, skill_manager=skills, tool_catalog=catalog,
         prompt_builder=prompt, channel_state=state, builtin_policy=policy)
@@ -785,12 +809,13 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         kill_agents_for_turn=agents.kill_for_turn, get_computer=lambda: owners.get("computer"),
         assert_request=engine._assert_request, request_admission=engine._admit_turn))
     engine.runner = runner
-    owners.setdefault("agents", AgentTaskTools(AgentTaskDeps(get_config=get_config,
-        llm_gateway=gateway, channel_state=state, tool_executor=executor, skill_manager=skills,
-        get_knowledge_store=lambda: knowledge, embedder=embedder, audit=audit, agent_manager=agents,
-        loop_manager=loops, agent_trajectory_saver=agent_trajectories,
-        get_context_compressor=lambda: compression, tool_loop=runner, turn_recorder=recorder,
-        prompt_builder=prompt, tool_catalog=catalog, mcp_manager=mcp)))
+    if "agents" not in owners:
+        owners["agents"] = AgentTaskTools(AgentTaskDeps(get_config=get_config,
+            llm_gateway=gateway, channel_state=state, tool_executor=executor, skill_manager=skills,
+            get_knowledge_store=lambda: knowledge, embedder=embedder, audit=audit, agent_manager=agents,
+            loop_manager=loops, agent_trajectory_saver=agent_trajectories,
+            get_context_compressor=lambda: compression, tool_loop=runner, turn_recorder=recorder,
+            prompt_builder=prompt, tool_catalog=catalog, mcp_manager=mcp))
     register_native_handlers(dispatcher)
     # Keep the upstream formatter but bind its sessions façade to this exact
     # admitted request's durable transcript, never compacted session history.

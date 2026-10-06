@@ -14,8 +14,7 @@ from tests.test_desktop_core_lifecycle import connect, profile, receive, request
 # unavailable in the composed core, not either branch's pre-composition list.
 UNAVAILABLE = (
     "unknown.method",
-    "skills.list", "skills.get", "skills.config.get", "mcp.list", "mcp.status", "mcp.tools",
-    "computer.status",
+    "skills.test",
 )
 
 
@@ -130,6 +129,44 @@ def test_protocol_reads_are_classified_including_stream_control():
     } <= core.READ_METHODS
     assert "notifications.ack" not in core.READ_METHODS
     assert "runtime.shutdown" not in core.READ_METHODS
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", [
+    "skills.list", "skills.get", "skills.config.get", "mcp.list", "mcp.status",
+    "mcp.tools", "computer.status",
+])
+async def test_step6a_served_reads_never_reserve_invalid_or_quiescing(tmp_path, method):
+    paths, socket_path, token_file = profile(tmp_path)
+    read_fd, write_fd = os.pipe()
+    service = core.CoreService(paths, socket_path, token_file)
+    writer = None
+    try:
+        await service.start(read_fd)
+        reader, writer, welcome = await connect(socket_path)
+        assert method in welcome["capabilities"]
+        statements = []
+        service.store.connection.set_trace_callback(statements.append)
+        command_id = str(uuid.uuid4())
+        first = await request(reader, writer, method, {}, command_id)
+        if not first["ok"]:
+            assert first["error"]["code"] == "bad_request"
+        await send(writer, {"t": "req", "id": command_id, "method": method, "params": []})
+        invalid = await receive(reader)
+        assert invalid["error"]["code"] == "bad_request"
+        service.lifetime.request_stop("test")
+        assert await request(reader, writer, method, {}, command_id) == first
+        assert service.store.connection.execute(
+            "SELECT count(*) FROM command_receipts").fetchone()[0] == 0
+        assert not any(sql.startswith(("BEGIN", "INSERT", "UPDATE", "DELETE"))
+                       for sql in statements)
+    finally:
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
+        await service.close()
+        os.close(read_fd)
+        os.close(write_fd)
 
 
 def test_identity_lookup_is_read_only(tmp_path):

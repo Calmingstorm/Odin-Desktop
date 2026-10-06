@@ -222,6 +222,99 @@ async def test_relock_race_no_unlock(tmp_path, collection):
     assert collection.unlock_calls == 0
 
 
+async def test_settled_worker_failure_wins_when_cancel_races_with_completed_future(monkeypatch):
+    loop = asyncio.get_running_loop()
+    original = loop.call_soon_threadsafe
+    release = threading.Event()
+
+    def failed():
+        assert release.wait(5)
+        raise RuntimeError("fixture failed vault restoration")
+
+    task = asyncio.create_task(secret_call(failed))
+
+    def deliver_then_cancel(callback, *args, **kwargs):
+        handle = original(callback, *args, **kwargs)
+        if getattr(callback, "__name__", None) == "deliver":
+            original(task.cancel)
+        return handle
+
+    monkeypatch.setattr(loop, "call_soon_threadsafe", deliver_then_cancel)
+    release.set()
+    with pytest.raises(RuntimeError, match="failed vault restoration"):
+        await task
+
+
+@pytest.mark.parametrize("locked", [False, True])
+@pytest.mark.parametrize("cancelled", [False, True])
+async def test_mcp_settings_reload_slow_or_locked_keyring_keeps_event_loop_responsive(
+    core, collection, monkeypatch, locked, cancelled,
+):
+    import yaml
+
+    service, reader, writer, *_ = core
+    collection.locked = False
+    mcp = service.management.mcp
+    await mcp.handle("mcp.save", {
+        "name": "fixture", "command": "unused-fixture-command", "enabled": False,
+    })
+    mcp._write_marker("fixture", {"headers"})
+    collection.values["mcp.servers.fixture.headers"] = (
+        '{"Authorization": "fixture-mcp-secret"}'
+    )
+    original = mcp._hydrate_server
+    entered, release = threading.Event(), threading.Event()
+    loop_thread = threading.get_ident()
+
+    def slow_hydrate(*args, **kwargs):
+        assert threading.get_ident() != loop_thread
+        assert threading.current_thread().daemon
+        entered.set()
+        assert release.wait(5)
+        collection.locked = locked
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(mcp, "_hydrate_server", slow_hydrate)
+    document = yaml.safe_load(service.paths.config_file.read_text())
+    document["mcp"]["max_published_tools_global"] = 17
+    service.paths.config_file.write_text(yaml.safe_dump(document))
+    # Transport deliberately serializes ordinary management commands. Exercise
+    # the real settings transaction directly, so this proves loop liveness,
+    # not an unsupported concurrent IPC mutation contract.
+    reload = asyncio.create_task(service.settings.reload())
+    try:
+        for _ in range(500):
+            if entered.is_set():
+                break
+            await asyncio.sleep(.001)
+        assert entered.is_set()
+        assert mcp._effective_limits.max_published_tools_global != 17
+        await send(writer, {"t": "ping", "n": 321})
+        assert await asyncio.wait_for(receive(reader), .3) == {"t": "pong", "n": 321}
+        status = await asyncio.wait_for(request(reader, writer, "status.get"), .3)
+        assert status["ok"]
+        if cancelled:
+            reload.cancel()
+            await asyncio.sleep(.02)
+            assert not reload.done()
+            assert service.settings._async_lock.locked()
+    finally:
+        release.set()
+    if cancelled:
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(reload, 3)
+        assert mcp._effective_limits.max_published_tools_global != 17
+        assert "fixture" not in mcp._unavailable
+        assert not service.settings._async_lock.locked()
+        assert not service.settings._transaction_active
+        return
+    await asyncio.wait_for(reload, 3)
+    assert mcp._effective_limits.max_published_tools_global == 17
+    assert ("fixture" in mcp._unavailable) is locked
+    assert ("fixture" in mcp.manager.server_names) is not locked
+    assert collection.unlock_calls == 0
+
+
 async def test_write_delete_returned_prompt_never_executed(tmp_path, monkeypatch):
     from types import SimpleNamespace
 

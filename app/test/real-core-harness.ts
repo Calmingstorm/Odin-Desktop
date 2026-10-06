@@ -8,11 +8,15 @@ import { ensureProfileDirs, ensureToken, profilePaths, type ProfilePaths } from 
 
 const repository = resolve(__dirname, '../..')
 
-// The published named contract, not an arbitrary renderer RPC surface. Step 6 is absent.
+// The published named contract, not an arbitrary renderer RPC surface. Step 6A
+// management and Step 6B background services are served; native input is absent.
 export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
   'artifacts.read', 'tool.detail', 'tool.output',
   'control.stop', 'control.steer', 'control.resume',
+  'work.list', 'work.control', 'reports.page',
+  'schedules.list', 'schedules.save', 'schedules.delete', 'schedules.run',
+  'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron', 'schedules.stats',
   'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
   'conversations.reset_context', 'conversations.mark_read', 'messages.list',
   'conversation.snapshot', 'search.query', 'messages.around',
@@ -35,7 +39,7 @@ export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.s
   'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete',
   'webhooks.outbound.test', 'integrations.email.get',
   'learned.list', 'learned.update', 'learned.delete',
-  'trajectories.list', 'trajectories.read', 'trajectories.search', 'trajectories.message',
+  'trajectories.list', 'trajectories.read', 'trajectories.search', 'trajectories.message', 'trajectories.agent',
   'observability.stats', 'observability.tools', 'observability.risk', 'observability.risk_recent',
   'observability.governor', 'observability.audit_risk', 'observability.freshness',
   'observability.freshness_recent', 'observability.bulkheads', 'observability.compression',
@@ -44,7 +48,15 @@ export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.s
   'recovery.stats', 'recovery.recent', 'capacity.snapshot', 'turn_state.snapshot',
   'pools.ssh', 'pools.http', 'pools.close',
   'openrouter.catalogue', 'openrouter.endpoints', 'openrouter.select',
-  'providers.compat.diagnostic', 'models.status', 'models.provider.get', 'models.provider.set'
+  'providers.compat.diagnostic', 'models.status', 'models.provider.get', 'models.provider.set',
+  'skills.list', 'skills.get', 'skills.validate', 'skills.save', 'skills.delete',
+  'skills.set_enabled', 'skills.config.get', 'skills.config.set',
+  'mcp.list', 'mcp.status', 'mcp.tools', 'mcp.save', 'mcp.set_enabled', 'mcp.delete',
+  'mcp.reconnect', 'mcp.refresh_tools', 'mcp.set_global_enabled', 'mcp.set_limits',
+  'computer.status', 'computer.activation.set', 'computer.stop', 'computer.pause',
+  'computer.cancel', 'computer.close', 'computer.reconcile', 'computer.operator_reconcile',
+  'computer.release_owned_input', 'computer.acknowledge_legacy_recovery',
+  'computer.reconcile_hyprland_owner'
 ].sort()]
 
 type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string }
