@@ -25521,7 +25521,7 @@
         "tests/test_lab_gnome.py": "663f0e178db227a55b48bf17517d98c30e8c1a442fd58bfb0b1587f581a3f05d",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
+        "tests/test_lab_kde.py": "0fb517134eaee51693426fbf3ddc63cacfef2dea6a654f3af9c7ac035915f3ce"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
@@ -25714,7 +25714,7 @@
         "tests/test_lab_gnome.py": "663f0e178db227a55b48bf17517d98c30e8c1a442fd58bfb0b1587f581a3f05d",
         "tests/test_lab_guest_smoke.py": "49b9164c4967515ad015a0555b0d892c7900eab0fe6e4ccf458a2059b2ae1f6a",
         "tests/test_lab_hyprland.py": "a04d6773449d08c7cfb5213e67876ec1a22fc393284c9e8e17dd3108c5f57539",
-        "tests/test_lab_kde.py": "1ee768a268c7c8f5c95c8dd6b09db2f519096d8dca9f684807a899ad6b89af4c"
+        "tests/test_lab_kde.py": "0fb517134eaee51693426fbf3ddc63cacfef2dea6a654f3af9c7ac035915f3ce"
       },
       "tests": [
         "tests/test_desktop_qualification_lab.py",
