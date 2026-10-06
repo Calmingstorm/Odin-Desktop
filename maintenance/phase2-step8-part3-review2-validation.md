@@ -72,8 +72,26 @@ throwaway HOME/XDG with no display, DBus, credentials or live profile.
 
 ## Final fresh-checkout qualification
 
-Pending the single final 33-group invocation, after final exact byte accounting
-and short gates, from a fresh frozen checkout under a group-writable parent.
-The final result JSON will name the tested commit, every group and JUnit/log hash.
+The single final invocation completed at frozen source
+`095079860ffd5d7060e2d49d58fd7abd5ed9beaf` from a fresh checkout and parent both
+mode2775. **32/33 groups passed: 15,692 passed, two failed, zero errors, two skips.**
+All restoration groups passed: step2=202, step3=629, step4=206 executions.
+Fresh locked dependency sync, pip check, exact-byte ledger, suite map and Ruff
+passed. Every group and JUnit/log hash is in the adjacent final result JSON.
+
+The two failures are unchanged inherited watchdog tests in
+`tests/test_computer_task_ownership_r19.py`:
+`test_firing_watchdog_does_not_join_its_own_stop` and
+`test_resistant_watchdog_does_not_block_stop`. Both exhausted their original
+0.5-second wait budgets in the full run. The entire 12-test watchdog file passed
+in 3.61s afterward on the **identical source**, under the same isolated runner.
+This is evidence of timing sensitivity, not proof of root cause or a clean full
+gate. No deadline/assertion was relaxed, no source changed, and no second full
+invocation was run. The failed full receipt remains authoritative.
+
+Process-start capacity temporarily refused the initial full-launch attempts;
+those did not execute the driver. The sole actual full invocation is PID1554470.
+The PR is marked ready for review as explicitly requested, with the failed full
+qualification disclosed. Ready is not a claim that the full gate is green.
 No full-product/native/release acceptance, active-desktop operation, live service
 change, upstream edit or deployment is claimed.
