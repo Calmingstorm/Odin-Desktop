@@ -39,17 +39,17 @@ SUITES = {
     "test_output_streamer": "8c64bbb2a58a274f591399f888510616cfc6181cd9f75eb1d909560b3681440f",
     "test_runtime_output_delivery": "add5410c347955ddb90e2437bf8ec80cf26649b8003b921ef9eb0b08eec60622",
 }
-CORPUS_SELECTIONS = dict.fromkeys(SUITES)
+CORPUS_SELECTIONS = {"test_output_streamer": None, "test_runtime_output_delivery": None}
 CORPUS_HASHES = {
     "test_output_streamer": "a9c9ed5ddebf1c4043d4e7dea42f2a0cef506611e000ffff8327e1cfd8496036",
     "test_runtime_output_delivery": "063ddd1693987f664f85b030c5f4d23749590c154a19dd45b1a90b04c3ab3c96",
 }
 CORPUS_EXCLUSIONS = {
-    "test_output_streamer": {
+    "test_output_streamer": [
         "TestAPIEndpoint.test_no_executor",
         "TestAPIEndpoint.test_with_streamer",
         "TestAPIEndpoint.test_with_active_stream",
-    },
+    ],
 }
 EVIDENCE = {}
 PROPOSED_CASES = {"test_runtime_output_delivery": {
@@ -350,7 +350,7 @@ class SetupOnly(ast.NodeTransformer):
         return self.generic_visit(node)
 
 
-def load(namespace):
+def register_module(namespace):
     for suite, expected_hash in SUITES.items():
         path = f"tests/{suite}.py"
         source = frozen_source(path)
@@ -399,6 +399,10 @@ def load(namespace):
                             setattr(cls, case, admitted_case(getattr(cls, case)))
                 if any(k.startswith(f"{path}::{name}::") for k in CASE_MAP):
                     namespace[exported] = cls
+
+
+def load(namespace):
+    register_module(namespace)
 
 
 def admitted_case(case):

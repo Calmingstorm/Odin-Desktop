@@ -1,9 +1,16 @@
 """Pure strict-patch report generator. No repository writes."""
+
 import ast
 import hashlib
 import json
 
-from scripts.maintenance.fixture_corpus import ARCHIVE_SHA256, BASELINE, corpus, frozen_source, nodes
+from scripts.maintenance.fixture_corpus import (
+    ARCHIVE_SHA256,
+    BASELINE,
+    corpus,
+    frozen_source,
+    nodes,
+)
 from tests.desktop_adapters import lane6_schedules_web, lane6_schedules_web_agents
 
 
@@ -23,7 +30,8 @@ def web_report():
             if key in module.CASE_MAP:
                 suffix = "_agents" if module is lane6_schedules_web_agents else ""
                 row.update(disposition="restored", selector=(
-                    "tests/test_desktop_lane6_schedules_web" + suffix + ".py::" + module.CASE_MAP[key]))
+                    "tests/test_desktop_lane6_schedules_web" + suffix + ".py::"
+                    + module.CASE_MAP[key]))
             else:
                 row.update(disposition="deferred", reason=module.DEFERRED_CASES[stem][symbol])
             cases.append(row)
@@ -37,9 +45,15 @@ def web_report():
     return {"batch": "lane6_schedules_web", "suites": suites,
         "retired_cases": [], "proposals": [], "substitutions": [], "production_fixes": [],
         "lineage": {"baseline": BASELINE, "archive": "maintenance/odin-v4.13.0.tar.gz",
-                    "archive_sha256": ARCHIVE_SHA256, "corpus": "scripts/maintenance/fixture_corpus.py"},
-        "contracts": ["tests/test_desktop_lane6_schedules_web.py", "tests/test_desktop_lane6_schedules_web_agents.py"],
-        "tests": [{"command": ".venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_lane6_schedules_web.py tests/test_desktop_lane6_schedules_web_agents.py", "result": "32 passed in 10.58s", "exit_code": 0}]}
+                    "archive_sha256": ARCHIVE_SHA256,
+                    "corpus": "scripts/maintenance/fixture_corpus.py"},
+        "contracts": ["tests/test_desktop_lane6_schedules_web.py",
+                      "tests/test_desktop_lane6_schedules_web_agents.py"],
+        "tests": [{"command": (
+            ".venv/bin/python scripts/run-phase1-tests.py "
+            "tests/test_desktop_lane6_schedules_web.py "
+            "tests/test_desktop_lane6_schedules_web_agents.py"
+        ), "result": "32 passed in 10.58s", "exit_code": 0}]}
 
 
 if __name__ == "__main__":

@@ -1,12 +1,14 @@
 """Frozen lane6 provider corpus through profile owners and real engine algorithms."""
-from tests.desktop_adapters.lane6_providers_cases import load
-import pytest_asyncio
-from tests.desktop_adapters.lane6_providers_engine import GRAPHS
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
+import pytest_asyncio
+
+from src.desktop.providers import _ProviderChange
 from src.llm.errors import LLMClientRetiredError
 from src.llm.openai_compatible import OpenAICompatibleClient
-from src.desktop.providers import _ProviderChange
+from tests.desktop_adapters.lane6_providers_cases import load
+from tests.desktop_adapters.lane6_providers_engine import GRAPHS
 
 
 async def test_lane6_providers_cancelled_candidate_rejects_new_generation_lease():

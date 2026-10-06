@@ -5,12 +5,12 @@ Only provider/reflector external boundaries are scripted by the frozen cases.
 """
 from __future__ import annotations
 
-from contextvars import ContextVar
 from contextlib import asynccontextmanager
-from pathlib import Path
+from contextvars import ContextVar
+from pathlib import Path as Path
 from types import SimpleNamespace
-from uuid import uuid4
 from unittest.mock import AsyncMock, Mock
+from uuid import uuid4
 
 from src.config.schema import Config
 from src.desktop.authority import OwnerAuthority
@@ -46,7 +46,9 @@ class Graph:
         self.events = PublicationEventJournal(self.store)
         self.conversations = ConversationStore(self.store, self.events)
         self.transcript = TranscriptStore(self.store, self.events, self.conversations)
-        self.delivery = DurableDelivery(self.store, self.events, transcript_commit=self.transcript.commit)
+        self.delivery = DurableDelivery(
+            self.store, self.events, transcript_commit=self.transcript.commit
+        )
         values = dict(config_overrides or {})
         values.setdefault("search", {"enabled": False})
         values.setdefault("browser", {"enabled": False})
@@ -149,7 +151,7 @@ class Channel:
         return self.graph.transcript.read_conversation(self.id)
 
 
-def LoopManager():
+def LoopManager():  # noqa: N802
     return graph().loop_manager
 
 

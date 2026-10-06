@@ -1,7 +1,9 @@
 """The collection runner aggregates groups without claiming execution evidence."""
 import importlib.util
 import json
+from functools import wraps
 from pathlib import Path
+from types import SimpleNamespace
 
 
 def test_collection_aggregates_actual_group_identities(tmp_path, monkeypatch):
@@ -31,3 +33,30 @@ def test_collection_aggregates_actual_group_identities(tmp_path, monkeypatch):
     assert [row["original"] for row in result["cases"]] == [
         "tests/one.py::test_case", "tests/two.py::test_case"]
     assert all("--collect-only" in arguments for arguments in calls)
+
+
+def test_actual_wrapped_frozen_function_preserves_original_collection_identity(
+        tmp_path, monkeypatch):
+    from tests import test_desktop_qualification as plugin
+
+    source = tmp_path / "tests/test_frozen_fixture.py"
+    namespace = {}
+    exec(compile("def test_retained_case():\n    return True\n", str(source), "exec"), namespace)
+    original = namespace["test_retained_case"]
+
+    @wraps(original)
+    def admission_wrapper():
+        return original()
+
+    monkeypatch.setattr(plugin, "ROOT", tmp_path)
+    (tmp_path / ".test-state").mkdir()
+    plugin.pytest_collection_modifyitems(
+        SimpleNamespace(getoption=lambda _: True),
+        [SimpleNamespace(obj=admission_wrapper,
+                         nodeid="tests/test_wrapper.py::test_alias[case1]")],
+    )
+    result = json.loads((tmp_path / ".test-state/qualification-collected.json").read_text())
+    assert result["cases"] == [{
+        "original": "tests/test_frozen_fixture.py::test_retained_case[case1]",
+        "executable": "tests/test_wrapper.py::test_alias[case1]",
+    }]

@@ -1202,12 +1202,35 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Full suite covers real foreground/autonomous overflow recovery, protected boundaries, durable ordering, frozen resume identity, codec, compaction/deadlines, entry-point census and loop cancellation. Autonomous behavior makes step6 last; codec-only subsets do not restore all cases.",
+      "blocked_on": null,
+      "case_retirements": [
+        {
+          "case": "TestEntryPointCensus.test_full_discord_run_rescues_durably",
+          "reason": "Removed Discord bot intake and its durable Discord fixture. Retained recovery phases and admitted Desktop resume/autonomous entry contracts remain restored.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "6049de2b5d9a3adb4edf09503eb93e2dfd36b9eb4e315a1002d82cc9714cb33c",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestEntryPointCensus.test_nondurable_web_run_still_rescues",
+          "reason": "Removed Odin web UI nondurable chat entry. Desktop conversations use durable admitted requests.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "93699a9a8c593a9199bf5d9cfa0da2e7c541bb3eb90e1cbbd633ecb202b6b4a8",
+          "surface": "Odin web UI"
+        }
+      ],
       "inherited_sha256": "13f145375ade487836f0e497ec020f9f5ef713949abbd0d4590c49a1b071e6d7",
       "path": "tests/test_chat_loop_recovery.py",
-      "qualification_group": "background-chat-loop-recovery-parity",
+      "qualification_group": "phase2-step6-lane6-health",
       "reason": "Full suite covers real foreground/autonomous overflow recovery, protected boundaries, durable ordering, frozen resume identity, codec, compaction/deadlines, entry-point census and loop cancellation. Autonomous behavior makes step6 last; codec-only subsets do not restore all cases.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-case-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_health_learning.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "request runner",
@@ -2269,11 +2292,11 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Health-server teardown and live recovery settings are joined by actual bot agent-manager concurrency provider/catalog rebinding. Agent composition is latest, not pure configuration1.",
+      "blocked_on": "Reviewer decision required for exact legacy per-channel catalog text assertion, while canonical dynamic admission/recovery rebind restored.",
       "inherited_sha256": "87127ab087e9d0b7df63d61529227b3495b1cf3bc18a00fee8cb82de05457db9",
       "path": "tests/test_config_liveness_wiring.py",
       "qualification_group": "phase2-step-6-headless",
-      "reason": "Health-server teardown and live recovery settings are joined by actual bot agent-manager concurrency provider/catalog rebinding. Agent composition is latest, not pure configuration1.",
+      "reason": "Reviewer decision required for exact legacy per-channel catalog text assertion, while canonical dynamic admission/recovery rebind restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -2326,12 +2349,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Whole suite includes real AgentManager spawn/generation snapshots and loop soft/rescue identity alongside chat/provider budget captures. Agent/loop integration sets latest step; pure math cases do not waive integrated assertions.",
+      "blocked_on": null,
       "inherited_sha256": "3616a97cbd8aa2c22640614b934b5febfd90311d664c995128dc73bf8e736b6a",
       "path": "tests/test_context_budget_activation.py",
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6-lane6-providers",
       "reason": "Whole suite includes real AgentManager spawn/generation snapshots and loop soft/rescue identity alongside chat/provider budget captures. Agent/loop integration sets latest step; pure math cases do not waive integrated assertions.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_providers.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "budget resolver",
@@ -2342,12 +2372,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Derivation/calibration/clamp qualification spans production chat, loop and agent density/budget/descent hooks and workload attribution. Preserve fail-open behavior and all utilization/forensic cases; no new D17 admission policy.",
+      "blocked_on": null,
       "inherited_sha256": "6758f17d838dc83286e4974eaec41962d6db2aab5af30bbe2508d724aa9ed1b9",
       "path": "tests/test_context_density_calibration.py",
-      "qualification_group": "phase2-step-6-headless",
+      "qualification_group": "phase2-step6-lane6-providers",
       "reason": "Derivation/calibration/clamp qualification spans production chat, loop and agent density/budget/descent hooks and workload attribution. Preserve fail-open behavior and all utilization/forensic cases; no new D17 admission policy.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_providers.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "context budget",
@@ -2556,12 +2593,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Generation and persisted trajectory timing spans chat, autonomous loops and agents, including failed generations and exclusion of tool duration. Agent/loop assertions make step6 last.",
+      "blocked_on": null,
       "inherited_sha256": "2b7575b89b1aaea5e230135f2dd557978951a4c52dce6d0dad4f426188c134e2",
       "path": "tests/test_generation_duration_contract.py",
-      "qualification_group": "phase2-background-trajectories",
+      "qualification_group": "phase2-step6-lane6-providers",
       "reason": "Generation and persisted trajectory timing spans chat, autonomous loops and agents, including failed generations and exclusion of tool duration. Agent/loop assertions make step6 last.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_providers.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "request trajectories",
@@ -2602,11 +2646,11 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Application shutdown composes processes, loops/scheduler, knowledge and session persistence. Whole-suite background producer/consumer shutdown needs actual step6 graph, not just core EOF lifecycle.",
+      "blocked_on": "Four inherited swallow-error requirements conflict with current canonical sticky producer/resource cleanup barriers; reviewer decision required.",
       "inherited_sha256": "9ce9bf0f2021d3377fdf178e7afe9aee655026d29fb083d60496de7cd03fb5ea",
       "path": "tests/test_graceful_shutdown.py",
       "qualification_group": "phase2-background-shutdown",
-      "reason": "Application shutdown composes processes, loops/scheduler, knowledge and session persistence. Whole-suite background producer/consumer shutdown needs actual step6 graph, not just core EOF lifecycle.",
+      "reason": "Four inherited swallow-error requirements conflict with current canonical sticky producer/resource cleanup barriers; reviewer decision required.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -2617,12 +2661,84 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Provider/session/knowledge/host checks combine browser, schedules, loops and agents plus status projection. Real manager/browser health is last; move HTTP projection to runtime health without fake readiness.",
+      "blocked_on": null,
+      "case_retirements": [
+        {
+          "case": "TestCheckDiscord.test_online",
+          "reason": "Removed Discord or management listener-only contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "7e0f9d151c1c0e43e6a5798a699927dbac75e7e112be514cb1a91275378dc215",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestCheckDiscord.test_not_ready",
+          "reason": "Removed Discord or management listener-only contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "1fb92f5055baadf0181dde02ee2ac6a5fbe6793ef4e0617788a41500a5841423",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestCheckDiscord.test_multiple_guilds",
+          "reason": "Removed Discord or management listener-only contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "3423aba9b91defd6270f97673e33d42997edc40991a45e8d553bee3f1d03095b",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestCheckDiscord.test_exception",
+          "reason": "Removed Discord or management listener-only contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "2a6cdd3acc4e0380320c85e2b4f9009544eb0a3c227e3853ac7c02ca64a37c49",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestCheckAll.test_has_all_component_names",
+          "reason": "Removed Discord or management listener-only contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "d8efe0db35246b5b7c883812fe84ad2b1795fe3801de9054f8251322a32c61b6",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestCheckerList.test_checker_names",
+          "reason": "Removed Discord or management listener-only contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "856813c0f75d62f71215bda00fbfe1c078ea210b64fb0b6404ab2d9e00147a1e",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestExports.test_health_init_exports",
+          "reason": "Removed Discord or management listener-only contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "6f88e44126039c959fa33ad810a61ccd17fa308c407b022e95adfe94167dd433",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestHealthAPI.test_health_components_has_all_names",
+          "reason": "Removed Discord or management listener-only contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "b94aa59878238e15b304baef1f47372070ac78637da9d9af8d2d5484f1f870a2",
+          "surface": "Discord"
+        },
+        {
+          "case": "TestEdgeCases.test_knowledge_none_member_count",
+          "reason": "Removed Discord or management listener-only contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "03d9c51e16abe3d4700d54f8a626723ec18fef865683051782013c32d5103fa3",
+          "surface": "Discord"
+        }
+      ],
       "inherited_sha256": "ddd7a689876cae2c1b25a5ad9710c1facf6f2445509f734bdeae27f3722d893f",
       "path": "tests/test_health_checker.py",
-      "qualification_group": "phase2-background-health",
+      "qualification_group": "phase2-step6-lane6-health",
       "reason": "Provider/session/knowledge/host checks combine browser, schedules, loops and agents plus status projection. Real manager/browser health is last; move HTTP projection to runtime health without fake readiness.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-case-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_health_core.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "runtime health",
@@ -2633,12 +2749,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Provider breaker/pool probes and browser/loop/agent aggregate-health failures need step6 collaborators beyond runtime status.",
+      "blocked_on": null,
       "inherited_sha256": "cf90cead05a53a9c4701fa9b84e20b6ef6fc6fef77d133565538255ed16d5b40",
       "path": "tests/test_health_checker_paths.py",
-      "qualification_group": "phase2-background-health",
+      "qualification_group": "phase2-step6-lane6-health",
       "reason": "Provider breaker/pool probes and browser/loop/agent aggregate-health failures need step6 collaborators beyond runtime status.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_health_core.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "provider health",
@@ -3002,12 +3125,28 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Live learning toggles reach reflection, prompts, executor and agent-related native paths. Agent/native request composition is the last surface beyond settings publication.",
+      "blocked_on": null,
+      "case_retirements": [
+        {
+          "case": "test_config_api_flip_drives_real_prompt_with_persisted_memory",
+          "reason": "Removed Odin web UI HTTP config route and listener. Live learned-context prompt and persistent-memory switch contracts remain restored.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "ff53705f4dd02e2e0cc9c7fbc8e214da101625474689180b8ff5875ffe616be9",
+          "surface": "Odin web UI"
+        }
+      ],
       "inherited_sha256": "7b6e917826b8be3d19864a98f61dc5adcf295866324e60806312a4e9120e243d",
       "path": "tests/test_learning_runtime_switch.py",
-      "qualification_group": "phase2-background-learning",
+      "qualification_group": "phase2-step6-lane6-health",
       "reason": "Live learning toggles reach reflection, prompts, executor and agent-related native paths. Agent/native request composition is the last surface beyond settings publication.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-case-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_health_learning.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "learning settings",
@@ -3017,12 +3156,35 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Live learned-context refresh is asserted at physical chat/web/loop/agent attempts and resume. Preserve persisted memory, live-toggle and retry assertions under trusted Desktop bindings.",
+      "blocked_on": null,
+      "case_retirements": [
+        {
+          "case": "test_web_physical_request_refreshes_after_provider_lock_wait",
+          "reason": "Removed Odin web UI physical chat entry and listener. Desktop and autonomous physical learned-context refresh contracts remain restored.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "380b64281d02539772f1fb0f7c3045b9b772f23f20b6c7d8645673744e4e82b6",
+          "surface": "Odin web UI"
+        },
+        {
+          "case": "test_legacy_checkpoint_resume_rebuilds_prompt_from_live_components",
+          "reason": "Removed Discord message fetching and Discord checkpoint-resume intake. Retained provider identity resume and learned-context cached prompt contracts remain restored.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "be69f31253b819b3d731f4840a1ca986904f666f86e845259564987a9e4d01c2",
+          "surface": "Discord"
+        }
+      ],
       "inherited_sha256": "d0c73c09f81d9034765306690f8650c35b67478aec58ee5020915e0d2c0e7298",
       "path": "tests/test_learning_transport_switch.py",
-      "qualification_group": "phase2-background-learning",
+      "qualification_group": "phase2-step6-lane6-health",
       "reason": "Live learned-context refresh is asserted at physical chat/web/loop/agent attempts and resume. Preserve persisted memory, live-toggle and retry assertions under trusted Desktop bindings.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-case-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_health_learning.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "request attempts",
@@ -3138,12 +3300,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Model/effort compatibility crosses settings, spawn admission and final request construction; agent spawn is the last required surface.",
+      "blocked_on": null,
       "inherited_sha256": "b7fd583e10ab910c9523add50131032236a9563dc0ab7241764a997d73b03f5b",
       "path": "tests/test_max_reasoning_effort.py",
-      "qualification_group": "phase2-background-agent-models",
+      "qualification_group": "phase2-step6-lane6-providers",
       "reason": "Model/effort compatibility crosses settings, spawn admission and final request construction; agent spawn is the last required surface.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_providers.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "provider effort validation",
@@ -3297,12 +3466,28 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Agent model selection, reasoning defaults/schema and provider translation belong to agent admission and request construction.",
+      "blocked_on": null,
+      "case_retirements": [
+        {
+          "case": "test_codex_default_spawn_requires_model_selection",
+          "reason": "Exact whole-schema byte hash pins removed Discord/channel description. The entire frozen-to-current agents definition diff is Discord/channel to conversation wording. Restoring those bytes would recreate removed surface wording, not improve model policy coverage; all remaining mixed-model policy cases execute unchanged.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "c94b58bbd2bfb778dfe5ed775c529ed4e5609adc063d056e5a38b336fb20119a",
+          "surface": "Discord"
+        }
+      ],
       "inherited_sha256": "de80f566cf7be48ddd03d006b5ba68ce13286e1e01ca04af0c9d2a6873534330",
       "path": "tests/test_mixed_agent_reasoning_contract.py",
-      "qualification_group": "phase2-background-agent-models",
+      "qualification_group": "phase2-step6-lane6-providers",
       "reason": "Agent model selection, reasoning defaults/schema and provider translation belong to agent admission and request construction.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-case-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_providers.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "agent model selection",
@@ -3530,12 +3715,42 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Most chunk/settlement tests are neutral, but whole-suite restoration includes real executor streaming, status projection, autonomous-loop tool attribution and native-child ContextVar isolation. The _run_one_loop_tool assertions require step6 loop/native composition; preserve per-call identity and exactly-one terminal chunk races.",
+      "blocked_on": null,
+      "case_retirements": [
+        {
+          "case": "TestAPIEndpoint.test_no_executor",
+          "reason": "Removed Odin HTTP/Web UI /api/tool-streams route",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "99bbe44f0be696bc0d3ed1f6a49cf55682c5d394dc0efed65d5008be829ce39e",
+          "surface": "Odin web UI"
+        },
+        {
+          "case": "TestAPIEndpoint.test_with_streamer",
+          "reason": "Removed Odin HTTP/Web UI /api/tool-streams route",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "7df48f79f1fee0b8ce9eb866fb1e593dd46474e99736b6a6be0c7931a29407c0",
+          "surface": "Odin web UI"
+        },
+        {
+          "case": "TestAPIEndpoint.test_with_active_stream",
+          "reason": "Removed Odin HTTP/Web UI /api/tool-streams route",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_sha256": "fc0fbeec340966c39b1546d95047c4bda91eb60536bd96f38ddb4387259cfe38",
+          "surface": "Odin web UI"
+        }
+      ],
       "inherited_sha256": "8c64bbb2a58a274f591399f888510616cfc6181cd9f75eb1d909560b3681440f",
       "path": "tests/test_output_streamer.py",
-      "qualification_group": "phase2-background-streaming",
+      "qualification_group": "phase2-step6-lane6-health",
       "reason": "Most chunk/settlement tests are neutral, but whole-suite restoration includes real executor streaming, status projection, autonomous-loop tool attribution and native-child ContextVar isolation. The _run_one_loop_tool assertions require step6 loop/native composition; preserve per-call identity and exactly-one terminal chunk races.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-case-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_health_output.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "tool streaming",
@@ -3648,12 +3863,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Predictive descent, one shared rescue ladder, frozen resumed-generation facts and attempt-evidence provenance are pinned independently across chat, physical autonomous-loop attempts and AgentManager recovery. Step4 frozen resume semantics and step5 provider context evidence are required, but real loop/agent assertions make step6 the last surface.",
+      "blocked_on": null,
       "inherited_sha256": "085ca193095b1b2d7a831495088eaa4bad4e25167bed1f02a2edde1a4e98f708",
       "path": "tests/test_predictive_presend.py",
-      "qualification_group": "phase2-background-context-recovery",
+      "qualification_group": "phase2-step6-lane6-providers",
       "reason": "Predictive descent, one shared rescue ladder, frozen resumed-generation facts and attempt-evidence provenance are pinned independently across chat, physical autonomous-loop attempts and AgentManager recovery. Step4 frozen resume semantics and step5 provider context evidence are required, but real loop/agent assertions make step6 the last surface.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_providers.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "request context recovery",
@@ -3664,12 +3886,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. GLM wire reasoning and structured tool-result accounting drive real compression, chat soft passes and AgentManager rejection/rescue. Preserve every byte/count, no-resend and newest-reasoning assertion; agent recovery is the last surface beyond request/provider composition.",
+      "blocked_on": null,
       "inherited_sha256": "9f86bc04fdb9108e3ea4f1e91ab5adaccfb8c97267b17098bc083c2d2a0484bb",
       "path": "tests/test_preserved_reasoning_accounting.py",
-      "qualification_group": "phase2-background-context-recovery",
+      "qualification_group": "phase2-step6-lane6-providers",
       "reason": "GLM wire reasoning and structured tool-result accounting drive real compression, chat soft passes and AgentManager rejection/rescue. Preserve every byte/count, no-resend and newest-reasoning assertion; agent recovery is the last surface beyond request/provider composition.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_providers.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "provider reasoning wire format",
@@ -3679,11 +3908,11 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real process start/poll/retention manifests and remote supervisor facts are projected through management process listing, including unknown legacy shells and restored running-state uncertainty. Replace register_processes HTTP rows with Desktop work listing while retaining kernel/manifest/poll provenance assertions; work management is step6.",
+      "blocked_on": "Canonical admitted WorkService lacks exact frozen raw process shell/provenance management payload schema.",
       "inherited_sha256": "a6d0fdd4dd939d26c9ddd375698dc81da3603d0ee72071d4dda1a50aa44273b8",
       "path": "tests/test_process_api_provenance.py",
       "qualification_group": "phase2-background-processes",
-      "reason": "Real process start/poll/retention manifests and remote supervisor facts are projected through management process listing, including unknown legacy shells and restored running-state uncertainty. Replace register_processes HTTP rows with Desktop work listing while retaining kernel/manifest/poll provenance assertions; work management is step6.",
+      "reason": "Canonical admitted WorkService lacks exact frozen raw process shell/provenance management payload schema.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -3694,11 +3923,11 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Process commands remain internal while results/logs/listings/operator projection are scrubbed before truncation. Whole suite calls register_processes, so named Desktop work projection is required; not app-only and not clean step1.",
+      "blocked_on": "Canonical admitted WorkService safe title projection does not expose frozen raw-command record payload. Complete mixed case retained pending parity.",
       "inherited_sha256": "b433e3936ba4c20e14f5dadc2d97ea50a19fd9db5fe743e222697ab13e1917b2",
       "path": "tests/test_process_command_visibility.py",
       "qualification_group": "phase2-background-processes",
-      "reason": "Process commands remain internal while results/logs/listings/operator projection are scrubbed before truncation. Whole suite calls register_processes, so named Desktop work projection is required; not app-only and not clean step1.",
+      "reason": "Canonical admitted WorkService safe title projection does not expose frozen raw-command record payload. Complete mixed case retained pending parity.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -3778,12 +4007,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Malformed provider arguments never execute effects across chat, autonomous-loop and agent dispatch, while valid empty-object calls remain accepted. Agent/loop composition is the last actual assertion surface.",
+      "blocked_on": null,
       "inherited_sha256": "9a3183d8b67e55a346fc5945c9e2b65753d13de2911269c2b3d7e6089c711166",
       "path": "tests/test_provider_argument_acceptance.py",
-      "qualification_group": "phase2-background-provider-dispatch",
+      "qualification_group": "phase2-step6-lane6-providers",
       "reason": "Malformed provider arguments never execute effects across chat, autonomous-loop and agent dispatch, while valid empty-object calls remain accepted. Agent/loop composition is the last actual assertion surface.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_providers.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "provider parsing",
@@ -3794,12 +4030,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Provider parsers/breakers/routing/client reload and incomplete-turn settlement combine with agent completion/results projection. Preserve provider/request assertions but real agent/work display makes step6 last.",
+      "blocked_on": null,
       "inherited_sha256": "6a30d0463fba2d15cf2de86bce84c197b33473ad7c5150ac93add489a7d53448",
       "path": "tests/test_provider_campaign_regressions.py",
-      "qualification_group": "phase2-background-provider-dispatch",
+      "qualification_group": "phase2-step6-lane6-providers",
       "reason": "Provider parsers/breakers/routing/client reload and incomplete-turn settlement combine with agent completion/results projection. Preserve provider/request assertions but real agent/work display makes step6 last.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_providers.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "provider lifecycle/routing",
@@ -3824,12 +4067,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Stream terminal acceptance is exercised through chat, autonomous loops and agents. Preserve incomplete-response refusal, no tool execution before accepted completion and no replay; agent/loop composition is the last owner.",
+      "blocked_on": null,
       "inherited_sha256": "b3b83f66584b7e8d197b2f4579be2ed21dcc03747a7ee9b02ebb03ca9ed214e3",
       "path": "tests/test_provider_stream_acceptance.py",
-      "qualification_group": "phase2-background-provider-streams",
+      "qualification_group": "phase2-step6-lane6-providers",
       "reason": "Stream terminal acceptance is exercised through chat, autonomous loops and agents. Preserve incomplete-response refusal, no tool execution before accepted completion and no replay; agent/loop composition is the last owner.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_providers.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "provider stream acceptance",
@@ -3858,12 +4108,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Generation reasoning-token provenance and incomplete outcomes span foreground, autonomous-loop and agent recording plus durable usage rollup. Agent/loop recording determines the latest required surface; preserve unknown-versus-zero facts.",
+      "blocked_on": null,
       "inherited_sha256": "43b762f236d0b284426602c309f413eafd94f10bca1c0e757481005dd182c98c",
       "path": "tests/test_reasoning_generation_records.py",
-      "qualification_group": "phase2-background-recording",
+      "qualification_group": "phase2-step6-lane6-providers",
       "reason": "Generation reasoning-token provenance and incomplete outcomes span foreground, autonomous-loop and agent recording plus durable usage rollup. Agent/loop recording determines the latest required surface; preserve unknown-versus-zero facts.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_providers.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "generation provenance",
@@ -3896,11 +4153,11 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Resource/storage aggregation includes actual background-work manager views for agents, loops, schedules and processes alongside sessions/knowledge/trajectories. Adapt the HTTP aggregate to runtime/work services without mistaking mocked managers for present composition.",
+      "blocked_on": "Named resource-usage management method exposing session/trajectory collector payload absent; direct collector corpus restored.",
       "inherited_sha256": "a7b39991f16e208dd51635caceb1aee25f4099ec9bddbcadd80101aed871dcb1",
       "path": "tests/test_resource_usage.py",
       "qualification_group": "phase2-runtime-background-composition",
-      "reason": "Resource/storage aggregation includes actual background-work manager views for agents, loops, schedules and processes alongside sessions/knowledge/trajectories. Adapt the HTTP aggregate to runtime/work services without mistaking mocked managers for present composition.",
+      "reason": "Named resource-usage management method exposing session/trajectory collector payload absent; direct collector corpus restored.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -3987,11 +4244,11 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Retained output delivery spans native dispatch, autonomous MCP, background skill and agent tool-cycle paths. Restore real background composition and output authorizer origins while preserving capture/scrubbing/retention semantics.",
+      "blocked_on": "Reviewer decision for inherited ownerless dispatcher fallback, canonical runtime fails closed without authenticated executor.",
       "inherited_sha256": "add5410c347955ddb90e2437bf8ec80cf26649b8003b921ef9eb0b08eec60622",
       "path": "tests/test_runtime_output_delivery.py",
       "qualification_group": "phase2-background-output-delivery",
-      "reason": "Retained output delivery spans native dispatch, autonomous MCP, background skill and agent tool-cycle paths. Restore real background composition and output authorizer origins while preserving capture/scrubbing/retention semantics.",
+      "reason": "Reviewer decision for inherited ownerless dispatcher fallback, canonical runtime fails closed without authenticated executor.",
       "status": "deferred",
       "step": 6,
       "surfaces": [
@@ -4140,12 +4397,19 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Search retention/paging spans conversation history, knowledge and background-task tool execution. Knowledge is step5 and task composition step6; preserve rank, whole-match boundaries and captured-output reuse.",
+      "blocked_on": null,
       "inherited_sha256": "e9f008c122c7ac646b62635662eeb717f6df7804b2aef19c051c961e88f55468",
       "path": "tests/test_search_output_capture.py",
-      "qualification_group": "phase2-background-output-delivery",
+      "qualification_group": "phase2-step6-lane6-health",
       "reason": "Search retention/paging spans conversation history, knowledge and background-task tool execution. Knowledge is step5 and task composition step6; preserve rank, whole-match boundaries and captured-output reuse.",
-      "status": "deferred",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "reason": "Whole immutable frozen suite before explicit setup transformation; exact retained assertion/signature/decorator/parameter AST, all surviving cases exported through canonical Desktop owners. Individual removed surfaces only, reviewer decisions remain pending.",
+        "selectors": [
+          "tests/test_desktop_lane6_health_resources.py"
+        ]
+      },
+      "status": "restored",
       "step": 6,
       "surfaces": [
         "history search",
@@ -5112,11 +5376,11 @@
       ]
     },
     {
-      "blocked_on": "Pending parent audit and whole-suite frozen-source qualification for the proposed surface owner. Real atomic evidence store/clamp qualification and runtime context-window projections also exercise chat, autonomous-loop and agent rescue/recorder integration. Agent/loop execution hooks make step6 last; preserve same-account/request authoritative evidence, downward-only TTL merges, write-forfeit behavior and configured-versus-boot-effective truth.",
+      "blocked_on": "Named context-windows read/clear management method for clamp/account/calibration/boot ceilings absent. LLM observer, not native desktop; P3.5 not applicable.",
       "inherited_sha256": "8df113168f7d220d99c68b71fe1571391e4102b7ced1095fa3501825a8943896",
       "path": "tests/test_window_observer.py",
       "qualification_group": "phase2-background-provider-evidence",
-      "reason": "Real atomic evidence store/clamp qualification and runtime context-window projections also exercise chat, autonomous-loop and agent rescue/recorder integration. Agent/loop execution hooks make step6 last; preserve same-account/request authoritative evidence, downward-only TTL merges, write-forfeit behavior and configured-versus-boot-effective truth.",
+      "reason": "Named context-windows read/clear management method for clamp/account/calibration/boot ceilings absent. LLM observer, not native desktop; P3.5 not applicable.",
       "status": "deferred",
       "step": 6,
       "surfaces": [

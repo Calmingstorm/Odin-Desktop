@@ -1,16 +1,20 @@
 """Production scheduled dispatch preserves task-owned child admission."""
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock as AsyncMock
 
 import pytest
 
 from src.desktop.core import CoreService
-from tests.desktop_adapters.test_phase2_runner_characterization import graph
+from tests.desktop_adapters.test_phase2_runner_characterization import (
+    graph as graph,
+)
 
 
 @pytest.mark.asyncio
-async def test_lane6_schedules_concurrent_dispatch_admits_distinct_bound_children(graph):
+async def test_lane6_schedules_concurrent_dispatch_admits_distinct_bound_children(
+    graph,
+):
     seen = []
 
     async def effect(name, values, message, owner_id):
@@ -26,7 +30,9 @@ async def test_lane6_schedules_concurrent_dispatch_admits_distinct_bound_childre
         "Harmless concurrent probe", graph.cid, graph.requests.authority.owner_id)
     async with graph.requests.background_execution(parent):
         results = await asyncio.gather(*(
-            CoreService._dispatch_scheduled_tool(facade, parent, "fetch_url", {"url": "https://example.invalid"})
+            CoreService._dispatch_scheduled_tool(
+                facade, parent, "fetch_url", {"url": "https://example.invalid"}
+            )
             for _ in range(3)))
         graph.requests.assert_request(parent)
     assert results == ["sample"] * 3

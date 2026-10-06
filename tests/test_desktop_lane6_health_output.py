@@ -34,7 +34,7 @@ def test_lane6_health_output_exact_corpus_and_complete_accounting(suite):
     cases = {symbol for symbol, *_ in expected["cases"]}
     restored = {key.removeprefix(path + "::").replace("::", ".")
                 for key in CASE_MAP if key.startswith(path + "::")}
-    excluded = CORPUS_EXCLUSIONS.get(suite, set())
+    excluded = set(CORPUS_EXCLUSIONS.get(suite, []))
     assert restored.isdisjoint(excluded)
     proposed = set(PROPOSED_CASES.get(suite, {}))
     assert restored.isdisjoint(proposed)

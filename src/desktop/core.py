@@ -44,7 +44,8 @@ RESULT_METHODS = frozenset({"artifacts.read", "tool.detail", "tool.output"})
 CONTROL_METHODS = frozenset({"control.stop", "control.steer", "control.resume", "work.control"})
 WORK_METHODS = frozenset({"work.list", "reports.page", "turn_state.list"})
 SCHEDULE_METHODS = frozenset({"schedules.list", "schedules.save", "schedules.delete",
-    "schedules.run", "schedules.reset_failures", "schedules.history", "schedules.validate_cron"})
+    "schedules.run", "schedules.reset_failures", "schedules.history", "schedules.validate_cron",
+    "schedules.stats"})
 CAPABILITIES = ("status.get", "events.subscribe", "runtime.shutdown",
                 "submission.send", "notifications.ack",
                 *sorted(CONVERSATION_METHODS | TRANSCRIPT_METHODS | SEARCH_METHODS
@@ -59,7 +60,8 @@ READ_METHODS = frozenset({
     "tools.list", "tools.timeouts.get", "skills.list", "skills.get", "skills.config.get",
     "mcp.list", "mcp.status", "mcp.tools", "webhooks.outbound.list",
     "hosts.list", "hosts.references", "schedules.list", "schedules.history",
-    "schedules.validate_cron", "memory.list", "memory.get", "lists.list", "lists.get",
+    "schedules.validate_cron", "schedules.stats", "memory.list", "memory.get",
+    "lists.list", "lists.get",
     "knowledge.list", "knowledge.search", "knowledge.versions", "audit.query",
     "audit.verify", "health.get", "logs.search", "turn_state.list", "computer.status",
 })

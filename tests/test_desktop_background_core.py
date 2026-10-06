@@ -141,6 +141,10 @@ async def test_ipc_schedule_report_read_never_reexecutes_and_control_is_deduplic
             "report_format": "paginated_embed_v1"})
         assert saved["ok"], saved
         sid = saved["result"]["id"]
+        assert "schedules.stats" in core.capabilities
+        stats = await request(reader, writer, "schedules.stats", {"id": sid})
+        assert stats["ok"], stats
+        assert isinstance(stats["result"], dict)
         listing = await request(reader, writer, "work.list", {"kind": "schedule"})
         items = listing["result"]["items"]
         assert len(items) == 1

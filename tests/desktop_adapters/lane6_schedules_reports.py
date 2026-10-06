@@ -23,28 +23,40 @@ from src.desktop.commands import JournalStore
 from src.desktop.conversations import ConversationStore
 from src.desktop.events import EventJournal
 from src.desktop.paths import ProfilePaths
+from src.desktop.reports import ReportService
 from src.desktop.requests import RequestService
 from src.desktop.schedules import ScheduleService
 from src.desktop.transcript import TranscriptStore
 from src.discord.native_tools.scheduling import SchedulingTools as NativeTools
 from src.permissions.manager import PermissionManager
-from src.desktop.reports import ReportService
 from tests.desktop_adapters.lane6_schedules_reports_dispositions import (
-    DEFERRED_CASES, RETIRED_CASES, REVIEWER,
+    DEFERRED_CASES,
+    RETIRED_CASES,
+)
+from tests.desktop_adapters.lane6_schedules_reports_dispositions import (
+    REVIEWER as REVIEWER,
 )
 
 SUITES = {
     "test_native_scheduling": "7bd9102e662705cd34187f038aa53e4c10cd9c8796322c49249145c7531077cd",
     "test_scheduled_report": "45a0f3bbc7bca2f630ef041c4f06e578ee9fd1b6b210c2f7a9a7c2ac87e2c482",
-    "test_scheduled_report_pagination_listener": "afa49c7afd843834fafca21cf7763f19b3bd00c14422ea3960c80a208d438b52",
-    "test_scheduled_report_wiring": "fc4b2ad6038e17475d5ca6803017bc51a61b6d8838b52b5af28e3f1812eb7e7f",
+    "test_scheduled_report_pagination_listener": (
+        "afa49c7afd843834fafca21cf7763f19b3bd00c14422ea3960c80a208d438b52"
+    ),
+    "test_scheduled_report_wiring": (
+        "fc4b2ad6038e17475d5ca6803017bc51a61b6d8838b52b5af28e3f1812eb7e7f"
+    ),
 }
 PINS = SUITES
 CORPUS_PINS = {
     "test_native_scheduling": "14160b7d934aaa27334cae7b92f1878dcb71e00e01c9402d0b5f8bbdb7d33e0e",
     "test_scheduled_report": "49b4444bd03c8a455fd9a678f3cc87e0b82e61589186f0cdb93d648a115eead2",
-    "test_scheduled_report_pagination_listener": "eecb7171a3df0e2a89b27118d37c510b44bbeb82aab0706f04d44381b43d620a",
-    "test_scheduled_report_wiring": "6b267629f2c12e58198ea3a98e5a0a4250b7850cd3b736e59387287dbfe0cce6",
+    "test_scheduled_report_pagination_listener": (
+        "eecb7171a3df0e2a89b27118d37c510b44bbeb82aab0706f04d44381b43d620a"
+    ),
+    "test_scheduled_report_wiring": (
+        "6b267629f2c12e58198ea3a98e5a0a4250b7850cd3b736e59387287dbfe0cce6"
+    ),
 }
 CORPUS_SELECTIONS = {
     "test_native_scheduling": None,
@@ -80,9 +92,12 @@ class Graph:
         self.conversations = ConversationStore(self.store, events)
         self.transcript = TranscriptStore(self.store, events, self.conversations)
         self.cid = self.conversations.create()["conversation"]["id"]
-        self.requests = RequestService(self.store, self.conversations, self.transcript,
-            engine=SimpleNamespace(deps=SimpleNamespace(turn_store=None)), permissions=self.permissions,
-            authority=self.authority, delivery=SimpleNamespace())
+        self.requests = RequestService(
+            self.store, self.conversations, self.transcript,
+            engine=SimpleNamespace(deps=SimpleNamespace(turn_store=None)),
+            permissions=self.permissions,
+            authority=self.authority, delivery=SimpleNamespace(),
+        )
         RESOURCES.append(self)
 
     def close(self):
@@ -99,7 +114,9 @@ class SchedulerBoundary:
     """
     def __init__(self, scheduler, graph):
         self.source, self.graph = scheduler, graph
-        if isinstance(scheduler, MagicMock) and isinstance(scheduler.list_all.return_value, MagicMock):
+        if isinstance(scheduler, MagicMock) and isinstance(
+            scheduler.list_all.return_value, MagicMock
+        ):
             scheduler.list_all.return_value = [{"id": "S1", "action": "reminder"}]
 
     def list_all(self):
@@ -208,7 +225,10 @@ def frozen(stem):
         call.args.insert(0, ast.Name(id="scheduler", ctx=ast.Load()))
         hunks.append((before, call))
     if stem == "test_scheduled_report":
-        node = next(n for n in adapted.body if isinstance(n, ast.FunctionDef) and n.name == "_registry")
+        node = next(
+            n for n in adapted.body
+            if isinstance(n, ast.FunctionDef) and n.name == "_registry"
+        )
         before = copy.deepcopy(node)
         node.body = ast.parse("return report_registry()").body
         hunks.append((before, node))
@@ -239,22 +259,31 @@ REPORT_RETAINED = {
 
 
 def register_module(namespace, stem, tree, module):
-        for node in tree.body:
-            if not isinstance(node, ast.ClassDef) or not node.name.startswith("Test"):
+    for node in tree.body:
+        if not isinstance(node, ast.ClassDef) or not node.name.startswith("Test"):
+            continue
+        cls = vars(module)[node.name]
+        for child in node.body:
+            if not getattr(child, "name", "").startswith("test_"):
                 continue
-            cls = vars(module)[node.name]
-            for child in node.body:
-                if not getattr(child, "name", "").startswith("test_"):
-                    continue
-                symbol = f"{node.name}.{child.name}"
-                retained = symbol not in NATIVE_DEFERRED if stem == "test_native_scheduling" else symbol in REPORT_RETAINED
-                if not retained:
-                    assert symbol in RETIRED_CASES.get(stem, {}) or symbol in DEFERRED_CASES.get(stem, {})
-                    delattr(cls, child.name)
-                else:
-                    exported = f"TestLane6_{stem}_{node.name[4:]}"
-                    CASE_MAP[f"tests/{stem}.py::{node.name}::{child.name}"] = f"{exported}::{child.name}"
-                    namespace[exported] = cls
+            symbol = f"{node.name}.{child.name}"
+            retained = (
+                symbol not in NATIVE_DEFERRED
+                if stem == "test_native_scheduling"
+                else symbol in REPORT_RETAINED
+            )
+            if not retained:
+                assert (
+                    symbol in RETIRED_CASES.get(stem, {})
+                    or symbol in DEFERRED_CASES.get(stem, {})
+                )
+                delattr(cls, child.name)
+            else:
+                exported = f"TestLane6_{stem}_{node.name[4:]}"
+                CASE_MAP[f"tests/{stem}.py::{node.name}::{child.name}"] = (
+                    f"{exported}::{child.name}"
+                )
+                namespace[exported] = cls
 
 
 def load(namespace):

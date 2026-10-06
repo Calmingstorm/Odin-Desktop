@@ -32,6 +32,10 @@ REMOVED_STEP6_SURFACES = {
     "Discord", "multi-user tiers", "HTTP/WebSocket listeners",
     "bearer sessions", "Odin web UI",
 }
+STEP6_QUALIFICATION_GROUPS = {
+    "phase2-step6-lane6-agents", "phase2-step6-lane6-health",
+    "phase2-step6-lane6-providers", "phase2-step6-lane6-schedules",
+}
 RETIRABLE_SUITES = {
     "tests/test_client.py", "tests/test_command_reconciliation.py",
     "tests/test_gateway_transition_regressions.py", "tests/test_rate_limiter.py",
@@ -171,6 +175,7 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
     invokes_loader = False
     retirement_bound = retired_cases is None
     stem = PurePosixPath(path).stem
+    relative_stem = path.removeprefix("tests/").removesuffix(".py")
     for tree in trees:
         constants = {}
         for node in tree.body:
@@ -183,22 +188,24 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
                     if isinstance(target, ast.Name):
                         constants[target.id] = value
         selections = constants.get("CORPUS_SELECTIONS", {})
-        if isinstance(selections, dict) and stem in selections:
-            if selections[stem] is not None:
+        selection_key = relative_stem if relative_stem in selections else stem
+        if isinstance(selections, dict) and selection_key in selections:
+            if selections[selection_key] is not None:
                 return False
             admitted = True
         exclusions = constants.get("CORPUS_EXCLUSIONS", {})
         if not isinstance(exclusions, dict):
             return False
         if retired_cases is None:
-            if any(exclusions.values()):
+            if exclusions.get(stem) or exclusions.get(relative_stem):
                 return False
         else:
             if any(not isinstance(value, list) or any(not isinstance(item, str)
                        for item in value) for value in exclusions.values()):
                 return False
-            if stem in exclusions:
-                actual = exclusions[stem]
+            exclusion_key = relative_stem if relative_stem in exclusions else stem
+            if exclusion_key in exclusions:
+                actual = exclusions[exclusion_key]
                 if len(actual) != len(set(actual)) or set(actual) != retired_cases:
                     return False
                 retirement_bound = True
@@ -206,7 +213,8 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
                 and constants.get("SOURCE_SHA256") == inherited_hash):
             pinned = True
         suites = constants.get("SUITES", {})
-        if isinstance(suites, dict) and suites.get(stem) == inherited_hash:
+        if isinstance(suites, dict) and inherited_hash in {
+                suites.get(stem), suites.get(relative_stem)}:
             pinned = True
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -424,7 +432,8 @@ def _check(root: Path) -> tuple[list[str], dict]:
     old_names = {group["name"] for group in old_groups}
     merged_groups = merged_qualification["groups"]
     merged_names = {group["name"] for group in merged_groups}
-    if not old_names <= merged_names or set(named) != merged_names:
+    if (not old_names <= merged_names or not merged_names <= set(named)
+            or not set(named) <= merged_names | STEP6_QUALIFICATION_GROUPS):
         errors.append("qualification: preserve all historical and merged main named groups")
     for group in merged_groups:
         if not set(group["files"]) <= set(named.get(group["name"], {}).get("files", [])):

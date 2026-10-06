@@ -54,7 +54,8 @@ def lineage_candidate(root, decisions):
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"Missing concrete {key}: {path}")
             old = row.get(key)
-            row[key] = f"{old} | Lane6: {value}" if old and value not in old else value
+            row[key] = (old if old and value in old else
+                        f"{old} | Lane6: {value}" if old else value)
         tests = sorted(set(row.get("tests", [])) | set(decision["tests"]))
         if not tests or any(not inventory.regular_file(root, test) for test in tests):
             raise ValueError(f"Missing named evidence: {path}")

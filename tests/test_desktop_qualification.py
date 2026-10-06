@@ -1,5 +1,6 @@
 """Static qualification records, never inherited source imports."""
 import hashlib
+import inspect
 import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -20,6 +21,12 @@ def pytest_collection_modifyitems(config, items):
     rows = []
     for item in items:
         obj = getattr(item, "obj", None)
+        # Admission wrappers use functools.wraps without editing frozen test
+        # bodies. Inspect the actual wrapped function, not the bridge filename.
+        try:
+            obj = inspect.unwrap(obj)
+        except ValueError:
+            raise ValueError("Cyclic test admission wrapper cannot bind source identity") from None
         code = getattr(obj, "__code__", None)
         if code is None:
             continue

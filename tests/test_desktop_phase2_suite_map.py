@@ -194,6 +194,30 @@ def test_step6_case_retirement_requires_complete_bound_partition(repo):
     assert checker.validate(repo) == []
 
 
+def test_only_named_step6_groups_can_extend_historical_qualification(repo):
+    qualification = _read(repo, checker.QUALIFICATION_PATH)
+    qualification["groups"].append({
+        "name": "phase2-step6-lane6-providers",
+        "files": ["tests/test_context_budget_activation.py"],
+        "reason": "Exact frozen step6 provider corpus through the canonical owner.",
+    })
+    _write(repo, checker.QUALIFICATION_PATH, qualification)
+    assert checker.validate(repo) == []
+
+
+def test_shared_adapter_retirement_does_not_cut_an_unrelated_suite(repo):
+    path, selector = _restore(repo, adapter=True)
+    target = repo / selector
+    target.write_text(target.read_text().replace(
+        "CORPUS_EXCLUSIONS = {}",
+        "CORPUS_EXCLUSIONS = {'test_unrelated': ['TestOld.test_removed_transport']}"))
+    assert checker.validate(repo) == []
+    # A cut of the mapped suite without its bound retirement remains rejected.
+    target.write_text(target.read_text().replace(
+        "'test_unrelated'", repr(Path(path).stem)))
+    assert checker.validate(repo)
+
+
 @pytest.mark.parametrize("mutation", ["hash", "reviewer", "surface", "case", "duplicate",
                                       "missing", "undeclared", "wrong_step", "full_mode"])
 def test_step6_case_retirement_mutations_fail_closed(repo, mutation):
@@ -360,7 +384,8 @@ def test_restore_cannot_claim_a_subset_or_unqualified_whole_suite(repo, mutation
             source = source.replace(": None}", ": ['test_one']}")
         elif mutation == "adapter_exclusion":
             source = source.replace(
-                "CORPUS_EXCLUSIONS = {}", "CORPUS_EXCLUSIONS = {'suite': ['test_one']}"
+                "CORPUS_EXCLUSIONS = {}",
+                f"CORPUS_EXCLUSIONS = {{{Path(path).stem!r}: ['test_one']}}",
             )
         elif mutation == "adapter_hash":
             source = source.replace(row["inherited_sha256"], "0" * 64)

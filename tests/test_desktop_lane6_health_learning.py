@@ -6,6 +6,7 @@ import pytest_asyncio
 
 from scripts.maintenance.fixture_corpus import corpus, frozen_source
 from tests.desktop_adapters import lane6_health_learning as bridge
+from tests.desktop_adapters.lane6_health_learning import load
 
 CORPUS_SELECTIONS = {
     "test_chat_loop_recovery": None,
@@ -43,7 +44,7 @@ async def lane6_health_learning_graph(tmp_path, monkeypatch):
         graph.authority.release_runtime()
 
 
-bridge.load(globals())
+load(globals())
 
 
 @pytest.mark.parametrize("stem", tuple(bridge.SUITES))

@@ -41,7 +41,9 @@ def make_bot(*, config_overrides=None, fake_llm=None):
     cfg.search.enabled = False
     cfg.turn_state.enabled = False
     cfg.llm_provider.model = "codex:fake-model"
-    settings = SettingsService(paths, ProfileSecretStore(paths, backend=MemoryKeyring()), config=cfg)
+    settings = SettingsService(
+        paths, ProfileSecretStore(paths, backend=MemoryKeyring()), config=cfg
+    )
     key = cfg.openai_compatible.api_key
     if key:
         settings.secrets.set("openai_compatible.api_key", key)

@@ -5,14 +5,15 @@ import pytest
 
 from scripts.maintenance.fixture_corpus import corpus, frozen_source
 from tests.desktop_adapters import lane6_schedules_web_agents as fixture
-
 from tests.desktop_adapters.lane6_schedules_web_agents import load
 
 load(globals())
 
 
 def test_lane6_schedules_web_agents_whole_frozen_corpus():
-    assert corpus(ast.parse(frozen_source(fixture.PATH))) == corpus(fixture.transformed_tree())
+    assert corpus(ast.parse(frozen_source(fixture.PATH))) == corpus(
+        fixture.transformed_tree()
+    )
     expected = {symbol for symbol, *_ in corpus(ast.parse(frozen_source(fixture.PATH)))["cases"]
                 if fixture.selected(symbol)}
     assert {key.split("::", 1)[1].replace("::", ".") for key in fixture.CASE_MAP} == expected

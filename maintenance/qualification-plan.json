@@ -29,19 +29,19 @@
   "baseline_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
   "baseline_plan": "maintenance/test-plan.json",
   "case_accounting": "maintenance/case-accounting.json",
+  "decision_f_pdf_catalog_disposition": {
+    "disposition": "obsolete-contract-replaced-pending-independent-review",
+    "original": "tests/test_tool_catalog_dependency_gate.py::test_missing_pdf_dependency_is_hidden_with_actionable_log",
+    "reason": "Aaron Decision F requires PDF offered with a verified automatic first-use download, not hidden when the optional module is absent. Original source assertions and hash remain frozen; no old-contract pass is claimed.",
+    "replacement": "tests/test_desktop_pdf_catalog.py::test_missing_pdf_dependency_is_offered_with_unchanged_description",
+    "source_sha256": "f7db630da366641f110d4f433398747dbd6a24f8bdf3be31acb936abacdd0311"
+  },
   "disposition_rules": {
     "direct_original": "Version7/type12/coverage original cases contain neutral algorithms; previous metadata label incorrect.",
     "faithful_adapter_exact_selected_corpus": "Only literal CORPUS_SELECTIONS named cases proved, never implicit full-suite coverage. Config inside assertions cannot change with identical assertion claim. Missing neutral remainder still blocks.",
     "mixed_retired_manifest_assertions_retained_native_bundle_safety": "nfpm destinations/dependency names, REST inventories and API-token prose retired. ABI/source-only/no hooks/no automatic activation, consent warnings/link closure/no personal host paths and tool docs remain explicit bundle requirements. Phase3 hard-isolated native scope, not blanket Phase2 waiver.",
     "retired_server_distribution_contract": "Old server CLI/remote API client and build-deb release workflow removed D3/D5/D6; original bytes preserved. Hostile release tag literals additionally prohibited even mocked.",
     "still_required_neutral_exact_case_mapping_blocker": "Remove specific tier/WebUI/server assertions only, never neutral redaction/validator/reset/import/governor/host safety corpus. Actual disposable profile/model/import roots, instance allowed_urls, static catalogue, genuine owner and mocked provider fixtures are minimal alternatives. D5 forbids prior-install import, not normal Desktop runtime/loader upgrades, document ingestion or explicit profile-scoped helpers."
-  },
-  "decision_f_pdf_catalog_disposition": {
-    "original": "tests/test_tool_catalog_dependency_gate.py::test_missing_pdf_dependency_is_hidden_with_actionable_log",
-    "source_sha256": "f7db630da366641f110d4f433398747dbd6a24f8bdf3be31acb936abacdd0311",
-    "disposition": "obsolete-contract-replaced-pending-independent-review",
-    "reason": "Aaron Decision F requires PDF offered with a verified automatic first-use download, not hidden when the optional module is absent. Original source assertions and hash remain frozen; no old-contract pass is claimed.",
-    "replacement": "tests/test_desktop_pdf_catalog.py::test_missing_pdf_dependency_is_offered_with_unchanged_description"
   },
   "failure_accounting": {
     "ordinary_upgrade_rule": "D5 startup/import waivers superseded by profile-upgrade-triage.json. Normal established owner profile upgrades retained.",
@@ -1789,6 +1789,24 @@
       ],
       "name": "phase2-step5-profile-management",
       "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification. Step-five completion additionally executes all 21 requested original filenames through whole hash/corpus-bound adapters, plus named-method and authenticated transport proofs. No original selection is removed, no new skip/exclusion is added."
+    },
+    {
+      "files": [
+        "tests/test_desktop_lane6_providers.py",
+        "tests/test_desktop_providers.py"
+      ],
+      "name": "phase2-step6-lane6-providers",
+      "reason": "Exact assigned lane6 frozen source/corpus-bound retained cases through real canonical owners; individual removed-surface retirements and exact concrete/proposed blockers are separate, no skip marks or source assertion edits."
+    },
+    {
+      "files": [
+        "tests/test_desktop_lane6_health_core.py",
+        "tests/test_desktop_lane6_health_learning.py",
+        "tests/test_desktop_lane6_health_output.py",
+        "tests/test_desktop_lane6_health_resources.py"
+      ],
+      "name": "phase2-step6-lane6-health",
+      "reason": "Exact assigned lane6 frozen source/corpus-bound retained cases through real canonical owners; individual removed-surface retirements and exact concrete/proposed blockers are separate, no skip marks or source assertion edits."
     }
   ],
   "observed_failures": [

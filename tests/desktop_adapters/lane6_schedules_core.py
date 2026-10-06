@@ -20,66 +20,151 @@ from scripts.maintenance.fixture_corpus import ROOT, corpus, dump, frozen_source
 from src.discord.scheduled_events import ScheduledEventHandlers as RealHandlers
 from src.discord.scheduled_events import ScheduledEventsDeps as RealDeps
 from src.discord.scheduled_events import _scheduled_execution
-from tests.desktop_adapters.test_phase2_runner_characterization import graph
+from tests.desktop_adapters.test_phase2_runner_characterization import (
+    graph as graph,
+)
 from tests.fakes.discord_objects import FakeChannel
-from tests.fakes.llm import FakeLLM
+from tests.fakes.llm import FakeLLM as FakeLLM
 
 SUITES = {
     "test_scheduled_events": "71db4d14426cef763211723bc3ed02897c54474dafe1030be70b4881fee1d3d7",
-    "characterization/test_scheduled_events": "846efd54be82f42a77bb46987f3c03acc67a434298564a91754d0e0b813dff1b",
+    "characterization/test_scheduled_events": (
+        "846efd54be82f42a77bb46987f3c03acc67a434298564a91754d0e0b813dff1b"
+    ),
     "test_scheduled_workflow": "7d4e792a9375619f8f8cce7886f9e8d8b7e81ce6188cd30153bda404647a9ce6",
-    "test_campaign_scheduler_workflows": "cdb2da7883cba08ef96726fa30efea0af47499e841ff161d6a4067e07db62c2b",
-    "test_scheduled_digest_identity": "fb0c7efc11f59788e4d225906a87f36529808d96e0a676dce2aa47c989d64d82",
-    "test_scheduled_events_digest_failure_summary": "a157ba0734a41c8b43e6ee0418e2c2b0e27db8c2ca686d458b5b5153584ac864",
+    "test_campaign_scheduler_workflows": (
+        "cdb2da7883cba08ef96726fa30efea0af47499e841ff161d6a4067e07db62c2b"
+    ),
+    "test_scheduled_digest_identity": (
+        "fb0c7efc11f59788e4d225906a87f36529808d96e0a676dce2aa47c989d64d82"
+    ),
+    "test_scheduled_events_digest_failure_summary": (
+        "a157ba0734a41c8b43e6ee0418e2c2b0e27db8c2ca686d458b5b5153584ac864"
+    ),
 }
 CORPUS_SELECTIONS = {stem: None for stem in SUITES}
 CORPUS_HASHES = {
     "test_scheduled_events": "f9573cfe9fa72c16a0065147cf3a6b3ce5ce214d444aa246315dbbe35b7373a3",
-    "characterization/test_scheduled_events": "e792701a2bb04b922829d127e8fb7ebd2623ffbdcee3df9752bc7f11fffb3581",
+    "characterization/test_scheduled_events": (
+        "e792701a2bb04b922829d127e8fb7ebd2623ffbdcee3df9752bc7f11fffb3581"
+    ),
     "test_scheduled_workflow": "fc14989ddce1e6a658870485c4de484a541c25e3eae10a99180ede31b64a42e3",
-    "test_campaign_scheduler_workflows": "e4ccf3727dfbde5bbc6840394dc22ecae2272b59b0dcae69d83cbdb308cffeac",
-    "test_scheduled_digest_identity": "25c54072d8ffdbbfd413d2b8a63b65d396e9c830ec3d830dbe3a97807790050d",
-    "test_scheduled_events_digest_failure_summary": "8e4cf0e8099155d8af5695086417177e9c8af216a73b322ddb9c6885728d5246",
+    "test_campaign_scheduler_workflows": (
+        "e4ccf3727dfbde5bbc6840394dc22ecae2272b59b0dcae69d83cbdb308cffeac"
+    ),
+    "test_scheduled_digest_identity": (
+        "25c54072d8ffdbbfd413d2b8a63b65d396e9c830ec3d830dbe3a97807790050d"
+    ),
+    "test_scheduled_events_digest_failure_summary": (
+        "8e4cf0e8099155d8af5695086417177e9c8af216a73b322ddb9c6885728d5246"
+    ),
 }
 CORPUS_EXCLUSIONS = {}
 REVIEWER = "Claude, review of step 8 part 4"
 RETIRED_CASES = {
     "test_scheduled_events": {
         "TestDigest.test_no_channel_id": "Discord channel identifier absence removed.",
-        "TestDigest.test_channel_not_found": "Discord channel lookup removed.",
-        "TestResolveMentions.test_replaces_known_member": "Discord guild/member mention resolution removed.",
-        "TestFormatDigestRaw.test_failed_probe_is_a_collection_failure": "Assertion requires scheduler pseudo-user identity; multi-user authority removed.",
-        "TestWorkflow.test_strict_workflow_stops_on_step_permission_denial": "Assertions require foreign tier user u permission identity; multi-user authority removed.",
-        "TestWorkflow.test_strict_workflow_rejects_missing_skill_name": "Assertions require unauthenticated None tier permission identity; multi-user authority removed.",
-        "TestWorkflow.test_strict_workflow_checks_skill_target_permission": "Assertions require foreign tier user u permission identity; multi-user authority removed.",
-        "TestWorkflow.test_workflow_truncation": "Discord 1900-character workflow message cap removed.",
-        "TestWorkflow.test_workflow_send_error_propagates": "Discord send exception contract replaced by nonretryable durable delivery.",
-        "TestScheduleFailureAndTask.test_schedule_failure_no_channel": "Discord fallback channel lookup removed.",
-        "TestScheduleFailureAndTask.test_task_channel_not_found": "Discord channel lookup removed.",
-        "TestScheduleFailureAndTask.test_task_reminder_send_exception": "Discord reminder send exception contract removed.",
-        "TestScheduleFailureAndTask.test_task_check_success_send_exception": "Discord send ValueError contract removed; durable publication is nonretryable.",
-        "TestScheduleFailureAndTask.test_task_no_channel_id": "Discord channel identifier absence removed.",
-        "TestStructuredCheckReports.test_report_format_dispatches_raw_result_to_pagination_service": "Discord channel pagination service removed; durable report service now owns delivery.",
-        "TestStructuredCheckReports.test_report_service_unavailable_uses_failure_path": "Discord pagination service unavailable contract removed.",
-        "TestStructuredCheckReports.test_renderer_failure_uses_existing_check_failure_path": "Discord pagination renderer exception contract removed.",
-        "TestStructuredCheckReports.test_renderer_failure_notice_failure_is_swallowed": "Discord pagination renderer and channel send exception contract removed.",
+        "TestDigest.test_channel_not_found": (
+            "Discord channel lookup removed."
+        ),
+        "TestResolveMentions.test_replaces_known_member": (
+            "Discord guild/member mention resolution removed."
+        ),
+        "TestFormatDigestRaw.test_failed_probe_is_a_collection_failure": (
+            "Assertion requires scheduler pseudo-user identity; "
+            "multi-user authority removed."
+        ),
+        "TestWorkflow.test_strict_workflow_stops_on_step_permission_denial": (
+            "Assertions require foreign tier user u permission identity; "
+            "multi-user authority removed."
+        ),
+        "TestWorkflow.test_strict_workflow_rejects_missing_skill_name": (
+            "Assertions require unauthenticated None tier permission identity; "
+            "multi-user authority removed."
+        ),
+        "TestWorkflow.test_strict_workflow_checks_skill_target_permission": (
+            "Assertions require foreign tier user u permission identity; "
+            "multi-user authority removed."
+        ),
+        "TestWorkflow.test_workflow_truncation": (
+            "Discord 1900-character workflow message cap removed."
+        ),
+        "TestWorkflow.test_workflow_send_error_propagates": (
+            "Discord send exception contract replaced by nonretryable durable delivery."
+        ),
+        "TestScheduleFailureAndTask.test_schedule_failure_no_channel": (
+            "Discord fallback channel lookup removed."
+        ),
+        "TestScheduleFailureAndTask.test_task_channel_not_found": (
+            "Discord channel lookup removed."
+        ),
+        "TestScheduleFailureAndTask.test_task_reminder_send_exception": (
+            "Discord reminder send exception contract removed."
+        ),
+        "TestScheduleFailureAndTask.test_task_check_success_send_exception": (
+            "Discord send ValueError contract removed; durable publication "
+            "is nonretryable."
+        ),
+        "TestScheduleFailureAndTask.test_task_no_channel_id": (
+            "Discord channel identifier absence removed."
+        ),
+        (
+            "TestStructuredCheckReports.test_report_format_dispatches_raw_result_to_pagination_service"
+        ): (
+            "Discord channel pagination service removed; durable report "
+            "service now owns delivery."
+        ),
+        "TestStructuredCheckReports.test_report_service_unavailable_uses_failure_path": (
+            "Discord pagination service unavailable contract removed."
+        ),
+        "TestStructuredCheckReports.test_renderer_failure_uses_existing_check_failure_path": (
+            "Discord pagination renderer exception contract removed."
+        ),
+        "TestStructuredCheckReports.test_renderer_failure_notice_failure_is_swallowed": (
+            "Discord pagination renderer and channel send exception contract removed."
+        ),
     },
     "characterization/test_scheduled_events": {
-        "TestScheduledTaskRouting.test_missing_channel_id_is_a_delivery_failure": "Discord channel identifier absence removed.",
-        "TestScheduledWorkflow.test_truncated_summary_closes_the_cut_code_block": "Discord message cap/code-block truncation removed.",
+        "TestScheduledTaskRouting.test_missing_channel_id_is_a_delivery_failure": (
+            "Discord channel identifier absence removed."
+        ),
+        "TestScheduledWorkflow.test_truncated_summary_closes_the_cut_code_block": (
+            "Discord message cap/code-block truncation removed."
+        ),
     },
     "test_scheduled_digest_identity": {
-        "test_system_digest_uses_scheduler_identity_and_reports_denied_hosts": "Scheduler pseudo-user identity removed; canonical authenticated profile owner required.",
-        "test_user_digest_runs_as_its_requester": "Foreign multi-user requester authority removed; canonical profile owner required.",
+        "test_system_digest_uses_scheduler_identity_and_reports_denied_hosts": (
+            "Scheduler pseudo-user identity removed; canonical authenticated "
+            "profile owner required."
+        ),
+        "test_user_digest_runs_as_its_requester": (
+            "Foreign multi-user requester authority removed; canonical profile owner required."
+        ),
     },
 }
 DEFERRED_CASES = {
     "test_campaign_scheduler_workflows": {
-        "test_delegated_empty_output_obeys_conditions": "Legacy BackgroundTask lacks sealed native RequestService admission; 6B runner refuses direct construction.",
-        "test_native_error_aborts_workflow_and_reaches_scheduler_retry_counter": "Standalone frozen Scheduler lacks desktop recovery run_binding required for real scheduler admission.",
-        "test_delegated_invalid_selected_skill_never_executes": "Legacy direct run_background_task lacks sealed native RequestService admission; 6B runner refuses before status mutation.",
-        "test_background_actual_executor_prepares_contract_defaults": "Frozen __new__ executor lacks owner and readiness service state; _execute_tool_captured catches the refusal before _execute_inner, so a real owner executor setup adapter is required.",
-        "test_update_workflow_strict_transport_preserves_condition_and_failure_policy": "Current registry does not expose update_schedule without composed readiness; owner-bound catalog adapter is required before strict schema lookup.",
+        "test_delegated_empty_output_obeys_conditions": (
+            "Legacy BackgroundTask lacks sealed native RequestService admission; "
+            "6B runner refuses direct construction."
+        ),
+        "test_native_error_aborts_workflow_and_reaches_scheduler_retry_counter": (
+            "Standalone frozen Scheduler lacks desktop recovery run_binding required "
+            "for real scheduler admission."
+        ),
+        "test_delegated_invalid_selected_skill_never_executes": (
+            "Legacy direct run_background_task lacks sealed native RequestService admission; "
+            "6B runner refuses before status mutation."
+        ),
+        "test_background_actual_executor_prepares_contract_defaults": (
+            "Frozen __new__ executor lacks owner and readiness service state; "
+            "_execute_tool_captured catches the refusal before _execute_inner, "
+            "so a real owner executor setup adapter is required."
+        ),
+        "test_update_workflow_strict_transport_preserves_condition_and_failure_policy": (
+            "Current registry does not expose update_schedule without composed readiness; "
+            "owner-bound catalog adapter is required before strict schema lookup."
+        ),
     },
 }
 CORPUS_EXCLUSIONS = {stem: sorted(cases) for stem, cases in RETIRED_CASES.items()}
@@ -95,7 +180,7 @@ async def lane6_schedules_core_graph(graph):
         _graph.reset(token)
 
 
-def ScheduledEventsDeps(**values):
+def ScheduledEventsDeps(**values):  # noqa: N802
     return values
 
 
@@ -222,7 +307,10 @@ def adapted_tree(stem):
     if hashlib.sha256(source).hexdigest() != SUITES[stem]:
         raise AssertionError("frozen source hash changed")
     original = ast.parse(source)
-    if hashlib.sha256(json.dumps(corpus(original), sort_keys=True).encode()).hexdigest() != CORPUS_HASHES[stem]:
+    corpus_digest = hashlib.sha256(
+        json.dumps(corpus(original), sort_keys=True).encode()
+    ).hexdigest()
+    if corpus_digest != CORPUS_HASHES[stem]:
         raise AssertionError("frozen corpus digest changed")
     tree = ast.parse(source)
     hunks = []
@@ -231,8 +319,15 @@ def adapted_tree(stem):
         if isinstance(node, ast.ImportFrom) and node.module in {
                 "src.discord.scheduled_events", "tests.fakes", "tests.test_scheduled_events"}:
             replacement = ast.ImportFrom(module=__name__, names=node.names, level=0)
-        if stem == "test_scheduled_workflow" and isinstance(node, ast.FunctionDef) and node.name == "_make_tools_with_agent_manager":
-            replacement = ast.parse("def _make_tools_with_agent_manager(wait_result: dict):\n    return collect_tools(wait_result)").body[0]
+        is_agent_manager_factory = (
+            isinstance(node, ast.FunctionDef)
+            and node.name == "_make_tools_with_agent_manager"
+        )
+        if stem == "test_scheduled_workflow" and is_agent_manager_factory:
+            replacement = ast.parse(
+                "def _make_tools_with_agent_manager(wait_result: dict):\n"
+                "    return collect_tools(wait_result)"
+            ).body[0]
             replacement.decorator_list = node.decorator_list
         if replacement is None:
             continue
@@ -243,11 +338,14 @@ def adapted_tree(stem):
 
         class Replace(ast.NodeTransformer):
             def visit(self, value):
-                return ast.copy_location(replacement, value) if value is node else super().visit(value)
+                if value is node:
+                    return ast.copy_location(replacement, value)
+                return super().visit(value)
 
         tree = Replace().visit(tree)
     ast.fix_missing_locations(tree)
-    declared = json.loads((ROOT / "maintenance/lane6-schedules-core-report.json").read_text())["hunks"][path]
+    report_path = ROOT / "maintenance/lane6-schedules-core-report.json"
+    declared = json.loads(report_path.read_text())["hunks"][path]
     if hunks != declared:
         raise AssertionError("exact setup hunks changed")
     if corpus(original) != corpus(tree):
@@ -278,7 +376,8 @@ def register_module(namespace, stem):
             if any(key.startswith("test_") for key in copied):
                 namespace[f"TestLane6_schedules_core_{prefix}_{name}"] = type(name, (), copied)
     for name, value in vars(module).items():
-        if getattr(value, "_pytestfixturefunction", None) is not None or hasattr(value, "_fixture_function"):
+        is_pytest_fixture = getattr(value, "_pytestfixturefunction", None) is not None
+        if is_pytest_fixture or hasattr(value, "_fixture_function"):
             namespace[name] = value
 
 

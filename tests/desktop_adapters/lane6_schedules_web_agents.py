@@ -17,18 +17,47 @@ from src.desktop.events import EventJournal
 from src.desktop.paths import ProfilePaths
 from src.desktop.work import WorkService
 from src.permissions.manager import PermissionManager
-from tests.desktop_adapters.lane6_schedules_web import Application, Response, TestServer, web
+from tests.desktop_adapters.lane6_schedules_web import (
+    Application as Application,
+)
+from tests.desktop_adapters.lane6_schedules_web import (
+    Response,
+)
+from tests.desktop_adapters.lane6_schedules_web import (
+    TestServer as TestServer,
+)
+from tests.desktop_adapters.lane6_schedules_web import (
+    web as web,
+)
 
 PATH = "tests/test_web_api_agents_loops.py"
-SOURCE_HASHES = {PATH: "5a11f1688a846b9a521c16e85d9fdb8ce9c9820f03636d10d81b8a102bafbaeb"}
-SUITES = {"test_web_api_agents_loops": "5a11f1688a846b9a521c16e85d9fdb8ce9c9820f03636d10d81b8a102bafbaeb"}
+SOURCE_HASHES = {
+    PATH: "5a11f1688a846b9a521c16e85d9fdb8ce9c9820f03636d10d81b8a102bafbaeb"
+}
+SUITES = {
+    "test_web_api_agents_loops": "5a11f1688a846b9a521c16e85d9fdb8ce9c9820f03636d10d81b8a102bafbaeb"
+}
 CORPUS_SELECTIONS = {"test_web_api_agents_loops": None}
 CORPUS_EXCLUSIONS = {}
 RETIRED_CASES = {}
-LOOP_BLOCKER = "6B WorkService exposes bound loop state/stop only; no exact loop create/restart, callback, trajectory paging or context-history detail methods. Needs canonical owner-bound method/projection, not original web registrar."
-AGENT_BLOCKER = "6B WorkService agent projection lacks full goal/result/tool-count/activity/list-vs-detail shaping and legacy kill/children/status/fallback envelopes. Exact setup-only bridge absent; retained behavior is deferred, not retired."
-SETTINGS_BLOCKER = "Frozen tests patch removed web persistence hook and obsolete Config.discord; exact SettingsService/ModelSettingsService setup-only bridge not implemented in this batch."
-PROCESS_BLOCKER = "6B process controls require immutable work/generation binding; legacy PID-only HTTP list/kill contracts need reviewed exact projection bridge, not control bypass."
+LOOP_BLOCKER = (
+    "6B WorkService exposes bound loop state/stop only; no exact loop create/restart, "
+    "callback, trajectory paging or context-history detail methods. Needs canonical "
+    "owner-bound method/projection, not original web registrar."
+)
+AGENT_BLOCKER = (
+    "6B WorkService agent projection lacks full goal/result/tool-count/activity/list-vs-detail "
+    "shaping and legacy kill/children/status/fallback envelopes. Exact setup-only bridge "
+    "absent; retained behavior is deferred, not retired."
+)
+SETTINGS_BLOCKER = (
+    "Frozen tests patch removed web persistence hook and obsolete Config.discord; exact "
+    "SettingsService/ModelSettingsService setup-only bridge not implemented in this batch."
+)
+PROCESS_BLOCKER = (
+    "6B process controls require immutable work/generation binding; legacy PID-only HTTP "
+    "list/kill contracts need reviewed exact projection bridge, not control bypass."
+)
 DEFERRED_CASES = {"test_web_api_agents_loops": {
     "TestLoops.test_list_loops": LOOP_BLOCKER,
     "TestLoops.test_loop_detail_uses_durable_trajectory_history": LOOP_BLOCKER,
@@ -55,7 +84,9 @@ DEFERRED_CASES = {"test_web_api_agents_loops": {
     "TestLoops.test_restart_manager_error": LOOP_BLOCKER,
     "TestAgents.test_agent_model_policy_reports_validation_errors": SETTINGS_BLOCKER,
     "TestAgents.test_agent_model_policy_get_and_put": SETTINGS_BLOCKER,
-    "TestAgents.test_agent_model_policy_rejects_invalid_and_surfaces_save_failure": SETTINGS_BLOCKER,
+    "TestAgents.test_agent_model_policy_rejects_invalid_and_surfaces_save_failure": (
+        SETTINGS_BLOCKER
+    ),
     "TestAgents.test_agent_model_policy_propagates_cancelled_persistence": SETTINGS_BLOCKER,
     "TestAgents.test_list_agents": AGENT_BLOCKER,
     "TestAgents.test_list_agents_no_manager": AGENT_BLOCKER,
@@ -121,14 +152,25 @@ class TestClient:
         events = EventJournal(self.store)
         conversations = ConversationStore(self.store, events)
         cid = conversations.create()["conversation"]["id"]
-        message = SimpleNamespace(owner_id=self.owner.owner_id,
-            conversation_id=cid, request_id="fixture-run", generation=1)
+        message = SimpleNamespace(
+            owner_id=self.owner.owner_id,
+            conversation_id=cid,
+            request_id="fixture-run",
+            generation=1,
+        )
         self.bot = self.server.app.routes[0]
         manager = self.bot.agent_manager
         manager.get_descendants.return_value = []
-        self.service = WorkService(self.store, events, authority=self.authority,
-            permissions=self.permissions, requests=Admissions(message),
-            conversations=conversations, agents=manager, display_config=self.bot)
+        self.service = WorkService(
+            self.store,
+            events,
+            authority=self.authority,
+            permissions=self.permissions,
+            requests=Admissions(message),
+            conversations=conversations,
+            agents=manager,
+            display_config=self.bot,
+        )
         for id, item in manager._agents.items():
             item.requester_id, item.channel_id = self.owner.owner_id, cid
             self.service.register("agent", id, message)
@@ -143,7 +185,9 @@ class TestClient:
     async def get(self, path, **kwargs):
         if path != "/api/agents":
             raise NotImplementedError("Full agent-detail projection is not built")
-        return Response([record["detail"] for record in self.service.list({"kind": "agent"})["items"]])
+        return Response(
+            [record["detail"] for record in self.service.list({"kind": "agent"})["items"]]
+        )
 
 
 def selected(symbol):
@@ -178,7 +222,10 @@ def transformed_tree():
         assert len(matches) == 1
         assert isinstance(matches[0], ast.ImportFrom)
         matches[0].module = __name__
-        assert hashlib.sha256(json.dumps([ast.dump(matches[0])]).encode()).hexdigest() == hunk["after_sha256"]
+        assert (
+            hashlib.sha256(json.dumps([ast.dump(matches[0])]).encode()).hexdigest()
+            == hunk["after_sha256"]
+        )
     assert ast.dump(expected) == ast.dump(tree)
     SETUP_HUNKS[PATH] = hunks
     return ast.fix_missing_locations(tree)

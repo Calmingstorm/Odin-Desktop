@@ -21,14 +21,24 @@ from src.desktop.paths import ProfilePaths
 from src.desktop.schedules import ScheduleService
 
 PATH = "tests/test_web_api_schedules.py"
-SOURCE_HASHES = {PATH: "e05b80b887ea8ef3ba04cd6bd0f7d519ffa37c853bc4fabf108cf8ff3021788d"}
-SUITES = {"test_web_api_schedules": "e05b80b887ea8ef3ba04cd6bd0f7d519ffa37c853bc4fabf108cf8ff3021788d"}
+SOURCE_HASHES = {
+    PATH: "e05b80b887ea8ef3ba04cd6bd0f7d519ffa37c853bc4fabf108cf8ff3021788d"
+}
+SUITES = {
+    "test_web_api_schedules": "e05b80b887ea8ef3ba04cd6bd0f7d519ffa37c853bc4fabf108cf8ff3021788d"
+}
 CORPUS_SELECTIONS = {"test_web_api_schedules": None}
 CORPUS_EXCLUSIONS = {}
 RETIRED_CASES = {}
 DEFERRED_CASES = {"test_web_api_schedules": {
-    "TestListCreate.test_create_webhook_without_discord_channel": "Retained outgoing webhook lacks a conversation destination; ScheduleService requires one for durable run binding. Needs owner-bound external destination design.",
-    "TestWebhookApiParity.test_disconnected_create_update_and_run_without_channel": "Retained webhook without conversation cannot meet canonical requester/conversation run binding; requires external-destination design.",
+    "TestListCreate.test_create_webhook_without_discord_channel": (
+        "Retained outgoing webhook lacks a conversation destination; ScheduleService "
+        "requires one for durable run binding. Needs owner-bound external destination design."
+    ),
+    "TestWebhookApiParity.test_disconnected_create_update_and_run_without_channel": (
+        "Retained webhook without conversation cannot meet canonical requester/conversation "
+        "run binding; requires external-destination design."
+    ),
 }}
 SELECTED = {
     "TestListCreate.test_create_validation",
@@ -99,8 +109,11 @@ class TestClient:
         self.store = JournalStore(self.paths.data_dir / "journal.sqlite3", "fixture")
         self.conversations = ConversationStore(self.store, EventJournal(self.store))
         self.cid = self.conversations.create()["conversation"]["id"]
-        self.service = ScheduleService(self.server.app.routes[0].scheduler,
-            authority=self.authority, conversations=self.conversations)
+        self.service = ScheduleService(
+            self.server.app.routes[0].scheduler,
+            authority=self.authority,
+            conversations=self.conversations,
+        )
         # Only external frozen mock definitions need their setup identity bound.
         # Genuine Scheduler records are always created by ScheduleService.
         from unittest.mock import Mock
@@ -109,8 +122,10 @@ class TestClient:
             scheduler.list_all.return_value = [dict(item, requester_id=self.owner.owner_id)
                                               for item in scheduler.list_all.return_value]
             if isinstance(scheduler.history.query.return_value, list):
-                scheduler.history.query.return_value = [dict(item, run_binding={"owner_id": self.owner.owner_id})
-                    for item in scheduler.history.query.return_value]
+                scheduler.history.query.return_value = [
+                    dict(item, run_binding={"owner_id": self.owner.owner_id})
+                    for item in scheduler.history.query.return_value
+                ]
         return self
 
     async def __aexit__(self, *args):
@@ -134,7 +149,7 @@ class TestClient:
         if data is not None:
             return Response({"error": "invalid JSON"}, 400)
         params = dict(json or {})
-        from urllib.parse import urlsplit, parse_qsl
+        from urllib.parse import parse_qsl, urlsplit
         url = urlsplit(path)
         path = url.path
         if path.endswith("/history"):
@@ -213,7 +228,10 @@ def transformed_tree():
         assert len(matches) == 1
         assert isinstance(matches[0], ast.ImportFrom)
         matches[0].module = __name__
-        assert hashlib.sha256(json.dumps([ast.dump(matches[0])]).encode()).hexdigest() == hunk["after_sha256"]
+        assert (
+            hashlib.sha256(json.dumps([ast.dump(matches[0])]).encode()).hexdigest()
+            == hunk["after_sha256"]
+        )
     assert ast.dump(expected) == ast.dump(tree)
     SETUP_HUNKS[PATH] = hunks
     return ast.fix_missing_locations(tree)

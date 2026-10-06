@@ -255,7 +255,7 @@ def adapted_tree(stem):
     return adapted
 
 
-def register(namespace, stem):
+def register_module(namespace, stem):
     tree = adapted_tree(stem)
     original_tree = ast.parse(frozen_source(f"tests/{stem}.py"))
     source_cases = {}
@@ -304,4 +304,4 @@ def register(namespace, stem):
 
 def load(namespace):
     for stem in SUITES:
-        register(namespace, stem)
+        register_module(namespace, stem)
