@@ -266,6 +266,17 @@ def require_user_namespace(case):
         case.skipTest('private user namespaces unavailable: ' + result.stdout.strip())
 
 
+def require_namespace(case):
+    # Real root must retain its host permissions until bwrap binds the inputs:
+    # entering a user namespace first cannot traverse another user's 0750 home.
+    # Ordinary callers still need no sudo and retain their invoking identity.
+    require_tools(case, 'bwrap')
+    if os.geteuid() == 0:
+        return False
+    require_user_namespace(case)
+    return True
+
+
 def require_real_root(case):
     if os.geteuid() == 0:
         return
@@ -282,7 +293,7 @@ def require_real_root(case):
 class NamespaceBehaviour(unittest.TestCase):
     def test_private_namespace_identity_allows_real_first_start_ssh_keygen(self):
         require_tools(self, 'ssh-keygen', 'getent', 'id', 'cut', 'wc', 'stat', 'grep')
-        require_user_namespace(self)
+        user_namespace = require_namespace(self)
         account = pwd.getpwuid(os.getuid())
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
@@ -302,14 +313,15 @@ class NamespaceBehaviour(unittest.TestCase):
                        'grep -q "^ssh-ed25519 " /work/derived-public; echo identity-keygen-ok']
             previous_umask = os.umask(0o077)
             try:
-                result = qualify.run(qualify.sandbox(root, work, account.pw_name, command, user_namespace=True))
+                result = qualify.run(qualify.sandbox(root, work, account.pw_name, command,
+                                                   user_namespace=user_namespace))
             finally:
                 os.umask(previous_umask)
             self.assertIn('identity-keygen-ok', result)
 
     def test_real_namespace_hides_checkout_network_and_system_python(self):
         require_tools(self, 'id', 'stat', 'ls', 'wc', 'grep')
-        require_user_namespace(self)
+        user_namespace = require_namespace(self)
         account = pwd.getpwuid(os.getuid())
         checkout = Path(__file__).resolve().parents[3]
         self.assertTrue(checkout.is_dir())
@@ -332,7 +344,8 @@ class NamespaceBehaviour(unittest.TestCase):
                        'test "$(grep -c : /proc/net/dev)" = 1 && '
                        '! (echo changed > "/candidate with spaces/proof") && '
                        'echo namespace-proof-ok']
-            result = qualify.run(qualify.sandbox(root, work, account.pw_name, command, user_namespace=True))
+            result = qualify.run(qualify.sandbox(root, work, account.pw_name, command,
+                                               user_namespace=user_namespace))
             self.assertIn('namespace-proof-ok', result)
             self.assertEqual(root.joinpath('proof').read_text(), 'immutable')
 
@@ -361,6 +374,48 @@ class NamespaceBehaviour(unittest.TestCase):
             self.assertIn('Status: install ok installed', installed.joinpath('var/lib/dpkg/status').read_text())
 
 class NamespacePrerequisiteBehaviour(unittest.TestCase):
+    def test_root_uses_real_root_sandbox_without_user_namespace_probe_or_sudo(self):
+        account = pwd.struct_passwd(('root', 'x', 0, 0, '', '/root', '/bin/sh'))
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(os, 'geteuid', return_value=0), \
+                mock.patch.object(pwd, 'getpwnam', return_value=account), \
+                mock.patch.object(shutil, 'which', return_value='/usr/bin/bwrap'), \
+                mock.patch(__name__ + '.require_user_namespace') as probe:
+            user_namespace = require_namespace(self)
+            command = qualify.sandbox(Path(temporary), Path(temporary), account.pw_name,
+                                      ['/bin/true'], user_namespace=user_namespace)
+            self.assertFalse(user_namespace)
+            probe.assert_not_called()
+            self.assertEqual(command[0], 'bwrap')
+            self.assertNotIn('--unshare-user', command)
+            self.assertNotIn('--cap-drop', command)
+            self.assertNotIn('sudo', command)
+            self.assertIn('/usr/bin/setpriv', command)
+            self.assertIn('--reuid=0', command)
+            self.assertIn('--unshare-pid', command)
+            self.assertIn('--ro-bind', command)
+
+    def test_ordinary_user_keeps_unprivileged_sandbox_and_invoking_identity(self):
+        account = pwd.struct_passwd(('ordinary-user', 'x', 1234, 2345, '', '/home/user', '/bin/sh'))
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(os, 'geteuid', return_value=1234), \
+                mock.patch.object(os, 'getuid', return_value=1234), \
+                mock.patch.object(os, 'getgid', return_value=2345), \
+                mock.patch.object(pwd, 'getpwnam', return_value=account), \
+                mock.patch.object(shutil, 'which', return_value='/usr/bin/bwrap'), \
+                mock.patch(__name__ + '.require_user_namespace') as probe:
+            user_namespace = require_namespace(self)
+            command = qualify.sandbox(Path(temporary), Path(temporary), account.pw_name,
+                                      ['/bin/true'], user_namespace=user_namespace)
+            self.assertTrue(user_namespace)
+            probe.assert_called_once_with(self)
+            self.assertEqual(command[0], 'bwrap')
+            self.assertIn('--unshare-user', command)
+            self.assertIn('--cap-drop', command)
+            self.assertNotIn('sudo', command)
+            self.assertNotIn('/usr/bin/setpriv', command)
+            self.assertIn('--unshare-pid', command)
+
     def test_unavailable_user_namespace_has_a_plain_skip_reason(self):
         with mock.patch.object(shutil, 'which', return_value='/usr/bin/bwrap'), \
                 mock.patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess(
