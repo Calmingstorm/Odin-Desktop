@@ -1,7 +1,8 @@
 # Phase 2 step 6, part B: work, reports and recovery
 
 Stack: `phase-2/controls-resume`, merged without rebasing or rewriting history,
-including the final integration snapshot `f20c9f4adb6ae45b0296170f4cd40d5fe891615a`.
+including profile-management snapshot `f20c9f4adb6ae45b0296170f4cd40d5fe891615a`
+and the final reset/resume regression `fa41c5212194e64df9493e49a0846b973005de21`.
 Part A and runtime management remain separate lanes. This implements no webhook
 ingress, native desktop qualification, packaging, or Phase 2 closure claim.
 

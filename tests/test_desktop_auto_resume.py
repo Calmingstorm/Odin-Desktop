@@ -30,7 +30,7 @@ def recover_capacity(core):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", [
-    "automatic", "newer_request", "queued_during_rebuild", "disabled"])
+    "automatic", "newer_request", "queued_during_rebuild", "context_reset", "disabled"])
 async def test_capacity_recovery_retains_checkpoint_generation_and_reply(
         tmp_path, monkeypatch, mode):
     monkeypatch.setattr(turn_resume, "_AUTO_POLL_SECONDS", 0.01)
@@ -79,6 +79,17 @@ async def test_capacity_recovery_retains_checkpoint_generation_and_reply(
         assert manager._auto_resume_enabled is (mode != "disabled")
         assert manager._resume_ttl_hours == 72.0
         assert core.engine.runner._on_turn_suspended == manager.on_turn_suspended
+        poll_ready = asyncio.Event()
+        auto_waiter = manager._auto_resume_waiter
+
+        async def poll_after_suspension(*args):
+            # Stage reset/newer input against a committed checkpoint before the
+            # fast test poller starts reading it from a storage thread. The real
+            # waiter still owns capacity, revision, lease and admission checks.
+            await poll_ready.wait()
+            await auto_waiter(*args)
+
+        monkeypatch.setattr(manager, "_auto_resume_waiter", poll_after_suspension)
         core.engine.deps.llm_gateway._recovery_policy_source = lambda: RecoveryPolicy(
             deadline_seconds=0.05, backoff_base=0.001, backoff_cap=0.002,
             retry_after_cap=0.005)
@@ -99,6 +110,18 @@ async def test_capacity_recovery_retains_checkpoint_generation_and_reply(
             assert manager._waiters == {}
         else:
             assert key in manager._waiters
+
+        if mode == "context_reset":
+            # A Desktop reset advances context lineage, not the session mutation
+            # watermark. Automatic admission must therefore check both fences.
+            revision = manager._session_revision(cid)
+            conversation = core.conversations.get(cid)
+            reset = await request(reader, writer, "conversations.reset_context", {
+                "id": cid, "expected_rev": conversation["rev"]})
+            assert reset["ok"]
+            assert manager._session_revision(cid) == revision
+            assert not core.requests.context_is_current(core.requests.fetch_request(cid, rid))
+            assert core.transcript.model_context(cid) == []
 
         if mode == "newer_request":
             # A newer real submission advances the session even with capacity
@@ -135,6 +158,7 @@ async def test_capacity_recovery_retains_checkpoint_generation_and_reply(
         calls_before = provider.calls
         available = True
         recover_capacity(core)
+        poll_ready.set()
         if mode == "automatic":
             await wait_until(lambda: core.requests.get_request(rid)["state"] == "completed")
             await settled(core)
@@ -151,10 +175,11 @@ async def test_capacity_recovery_retains_checkpoint_generation_and_reply(
             # rather than seeding a fresh user prompt or adding a resume word.
             assert prompts[0]["messages"] == checkpoint["payload"]["fields"]["messages"]
         else:
-            if mode in {"newer_request", "queued_during_rebuild"}:
+            if mode in {"newer_request", "queued_during_rebuild", "context_reset"}:
                 await wait_until(lambda: key not in manager._waiters)
             else:
                 await asyncio.sleep(0.05)
+            await settled(core)
             row = core.requests.get_request(rid)
             assert row["state"] == "suspended" and row["generation"] == 1
             if mode == "queued_during_rebuild":
@@ -164,6 +189,16 @@ async def test_capacity_recovery_retains_checkpoint_generation_and_reply(
                 monkeypatch.setattr(manager, "_validate_and_rebuild", rebuild)
             else:
                 assert provider.calls == calls_before
+            if mode == "context_reset":
+                assert admitted == [] and prompts == []
+                assert core.engine.deps.turn_store.turn_status_sync(key) == TurnStatus.SUSPENDED
+                preserved = core.engine.deps.turn_store.load_resumable_sync(key)
+                assert preserved["generation"] == before_generation
+                assert preserved["payload"] == checkpoint["payload"]
+                assert core.transcript.model_context(cid) == []
+                assert [event["payload"]["generation"] for event in core.events.between(0)
+                        if event["type"] == "request.started"
+                        and event["payload"]["request_id"] == rid] == [1]
             # Stand-down is not terminal rejection: owner control still works.
             resumed = await request(reader, writer, "control.resume", {
                 "control_command_id": "explicit", "conversation_id": cid,
@@ -172,6 +207,14 @@ async def test_capacity_recovery_retains_checkpoint_generation_and_reply(
             await settled(core)
             assert core.requests.get_request(rid)["state"] == "completed"
             assert admitted == [(rid, 2)]
+            if mode == "context_reset":
+                assert provider.calls == calls_before + 1
+                assert prompts[0]["messages"] == checkpoint["payload"]["fields"]["messages"]
+                assert core.engine.deps.turn_store.turn_status_sync(key) == (
+                    TurnStatus.TERMINAL_COMPLETED)
+                # Explicit continuation stays visible without repopulating the
+                # reset context with the preserved request's old lineage.
+                assert core.transcript.model_context(cid) == []
 
         snapshot = await request(reader, writer, "conversation.snapshot", {"conversation_id": cid})
         messages = snapshot["result"]["messages"]["items"]
