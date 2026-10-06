@@ -1,16 +1,23 @@
-# P4.3 workflow preparation, not release authorization
+# P4.3 historical workflow design and implementation handoff
 
-This scratch design is for parent adoption only after the notice is committed,
-#24 is merged and the parent has merged current main. #24 was inspected read-only
+This records the original scratch design and its subsequent adoption, not release
+authorization. #24 was inspected read-only
 at `2becee34d9308fe9b43a18d647f471020a5428ed`; GitHub subsequently reported merge
 `5ba8d6dfcacce9eff823af2596290bc417897e0e`, 2026-10-06 02:10:18 UTC.
-No workflow is activated by this document. No app or engine version is bumped.
+Notice `6c3bc43e` preceded main integration `ff8bb499`, helper adoption `4ea8e842`,
+workflow implementation `208135d4` and runner restriction `45a51b8e`.
+The implemented workflow is [release.yml](../../.github/workflows/release.yml);
+[maintenance/phase4-releases.md](../../maintenance/phase4-releases.md) records
+its current scope and fail-closed external protection requirements. The design
+below is historical intent, not independent evidence that the workflow ran or
+external controls exist. No app or engine version is bumped.
 
 ## Shared entrypoint
 
 `node scripts/release/rehearse.mjs --build=true --output=/absolute/fresh/evidence
 --source=<40-hex-checkout-SHA> --workflow-sha=<40-hex-workflow-SHA>
---run-id=<positive-run-number>` is the future workflow's candidate entrypoint.
+--run-id=<positive-run-number>` is the shared candidate entrypoint used by the
+implemented workflow through `workflow_entry.py`.
 For a tag candidate, append `--tag=v0.1.0`. `--build=false` scans existing local
 candidates but is not proof of a fresh workflow build. Local runs must clearly
 label run IDs/workflow SHAs as local rehearsal identifiers, not fabricate Actions
@@ -42,9 +49,12 @@ and `candidate-receipt.json`. Installer names match the actual target mappings:
 `odin-desktop-0.1.0-candidate-x86_64.AppImage`. The manifest remains an unsigned
 inventory, never an update feed or trust anchor.
 
-## Intended workflow control plane
+## Original intended workflow control plane
 
-After dependency/order confirmation, add `.github/workflows/release.yml`:
+The original design below informed the now-added `.github/workflows/release.yml`.
+Consult the workflow and implementation record for exact current behavior,
+including Aaron-only tag candidates, main-only manual builds, no PR trigger and
+fail-closed environment API audits. This list is preserved as design provenance:
 
 1. `workflow_dispatch` defaults `mode` to `dry-run`; other explicit choices are
    `retain-candidate` and `publish-approved`. `push.tags: [v*]` builds a candidate
@@ -106,17 +116,22 @@ requires new affected acceptance/approval. Implementing this lane grants no
 permission to push tags, publish releases, upload assets or waive legal/native
 gates.
 
-## Parent adoption and validation
+## Historical adoption and remaining validation handoff
 
-- Cherry-pick the scratch helper/design commit only once dependencies/order are
-  satisfied. Do not merge this scratch branch or overwrite the notice worktree.
-- Add the workflow after notice completion, recheck actual P4.1 interfaces and
-  register its publication environment before claiming it is operational.
+- Scratch helpers/design were adopted after the notice and dependency merge;
+  the workflow is now implemented. This is no longer a cherry-pick instruction.
+- External runner/tag controls and the publication environment require separate
+  owner configuration and audit before operational use. Adding YAML is not that
+  configuration, authorization or acceptance.
 - Python tests: run `python3 -B -m unittest discover -s scripts/release/tests -v`
   under the PID namespace in CONTRIBUTING. Node tests:
-  `node --test scripts/release/tests/rehearse.test.mjs`.
+  `node --test scripts/release/tests/rehearse.test.mjs scripts/release/tests/gates.test.mjs`.
 - Parent runs the complete nonpublishing fresh-candidate rehearsal with the same
-  entrypoint. This preparation did not build packages, dispatch a workflow or
-  test real release publication. Unit fixture bytes are not installer evidence.
-- Keep release evidence out of Git. No maintenance ledgers or engine files were
-  changed by this preparation. Main product version stays `0.1.0`.
+  entrypoint and records final provenance/results externally. The original
+  preparation did not build packages, dispatch a workflow or test publication;
+  this document does not invent final execution evidence. Fixtures are not
+  installer or Actions evidence.
+- Keep release evidence out of Git. The original preparation changed no
+  maintenance ledger or engine file. Subsequent P4.3 exact-path accounting is
+  defined in `maintenance/p43-adaptation-plan.json`, with independent review
+  still required. Main product version stays `0.1.0`.

@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "phase": "P4.3",
+  "release_scope": "Account for ten original release files plus a new lint regression test. Extend maintenance lint coverage to release scripts without loosening the allowlist. Mechanical release Python lint repair only; no workflow behavior, engine, app or inherited test changes.",
+  "authorization": "maintenance/phase4-releases.md; notice 6c3bc43e, P4.1 merge 5ba8d6df, main integration ff8bb499, offline helpers 4ea8e842, implementation 208135d4 and runner restriction 45a51b8e",
+  "review": "Pending independent review. Exact-byte accounting is not qualification, external protection, publication authorization or executed Actions evidence.",
+  "entries": [
+    {
+      "path": "scripts/maintenance/lint_gate.py",
+      "reason": "Include new release scripts in the existing Ruff gate; previous named targets omitted release files and could report clean despite new findings.",
+      "contract": "Add scripts/release to existing targets, preserving all previous scopes and exact inherited finding allowlist. New release findings fail the short gate.",
+      "invariant": "No suppression, baseline expansion, runtime/service change, engine or inherited test modification.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/test_lint_accountability.py", "tests/test_desktop_lint_gate.py"]
+    },
+    {
+      "path": "scripts/release/tests/test_lint_accountability.py",
+      "reason": "Add behavioral coverage for release lint scope without editing existing test corpus.",
+      "contract": "Invoke actual lint_gate.main with fake Ruff output, asserting release and existing targets, failure on new findings and success on clean output; release findings cannot be inherited.",
+      "invariant": "Only Ruff invocation mocked, not gate behavior; no wording-only tests, qualification, source modernization or service operations.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/test_lint_accountability.py"]
+    },
+    {
+      "path": "scripts/release/actions_control.py",
+      "reason": "Add fail-closed Actions verification and exact-file publication control; normalize imports and wrapping without changing behavior.",
+      "contract": "Verify fixed repository, Aaron dispatch, first-attempt successful candidate, workflow/job provenance, immutable artifact digest, bounded safe ZIP, exact receipt/packages/approval and existing recursive version tag. Reaudit environment before one publication and check resulting assets.",
+      "invariant": "No build, tag, environment creation, clobber or retry. Missing protection or mismatched provenance fails closed. API fixtures are not live Actions/publication proof.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/test_actions_control.py", "scripts/release/tests/test_workflow_plan.py"]
+    },
+    {
+      "path": "scripts/release/gates.mjs",
+      "reason": "Add sanitized candidate gate orchestration for a dedicated nonprivileged runner, retaining namespace and virtual-display entrypoints.",
+      "contract": "Install pinned local uv and sync locked dev dependencies; run release tests, namespaced app check, fixture smoke, real-core tests/smoke and accessibility with disposable allowlisted HOME.",
+      "invariant": "Reject root; exclude owner credentials/session state; no unsafe isolation fallback, installer execution, upload or publication. Fixture orchestration is not app qualification.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/gates.test.mjs"]
+    },
+    {
+      "path": "scripts/release/rehearse.mjs",
+      "reason": "Add shared local/Actions nonpublishing rehearsal so both paths select the same pinned candidate builder and offline validator.",
+      "contract": "Validate options and exact version/curated notes before building, require fresh paths, optionally run npm ci without scripts, pinned Electron provisioning and package:candidate, then offline validation.",
+      "invariant": "Disposable allowlisted HOME excludes credentials/session/Node configuration. No upload, tag, release, version rewrite or installer use.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/rehearse.test.mjs", "scripts/release/tests/gates.test.mjs", "scripts/release/tests/test_workflow_plan.py"]
+    },
+    {
+      "path": "scripts/release/release_helper.py",
+      "reason": "Add offline identity, approval, package and provenance validation; normalize imports and wrapping without changing behavior.",
+      "contract": "Require exact npm root/lock version, unique substantive notes, both formats, source/input/resource hashes and embedded identity. Return exact-file publication argv only for matching approval, existing tag/source and unchanged bytes.",
+      "invariant": "No publication execution, credential access, build or installer execution. Signature checks are not universal secret-absence/licensing/native acceptance proof; evidence URL shape does not prove P4.5/P4.6 completion.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/test_release_helper.py", "scripts/release/tests/test_actions_control.py", "scripts/release/tests/rehearse.test.mjs"]
+    },
+    {
+      "path": "scripts/release/tests/gates.test.mjs",
+      "reason": "Add disposable command-stub execution of the actual gate entrypoint, not documentation wording assertions.",
+      "contract": "Execute copied gates/rehearse modules as nonprivileged account; capture argv/environment and assert credential/session removal, namespace wrapping and required app commands.",
+      "invariant": "Only stub child commands run; no actual sudo isolation, package install, live desktop/service/network or app qualification.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/gates.test.mjs"]
+    },
+    {
+      "path": "scripts/release/tests/rehearse.test.mjs",
+      "reason": "Add behavioral fixtures for rehearsal environment, nonpublishing builder selection and option rejection.",
+      "contract": "Assert exact allowlisted environment and npm/Electron candidate plan; invalid/incomplete options fail before launching a builder.",
+      "invariant": "No build/upload/release/tag/installer; command-plan fixtures do not prove real package correctness or Actions execution.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/rehearse.test.mjs"]
+    },
+    {
+      "path": "scripts/release/tests/test_actions_control.py",
+      "reason": "Add offline API/publication-denial fixtures; mechanical wrapping/import sorting only, retaining every assertion.",
+      "contract": "Exercise real control functions with fake gh, actual YAML job names, dispatch/run/workflow/artifact provenance, safe ZIP, tampering, approvals, protection drift, existing release/tag errors, asset checks and timeout/no-retry behavior.",
+      "invariant": "API/download/publication mocked; fixture tokens have no authority. No network/real publication, inherited corpus recapture or weakened assertions.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/test_actions_control.py", "scripts/release/tests/test_workflow_plan.py"]
+    },
+    {
+      "path": "scripts/release/tests/test_release_helper.py",
+      "reason": "Add offline candidate and exact publication-plan fixtures; mechanical wrapping/import sorting only, retaining every assertion.",
+      "contract": "Test notes/versions, formats/provenance, Aaron approval/evidence, immutable files/symlinks, manifest, ASAR bounds and duplicate JSON; publication planning makes no process/network call.",
+      "invariant": "Harmless disposable fixtures only. No installer, credential, network or release operation; inherited tests unchanged; no qualification claim.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/test_release_helper.py"]
+    },
+    {
+      "path": "scripts/release/tests/test_workflow_plan.py",
+      "reason": "Execute actual YAML conditions and shell/environment entry with fake builder; mechanical wrapping/import sorting only, retaining assertions.",
+      "contract": "Check dry-run/tag nonpublication, unauthorized runner/retention denial, main-only dispatch, pre-builder validation, action pins, least permissions, publication environment and API acceptance of emitted job names.",
+      "invariant": "Restricted expression vocabulary and disposable fake node only; not an Actions emulator, hosted run, external tag-rule installation or publication proof. Inherited tests untouched.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/test_workflow_plan.py", "scripts/release/tests/test_actions_control.py"]
+    },
+    {
+      "path": "scripts/release/workflow_entry.py",
+      "reason": "Add candidate-only Actions entry/receipt summary and validation before shared builder; normalize imports/wrapping without changing behavior.",
+      "contract": "Require fixed repository, first attempt, canonical provenance/run IDs, matching version, Aaron tag/retention authority and main manual dispatch; invoke shared build rehearsal and gates before receipt/hash summary.",
+      "invariant": "No upload/publication/version write/credential propagation. Dry-run cannot retain artifacts; tag is not publication authorization; fixtures do not install external controls.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/test_workflow_plan.py"]
+    }
+  ]
+}
