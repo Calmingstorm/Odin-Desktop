@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, isAbsolute } from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
 import { coreCommand, developmentArgv, type CoreCommandContext } from '../src/main/core-command'
 import { profilePaths } from '../src/main/paths'
 
@@ -39,7 +42,7 @@ describe('core launch selection', () => {
   })
 
   it('never falls back to the fixture or honors overrides in a packaged build', () => {
-    expect(() => coreCommand(paths, { ...context, packaged: true, env: { ODIN_DESKTOP_CORE_CMD: 'not JSON' } })).toThrow(/packaged core runtime is unavailable/)
+    expect(() => coreCommand(paths, { ...context, packaged: true, env: { ODIN_DESKTOP_CORE_CMD: 'not JSON' } })).toThrow(/bundled runtime is missing/)
   })
 
   it('hands app-owned arguments to the P4.1 resolver and excludes the development override', () => {
@@ -56,5 +59,39 @@ describe('core launch selection', () => {
     expect(launch.command).toBe('/candidate/resources/runtime/python/bin/python3')
     expect(launch.args).toContain(paths.socketPath)
     expect(launch.env.HOME).toBe('/tmp/home')
+  })
+})
+
+const roots: string[] = []
+afterEach(() => roots.splice(0).forEach((root) => rmSync(root, { recursive: true, force: true })))
+function packagedContext(): CoreCommandContext {
+  const root = mkdtempSync(join(tmpdir(), 'odin bundle with spaces '))
+  roots.push(root)
+  mkdirSync(join(root, 'runtime', 'python', 'bin'), { recursive: true })
+  writeFileSync(join(root, 'runtime', 'python', 'bin', 'python3'), 'stub')
+  writeFileSync(join(root, 'bundle-manifest.json'), '{}')
+  return { ...context, packaged: true, resourcesPath: root }
+}
+describe('packaged core command', () => {
+  it('uses the absolute isolated bundled interpreter and strips ambient Python and overrides', () => {
+    const ctx = { ...packagedContext(), env: { ODIN_DESKTOP_CORE_CMD: 'not JSON', PYTHONPATH: '/other/install', PYTHONHOME: '/other' } }
+    const result = coreCommand(paths, ctx)
+    expect(isAbsolute(result.command)).toBe(true)
+    expect(result.command).toBe(join(ctx.resourcesPath, 'runtime/python/bin/python3'))
+    expect(result.args.slice(0, 4)).toEqual(['-I', '-B', '-m', 'src'])
+    expect(result.args).toContain(paths.socketPath)
+    expect(result.env.PYTHONPATH).toBeUndefined()
+    expect(result.env.PYTHONHOME).toBeUndefined()
+    expect(result.env.ODIN_DESKTOP_CORE_CMD).toBeUndefined()
+    expect(result.env.PLAYWRIGHT_BROWSERS_PATH).toBe(join(ctx.resourcesPath, 'runtime/browser'))
+    expect(result.env.HF_HUB_OFFLINE).toBe('1')
+    expect(result.env.TRANSFORMERS_OFFLINE).toBe('1')
+  })
+  it('fails closed rather than selecting system Python when either resource is missing', () => {
+    for (const relative of ['runtime/python/bin/python3', 'bundle-manifest.json']) {
+      const ctx = packagedContext()
+      rmSync(join(ctx.resourcesPath, relative))
+      expect(() => coreCommand(paths, ctx)).toThrow('bundled runtime is missing')
+    }
   })
 })

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "platform": "linux-x86_64",
+  "playwright": {
+    "version": "1.63.0",
+    "url": "https://files.pythonhosted.org/packages/27/9c/103a5037789062bdab27c7dca53f3ca6b075b572ab2cd96eec825b3aec4e/playwright-1.63.0-py3-none-manylinux1_x86_64.whl",
+    "sha256": "ad21bc07516b187965a7521c5cf0df0bd657b17482eaad74335272d35a2b07de",
+    "license": "Apache-2.0"
+  },
+  "chromium": {
+    "name": "chromium-headless-shell",
+    "revision": "1243",
+    "version": "153.0.8010.12",
+    "url": "https://cdn.playwright.dev/builds/cft/153.0.8010.12/linux64/chrome-headless-shell-linux64.zip",
+    "sha256": "a9da028861a0cf789ff25c2fed45f5f1aaf969ed9247835b6a7821a4f7af9d1d",
+    "archive_root": "chrome-headless-shell-linux64",
+    "executable": "chrome-headless-shell-linux64/chrome-headless-shell",
+    "license": "BSD-3-Clause AND bundled third-party notices",
+    "license_file": "chrome-headless-shell-linux64/LICENSE.headless_shell",
+    "license_sha256": "b92247f7a44c14627ef5cbbe0aa6dcca4e4422b7c05e6f2c660054061a5e3da7"
+  }
+}
