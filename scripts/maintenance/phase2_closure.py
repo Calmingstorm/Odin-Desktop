@@ -2,7 +2,8 @@
 """Report Phase 2 exit obligations, not passing-suite or release approval.
 
 Offline checkers supply byte/membership validation. A passing qualification run
-does not close deferred suites, pending D19 approval or missing parity evidence.
+does not close pending D19 approval or missing parity evidence. A deferred suite
+closes only as a named deferral: Aaron's decision 3 (2026-10-06).
 CI deliberately uses report mode: this change provides no enforcing mode.
 """
 from __future__ import annotations
@@ -18,6 +19,10 @@ SUITES = "maintenance/phase2-suite-map.json"
 D19 = "maintenance/phase2-d19-closure.json"
 PARITY = "maintenance/fresh-profile-parity.json"
 FINAL_SUITE_STATUSES = frozenset({"restored", "retired"})
+# Aaron, decision 3 (2026-10-06): the remaining inherited-suite restorations end
+# Phase 2 as deferrals. A deferral is final only when it names its blocker.
+NAMED_DEFERRAL_AUTHORITY = ("Aaron decision 3, 2026-10-06: remaining inherited-suite "
+                            "restorations are named deferrals at Phase 2 exit")
 FINAL_D19_STATUSES = frozenset({"removed_by_restored_behaviour", "approved_mechanical",
                                 "approved_behavioural"})
 
@@ -44,6 +49,16 @@ def _tool(name: str):
     return module
 
 
+def _named_deferral(row) -> bool:
+    blocker = row.get("blocked_on")
+    return row.get("status") == "deferred" and isinstance(blocker, str) and bool(blocker.strip())
+
+
+def _final_suite(row) -> bool:
+    status = row.get("status")
+    return (isinstance(status, str) and status in FINAL_SUITE_STATUSES) or _named_deferral(row)
+
+
 def summarize(mapping, suite_check, wording, wording_check, parity_check):
     """Pure aggregation for temporary-data tests; validation is not approval."""
     errors, blockers = [], []
@@ -57,8 +72,9 @@ def summarize(mapping, suite_check, wording, wording_check, parity_check):
             errors.append(f"{label}: unavailable checker result")
         else:
             errors.extend(f"{label}: {error}" for error in check["errors"])
-    open_suites = [row for row in rows if not isinstance(row.get("status"), str)
-                   or row["status"] not in FINAL_SUITE_STATUSES]
+    open_suites = [row for row in rows if not _final_suite(row)]
+    deferrals = [{"kind": "suite", "id": row.get("path", "<invalid>"),
+                  "reason": row["blocked_on"].strip()} for row in rows if _named_deferral(row)]
     for row in open_suites:
         blockers.append({"kind": "suite", "id": row.get("path", "<invalid>"),
                          "status": row.get("status", "missing"),
@@ -90,12 +106,14 @@ def summarize(mapping, suite_check, wording, wording_check, parity_check):
             "suites": {"total": len(rows),
                        "statuses": dict(sorted(Counter(str(row.get("status", "missing"))
                                                         for row in rows).items())),
-                       "without_final_disposition": len(open_suites)},
+                       "without_final_disposition": len(open_suites),
+                       "named_deferrals": len(deferrals)},
+            "deferral_authority": NAMED_DEFERRAL_AUTHORITY,
             "D19": {"inventory": "missing" if wording is None else "present",
                     "rows": len(wording_rows), "open": len(open_wording)},
             "parity": {"valid": isinstance(parity_check, dict)
                        and parity_check.get("valid") is True},
-            "errors": errors, "blockers": blockers}
+            "errors": errors, "blockers": blockers, "deferrals": deferrals}
 
 
 def report(root: Path):
@@ -126,12 +144,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["report"])
     parser.add_argument("--root", type=Path, default=ROOT)
-    parser.add_argument("--details", action="store_true", help="Include every blocking row")
+    parser.add_argument("--details", action="store_true",
+                        help="Include every blocking row and every named deferral")
     args = parser.parse_args(argv)
     result = report(args.root)
     if not args.details:
         result["blocker_counts"] = dict(sorted(Counter(row["kind"] for row in
                                                        result.pop("blockers")).items()))
+        result.pop("deferrals", None)  # Counted in suites.named_deferrals.
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0  # CI inventory only. Enforcing Phase 2 exit is a separate change.
 

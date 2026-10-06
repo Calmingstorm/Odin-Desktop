@@ -1,6 +1,7 @@
 """Named services exercised through the authenticated core transport."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import uuid
@@ -134,8 +135,14 @@ async def test_fresh_host_usage_and_health_are_real_reads(connected):
     service, reader, writer, _, _ = connected
     hosts = (await request(reader, writer, "hosts.list"))["result"]
     assert hosts["default_host"] == "localhost"
-    usage = (await request(reader, writer, "usage.get"))["result"]
-    assert usage["tokens"] == {"value": None, "kind": "unknown"}
+    # The core starts Odin's usage backfill at boot. An empty profile reads
+    # unknown until the first pass completes, then measured zero.
+    for _ in range(300):
+        usage = (await request(reader, writer, "usage.get"))["result"]
+        if usage["tokens"]["kind"] != "unknown":
+            break
+        await asyncio.sleep(0.05)
+    assert usage["tokens"] == {"value": 0, "kind": "measured"}
     health = (await request(reader, writer, "health.get"))["result"]
     assert health["total"] > 0
     assert any(component["name"] == "open_files" for component in health["components"])
