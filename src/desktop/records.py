@@ -194,6 +194,30 @@ class _AuditReader(AuditLogger):
         self.durability_degraded = self.repair_required
 
 
+class _KeyedWriterView(_AuditReader):
+    """The active writer's file, verified under the signing key a read resolved.
+
+    Only the verification authority differs from the writer. Snapshots take the
+    writer's own append fence and durability is the writer's live state, never a
+    copy taken when the view was bound. Writer paths are not available here.
+    """
+
+    def __init__(self, writer, hmac_key):
+        self.path = Path(writer.path)
+        self._writer = writer
+        self._signer = AuditSigner(hmac_key) if hmac_key else None
+        self._persist_lock = writer._persist_lock
+        self._max_files = getattr(writer, "_max_files", DEFAULT_MAX_FILES)
+
+    @property
+    def repair_required(self):
+        return self._writer.repair_required
+
+    @property
+    def durability_degraded(self):
+        return self._writer.durability_degraded
+
+
 class RecordsService:
     METHODS = METHODS
     READ_METHODS = READ_METHODS
@@ -260,12 +284,19 @@ class RecordsService:
                 self.paths.data_dir / "audit.jsonl")
         runtime = self._audit_getter() if self._audit_getter is not None else None
         key = hmac_key.encode() if isinstance(hmac_key, str) else (hmac_key or b"")
-        if runtime is not None and Path(runtime.path) == path and _signing_key(runtime) == key:
-            # Share the actual writer's snapshot lock whenever the configured
-            # read source is still its active file and the writer verifies with
-            # the signing authority this read resolved. Relocated history, or a
-            # writer under another key, stays a read-only reader.
-            return runtime
+        if runtime is not None and Path(runtime.path) == path:
+            # The configured read source is still the actual writer's active file:
+            # share its snapshot lock and live durability. A writer signing under
+            # the key this read resolved serves the read itself; otherwise a keyed
+            # view verifies with the resolved authority. Relocated history stays a
+            # read-only reader until the owning runtime adopts that path.
+            if _signing_key(runtime) == key:
+                return runtime
+            binding = ("writer", id(runtime), path, key)
+            if binding != self._audit_binding:
+                self._audit_reader = _KeyedWriterView(runtime, hmac_key)
+                self._audit_binding = binding
+            return self._audit_reader
         binding = (path, hmac_key)
         if binding != self._audit_binding:
             self._audit_reader = _AuditReader(path, hmac_key)
