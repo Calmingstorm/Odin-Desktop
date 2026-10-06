@@ -134,8 +134,11 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   reads['codex.accounts.list'] = accounts
   assert.deepEqual(reads['lists.list'], { items: [] })
   if (!seededWorkProof) assert.deepEqual(reads['work.list'], { items: [] })
-  assert.deepEqual(reads['schedules.list'], [])
-  assert.deepEqual(reads['schedules.history'], [])
+  if (!seededWorkProof) {
+    // The seeded pass deliberately holds D12 schedules and their history.
+    assert.deepEqual(reads['schedules.list'], [])
+    assert.deepEqual(reads['schedules.history'], [])
+  }
   assert.deepEqual(reads['skills.list'], [], 'fresh skills list is a served array, not an items wrapper')
   for (const method of ['mcp.list', 'mcp.status']) {
     const mcp = reads[method] as { servers: unknown[]; server_count: number; configured_servers: string[];
@@ -158,8 +161,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(computer.readiness.input_supported, false)
   assert.equal(computer.readiness.dispatch, 'none')
   assert(!('input_dispatch' in computer), 'management status must not grant an input dispatch binding')
-  assert.deepEqual(reads['audit.query'], [])
-  assert.deepEqual(reads['logs.search'], { entries: [], count: 0 })
+  if (!seededWorkProof) {
+    assert.deepEqual(reads['audit.query'], [])
+    assert.deepEqual(reads['logs.search'], { entries: [], count: 0 })
+  }
   assert.equal((reads['turn_state.list'] as { availability: string }).availability, 'available')
   assert.deepEqual((reads['usage.get'] as { tokens: unknown }).tokens, { value: null, kind: 'unknown' })
   assert((reads['settings.schema'] as { fields: unknown[] }).fields.length > 0, 'real management schema must contain fields')
