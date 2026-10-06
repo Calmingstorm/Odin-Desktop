@@ -171,6 +171,16 @@ Logs: `full-qualification.log`, `qualification-corrected-groups.log`,
 
 - **Ubuntu 24.04 restricted-user-namespace/headless Chromium and FUSE-mounted
   AppImage gate remains open**, as requested. No heavy VM was started by this lane.
+  Review round 1 corrected the `.deb` AppArmor attachment to
+  `/opt/Odin/odin-desktop.bin`, the actual Electron ELF image. The public
+  `odin-desktop` path is the shell/Python ownership wrapper, not Electron.
+  A behavior regression runs the real after-pack hook and checks that the
+  shipped profile names the resulting executable ELF, with `userns` retained.
+  This does not qualify AppArmor inheritance or sandbox admission on Ubuntu:
+  the still-open stock Ubuntu 24.04 row must launch through the installed
+  launcher, shell, bundled Python ownership helper and Electron `.bin`, keep
+  `kernel.apparmor_restrict_unprivileged_userns=1`, and verify actual renderer
+  sandbox plus headless Chromium behavior without weaker fallback flags.
 - Containers prove ownership/package manager state, not native desktops, portal,
   keyring/login/autostart acceptance or FUSE lifetime. Private Xvfb proves actual
   packaged app/core and renderer sandbox, not those native rows.
