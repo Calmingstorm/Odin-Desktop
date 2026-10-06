@@ -129,13 +129,12 @@ repeatedly start copies. Forced termination is not a clean shutdown receipt.
    authority. An enabled value or a status read does not establish native backend
    support, consent or permission to start/resume input. No session shown is not
    proof that a previous application released input.
-3. If a quarantined row offers **Release…**, its confirmation asks you to check
-   the computer first and says cleanup remains unverified. **Cancel** leaves the
-   session unchanged. The current screen sends a release request the core rejects;
-   it does not release or reconcile the session. Do not use it to dismiss
-   quarantine or establish cleanup. Preserve the record and obtain operator help.
-   If a recovery result is already recorded, read it: a refused, unknown,
-   incomplete or still-quarantined result is not permission to continue.
+3. **Release…** is not a usable recovery path in this version. The missing session
+   row prevents that control from appearing, and its request would be rejected
+   even if invoked. Do not use it to dismiss quarantine or establish cleanup.
+   Preserve the record and obtain operator help. If a recovery result is already
+   recorded, read it: a refused, unknown, incomplete or still-quarantined result
+   is not permission to continue.
 
 This screen is not a complete native recovery wizard. It does not provide a
 fresh-target/renewed-consent input workflow or permission to replay partial work.

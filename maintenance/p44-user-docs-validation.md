@@ -378,6 +378,13 @@ This is why the guides describe a rejected screen request rather than remove
 the existing warning. The newly recorded status-envelope display mismatch is
 also documented, not silently repaired in a docs-only change.
 
+The final read-only audit correctly narrowed this description: because the
+status-envelope mismatch prevents the row/button from appearing, no actual
+Release click is observed or claimed. Its defined handler's payload **would**
+be rejected if invoked; the parameter probe is not a rendered-button execution.
+Updated the user guidance to state both limitations without implying a reachable
+working recovery control.
+
 ### Pending boundaries retained
 
 Checked GitHub status: #37, #39, #40 and #42 are still **open**. Their existing
