@@ -180,7 +180,7 @@ export class RealCoreHarness {
       return existsSync(this.paths.socketPath)
     // A cold installed engine imports its complete retained dependency closure.
     // Allow bounded startup on busy self-hosted runners, without retrying or
-    // substituting a fixture after launch. All Broker operation waits stay 8s.
+    // substituting a fixture after launch. Event wait defaults stay unchanged.
     }, 'real core socket creation', 25_000)
   }
 
@@ -189,7 +189,10 @@ export class RealCoreHarness {
       socketPath: this.paths.socketPath,
       readToken: () => wrongToken ? '0'.repeat(64) : readFileSync(this.paths.tokenPath, 'utf8').trim(),
       profileId: this.paths.profileId, clientVersion: 'real-core-contract',
-      requestTimeoutMs: 3_000, helloTimeoutMs: 3_000, reconnectDelaysMs: [40, 80, 150]
+      // Real first-use owners can import their retained dependencies lazily.
+      // Keep a bounded receipt wait below the production 30s default, without
+      // retrying an unknown outcome or fabricating a successful receipt.
+      requestTimeoutMs: 15_000, helloTimeoutMs: 3_000, reconnectDelaysMs: [40, 80, 150]
     })
     this.brokers.add(broker)
     return broker
