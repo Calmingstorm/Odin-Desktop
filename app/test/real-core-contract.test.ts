@@ -53,8 +53,15 @@ describe('actual app Broker ↔ repository real core', () => {
     const subscribed = successful<Subscription>(await broker.request('events.subscribe', { after: '0' }))
     expect(subscribed).toEqual({ event_high: welcome.event_high, reset_required: false })
     await waitFor(() => events.length === 1, 'startup event replay')
+    // The durable startup observation precedes the current read. Uptime in
+    // the human summary is expected to advance; every stable field still
+    // matches, and the next connection must replay the exact stored event.
+    const { summary: currentSummary, ...stableStatus } = status as Status & { summary: string }
     expect(events[0]).toMatchObject({ t: 'evt', seq: 1, cursor: '1', type: 'runtime.status',
-      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: status })
+      entity: { kind: 'runtime', id: welcome.core.instance_id }, payload: stableStatus })
+    const startupSummary = (events[0]!.payload as { summary: string }).summary
+    const withoutUptime = (value: string): string => value.replace(/· up \d+s/, '· up <seconds>')
+    expect(withoutUptime(startupSummary)).toBe(withoutUptime(currentSummary))
     expect(events[0]!.at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/)
     expect(Date.parse(events[0]!.at)).not.toBeNaN()
     expect(broker.cursor).toBe('1')

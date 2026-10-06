@@ -65,20 +65,23 @@ class ObservabilityService:
     def __init__(self, *, executor=None, audit=None, gateway=None,
                  compression_stats=None, config=None, turn_store=None,
                  model_breakers=None, usage_rollup=None, subsystem_guard=None,
-                 graph=None):
+                 graph=None, usage_getter=None):
         self.executor, self.audit, self.gateway = executor, audit, gateway
         self.compression_stats, self.config = compression_stats, config
         self.turn_store, self.model_breakers = turn_store, model_breakers
         self.usage_rollup, self.subsystem_guard = usage_rollup, subsystem_guard
         self.graph = graph
+        self.usage_getter = usage_getter
 
     def _owner(self, name):
         """Resolve references only. Never construct a manager to manufacture data."""
         explicit = getattr(self, name, None)
         if explicit is not None:
-            if name in {"config", "usage_rollup"} and callable(explicit):
+            if name == "config" and callable(explicit):
                 return explicit()
             return explicit
+        if name == "usage_rollup" and self.usage_getter is not None:
+            return self.usage_getter()
         root = self.graph() if callable(self.graph) else self.graph
         aliases = {"executor": ("executor", "tool_executor"),
                    "gateway": ("providers", "llm_gateway", "gateway")}.get(name, (name,))
