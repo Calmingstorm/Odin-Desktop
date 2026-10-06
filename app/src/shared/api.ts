@@ -1121,6 +1121,8 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   }): Promise<Result<{ image_models: Record<ImageLeaf, ImageModelIntent>; image_models_revision: string; revision: string }>>
   secretsSet(params: { path: string; value: string }): Promise<Result<{ set: boolean }>>
   secretsClear(params: { path: string }): Promise<Result<{ set: boolean }>>
+  /** Explicit owner Retry only. Background reads never unlock or display a keyring prompt. */
+  secretsUnlock(): Promise<Result<{ unlocked: true }>>
   /** A field whose `apply_handler` is a dedicated method: models.main.set or models.agents.set. */
   editLeaf(params: { method: string; params: Record<string, unknown> }): Promise<Result<Record<string, unknown>>>
   codexAccounts(): Promise<Result<CodexStatus>>
@@ -1196,6 +1198,7 @@ export const IPC = {
   imageModelIntent: 'odin:core-settings:image-intent',
   secretsSet: 'odin:secrets:set',
   secretsClear: 'odin:secrets:clear',
+  secretsUnlock: 'odin:secrets:unlock',
   editLeaf: 'odin:core-settings:edit-leaf',
   codexAccounts: 'odin:codex:accounts',
   codexActivate: 'odin:codex:activate',

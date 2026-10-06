@@ -180,6 +180,7 @@ export const settingsSetSchema = z
 
 export const secretSetSchema = z.object({ path: settingsPath, value: z.string().min(1).max(16_384) }).strict()
 export const secretClearSchema = z.object({ path: settingsPath }).strict()
+export const secretUnlockSchema = z.object({}).strict()
 
 /** The dedicated desktop methods a field may name as its apply handler. Nothing else passes. */
 export const imageIntentSchema = z

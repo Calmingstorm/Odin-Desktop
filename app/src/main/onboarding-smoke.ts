@@ -157,9 +157,13 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     await edit('openai_compatible.api_key', 'E2E-WRITE-ONLY-NEVER-RENDER')
     await until(async () => await run(`document.querySelector(${JSON.stringify(fieldId('openai_compatible.api_key'))}).value === ''`), 'failed secret clears')
     assert.equal((await request<{ first_run: FirstRun }>('status.get')).first_run.state, 'degraded')
-    control({ keyring: 'healthy' })
+    // A locked collection must be unlocked by the rendered owner Retry, not
+    // secretly made healthy by the orchestrator before the click.
+    if (scenario === 'missing') control({ keyring: 'healthy' })
     await button('.first-run-banner', 'Retry')
     await observeState('fresh')
+    const keyringControl = JSON.parse(readFileSync(process.env.ODIN_SMOKE_CONTROL!, 'utf8')) as { unlock_calls?: number }
+    assert.equal(keyringControl.unlock_calls ?? 0, scenario === 'locked' ? 1 : 0)
     checks.push('keyring-retry')
     await finishLogin()
     await model('codex:gpt-5.4')

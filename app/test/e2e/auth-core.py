@@ -74,7 +74,7 @@ def assert_isolation() -> Path:
 
 
 class Control:
-    _KEYS = frozenset({"keyring", "auth", "probe_failure", "saved_only",
+    _KEYS = frozenset({"keyring", "auth", "probe_failure", "saved_only", "unlock_calls",
                        "guard_degraded", "authorized", "provider_mode", "provider"})
 
     def __init__(self, root: Path):
@@ -105,6 +105,8 @@ class Control:
             refuse("invalid keyring control")
         if value.get("auth", "pending") not in {"pending", "success", "expired"}:
             refuse("invalid auth control")
+        if type(value.get("unlock_calls", 0)) is not int or not 0 <= value.get("unlock_calls", 0) <= 100:
+            refuse("invalid unlock count")
         for key in ("probe_failure", "saved_only", "guard_degraded", "authorized"):
             if key in value and type(value[key]) is not bool:
                 refuse("control flags must be booleans")
@@ -151,6 +153,21 @@ class MemoryKeyring:
             raise KeyringLocked("Synthetic test keyring is locked")
         if mode == "missing":
             raise NoKeyringError("Synthetic test keyring is unavailable")
+
+    def unlock(self) -> bool:
+        value = self.control.read()
+        if value.get("keyring") == "locked":
+            value["unlock_calls"] = value.get("unlock_calls", 0) + 1
+            value["keyring"] = "healthy"
+            fd, temporary = tempfile.mkstemp(prefix=".unlock-control-", dir=self.control.path.parent)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                    json.dump(value, stream, sort_keys=True)
+                os.replace(temporary, self.control.path)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
+        self._check()
+        return True
 
     def get_password(self, service: str, name: str) -> str | None:
         self._check()

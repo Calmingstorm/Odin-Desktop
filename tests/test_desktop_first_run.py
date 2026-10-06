@@ -132,12 +132,15 @@ async def test_commit_default_without_credentials_stays_fresh(tmp_path):
         "expected_revision": settings.revision,
         "changes": [{"path": "openai_codex.enabled", "value": True}],
     })
-    assert state(runtime)["state"] == "fresh"
+    assert (await runtime.status_async())["first_run"]["state"] == "fresh"
     second = SettingsService(settings.paths, settings.secrets)
-    assert state(RuntimeService(runtime.core, second))["state"] == "fresh"
+    second_status = await RuntimeService(runtime.core, second).status_async()
+    assert second_status["first_run"]["state"] == "fresh"
 
 
-@pytest.mark.parametrize("provider,credential", [("ollama", None), ("compat", "openai_compatible.api_key")])
+@pytest.mark.parametrize("provider,credential", [
+    ("ollama", None), ("compat", "openai_compatible.api_key"),
+])
 def test_all_providers_and_unsaved_selection(tmp_path, provider, credential):
     section = "ollama" if provider == "ollama" else "openai_compatible"
     runtime = make_runtime(tmp_path, updates={
@@ -185,12 +188,14 @@ async def test_failed_keyring_write_distinct_error_retry_no_fallback(tmp_path):
     original = settings.paths.config_file.read_bytes()
     backend.failure = "locked-test-private"
     with pytest.raises(MethodError) as exc:
-        await settings.handle("secrets.set", {"path": "openai_compatible.api_key", "value": "write-private"})
+        await settings.handle("secrets.set", {
+            "path": "openai_compatible.api_key", "value": "write-private",
+        })
     assert exc.value.code == "keyring_unavailable"
     assert "private" not in str(exc.value)
     assert settings.paths.config_file.read_bytes() == original
     backend.failure = None
-    assert settings.schema()["status"]["keyring_error"] is None
+    assert (await settings.handle("settings.schema", {}))["status"]["keyring_error"] is None
     assert await settings.handle("secrets.set", {"path": "openai_compatible.api_key",
                                                 "value": "write-private"}) == {"set": True}
     assert "write-private" not in json.dumps(settings.schema())

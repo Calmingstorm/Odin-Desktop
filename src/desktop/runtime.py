@@ -5,6 +5,7 @@ saved model settings are not evidence of a serving model or a healthy provider.
 """
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
 import math
@@ -22,12 +23,12 @@ from ..discord.slash_commands import (
     render_status,
     render_usage,
 )
+from ..llm.model_ref import parse_model_ref
 from ..observability.diagnostics import scrub_diagnostic
 from ..usage.rollup import UsageRollup
-from ..llm.model_ref import parse_model_ref
 from .management import MethodError
 from .provisioning import fresh_config
-from .secrets import SecretStoreError
+from .secrets import SecretStoreError, secret_call
 
 
 def _number(value=None, kind="unknown") -> dict:
@@ -71,6 +72,9 @@ class RuntimeService:
                              or getattr(core, "tool_catalog", None))
         self.prompt_builder = (getattr(llm, "prompt_builder", None)
                               or getattr(core, "prompt_builder", None))
+        self._first_run_snapshot = {
+            "state": "degraded", "reason": "keyring_unavailable", "keyring_unavailable": True,
+        }
 
     @property
     def config(self):
@@ -84,6 +88,17 @@ class RuntimeService:
         return await result if inspect.isawaitable(result) else result
 
     def _first_run(self) -> dict:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            self._first_run_snapshot = self._read_first_run()
+        return dict(self._first_run_snapshot)
+
+    async def status_async(self):
+        self._first_run_snapshot = await secret_call(self._read_first_run)
+        return self.status()
+
+    def _read_first_run(self) -> dict:
         """A read-only projection, not an onboarding completion flag or probe.
 
         Fresh means the bootstrap provider choices still equal this profile's
@@ -125,8 +140,8 @@ class RuntimeService:
         except Exception:
             return result("degraded", "credential_state_unavailable")
         if getattr(self.settings, "_keyring_error", None):
-            # A successful presence read is not successful full hydration. Retry
-            # remains settings.schema, which clears this only after all reads.
+            # Presence is not full hydration. Explicit Retry rehydrates before
+            # reporting its result, without claiming runtime client adoption.
             return result("degraded", "keyring_unavailable", keyring=True)
 
         def choices(config):
@@ -347,7 +362,7 @@ class RuntimeService:
         if type(params) is not dict:
             raise MethodError("bad_request", "Method params must be an object")
         if method == "status.get":
-            return self.status()
+            return await self.status_async()
         if method == "usage.get":
             return await self._usage(params)
         if method == "runtime.reload":

@@ -22,6 +22,7 @@ beforeEach(async () => {
     codexAccounts: vi.fn(async () => ok({ configured: false, accounts: [] })),
     secretsSet: vi.fn(async () => ok({ configured: true })),
     secretsClear: vi.fn(async () => ok({ configured: false })),
+    secretsUnlock: vi.fn(async () => ok({ unlocked: true })),
     settingsSet: vi.fn(async () => ok({ revision: 'r2', fields: [] })),
     setNotifications: vi.fn(), setAutostart: vi.fn()
   }
@@ -150,20 +151,75 @@ describe('P3.2 core-authoritative first run', () => {
     expect(store.state.settingsSection).toBe('models')
   })
 
-  it.each(['keyring_unavailable', 'credential_state_unavailable'] as const)('Retry re-reads schema and accounts before status for %s, never replaying secret writes', async (reason) => {
-    bridge.status!.mockResolvedValue(ok(core(project('degraded', reason, true))))
+  it.each(['keyring_unavailable', 'credential_state_unavailable'] as const)('Retry unlocks only for a keyring failure, then re-reads schema/accounts/status for %s', async (reason) => {
+    bridge.status!.mockResolvedValue(ok(core(project('degraded', reason, reason === 'keyring_unavailable'))))
     await statuses.refreshStatus()
     const v = await banner()
-    expect(v.root.textContent()).toContain('keyring')
     const calls: string[] = []
+    bridge.secretsUnlock!.mockImplementation(async () => { calls.push('unlock'); return ok({ unlocked: true }) })
     bridge.settingsSchema!.mockImplementation(async () => { calls.push('schema'); return ok(meta()) })
     bridge.codexAccounts!.mockImplementation(async () => { calls.push('accounts'); return ok({ configured: false, accounts: [] }) })
     bridge.status!.mockImplementation(async () => { calls.push('status'); return ok(core(project('incomplete', 'provider_configuration_incomplete'))) })
     await v.root.button('Retry').fire('click')
     await flush()
-    expect(calls).toEqual(['schema', 'accounts', 'status'])
+    expect(calls).toEqual(reason === 'keyring_unavailable' ? ['unlock', 'schema', 'accounts', 'status'] : ['schema', 'accounts', 'status'])
     expect(stateOf(v)).toBe('incomplete')
     expect(bridge.secretsSet).not.toHaveBeenCalled()
+  })
+
+  it('mounting and background reads never unlock; a held Retry unlocks once and rehydrates only after success', async () => {
+    bridge.status!.mockResolvedValue(ok(core(project('degraded', 'keyring_unavailable', true))))
+    await statuses.refreshStatus()
+    const v = await banner()
+    await Promise.all([settings.loadSettings(), settings.loadCodex(), statuses.refreshStatus()])
+    expect(bridge.secretsUnlock).not.toHaveBeenCalled()
+    let resolve!: (value: Result<{ unlocked: true }>) => void
+    bridge.secretsUnlock!.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+    const reads = bridge.settingsSchema!.mock.calls.length
+    const retry = v.root.button('Retry').fire('click')
+    await flush()
+    await v.root.button('Retrying…').fire('click')
+    expect(bridge.secretsUnlock).toHaveBeenCalledTimes(1)
+    expect(bridge.settingsSchema).toHaveBeenCalledTimes(reads)
+    resolve(ok({ unlocked: true }))
+    await retry
+    await flush()
+    expect(bridge.settingsSchema).toHaveBeenCalledTimes(reads + 1)
+  })
+
+  it('failed unlock stays degraded without rehydrating or exposing exception details, and remains retryable', async () => {
+    bridge.status!.mockResolvedValue(ok(core(project('degraded', 'keyring_unavailable', true))))
+    await statuses.refreshStatus()
+    const v = await banner()
+    bridge.secretsUnlock!.mockResolvedValueOnce({ ok: false, error: { code: 'keyring_unavailable', message: 'not displayed' } })
+    await v.root.button('Retry').fire('click')
+    await flush()
+    expect(stateOf(v)).toBe('degraded')
+    expect(v.root.textContent()).toContain('could not be unlocked')
+    expect(v.root.textContent()).not.toContain('not displayed')
+    expect(bridge.settingsSchema).not.toHaveBeenCalled()
+    await v.root.button('Retry').fire('click')
+    await flush()
+    expect(bridge.secretsUnlock).toHaveBeenCalledTimes(2)
+    expect(bridge.settingsSchema).toHaveBeenCalledTimes(1)
+    expect(bridge.secretsSet).not.toHaveBeenCalled()
+  })
+
+  it('does not rehydrate a replacement core after a late unlock answer from the old one', async () => {
+    bridge.status!.mockResolvedValue(ok(core(project('degraded', 'keyring_unavailable', true))))
+    await statuses.refreshStatus()
+    const v = await banner()
+    let resolve!: (value: Result<{ unlocked: true }>) => void
+    bridge.secretsUnlock!.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+    const retry = v.root.button('Retry').fire('click')
+    store.state.recoveryEpoch += 1
+    store.state.app.coreInstanceId = 'replacement-core'
+    resolve(ok({ unlocked: true }))
+    await retry
+    await flush()
+    expect(bridge.settingsSchema).not.toHaveBeenCalled()
+    expect(bridge.codexAccounts).not.toHaveBeenCalled()
+    expect(stateOf(v)).toBe('unavailable')
   })
 
   it('clears transient credentials immediately on submission, including failed writes, and never adds them to a conversation draft', async () => {

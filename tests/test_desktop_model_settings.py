@@ -154,6 +154,7 @@ async def test_main_preserves_persist_method_error_after_owner_cleanup(service, 
 @pytest.mark.asyncio
 async def test_main_stale_revision_preserved_by_real_owner_without_adoption(tmp_path, monkeypatch):
     import aiohttp
+
     from src.desktop.codex_accounts import CodexAccountsService
     from src.desktop.paths import ProfilePaths
     from src.desktop.providers import ProviderOwner

@@ -14,6 +14,7 @@ from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .management import ManagementService
 from .paths import ProfilePaths
+from .secrets import secret_call
 
 VERSION = "0.1.0.dev1"
 CAPABILITIES = ("status.get", "events.subscribe", "runtime.shutdown")
@@ -145,6 +146,7 @@ class CoreService:
         self.commands = CommandJournal(self.store)
         self.events = EventJournal(self.store)
         self.management = ManagementService.compose(self, secret_backend=self._secret_backend)
+        await secret_call(self.management.settings.hydrate_secrets)
         self.capabilities = tuple(dict.fromkeys((*CAPABILITIES, *sorted(self.management.methods))))
         self.server = IpcServer(
             self.socket_path, self.token_file, self.paths.profile_id,
@@ -152,11 +154,13 @@ class CoreService:
         )
         self.lifetime.watch_parent(stdin_fd)
         self.lifetime.watch_signals()
-        await self.server.start()
         self.phase = "ready"
         async with self._serial:
             self.commands.prune(time.time() - RECEIPT_RETENTION)
             await self._status_event()
+        # Hydration/status now await workers. Commit the initial event before
+        # admitting any handshake, preserving welcome/catch-up's high watermark.
+        await self.server.start()
         self._receipt_pruner = asyncio.create_task(self._prune_receipts())
 
     async def _prune_receipts(self) -> None:
@@ -172,8 +176,10 @@ class CoreService:
             self.lifetime.request_stop("storage_unavailable")
 
     async def _status_event(self) -> None:
+        status = (await self.management.runtime.status_async()
+                  if self.management is not None else self.status())
         event = self.events.append(
-            "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id}, self.status(),
+            "runtime.status", {"kind": "runtime", "id": self.authority.runtime_id}, status,
         )
         await self._publish(event)
 
@@ -231,7 +237,10 @@ class CoreService:
                 elif not self.lifetime.admitting:
                     result = failure("busy", "Core is quiescing")
                 else:
-                    result = await self.management.execute(command_id, method, params)
+                    result = await self.management.execute(
+                        command_id, method, params,
+                        unlock_serial=self._serial if method == "secrets.unlock" else None,
+                    )
                 return {"t": "res", "id": command_id, **result}
             if method in READ_METHODS:
                 result = validate_params(method, params)

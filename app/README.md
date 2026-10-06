@@ -83,9 +83,12 @@ The banner opens the existing Models and providers section. Sections remain addr
 Set up later dismisses only the current window's chat reminder, never core state. Start at login stays opt-in
 and off; notification previews remain on by default. General keeps preview and quiet-hours controls available.
 
-Keyring Retry repeats safe schema/account/status reads, not credential writes. Failed hydration retries on a
-new schema request, and secret writes return distinct `keyring_unavailable` when rollback is proven. No plaintext
-fallback exists. Submitted secret fields clear immediately, even on failure.
+Background keyring reads never unlock or display a system prompt. Only an owner's explicit banner Retry may
+invoke the named, no-argument `secretsUnlock()` bridge (`secrets.unlock` in the core), with a bounded wait off the
+core event loop. After success, Retry rehydrates schema/accounts/status, never replaying credential writes.
+Missing/locked collections remain `keyring_unavailable`; a timed-out prompt is not success, and another Retry
+cannot duplicate an outstanding prompt. No plaintext fallback exists. Submitted secret fields clear immediately,
+even on failure. Native Secret Service prompt acceptance remains the separate VM gate.
 
 Device authorization material stays in main. The renderer sees the intended human verification code and a
 random local `login_id`, never the provider's `device_auth_id` or OAuth tokens. Main projects both direct answers

@@ -97,6 +97,7 @@ const api: OdinApi = {
   imageModelIntent: (params) => ipcRenderer.invoke(IPC.imageModelIntent, params),
   secretsSet: (params) => ipcRenderer.invoke(IPC.secretsSet, params),
   secretsClear: (params) => ipcRenderer.invoke(IPC.secretsClear, params),
+  secretsUnlock: () => ipcRenderer.invoke(IPC.secretsUnlock, {}),
   editLeaf: (params) => ipcRenderer.invoke(IPC.editLeaf, params),
   codexAccounts: () => ipcRenderer.invoke(IPC.codexAccounts),
   codexActivate: (params) => ipcRenderer.invoke(IPC.codexActivate, params),

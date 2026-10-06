@@ -56,6 +56,7 @@ import {
   imageIntentSchema,
   secretClearSchema,
   secretSetSchema,
+  secretUnlockSchema,
   settingsSetSchema,
   setNotificationsSchema,
   snapshotConversationSchema,
@@ -233,6 +234,9 @@ export function registerIpc(deps: IpcDeps): void {
     const id = randomUUID()
     return fromSettled(await deps.broker.request('secrets.clear', v, id))
   })
+  handle(IPC.secretsUnlock, secretUnlockSchema, async () =>
+    fromSettled(await deps.broker.request('secrets.unlock', {}, randomUUID()))
+  )
   handle(IPC.editLeaf, editLeafSchema, async (v) => {
     const id = randomUUID()
     return fromSettled(await deps.broker.request(v.method, v.params, id))
