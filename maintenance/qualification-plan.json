@@ -1426,6 +1426,8 @@
     {
       "name": "desktop-boundary-tests",
       "files": [
+        "tests/test_desktop_step8_part6_accounting.py",
+        "tests/test_desktop_step8_part6_retained.py",
         "tests/test_desktop_capabilities_definitions.py",
         "tests/test_desktop_capabilities_owner.py",
         "tests/test_desktop_capabilities_publication.py",

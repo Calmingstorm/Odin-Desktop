@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_validate_gitlab_source",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_validate_gitlab_source"
+    },
+    {
+      "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_validate_invalid_source",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_validate_invalid_source"
+    },
+    {
+      "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_matches_gitlab",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_matches_gitlab"
+    },
+    {
+      "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_no_match_wrong_source",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_no_match_wrong_source"
+    },
+    {
+      "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_matches_repo_substring",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_matches_repo_substring"
+    },
+    {
+      "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_no_match_wrong_event",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_no_match_wrong_event"
+    },
+    {
+      "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_add_gitlab_trigger_schedule",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_add_gitlab_trigger_schedule"
+    },
+    {
+      "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_matches_merge_request",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_matches_merge_request"
+    },
+    {
+      "original": "tests/test_gitlab_webhook.py::TestSchedulerGitLabSource::test_trigger_matches_pipeline",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_gitlab_webhook_TestSchedulerGitLabSource::test_trigger_matches_pipeline"
+    },
+    {
+      "original": "tests/test_self_audit_fixes.py::TestConfigSchemaFields::test_trajectory_path_honored_from_yaml",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_self_audit_fixes_TestConfigSchemaFields::test_trajectory_path_honored_from_yaml"
+    },
+    {
+      "original": "tests/test_self_audit_fixes.py::TestConfigSchemaFields::test_audit_log_path_honored_from_yaml",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_self_audit_fixes_TestConfigSchemaFields::test_audit_log_path_honored_from_yaml"
+    },
+    {
+      "original": "tests/test_self_audit_fixes.py::TestKnowledgeStoreConcurrency::test_busy_timeout_set",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_self_audit_fixes_TestKnowledgeStoreConcurrency::test_busy_timeout_set"
+    },
+    {
+      "original": "tests/test_self_audit_fixes.py::TestKnowledgeStoreConcurrency::test_write_lock_exists",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_self_audit_fixes_TestKnowledgeStoreConcurrency::test_write_lock_exists"
+    },
+    {
+      "original": "tests/test_self_audit_fixes.py::TestKnowledgeStoreConcurrency::test_concurrent_ingest_serializes_cleanly",
+      "executable": "tests/test_desktop_step8_part6_retained.py::TestPart6_test_self_audit_fixes_TestKnowledgeStoreConcurrency::test_concurrent_ingest_serializes_cleanly"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookSignature::test_valid_signature_accepted",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookSignature::test_valid_signature_accepted"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookSignature::test_invalid_signature_rejected",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookSignature::test_invalid_signature_rejected"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookSignature::test_missing_signature_rejected",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookSignature::test_missing_signature_rejected"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookSignature::test_no_secret_configured_rejects",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookSignature::test_no_secret_configured_rejects"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_push_event",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_push_event"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_push_truncates_commits",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_push_truncates_commits"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_pull_request_event",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_pull_request_event"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_issues_event",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_issues_event"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_release_event",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_release_event"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_workflow_run_event",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_workflow_run_event"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_unknown_event",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_unknown_event"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestGitHubWebhookEvents::test_invalid_json",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestGitHubWebhookEvents::test_invalid_json"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_validate_github_source",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_validate_github_source"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_validate_invalid_source",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_validate_invalid_source"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_trigger_matches_github",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_trigger_matches_github"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_trigger_no_match_wrong_source",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_trigger_no_match_wrong_source"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_trigger_matches_repo_substring",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_trigger_matches_repo_substring"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_trigger_no_match_wrong_event",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_trigger_no_match_wrong_event"
+    },
+    {
+      "original": "tests/test_github_webhook.py::TestSchedulerGitHubSource::test_add_github_trigger_schedule",
+      "executable": "tests/test_desktop_webhook_adapters.py::TestWebhook_test_github_webhook_TestSchedulerGitHubSource::test_add_github_trigger_schedule"
+    }
+  ]
+}
