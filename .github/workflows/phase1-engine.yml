@@ -129,7 +129,7 @@ jobs:
       - name: Qualification lab orchestration (offline, no host daemon)
         if: ${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}
         run: |
-          .venv/bin/ruff check scripts/qualification/lab tests/test_desktop_qualification_lab.py tests/test_lab_*.py
-          # KDE's unchanged ownership emitter fixtures require root only inside
-          # a separate disposable container. Never relax the PID helper's NNP.
+          .venv/bin/ruff check scripts/qualification/lab scripts/run-lab-fixture-tests.py tests/test_desktop_lab_fixture_runner.py tests/test_desktop_qualification_lab.py tests/test_lab_*.py
+          # Fixed offline corpus uses fresh fixture user namespaces; unsupported
+          # mappings skip explicitly. Never relax the unchanged PID helper's NNP.
           .venv/bin/python scripts/run-lab-fixture-tests.py
