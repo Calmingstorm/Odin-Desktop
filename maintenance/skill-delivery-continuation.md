@@ -75,7 +75,9 @@ restoration of the callback/export cases listed in the earlier validation file.
 - App check: **758 tests**, typecheck and build passed.
 - Real-core: **26 contracts plus six onboarding tests passed**, zero skips.
 - Private-Xvfb/private-D-Bus real-core smoke: **40 screen checkpoints passed**.
-- Final classified qualification is recorded in the companion final result.
+- Final classified qualification: **31/31 groups passed; 14,957 passing
+  executions, zero failures/errors, three explicit skips**. The owning transient
+  unit exited zero, and the actual qualification-result JSON has no failed groups.
 
 The first complete continuation qualification on `d0fa623` finished all 31
 groups with three failures. Two standalone teardown fixtures lacked the optional
@@ -87,6 +89,12 @@ while retaining the skill-test and native-input refusal assertions. Post-fix
 focused suites passed 41 and 35 cases. Failed full XML/logs remain retained and
 are not overwritten as a passing claim. The corrected fresh source receives one
 full invocation after these fixes; the earlier failed full gate stays explicit.
+
+The final corrected full run finished at `2026-10-06T12:36Z`. Main advanced to
+`189bb77769a89a44fe308b65d6ab808f25882952` during qualification. No post-gate source
+merge was performed. Final evidence commits leave engine/app/test/gate inputs
+identical to tested `229b314`. Cross-review and main integration remain PR work,
+not deployment or broad release acceptance.
 
 The new correctness fixtures explicitly use a 30-second outer setup/workflow RPC
 budget. Failed runs showed the shared three-second fixture bound expiring during
