@@ -177,26 +177,231 @@ async def test_unavailable_keyring_fences_hydrated_or_imported_credentials(tmp_p
 
 
 @pytest.mark.asyncio
-async def test_unknown_dispatch_fenced_and_not_redispatched_after_restart(tmp_path):
-    async with graph(tmp_path) as (ingress, scheduler, _, _, _, item, _, seen):
-        async def fail(*args, **kwargs):
-            async with scheduler._lock:
-                await kwargs['admission'](scheduler.list_all()[0])
-            raise RuntimeError('temporary handoff failure')
-        scheduler.fire_triggers = fail
-        assert (await post(ingress))[0] == 200
-        assert scheduler.list_all()[0]['paused']
-        assert ingress.store.connection.execute(
-            'SELECT state FROM desktop_webhook_receipts').fetchone()[0] == 'unknown'
+@pytest.mark.parametrize('enabled', [False, True])
+async def test_idle_listener_does_not_rescan_schedules(tmp_path, monkeypatch, enabled):
+    async with graph(tmp_path, enabled=enabled) as (ingress, scheduler, _, _, _, _, _, _):
+        scans = []
+        original = scheduler.list_all
+        def counted():
+            scans.append(True)
+            return original()
+        monkeypatch.setattr(scheduler, 'list_all', counted)
+        await asyncio.sleep(1.1)
+        assert scans == []
+
+
+@pytest.mark.asyncio
+async def test_native_scheduler_change_wakes_listener(tmp_path):
+    async with graph(tmp_path) as (ingress, scheduler, _, _, _, item, _, _):
+        # Bypass ScheduleService's synchronous ingress hook.
+        await scheduler.update(item['id'], paused=True)
+        async with asyncio.timeout(3):
+            while ingress.address is not None:
+                await asyncio.sleep(0.01)
+        await scheduler.update(item['id'], paused=False)
+        async with asyncio.timeout(3):
+            while ingress.address is None:
+                await asyncio.sleep(0.01)
+        await scheduler.delete(item['id'])
+        async with asyncio.timeout(3):
+            while ingress.address is not None:
+                await asyncio.sleep(0.01)
         await ingress.close()
-        restarted = WebhookIngress(ingress.settings, scheduler, ingress.store,
+        assert not scheduler._change_subscribers
+
+
+@pytest.mark.asyncio
+async def test_threaded_keyring_change_wakes_listener(tmp_path):
+    async with graph(tmp_path) as (ingress, _, settings, _, _, _, _, _):
+        backend = settings.secrets._backend
+        original = backend.get_password
+        def locked(*args):
+            raise RuntimeError('temporary locked keyring')
+        backend.get_password = locked
+        assert not await asyncio.to_thread(settings.hydrate_secrets)
+        async with asyncio.timeout(3):
+            while ingress.address is not None:
+                await asyncio.sleep(0.01)
+        backend.get_password = original
+        assert await settings.finish_unlock() == {'unlocked': True}
+        async with asyncio.timeout(3):
+            while ingress.address is None:
+                await asyncio.sleep(0.01)
+        await ingress.close()
+        assert not settings._change_subscribers
+
+
+@pytest.mark.asyncio
+async def test_changes_during_sync_are_not_lost(tmp_path, monkeypatch):
+    async with graph(tmp_path) as (ingress, _, _, _, _, _, _, _):
+        entered, release, repeated = asyncio.Event(), asyncio.Event(), asyncio.Event()
+        calls = 0
+        async def blocked():
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                entered.set()
+                await release.wait()
+            else:
+                repeated.set()
+        monkeypatch.setattr(ingress, 'sync', blocked)
+        for _ in range(20):
+            ingress.notify_change()
+        await asyncio.wait_for(entered.wait(), 3)
+        ingress.notify_change()
+        release.set()
+        await asyncio.wait_for(repeated.wait(), 3)
+        await asyncio.sleep(0.05)
+        assert calls == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('fallback', ['owner_events', 'bind_retry'])
+async def test_missing_notifications_fallback_is_at_most_one_hz(tmp_path, monkeypatch, fallback):
+    async with graph(tmp_path) as (ingress, _, _, _, _, _, _, _):
+        calls = []
+        async def counted():
+            calls.append(asyncio.get_running_loop().time())
+        monkeypatch.setattr(ingress, 'sync', counted)
+        if fallback == 'owner_events':
+            ingress._poll_schedules = True
+        else:
+            ingress._retry_sync = True
+            async def unavailable():
+                await counted()
+                raise OSError('temporary occupied bind')
+            monkeypatch.setattr(ingress, 'sync', unavailable)
+        async with asyncio.timeout(4):
+            while len(calls) < 2:
+                await asyncio.sleep(0.01)
+        assert calls[1] - calls[0] >= 1.0
+        await ingress.close()
+        ingress.notify_change()
+        await asyncio.sleep(0.05)
+        assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_initial_bind_failure_retries_without_broader_fallback(tmp_path, monkeypatch):
+    async with graph(tmp_path) as (ingress, scheduler, settings, _, _, _, _, _):
+        await ingress.close()
+        occupied = await asyncio.start_server(lambda _r, w: w.close(), '127.0.0.1', 0)
+        port = occupied.sockets[0].getsockname()[1]
+        settings.config.webhook.port = port
+        restarted = WebhookIngress(settings, scheduler, ingress.store,
             ingress.transcript, owner_id=ingress.owner_id)
+        from aiohttp import web
+        attempts = []
+        original = web.TCPSite.start
+        async def counted(site):
+            attempts.append(asyncio.get_running_loop().time())
+            return await original(site)
+        monkeypatch.setattr(web.TCPSite, 'start', counted)
         await restarted.start()
         try:
-            assert restarted.address is None
-            assert not seen
+            assert restarted.address is None and restarted._retry_sync
+            for _ in range(20):
+                # Direct settings/schedule hooks share the same bind backoff.
+                await restarted.sync()
+                restarted.notify_change()
+            assert len(attempts) == 1
+            occupied.close()
+            await occupied.wait_closed()
+            async with asyncio.timeout(4):
+                while restarted.address is None:
+                    await asyncio.sleep(0.01)
+            assert restarted.address[:2] == ('127.0.0.1', port)
+            assert len(attempts) == 2 and attempts[1] - attempts[0] >= 1.0
         finally:
+            occupied.close()
+            await occupied.wait_closed()
             await restarted.close()
+
+
+@pytest.mark.asyncio
+async def test_failed_settings_transaction_notifies_after_rollback(tmp_path):
+    from src.desktop.management import MethodError
+    async with graph(tmp_path) as (ingress, _, settings, _, _, _, _, _):
+        async def reject(*args):
+            assert settings._transaction_active
+            await ingress.sync()
+            assert ingress.address is None
+            raise RuntimeError('temporary owner rejection')
+        settings.owners['settings.set'] = reject
+        with pytest.raises(MethodError):
+            await settings.handle('settings.set', {'expected_revision': settings.revision,
+                'changes': [{'path': 'webhook.enabled', 'value': False}]})
+        assert settings.config.webhook.enabled and not settings._transaction_active
+        async with asyncio.timeout(3):
+            while ingress.address is None:
+                await asyncio.sleep(0.01)
+
+
+@pytest.mark.asyncio
+async def test_close_during_bind_does_not_leave_listener_or_watcher(tmp_path, monkeypatch):
+    from aiohttp import web
+    async with graph(tmp_path) as (ingress, scheduler, settings, _, _, _, _, _):
+        await ingress.close()
+        entered, release = asyncio.Event(), asyncio.Event()
+        original = web.TCPSite.start
+        ports = []
+        async def blocked(site):
+            entered.set()
+            await release.wait()
+            await original(site)
+            ports.append(site._server.sockets[0].getsockname()[1])
+        monkeypatch.setattr(web.TCPSite, 'start', blocked)
+        restarted = WebhookIngress(settings, scheduler, ingress.store,
+            ingress.transcript, owner_id=ingress.owner_id)
+        starting = asyncio.create_task(restarted.start())
+        await asyncio.wait_for(entered.wait(), 3)
+        closing = asyncio.create_task(restarted.close())
+        await asyncio.sleep(0)
+        release.set()
+        await asyncio.gather(starting, closing)
+        assert restarted.address is None and restarted._watcher is None
+        assert not settings._change_subscribers and not scheduler._change_subscribers
+        with pytest.raises(OSError):
+            await asyncio.open_connection('127.0.0.1', ports[0])
+
+
+@pytest.mark.asyncio
+async def test_unknown_dispatch_keeps_future_deliveries_live_across_two_restarts(tmp_path):
+    async with graph(tmp_path) as (ingress, scheduler, settings, _, _, _, _, seen):
+        original = scheduler.fire_triggers
+        async def fail(*args, **kwargs):
+            await original(*args, **kwargs)
+            raise RuntimeError('lost handoff acknowledgement')
+        scheduler.fire_triggers = fail
+        assert (await post(ingress))[0] == 200
+        assert not scheduler.list_all()[0].get('paused')
+        receipt = ingress.store.connection.execute(
+            'SELECT id,state FROM desktop_webhook_receipts').fetchone()
+        assert receipt[1] == 'unknown'
+        assert ingress.status()['unknown_deliveries'] == 1
+        assert len(seen) == 1
+        await ingress.close()
+        for count in (2, 3):
+            scheduler = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+            async def effect(schedule):
+                seen.append(schedule)
+            scheduler._callback = effect
+            restarted = WebhookIngress(settings, scheduler, ingress.store,
+                ingress.transcript, owner_id=ingress.owner_id)
+            settings.ingress = restarted
+            await restarted.start()
+            try:
+                assert restarted.address is not None
+                assert not scheduler.list_all()[0].get('paused')
+                assert len(seen) == count - 1  # Recovery did not redispatch anything.
+                assert (await post(restarted))[0] == 200
+                assert len(seen) == count
+                assert restarted.store.connection.execute(
+                    'SELECT state FROM desktop_webhook_receipts WHERE id=?',
+                    (receipt[0],)).fetchone()[0] == 'unknown'
+                assert restarted.status()['unknown_deliveries'] == 1
+            finally:
+                await restarted.close()
 
 
 @pytest.mark.asyncio
@@ -304,12 +509,12 @@ async def test_cancelled_handoff_fences_and_recovers_notice_only(tmp_path):
         await asyncio.wait_for(entered.wait(), 2)
         await ingress.close()
         await asyncio.gather(first, return_exceptions=True)
-        assert scheduler.list_all()[0]['paused']
+        assert not scheduler.list_all()[0].get('paused')
         restarted = WebhookIngress(settings, scheduler, ingress.store,
             ingress.transcript, owner_id=ingress.owner_id)
         await restarted.start()
         try:
-            assert restarted.address is None
+            assert restarted.address is not None
             assert len(ingress.transcript.all_messages(cid)) == 1
             assert not seen
             assert ingress.store.connection.execute(
@@ -319,15 +524,20 @@ async def test_cancelled_handoff_fences_and_recovers_notice_only(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_final_settlement_storage_failure_immediately_fences(tmp_path):
+async def test_final_settlement_storage_failure_fences_only_receipt(tmp_path):
     async with graph(tmp_path) as (ingress, scheduler, _, _, _, _, _, seen):
         ingress.store.connection.execute(
             "CREATE TRIGGER deny_settlement BEFORE UPDATE ON desktop_webhook_receipts "
             "WHEN NEW.state='delivered' BEGIN SELECT RAISE(ABORT,'temporary failure'); END")
         assert (await post(ingress))[0] == 503
         assert len(seen) == 1
-        assert scheduler.list_all()[0]['paused']
-        assert scheduler.list_all()[0]['settlement'] == 'unknown'
+        assert not scheduler.list_all()[0].get('paused')
+        assert ingress.store.connection.execute(
+            'SELECT state FROM desktop_webhook_receipts').fetchone()[0] == 'unknown'
+        ingress.store.connection.execute('DROP TRIGGER deny_settlement')
+        assert (await post(ingress))[0] == 200
+        assert len(seen) == 2
+        assert ingress.status()['unknown_deliveries'] == 1
 
 
 @pytest.mark.asyncio
@@ -360,7 +570,7 @@ async def test_reopen_actual_store_and_recover_without_effect(tmp_path):
                                    owner_id=ingress.owner_id)
         await restarted.start()
         try:
-            assert restarted.address is None
+            assert restarted.address is not None
             assert not seen
             assert transcript.all_messages(cid)[0]['text'] == '**Lost acknowledgement**'
             await restarted.recover()

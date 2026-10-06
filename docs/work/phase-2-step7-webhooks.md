@@ -29,12 +29,20 @@ parity source.
 - Receipt persistence precedes effects. Interrupted or uncertain internal
   handoffs are never automatically dispatched again after restart. Provider
   retries are distinct new authenticated deliveries, not internal replay.
+  Unknown receipts remain visible in status without pausing future deliveries
+  or re-pausing the trigger on successive restarts. Interrupted scheduled runs
+  follow the scheduler's one-time/recurring recovery policy.
 - The integration message goes to the bound schedule's existing conversation,
   separately from task results, using the durable transcript/event path. A
   delivery response does not claim task success or human receipt.
 - The receiver shares the supervised core lifetime. Exit, ingress disablement
   and parent loss stop admission and close its owned listener. No request can
   start the app or forward chat/settings/control methods.
+- Adopted settings/schedule changes and keyring hydration/transaction settlement
+  invalidate listener readiness through coalesced, thread-safe notifications.
+  Idle ingress does not copy/scan schedules. Missing owner events, cached keyring
+  state/admission transitions and failed binds use at most a 1 Hz fallback.
+  This does not newly prove detection of an external native keyring relock.
 
 ## Evidence discipline
 

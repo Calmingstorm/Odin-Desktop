@@ -187,6 +187,7 @@ class Scheduler:
         self._active_execution_nonces: set[str] = set()
         self._lock = asyncio.Lock()
         self._wake = asyncio.Event()
+        self._change_subscribers = set()
         # Schedule ids currently executing — prevents the same schedule from
         # double-firing when a manual run_now overlaps a tick, a duplicate
         # webhook arrives, or (defensively) two scheduler loops tick at once.
@@ -374,6 +375,11 @@ class Scheduler:
             os.fsync(f.fileno())
         os.replace(tmp, self.data_path)
 
+    def subscribe_changes(self, callback):
+        """Bounded invalidation only; subscribers must not acquire scheduler locks."""
+        self._change_subscribers.add(callback)
+        return lambda: self._change_subscribers.discard(callback)
+
     async def _publish(self, candidate: list[dict]) -> None:
         """Caller holds _lock; persist detached state before making it visible."""
         candidate = copy.deepcopy(candidate)
@@ -390,6 +396,11 @@ class Scheduler:
                 cancelled = True
         write.result()  # A failed write must never publish the candidate.
         self._schedules = candidate
+        for callback in tuple(self._change_subscribers):
+            try:
+                callback()
+            except Exception:
+                log.exception("Schedule change subscriber failed")
         if cancelled:
             raise asyncio.CancelledError
 

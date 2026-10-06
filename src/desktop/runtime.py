@@ -244,7 +244,8 @@ class RuntimeService:
             address = state['address']
             location = f" at {address[0]}:{address[1]}" if address else ""
             line = (f"Webhook ingress: {state['reason']}{location} "
-                    f"({state['eligible_schedules']} eligible schedules)")
+                    f"({state['eligible_schedules']} eligible schedules; "
+                    f"{state['unknown_deliveries']} unknown deliveries, never replayed)")
             summary = [*summary, line] if isinstance(summary, list) else summary + "\n" + line
         return scrub_diagnostic({
             "phase": self.core.phase,

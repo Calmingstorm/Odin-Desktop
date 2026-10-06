@@ -144,6 +144,19 @@ class SettingsService:
         self._keyring_error = None
         self._transaction_active = False
         self.ingress = None
+        self._change_subscribers = set()
+
+    def subscribe_changes(self, callback):
+        self._change_subscribers.add(callback)
+        return lambda: self._change_subscribers.discard(callback)
+
+    def _notify_changes(self):
+        for callback in tuple(self._change_subscribers):
+            try:
+                callback()
+            except Exception:
+                # An invalidation subscriber cannot undo adopted settings.
+                pass
 
     @staticmethod
     def _merge(base, updates):
@@ -168,6 +181,7 @@ class SettingsService:
             except SecretStoreError:
                 self._keyring_error = "Profile keyring is unavailable or locked"
                 self._keyring_checked = True
+                self._notify_changes()
                 return False
             hydrated = Config.model_validate(values, context={"startup": True})
             # Preserve composed config/email/tool references. Publish only
@@ -196,6 +210,7 @@ class SettingsService:
 
             publish(self.config, hydrated)
             self._keyring_checked, self._keyring_error = True, None
+            self._notify_changes()
             return True
 
     def _image_metadata(self):
@@ -438,6 +453,7 @@ class SettingsService:
                         leaf
                     ).apply_mode == "live_apply":
                         self._applied[leaf] = REDACTED if is_secret(leaf) and value else value
+        self._notify_changes()
 
     def confirm_applied(self, changes):
         """A section owner calls this only after its actual adoption succeeds."""
@@ -673,6 +689,7 @@ class SettingsService:
                     )
             finally:
                 self._transaction_active = False
+                self._notify_changes()
             if self.ingress is not None:
                 await self.ingress.sync()
             return result
@@ -746,6 +763,7 @@ class SettingsService:
                     raise
                 finally:
                     self._transaction_active = False
+                    self._notify_changes()
                 self._publish(desired, changes, hook is not None)
                 self._transaction_active = False
                 if self.ingress is not None:

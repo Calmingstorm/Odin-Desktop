@@ -118,6 +118,12 @@ class WebhookIngress:
         self._closed = False
         self._watcher = None
         self._sync_lock = asyncio.Lock()
+        self._dirty = asyncio.Event()
+        self._loop = None
+        self._unsubscribe = []
+        self._poll_schedules = False
+        self._retry_sync = False
+        self._next_bind_attempt = 0.0
         self._deliveries = set()
         with store.transaction() as db:
             db.execute('''CREATE TABLE IF NOT EXISTS desktop_webhook_receipts (
@@ -154,56 +160,105 @@ class WebhookIngress:
              'requester_id', 'channel_id', 'trigger')})
 
     async def start(self):
+        if self._closed or self._watcher is not None:
+            return
+        self._loop = asyncio.get_running_loop()
+        for owner in (self.settings, self.scheduler):
+            subscribe = getattr(owner, 'subscribe_changes', None)
+            if subscribe is not None:
+                self._unsubscribe.append(subscribe(self.notify_change))
+            else:
+                self._poll_schedules = True
         await self.recover()
-        await self.sync()
-        self._watcher = asyncio.create_task(self._watch())
+        try:
+            await self.sync()
+        except Exception:
+            self._retry_sync = True
+            await self._stop_listener()
+        if not self._closed:
+            self._watcher = asyncio.create_task(self._watch())
+
+    def notify_change(self):
+        """Hydration can publish from a worker; never synchronize inside its lock."""
+        if not self._closed and self._loop is not None:
+            self._loop.call_soon_threadsafe(self._mark_dirty)
+
+    def _mark_dirty(self):
+        if not self._closed:
+            self._dirty.set()
+
+    def _state_token(self):
+        # No file reads, keyring I/O, secret hashes or schedule copies. The
+        # native keyring has no persistent availability subscription; this also
+        # catches cached availability/admission changes from legacy owners.
+        return (getattr(self.settings, '_generation', None),
+                getattr(self.settings, '_keyring_error', None),
+                getattr(self.settings, '_transaction_active', False), self.admitting())
 
     async def recover(self):
         for row in self.store.connection.execute(
                 "SELECT id FROM desktop_webhook_receipts WHERE published=0").fetchall():
             self._publish_notice(row[0])
-        async with self.scheduler._lock:
-            candidate = self.scheduler.list_all()
-            uncertain = {row[0] for row in self.store.connection.execute(
-                "SELECT schedule_id FROM desktop_webhook_receipts WHERE state='unknown'")}
-            for row in candidate:
-                if row['id'] in uncertain:
-                    row['paused'] = True
-                    row['settlement'] = 'unknown'
-                    row['inert_reason'] = 'Webhook handoff unknown; do not automatically replay'
-            if uncertain:
-                await self.scheduler._publish(candidate)
 
     async def _watch(self):
+        previous = self._state_token()
         while not self._closed:
-            await asyncio.sleep(0.1)
+            if self._retry_sync:
+                # Mutations cannot accelerate retries on an occupied address.
+                await asyncio.sleep(1.0)
+            else:
+                try:
+                    await asyncio.wait_for(self._dirty.wait(), 1.0)
+                except TimeoutError:
+                    if not self._poll_schedules and self._state_token() == previous:
+                        continue
+            self._dirty.clear()
+            previous = self._state_token()
             try:
                 await self.sync()
             except Exception:
                 # Bind/storage errors never turn into accepting a fallback address.
+                self._retry_sync = True
                 await self._stop_listener()
 
     async def sync(self):
         async with self._sync_lock:
+            if self._closed:
+                return
             config = self.settings.config.webhook
-            async with self.scheduler._lock:
-                eligible = any(self._eligible(row) for row in self.scheduler.list_all())
+            eligible = False
+            if config.enabled and config.bind_address:
+                async with self.scheduler._lock:
+                    eligible = any(self._eligible(row) for row in self.scheduler.list_all())
             binding = (config.bind_address, config.port) if eligible else None
             if binding == self._binding:
+                if binding is not None or not eligible:
+                    self._retry_sync = False
                 return
             await self._stop_listener()
-            if binding is not None:
+            if binding is not None and not self._closed:
+                loop = asyncio.get_running_loop()
+                if loop.time() < self._next_bind_attempt:
+                    self._retry_sync = True
+                    return
                 runner = web.AppRunner(self.app, access_log=None,
                                        max_line_size=8190, max_field_size=8190)
-                await runner.setup()
                 try:
+                    await runner.setup()
                     site = web.TCPSite(runner, *binding)
                     await site.start()
-                except BaseException:
+                except BaseException as exc:
+                    self._next_bind_attempt = loop.time() + 1.0
+                    self._retry_sync = True
                     await runner.cleanup()
-                    raise
+                    if isinstance(exc, asyncio.CancelledError):
+                        raise
+                    return
                 self.runner, self.site, self._binding = runner, site, binding
                 self.address = site._server.sockets[0].getsockname()
+                self._retry_sync = False
+            else:
+                self._retry_sync = False
 
     async def _stop_listener(self):
         runner = self.runner
@@ -227,10 +282,16 @@ class WebhookIngress:
                   'unconfigured_bind' if not config.bind_address else
                   'no_eligible_schedule' if not eligible else
                   'accepting' if self.address else 'not_bound')
-        return {'reason': reason, 'address': self.address, 'eligible_schedules': eligible}
+        unknown = self.store.connection.execute(
+            "SELECT count(*) FROM desktop_webhook_receipts WHERE state='unknown'").fetchone()[0]
+        return {'reason': reason, 'address': self.address, 'eligible_schedules': eligible,
+                'unknown_deliveries': unknown}
 
     async def close(self):
         self._closed = True
+        for unsubscribe in self._unsubscribe:
+            unsubscribe()
+        self._unsubscribe.clear()
         if self._watcher is not None:
             self._watcher.cancel()
             await asyncio.gather(self._watcher, return_exceptions=True)
@@ -239,7 +300,8 @@ class WebhookIngress:
                 task.cancel()
         await asyncio.gather(*(task for task in self._deliveries
                                if task is not asyncio.current_task()), return_exceptions=True)
-        await self._stop_listener()
+        async with self._sync_lock:
+            await self._stop_listener()
 
     @staticmethod
     def _authenticated(source, body, headers, secret):
@@ -342,12 +404,10 @@ class WebhookIngress:
                     schedule_id=schedule['id'], admission=admit, run_started=started)
             except Exception:
                 # Native _notify_triggers swallows dispatch errors, then _send
-                # still delivers. Fence uncertainty durably, never retry.
+                # still delivers. Fence this receipt, not future deliveries.
                 with self.store.transaction() as db:
                     db.execute("UPDATE desktop_webhook_receipts SET state=? WHERE id=?",
                                ('unknown' if dispatched else 'not_dispatched', receipt))
-                if dispatched:
-                    await self._fence_unknown(schedule['id'])
                 settled = True
                 self._publish_notice(receipt)
                 return web.json_response({'status': 'delivered'})
@@ -366,13 +426,14 @@ class WebhookIngress:
                                    ('unknown' if dispatched else 'not_dispatched', receipt))
             finally:
                 if dispatched and not settled:
-                    await self._fence_unknown(schedule['id'])
+                    self._fence_unknown(receipt)
             raise
         except Exception:
-            # Receipt settlement failed after a possible handoff. The schedule's
-            # durable unknown marker fences it even if this DB is unavailable.
+            # Try to mark this handoff unknown now. If storage stays unavailable,
+            # its persisted dispatching marker becomes unknown at next open.
+            # Neither case admits receipt replay or pauses the valid definition.
             if dispatched and not settled:
-                await self._fence_unknown(schedule['id'])
+                self._fence_unknown(receipt)
             return web.json_response({'error': ('could not publish webhook delivery' if settled
                                                else 'could not settle webhook delivery')},
                                      status=500 if settled else 503)
@@ -380,15 +441,14 @@ class WebhookIngress:
             if token is not None:
                 self.permissions.reset_request_owner(token)
 
-    async def _fence_unknown(self, schedule_id):
-        async with self.scheduler._lock:
-            candidate = self.scheduler.list_all()
-            for row in candidate:
-                if row['id'] == schedule_id:
-                    row['paused'] = True
-                    row['settlement'] = 'unknown'
-                    row['inert_reason'] = 'Webhook handoff unknown; do not automatically replay'
-            await self.scheduler._publish(candidate)
+    def _fence_unknown(self, receipt):
+        try:
+            with self.store.transaction() as db:
+                db.execute("UPDATE desktop_webhook_receipts SET state='unknown' "
+                           "WHERE id=? AND state IN ('accepted','dispatching')", (receipt,))
+        except Exception:
+            # The durable pre-effect marker already prevents internal replay.
+            pass
 
     def _publish_notice(self, receipt):
         with self.store.transaction() as db:
