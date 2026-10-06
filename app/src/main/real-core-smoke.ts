@@ -21,7 +21,12 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? '0.1.0.dev1')
   for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
     'tools.list', 'tools.timeouts.get', 'personality.get', 'hosts.list', 'hosts.public_key',
-    'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get']) {
+    'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get',
+    'conversations.list', 'conversations.create', 'conversation.snapshot', 'search.query', 'submission.send',
+    'control.stop', 'control.steer', 'control.resume', 'attachments.begin', 'attachments.chunk',
+    'attachments.commit', 'attachments.cancel', 'audit.diffs', 'audit.failures', 'audit.tail', 'logs.stats',
+    'logs.tail', 'knowledge.chunks', 'knowledge.duplicates', 'knowledge.version', 'knowledge.diff',
+    'learned.list', 'observability.stats', 'observability.risk', 'openrouter.catalogue', 'trajectories.list']) {
     assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
   }
 
@@ -149,11 +154,21 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     memory: await window.odin.memoryList({}), lists: await window.odin.listsList({}),
     knowledge: await window.odin.knowledgeList({}), audit: await window.odin.auditQuery({}),
     logs: await window.odin.logsSearch({ level: 'all' }), turns: await window.odin.turnStateList({}),
-    usage: await window.odin.usage('7d'), accounts: await window.odin.codexAccounts()
+    usage: await window.odin.usage('7d'), accounts: await window.odin.codexAccounts(),
+    conversations: await window.odin.listConversations(), search: await window.odin.search({ query: 'smoke query' }),
+    snapshot: await window.odin.snapshotConversation({ conversation_id: ${JSON.stringify(conversationId)} }),
+    diffs: await window.odin.auditDiffs({}), failures: await window.odin.auditFailures({}),
+    logStats: await window.odin.logsStats({}), auditTail: await window.odin.auditTail({ lines: 20 }),
+    logTail: await window.odin.logsTail({ lines: 20 }), duplicates: await window.odin.knowledgeDuplicates({}),
+    learned: await window.odin.learnedList({}), stats: await window.odin.observabilityStats({}),
+    risk: await window.odin.observabilityRisk({}), trajectories: await window.odin.trajectoriesList({}),
+    openrouter: await window.odin.openrouterCatalogue({})
   }))()`)
   for (const [name, answer] of Object.entries(observations)) {
     if (name === 'accounts') {
       assert(answer.ok || answer.error?.code === 'keyring_unavailable', 'accounts must report empty accounts or distinct keyring failure')
+    } else if (name === 'openrouter') {
+      assert(!answer.ok && answer.error?.code === 'not_found' && /not recognized/i.test(answer.error.message), 'fresh unconfigured OpenRouter must report not-recognized, not fake catalogue data')
     } else assert(answer.ok, `named bridge ${name} failed: ${JSON.stringify(answer.error)}`)
   }
   const hostData = observations.hosts!.result as { hosts: Array<{ alias: string; trust_state: string }>; default_host: string }
@@ -164,6 +179,24 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.deepEqual(observations.audit!.result, [], 'fresh audit must have no invented tool records')
   assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [])
   assert.equal((observations.turns!.result as { availability: string }).availability, 'not_enabled')
+  assert.deepEqual(observations.duplicates!.result, { exact: [], near: [] }, 'fresh knowledge must have no invented duplicates')
+  assert.deepEqual((observations.learned!.result as { entries: unknown[] }).entries, [])
+  assert.deepEqual((observations.diffs!.result as { entries: unknown[] }).entries, [])
+  assert.deepEqual((observations.trajectories!.result as { files: string[] }).files, [])
+  assert.deepEqual((observations.search!.result as { hits: unknown[] }).hits, [])
+  assert.equal((observations.conversations!.result as { items: unknown[] }).items.length, 2, 'only first Chat and explicitly created New chat may exist')
+  for (const key of ['auditTail', 'logTail']) {
+    const tail = observations[key]!.result as { lines: unknown[]; cursor: string; availability: string }
+    assert.deepEqual(tail.lines, [], 'fresh records tails must not invent activity')
+    assert.equal(typeof tail.cursor, 'string')
+    assert(['available', 'missing'].includes(tail.availability), 'tail must distinguish an empty source from a missing file')
+  }
+  const noSubmission = observations.snapshot!.result as { messages: { items: unknown[] }; running: unknown; queued: unknown[]; recent: unknown[]; unresolved: unknown[] }
+  assert.deepEqual(noSubmission.messages.items, [], 'local slash reports must not submit provider messages')
+  assert.equal(noSubmission.running, null)
+  assert.deepEqual(noSubmission.queued, [])
+  assert.deepEqual(noSubmission.recent, [])
+  assert.deepEqual(noSubmission.unresolved, [])
   for (let i = 0; i < sections.length; i++) {
     await click(`.settings-nav-item:nth-of-type(${i + 2})`)
     if (sections[i] === 'Models and providers') {
@@ -171,6 +204,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert(!/not (?:yet )?available|not served/i.test(await text('.codex-accounts')), 'served account management must not remain capability-unavailable')
       assert.equal(await run('document.querySelectorAll(".account").length'), 0, 'real session must not display fixture accounts')
       await until(async () => (await run<number>('document.querySelectorAll(".schema-form").length')) > 0, 'real provider settings')
+      await until(async () => /OpenRouter endpoint not recognized/i.test(await text('section[aria-label="OpenRouter models"]')), 'honest unconfigured OpenRouter panel')
+      assert.equal(await count('section[aria-label="OpenRouter models"] li'), 0, 'unconfigured OpenRouter must not invent models')
     }
     if (sections[i] === 'Personality') {
       await until(async () => await run<boolean>('Boolean(document.querySelector("section[aria-label=Personality] select"))'), 'real personality settings')
@@ -178,6 +213,11 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     if (sections[i] === 'Tools') {
       await until(async () => (await count('section[aria-label="Built-in tools"] .manage-row')) > 0, 'real built-in tools')
       assert((await text('section[aria-label="Tool timeouts"]')).includes('Timeouts'))
+      const tools = (observations.tools!.result as { tools: Array<{ name: string; cost?: string | null; risk?: string | null }> }).tools
+      const rows = await run<string[]>('Array.from(document.querySelectorAll("section[aria-label=\\"Built-in tools\\"] .manage-row"), row => row.innerText)')
+      for (const tool of tools) {
+        assert(rows.some((row) => row.includes(tool.name) && row.includes(`Cost: ${tool.cost ?? 'not reported'}. Risk: ${tool.risk ?? 'not reported'}.`)), `${tool.name} must render its reported cost and risk without invented measurements`)
+      }
     }
     if (sections[i] === 'Hosts and trust') {
       await until(async () => (await text('section[aria-label=Hosts]')).includes('localhost'), 'real localhost row')
@@ -193,12 +233,27 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       await until(async () => !(await text('section[aria-label="Context"]')).includes('Reloading…') && /reload|loaded|context/i.test(await text('section[aria-label="Context"]')), 'real context reload')
       assert(!(await text('.settings-body')).includes('Loading'))
       assert((await text('section[aria-label="Named lists"]')).includes('No lists.'))
+      await until(async () => (await count('pre[aria-label="Learned context JSON"]')) === 1, 'real learned context read')
+      assert.deepEqual(JSON.parse(await text('pre[aria-label="Learned context JSON"]')), observations.learned!.result)
+      await click('form[aria-label="Find knowledge duplicates"] button')
+      await until(async () => (await count('pre[aria-label="Knowledge duplicates JSON"]')) === 1, 'real knowledge duplicates read')
+      assert.deepEqual(JSON.parse(await text('pre[aria-label="Knowledge duplicates JSON"]')), observations.duplicates!.result)
     }
     if (sections[i] === 'Records') {
       await until(async () => (await text('section[aria-label=Audit]')).includes('Nothing recorded.'), 'real empty audit')
       await until(async () => (await text('section[aria-label=Logs]')).includes('No entries.'), 'real empty logs')
       await until(async () => (await text('section[aria-label="Turn state"]')).includes('Turn state is off.'), 'real turn-state availability')
       assert((await text('section[aria-label="Health"]')).includes('host(s) configured'), 'real health must observe profile hosts')
+      for (const [label, key] of [['Audit diffs', 'diffs'], ['Audit failures', 'failures'], ['Log statistics', 'logStats']] as const) {
+        const selector = `section[aria-label="${label}"]`
+        await click(`${selector} button`)
+        await until(async () => (await text(selector)).includes('Last successful read shown below.'), `real ${label} panel read`)
+        assert.deepEqual(JSON.parse(await text(`${selector} pre`)), observations[key]!.result, `${label} must render the actual core record`)
+      }
+      await click('section[aria-label="Runtime statistics"] button')
+      await until(async () => (await count('section[aria-label="Runtime statistics"] pre')) > 0, 'real runtime statistics panel read')
+      const stats = JSON.parse(await text('section[aria-label="Runtime statistics"] pre')) as { risk: unknown }
+      assert.deepEqual(stats.risk, observations.risk!.result, 'runtime statistics must render the actual risk summary')
     }
     assert(!(await text('.settings-body')).includes('Service is not available yet'), `${sections[i]} must not leak a generic capability refusal`)
     screens.push({ screen: `Settings / ${sections[i]}`, text: await text('.settings-body') })

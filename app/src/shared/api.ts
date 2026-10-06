@@ -810,22 +810,22 @@ export interface FollowRead {
   [key: string]: unknown
 }
 export interface TraceFilter {
-  limit?: number
+  limit?: number | string
   channel_id?: string
   user_id?: string
   tool_name?: string
-  errors_only?: boolean
+  errors_only?: boolean | string
 }
 
 /** Each management bridge method: its params and its answer. */
 export interface ManagementCalls {
   auditDiffs: [{ tool?: string; user?: string; date?: string; limit?: number | string }, ManagementRecord]
-  auditFailures: [{ window?: number }, ManagementRecord]
+  auditFailures: [{ window?: number | string }, ManagementRecord]
   auditTail: [{ cursor?: string; lines?: number }, FollowRead]
   logsStats: [Empty, ManagementRecord]
   logsTail: [{ cursor?: string; lines?: number }, FollowRead]
   knowledgeChunks: [{ source: string }, ManagementRecord[]]
-  knowledgeDuplicates: [{ threshold?: number }, { exact: unknown[]; near: unknown[] }]
+  knowledgeDuplicates: [{ threshold?: number | string }, { exact: unknown[]; near: unknown[] }]
   knowledgeMerge: [{ keep_source: string; remove_source: string }, ManagementRecord]
   knowledgeVersion: [{ source: string; version: number }, ManagementRecord]
   knowledgeDiff: [{ source: string; v1: number; v2: number }, ManagementRecord]
@@ -838,7 +838,7 @@ export interface ManagementCalls {
   observabilityBulkheads: [Empty, ManagementRecord]
   observabilityCompression: [Empty, ManagementRecord]
   recoveryStats: [Empty, ManagementRecord]
-  recoveryRecent: [{ limit?: number }, { entries: unknown[] }]
+  recoveryRecent: [{ limit?: number | string }, { entries: unknown[] }]
   capacitySnapshot: [Empty, ManagementRecord]
   poolsSsh: [Empty, ManagementRecord]
   poolsHttp: [Empty, ManagementRecord]
