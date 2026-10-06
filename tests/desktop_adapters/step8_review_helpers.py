@@ -42,7 +42,6 @@ SUITES = {
     "test_tool_loop_helpers": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782",
 }
 CORPUS_SELECTIONS = {
-    "characterization/test_executor_dispatch_parity": None,
     "test_tool_loop_helpers": None,
 }
 CORPUS_EXCLUSIONS = {

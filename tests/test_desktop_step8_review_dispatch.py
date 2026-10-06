@@ -1,4 +1,4 @@
-"""Supplemental authentic identity proof; blocked dispatcher not exported."""
+"""Reviewed inherited dispatcher executions and authentic identity proofs."""
 import asyncio
 
 import pytest
@@ -9,7 +9,7 @@ from src.tools.executor import _user_id_ctx
 from tests.desktop_adapters import step8_review_dispatch as adapter
 from tests.desktop_adapters import step8_review_helpers as helpers
 
-LOADED = adapter.load({"__name__": "dispatch_diagnostic_provenance"})
+LOADED = adapter.load(globals())
 
 
 @pytest.fixture(autouse=True)

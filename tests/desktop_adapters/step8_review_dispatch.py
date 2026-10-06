@@ -1,7 +1,7 @@
-"""Exact dispatcher goldens plus supplemental lawful profile routing.
+"""Restored dispatcher corpus with exact reviewed foreign-caller exclusions.
 
-This candidate does not restore foreign-ID assertions. The facade shares the
-real module ContextVar, not an executor. No authority or result is rewritten.
+The facade shares the real module ContextVar, not an executor. No authority or
+result is rewritten. Retired case source remains immutable and hash-pinned.
 """
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,9 +13,36 @@ from tests.desktop_adapters import step8_review_helpers as helpers
 STEM = "characterization/test_executor_dispatch_parity"
 SOURCE_PATH = f"tests/{STEM}.py"
 SOURCE_SHA256 = helpers.SUITES[STEM]
+CORPUS_SELECTIONS = {"characterization/test_executor_dispatch_parity": None}
+CORPUS_EXCLUSIONS = {
+    "characterization/test_executor_dispatch_parity": [
+        {
+            "case": "TestMiddlewarePins.test_contextvar_isolation_concurrent",
+            "reviewer": "Claude, review of #35, round 2",
+            "reason": "multi-user caller identities removed; one canonical owner",
+            "source_path": "tests/characterization/test_executor_dispatch_parity.py",
+            "source_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
+        },
+        {
+            "case": "TestMiddlewarePins.test_rbac_denial_shape_and_metrics",
+            "reviewer": "Claude, review of #35",
+            "reason": "Guest-tier RBAC is removed by Desktop D17; Claude, review of #35 retires only this guest denial/metrics case.",
+            "source_path": "tests/characterization/test_executor_dispatch_parity.py",
+            "source_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
+        },
+        {
+            "case": "TestPatchSeam.test_memory_manage_receives_user_id_kwarg",
+            "reviewer": "Claude, review of #35, round 2",
+            "reason": "multi-user caller identities removed; one canonical owner",
+            "source_path": "tests/characterization/test_executor_dispatch_parity.py",
+            "source_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
+        },
+    ],
+}
 
 
 def load(namespace):
+    stem = STEM
     original, tree = helpers.adapt(STEM, frozen_source(SOURCE_PATH))
     module = ModuleType("review_dispatch_unchanged_goldens")
     module.__file__ = str(Path(__file__).resolve().parents[2] / SOURCE_PATH)
@@ -24,7 +51,7 @@ def load(namespace):
     exec(compile(tree, SOURCE_PATH, "exec"), module.__dict__)
     helpers.register_module(
         namespace, module, prefix="dispatch_candidate",
-        excluded=[row["case"] for row in helpers.CORPUS_EXCLUSIONS[STEM]],
+        excluded=[item["case"] for item in CORPUS_EXCLUSIONS.get(stem, ())],
     )
     return original, tree
 

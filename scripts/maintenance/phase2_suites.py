@@ -49,6 +49,25 @@ RETIREMENT_REASONS = {
 }
 WORK_ORDER = "docs/work/phase-2-desktop-engine.md"
 PR35_REVIEWER = "Claude, review of #35"
+PR35_ROUND2_REVIEWER = "Claude, review of #35, round 2"
+PR35_ROUND2_CASE_REASONS = {
+    "tests/characterization/test_executor_dispatch_parity.py": {
+        "TestMiddlewarePins.test_contextvar_isolation_concurrent":
+        "multi-user caller identities removed; one canonical owner",
+        "TestPatchSeam.test_memory_manage_receives_user_id_kwarg":
+        "multi-user caller identities removed; one canonical owner",
+    },
+    "tests/test_campaign_cli_coverage.py": {
+        "test_piped_prompt_and_environment_build_real_authenticated_request":
+        "HTTP API client replaced by the authenticated local IPC client",
+        "test_transport_failure_is_nonzero_even_in_json_mode":
+        "HTTP API client replaced by the authenticated local IPC client",
+    },
+    "tests/test_chat_steering_parity.py": {
+        "test_unsteered_native_batch_protocol_permissions_and_resume_parity":
+        "Removed tier-denial prose surface; one canonical owner",
+    },
+}
 # Deliberately separate from #26: neither review grants blanket retirement.
 PR35_RETIREMENTS = {
     "tests/characterization/test_delivery.py": (
@@ -137,6 +156,10 @@ PR35_CASE_REASONS = {
     },
 }
 PR35_CASE_SOURCE_SHA256 = {
+    "tests/test_campaign_cli_coverage.py":
+        "fe47a4c99af2c48f8bf397a0634830b82c5afa50e74ab53eb0fb26864a434d0b",
+    "tests/test_chat_steering_parity.py":
+        "48cf45bcceed1be223a2cf8428af0a9eff3e57b695b1d147a3e6fe7a843233ec",
     "tests/test_resume_admission.py":
         "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce",
     "tests/test_chat_steering_runtime.py":
@@ -281,11 +304,13 @@ def _case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool
                 "case", "reviewer", "reason", "source_path", "source_sha256"}):
             return False
         case = row["case"]
+        round2_reason = PR35_ROUND2_CASE_REASONS.get(path, {}).get(case)
+        expected_reviewer = PR35_ROUND2_REVIEWER if round2_reason else PR35_REVIEWER
+        expected_reason = round2_reason or PR35_CASE_REASONS.get(path, {}).get(case)
         if (not isinstance(case, str) or case not in cases
-                or row["reviewer"] != PR35_REVIEWER
+                or row["reviewer"] != expected_reviewer
                 or row["source_path"] != path or row["source_sha256"] != inherited_hash
-                or case not in PR35_CASE_REASONS.get(path, {})
-                or row["reason"] != PR35_CASE_REASONS[path][case]):
+                or expected_reason is None or row["reason"] != expected_reason):
             return False
         names.append(case)
     return names == sorted(set(names))
