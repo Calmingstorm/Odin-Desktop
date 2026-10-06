@@ -50,11 +50,21 @@ HTTP response, and Discord gateway health startup case alone are retired.
 - Expanded targeted including suite map before final integration: 215 passed.
 - Final integrated targeted: **254 passed in 58.14s**. Drift, lint, Phase2 plan,
   integrated suite/case accounting and diff checks passed.
-- The once-only fresh full invocation **has not started**. Both process starts
-  were rejected by `manage_process`'s global 20-process cap. No other lane's
-  process was terminated and no unobservable/background bypass was launched.
-  Available disk was 122 GB, not the blocker. Exact artifact hashes, candidate
-  SHA and guard receipt are in `phase2-step8-part6-artifacts.json`.
+- Earlier process-capacity rejection cleared on an ordinary later start. Parent
+  created a fresh 0775 checkout at `f9d06c2f`. An initial launcher invocation
+  errored before pytest ran because plain frozen sync omitted the dev extra.
+  That failure remains retained, not counted as test execution. Installed the
+  locked dev extra and checked pytest before the single executable full run.
+- Final fresh executable full run completed all 30 groups: **14,864 passed,
+  1 failed, 3 skipped**. **29/30 groups passed; the full gate is not green.**
+  The unchanged `test_schema_write_event_and_stale_binding_over_transport`
+  timed out on the 3-second IPC read for `settings.set`. A separate targeted
+  execution of that unchanged case passed in 7.15 seconds. The earlier cause
+  is not established; that diagnostic does not replace the failed full gate.
+  No second executable full run, assertion weakening or deadline change.
+- Setup, failure, complete qualification and diagnostic receipts are SHA-256
+  pinned in `phase2-step8-part6-artifacts.json`. Actual execution used the
+  restricted sanitized non-root PID helper. Disk remained above 60GB free.
 
 No frozen test bytes, assertions, data, parameter decorators or production
 features were rewritten. Selected retained bodies are compiled unchanged from

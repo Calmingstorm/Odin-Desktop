@@ -34,16 +34,61 @@
       "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/short-gates.log",
       "sha256": "5c2cc9127c91d57fb869472dc2890fbf209b0e670a6b05b0e2e9b14ab88e8380",
       "role": "Inventory drift, lint, phase2 plan, suite/case accounting, diff check all passed"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/fresh-setup.log",
+      "sha256": "2d0338ff84a73a082b11548ac5fabcac52aa4378ee1bcf1cd9ea23820223f454",
+      "bytes": 1903,
+      "role": "Initial frozen sync omitted the dev extra; no pytest executable was provisioned"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/fresh-full.log",
+      "sha256": "cad6f9280e8551d9a4fc9efb7271c8d9ea85528dacea1c4c97ef692e4c32778b",
+      "bytes": 23545,
+      "role": "Initial launcher invocation: all groups errored before pytest could execute"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/fresh-dev-setup.log",
+      "sha256": "76bcfb43434a44680b94b6cbe9237b0cf0ca43a683579966fd561ac3e16c45b4",
+      "bytes": 606,
+      "role": "Locked dev-extra installation before the single executable full qualification"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/fresh-full-executable.log",
+      "sha256": "43aa79cc8e9ad66b122fcee07e2901c3657d82d9be456546862647767a26e09d",
+      "bytes": 28194,
+      "role": "Single executable full qualification: 14864 passed, 1 failed, 3 skipped; 29/30 groups passed"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/fresh-qualification-result.json",
+      "sha256": "029e07819d70d9856d90636b0c1c04bd2b8a251433d700396c9a2fefbc8c989e",
+      "bytes": 127,
+      "role": "Full runner result retaining the failed phase2-step5-profile-management group"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/failed-case-unchanged-diagnostic.log",
+      "sha256": "a1674a4032aa1a38d711ecb054ab2d7ca5c4fedb44feec55bd5040fdf95decf3",
+      "bytes": 793,
+      "role": "Separate unchanged failing-case diagnostic: 1 passed, not a replacement full result"
     }
   ],
   "full_qualification": {
-    "status": "not_started_guard_blocked",
-    "attempts_to_start_process": 2,
-    "runner_invocations": 0,
-    "blocker": "manage_process.start rejected with Cannot start: 20 processes already running (max 20). Did not bypass process guard, terminate other lanes, or launch an unobservable background runner.",
-    "planned_checkout": "/home/odin/desktop-lane5-task1-fresh-20261006/checkout",
-    "planned_log": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task1/fresh-qualification.log",
-    "disk_preflight": "122G available before both starts, above 60GB minimum",
-    "cleanup": "No fresh qualification clone created. Shared work preserved pending parent authorization."
+    "status": "failed",
+    "candidate_sha": "f9d06c2fa8e178377b01e2f3e2ae3b2a94cc7537",
+    "initial_process_capacity_rejections": 2,
+    "runner_invocations": 2,
+    "pre_test_dependency_failures": 1,
+    "executable_full_runs": 1,
+    "groups": 30,
+    "passed_groups": 29,
+    "passed": 14864,
+    "failed": 1,
+    "skipped": 3,
+    "failed_case": "tests/test_desktop_management_core.py::test_schema_write_event_and_stale_binding_over_transport",
+    "observed_failure": "Unchanged 3-second IPC read timed out on settings.set. No assertion or deadline changed. Separate unchanged targeted diagnostic passed; root cause not established.",
+    "checkout": "/home/odin/desktop-lane5-step8p6-s6-20261006/task1-fresh",
+    "isolation": "Restricted sanitized non-root PID helper; parent and checkout mode 0775",
+    "disk_preflight": "124G available before fresh setup; remained above 60GB minimum",
+    "cleanup": "Own inactive fresh checkout eligible for verified cleanup after evidence push; shared work and external evidence preserved."
   }
 }
