@@ -89,11 +89,9 @@ describe('served settings/management through actual Broker and isolated reposito
     expect(result(await broker.request('mcp.list'))).toMatchObject({ server_count: 0, started: true })
     expect(result(await broker.request('computer.status'))).toMatchObject({ readiness: {
       foreground_available: false, input_supported: false, dispatch: 'none' } })
-    for (const method of ['schedules.list', 'loops.list', 'agents.list']) {
-      expect(SERVED_CAPABILITIES).toContain(method)
-      expect(result(await broker.request(method))).toEqual([])
-    }
-    for (const method of ['turns.create', 'skills.test', 'shell.execute']) {
+    expect(result(await broker.request('schedules.list'))).toEqual([])
+    expect(result<{ items: unknown[] }>(await broker.request('work.list')).items).toEqual([])
+    for (const method of ['turns.create', 'skills.test', 'loops.list', 'agents.list', 'shell.execute']) {
       expect(SERVED_CAPABILITIES).not.toContain(method)
       refused(await broker.request(method), 'capability_unavailable')
     }
