@@ -155,14 +155,19 @@ dependencies are failure, never permission to substitute the fixture.
 ## Rootless tests
 
 ```sh
-sudo -n unshare --mount --pid --fork --mount-proc --kill-child \
-  sudo -u "$USER" env -u DBUS_SESSION_BUS_ADDRESS -u XDG_RUNTIME_DIR \
-  .venv/bin/python -m pytest -q tests/test_lab_orca*.py \
+.venv/bin/python scripts/run-phase1-tests.py tests/test_lab_orca*.py \
     tests/test_native_dialog_events.py tests/test_orca_guest_tasks.py \
     tests/test_lab_focused_probe.py tests/test_orca_native_input.py \
     tests/test_kde_portal_preparation.py
+.venv/bin/python scripts/run-lab-fixture-tests.py
 ```
 
 These test archives, provenance, fail-closed targets/preflight, private output,
 failed/timeout evidence and guest identity/cleanup contracts using fake Incus and
 fake session discovery. They never claim native Orca runtime qualification.
+
+PR #49 owns the canonical KDE `user_config` fixtures and the fixed offline
+fixture corpus. Its verified user namespaces replace the Docker lane and
+PR #50's duplicate ownership-command model. Capability failures report plain
+skip reasons; emitter/assertion failures are never silently skipped. Invoke
+both commands as an ordinary user through the unchanged PID isolation helper.

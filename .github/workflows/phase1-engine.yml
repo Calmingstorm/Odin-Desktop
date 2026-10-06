@@ -126,8 +126,8 @@ jobs:
       - name: Qualification lab orchestration (offline, no host daemon)
         if: ${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}
         run: |
-          .venv/bin/ruff check scripts/qualification/lab app/test/e2e/orca-guest.py tests/test_desktop_qualification_lab.py tests/test_lab_*.py tests/test_orca_guest_tasks.py tests/test_native_dialog_events.py tests/test_orca_native_input.py tests/test_kde_portal_preparation.py
+          .venv/bin/ruff check scripts/qualification/lab scripts/run-lab-fixture-tests.py app/test/e2e/orca-guest.py tests/test_desktop_lab_fixture_runner.py tests/test_desktop_qualification_lab.py tests/test_lab_*.py tests/test_orca_guest_tasks.py tests/test_native_dialog_events.py tests/test_orca_native_input.py tests/test_kde_portal_preparation.py
           .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_qualification_lab.py tests/test_lab_cinnamon.py tests/test_lab_common.py tests/test_lab_gnome.py tests/test_lab_kde.py tests/test_lab_hyprland.py tests/test_lab_guest_smoke.py tests/test_lab_orca.py tests/test_lab_orca_guest.py tests/test_lab_orca_cleanup.py tests/test_orca_guest_tasks.py tests/test_native_dialog_events.py tests/test_lab_focused_probe.py tests/test_orca_native_input.py tests/test_kde_portal_preparation.py
-          # KDE's unchanged ownership emitter fixtures require root only inside
-          # a separate disposable container. Never relax the PID helper's NNP.
+          # Fixed offline corpus uses fresh fixture user namespaces; unsupported
+          # mappings skip explicitly. Never relax the unchanged PID helper's NNP.
           .venv/bin/python scripts/run-lab-fixture-tests.py

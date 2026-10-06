@@ -110,20 +110,18 @@ credential is entered or copied into a guest.
 The eight KDE `user_config` cases previously invoked nested `sudo -n env -i`.
 The installed isolated runner reproduced **15 passed, 8 setup errors** because
 its unprivileged `no_new_privs` account cannot acquire host root. They now run
-the actual sourceable configuration emitter as the test account. Only
-`install` ownership flags and `chown` are modeled at a narrow fixture command
-boundary; every explicitly requested intermediate directory/file owner is
-asserted. Contents, modes, stale-file repair, preservation of unrelated user
-configuration and unprivileged writes are real filesystem operations.
+the canonical PR #49 fixture, merged without rebasing. The duplicate PR #50
+ownership-command model is removed. The actual emitter runs in a verified
+unprivileged user namespace; host root is never mapped, and pytest and
+post-emission file writes remain the ordinary caller. Fresh emission requires
+one mapped ID; ownership retry requires two distinct mapped owners. Only a
+failed capability probe may skip a case, with a plain reason. Emitter and
+assertion failures after a successful probe are not skips.
 
-**No cases skipped.** All five user-configuration lab modules passed **104
-tests**, including a byte-identical snapshot run as `hyprlab` UID 986/GID 977
-with zero effective/bounding capabilities, `NoNewPrivs: 1`, and general
-`sudo -n /usr/bin/true` denied. Privileged setup created the isolated
-namespace only; pytest and fixture subprocesses did not run as root.
-This is explicitly **not** a claim that a rootless fixture exercised kernel
-repair of genuinely root-owned files. That behavior belongs to the disposable
-guest provisioning path.
+The original PR #50 model's **104 passed / no skips** was a historical result,
+not the result of this canonical fixture. The post-merge result is recorded
+below. Neither the restricted PID helper nor its no-new-privileges policy is
+relaxed; the obsolete Docker fixture lane is removed by #49.
 
 ### Silent speech and native task boundary
 
