@@ -304,6 +304,36 @@ def main():
         other.check()
         report["cases"]["guarded_candidate_replacement"] = (
             "real dpkg reinstall after clean core Exit")
+        # Actual package-manager interruption boundary, not manually invented
+        # state: unpack completes while configure has not run. The persistent
+        # marker fences even a new owner launch until dpkg configuration.
+        run(["dpkg", "--unpack", str(INPUTS / "candidate.deb")], timeout=300)
+        assert Path("/var/lib/odin-desktop/package-ownership/transaction.json").is_file()
+        state_before = snapshot(upgraded.data)
+        run([str(INSTALL / "odin-desktop"), "--version"], owner=True, expected="nonzero")
+        assert snapshot(upgraded.data) == state_before
+        run(["dpkg", "--configure", "odin-desktop"], timeout=300)
+        assert not Path("/var/lib/odin-desktop/package-ownership/transaction.json").exists()
+        other.check()
+        report["cases"]["dpkg_unpack_configure_interruption"] = (
+            "real unpack fences launch without writes; configure restores eligibility")
+
+        # Run the candidate's actual no-write compatibility entrypoint against
+        # future state. Refusal must not alter the profile or publish a dirty
+        # process lifetime, so a compatible replacement remains possible.
+        state_file = upgraded.data / "package-state.json"
+        original_marker = state_file.read_bytes()
+        future = json.loads(original_marker)
+        future["compatibility"]["storage"] += 1
+        owned_write(state_file, json.dumps(future).encode())
+        future_before = snapshot(upgraded.data)
+        run([str(INSTALL / "resources/runtime/python/bin/python3"), "-I", "-B", "-m",
+             "src.desktop.package_state", "--profile", upgraded.profile, "--token-file",
+             str(upgraded.config / "ipc.token"), "--data-dir", str(upgraded.data)],
+            owner=True, expected="nonzero")
+        assert snapshot(upgraded.data) == future_before
+        owned_write(state_file, original_marker)
+        report["cases"]["future_state_rollback_refusal"] = "actual candidate refuses before writes"
 
         # Manual AppImage path, owned by the ordinary user. The helper is an
         # explicitly invoked local file, never an app-dispatched apply path.
