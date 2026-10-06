@@ -148,21 +148,28 @@ def run(command, timeout=180):
             result.returncode, command[0], result.stdout[-8000:]))
     return result.stdout
 
-def sandbox(root, work, user, command, root_user=False, pdf_fixture=None):
+def sandbox(root, work, user, command, root_user=False, pdf_fixture=None, *, user_namespace=False):
     account = pwd.getpwnam(user)
+    # The portable behaviour tests retain the invoking identity in a private
+    # user namespace. This is not the privileged full-candidate/GUI lane: it
+    # cannot switch to another host account or install as real root.
+    if user_namespace and (root_user or (account.pw_uid, account.pw_gid) != (os.getuid(), os.getgid())):
+        raise QualificationError('user namespace requires the invoking identity and no real-root install')
     # OpenSSH resolves the effective UID even when HOME is explicit. Do not
     # expose the workstation account database: provide only namespace identities.
     identity = work / '.namespace-etc'
     identity.mkdir(mode=0o755, exist_ok=True)
     identity.chmod(0o755)
     identity.joinpath('passwd').write_text(
-        'root:x:0:0:Namespace root:/root:/bin/sh\n' +
+        ('root:x:0:0:Namespace root:/root:/bin/sh\n' if account.pw_uid else '') +
         f'{account.pw_name}:x:{account.pw_uid}:{account.pw_gid}:Qualification:/work/home:/bin/sh\n')
     identity.joinpath('group').write_text(
-        'root:x:0:\n' + f'{account.pw_name}:x:{account.pw_gid}:\n')
+        ('root:x:0:\n' if account.pw_gid else '') + f'{account.pw_name}:x:{account.pw_gid}:\n')
     for name in ('passwd', 'group'):
         identity.joinpath(name).chmod(0o644)
-    args = ['sudo', '-n', 'bwrap', '--unshare-pid', '--unshare-net', '--unshare-ipc', '--unshare-uts',
+    prefix = [] if user_namespace or os.geteuid() == 0 else ['sudo', '-n']
+    namespace = ['--unshare-user', '--cap-drop', 'ALL'] if user_namespace else []
+    args = prefix + ['bwrap'] + namespace + ['--unshare-pid', '--unshare-net', '--unshare-ipc', '--unshare-uts',
             '--die-with-parent', '--new-session',
             '--ro-bind', '/usr', '/usr', '--proc', '/proc', '--dev', '/dev',
             '--perms', '1777', '--tmpfs', '/dev/shm',
@@ -193,10 +200,10 @@ def sandbox(root, work, user, command, root_user=False, pdf_fixture=None):
              '--setenv', 'XDG_CACHE_HOME', '/work/home/cache', '--setenv', 'XDG_RUNTIME_DIR', '/work/run']
     if pdf_fixture is not None:
         args += ['--ro-bind', str(Path(pdf_fixture).resolve()), '/pdf-fixture.whl']
-    if not root_user:
+    if not root_user and not user_namespace:
         command = ['/usr/bin/setpriv', '--reuid=' + str(account.pw_uid), '--regid=' + str(account.pw_gid),
                    '--clear-groups'] + command
-    else:
+    elif root_user:
         args += ['--dev', '/work/root/dev']
     return args + ['--'] + command
 
