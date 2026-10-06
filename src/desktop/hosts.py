@@ -152,12 +152,14 @@ class HostsService:
 
     async def _audit(self, action, alias, *, metadata=None):
         from .authority import OwnerAuthority
+        from .secrets import secret_call
+
         try:
             if self.audit is None:
                 from ..audit.logger import AuditLogger
                 path, configured_key = self._audit_boot
                 resolve_key = getattr(self.settings, "audit_signing_key", None)
-                key = resolve_key() if callable(resolve_key) else configured_key
+                key = await secret_call(resolve_key) if callable(resolve_key) else configured_key
                 self.audit = AuditLogger(path, hmac_key=key)
             await self.audit.log_event(
                 event_type="host", action=action,

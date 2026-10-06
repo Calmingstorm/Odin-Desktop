@@ -49,6 +49,33 @@ RETIREMENT_REASONS = {
 }
 WORK_ORDER = "docs/work/phase-2-desktop-engine.md"
 REVIEW34_REVIEWER = "Claude, review of #34"
+ROUND3_REVIEWER = "Claude, review of #34, round 3"
+ROUND3_CASES = {
+    "tests/test_health_endpoints.py": {
+        "source_sha256": "51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda",
+        "reviewer": ROUND3_REVIEWER,
+        "reasons": {
+            "TestContextWindowsAdminPolicy.test_context_surface_is_centrally_admin_only":
+                "multi-user tiers removed",
+            "TestContextWindowsAdminPolicy.test_get_and_post_reject_user_and_guest_but_allow_admin":
+                "multi-user tiers removed",
+            "TestBuiltinToolsAdminPolicy.test_builtin_tools_surface_is_centrally_admin_only":
+                "multi-user tiers removed",
+            "TestBuiltinToolsAdminPolicy.test_both_routes_reject_user_and_guest_but_allow_admin":
+                "multi-user tiers removed",
+        },
+        "default_reason": "HTTP health endpoints removed with the listener",
+    },
+    "tests/test_campaign_startup_health.py": {
+        "source_sha256": "41666712c09447ad5b362804478f7550a98329dda605db5c61c86b30e298f4ac",
+        "reviewer": ROUND3_REVIEWER,
+        "reasons": {
+            "test_production_health_wiring_keeps_http_bootstrap_ready":
+                "Discord and the HTTP listener removed",
+        },
+        "default_reason": None,
+    },
+}
 # This is a separate authority, not an extension of #26's five dispositions.
 # Exact path/reason pairs are the admission policy; no caller-supplied reason
 # or reviewer string can retire another inherited surface.
@@ -202,7 +229,55 @@ def _adapter_modules(root: Path, selector: str) -> list[ast.Module]:
     return trees
 
 
-def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> bool:
+def _case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
+    """Validate round-three case dispositions against exact frozen source identities."""
+    if not isinstance(value, list):
+        return False
+    if not value:
+        policy = ROUND3_CASES.get(path)
+        return policy is None or not policy["reasons"]
+    policy = ROUND3_CASES.get(path)
+    if policy is None or inherited_hash != policy["source_sha256"]:
+        return False
+    source = _regular(root, path).read_bytes()
+    if _digest(source) != inherited_hash:
+        return False
+    tree = ast.parse(source, filename=path)
+    cases = set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            cases.add(node.name)
+        elif isinstance(node, ast.ClassDef):
+            cases.update(f"{node.name}.{child.name}" for child in node.body
+                         if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)))
+    names = []
+    for row in value:
+        if not isinstance(row, dict) or set(row) != {
+            "case", "reviewer", "reason", "source_path", "source_sha256"
+        }:
+            return False
+        case = row["case"]
+        reason = policy["reasons"].get(case, policy["default_reason"])
+        if (case not in cases or reason is None or row["reviewer"] != policy["reviewer"]
+                or row["reason"] != reason or row["source_path"] != path
+                or row["source_sha256"] != inherited_hash):
+            return False
+        names.append(case)
+    return names == sorted(set(names))
+
+
+def _reviewed_exclusion_expression(node: ast.expr) -> bool:
+    for variable in ("stem", "name"):
+        expected = ast.parse(
+            f"[item['case'] for item in CORPUS_EXCLUSIONS.get({variable}, ())]",
+            mode="eval").body
+        if ast.dump(node) == ast.dump(expected):
+            return True
+    return False
+
+
+def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
+                  case_retirements=None) -> bool:
     """Fail-closed static full-export association for frozen corpus loaders.
 
     A literal admission alone is insufficient: the reachable loader must read
@@ -210,15 +285,20 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
     complete module. Runtime qualification remains the named group's job.
     """
     trees = _adapter_modules(root, selector)
+    reviewed = [] if case_retirements is None else case_retirements
+    if not _case_retirements(root, path, inherited_hash, reviewed):
+        return False
     admitted = False
     pinned = False
     frozen = False
     export = False
+    exclusion_export = False
     corpus_guard = False
     hash_guard = False
     compile_frozen = False
     invokes_loader = False
     stem = PurePosixPath(path).stem
+    declared = None
     for tree in trees:
         constants = {}
         for node in tree.body:
@@ -226,22 +306,48 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                 try:
                     value = ast.literal_eval(node.value)
                 except (ValueError, TypeError):
+                    if any(isinstance(target, ast.Name) and target.id in {
+                        "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS"} for target in node.targets):
+                        return False
                     continue
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         constants[target.id] = value
         selections = constants.get("CORPUS_SELECTIONS", {})
-        if isinstance(selections, dict) and stem in selections:
-            if selections[stem] is not None:
+        aliases = {stem, path.removeprefix("tests/").removesuffix(".py")}
+        matching_keys = aliases & set(selections) if isinstance(selections, dict) else set()
+        for key in matching_keys:
+            if selections[key] is not None:
                 return False
             admitted = True
         exclusions = constants.get("CORPUS_EXCLUSIONS", {})
-        # An unrelated partial corpus in a shared loader cannot cut this suite.
-        # Its own literal full admission and empty exclusions remain mandatory.
-        if (not isinstance(exclusions, dict) or exclusions.get(stem)
-                or any(exclusions.values()) and not isinstance(selections, dict)
-                or any(value and (key not in selections or selections[key] is None)
-                       for key, value in exclusions.items())):
+        if not isinstance(exclusions, dict):
+            return False
+        for excluded_stem, dispositions in exclusions.items():
+            if not isinstance(dispositions, list):
+                return False
+            if not dispositions:
+                continue
+            # Older shared loaders used tuple/name selectors for unrelated
+            # corpora. Preserve that established static representation; only
+            # a declared reviewed case projection uses provenance records.
+            if not isinstance(dispositions[0], dict):
+                if (excluded_stem not in selections
+                        or selections.get(excluded_stem) is None
+                        or any(not isinstance(item, str) for item in dispositions)):
+                    return False
+                continue
+            source_path = dispositions[0].get("source_path")
+            sha = dispositions[0].get("source_sha256")
+            if (not _path(source_path) or excluded_stem != PurePosixPath(source_path).stem
+                    or not _case_retirements(root, source_path, sha, dispositions)):
+                return False
+        for key in matching_keys:
+            current = exclusions.get(key, [])
+            if declared is not None and declared != current:
+                return False
+            declared = current
+        if any(key in exclusions for key in matching_keys) and not declared:
             return False
         if (constants.get("SOURCE_PATH") == path
                 and constants.get("SOURCE_SHA256") == inherited_hash):
@@ -250,6 +356,16 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
         if isinstance(suites, dict) and suites.get(stem) == inherited_hash:
             pinned = True
         for node in ast.walk(tree):
+            if isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+                target = node.target
+                if isinstance(target, ast.Name) and target.id in {
+                    "CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS"}:
+                    return False
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name) \
+                            and target.value.id in {"CORPUS_EXCLUSIONS", "CORPUS_SELECTIONS"}:
+                        return False
             if isinstance(node, ast.Call):
                 name = (node.func.id if isinstance(node.func, ast.Name)
                         else node.func.attr if isinstance(node.func, ast.Attribute) else "")
@@ -260,10 +376,14 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                 invokes_loader |= name == "load" and any(
                     isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name)
                     and arg.func.id == "globals" for arg in node.args)
-                if name == "register_module" and any(
-                    kw.arg in {"selected", "excluded"} for kw in node.keywords
-                ):
-                    return False
+                if name == "register_module":
+                    for kw in node.keywords:
+                        if kw.arg in {None, "selected"}:
+                            return False
+                        if kw.arg == "excluded":
+                            if not _reviewed_exclusion_expression(kw.value):
+                                return False
+                            exclusion_export = True
             if isinstance(node, (ast.If, ast.Assert)):
                 condition = node.test
                 calls = [n for n in ast.walk(condition) if isinstance(n, ast.Call)
@@ -280,7 +400,8 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str) -> 
                               and isinstance(n.func, ast.Attribute)
                               and n.func.attr in {"sha256", "hexdigest"}]
                 hash_guard |= bool(hash_calls and guards and correct_operator)
-    return (admitted and pinned and frozen and export and corpus_guard and hash_guard
+    return (admitted and (declared or []) == reviewed and (not reviewed or exclusion_export)
+            and pinned and frozen and export and corpus_guard and hash_guard
             and compile_frozen and invokes_loader)
 
 
@@ -493,9 +614,13 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
             mapped_retired.add(path)
             retirement = row.get("retirement", {})
             legacy = path in RETIRABLE_SUITES
-            approved_reason = (RETIREMENT_REASONS if legacy else
-                               REVIEW34_RETIREMENT_REASONS).get(path)
-            approved_reviewer = RETIREMENT_REVIEWER if legacy else REVIEW34_REVIEWER
+            round3_retired = path == "tests/test_health_endpoints.py"
+            approved_reason = (RETIREMENT_REASONS.get(path) if legacy else
+                               ("HTTP health endpoints removed with the listener; "
+                                "multi-user tiers removed")
+                               if round3_retired else REVIEW34_RETIREMENT_REASONS.get(path))
+            approved_reviewer = (RETIREMENT_REVIEWER if legacy else
+                                 ROUND3_REVIEWER if round3_retired else REVIEW34_REVIEWER)
             approved_step = 1 if legacy else 5
             if (approved_reason is None or type(step) is not int or step != approved_step
                     or not isinstance(retirement, dict)
@@ -504,6 +629,16 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
                     or row.get("reason") != approved_reason
                     or entries.get(path, {}).get("reason") != approved_reason):
                 errors.append(f"mapping: retired suite needs exact reviewed disposition: {path}")
+            if path == "tests/test_health_endpoints.py":
+                try:
+                    valid_retirements = _case_retirements(
+                        root, path, row.get("inherited_sha256", ""), row.get("case_retirements")
+                    )
+                except (OSError, ValueError, TypeError, SyntaxError):
+                    valid_retirements = False
+                if not valid_retirements or len(row.get("case_retirements", [])) != 22:
+                    errors.append(
+                        f"mapping: health endpoint retirement requires all exact cases: {path}")
             if path not in retired_paths or path not in classified["retired"]:
                 errors.append(f"mapping: retired suite must be retired in test-plan: {path}")
             if entries.get(path, {}).get("retirement") != retirement:
@@ -548,6 +683,17 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
             errors.append(f"mapping: malformed restoration: {path}")
             continue
         mode = restoration.get("mode")
+        case_retirements = restoration.get("case_retirements", [])
+        try:
+            valid_cases = _case_retirements(root, path, row.get("inherited_sha256", ""),
+                                            case_retirements)
+        except (OSError, ValueError, TypeError, SyntaxError):
+            valid_cases = False
+        if not valid_cases or (case_retirements and mode != "frozen-adapter"):
+            errors.append(f"mapping: invalid reviewed case retirements: {path}")
+        if path == "tests/test_campaign_startup_health.py" and len(case_retirements) != 1:
+            errors.append(
+                f"mapping: startup health must retire exactly the reviewed obsolete case: {path}")
         selectors = _strings(restoration.get("selectors"), f"restoration {path} selectors", errors)
         if not isinstance(restoration.get("reason"), str) or not restoration["reason"].strip():
             errors.append(f"mapping: restoration needs reason: {path}")
@@ -566,7 +712,7 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
                         f"mapping: direct-original must select entire original suite: {path}"
                     )
                 if mode == "frozen-adapter" and not _full_adapter(
-                    root, selector, path, row.get("inherited_sha256", "")
+                    root, selector, path, row.get("inherited_sha256", ""), case_retirements
                 ):
                     errors.append(
                         f"mapping: adapter lacks immutable full-suite corpus association: {path}"

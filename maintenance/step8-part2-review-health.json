@@ -2,6 +2,33 @@
   "schema_version": 1,
   "reviewer": "Claude, review of #34",
   "validation": {
+    "reviewer": "Claude, review of #34, round 3",
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_phase2_review_health.py tests/test_desktop_phase2_review_health_round3.py --junitxml=.test-state/health-round3-combined-final.xml",
+    "result": "35 passed in 23.44s; exit 0; zero failures, errors or skips. Includes both unchanged knowledge diagnostic definitions, nine inherited output fence cases, one inherited agent-policy case, and 23 provenance/owner/IPC/disposition checks.",
+    "earlier_targeted_result": "Round3 module alone: 14 passed in 6.61s, exit 0, zero skips.",
+    "junit": ".test-state/health-round3-combined-final.xml",
+    "junit_sha256": "639ace7f499585695c5730a0d66f1a6f5cd766185d73715eba7baf979a254fde",
+    "case_counts_health_only": {"restored":2,"retired":24,"deferred":0},
+    "suite_counts_health_only": {"restored":1,"retired":1,"deferred":0},
+    "isolation": "Repository Python3.12 venv, required run-phase1-tests.py mount/PID namespace, nonroot odin, env-i and disposable HOME/XDG/tmp_path. No live services/config/desktop, HTTP listener, keyring/network calls, /opt/odin or full qualification.",
+    "limitations": "No endpoint case tests actual check_all; all mutable callback registry and HTTP probe semantics are retired, never counted passing. Startup restored status accounts for every case: two genuine knowledge diagnostics execute; the complete Discord/HTTP parameter definition (two expanded cases including the HTTP-only assertion) is retired. Original bytes and complete assertion/parameter AST remain untouched.",
+    "artifacts_sha256": {
+      "tests/desktop_adapters/step8_review_health_round3.py":"2e97c77c0ad21035479df0d52738e07ebca6612aec00681d5674518da03c1b26",
+      "tests/test_desktop_phase2_review_health_round3.py":"bdbb2ba8f10d778e98a0fa8533eb109514100076c07b0a66445e212fe7375e75",
+      "tests/test_desktop_phase2_review_health.py":"dcd6c590ccf3dd4314c6ea8956201cb7bf919917623ae9ea8c443b26bf8a5e4a"
+    }
+  },
+  "final_accounting_validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_phase2_suite_map.py tests/test_desktop_phase2_review_health.py tests/test_desktop_phase2_review_health_round3.py --junitxml=.test-state/health-round3-accounting-settled.xml",
+    "result": "180 passed in 143.74s, exit 0; zero failures/errors/skips",
+    "junit_sha256": "71f8aa04dd4d80e87e8cd09c2d4c0cb6d41f2476cc9b52d6e300709812dcab34",
+    "note": "Supersedes earlier targeted health-only validation. An initial newly written exclusion guard test failed and was corrected before this successful short rerun. No full qualification was run by the health lane.",
+    "artifacts_sha256": {
+      "tests/test_desktop_phase2_review_health_round3.py": "bdbb2ba8f10d778e98a0fa8533eb109514100076c07b0a66445e212fe7375e75",
+      "tests/test_desktop_phase2_review_health_accounting.py": "ad378fd4aa22133fd7749782aa3447d21178bfba192bf381816306f9d0aaca16"
+    }
+  },
+  "previous_validation": {
     "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_phase2_review_health.py",
     "final_result": "21 passed in 20.49s, exit 0, zero skips: all 9 inherited output fence cases, 1 complete inherited agent-policy case and 11 provenance/real-owner/IPC checks. Complete executor suite restored only after actual desktop engine native search_history readiness became available.",
     "candidate_results": ["19 passed, 2 failed in 9.27s", "19 passed, 2 failed in 9.81s", "21 passed in 20.49s, all 9 inherited executor fence cases passed after steps2+3 merge"],
@@ -15,8 +42,62 @@
   "entries": [
     {"path":"tests/test_campaign_agent_routes_coverage.py","status":"restored","inherited_sha256":"3b430120bb2dadec994cc73262dc10b03a9089ce6e0fc35f6653b142a6da49f7","blocked_on":null,"references":["src/desktop/ipc.py::IpcServer._serve","src/desktop/protocol.py::read_frame","src/desktop/model_settings.py::ModelSettingsService.handle","tests/desktop_adapters/step8_review_health.py::AgentPolicyCarrier"],"evidence":["Whole sole inherited test definition and two assertions unchanged; malformed raw JSON traverses real Unix IPC owner handshake and production read_frame. Only actual protocol_error maps to inherited 400/error.","Persistence observer installed on actual SettingsService save owner; no method dispatch, observer call, or configuration file creation permitted. No HTTP listener."],"restoration":{"mode":"frozen-adapter","selectors":["tests/test_desktop_phase2_review_health.py"],"reason":"Approved bad-input projection from real Desktop protocol_error; malformed JSON refused before policy persistence.","inherited_cases":1},"inherited_counts":{"test_definitions":1,"expanded_cases":1,"assertions":2}},
     {"path":"tests/test_output_executor_fences.py","status":"restored","inherited_sha256":"04d20c34d86cce820027cfcd64490adf39d53d2e4084eef9a2c922ada1699c86","blocked_on":null,"references":["src/desktop/services.py::build_engine_services","src/desktop/services.py::_ReadyPolicy","src/tools/executor.py::deliver_output","tests/desktop_adapters/step8_review_health.py::_owned_executor","tests/desktop_adapters/step8_runtime_guard.py::temporary_guard_graph"],"evidence":["Previous whole-suite candidates genuinely failed two of nine cases under executor-only readiness; no partial restoration was admitted. After steps2+3 merge, candidate uses actual build_engine_services graph and its live readiness owner, including native transcript_history handler.","Exact retained helper, complete six definitions/nine expanded cases/16 assertions, canonical owner substitutions and all original setup-hunk seals remain unchanged. Helper retains temporary testhost registry and authenticated PermissionManager; production _ReadyPolicy is injected with actual graph readiness, not a fixture handler/readiness subclass.","Fences authorize/deliver supplied synthetic output only. No search_history dispatch, real network, real keyring, shell command or history effect is invoked. Isolated targeted validation passed all 9 inherited fence cases: 21 total passed in 20.49s, exit 0, zero skips."],"restoration":{"mode":"frozen-adapter","selectors":["tests/test_desktop_phase2_review_health.py"],"reason":"Real desktop engine now owns native search_history readiness; original output fence assertions preserved with approved canonical owner substitution.","inherited_cases":9},"inherited_counts":{"test_definitions":6,"expanded_cases":9,"assertions":16}},
-    {"path":"tests/test_health_endpoints.py","status":"deferred","inherited_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda","blocked_on":"Whole-suite parity absent: health.get returns check_all, not mutable ready/live/detail component registry. Four context/tools admin-policy cases exercise deliberately removed multi-user bearer tiers and HTTP middleware; owner-only IPC cannot preserve their meaning.","references":["tests/test_health_endpoints.py::TestContextWindowsAdminPolicy","tests/test_health_endpoints.py::TestBuiltinToolsAdminPolicy","src/health/server.py::HealthServer","src/desktop/records.py::RecordsService.handle","src/health/checker.py::check_all"],"evidence":["Whole frozen module inspected, never executed or counted passing. No partial case extraction, invented readiness strings, or fake token/role authority.","Review group A retires token tiers/listener; group C whole-file restoration conflicts with four inherited cases and needs reviewer disposition."],"inherited_counts":{"test_definitions":22,"expanded_cases":22,"assertions":55}},
-    {"path":"tests/test_campaign_startup_health.py","status":"deferred","inherited_sha256":"41666712c09447ad5b362804478f7550a98329dda605db5c61c86b30e298f4ac","blocked_on":"Whole-suite parity absent: retained knowledge diagnostics exist, but removed _wire_observability/HealthServer and Config.discord are needed by configured-Discord readiness variants and exact HTTP-only detail assertion. Desktop delivery readiness is different truth, not a carrier remap.","references":["tests/test_campaign_startup_health.py::test_production_health_wiring_keeps_http_bootstrap_ready","src/health/startup.py::check_knowledge_db","src/health/checker.py::check_delivery","src/health/server.py::HealthServer"],"evidence":["All three definitions and eight assertions inspected. Diagnostic-only subset not restored. No Discord truth silently replaced with invented Desktop readiness.","Missing delivery_readiness actually reports unavailable, not optional unconfigured Discord healthy/HTTP-only mode."],"inherited_counts":{"test_definitions":3,"expanded_cases":4,"assertions":8}}
+    {
+      "path": "tests/test_health_endpoints.py",
+      "reviewer": "Claude, review of #34, round 3",
+      "status": "retired",
+      "inherited_sha256": "51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda",
+      "blocked_on": null,
+      "retirement": {"reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener; multi-user tiers removed"},
+      "references": ["tests/test_health_endpoints.py", "src/desktop/records.py::RecordsService.handle", "src/health/checker.py::check_all"],
+      "evidence": ["All 22 inherited definitions inspected. Four tier/bearer middleware cases and eighteen HTTP/live/ready/detail/mutable-registry cases retired individually by round3 ruling. None tests actual check_all results: _check_components is the removed HealthServer callback registry, not check_all. No semantically honest health.get restoration remains.", "Retirement is not passing coverage. Original source bytes and 55 assertions are untouched; no HTTP listener, tier surrogate or readiness projection is created."],
+      "inherited_counts": {"test_definitions":22,"expanded_cases":22,"assertions":55},
+      "case_counts": {"restored":0,"retired":22,"deferred":0},
+      "case_retirements": [
+        {"case":"TestBuiltinToolsAdminPolicy.test_both_routes_reject_user_and_guest_but_allow_admin","reviewer":"Claude, review of #34, round 3","reason":"multi-user tiers removed","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestBuiltinToolsAdminPolicy.test_builtin_tools_surface_is_centrally_admin_only","reviewer":"Claude, review of #34, round 3","reason":"multi-user tiers removed","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestComponentRegistration.test_check_components_empty","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestComponentRegistration.test_check_components_mixed","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestComponentRegistration.test_register_component","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestComponentRegistration.test_register_overwrites_existing","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestContextWindowsAdminPolicy.test_context_surface_is_centrally_admin_only","reviewer":"Claude, review of #34, round 3","reason":"multi-user tiers removed","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestContextWindowsAdminPolicy.test_get_and_post_reject_user_and_guest_but_allow_admin","reviewer":"Claude, review of #34, round 3","reason":"multi-user tiers removed","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthBasic.test_health_503_when_not_ready","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthBasic.test_health_ok_when_ready","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthDetail.test_detail_handles_component_check_exception","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthDetail.test_detail_includes_version_and_uptime","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthDetail.test_detail_reports_degraded_when_component_unhealthy","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthDetail.test_detail_returns_503_when_not_ready","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthDetail.test_detail_shows_registered_components","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthLive.test_live_always_200_even_when_not_ready","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthLive.test_live_always_200_when_ready","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthReady.test_ready_200_when_all_components_healthy","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthReady.test_ready_200_when_ready_no_components","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthReady.test_ready_503_when_component_unhealthy","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthReady.test_ready_503_when_not_ready","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"},
+        {"case":"TestHealthReady.test_ready_includes_components_in_response","reviewer":"Claude, review of #34, round 3","reason":"HTTP health endpoints removed with the listener","source_path":"tests/test_health_endpoints.py","source_sha256":"51168456a9e6c2f36adc5d4d2a9eb46acedbba3611f8f88e066c511c86adcbda"}
+      ]
+    },
+    {
+      "path": "tests/test_campaign_startup_health.py",
+      "reviewer": "Claude, review of #34, round 3",
+      "status": "restored",
+      "inherited_sha256": "41666712c09447ad5b362804478f7550a98329dda605db5c61c86b30e298f4ac",
+      "blocked_on": null,
+      "references": ["src/health/startup.py::check_knowledge_db", "tests/desktop_adapters/step8_review_health_round3.py"],
+      "evidence": ["Both knowledge-diagnostic definitions execute exactly against production check_knowledge_db with real temporary corrupt/new/valid SQLite files. Complete original test bodies, assertions, signatures and decorators remain unchanged.", "The complete two-parameter Discord/HTTP readiness definition, including HTTP-only detail assertion, is compiled unchanged but not exported. Removed imports alone are omitted; no replacement health truth, listener, bot or role authority is supplied."],
+      "inherited_counts": {"test_definitions":3,"expanded_cases":4,"assertions":8},
+      "case_counts": {"restored":2,"retired":2,"deferred":0},
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selectors": ["tests/test_desktop_phase2_review_health_round3.py"],
+        "reason": "Restore unchanged knowledge diagnostics; retire only the removed Discord/HTTP definition under round3 review authority.",
+        "inherited_cases": 2,
+        "case_retirements": [
+          {"case":"test_production_health_wiring_keeps_http_bootstrap_ready","reviewer":"Claude, review of #34, round 3","reason":"Discord and the HTTP listener removed","source_path":"tests/test_campaign_startup_health.py","source_sha256":"41666712c09447ad5b362804478f7550a98329dda605db5c61c86b30e298f4ac"}
+        ]
+      }
+    }
   ],
   "helper_provenance":{"path":"tests/test_executor_output_retention.py","sha256":"c765632aa4d32e059c43d9f4d47af69b3fd8e8bd46d545861e766b4af3ad98c5","symbol":"executor","operation":"Compile exact retained helper; inject genuine owner-bound ToolExecutor constructor. Separately remapped suite not claimed restored."},
   "setup_hunks": [

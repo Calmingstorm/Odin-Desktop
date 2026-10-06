@@ -64,10 +64,11 @@ def test_complete_guard_rejects_tampering(name, mutation):
         verify_adaptation(name, tree)
 
 
-def test_all_four_inherited_bytes_and_no_partial_health_restoration():
+def test_all_four_inherited_bytes_and_complete_reviewed_health_dispositions():
     rows = records()["entries"]
     assert len(rows) == 4
-    assert sum(row["status"] == "restored" for row in rows) == 2
+    assert sum(row["status"] == "restored" for row in rows) == 3
+    assert sum(row["status"] == "retired" for row in rows) == 1
     for row in rows:
         frozen = frozen_source(row["path"])
         assert hashlib.sha256(frozen).hexdigest() == row["inherited_sha256"]

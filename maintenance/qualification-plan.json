@@ -4,6 +4,13 @@
   "baseline_plan": "maintenance/test-plan.json",
   "baseline_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
   "status": "not-accepted",
+  "decision_f_pdf_catalog_disposition": {
+    "original": "tests/test_tool_catalog_dependency_gate.py::test_missing_pdf_dependency_is_hidden_with_actionable_log",
+    "source_sha256": "f7db630da366641f110d4f433398747dbd6a24f8bdf3be31acb936abacdd0311",
+    "disposition": "obsolete-contract-replaced-pending-independent-review",
+    "reason": "Aaron Decision F requires PDF offered with a verified automatic first-use download, not hidden when the optional module is absent. Original source assertions and hash remain frozen; no old-contract pass is claimed.",
+    "replacement": "tests/test_desktop_pdf_catalog.py::test_missing_pdf_dependency_is_offered_with_unchanged_description"
+  },
   "suite_pairing": "All869 original suites/support paths in test-plan.json remain paired by exact hashes. Literal CORPUS_SELECTIONS/CORPUS_EXCLUSIONS in adapters specify exact originals. No unselected neutral case is implicitly proved.",
   "failure_accounting": {
     "population": ".test-state/inherited-bounded.xml all259 failures across49 original files",
@@ -1475,6 +1482,8 @@
         "tests/test_desktop_strip_root.py",
         "tests/test_desktop_strip_web.py",
         "tests/test_desktop_test_plan.py",
+        "tests/test_pdf_resources.py",
+        "tests/test_desktop_pdf_catalog.py",
         "tests/test_desktop_transcript.py"
       ],
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups."
@@ -1770,7 +1779,19 @@
         "tests/test_desktop_review_provider_llm_provenance.py",
         "tests/test_desktop_review_provider_policy_reload.py",
         "tests/test_desktop_review_provider_quota_provenance.py",
-        "tests/test_desktop_review_provider_reload_provenance.py"
+        "tests/test_desktop_review_provider_reload_provenance.py",
+        "tests/test_desktop_provider_round3.py",
+        "tests/test_desktop_records_round3_threads.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_secret_domain_threads.py",
+        "tests/test_desktop_first_run.py",
+        "tests/test_desktop_helper_bundle.py",
+        "tests/test_packaging_models.py",
+        "tests/test_packaging_runtime.py",
+        "tests/packaging/test_chromium_runtime.py",
+        "tests/packaging/test_chromium_staging.py",
+        "tests/test_desktop_phase2_review_health_round3.py",
+        "tests/test_desktop_phase2_review_health_accounting.py"
       ],
       "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification."
     }

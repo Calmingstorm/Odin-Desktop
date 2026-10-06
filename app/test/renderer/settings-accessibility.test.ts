@@ -106,11 +106,11 @@ describe('P3.4 general and provider controls', () => {
     const Panel = (await import('../../src/renderer/src/components/CodexAccounts.vue')).default
     const { root, unmount } = mount(Panel)
     await flush()
-    store.settings.codex.login = { code: 'ABCD-1234', url: 'https://example.com/login', deviceAuthId: 'never-display-device-token',
+    store.settings.codex.login = { code: 'ABCD-1234', url: 'https://example.com/login', loginId: 'opaque-local-login-handle',
       interval: 5, status: 'waiting' }
     await flush()
     expect(root.find('code')!.textContent()).toBe('ABCD-1234')
-    expect(root.textContent()).not.toContain('never-display-device-token')
+    expect(root.textContent()).not.toContain('opaque-local-login-handle')
     expect(root.findAll((node) => node.props.role === 'status').every((node) => !node.textContent().includes('ABCD-1234'))).toBe(true)
     root.button('Copy sign-in code').fire('click')
     await flush()
@@ -125,7 +125,7 @@ describe('P3.4 general and provider controls', () => {
 
   it('uses ordinary navigation buttons with a current section, not tabs without arrow-key behavior', async () => {
     ;(globalThis as unknown as { window: unknown }).window = { odin: {
-      settingsSchema: async () => ({ ok: true, result: { fields: [] } })
+      settingsSchema: async () => ({ ok: true, result: { fields: [], status: { keyring_error: null } } })
     } }
     const Settings = (await import('../../src/renderer/src/views/Settings.vue')).default
     const { root, unmount } = mount(Settings)

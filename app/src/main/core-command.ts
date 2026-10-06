@@ -2,6 +2,7 @@
 // P4.1 plugs its verified immutable resource layout into resolvePackaged; there
 // is no production fallback to PATH Python, an override, or a developer tree.
 import { basename, join } from 'node:path'
+import { existsSync } from 'node:fs'
 import type { ProfilePaths } from './paths'
 
 export interface CoreLaunch {
@@ -51,12 +52,9 @@ export function developmentArgv(value: string): string[] {
 export function coreCommand(paths: ProfilePaths, context: CoreCommandContext): CoreLaunch {
   const coreArgs = ['--socket', paths.socketPath, '--token-file', paths.tokenPath, '--profile', paths.profileId, '--data-dir', paths.dataDir]
   if (context.packaged) {
-    if (!context.resolvePackaged) {
-      throw new Error('The packaged core runtime is unavailable in this build. Install a P4.1 candidate package.')
-    }
     const env = { ...context.env }
     delete env.ODIN_DESKTOP_CORE_CMD
-    return context.resolvePackaged(context.resourcesPath, coreArgs, env)
+    return (context.resolvePackaged ?? packagedCoreCommand)(context.resourcesPath, coreArgs, env)
   }
   const override = context.env.ODIN_DESKTOP_CORE_CMD
   if (override !== undefined) {
@@ -69,5 +67,28 @@ export function coreCommand(paths: ProfilePaths, context: CoreCommandContext): C
     command: 'python3',
     args: [join(context.appPath, 'fixture-core', 'fixture_core.py'), ...coreArgs],
     env: context.env
+  }
+}
+
+/** Immutable production runtime; never recover with a system Python or fixture. */
+export function packagedCoreCommand(resourcesPath: string, coreArgs: string[], ambient: NodeJS.ProcessEnv): CoreLaunch {
+  const root = join(resourcesPath, 'runtime')
+  const python = join(root, 'python', 'bin', 'python3')
+  if (!existsSync(python) || !existsSync(join(resourcesPath, 'bundle-manifest.json'))) {
+    throw new Error('Odin bundled runtime is missing. Reinstall the candidate package.')
+  }
+  const env = { ...ambient }
+  for (const key of Object.keys(env)) if (key.startsWith('PYTHON')) delete env[key]
+  delete env.ODIN_DESKTOP_CORE_CMD
+  return {
+    command: python,
+    args: ['-I', '-B', '-m', 'src', ...coreArgs],
+    env: {
+      ...env,
+      ODIN_DESKTOP_BUNDLE_ROOT: root,
+      PLAYWRIGHT_BROWSERS_PATH: join(root, 'browser'),
+      HF_HUB_OFFLINE: '1',
+      TRANSFORMERS_OFFLINE: '1'
+    }
   }
 }

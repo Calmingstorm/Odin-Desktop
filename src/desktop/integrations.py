@@ -17,6 +17,7 @@ from ..config.persistence import _load_document
 from ..config.schema import OutboundWebhookTarget
 from ..notifications.outbound_webhooks import OutboundWebhookDispatcher
 from .management import MethodError
+from .secrets import secret_call
 
 METHODS = frozenset({
     "webhooks.outbound.list", "webhooks.outbound.save", "webhooks.outbound.delete",
@@ -104,7 +105,7 @@ class IntegrationsService:
                          if key != "password"},
             }
         async with self._lock:
-            dispatcher = self._owner()
+            dispatcher = await secret_call(self._owner)
             if method == "webhooks.outbound.list":
                 return dispatcher.get_status()
             if method == "webhooks.outbound.test":
@@ -113,7 +114,10 @@ class IntegrationsService:
                 if result is None:
                     raise MethodError("not_found", "webhook not found")
                 return result.to_dict()
-            return self._mutate(dispatcher, method, params)
+            # Keep keyring writes, config persistence, adoption and rollback in
+            # one settled worker transaction. Cancellation cannot release the
+            # service gate with an unfinished signing-key write behind it.
+            return await secret_call(self._mutate, dispatcher, method, params)
 
     @staticmethod
     def _identifier(params):

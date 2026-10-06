@@ -14,6 +14,7 @@
     "tests/test_campaign_agent_routes_coverage.py",
     "tests/test_campaign_execution_risk.py",
     "tests/test_campaign_provider_reload_coverage.py",
+    "tests/test_campaign_startup_health.py",
     "tests/test_cancelled_persistence_settles.py",
     "tests/test_channel_state_recent_action_failure.py",
     "tests/test_codex_quota_check.py",
@@ -51,12 +52,12 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 258,
+    "phase2": 256,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "safe_pass_now": 384,
+    "safe_pass_now": 385,
     "safety_manual_gated": 100,
-    "retired": 41
+    "retired": 42
   },
   "entries": [
     {
@@ -4357,8 +4358,8 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/__main__.py: app-supervised startup/lifecycle; src/health/server.py: authenticated IPC readiness/ingress; src/health/startup.py: install/IPC probes. Preserve cases, no privileged fake shim.",
+      "classification": "safe_pass_now",
+      "reason": "Restore unchanged knowledge diagnostics; retire only the removed Discord/HTTP definition under round3 review authority.",
       "phase2_seams": [
         "src/__main__.py",
         "src/health/server.py",
@@ -14417,11 +14418,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
-      "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress. Preserve cases, no privileged fake shim.",
+      "classification": "retired",
+      "reason": "HTTP health endpoints removed with the listener; multi-user tiers removed",
       "phase2_seams": [
         "src/health/server.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of #34, round 3",
+        "reason": "HTTP health endpoints removed with the listener; multi-user tiers removed"
+      }
     },
     {
       "path": "tests/test_health_shutdown.py",
@@ -36560,7 +36565,6 @@
     "tests/test_campaign_prefix_measurement.py",
     "tests/test_campaign_reasoning_contracts.py",
     "tests/test_campaign_scheduler_workflows.py",
-    "tests/test_campaign_startup_health.py",
     "tests/test_campaign_web_final_coverage.py",
     "tests/test_campaign_websocket_coverage.py",
     "tests/test_catalog_campaign.py",
@@ -36652,7 +36656,6 @@
     "tests/test_graceful_shutdown.py",
     "tests/test_health_checker.py",
     "tests/test_health_checker_paths.py",
-    "tests/test_health_endpoints.py",
     "tests/test_hosts_consumer_edges.py",
     "tests/test_hosts_web_edges.py",
     "tests/test_hyprland_clean_interruption_continuity.py",
@@ -36893,6 +36896,7 @@
     "tests/test_campaign_scheduler_final_coverage.py",
     "tests/test_campaign_scheduler_removed_triggers.py",
     "tests/test_campaign_scheduler_time.py",
+    "tests/test_campaign_startup_health.py",
     "tests/test_campaign_system_coverage_restore.py",
     "tests/test_campaign_usage_lock.py",
     "tests/test_cancelled_persistence_settles.py",
@@ -37356,6 +37360,7 @@
     "tests/test_config.py",
     "tests/test_config_campaign_v410.py",
     "tests/test_gateway_transition_regressions.py",
+    "tests/test_health_endpoints.py",
     "tests/test_health_shutdown.py",
     "tests/test_host_access_removal_audit_v412.py",
     "tests/test_independent_credential_review.py",
@@ -37399,6 +37404,7 @@
     "tests/test_config.py",
     "tests/test_config_campaign_v410.py",
     "tests/test_gateway_transition_regressions.py",
+    "tests/test_health_endpoints.py",
     "tests/test_health_shutdown.py",
     "tests/test_host_access_removal_audit_v412.py",
     "tests/test_independent_credential_review.py",

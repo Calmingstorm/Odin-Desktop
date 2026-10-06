@@ -19,7 +19,7 @@ from ..llm.client_lifecycle import shutdown_provider_clients
 from ..llm.model_ref import parse_model_ref
 from ..llm.openai_compatible import preset_context_overflow_pattern
 from .management import MethodError
-from .secrets import SecretStoreError
+from .secrets import SecretStoreError, secret_call
 
 _ATTRS = {"codex": "codex_client", "ollama": "ollama_client", "compat": "compatible_client"}
 
@@ -207,8 +207,13 @@ class ProviderOwner(LLMGateway):
             if not cfg.enabled:
                 return None
             try:
-                pool = self.codex_accounts.pool
-                if not pool.is_configured():
+                if overrides is not None and "codex.pool" in overrides:
+                    pool = overrides["codex.pool"]
+                    configured = overrides["codex.configured"]
+                else:
+                    pool = self.codex_accounts.pool
+                    configured = pool.is_configured()
+                if not configured:
                     return None
             except SecretStoreError:
                 raise _unavailable("Profile keyring is unavailable or locked") from None
@@ -314,7 +319,9 @@ class ProviderOwner(LLMGateway):
                         raise _unavailable("Auxiliary primary provider is unavailable")
                     return change  # saved auxiliary intent, explicitly unavailable
                 if provider == "codex":
-                    client = self._build("codex", config, model=aux_ref.model, auxiliary=True)
+                    client = self._build(
+                        "codex", config, model=aux_ref.model, auxiliary=True, overrides=overrides
+                    )
                     if client is not None:
                         change.created.append(client)
                 else:
@@ -351,10 +358,38 @@ class ProviderOwner(LLMGateway):
                 self._retire(client)
             raise
 
-    def prepare_settings(self, candidate, changes):
+    async def _prepare_graph_async(self, config, targets, **kwargs):
+        # Constructors and graph rollback scheduling belong to the loop. Only
+        # credential reads and lazy pool construction go to the secret worker.
+        overrides = dict(kwargs.pop("overrides", None) or {})
+        for provider, path in (
+            ("ollama", "ollama.api_key"), ("compat", "openai_compatible.api_key"),
+        ):
+            section = config.ollama if provider == "ollama" else config.openai_compatible
+            if provider in targets and section.enabled and path not in overrides:
+                overrides[path] = await secret_call(self._credential, path, config)
+        auxiliary = config.openai_codex.auxiliary
+        needs_codex = "codex" in targets or (
+            auxiliary.enabled
+            and parse_model_ref(auxiliary.model, allow_auto=False).provider.value == "codex"
+        )
+        if needs_codex and config.openai_codex.enabled:
+            try:
+                pool = await self.codex_accounts.get_pool()
+                overrides["codex.pool"] = pool
+                overrides["codex.configured"] = await secret_call(pool.is_configured)
+            except SecretStoreError:
+                raise _unavailable("Profile keyring is unavailable or locked") from None
+        return self._prepare_graph(config, targets, overrides=overrides, **kwargs)
+
+    async def prepare_settings_async(self, candidate, changes):
+        change = self.prepare_settings(candidate, changes, _async=True)
+        return change if isinstance(change, _ProviderChange) else await change
+
+    @staticmethod
+    def _settings_targets(paths, changes):
         from ..config.apply_registry import flatten, spec_for
 
-        paths = [".".join(path) if not isinstance(path, str) else path for path, _ in changes]
         targets = set()
         for prefix, name in (
             ("openai_codex.", "codex"),
@@ -371,27 +406,40 @@ class ProviderOwner(LLMGateway):
                 for path in live_paths
             ):
                 targets.add(name)
+        return targets
+
+    def _policy_change(self, candidate):
+        # Agent policies and boot-bound settings are not transport changes.
+        # Preserve the adopted graph while invalidating actual consumers.
+        return _ProviderChange(
+            self, candidate.model_copy(deep=True), self._generation,
+            {name: getattr(self, attr) for name, attr in _ATTRS.items()},
+            self.auxiliary_llm_client,
+        )
+
+    def prepare_settings(self, candidate, changes, *, _async=False):
+        paths = [".".join(path) if not isinstance(path, str) else path for path, _ in changes]
+        targets = self._settings_targets(paths, changes)
         overrides = {
             path: value
             for path, (_, value) in zip(paths, changes)
             if path in {"ollama.api_key", "openai_compatible.api_key"}
         }
         if not targets and not any(path.startswith("openai_codex.auxiliary") for path in paths):
-            # Agent policies and boot-bound settings are not transport changes.
-            # Preserve the adopted graph while invalidating actual consumers.
-            return _ProviderChange(
-                self, candidate.model_copy(deep=True), self._generation,
-                {name: getattr(self, attr) for name, attr in _ATTRS.items()},
-                self.auxiliary_llm_client,
-            )
-        return self._prepare_graph(
+            return self._policy_change(candidate)
+        prepare = self._prepare_graph_async if _async else self._prepare_graph
+        return prepare(
             candidate.model_copy(deep=True),
             targets,
             overrides=overrides,
             strict_aux=any(path.startswith("openai_codex.auxiliary") for path in paths),
         )
 
-    def prepare_reload(self, candidate, changes):
+    async def prepare_reload_async(self, candidate, changes):
+        change = self.prepare_reload(candidate, changes, _async=True)
+        return change if isinstance(change, _ProviderChange) else await change
+
+    def prepare_reload(self, candidate, changes, *, _async=False):
         """Prepare one graph for a composition-owned whole-config reload.
 
         The composite must qualify under provider_lock, apply its other owners
@@ -400,28 +448,20 @@ class ProviderOwner(LLMGateway):
         publish and rollback expressly for that single composition transaction.
         """
         paths = [".".join(path) if not isinstance(path, str) else path for path, _ in changes]
-        targets = {
-            name
-            for prefix, name in (
-                ("openai_codex.", "codex"),
-                ("ollama.", "ollama"),
-                ("openai_compatible.", "compat"),
-            )
-            if any(
-                path.startswith(prefix) and not path.startswith("openai_codex.auxiliary")
-                for path in paths
-            )
-        }
+        targets = self._settings_targets(paths, changes)
         main = parse_model_ref(candidate.llm_provider.model, allow_auto=False).provider.value
         switching = any(path.startswith("llm_provider.") for path in paths)
         if switching:
             targets.add(main)
+        if not targets and not any(path.startswith("openai_codex.auxiliary") for path in paths):
+            return self._policy_change(candidate)
         overrides = {
             path: value
             for path, (_, value) in zip(paths, changes)
             if path in {"ollama.api_key", "openai_compatible.api_key"}
         }
-        return self._prepare_graph(
+        prepare = self._prepare_graph_async if _async else self._prepare_graph
+        return prepare(
             candidate.model_copy(deep=True),
             targets,
             require=main if switching else None,
@@ -445,7 +485,7 @@ class ProviderOwner(LLMGateway):
                     ],
                 ).enabled
             }
-            change = self._prepare_graph(config, targets, require=provider)
+            change = await self._prepare_graph_async(config, targets, require=provider)
             try:
                 await change.qualify()
                 change.publish()
@@ -457,7 +497,7 @@ class ProviderOwner(LLMGateway):
     async def _reload(self, provider=None, *, auxiliary=False):
         async with self.provider_lock:
             config = self.settings.config.model_copy(deep=True)
-            change = self._prepare_graph(
+            change = await self._prepare_graph_async(
                 config,
                 {provider} if provider else set(),
                 strict_aux=auxiliary,
@@ -519,10 +559,23 @@ class ProviderOwner(LLMGateway):
                     return {"error": "Model reference does not match provider"}
                 config.llm_provider.model = ref.render()
                 config.llm_provider.active_provider = provider
-                change = self._prepare_graph(config, {provider}, require=provider)
+                change = await self._prepare_graph_async(config, {provider}, require=provider)
                 await change.qualify()
                 if callable(persist):
-                    error, cancelled = await self.run_persist_settled(persist)
+                    outcome = []
+
+                    def persist_captured():
+                        try:
+                            persist()
+                            outcome.append(None)
+                        except BaseException as exc:
+                            outcome.append(exc)
+
+                    try:
+                        await secret_call(persist_captured)
+                    except asyncio.CancelledError:
+                        cancelled = True
+                    error = outcome[0]
                     if error is not None:
                         if cancelled:
                             raise asyncio.CancelledError

@@ -121,15 +121,34 @@ class RecordsService:
         if self._audit is not None:
             return self._audit
         config = self._settings.config if self._settings is not None else None
+        hmac_key = config.audit.hmac_key if config is not None else ""
+        resolve_key = getattr(self._settings, "audit_signing_key", None)
+        if callable(resolve_key):
+            hmac_key = resolve_key()
+        return self._bind_audit(hmac_key)
+
+    async def _read_audit(self):
+        if self._audit is not None:
+            return self._audit
+        from .secrets import secret_call
+
+        config = self._settings.config if self._settings is not None else None
+        hmac_key = config.audit.hmac_key if config is not None else ""
+        resolve_key = getattr(self._settings, "audit_signing_key", None)
+        if callable(resolve_key):
+            # Keep round-2 signing authority without reintroducing synchronous
+            # keyring I/O in round-3's async management composition. Construct
+            # the reader and its asyncio lock only after returning to the loop.
+            hmac_key = await secret_call(resolve_key)
+        return self._bind_audit(hmac_key)
+
+    def _bind_audit(self, hmac_key):
+        config = self._settings.config if self._settings is not None else None
         if self._get_audit_path is not None:
             path = Path(self._get_audit_path())
         else:
             path = Path(config.tools.audit_log_path) if config is not None else (
                 self.paths.data_dir / "audit.jsonl")
-        hmac_key = config.audit.hmac_key if config is not None else ""
-        resolve_key = getattr(self._settings, "audit_signing_key", None)
-        if callable(resolve_key):
-            hmac_key = resolve_key()
         binding = (path, hmac_key)
         if binding != self._audit_binding:
             self._audit_reader = _AuditReader(path, hmac_key)
@@ -165,12 +184,12 @@ class RecordsService:
             error_only = params.get("error_only", False)
             error_only = (error_only is True or str(error_only).lower() in {"1", "true", "yes"})
             limit = _limit(params, 50, 200)
-            operation = self._method(self.audit, "search")
+            operation = self._method(await self._read_audit(), "search")
             entries = await _result(operation(**filters, has_error=True if error_only else None,
                                               limit=limit))
             return entries[:limit]
         if method == "audit.verify":
-            return await _result(self._method(self.audit, "verify_integrity")())
+            return await _result(self._method(await self._read_audit(), "verify_integrity")())
         if method == "logs.search":
             level = _filter(params, "level")
             if level and level not in {"error", "info", "all"}:
@@ -180,7 +199,7 @@ class RecordsService:
                 ("keyword", "q"), ("tool_name", "tool"),
             )}
             limit = _limit(params, 100, 500)
-            backend = self._logs if self._logs is not None else self.audit
+            backend = self._logs if self._logs is not None else await self._read_audit()
             entries = await _result(self._method(backend, "search_logs")(
                 level=level, **filters, limit=limit))
             entries = entries[:limit]

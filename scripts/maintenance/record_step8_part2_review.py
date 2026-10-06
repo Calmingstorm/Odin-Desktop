@@ -115,6 +115,29 @@ def build(root: Path = checker.ROOT, *, records=None, require_complete=True):
             if (decision.get("inherited_sha256", rows[path]["inherited_sha256"])
                     != rows[path]["inherited_sha256"]):
                 raise ValueError(f"review inherited hash changed: {path}")
+            expected_reviewer = (checker.ROUND3_REVIEWER if path in checker.ROUND3_CASES
+                                 else checker.REVIEW34_REVIEWER)
+            if path in checker.ROUND3_CASES:
+                if decision.get("reviewer") != expected_reviewer:
+                    raise ValueError(f"round-3 health decision needs exact reviewer: {path}")
+                retirements = decision.get("case_retirements")
+                if path == "tests/test_campaign_startup_health.py":
+                    retirements = decision.get("restoration", {}).get("case_retirements")
+                if not checker._case_retirements(
+                        root, path, rows[path]["inherited_sha256"], retirements):
+                    raise ValueError(
+                        f"round-3 health decision has invalid case retirements: {path}")
+                if path == "tests/test_health_endpoints.py":
+                    if decision.get("status") != "retired" or len(retirements) != 22:
+                        raise ValueError(
+                            "health endpoints requires all 22 reviewed case retirements")
+                elif (decision.get("status") != "restored"
+                      or len(retirements) != 1
+                      or decision.get("restoration", {}).get("case_retirements") != retirements):
+                    raise ValueError(
+                        "startup health must restore the frozen suite minus one reviewed case")
+            elif "reviewer" in decision and decision["reviewer"] != expected_reviewer:
+                raise ValueError(f"reviewer differs from approved authority: {path}")
             if (not isinstance(decision.get("references"), list) or not decision["references"]
                     or any(not isinstance(ref, str) or not ref.strip()
                            for ref in decision["references"])
@@ -149,6 +172,17 @@ def build(root: Path = checker.ROOT, *, records=None, require_complete=True):
     for path, decision in sorted(decisions.items()):
         row = rows[path]
         row["step8_part2_review"] = copy.deepcopy(decision)
+        if path == "tests/test_health_endpoints.py":
+            retirement_reason = (
+                "HTTP health endpoints removed with the listener; multi-user tiers removed")
+            retirement = {"reviewer": checker.ROUND3_REVIEWER, "reason": retirement_reason}
+            row.update(status="retired", reason=retirement_reason, blocked_on=None,
+                       qualification_group="not-applicable-retired", retirement=retirement,
+                       case_retirements=copy.deepcopy(decision["case_retirements"]))
+            row.pop("pending_contract_disposition", None)
+            entries[path].update(classification="retired", reason=retirement_reason,
+                                 retirement=retirement)
+            continue
         if decision.get("status") == "deferred":
             if ("restoration" in decision or row["status"] != "deferred"
                     or not decision.get("blocked_on")):
@@ -183,7 +217,8 @@ def build(root: Path = checker.ROOT, *, records=None, require_complete=True):
             raise ValueError(f"only complete reviewed frozen suites count: {path}")
         for selector in restoration["selectors"]:
             if not checker._path(selector) or not checker._full_adapter(
-                    root, selector, path, row["inherited_sha256"]):
+                    root, selector, path, row["inherited_sha256"],
+                    restoration.get("case_retirements", [])):
                 raise ValueError(f"not an immutable whole-suite association: {path}: {selector}")
             if selector not in group["files"]:
                 group["files"].append(selector)

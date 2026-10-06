@@ -26,7 +26,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   }
 
   // Later-slice reads are genuine core refusals, not empty successful lists.
-  for (const method of ['conversations.list', 'search.query', 'work.list', 'skills.list', 'mcp.status', 'schedules.list', 'computer.status']) {
+  for (const method of ['work.list', 'skills.list', 'mcp.status', 'schedules.list', 'computer.status']) {
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
@@ -66,21 +66,35 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
 
   await until(async () => (await text('.status')).includes(status.version), 'real core status bar')
   screens.push({ screen: 'Status', text: await text('.status') })
-  await recordUnavailable('Chat and conversations', '.main')
-  await recordUnavailable('Conversation sidebar', 'nav[aria-label="Conversations"]')
-  const sidebarInset = await run<number>(`(() => {
-    const nav = document.querySelector('nav[aria-label="Conversations"]').getBoundingClientRect();
-    return document.querySelector('.sidebar-notice').getBoundingClientRect().left - nav.left;
-  })()`)
-  assert(sidebarInset >= 12, 'conversation unavailable notice must retain the sidebar inset')
-  assert.equal(await run('document.querySelectorAll(".conv-row").length'), 0, 'real session must never seed fixture conversations')
-  assert(await run('document.querySelector(".composer button[type=submit]")?.disabled === true'), 'unavailable chat must not offer a sendable composer')
-  assert(await run(`document.querySelector(${JSON.stringify('button[aria-label="Attach files"]')})?.disabled === true`), 'unavailable chat must not offer attachments')
+  await until(async () => (await count('.conv-row')) === 1 && (await text('.message-scroll')).includes('Ask Odin anything.') &&
+    await run<boolean>('document.querySelector(".composer textarea")?.disabled === false'), 'real first conversation and snapshot')
+  assert.equal(await text('.conv.active .conv-title'), 'Chat')
+  assert.equal(await count('.sidebar-notice'), 0, 'served conversations must not claim unavailable')
+  assert.equal(await count('.msg'), 0, 'fresh real conversation must not seed fixture messages')
+  assert(await run('document.querySelector(".composer button[type=submit]")?.disabled === true'), 'empty composer must not send')
+  assert(await run(`document.querySelector(${JSON.stringify('button[aria-label="Attach files"]')})?.disabled === false`), 'served chat must offer attachments')
+  const initial = await broker.request('conversations.list')
+  assert(initial.ok, 'real conversation list must succeed')
+  const initialItems = (initial.result as { items: Array<{ id: string; title: string }> }).items
+  assert.equal(initialItems.length, 1, 'first Chat must be persisted by the core, not fixture data')
+  assert.equal(initialItems[0]!.title, 'Chat')
+  screens.push({ screen: 'Chat and conversations', text: await text('.main') })
   await click('button[aria-label="New conversation"]')
-  await until(async () => unavailable.test(await text('.composer .notice:last-child')), 'new conversation refusal')
-  assert.equal(await run('document.querySelectorAll(".conv-row").length'), 0, 'refused creation must not invent a conversation')
+  await until(async () => (await count('.conv-row')) === 2 && (await text('.conv.active .conv-title')) === 'New chat' &&
+    (await text('.message-scroll')).includes('Ask Odin anything.') &&
+    await run<boolean>('document.querySelector(".composer textarea")?.disabled === false'), 'real new conversation and snapshot')
+  const created = await broker.request('conversations.list')
+  assert(created.ok, 'created conversations must be readable from real core')
+  const createdItems = (created.result as { items: Array<{ id: string; title: string }> }).items
+  assert.equal(createdItems.length, 2)
+  const conversationId = createdItems.find((item) => item.title === 'New chat')!.id
+  assert.notEqual(conversationId, initialItems[0]!.id)
+  const emptySnapshot = await broker.request('conversation.snapshot', { conversation_id: conversationId })
+  assert(emptySnapshot.ok, 'new conversation snapshot must be served')
+  assert.deepEqual((emptySnapshot.result as { messages: { items: unknown[] } }).messages.items, [])
+  screens.push({ screen: 'Conversation sidebar', text: await text('nav[aria-label="Conversations"]') })
 
-  // Slash commands remain useful without chat. Exercise the actual command
+  // Slash commands remain useful without a provider. Exercise the actual command
   // palette and bridge; /status and /usage now use real step-five observations.
   for (const command of ['/status', '/usage']) {
     await run(`(() => {
@@ -106,7 +120,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     input.value = 'smoke query'; input.dispatchEvent(new Event('input', { bubbles: true }));
     document.querySelector('.search-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
   })()`)
-  await recordUnavailable('Search', '.search-panel')
+  await until(async () => (await text('.search-panel .search-note')).includes('No matches.'), 'served empty conversation search')
+  assert.equal(await count('#conversation-search-error'), 0, 'served search must not claim unavailable')
+  screens.push({ screen: 'Search', text: await text('.search-panel') })
   assert.equal(await run('document.querySelectorAll(".search-hits li").length'), 0)
   await click('.work-toggle')
   await recordUnavailable('Work', '.work-panel')
