@@ -63,7 +63,8 @@ deleted from the plan and no failed test is retried by a later group.
   `/usr/local/sbin/odin-desktop-isolate` helper with `sudo -n -l`, then probe it.
   It creates private mount/PID namespaces with a private RAM-backed `/tmp`, and drops
   straight back to the invoking numeric UID/GID with no supplementary groups,
-  capabilities or privilege escalation.
+  capabilities or privilege escalation. That private `/tmp` hides host paths below `/tmp`,
+  so the Python launcher refuses a checkout or `ODIN_TEST_SCRATCH` there.
   A generic non-interactive `sudo -n unshare` launcher is tried last for full-sudo users.
   Both paths verify the separate `/proc`, PID namespace and non-root identity before
   starting tests. If neither works, no tests run. Each invocation has a throwaway HOME/XDG tree and
@@ -71,7 +72,8 @@ deleted from the plan and no failed test is retried by a later group.
 - CI short gates run on `odin-desktop-ci-light` (server-2, with two desktop fallbacks); tests and
   qualification run only on `odin-desktop-ci` (desktop). Qualification runs as five
   duration-balanced shards (`run-qualified-tests.py --shard K/5`, weights in
-  `maintenance/qualification-group-weights.json`); `ODIN_TEST_SCRATCH` puts each
+  `maintenance/qualification-group-weights.json`). Groups that select the same test file
+  share a shard, so once-only node ownership matches one unsharded run. `ODIN_TEST_SCRATCH` puts each
   launcher's HOME/XDG scratch on a private tmpfs directory. The desktop short gate runs
   on `odin-desktop-short` (desktop runners only, with a dedicated runner so it does
   not queue behind full suites). Server-2's util-linux 2.37.2
