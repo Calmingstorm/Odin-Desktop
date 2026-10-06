@@ -11,11 +11,14 @@ const root = mkdtempSync(join(tmpdir(), 'odin-real-smoke-output-'))
 const out = process.env.ODIN_SMOKE_OUT ? resolve(process.env.ODIN_SMOKE_OUT) : join(root, 'real-core.png')
 
 try {
-  await launchIsolated('xvfb-run', ['-a', '-s', '-screen 0 1280x800x24',
+  await launchIsolated('dbus-run-session', ['--config-file',
+    join(repositoryRoot, 'tests/desktop_fixtures/private-session.conf'), '--',
+    'xvfb-run', '-a', '-s', '-screen 0 1280x800x24 -nolisten tcp',
     join(appDir, 'node_modules/.bin/electron'), appDir, '--smoke-test'], {
     // Deliberately launch from app/: its TypeScript src/ must not shadow the installed engine.
     cwd: appDir,
-    timeoutMs: 90_000,
+    // Bound the full multi-screen smoke under CI load; checkpoint deadlines and single-run behavior stay unchanged.
+    timeoutMs: 600_000,
     env: {
       ODIN_DESKTOP_ENGINE_PYTHON: python,
       ODIN_SMOKE_SKILL_FIXTURE: join(appDir, 'test/harmless-skill.py'),

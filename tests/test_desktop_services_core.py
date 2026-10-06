@@ -9,7 +9,8 @@ from types import SimpleNamespace
 import pytest
 
 from src.desktop.core import CoreService
-from src.desktop.management import ManagementService, MethodError
+from src.desktop.management import ManagementService
+from src.desktop.resource_cleanup import ResourceCleanupError
 from tests.test_desktop_core_lifecycle import connect, profile, request
 from tests.test_desktop_management_core import TemporaryKeyring
 
@@ -165,9 +166,8 @@ async def test_failed_close_does_not_strand_other_transport_owners():
     manager = ManagementService(SimpleNamespace(), services=[Owner("first"), Owner("second", True)],
                                 identity_key=b"fixture".ljust(32, b"."))
     manager.providers = Owner("providers")
-    with pytest.raises(MethodError) as exc:
+    with pytest.raises(ResourceCleanupError, match="unverified"):
         await manager.close()
-    assert exc.value.disposition == "outcome_unknown"
     assert calls == ["second", "first", "providers"]
 
 

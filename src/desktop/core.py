@@ -21,8 +21,10 @@ from .ipc import IpcServer
 from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .management import ManagementService
+from .package_state import PackageUpgrade, inspect_profile
 from .paths import ProfilePaths
 from .requests import RequestService
+from .resource_cleanup import ResourceCleanupJournal
 from .search import TranscriptSearch
 from .secrets import secret_call
 from .services import build_engine_services
@@ -225,6 +227,7 @@ class CoreService:
         self._publication_ready = asyncio.Event()
         self._published_seq = 0
         self.management: ManagementService | None = None
+        self.resource_cleanup: ResourceCleanupJournal | None = None
         self._secret_backend = secret_backend
         self.capabilities = CAPABILITIES
         self.start_time = time.monotonic()
@@ -256,10 +259,16 @@ class CoreService:
         }
 
     async def start(self, stdin_fd: int = 0) -> None:
+        from ..version import get_version
+
+        # Refuse newer state before identity/bootstrap/store constructors write.
+        inspect_profile(self.paths, package_version=get_version())
         # The app creates the credential. Validate it before bootstrap adopts any state.
         load_token(self.token_file)
         self.authority = OwnerAuthority(self.paths, app_bootstrap=True)
         self.authority.acquire_runtime()
+        upgrade = PackageUpgrade(self.paths, self.authority, get_version())
+        upgrade.prepare()
         self.permissions = PermissionManager(self.authority)
         self.store = _PublicationStore(
             self.paths.data_dir / "transport.sqlite3", self.paths.profile_id,
@@ -272,6 +281,9 @@ class CoreService:
         self.lifetime.watch_parent(stdin_fd)
         self.lifetime.watch_signals()
         self.events = _CoreEvents(self.store)
+        self.resource_cleanup = ResourceCleanupJournal(
+            self.paths.data_dir / "resource-cleanup.json",
+        )
         self.conversations = ConversationStore(self.store, self.events)
         self.transcript = TranscriptStore(self.store, self.events, self.conversations)
         self.search = TranscriptSearch(self.transcript, self.events)
@@ -336,6 +348,7 @@ class CoreService:
         # hydration and startup vault reads remain off the event loop.
         await secret_call(settings.hydrate_secrets)
         await self.engine.initialize_profile_provider()
+        upgrade.commit()
         await self._start_management()
         self.capabilities = (*CAPABILITIES[:5],
                              *sorted((set(CAPABILITIES) | set(self.management.methods))
@@ -663,7 +676,24 @@ class CoreService:
                 if self.requests is not None:
                     await self.requests.close()
                 if self.engine is not None:
-                    await self.engine.close()
+                    try:
+                        await self.engine.close()
+                    except Exception:
+                        # Requests are settled, but execution cleanup failed.
+                        # Persist its uncertainty and attempt independent
+                        # management cleanup without releasing graph ownership.
+                        self._engine_cleanup_failed = True
+                        try:
+                            if self.management is not None:
+                                await self.management.close()
+                            elif self.resource_cleanup is not None:
+                                self.resource_cleanup.finish({
+                                    **getattr(self.engine, "execution_cleanup_results", {}),
+                                    "engine_services": {"state": "unknown"},
+                                })
+                        except Exception:
+                            pass  # The original engine failure remains authoritative.
+                        raise
             finally:
                 if self._publication_task is not None:
                     self._publication_task.cancel()

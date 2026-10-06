@@ -107,6 +107,8 @@ async def test_startup_status_schema_no_unlock(core, collection):
     for _ in range(2):
         status = await request(reader, writer, "status.get")
         assert status["result"]["first_run"]["reason"] == "keyring_unavailable"
+        assert status["result"]["resource_cleanup"] == service.resource_cleanup.public()
+        assert status["result"]["resource_cleanup"]["effects_undone"] is False
         schema = await request(reader, writer, "settings.schema")
         assert schema["result"]["status"]["keyring_error"]
     assert collection.unlock_calls == 0 and collection.calls > 0

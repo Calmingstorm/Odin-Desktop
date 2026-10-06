@@ -224,6 +224,10 @@ class ManagementService:
             catalog.computer_available = lambda: computer.published_available
             deps.management_owned_browser = browser is deps.browser_manager
             deps.management_owned_mcp = bound_mcp is mcp.manager
+            # The retained manager is a producer, not just a late transport.
+            # Its management wrapper remains the single close owner, but the
+            # engine must await it before declaring producers quiesced.
+            deps.management_mcp_service = mcp if deps.management_owned_mcp else None
         skills.set_on_catalog_changed(catalog.invalidate)
         mcp.set_on_catalog_changed(catalog.invalidate)
         catalog.invalidate()
@@ -497,7 +501,20 @@ class ManagementService:
             return response_error("internal", "Management outcome is unknown", "outcome_unknown")
 
     async def close(self) -> None:
-        errors = []
+        from .resource_cleanup import ResourceCleanupError, close_existing_execution_owners
+
+        # Retained barriers keep ambiguous native owners and independently prove
+        # whole process sessions before releasing their transports.
+        resources = await close_existing_execution_owners(self.core, self)
+        engine = getattr(self.core, "engine", None)
+        if engine is not None and not getattr(engine, "producers_quiesced", False):
+            # Never close shared services beneath unresolved engine producers.
+            resources["services"] = {"state": "unknown", "reason": "producers_not_quiesced"}
+            journal = getattr(self.core, "resource_cleanup", None)
+            if journal is not None:
+                journal.finish(resources)
+            raise ResourceCleanupError("Runtime producers are still settling")
+        failed = False
         # Teardown of one owner cannot strand the other supervised transports.
         owners = [*reversed(getattr(self, "lifecycle_services", self.services)),
                   (getattr(self, "providers", None)
@@ -509,8 +526,8 @@ class ManagementService:
                     result = close()
                     if inspect.isawaitable(result):
                         await result
-                except Exception as exc:
-                    errors.append(exc)
+                except Exception:
+                    failed = True
         executor = getattr(self, "executor", None)
         pool = getattr(executor, "ssh_pool", None)
         if pool is not None and not getattr(self, "_engine_owned", False):
@@ -520,10 +537,14 @@ class ManagementService:
                     result = close()
                     if inspect.isawaitable(result):
                         await result
-                except Exception as exc:
-                    errors.append(exc)
-        if errors:
-            raise MethodError("unavailable", "Runtime cleanup is unproven", "outcome_unknown")
+                except Exception:
+                    failed = True
+        resources["services"] = {"state": "unknown" if failed else "released"}
+        journal = getattr(self.core, "resource_cleanup", None)
+        if journal is not None:
+            journal.finish(resources)
+        elif failed or any(row["state"] == "unknown" for row in resources.values()):
+            raise ResourceCleanupError("Runtime resource cleanup is unverified")
 
     async def start(self) -> None:
         """Qualify configured service owners before the core publishes methods."""
