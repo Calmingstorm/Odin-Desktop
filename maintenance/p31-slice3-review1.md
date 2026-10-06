@@ -69,3 +69,50 @@ Additional development failures remain recorded, not silently replaced with pass
 The final incremental smoke passed both lanes: 39 management checkpoints and 11 provider-chat checkpoints,
 including typed generation-2 resume, ordinary continue, retained output, attachments/artifacts, real failure
 notice, exact-request Stop/Steer, queue/search/reset and conversation lifecycle. Fresh gates still follow.
+
+## Final fresh qualification, 2026-10-06
+
+Tested source: `46da834e915aae477f05186b3c8c3c0d9fa9ee53`. This is a true merge commit with original PR head
+`43c4fff4f831bccc55350734758483b614973331` and main `0b7d596f7e870d06699722f151c4d9837c5433f1` as parents.
+Main was rechecked after qualification and had not advanced. No rebase, force-push or review-PR merge.
+
+Fresh clone: `/home/odin/desktop-pr31-review1-fresh`, created with `git clone --no-hardlinks`; clean before and
+after all gates. Provisioned with `uv sync --frozen`, `npm ci --ignore-scripts` and explicit pinned Electron
+installation, Node 22.23.3 and Python 3.12.3. No dependency/lockfile changes. The pinned npm tree reports
+11 audit findings (10 high, 1 critical); this is not a dependency-security qualification or an audit-fix scope.
+
+| Gate | Final result |
+|---|---|
+| `npm run check` | PASS: typecheck, 716 tests in 77 files, build |
+| `npm run smoke` | PASS: isolated fixture Electron |
+| `npm run test:real-core` | PASS: 38 tests in 3 files, then 6 onboarding tests; no skips |
+| `npm run smoke:real-core` | PASS: 39 management + 11 provider-chat checkpoints; 4 retained-output pages |
+| `npm run test:a11y` | PASS: 15 tests; zero unexpected, flaky or skipped cases |
+
+All five commands ran sequentially, once, from the same fresh source from 04:41:14Z through 04:46:42Z.
+The final gate sequence had no failures. Earlier development failures above remain recorded separately.
+
+Real smoke evidence confirms:
+
+- Typed `continue` completes generation 2 on request `r_1dec405c5a744337afb052abfe5e5246` with one original
+  user message. With nothing resumable left, a second `continue` commits an ordinary new user message/request.
+- Guarded reply, real tool details and 119,698 characters over four output pages; actual 700,000-byte multi-chunk
+  attachment, posted-file download and decoded image.
+- A committed `notice`, bound to the failed request, reads `No LLM provider available. Please try again later.`
+  The HTTP-400 scenario separately retains the actual guarded error reply, not mislabeled as a notice.
+- Exact-request Stop; Steer safe-boundary consumed receipt; queued follow-up; search/highlighted jump;
+  context reset retaining transcript; rename/child/archive/unarchive/delete.
+- Main's real settings/management, missing-keyring error/Retry, readiness and unavailable later-service views
+  remain covered in the independent management lane. No fixture rows or falsely successful empty reads.
+
+Evidence root: `/home/odin/desktop-pr31-review1-evidence/`. It contains the exact gate script, `gates.tsv`, source
+and clean-status records, all five logs, `real-evidence.json`, `real-management-evidence.json`, `accessibility.json`,
+fixture/chat/settings screenshots, and `artifact-sha256.txt`. Selected hashes are in the adjacent machine result.
+
+Post-gate validation passed 3/3: fresh checkout clean, all five exit codes zero, no test executable/script from
+the checkout retained. The initial broad process-scan predicate matched Odin's own command-supervision worker
+because its argv contained the scan text. The corrected predicate checks executable/script positions and passed;
+no process was killed to manufacture cleanup. Namespace/profile cleanup is also recorded by the gates.
+
+The final evidence-only commit changes this document and the adjacent result JSON, not tested app/engine source.
+No deploy, live-service or active-desktop change.
