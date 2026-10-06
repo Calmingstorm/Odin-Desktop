@@ -52,7 +52,7 @@
 "src/tools/hosts/trust.py":"3fec73e26d24be800596c0e6e8bb6a7c474441e138e4de36b93b466a8470b913",
 "src/tools/http_probe_ops.py":"a07dde8f1ca37f7b85017a4cb7bbbfcfa830a6d901d3b87cf941856f369a98ae",
 "src/tools/risk_classifier.py":"60ba605878d4c4d6493c38a743c9d0f234ff272778e9fe2f3bb7125a2a3700dc",
-"tests/test_desktop_fresh_profile_parity.py":"3a93f372dc5c6dbdc049675c47deda1d9d4966a804f0ec23cf18ef7f747b8ec5"
+"tests/test_desktop_fresh_profile_parity.py":"b38b26e1c456ed108aa4dad3b1dc11c7a30b15f8488f557ea223550a21bb29e1"
 },
 "deltas":[
 ["access.unauthenticated_hosts",["localhost"],[],"D17"],
