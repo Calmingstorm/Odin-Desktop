@@ -167,6 +167,60 @@ the third opt-in candidate case passed separately against exact P4.1 bytes.
 Logs: `full-qualification.log`, `qualification-corrected-groups.log`,
 `qualification-boundary-serial.log` and the fresh checkout's JUnit XMLs.
 
+## Review round 1: Electron AppArmor attachment
+
+The reviewed head was `1944ab4682c6a1ba470a728af637547682b87f08`.
+Fix/build source is `4b948cfedf7c775c965754837edf35f9ebbca364`, tested in a
+fresh checkout at `/home/odin/desktop-pr36-r1-20261006`. The AppArmor resource
+now attaches to the renamed Electron ELF, `/opt/Odin/odin-desktop.bin`, not
+the shell/Python ownership launcher. The new regression executes the real
+after-pack hook against an executable ELF fixture, resolves the attachment
+inside its generated tree and checks ELF identity, executable mode and `userns`.
+Merely accepting the executable shell wrapper would not pass that regression.
+
+Both formats were rebuilt because the shipped AppArmor bytes changed. These
+supersede the initial candidate pair above for this review; those original
+Incus/install/full-qualification results remain evidence of their original
+bytes, not a claim that every acceptance lane was repeated on this new pair.
+
+| Review candidate | Bytes | SHA-256 |
+|---|---:|---|
+| `odin-desktop-0.1.0-candidate-amd64.deb` | 341673428 | `7e8d1865f752f3fd60cb6177ce13c3e8fd0a77afb05b529b8d684c44ef74d8b5` |
+| `odin-desktop-0.1.0-candidate-x86_64.AppImage` | 489681528 | `0cbcbe2d716f8de744992ee834320865fc797ca70c2cae31bcff9eaed4a6b529` |
+
+The new pair remains local in the review checkout's `.packaging-candidates/`.
+Their identical verified resource manifest has **8,485 files/links,
+975,746,015 bytes**, SHA-256
+`1eedfc7f39c6106d6abb62f4b3e375fa66ccf8c4cbd0a2a5d598e72a2fac3961`.
+
+| Repeated review gate | Observed result |
+|---|---|
+| Packaging, ordinary `odin` user | **70 passed, 12 reasoned skips**, zero failures/errors; 11 root transaction rows and one namespace read-only mount fixture skipped |
+| Root transaction module | **12/12 passed**, private PID/mount namespace and temporary paths |
+| Fresh app check | Typecheck/build and **703 tests passed** |
+| Fixture smoke | Passed, private Xvfb/bus/profile/PID namespace |
+| Real-core app contracts/onboarding | **21 contracts + 6 onboarding E2E passed** |
+| Real-core smoke | **39 screens passed** |
+| Short gates | Zero drift errors, seven inherited lint findings and zero new; ownership plan and lab Ruff pass |
+| AppArmor | Syntax parses with kernel loading/cache writes disabled; actual extracted formats name an executable ELF distinct from their wrapper |
+| Rebuilt extracted `.deb` and AppImage | Manifest/scans, real-core handshake/status/events/shutdown, offline D14 and sandbox-intact GUI passed; fresh clean app/core Exit receipts and zero bundled PDF payload files |
+
+Evidence: `/home/odin/reviews/desktop-pr36-r1-evidence/`.
+`extracted-candidates.json` SHA-256:
+`a6fb050b32222d246b791bcabe58a22ac47380582c0b1039b9ada83b5d46c28d`.
+No new installed-dpkg/container acceptance, full qualification or stock Ubuntu
+AppArmor/native/FUSE gate is claimed for this candidate pair. No kernel profile
+was loaded on the workstation. Repository-local dependencies were provisioned
+with the frozen uv lock and npm lock; no dependency versions changed.
+
+PR #41's root-user-namespace review fix was pushed separately at
+`be7ca4bec5c9590d81acc0adc53e8528de176128`: 47 passed/one real-root-dpkg skip
+as `calmingstorm`, 48/48 as real root, 48/48 as `odin`. Its real-root failure
+was reproduced from a checkout inside another user's 0750 home before the fix.
+#41 remains open and unmerged. Its portable tests have deliberately **not**
+been imported into #36 ahead of approval. The requested main merge awaits the
+reviewer's notification after #41 lands.
+
 ## Open gates and limitations
 
 - **Ubuntu 24.04 restricted-user-namespace/headless Chromium and FUSE-mounted
