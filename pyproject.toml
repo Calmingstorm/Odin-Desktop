@@ -43,6 +43,9 @@ dev = [
     "pytest-timeout==2.4.0",
     "ruff",
     "aioresponses>=0.7",
+    # D17 parity imports the frozen v4.13.0 executor in an isolated throwaway
+    # source tree. Its original Discord imports remain unchanged; test-only.
+    "discord.py==2.7.1",
     "Pillow>=12.3,<13",
     # Computer contract tests import protocol clients, never a real desktop.
     # Keep these aligned with the computer extra so clean CI .[dev] installs work.
