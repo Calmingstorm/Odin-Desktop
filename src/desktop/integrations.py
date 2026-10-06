@@ -8,7 +8,9 @@ the profile keyring; dispatcher adoption follows durable configuration writes.
 from __future__ import annotations
 
 import asyncio
+import threading
 import uuid
+from contextlib import nullcontext
 from copy import deepcopy
 from typing import Any
 from urllib.parse import urlparse
@@ -46,17 +48,127 @@ def _public_url(url: str) -> str:
     return parsed._replace(netloc=parsed.netloc.rsplit("@", 1)[-1]).geturl()
 
 
+class ProfileOutboundWebhookDispatcher(OutboundWebhookDispatcher):
+    """Retained delivery with live profile targets and one shutdown owner.
+
+    Construction is inert: no keyring read, transport, background task or ingress.
+    Target qualification is atomic and repeated only when desired rows change.
+    """
+
+    def __init__(self, get_config, *, secrets=None):
+        super().__init__()
+        self._get_config = get_config
+        self._secrets = secrets
+        self._adopted_rows = None
+        # Shared by qualification and management transactions, never acquired
+        # on an async delivery path. Workers may not publish stale signing keys
+        # across a concurrent save/rollback on this same retained owner.
+        self._target_lock = threading.RLock()
+        self._closed = False
+        self._deliveries = set()
+
+    def _sync(self):
+        with self._target_lock:
+            while True:
+                config = self._sync_locked()
+                if config is not None:
+                    return config
+
+    def _sync_locked(self):
+        if self._closed:
+            raise MethodError("unavailable", "outbound webhook owner is closed")
+        config = deepcopy(self._get_config().outbound_webhooks)
+        rows = [row.model_dump() for row in config.targets]
+        if rows != self._adopted_rows:
+            candidate = OutboundWebhookDispatcher()
+            for index, row in enumerate(config.targets):
+                if row.secret or urlparse(row.url).username is not None:
+                    raise MethodError(
+                        "unavailable", "outbound webhook secrets require keyring storage")
+                ident = _runtime_id(row, index)
+                try:
+                    secret = self._secrets.get(_secret_name(ident)) if self._secrets else ""
+                    private_url = (self._secrets.get(_url_secret_name(ident))
+                                   if self._secrets else None)
+                except Exception:
+                    raise MethodError(
+                        "unavailable", "outbound webhook keyring is unavailable") from None
+                try:
+                    candidate.register(**row.model_dump(exclude={"id", "secret", "url"}),
+                        url=(private_url if private_url and _public_url(private_url) == row.url
+                             else row.url), webhook_id=ident, secret=secret or "")
+                except ValueError:
+                    continue
+            # Config replacement/in-place edits can occur while the vault is
+            # answering. Qualify a fresh snapshot instead of publishing old rows.
+            if self._get_config().outbound_webhooks != config:
+                return None
+            if self._closed:
+                raise MethodError("unavailable", "outbound webhook owner is closed")
+            self._webhooks = candidate._webhooks
+            self._adopted_rows = deepcopy(rows)
+        self._scrub = config.scrub_secrets
+        self._rate_limit_seconds = max(0.0, config.rate_limit_seconds)
+        return config
+
+    def get_status(self):
+        self._sync()
+        return super().get_status()
+
+    async def dispatch(self, event_type, data, **kwargs):
+        if self._closed:
+            return []
+        task = asyncio.current_task()
+        self._deliveries.add(task)
+        try:
+            config = await secret_call(self._sync)
+            if self._closed or not config.enabled:
+                return []
+            return await super().dispatch(event_type, data, **kwargs)
+        finally:
+            self._deliveries.discard(task)
+
+    async def send_test_event(self, webhook_id):
+        task = asyncio.current_task()
+        self._deliveries.add(task)
+        try:
+            await secret_call(self._sync)
+            if self._closed:
+                raise MethodError("unavailable", "outbound webhook owner is closed")
+            return await super().send_test_event(webhook_id)
+        finally:
+            self._deliveries.discard(task)
+
+    async def close(self):
+        if self._closed:
+            return
+        self._closed = True
+        tasks = [task for task in self._deliveries if task is not asyncio.current_task()]
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        await super().close()
+
+
 class IntegrationsService:
     METHODS = METHODS
     READ_METHODS = READ_METHODS
 
-    def __init__(self, settings, *, dispatcher=None):
+    def __init__(self, settings, *, dispatcher=None, owns_dispatcher=None):
         self.settings = settings
         self.dispatcher = dispatcher
+        self._owns_dispatcher = (dispatcher is None if owns_dispatcher is None else owns_dispatcher)
+        self._closed = False
         self._lock = asyncio.Lock()
 
     def _owner(self):
+        if self._closed:
+            raise MethodError("unavailable", "outbound integration service is closed")
         if self.dispatcher is not None:
+            sync = getattr(self.dispatcher, "_sync", None)
+            if callable(sync):
+                sync()
             return self.dispatcher
         config = self.settings.config.outbound_webhooks
         owner = OutboundWebhookDispatcher(
@@ -88,6 +200,14 @@ class IntegrationsService:
         self.dispatcher = owner
         return owner
 
+    async def close(self):
+        async with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            if self._owns_dispatcher and self.dispatcher is not None:
+                await self.dispatcher.close()
+
     async def handle(self, method: str, params: dict) -> dict:
         if method not in METHODS:
             raise MethodError("not_found", "unknown integration method")
@@ -105,7 +225,7 @@ class IntegrationsService:
         async with self._lock:
             dispatcher = await secret_call(self._owner)
             if method == "webhooks.outbound.list":
-                return dispatcher.get_status()
+                return await secret_call(dispatcher.get_status)
             if method == "webhooks.outbound.test":
                 ident = self._identifier(params)
                 result = await dispatcher.send_test_event(ident)
@@ -188,6 +308,13 @@ class IntegrationsService:
         dispatcher._webhooks = targets
 
     def _mutate(self, dispatcher, method, params):
+        with getattr(dispatcher, "_target_lock", nullcontext()):
+            sync = getattr(dispatcher, "_sync", None)
+            if callable(sync):
+                sync()
+            return self._mutate_locked(dispatcher, method, params)
+
+    def _mutate_locked(self, dispatcher, method, params):
         expected = params.get("expected_revision", self.settings.revision)
         if expected is not None and expected != self.settings.revision:
             raise MethodError("stale_binding", "settings revision changed", "stale_binding")

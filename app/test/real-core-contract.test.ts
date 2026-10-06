@@ -39,7 +39,7 @@ describe('actual app Broker ↔ repository real core', () => {
 
   test('authenticates the handshake, reads real status and replays events after a cursor', async () => {
     expect(realCoreCapabilities).toEqual(SERVED_CAPABILITIES)
-    expect(realCoreCapabilities).toHaveLength(120)
+    expect(realCoreCapabilities).toHaveLength(130)
     expect(new Set(realCoreCapabilities).size).toBe(realCoreCapabilities.length)
     const { broker, welcome } = await core.connect()
     expect(welcome).toMatchObject({
@@ -148,7 +148,9 @@ describe('actual app Broker ↔ repository real core', () => {
       input_supported: false, dispatch: 'none'
     } })
     expect(computer).not.toHaveProperty('input_dispatch')
-    for (const method of ['work.list', 'schedules.list', 'turns.create', 'skills.test',
+    expect(successful(await broker.request('work.list', {}, id))).toMatchObject({ items: [] })
+    expect(successful(await broker.request('schedules.list', {}, id))).toEqual([])
+    for (const method of ['turns.create', 'skills.test',
       'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
       expect(capabilities).not.toContain(method)
       refused(await broker.request(method, {}, id), 'capability_unavailable')

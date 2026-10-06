@@ -9,11 +9,14 @@ import { ensureProfileDirs, ensureToken, profilePaths, type ProfilePaths } from 
 const repository = resolve(__dirname, '../..')
 
 // The published named contract, not an arbitrary renderer RPC surface. Step 6A
-// management is served; Part B dispatch and foreground input remain absent.
+// management and durable background work are served; foreground input remains absent.
 export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
   'artifacts.read', 'tool.detail', 'tool.output',
   'control.stop', 'control.steer', 'control.resume',
+  'work.list', 'work.control', 'reports.page',
+  'schedules.list', 'schedules.save', 'schedules.delete', 'schedules.run',
+  'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron',
   'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
   'conversations.reset_context', 'conversations.mark_read', 'messages.list',
   'conversation.snapshot', 'search.query', 'messages.around',
@@ -43,11 +46,12 @@ export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.s
   'computer.reconcile_hyprland_owner'
 ].sort()]
 
-type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string; stageFileSkill?: string }
+type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string; stageFileSkill?: string; skillFileDelivery?: 'send' | 'stage' }
 
 // Only the external secret/auth boundary is substituted. The entry point, management services,
 // transport, command journal, settings persistence and Broker remain the actual repository code.
 // stageFileSkill selects the existing dispatcher delivery policy for one disposable fixture;
+// skillFileDelivery defaults to stage, or explicitly tests send for a scheduled workflow.
 // it does not replace skill execution, callbacks, publication or final-reply delivery.
 const isolatedServicesBootstrap = `
 import sys, runpy
@@ -70,15 +74,16 @@ if base:
     device.DEVICE_VERIFY_URL = base + '/verify'
     auth.TOKEN_URL = base + '/oauth/token'
 stage_skill = sys.argv[3]
+file_delivery = sys.argv[4]
 if stage_skill:
     from src.discord.native_tools.registry import NativeToolDispatcher
     dispatch = NativeToolDispatcher.dispatch
     async def staged_dispatch(self, tool_name, tool_input, **kwargs):
         if tool_name == stage_skill or (tool_name == 'invoke_skill' and tool_input.get('name') == stage_skill):
-            kwargs['skill_file_delivery'] = 'stage'
+            kwargs['skill_file_delivery'] = file_delivery
         return await dispatch(self, tool_name, tool_input, **kwargs)
     NativeToolDispatcher.dispatch = staged_dispatch
-sys.argv = ['src', *sys.argv[4:]]
+sys.argv = ['src', *sys.argv[5:]]
 runpy.run_module('src', run_name='__main__')
 `
 
@@ -183,7 +188,7 @@ export class RealCoreHarness {
     this.output = ''
     const entry = this.services.memoryKeyring || this.services.authBaseUrl || this.services.stageFileSkill
       ? ['-c', isolatedServicesBootstrap, this.services.memoryKeyring ? 'memory' : 'missing',
-        this.services.authBaseUrl ?? '', this.services.stageFileSkill ?? '']
+        this.services.authBaseUrl ?? '', this.services.stageFileSkill ?? '', this.services.skillFileDelivery ?? 'stage']
       : ['-m', 'src']
     const child = spawn(this.python, ['-B', '-P', ...entry, '--socket', this.paths.socketPath,
       '--token-file', this.paths.tokenPath, '--profile', this.paths.profileId, '--data-dir', this.paths.dataDir],

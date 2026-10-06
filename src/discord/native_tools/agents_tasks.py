@@ -14,9 +14,12 @@ is the gateway, and the compression config object is read live through
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
+from uuid import uuid4
 
 from ...agents.manager import AGENT_BLOCKED_TOOLS, filter_agent_tools
 from ...async_utils import fire_and_forget
@@ -724,6 +727,11 @@ class AgentTaskDeps:
     # MCP control plane (P3) — background tasks dispatch published MCP tools
     # through the shared seam. None keeps the branch inert (tests).
     mcp_manager: MCPManager | None = None
+    # Core-issued background identity, durable manager bindings and publication.
+    # None deliberately refuses admission rather than inventing a message proxy.
+    background_admission: object | None = None
+    work_service: object | None = None
+    publish_background: Callable | None = None
 
 
 class AgentTaskTools:
@@ -749,12 +757,34 @@ class AgentTaskTools:
         self._turn_recorder = deps.turn_recorder
         self._prompt_builder = deps.prompt_builder
         self._tool_catalog = deps.tool_catalog
+        self._background_admission = deps.background_admission
+        self._work_service = deps.work_service
+        self._publish_background = deps.publish_background
+
+    def _require_background(self) -> None:
+        if (getattr(self, "_background_admission", None) is None
+                or getattr(self, "_work_service", None) is None):
+            raise RuntimeError(
+                "Phase 2 durable background admission is not configured. No work was started."
+            )
+        if getattr(self, "_publish_background", None) is None:
+            raise RuntimeError(
+                "Phase 2 durable background publication is not configured. No work was started."
+            )
+
+    async def _control_work(self, message, kind, manager_id, action, *, text=None) -> str:
+        if self._work_service is None:
+            return "Error: Durable work controls are not configured."
+        result = await self._work_service.control_native(
+            message, kind, manager_id, action, text=text
+        )
+        return result if isinstance(result, str) else json.dumps(result, sort_keys=True)
 
     # --- Background task delegation ---
 
     async def _handle_delegate_task(self, message: object, inp: dict) -> str:
         """Create and start a background task."""
-        raise RuntimeError("Phase 2 background request admission and delivery is not implemented.")
+        self._require_background()
         # RequestToolAdapter validates Codex payloads before dispatch. Legacy
         # providers supply canonical objects directly and retain their existing
         # permissive delegation contract, including deferred execution checks.
@@ -811,6 +841,21 @@ class AgentTaskTools:
             requester_id=message.owner_id,
             nested_payload_validated=nested_validated,
         )
+        background = self._background_admission.register_background(
+            message, "task", uuid4().hex, description
+        )
+        self._channel_state.background_tasks[task.task_id] = task
+        try:
+            self._work_service.register("task", task.task_id, background, parent_message=message)
+        except BaseException:
+            del self._channel_state.background_tasks[task.task_id]
+            self._background_admission.settle_background(background, "failed")
+            raise
+
+        async def _publish(kind: str, text: str) -> None:
+            await self._publish_background(background, text, kind)
+
+        task.publish = _publish
 
         # Prune old completed tasks
         completed = [
@@ -848,7 +893,7 @@ class AgentTaskTools:
             codex_cb = _codex_followup
 
         # Launch in background
-        async def _run():
+        async def _run_body():
             try:
                 await run_background_task(
                     task,
@@ -878,7 +923,20 @@ class AgentTaskTools:
                 if task.status != "cancelled":
                     task.status = "failed"
 
+        async def _run():
+            async with self._background_admission.background_execution(background, settle=False):
+                await _run_body()
+
+        def _settled(finished):
+            if finished.cancelled():
+                task.status = "cancelled"
+            elif finished.exception() is not None:
+                task.status = "failed"
+            self._background_admission.settle_background(background, task.status)
+            self._work_service.refresh_all()
+
         task._asyncio_task = asyncio.create_task(_run())
+        task._asyncio_task.add_done_callback(_settled)
 
         return (
             f"Background task started (ID: `{task.task_id}`): **{description}** "
@@ -943,25 +1001,18 @@ class AgentTaskTools:
             )
         return "\n".join(lines)
 
-    async def _handle_cancel_task(self, inp: dict) -> str:
+    async def _handle_cancel_task(self, message: object, inp: dict) -> str:
         """Cancel a running background task and wait for it to actually stop.
 
         Uses ``request_cancel`` (not the cooperative ``cancel``) so an in-flight
         step is interrupted rather than run to completion; returns only after
         the task has settled as cancelled.
         """
-        task_id = inp.get("task_id", "")
-        task = self._channel_state.background_tasks.get(task_id)
-        if not task:
-            return f"No task found with ID `{task_id}`."
-        cancelled = await task.request_cancel()
-        if not cancelled:
-            return f"Task `{task_id}` is not running (status: {task.status})."
-        return f"Task `{task_id}` cancelled."
+        return await self._control_work(message, "task", inp.get("task_id", ""), "cancel")
 
     def _handle_start_loop(self, message: object, inp: dict) -> str:
         """Start an autonomous loop."""
-        raise RuntimeError("Phase 2 autonomous request admission and delivery is not implemented.")
+        self._require_background()
         goal = inp.get("goal", "")
         if not goal:
             return "A 'goal' is required to start a loop."
@@ -970,6 +1021,35 @@ class AgentTaskTools:
         mode = inp.get("mode", "notify")
         stop_condition = inp.get("stop_condition")
         max_iterations = inp.get("max_iterations", 50)
+        admitted = {}
+
+        def _before_start(info):
+            background = self._background_admission.register_background(
+                message, "loop", uuid4().hex, goal
+            )
+            try:
+                self._work_service.register("loop", info.id, background, parent_message=message)
+            except BaseException:
+                self._background_admission.settle_background(background, "failed")
+                raise
+            admitted["message"] = background
+
+        @asynccontextmanager
+        async def _execution(info):
+            async with self._background_admission.background_execution(
+                admitted["message"], settle=False
+            ):
+                yield
+
+        async def _publish(info, text):
+            await self._publish_background(admitted["message"], text, "loop")
+
+        def _settled(info):
+            outcome = "completed" if info.status == "completed" else (
+                "cancelled" if info.status == "stopped" else "failed"
+            )
+            self._background_admission.settle_background(admitted["message"], outcome)
+            self._work_service.refresh_all()
 
         # Build iteration callback that runs through Codex with tools
         async def _iteration_cb(
@@ -978,17 +1058,21 @@ class AgentTaskTools:
             prev_context: str | None,
             cancel_event: asyncio.Event,
         ) -> str:
-            return await self._tool_loop.run_autonomous(
-                prompt,
-                channel,
-                prev_context,
-                message.owner_id,
-                cancel_event=cancel_event,
+            iteration = self._background_admission.register_background(
+                admitted["message"], "loop_iteration", uuid4().hex, prompt
             )
+            async with self._background_admission.background_execution(iteration):
+                return await self._tool_loop.run_autonomous(
+                    prompt,
+                    iteration,
+                    prev_context,
+                    iteration.owner_id,
+                    cancel_event=cancel_event,
+                )
 
-        result = self._loop_manager.start_loop(
+        result = self._loop_manager.start_admitted_loop(
             goal=goal,
-            channel=message.surface,
+            channel=message.channel,
             requester_id=message.owner_id,
             requester_name=message.owner_id,
             iteration_callback=_iteration_cb,
@@ -996,6 +1080,10 @@ class AgentTaskTools:
             mode=mode,
             stop_condition=stop_condition,
             max_iterations=max_iterations,
+            before_start=_before_start,
+            execution=_execution,
+            publish=_publish,
+            on_settled=_settled,
         )
 
         # If result is a loop ID (short hex), format success message
@@ -1022,12 +1110,25 @@ class AgentTaskTools:
             f"(every {max(10, interval)}s, mode={mode}, max {max_iterations} iterations)"
         )
 
-    async def _handle_stop_loop(self, inp: dict) -> str:
+    async def _handle_stop_loop(self, message: object, inp: dict) -> str:
         """Stop an autonomous loop."""
         loop_id = inp.get("loop_id", "")
         if not loop_id:
             return "A 'loop_id' is required."
-        result = await self._loop_manager.stop_loop(loop_id)
+        if loop_id == "all":
+            # Enumerating manager IDs is not authority. Each target still goes
+            # through immutable WorkService binding and ControlService journal.
+            targets = [info.id for info in self._loop_manager._loops.values()
+                       if info.status == "running"
+                       and info.requester_id == message.owner_id
+                       and info.channel_id == message.conversation_id]
+            if not targets:
+                return "No active loops to stop."
+            results = []
+            for target in targets:
+                results.append(await self._control_work(message, "loop", target, "stop"))
+            return "\n".join(results)
+        result = await self._control_work(message, "loop", loop_id, "stop")
         # Lifecycle webhook: loop.stopped
         fire_and_forget(
             self._turn_recorder._emit_lifecycle_event(
@@ -1130,9 +1231,7 @@ class AgentTaskTools:
         captures the agent's own id, so if the child itself calls spawn_agent
         the grandchild is correctly nested.
         """
-        raise RuntimeError(
-            "Phase 2 agent request admission and invocation context is not implemented."
-        )
+        self._require_background()
         from ..scheduled_context import consume_scheduled_dispatch
 
         scheduled = consume_scheduled_dispatch()
@@ -1278,12 +1377,12 @@ class AgentTaskTools:
                     f"Error: selected compatible model is not agent-eligible: {unavailable_reason}"
                 )
 
-        channel = getattr(message, "channel", message)
-        author = getattr(message, "author", None)
-        user_id = str(getattr(author, "id", "0"))
-        user_name = str(author) if author else "agent"
+        channel = message.channel
+        user_id = message.owner_id
+        user_name = message.owner_name
 
-        system_prompt = self._prompt_builder.build_full_prompt(channel=channel, user_id=user_id)
+        system_prompt = self._prompt_builder.build_full_prompt(
+            conversation_id=message.conversation_id, user_id=user_id)
         all_tools = (
             self._tool_catalog.merged_definitions() if self._get_config().tools.enabled else []
         )
@@ -1325,7 +1424,7 @@ class AgentTaskTools:
             )
 
         # Iteration callback — wraps Codex chat_with_tools, returns dict
-        async def _iteration_cb(
+        async def _iteration_body(
             messages: list[dict],
             sys_prompt: str,
             tool_defs: list[dict],
@@ -1398,15 +1497,20 @@ class AgentTaskTools:
                 ),
             }
 
-        # Phase 2 must supply a real invocation context; never synthesize one.
-        raise RuntimeError("Phase 2 agent invocation context is not implemented.")
+        background = self._background_admission.register_background(
+            message, "agent", uuid4().hex, goal
+        )
+
+        async def _iteration_cb(*args, **kwargs):
+            async with self._background_admission.background_execution(background, settle=False):
+                return await _iteration_body(*args, **kwargs)
 
         # Mutable container so the callback can learn its own agent_id
         # AFTER agent_manager.spawn() returns and use it as parent_id when
         # this agent itself calls spawn_agent.
         _self_id: dict[str, str | None] = {"id": None}
 
-        async def _tool_exec_cb(tool_name: str, tool_input: dict) -> str | ToolResult:
+        async def _tool_exec_body(tool_name: str, tool_input: dict) -> str | ToolResult:
             if tool_name == "spawn_agent":
                 # Nested spawn — forward this agent's id so AgentManager.spawn
                 # enforces max_nesting_depth and children linkage.
@@ -1424,7 +1528,7 @@ class AgentTaskTools:
             result = await self._tool_loop.dispatch_loop_tool(
                 tool_name,
                 tool_input,
-                message,
+                background,
                 user_id,
             )
             if isinstance(result, ToolResult):
@@ -1442,6 +1546,10 @@ class AgentTaskTools:
                     error="unsupported_agent_image",
                 )
             return str(result) if result is not None else ""
+
+        async def _tool_exec_cb(tool_name: str, tool_input: dict) -> str | ToolResult:
+            async with self._background_admission.background_execution(background, settle=False):
+                return await _tool_exec_body(tool_name, tool_input)
 
         agents_cfg = getattr(self._get_config(), "agents", None)
         iter_cap = _agent_iteration_cap(
@@ -1517,7 +1625,28 @@ class AgentTaskTools:
         )
 
         if agent_id.startswith("Error"):
+            self._background_admission.settle_background(background, "failed")
             return agent_id
+        # spawn queues its worker without yielding. Persist the exact manager
+        # identity in this same callback, before any provider/tool can execute.
+        agent = self._agent_manager._agents[agent_id]
+        try:
+            self._work_service.register("agent", agent_id, background, parent_message=message)
+        except BaseException:
+            # Admission failed: stop the not-yet-started worker, never execute
+            # unledgered work. This is rollback, not a user control bypass.
+            agent._task.cancel()
+            self._background_admission.settle_background(background, "failed")
+            raise
+        def _settled(finished):
+            status = agent.status
+            outcome = "completed" if status == "completed" else (
+                "cancelled" if status == "killed" or finished.cancelled() else "failed"
+            )
+            self._background_admission.queue_background_finish(background, outcome,
+                on_finished=self._work_service.refresh_all)
+
+        agent._task.add_done_callback(_settled)
         _self_id["id"] = agent_id
         depth_note = f" (depth {parent_depth})" if parent_id_arg else ""
         return f"Agent '{label}' spawned (ID: `{agent_id}`){depth_note}. Working on: {goal[:100]}"
@@ -1575,15 +1704,15 @@ class AgentTaskTools:
         }
         return "\n".join(parts), raw
 
-    def _handle_send_to_agent(self, inp: dict) -> str:
+    async def _handle_send_to_agent(self, message: object, inp: dict) -> str:
         """Send a message to a running agent."""
         agent_id = inp.get("agent_id", "")
-        message = inp.get("message", "")
+        text = inp.get("message", "")
         if not agent_id:
             return "'agent_id' is required."
-        if not message:
+        if not text:
             return "'message' is required."
-        return self._agent_manager.send(agent_id, message)
+        return await self._control_work(message, "agent", agent_id, "steer", text=text)
 
     def _handle_list_agents(self, message: object) -> str:
         """List all agents, optionally filtered by channel."""
@@ -1612,12 +1741,12 @@ class AgentTaskTools:
             )
         return f"**Agents ({len(agents)}):**\n" + "\n".join(lines)
 
-    def _handle_kill_agent(self, inp: dict) -> str:
+    async def _handle_kill_agent(self, message: object, inp: dict) -> str:
         """Kill a running agent."""
         agent_id = inp.get("agent_id", "")
         if not agent_id:
             return "'agent_id' is required."
-        return self._agent_manager.kill(agent_id)
+        return await self._control_work(message, "agent", agent_id, "cancel")
 
     async def _load_agent_result(self, agent_id: str) -> dict | None:
         result = self._agent_manager.get_results(agent_id)

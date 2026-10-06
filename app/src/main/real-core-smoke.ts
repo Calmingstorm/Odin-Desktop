@@ -25,6 +25,9 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover', 'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
   'control.stop', 'control.steer', 'control.resume',
+  'work.list', 'work.control', 'reports.page',
+  'schedules.list', 'schedules.save', 'schedules.delete', 'schedules.run',
+  'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron',
   'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete', 'webhooks.outbound.test', 'integrations.email.get',
   'skills.list', 'skills.get', 'skills.validate', 'skills.save', 'skills.delete',
   'skills.set_enabled', 'skills.config.get', 'skills.config.set',
@@ -73,16 +76,15 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
   }
 
-  // Part B dispatch, work and schedules remain genuine refusals. Step 6A
-  // management being served does not grant skill execution or native input.
-  for (const method of ['work.list', 'schedules.list', 'turns.create', 'skills.test',
+  // Background work is served. Unnamed dispatch and native input remain refusals.
+  for (const method of ['turns.create', 'skills.test',
     'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
 
   const reads: Record<string, unknown> = {}
-  for (const method of ['settings.schema', 'usage.get', 'personality.get', 'tools.list', 'tools.timeouts.get', 'hosts.list', 'memory.list', 'lists.list', 'knowledge.list', 'health.get', 'audit.query', 'logs.search', 'turn_state.list', 'skills.list', 'mcp.list', 'mcp.status', 'computer.status']) {
+  for (const method of ['settings.schema', 'usage.get', 'personality.get', 'tools.list', 'tools.timeouts.get', 'hosts.list', 'memory.list', 'lists.list', 'knowledge.list', 'health.get', 'audit.query', 'logs.search', 'turn_state.list', 'skills.list', 'mcp.list', 'mcp.status', 'computer.status', 'work.list', 'schedules.list']) {
     const answer = await broker.request(method)
     assert(answer.ok, `${method} management read must succeed`)
     reads[method] = answer.result
@@ -91,6 +93,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert(!accounts.ok && accounts.error.code === 'keyring_unavailable', 'isolated profile must honestly report missing system keyring, not invent accounts')
   reads['codex.accounts.list'] = accounts
   assert.deepEqual(reads['lists.list'], { items: [] })
+  assert.deepEqual(reads['work.list'], { items: [] })
+  assert.deepEqual(reads['schedules.list'], [])
   assert.deepEqual(reads['skills.list'], [], 'fresh skills list is a served array, not an items wrapper')
   for (const method of ['mcp.list', 'mcp.status']) {
     const mcp = reads[method] as { servers: unknown[]; server_count: number; configured_servers: string[];
@@ -115,7 +119,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert(!('input_dispatch' in computer), 'management status must not grant an input dispatch binding')
   assert.deepEqual(reads['audit.query'], [])
   assert.deepEqual(reads['logs.search'], { entries: [], count: 0 })
-  assert.equal((reads['turn_state.list'] as { availability: string }).availability, 'not_enabled')
+  assert.equal((reads['turn_state.list'] as { availability: string }).availability, 'available')
   assert.deepEqual((reads['usage.get'] as { tokens: unknown }).tokens, { value: null, kind: 'unknown' })
   assert((reads['settings.schema'] as { fields: unknown[] }).fields.length > 0, 'real management schema must contain fields')
 
@@ -143,14 +147,6 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     }
   }
   const screens: Array<{ screen: string; text: string }> = []
-  const unavailable = /not (?:yet )?available|unavailable|not served|later (?:step|slice)/i
-  const recordUnavailable = async (screen: string, selector: string): Promise<void> => {
-    await until(async () => unavailable.test(await text(selector)), screen)
-    const rendered = await text(selector)
-    assert(!/Loading…|Searching…/.test(rendered), `${screen} is still loading`)
-    assert(!/Service is not available yet/.test(rendered), `${screen} presents a generic core error instead of an unavailable state`)
-    screens.push({ screen, text: rendered })
-  }
 
   await until(async () => (await text('.status')).includes(status.version), 'real core status bar')
   screens.push({ screen: 'Status', text: await text('.status') })
@@ -218,7 +214,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   screens.push({ screen: 'Search', text: await text('.search-panel') })
   assert.equal(await run('document.querySelectorAll(".search-hits li").length'), 0)
   await click('.work-toggle')
-  await recordUnavailable('Work', '.work-panel')
+  await until(async () => /Nothing is running\./.test(await text('.work-panel')), 'served empty work list')
+  assert.equal(await count('.work-panel .capability-unavailable'), 0)
+  screens.push({ screen: 'Work', text: await text('.work-panel') })
   assert.equal(await run('document.querySelectorAll(".work-item").length'), 0)
   writeFileSync(out, (await win.webContents.capturePage()).toPNG())
 
@@ -227,11 +225,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   await until(async () => (await count('.settings-group .schema-form')) > 0, 'real settings schema before enumerating all sections')
   const sections = await run<string[]>('Array.from(document.querySelectorAll(".settings-nav-item"), b => b.innerText)')
   assert.deepEqual(sections, ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust', 'Scheduled and running work', 'State', 'Records', 'Other'])
-  // Check unserved work owners separately from the wired Step 6A read panels.
-  const servicePanels: Record<string, string[]> = {
-    'Scheduled and running work': ['section[aria-label="Schedules"]', 'section[aria-label="Running work"]']
-  }
   const servedPanels: Record<string, Array<[string, RegExp]>> = {
+    'Scheduled and running work': [['section[aria-label="Schedules"]', /No schedules yet\./], ['section[aria-label="Running work"]', /Nothing is running\./]],
     'Models and providers': [['.codex-accounts', /keyring.*(?:locked|unavailable)/i]],
     Personality: [['section[aria-label="Personality"]', /preset|personality/i]],
     Tools: [['section[aria-label="Built-in tools"]', /run_command/], ['section[aria-label="Tool timeouts"]', /Default|seconds/i]],
@@ -239,7 +234,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     'MCP servers': [['section[aria-label="MCP"]', /0 of 0 servers connected.*0 tools offered/s], ['section[aria-label="MCP servers"]', /Add server/]],
     'Hosts and trust': [['section[aria-label="Hosts"]', /localhost/]],
     State: [['section[aria-label="Memory"]', /0 entries/], ['section[aria-label="Named lists"]', /No lists\./], ['section[aria-label="Knowledge"]', /Knowledge/]],
-    Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /not measured: Odin doesn't know this value/], ['section[aria-label="Audit"]', /Nothing recorded\./], ['section[aria-label="Logs"]', /No entries\./], ['section[aria-label="Turn state"]', /Turn state is off\./], ['section[aria-label="Computer use"]', /Refresh/]]
+    Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /not measured: Odin doesn't know this value/], ['section[aria-label="Audit"]', /Nothing recorded\./], ['section[aria-label="Logs"]', /No entries\./], ['section[aria-label="Turn state"]', /Nothing preserved\./], ['section[aria-label="Computer use"]', /Refresh/]]
   }
   const observations = await run<Record<string, { ok: boolean; result?: unknown; error?: { code: string; message: string } }>>(`(async () => ({
     settings: await window.odin.settingsSchema(), hosts: await window.odin.hostsList({}),
@@ -267,7 +262,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.deepEqual(observations.mcp!.result, reads['mcp.status'])
   assert.deepEqual(observations.computer!.result, reads['computer.status'])
   assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [])
-  assert.equal((observations.turns!.result as { availability: string }).availability, 'not_enabled')
+  assert.equal((observations.turns!.result as { availability: string }).availability, 'available')
   for (let i = 0; i < sections.length; i++) {
     await click(`.settings-nav-item:nth-of-type(${i + 2})`)
     if (sections[i] === 'Models and providers') {
@@ -288,11 +283,6 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       await until(async () => (await text('section[aria-label=Hosts]')).includes('localhost'), 'real localhost row')
       assert.equal(await run('document.querySelector("section[aria-label=Hosts] select").value'), 'localhost')
       await until(async () => (await text('section[aria-label="Odin\'s key"]')).includes('ssh-ed25519'), 'fresh provisioned SSH public key')
-    }
-    for (const selector of servicePanels[sections[i]!] ?? []) {
-      await recordUnavailable(`Settings / ${sections[i]} / ${selector}`, selector)
-      assert.equal(await run(`document.querySelectorAll(${JSON.stringify(selector + ' .manage-row, ' + selector + ' .work-item')}).length`), 0, `${selector} must not display fixture rows`)
-      assert(!/No schedules yet|No servers\.|Nothing is running\./.test(await text(selector)), 'refused reads must not claim successful empty results')
     }
     for (const [selector, expected] of servedPanels[sections[i]!] ?? []) {
       await until(async () => expected.test(await text(selector)), `served ${sections[i]} / ${selector}`)

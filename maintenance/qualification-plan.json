@@ -1449,6 +1449,17 @@
         "tests/test_desktop_request_core.py",
         "tests/test_desktop_requests.py",
         "tests/test_desktop_request_failures.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_work_native.py",
+        "tests/test_desktop_reports.py",
+        "tests/test_desktop_schedule_recovery.py",
+        "tests/test_desktop_computer_binding.py",
+        "tests/test_desktop_background_requests.py",
+        "tests/test_desktop_background_core.py",
+        "tests/test_desktop_shared_outbound.py",
+        "tests/test_desktop_first_run.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_secret_domain_threads.py",
         "tests/test_desktop_tool_details.py",
         "tests/test_desktop_persisted_outputs.py",
         "tests/desktop_adapters/test_phase2_runner_characterization.py",
@@ -1490,7 +1501,8 @@
         "tests/test_desktop_test_plan.py",
         "tests/test_pdf_resources.py",
         "tests/test_desktop_pdf_catalog.py",
-        "tests/test_desktop_transcript.py"
+        "tests/test_desktop_transcript.py",
+        "tests/test_desktop_background_skill_delivery.py"
       ],
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups."
     },
@@ -1687,7 +1699,9 @@
     },
     {
       "name": "faithful-retirement-corpus",
-      "files": ["tests/test_desktop_shared_retirement.py"],
+      "files": [
+        "tests/test_desktop_shared_retirement.py"
+      ],
       "reason": "Frozen model-retirement cases keep assertions and parameter data; only exact inert transport YAML and genuine selected-profile setup are changed. Retired WebUI source inspection stays excluded."
     },
     {
@@ -1700,17 +1714,23 @@
     },
     {
       "name": "final-helper-cases",
-      "files": ["tests/test_desktop_final_helpers.py"],
+      "files": [
+        "tests/test_desktop_final_helpers.py"
+      ],
       "reason": "Exact retained schema, error, knowledge and documentation behavior; removed route/intake claims receive named effect-free boundary evidence."
     },
     {
       "name": "final-distribution-cases",
-      "files": ["tests/test_desktop_final_distribution.py"],
+      "files": [
+        "tests/test_desktop_final_distribution.py"
+      ],
       "reason": "Exact retired server packaging and native dispatch dispositions; private wheel and current disabled/unready capability boundaries verified without native input."
     },
     {
       "name": "final-config-cases",
-      "files": ["tests/test_desktop_final_config.py"],
+      "files": [
+        "tests/test_desktop_final_config.py"
+      ],
       "reason": "Exact remaining configuration, evidence digest, model identity, skill listing and timeout definitions with real profile boundaries; removed schema/intake contracts receive named replacements."
     },
     {

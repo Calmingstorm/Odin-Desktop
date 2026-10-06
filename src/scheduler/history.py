@@ -60,6 +60,7 @@ class ScheduleHistory:
         duration_ms: int,
         error: str | None = None,
         retry_attempt: int = 0,
+        run_binding: dict | None = None,
     ) -> dict[str, Any]:
         """Record a schedule execution. Returns the saved entry."""
         entry: dict[str, Any] = {
@@ -74,6 +75,8 @@ class ScheduleHistory:
             entry["error"] = error[:500]
         if retry_attempt > 0:
             entry["retry_attempt"] = retry_attempt
+        if run_binding is not None:
+            entry["run_binding"] = dict(run_binding)
 
         line = json.dumps(entry, default=str) + "\n"
         async with self._lock:

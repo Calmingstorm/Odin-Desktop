@@ -47,6 +47,91 @@ describe('actual Broker/core skill conversation delivery', () => {
     releaseFinal = undefined
   })
 
+  test.each(['send', 'stage'] as const)('%s scheduled background skill delivers into its owning conversation and final workflow report', async (mode) => {
+    core = new RealCoreHarness({ memoryKeyring: true, stageFileSkill: skillName, skillFileDelivery: mode })
+    await core.start()
+    const { broker } = await core.connect()
+    const source = join(core.root, 'scheduled-owned-source.txt')
+    writeFileSync(source, 'owned fixture provenance\n', { mode: 0o600 })
+    result(await broker.request('skills.save', { name: skillName, code: fixtureSkill }, randomUUID()))
+    const create = async (title: string): Promise<string> => result<{ conversation: { id: string } }>(await broker.request(
+      'conversations.create', { title }, randomUUID())).conversation.id
+    const conversation = await create(`${mode} scheduled skill delivery`)
+    const unrelated = await create('must not receive scheduled skill callbacks')
+    const snapshot = async (connection: Broker, cid = conversation): Promise<ConversationSnapshot> => result<ConversationSnapshot>(
+      await connection.request('conversation.snapshot', { conversation_id: cid }))
+    const events: CoreEvent[] = []
+    broker.on('event', (event: CoreEvent) => events.push(event))
+    result(await broker.subscribe())
+    const schedule = result<{ id: string }>(await broker.request('schedules.save', {
+      description: `${mode} scheduled fixture`, action: 'workflow', channel_id: conversation,
+      run_at: new Date(Date.now() + 86_400_000).toISOString(), max_retries: 0,
+      steps: [{ tool_name: 'invoke_skill', tool_input: { name: skillName, input: { path: source } },
+        description: 'Publish fixture callbacks', on_failure: 'abort' }]
+    }, randomUUID()))
+    const runCommand = randomUUID()
+    const runParams = { id: schedule.id }
+    const run = await broker.request('schedules.run', runParams, runCommand)
+    expect(result(run)).toMatchObject({ status: 'success', schedule_id: schedule.id })
+    const completed = await snapshot(broker)
+    expect(completed.messages.items.every((item) => item.role === 'notice')).toBe(true)
+    const progress = completed.messages.items.find((item) => item.text.startsWith('Skill progress'))!
+    expect(progress).toMatchObject({ role: 'notice', text: 'Skill progress [REDACTED]', request_id: expect.any(String) })
+    const report = completed.messages.items.find((item) => item.text.startsWith('**Workflow:'))!
+    expect(report).toMatchObject({ role: 'notice', request_id: progress.request_id,
+      text: expect.stringContaining('Fixture callbacks completed') })
+    expect(report.artifacts ?? [], JSON.stringify(completed.messages.items)).toHaveLength(mode === 'stage' ? 2 : 0)
+    const files = completed.messages.items.flatMap((item) => item.artifacts ?? []).filter((artifact) => artifact.kind !== 'report')
+    expect(files).toEqual([
+      { ref: expect.any(String), name: 'skill-pixels.png', mime: 'image/png', kind: 'image', size: png.length, available: true },
+      { ref: expect.any(String), name: 'skill-bytes.bin', mime: 'application/octet-stream', kind: 'file', size: binary.length, available: true }
+    ])
+    expect(completed.messages.items, JSON.stringify(completed.messages.items)).toHaveLength(mode === 'stage' ? 2 : 4)
+    expect((await snapshot(broker, unrelated)).messages.items).toEqual([])
+    const history = result<Array<{ status: string; run_binding: { conversation_id: string } }>>(await broker.request(
+      'schedules.history', { id: schedule.id, limit: 10 }))
+    expect(history).toHaveLength(1)
+    expect(history[0]).toMatchObject({ run_binding: { conversation_id: conversation } })
+    expect(result(await broker.request('work.list', { kind: 'schedule', conversation_id: conversation }))).toMatchObject({
+      items: [expect.objectContaining({ kind: 'schedule', conversation_id: conversation, manager_id: schedule.id })]
+    })
+    for (const [index, bytes] of [png, binary].entries()) {
+      const artifact = result<{ data_b64: string; eof: boolean }>(await broker.request('artifacts.read', {
+        ref: files[index]!.ref, offset: 0, length: 512
+      }))
+      expect(artifact.eof).toBe(true)
+      expect(Buffer.from(artifact.data_b64, 'base64')).toEqual(bytes)
+    }
+    await waitFor(() => events.filter((event) => event.type === 'artifact.published').length === 2,
+      'scheduled skill artifact publications')
+    for (const event of events.filter((event) => ['artifact.published', 'report.published'].includes(event.type))) {
+      expect(event.payload).toMatchObject({ conversation_id: conversation, request_id: progress.request_id })
+    }
+    expect(await broker.request('schedules.run', runParams, runCommand)).toEqual(run)
+    expect((await snapshot(broker)).messages.items).toEqual(completed.messages.items)
+    expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
+    broker.close()
+    const provenance = core.artifactProvenance()
+    expect(provenance).toHaveLength(2)
+    for (const [index, bytes] of [png, binary].entries()) {
+      expect(provenance[index]).toMatchObject({ ref: files[index]!.ref, conversation_id: conversation,
+        request_id: progress.request_id, tool: skillName, size: bytes.length, mime: files[index]!.mime,
+        sha256: createHash('sha256').update(bytes).digest('hex') })
+      expect(provenance[index]!.hosts).toEqual([expect.objectContaining({ alias: 'localhost' })])
+    }
+    await core.start()
+    const restarted = (await core.connect()).broker
+    expect((await snapshot(restarted)).messages.items).toEqual(completed.messages.items)
+    expect((await snapshot(restarted, unrelated)).messages.items).toEqual([])
+    for (const [index, bytes] of [png, binary].entries()) {
+      const artifact = result<{ data_b64: string }>(await restarted.request('artifacts.read', {
+        ref: files[index]!.ref, offset: 0, length: 512
+      }))
+      expect(Buffer.from(artifact.data_b64, 'base64')).toEqual(bytes)
+    }
+    expect(result(await restarted.request('schedules.history', { id: schedule.id, limit: 10 }))).toHaveLength(1)
+  })
+
   test.each(['send', 'stage'] as const)('%s mode delivers true skill callbacks with request-owned bytes and final reply', async (mode) => {
     core = new RealCoreHarness({ memoryKeyring: true, stageFileSkill: mode === 'stage' ? skillName : undefined })
     // Let the real core mint the profile identity before adding user-owned skill state.

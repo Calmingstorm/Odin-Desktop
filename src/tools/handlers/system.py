@@ -385,6 +385,15 @@ class SystemTools(HandlerBase):
                     "was terminated.",
                     1,
                 )
+            admitted = getattr(self, "_desktop_process_admitted", None)
+            if admitted is not None and info is not None:
+                try:
+                    admitted(info)
+                except BaseException:
+                    # Registration failure cannot leave an untracked dispatched
+                    # generation. This is exact-generation containment, not replay.
+                    await registry.terminate_generation(info.generation)
+                    raise
             return result, 0
 
         elif action == "poll":
@@ -479,6 +488,9 @@ class SystemTools(HandlerBase):
             pid = inp.get("pid")
             if pid is None:
                 return "pid is required for kill action.", 1
+            control = getattr(self, "_desktop_process_control", None)
+            if control is not None:
+                return await control(int(pid)), 0
             result = await registry.kill(int(pid), authorized=authorized)
             if info is not None and not authorized(info):
                 return "Error: process access denied.", 1

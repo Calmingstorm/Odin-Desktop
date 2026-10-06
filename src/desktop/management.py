@@ -110,7 +110,7 @@ class ManagementService:
         from .codex_accounts import CodexAccountsService
         from .computer_binding import ComputerBindingService
         from .hosts import HostsService
-        from .integrations import IntegrationsService
+        from .integrations import IntegrationsService, ProfileOutboundWebhookDispatcher
         from .knowledge import KnowledgeService
         from .mcp import MCPService
         from .model_settings import ModelSettingsService
@@ -323,7 +323,11 @@ class ManagementService:
                    else ContextLoader(settings.config.context.directory))
         runtime = RuntimeService(core, settings, llm=providers, context=context, skills=skills)
         models = ModelSettingsService(settings, executor=executor, provider=providers)
-        integrations = IntegrationsService(settings)
+        outbound = (deps.outbound_webhook_dispatcher if deps is not None else
+                    ProfileOutboundWebhookDispatcher(lambda: settings.config,
+                                                     secrets=settings.secrets))
+        integrations = IntegrationsService(settings, dispatcher=outbound,
+                                           owns_dispatcher=deps is None)
         manager = cls(core, services=[settings, codex, hosts, state, knowledge,
                                      records, runtime, models, integrations, skills, mcp, computer],
                       identity_key=_binding_key(core.paths))
@@ -333,6 +337,7 @@ class ManagementService:
         manager.skills, manager.mcp = skills, mcp
         manager.browser, manager.computer = browser, computer
         manager.tool_catalog, manager.workspace_diagnostics = catalog, diagnostics
+        manager.integrations = integrations
         manager._engine_owned = deps is not None
         return manager
 
