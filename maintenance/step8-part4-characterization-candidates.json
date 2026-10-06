@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "lane": "lane8_6A",
+  "adapter": "tests/desktop_adapters/step8_6a_characterization.py",
+  "target": "tests/test_desktop_step8_6a_characterization_corpus.py",
+  "dispositions": [
+    {
+      "path": "tests/characterization/test_api_route_parity.py",
+      "inherited_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194",
+      "status": "retired",
+      "selector": "tests/characterization/test_api_route_parity.py",
+      "restoration": null,
+      "blocker": null,
+      "retired_cases": [
+        {"case":"TestImportSurface.test_helpers_canonical_home_is_api_common","reviewer":"Claude, review of step 8 part 4","reason":"Removed Odin HTTP API canonical import home.","source_path":"tests/characterization/test_api_route_parity.py","source_sha256":"06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"},
+        {"case":"TestImportSurface.test_process_web_chat_patch_seam","reviewer":"Claude, review of step 8 part 4","reason":"Removed Odin web UI chat patch seam.","source_path":"tests/characterization/test_api_route_parity.py","source_sha256":"06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"},
+        {"case":"TestImportSurface.test_public_entry_points","reviewer":"Claude, review of step 8 part 4","reason":"Removed HTTP listener setup/create_api_routes entry points.","source_path":"tests/characterization/test_api_route_parity.py","source_sha256":"06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"},
+        {"case":"TestImportSurface.test_shared_helpers_importable_from_api","reviewer":"Claude, review of step 8 part 4","reason":"Removed HTTP API import surface.","source_path":"tests/characterization/test_api_route_parity.py","source_sha256":"06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"},
+        {"case":"TestRouteTableParity.test_exact_route_list_and_order","reviewer":"Claude, review of step 8 part 4","reason":"Removed HTTP listener route registration table.","source_path":"tests/characterization/test_api_route_parity.py","source_sha256":"06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"},
+        {"case":"TestRouteTableParity.test_handlers_close_over_the_given_bot","reviewer":"Claude, review of step 8 part 4","reason":"Removed HTTP listener handler closure table.","source_path":"tests/characterization/test_api_route_parity.py","source_sha256":"06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"},
+        {"case":"TestRouteTableParity.test_no_duplicate_method_path_pairs","reviewer":"Claude, review of step 8 part 4","reason":"Removed HTTP listener method/path route table.","source_path":"tests/characterization/test_api_route_parity.py","source_sha256":"06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"}
+      ]
+    },
+    {
+      "path":"tests/characterization/test_native_skill_dispatch_pins.py",
+      "inherited_sha256":"b1639873c2af9332df8e0d2ac57177c39efb721e1a822b22187b9da085cabfb2",
+      "status":"deferred",
+      "selector":"tests/characterization/test_native_skill_dispatch_pins.py",
+      "restoration":null,
+      "support_evidence":{"mode":"partial-frozen-support","support_case_functions":10,"support_parameterized_cases":15},
+      "retired_cases":[{"case":"TestFileDelivery.test_file_cb_send_mode_posts_to_channel","reviewer":"Claude, review of step 8 part 4","reason":"Removed Discord channel.send file publication callback.","source_path":"tests/characterization/test_native_skill_dispatch_pins.py","source_sha256":"b1639873c2af9332df8e0d2ac57177c39efb721e1a822b22187b9da085cabfb2"}],
+      "blocker":"Neutral canonical skill export/file staging is explicitly Phase2 unavailable; native registration table differs from the archived table.",
+      "deferred_cases":[
+        {"case":"TestFileDelivery.test_export_skill_always_stages","reason":"Canonical SkillTools returns conversation_delivery_unavailable rather than staging."},
+        {"case":"TestFileDelivery.test_file_cb_stage_mode_appends_pending","reason":"Canonical stage callback explicitly unavailable until durable Phase2 publication."},
+        {"case":"TestHandlesTruthTable.test_wired_bot_handles_all_native_registrations","reason":"Neutral whole-table recovery still needs exact mapping for removed tools in archived native registration constants."}
+      ]
+    },
+    {
+      "path":"tests/characterization/test_p1_carve_semantics.py",
+      "inherited_sha256":"011f3a955b54720e5023ed485c4ab267ccf324d085449371dbc6196771b709dc",
+      "status":"deferred",
+      "selector":"tests/characterization/test_p1_carve_semantics.py",
+      "restoration":null,
+      "support_evidence":{"mode":"partial-frozen-support","support_case_functions":1,"canonical_execution":"RequestService authenticated worker invokes real ToolLoopRunner on original caller history"},
+      "retired_cases":[],
+      "blocker":"Real list_schedules output authority unavailable; post-turn detail storage changed.",
+      "deferred_cases":[
+        {"case":"TestCarveMutationSemantics.test_gather_results_keep_call_order_under_reversed_completion","reason":"Concretely attempted in real RequestService worker; list_schedules output retention fails PermissionError Output capability unavailable. No authority bypass."},
+        {"case":"TestCarveMutationSemantics.test_op_details_accumulate_in_order_across_iterations","reason":"EngineServices.record_result removes old in-memory details into durable accounting before inherited observation; need canonical observation adapter without changing assertions."}
+      ]
+    },
+    {
+      "path":"tests/characterization/test_p2_composition.py",
+      "inherited_sha256":"0195fbb4c590d4bb523f1333581456bb957c3d12049e8faf2ecc05ee4dc45f1e",
+      "status":"deferred",
+      "selector":"tests/characterization/test_p2_composition.py",
+      "restoration":null,
+      "support_evidence":{"mode":"partial-frozen-support","support_case_functions":5,"canonical_composition":"EngineServices.deps real owners and live gateway pointers; fixed missing UsageRollup and trajectory observer composition"},
+      "retired_cases":[{"case":"TestTwoStageComposition.test_scheduler_start_wires_scheduled_events_methods","reviewer":"Claude, review of step 8 part 4","reason":"Removed Discord OdinBot.on_ready lifecycle and guild synchronization source contract.","source_path":"tests/characterization/test_p2_composition.py","source_sha256":"0195fbb4c590d4bb523f1333581456bb957c3d12049e8faf2ecc05ee4dc45f1e"}],
+      "blocker":"Absent exact inherited pipeline resume facade and moved auxiliary construction seam. Real UsageRollup, optional calibration owner wiring, and CoreService resume release hook are fixed and verified; exact archived facade observations remain unadapted.",
+      "deferred_cases":[
+        {"case":"TestTwoStageComposition.test_public_names_are_the_component_fields","reason":"Retained neutral component list includes pipeline/intake/scheduled_events not exposed by composed Desktop graph."},
+        {"case":"TestTwoStageComposition.test_calibration_release_hooks_are_wired_to_owner_managers","reason":"Production CoreService resume release hook is fixed; exact inherited pipeline._turn_resume facade observation is not exposed by this EngineServices fixture."},
+        {"case":"TestTwoStageComposition.test_wired_chat_release_callback_removes_exact_scope","reason":"Production CoreService release callback is fixed and parent-tested; inherited pipeline._turn_resume facade fixture remains unadapted, not retired merely for discord string."},
+        {"case":"TestAuxiliaryWiring.test_aux_client_built_and_bound","reason":"Auxiliary construction moved to ProviderOwner, inherited Codex monkeypatch wiring seam unavailable; exact fixture recovery not completed."}
+      ]
+    },
+    {
+      "path":"tests/characterization/test_facade_contract.py",
+      "inherited_sha256":"5781096ed17b7dd88c88ee8047197f169e4782a4518c8e8dffdd67427be977d4",
+      "status":"deferred",
+      "selector":"tests/characterization/test_facade_contract.py",
+      "restoration":null,
+      "support_evidence":{"mode":"partial-frozen-support","support_case_functions":7},
+      "retired_cases":[{"case":"TestWebChatRoute.test_process_web_chat_drives_real_tool_loop","reviewer":"Claude, review of step 8 part 4","reason":"Removed Odin HTTP web-chat UI route and web-owned lock cache.","source_path":"tests/characterization/test_facade_contract.py","source_sha256":"5781096ed17b7dd88c88ee8047197f169e4782a4518c8e8dffdd67427be977d4"}],
+      "blocker":"Mixed transport/neutral flat surface lists and absent live knowledge setter.",
+      "deferred_cases":[
+        {"case":"TestPositiveSurface.test_service_handles_exist","reason":"Whole flat list mixes removed channel/bearer fields with unexposed neutral service handles; cannot blanket-retire."},
+        {"case":"TestPositiveSurface.test_component_handles_exist","reason":"Neutral pipeline/intake/scheduled_events component handles absent from Desktop graph; cannot blanket-retire."},
+        {"case":"TestPositiveSurface.test_knowledge_property_is_live_and_settable","reason":"Canonical Desktop engine lacks inherited live settable knowledge property; no fabricated adapter property."}
+      ]
+    },
+    {
+      "path":"tests/characterization/test_tool_parity.py",
+      "inherited_sha256":"41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
+      "status":"deferred",
+      "selector":"tests/characterization/test_tool_parity.py",
+      "restoration":null,
+      "support_evidence":{"mode":"partial-frozen-support","support_case_functions":2,"catalog_recovery":"Real Desktop _ReadyCatalog PDF visibility through composed owner graph"},
+      "retired_cases":[],
+      "blocker":"Intentional Desktop schema/readiness/profile-clone changes conflict with exact inherited registry/cache assertions. Need reviewer ruling, not retirement.",
+      "deferred_cases":[
+        {"case":"TestToolParity.test_exact_names_and_order","reason":"Exact 67-tool order includes removed Discord and tier tools. Mixed neutral whole-list case needs reviewer ruling."},
+        {"case":"TestToolParity.test_schema_deep_equality","reason":"Desktop schemas intentionally changed; frozen old schema hashes cannot be changed under exact corpus contract."},
+        {"case":"TestToolParity.test_tool_map_completeness_and_identity","reason":"Expected complete old registry includes removed tools; neutral mapping/identity remains relevant."},
+        {"case":"TestBackendGatedVisibility.test_unconfigured_backends_are_invisible","reason":"Genuine Desktop _ReadyCatalog removes unready native owners, conflicting with old exact registry arithmetic."},
+        {"case":"TestBackendGatedVisibility.test_generate_image_follows_codex_auth_not_chat_provider","reason":"Genuine native image readiness requires qualified media owner, not dummy enabled Config flags."},
+        {"case":"TestRegistryMutabilitySemantics.test_tool_map_static_but_defs_cache_rebuilds","reason":"Canonical registry now returns profile-isolated clones rather than original same-object cache behavior."},
+        {"case":"TestRegistryMutabilitySemantics.test_defs_cache_identity","reason":"Profile-isolated clones intentionally contradict inherited object identity contract."},
+        {"case":"TestRegistryMutabilitySemantics.test_defs_shape_and_schema_identity","reason":"Old 67-tool list and reference-shared schemas conflict with retained profile-isolation semantics."}
+      ]
+    }
+  ],
+  "data_substitutions": [],
+  "fixture_proof": {"support_hashes":"SUPPORT_SUITE","support_cases":"SUPPORT_CASES","whole_suite_selection":{},"counts":{"assigned_suites":6,"deferred_suites":5,"retired_suites":1,"restored_suites":0,"support_case_functions":25,"support_parameterized_cases":30,"retired_case_functions":10,"deferred_case_functions":20},"focused_validation":{"passed":38,"failed":0,"duration_seconds":15.61,"environment":"nonroot odin; isolated PID namespace; disposable HOME/XDG; workspace .venv"},"qualification":"partial frozen support only; no restored suites or parameter edits"},
+  "entries": [
+    {"path":"tests/desktop_adapters/step8_6a_characterization.py","reason":"Separate static empty whole-suite selections from hash-bound frozen partial support.","contract":"Exact frozen support and full-case exclusions unchanged.","invariant":"No restored-suite claim or parameter edits.","owner":"Odin","tests":["tests/test_desktop_step8_6a_characterization_corpus.py","tests/test_desktop_step8_6a_characterization_provenance.py"]},
+    {"path":"tests/test_desktop_step8_6a_characterization_corpus.py","reason":"Use load_support instead of whole-suite load.","contract":"Partial support only.","invariant":"Five suites deferred.","owner":"Odin","tests":["tests/test_desktop_step8_6a_characterization_corpus.py"]},
+    {"path":"tests/test_desktop_step8_6a_characterization_provenance.py","reason":"Validate source hashes, unchanged corpus and disjoint complete case coverage.","contract":"Exact frozen source-bound provenance.","invariant":"Partial support not restored.","owner":"Odin","tests":["tests/test_desktop_step8_6a_characterization_provenance.py"]},
+    {"path":"tests/test_desktop_step8_6a_characterization_wiring.py","reason":"Exercise actual usage writer and calibration release owner hooks.","contract":"Genuine canonical owner graph.","invariant":"No fabricated owners.","owner":"Odin","tests":["tests/test_desktop_step8_6a_characterization_wiring.py"]},
+    {"path":"src/desktop/services.py","reason":"Preserve existing real delta: compose profile-local UsageRollup, wire both trajectory savers and catalog lookup, stop rollup at close, forward optional WindowObserver to agent/loop/runner/housekeeping owners.","contract":"Actual UsageRollup and calibration hooks, existing production delta only.","invariant":"No further production edits or live/deploy/opt/commit operations.","owner":"Odin","tests":["tests/test_desktop_step8_6a_characterization_wiring.py","tests/test_desktop_step8_6a_characterization_corpus.py"]}
+  ]
+}

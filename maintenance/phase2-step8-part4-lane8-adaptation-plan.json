@@ -1,22 +1,293 @@
 {
-  "schema_version": 1,
-  "reviewer": "Claude, review of step 8 part 4",
   "base_main": "0b7d596f7e870d06699722f151c4d9837c5433f1",
-  "services_merge": "2d91071a692a646b6d8c466daa5711a37cd8c93f",
-  "status": "pending-independent-review-not-accepted",
   "entries": [
-    {"path":"src/desktop/core.py","reason":"Restore the genuine retained resumed-turn calibration release hook at canonical core composition after characterization exposed its absence.","contract":"TurnResumeManager receives a release callback that derives exact chat workload scope from retained TurnKey provenance and calls the same profile-local observer used by runner/background owners.","invariant":"No channel-wide calibration erasure, unrelated lineage mutation, fabricated identity or released input authority.","owner":"Odin","tests":["tests/test_desktop_step8_6a_resume_calibration.py","tests/test_desktop_resume_trigger.py","tests/test_desktop_resume_no_ledger.py"]},
-    {"path":"tests/test_desktop_step8_6a_resume_calibration.py","reason":"Prove actual CoreService resume composition releases only the exact inherited turn calibration namespace.","contract":"Start a real temporary-profile core and demonstrate one chat scope removed while another chat scope and an agent lineage remain unchanged.","invariant":"No source text test, mock resume callback, active display, real network/provider execution or live profile.","owner":"Odin","tests":["tests/test_desktop_step8_6a_resume_calibration.py"]},
-    {"path":"tests/desktop_adapters/step8_6a_hyprland.py","reason":"Restore complete retained Hyprland integration/discovery suites via exact source-hash setup hunks and separately preserve pure support cases without manufacturing foreground grants.","contract":"Frozen source/archive hashes, unchanged full assertion/signature/decorator/parameter corpus, canonical owner and retained controller/backend logic; exact reviewed web operator case omissions only.","invariant":"Native qualification and absent Desktop foreground paths stay deferred. Partial support never claims whole restoration or active desktop effects.","owner":"Odin","tests":["tests/test_desktop_step8_6a_hyprland_corpus.py","tests/test_desktop_step8_6a_hyprland_support.py"]},
-    {"path":"tests/test_desktop_step8_6a_hyprland_corpus.py","reason":"Export the two exact complete retained frozen Hyprland integration/discovery suites with reviewed removed cases omitted at registration only.","contract":"Run genuine retained integration/controller helpers and verify full source/corpus/manifests while listing concrete unavailable foreground blockers separately.","invariant":"No input replay, fake foreground admission, assertions changed or active graphical session.","owner":"Odin","tests":["tests/test_desktop_step8_6a_hyprland_corpus.py"]},
-    {"path":"tests/test_desktop_step8_6a_hyprland_support.py","reason":"Keep immutable pure backend/parser/scope evidence from concretely deferred mixed foreground suites without declaring restoration.","contract":"Test original source-hash-bound pure support cases and full source corpus guards; every unbuilt foreground branch remains explicitly deferred.","invariant":"No support subset passes as full suite qualification, rewritten assertions, native input or active display use.","owner":"Odin","tests":["tests/test_desktop_step8_6a_hyprland_support.py"]},
-    {"path":"tests/desktop_adapters/step8_6a_tools.py","reason":"Restore eight exact inherited tool suites using real profile OwnerAuthority, MCPService, BrowserRuntime and EngineServices construction.","contract":"Archive/source/corpus-bound whole retained tests, exact setup hashes and canonical request owner; five removed freshness HTTP cases omitted under work-order authority.","invariant":"No private execution/permission bypass, fabricated owner, destructive data substitution, modified assertion/signature/decorator/parameter corpus or live browser/desktop session.","owner":"Odin","tests":["tests/test_desktop_step8_6a_tools_corpus.py"]},
-    {"path":"tests/test_desktop_step8_6a_tools_corpus.py","reason":"Collect whole inherited MCP, packaged-browser waits, replay converter and branch-freshness cases plus explicit provenance/owner guards.","contract":"Run 392 unchanged inherited parameterized cases and fail-closed source/corpus and authority checks in the isolated launcher.","invariant":"Frozen tests remain byte-identical; five removed web cases are exact case dispositions, not test failures hidden by selection.","owner":"Odin","tests":["tests/test_desktop_step8_6a_tools_corpus.py"]},
-    {"path":"src/desktop/management.py","reason":"Combine main producer-safe resource cleanup with the real 6A service lifecycle and preserve original-owner receipts while closing all transports after a failure.","contract":"Do not close shared transports below active engine producers; finish durable unknown/released resource evidence. Without a cleanup journal, service failures report outcome_unknown without omitting other owner close calls.","invariant":"No replay, false cleanup success, foreground grant, new owner identity or active desktop effects.","owner":"Odin","tests":["tests/test_desktop_services_core.py","tests/test_desktop_management.py","tests/test_desktop_management_core.py","tests/test_desktop_resource_cleanup.py"]},
-    {"path":"scripts/maintenance/phase2_suites.py","reason":"Admit only exact lane8 restored selectors and task-authorized removed-surface cases, independently pinning the audited 97-suite disposition artifact.","contract":"Preserve original 869-file and 326-suite populations, every prior group, archive hashes and exact whole-suite corpus guards. Allow only listed step6 selectors and exact original case retirement rows.","invariant":"No generic group or retirement waiver, unchecked partial corpus, false review acceptance, mutation of lane6 rows or original test bytes.","owner":"Odin","tests":["tests/test_desktop_phase2_suite_map.py","tests/test_desktop_step8_6a_accounting.py"]},
-    {"path":"scripts/maintenance/fixture_corpus.py","reason":"Expose explicitly reviewed removed cases after full frozen module compilation without changing retained inherited assertion code.","contract":"Exact function/class-method exclusions affect pytest registration only; unchanged cases preserve code/signatures/decorators/parameters and source association hashes.","invariant":"No partial selection implicitly counts as whole restoration; current task checker binds each exclusion to exact source case and reviewed disposition.","owner":"Odin","tests":["tests/test_desktop_fixture_corpus.py","tests/test_desktop_step8_6a_accounting.py"]},
-    {"path":"scripts/maintenance/step8_part4_records.py","reason":"Reconcile exact main and services-part-a merge provenance and explicit audited lane8 adaptations, maintaining pending evidence records.","contract":"Preserve both semantic contracts and test evidence for named merge paths; current part4 plan separately owns conflict resolutions and new source.","invariant":"No blanket divergence blessing, source edits, upstream/live operation or independent approval claim.","owner":"Odin","tests":["tests/test_desktop_maintenance.py","tests/test_desktop_step8_6a_accounting.py"]},
-    {"path":"scripts/maintenance/step8_part4_integrate.py","reason":"Integrate exactly the assigned 97 audited suite dispositions and derive current suite/case membership without touching the other lane.","contract":"Hash immutable assignment and each inherited suite, demand case-level full retirement closure, retain original map rows outside lane8 and explicit blocker/restoration separation.","invariant":"No invented coverage, silent test edits, source unfreezing, passing claim for deferred support or removed-surface retirement without exact case proof.","owner":"Odin","tests":["tests/test_desktop_phase2_suite_map.py","tests/test_desktop_step8_6a_accounting.py"]},
-    {"path":"tests/test_desktop_step8_6a_accounting.py","reason":"Exercise exact case retirement registration and independent fail-closed task artifact provenance.","contract":"Reject altered source hash, unauthorized reviewer/case/reason, metadata additions and coherent unknown case dispositions while keeping inherited code unchanged.","invariant":"Only harmless static modules and temporary offline files; no runtime/native service or active desktop effects.","owner":"Odin","tests":["tests/test_desktop_step8_6a_accounting.py"]}
-  ]
+    {
+      "contract": "All twenty-six assigned suites hash-bound; complete case-level retirements, eleven exact record schemas, eight pending proposals and separate fixture proof.",
+      "invariant": "Partial support remains deferred; proposals grant no retirement authority; no inherited source or production diagnostic changed.",
+      "owner": "Odin, lane8_6A campaigns",
+      "path": "maintenance/step8-part4-campaigns-candidates.json",
+      "reason": "Consolidate exact assigned suite dispositions, source/test adaptation records and pending reviewer decisions.",
+      "tests": [
+        "tests/test_desktop_step8_6a_campaigns_corpus.py",
+        "tests/test_desktop_step8_6a_characterization_provenance.py",
+        "tests/test_desktop_step8_6a_empty_fields_corpus.py"
+      ]
+    },
+    {
+      "contract": "Explicit sorted assignment paths and matching analysis rows; exact source-hash-bound retired case references, no wildcard or cross-lane rows.",
+      "invariant": "Analysis does not authorize neutral helper retirement or claim whole restoration for partial support.",
+      "owner": "Odin, lane8_6A campaigns",
+      "path": "maintenance/step8-part4-campaigns-web-analysis.json",
+      "reason": "Constrain campaign/web case analysis to nineteen exact assigned paths and reference authoritative consolidated dispositions.",
+      "tests": [
+        "tests/test_desktop_step8_6a_campaigns_corpus.py"
+      ]
+    },
+    {
+      "contract": "Retire only exact reviewed removed HTTP/web/bearer definitions; missing product service remains deferred.",
+      "invariant": "Every assigned path accounted; support not restored; no live effects.",
+      "owner": "step8 part4 lane8 computer corpus",
+      "path": "maintenance/step8-part4-computer-candidates.json",
+      "reason": "All assigned computer suite dispositions and proof pins.",
+      "tests": [
+        "tests/test_desktop_step8_6a_computer_corpus.py"
+      ]
+    },
+    {
+      "contract": "Exact function/class-method exclusions affect pytest registration only; unchanged cases preserve code/signatures/decorators/parameters and source association hashes.",
+      "invariant": "No partial selection implicitly counts as whole restoration; current task checker binds each exclusion to exact source case and reviewed disposition.",
+      "owner": "Odin",
+      "path": "scripts/maintenance/fixture_corpus.py",
+      "reason": "Expose explicitly reviewed removed cases after full frozen module compilation without changing retained inherited assertion code.",
+      "tests": [
+        "tests/test_desktop_fixture_corpus.py",
+        "tests/test_desktop_step8_6a_accounting.py"
+      ]
+    },
+    {
+      "contract": "Preserve original 869-file and 326-suite populations, every prior group, archive hashes and exact whole-suite corpus guards. Allow only listed step6 selectors and exact original case retirement rows.",
+      "invariant": "No generic group or retirement waiver, unchecked partial corpus, false review acceptance, mutation of lane6 rows or original test bytes.",
+      "owner": "Odin",
+      "path": "scripts/maintenance/phase2_suites.py",
+      "reason": "Admit only exact lane8 restored selectors and task-authorized removed-surface cases, independently pinning the audited 97-suite disposition artifact.",
+      "tests": [
+        "tests/test_desktop_phase2_suite_map.py",
+        "tests/test_desktop_step8_6a_accounting.py"
+      ]
+    },
+    {
+      "contract": "Hash immutable assignment and each inherited suite, demand case-level full retirement closure, retain original map rows outside lane8 and explicit blocker/restoration separation.",
+      "invariant": "No invented coverage, silent test edits, source unfreezing, passing claim for deferred support or removed-surface retirement without exact case proof.",
+      "owner": "Odin",
+      "path": "scripts/maintenance/step8_part4_integrate.py",
+      "reason": "Integrate exactly the assigned 97 audited suite dispositions and derive current suite/case membership without touching the other lane.",
+      "tests": [
+        "tests/test_desktop_phase2_suite_map.py",
+        "tests/test_desktop_step8_6a_accounting.py"
+      ]
+    },
+    {
+      "contract": "Preserve both semantic contracts and test evidence for named merge paths; current part4 plan separately owns conflict resolutions and new source.",
+      "invariant": "No blanket divergence blessing, source edits, upstream/live operation or independent approval claim.",
+      "owner": "Odin",
+      "path": "scripts/maintenance/step8_part4_records.py",
+      "reason": "Reconcile exact main and services-part-a merge provenance and explicit audited lane8 adaptations, maintaining pending evidence records.",
+      "tests": [
+        "tests/test_desktop_maintenance.py",
+        "tests/test_desktop_step8_6a_accounting.py"
+      ]
+    },
+    {
+      "contract": "TurnResumeManager receives a release callback that derives exact chat workload scope from retained TurnKey provenance and calls the same profile-local observer used by runner/background owners.",
+      "invariant": "No channel-wide calibration erasure, unrelated lineage mutation, fabricated identity or released input authority.",
+      "owner": "Odin",
+      "path": "src/desktop/core.py",
+      "reason": "Restore the genuine retained resumed-turn calibration release hook at canonical core composition after characterization exposed its absence.",
+      "tests": [
+        "tests/test_desktop_step8_6a_resume_calibration.py",
+        "tests/test_desktop_resume_trigger.py",
+        "tests/test_desktop_resume_no_ledger.py"
+      ]
+    },
+    {
+      "contract": "Do not close shared transports below active engine producers; finish durable unknown/released resource evidence. Without a cleanup journal, service failures report outcome_unknown without omitting other owner close calls.",
+      "invariant": "No replay, false cleanup success, foreground grant, new owner identity or active desktop effects.",
+      "owner": "Odin",
+      "path": "src/desktop/management.py",
+      "reason": "Combine main producer-safe resource cleanup with the real 6A service lifecycle and preserve original-owner receipts while closing all transports after a failure.",
+      "tests": [
+        "tests/test_desktop_services_core.py",
+        "tests/test_desktop_management.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_resource_cleanup.py"
+      ]
+    },
+    {
+      "contract": "Usage accounting and calibration use actual canonical service owners, not synthetic fixtures.",
+      "invariant": "Preserve profile-local paths, owner authorization and teardown ordering; this record describes the existing qualified production delta, not a further edit.",
+      "owner": "Odin, lane8_6A characterization",
+      "path": "src/desktop/services.py",
+      "reason": "Compose the real profile-local UsageRollup with trajectory savers and catalog lookup; stop it during close and forward optional WindowObserver to real execution owners.",
+      "tests": [
+        "tests/test_desktop_step8_6a_characterization_corpus.py",
+        "tests/test_desktop_step8_6a_characterization_wiring.py"
+      ]
+    },
+    {
+      "contract": "Literal whole-suite selections bind frozen hashes; load_support cannot grant suite restoration; exact retired/deferred cases are excluded without parameter selection.",
+      "invariant": "Inherited assertions, signatures, decorators and parameters remain unchanged; no authority bypass or live state.",
+      "owner": "Odin, lane8_6A campaigns",
+      "path": "tests/desktop_adapters/step8_6a_campaigns.py",
+      "reason": "Restore complete retained campaign suites through real owner services and separate deferred complete-case support.",
+      "tests": [
+        "tests/test_desktop_step8_6a_campaigns_corpus.py"
+      ]
+    },
+    {
+      "contract": "Exact frozen support and complete-case exclusions; RequestService admission retains authentic local owner authorization.",
+      "invariant": "Five partial suites stay deferred; no parameter edits or fabricated production owners.",
+      "owner": "Odin, lane8_6A characterization",
+      "path": "tests/desktop_adapters/step8_6a_characterization.py",
+      "reason": "Separate static empty whole-suite selections from hash-bound frozen characterization support over real composed services.",
+      "tests": [
+        "tests/test_desktop_step8_6a_characterization_corpus.py",
+        "tests/test_desktop_step8_6a_characterization_provenance.py"
+      ]
+    },
+    {
+      "contract": "Pin inherited sources and selected AST/helper proofs; whole-tree reverse replay.",
+      "invariant": "No changed assertions/signatures/decorators or manufactured foreground/native grants.",
+      "owner": "step8 part4 lane8 computer corpus",
+      "path": "tests/desktop_adapters/step8_6a_computer.py",
+      "reason": "Exact inherited setup-only computer corpus adapter.",
+      "tests": [
+        "tests/test_desktop_step8_6a_computer_corpus.py"
+      ]
+    },
+    {
+      "contract": "SUPPORT_SUITE binds the source hash; SUPPORT_CASES admits complete cases; full load refuses deferred suite restoration.",
+      "invariant": "Approved Permission denied diagnostic, inherited assertions and foreign identities unchanged; both unsupported eight-parameter cases deferred.",
+      "owner": "Odin, lane8_6A empty-fields",
+      "path": "tests/desktop_adapters/step8_6a_empty_fields.py",
+      "reason": "Provide exact partial support without restoring or retiring unsupported neutral empty-field contracts.",
+      "tests": [
+        "tests/test_desktop_step8_6a_empty_fields_corpus.py"
+      ]
+    },
+    {
+      "contract": "Frozen source/archive hashes, unchanged full assertion/signature/decorator/parameter corpus, canonical owner and retained controller/backend logic; exact reviewed web operator case omissions only.",
+      "invariant": "Native qualification and absent Desktop foreground paths stay deferred. Partial support never claims whole restoration or active desktop effects.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step8_6a_hyprland.py",
+      "reason": "Restore complete retained Hyprland integration/discovery suites via exact source-hash setup hunks and separately preserve pure support cases without manufacturing foreground grants.",
+      "tests": [
+        "tests/test_desktop_step8_6a_hyprland_corpus.py",
+        "tests/test_desktop_step8_6a_hyprland_support.py"
+      ]
+    },
+    {
+      "contract": "Archive/source/corpus-bound whole retained tests, exact setup hashes and canonical request owner; five removed freshness HTTP cases omitted under work-order authority.",
+      "invariant": "No private execution/permission bypass, fabricated owner, destructive data substitution, modified assertion/signature/decorator/parameter corpus or live browser/desktop session.",
+      "owner": "Odin",
+      "path": "tests/desktop_adapters/step8_6a_tools.py",
+      "reason": "Restore eight exact inherited tool suites using real profile OwnerAuthority, MCPService, BrowserRuntime and EngineServices construction.",
+      "tests": [
+        "tests/test_desktop_step8_6a_tools_corpus.py"
+      ]
+    },
+    {
+      "contract": "Reject altered source hash, unauthorized reviewer/case/reason, metadata additions and coherent unknown case dispositions while keeping inherited code unchanged.",
+      "invariant": "Only harmless static modules and temporary offline files; no runtime/native service or active desktop effects.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step8_6a_accounting.py",
+      "reason": "Exercise exact case retirement registration and independent fail-closed task artifact provenance.",
+      "tests": [
+        "tests/test_desktop_step8_6a_accounting.py"
+      ]
+    },
+    {
+      "contract": "Verify source-bound assertions, signatures, decorators, parameters and registered complete-case projection; static whole-suite admissions and partial support are disjoint.",
+      "invariant": "No deferred case or parameter silently qualifies as restored.",
+      "owner": "Odin, lane8_6A campaigns",
+      "path": "tests/test_desktop_step8_6a_campaigns_corpus.py",
+      "reason": "Execute complete retained campaign suites and separately check exact deferred support projections.",
+      "tests": [
+        "tests/test_desktop_step8_6a_campaigns_corpus.py"
+      ]
+    },
+    {
+      "contract": "Retained complete cases run through actual service composition while the five suites remain deferred.",
+      "invariant": "Frozen inherited assertions and parameters unchanged; passing support is not whole-suite restoration.",
+      "owner": "Odin, lane8_6A characterization",
+      "path": "tests/test_desktop_step8_6a_characterization_corpus.py",
+      "reason": "Exercise exact characterization partial support through load_support.",
+      "tests": [
+        "tests/test_desktop_step8_6a_characterization_corpus.py"
+      ]
+    },
+    {
+      "contract": "Exact frozen source-bound characterization support provenance and excluded registrations.",
+      "invariant": "No partial-support or removed-surface exception can broaden whole-suite admission.",
+      "owner": "Odin, lane8_6A characterization",
+      "path": "tests/test_desktop_step8_6a_characterization_provenance.py",
+      "reason": "Independently validate source hashes, unchanged corpus and disjoint complete-case coverage.",
+      "tests": [
+        "tests/test_desktop_step8_6a_characterization_provenance.py"
+      ]
+    },
+    {
+      "contract": "Canonical owner service graph writes real profile-local usage and releases exact workload scope.",
+      "invariant": "No fabricated owners or production authorization bypass.",
+      "owner": "Odin, lane8_6A characterization",
+      "path": "tests/test_desktop_step8_6a_characterization_wiring.py",
+      "reason": "Exercise actual usage writer and calibration release owner hooks.",
+      "tests": [
+        "tests/test_desktop_step8_6a_characterization_wiring.py"
+      ]
+    },
+    {
+      "contract": "Verify every suite source and proof hash, helper grouped import proofs.",
+      "invariant": "Partial support does not imply whole-suite restoration or native qualification.",
+      "owner": "step8 part4 lane8 computer corpus",
+      "path": "tests/test_desktop_step8_6a_computer_corpus.py",
+      "reason": "Audited whole/partial inherited corpus collection and provenance guards.",
+      "tests": [
+        "tests/test_desktop_step8_6a_computer_corpus.py"
+      ]
+    },
+    {
+      "contract": "Original seven cases project to five supported cases with unchanged corpus; all sixteen supported parameter items remain unchanged.",
+      "invariant": "Neither neutral deferred case is registered, retired or claimed restored.",
+      "owner": "Odin, lane8_6A empty-fields",
+      "path": "tests/test_desktop_step8_6a_empty_fields_corpus.py",
+      "reason": "Execute supported cases and verify exact retained projection and excluded registrations.",
+      "tests": [
+        "tests/test_desktop_step8_6a_empty_fields_corpus.py"
+      ]
+    },
+    {
+      "contract": "Run genuine retained integration/controller helpers and verify full source/corpus/manifests while listing concrete unavailable foreground blockers separately.",
+      "invariant": "No input replay, fake foreground admission, assertions changed or active graphical session.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step8_6a_hyprland_corpus.py",
+      "reason": "Export the two exact complete retained frozen Hyprland integration/discovery suites with reviewed removed cases omitted at registration only.",
+      "tests": [
+        "tests/test_desktop_step8_6a_hyprland_corpus.py"
+      ]
+    },
+    {
+      "contract": "Test original source-hash-bound pure support cases and full source corpus guards; every unbuilt foreground branch remains explicitly deferred.",
+      "invariant": "No support subset passes as full suite qualification, rewritten assertions, native input or active display use.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step8_6a_hyprland_support.py",
+      "reason": "Keep immutable pure backend/parser/scope evidence from concretely deferred mixed foreground suites without declaring restoration.",
+      "tests": [
+        "tests/test_desktop_step8_6a_hyprland_support.py"
+      ]
+    },
+    {
+      "contract": "Start a real temporary-profile core and demonstrate one chat scope removed while another chat scope and an agent lineage remain unchanged.",
+      "invariant": "No source text test, mock resume callback, active display, real network/provider execution or live profile.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step8_6a_resume_calibration.py",
+      "reason": "Prove actual CoreService resume composition releases only the exact inherited turn calibration namespace.",
+      "tests": [
+        "tests/test_desktop_step8_6a_resume_calibration.py"
+      ]
+    },
+    {
+      "contract": "Run 392 unchanged inherited parameterized cases and fail-closed source/corpus and authority checks in the isolated launcher.",
+      "invariant": "Frozen tests remain byte-identical; five removed web cases are exact case dispositions, not test failures hidden by selection.",
+      "owner": "Odin",
+      "path": "tests/test_desktop_step8_6a_tools_corpus.py",
+      "reason": "Collect whole inherited MCP, packaged-browser waits, replay converter and branch-freshness cases plus explicit provenance/owner guards.",
+      "tests": [
+        "tests/test_desktop_step8_6a_tools_corpus.py"
+      ]
+    }
+  ],
+  "reviewer": "Claude, review of step 8 part 4",
+  "schema_version": 1,
+  "services_merge": "2d91071a692a646b6d8c466daa5711a37cd8c93f",
+  "status": "pending-independent-review-not-accepted"
 }

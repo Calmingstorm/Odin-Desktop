@@ -1,0 +1,219 @@
+{
+  "version": 1,
+  "owner": "lane8_6A tools subset",
+  "integration_status": "candidate-only; parent must integrate shared maps and exact fixture records",
+  "adapter": "tests/desktop_adapters/step8_6a_tools.py",
+  "restoration": "tests/test_desktop_step8_6a_tools_corpus.py",
+  "exact_selector_map": "tests.desktop_adapters.step8_6a_tools.CASE_MAP; each baseline selector maps to exact executable selector. Independently reconstruct via scripts.maintenance.fixture_corpus.adapter_case_associations('tests/test_desktop_step8_6a_tools_corpus.py','tests/desktop_adapters/step8_6a_tools.py'). Guard covers all surviving case functions.",
+  "reviewer": "Claude, review of step 8 part 4",
+  "safe_substitutions": [],
+  "assertion_signature_decorator_parameter_changes": [],
+  "dispositions": [
+    {
+      "path": "tests/test_agent_image_safety.py",
+      "status": "deferred",
+      "inherited_sha256": "3a69110269578920064eff8a556e1cf15cbc1491ba6256854d108e792b22319a",
+      "blocker": "All four inherited cases obtain callback via _handle_spawn_agent. src/discord/native_tools/agents_tasks.py:1123 immediately raises Phase 2 agent request admission and invocation context is not implemented. Canonical owner fixture cannot bypass this actual production fence.",
+      "selector": "tests/test_agent_image_safety.py",
+      "retired_cases": []
+    },
+    {
+      "path": "tests/test_branch_freshness.py",
+      "status": "restored",
+      "inherited_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871",
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py",
+      "restoration": "Test_test_branch_freshness_*; all 106 surviving inherited functions; actual ToolExecutor composed in build_engine_services with canonical owner.",
+      "exclusions": "Exact five case dictionaries in adapter CORPUS_EXCLUSIONS.test_branch_freshness",
+      "retired_cases": [
+        {"case": "TestFreshnessAPI.test_recent_endpoint", "reviewer": "Claude, review of step 8 part 4", "reason": "GET /api/freshness/recent is a removed Odin web UI HTTP listener route.", "source_path": "tests/test_branch_freshness.py", "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"},
+        {"case": "TestFreshnessAPI.test_recent_no_executor", "reviewer": "Claude, review of step 8 part 4", "reason": "503 response from GET /api/freshness/recent is a removed Odin web UI HTTP listener contract.", "source_path": "tests/test_branch_freshness.py", "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"},
+        {"case": "TestFreshnessAPI.test_recent_with_limit", "reviewer": "Claude, review of step 8 part 4", "reason": "GET /api/freshness/recent?limit=5 is a removed Odin web UI HTTP listener route.", "source_path": "tests/test_branch_freshness.py", "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"},
+        {"case": "TestFreshnessAPI.test_stats_endpoint", "reviewer": "Claude, review of step 8 part 4", "reason": "GET /api/freshness/stats is a removed Odin web UI HTTP listener route.", "source_path": "tests/test_branch_freshness.py", "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"},
+        {"case": "TestFreshnessAPI.test_stats_no_executor", "reviewer": "Claude, review of step 8 part 4", "reason": "503 response from GET /api/freshness/stats is a removed Odin web UI HTTP listener contract.", "source_path": "tests/test_branch_freshness.py", "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"}
+      ],
+      "blocker": null
+    },
+    {
+      "path": "tests/test_browser_wait_timeout.py",
+      "status": "restored",
+      "inherited_sha256": "32036111f71c333db06ecaa87227b8c44bfd9d94de236af843994ea8b6bafa99",
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::test_test_browser_wait_timeout_*",
+      "restoration": "All 11 inherited functions and 52 parametrized cases through actual BrowserRuntime and real packaged headless Chromium; handler Playwright mocks retained only where inherited. Config snapshot remains restart-only.",
+      "retired_cases": [],
+      "blocker": null,
+      "environment": "BrowserRuntime bundle_root=/home/odin/desktop-p41-final-stage/runtime; no active display/session"
+    },
+    {
+      "path": "tests/test_codex_replay_boundaries.py",
+      "status": "restored",
+      "inherited_sha256": "31ccc09d0d7d34ab0baf55cf8f16e03cadd62212e879c3da89a1d9028ebc4f1b",
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::test_test_codex_replay_boundaries_*",
+      "restoration": "All 14 inherited functions; retained real converters/stores. Ownerless ToolLoopRunner.__new__ fixture replaced by build_engine_services(...).runner before inherited dispatch spies installed.",
+      "retired_cases": [],
+      "blocker": null
+    },
+    {
+      "path": "tests/test_command_shell_callers.py",
+      "status": "deferred",
+      "inherited_sha256": "9b3ab82395a1586ddc378004fc79c9aa03930a7d4b4259d2acf2f3d0c5fd81e2",
+      "selector": "tests/test_command_shell_callers.py::test_real_command_shell_caller_parity",
+      "blocker": "18 parametrized scheduled_workflow/scheduled_check/delegate_task cases require production owners not implemented: scheduled_events._on_scheduled_task:473, _execute_scheduled_tool:237 and _dispatch_scheduled_tool:286 are unconditional Phase2 fences; agents_tasks._handle_delegate_task:755 also fenced. ROUTES parameter list is immutable, so available 40 cases cannot truthfully restore the whole suite. Safe real runtime helper exposed for dependent suites, but no dispatcher bypass.",
+      "retired_cases": []
+    },
+    {
+      "path": "tests/test_command_shell_round2.py",
+      "status": "deferred",
+      "inherited_sha256": "7b56912212ec81889c6c585ce4c9385d64aee9e3e82f591abc0f72b4d73d1b10",
+      "selector": "tests/test_command_shell_round2.py::test_served_catalogs_name_shell_once[agent]",
+      "blocker": "Agent parameter obtains native spawn catalog through _handle_spawn_agent; actual production admission is unimplemented and fenced at agents_tasks.py:1123. All three route parameter values must remain unchanged. test_built_system_prompt_byte_identical_to_precampaign_master also asserts frozen upstream source hash; needs reviewer decision for Desktop prompt divergence, not retirement.",
+      "retired_cases": []
+    },
+    {
+      "path": "tests/test_command_shell_scope.py",
+      "status": "deferred",
+      "inherited_sha256": "93b5b66de8a073cc083c63f806b201c166b8efad942b9227b7e7b076647cf5ba",
+      "selector": "tests/test_command_shell_scope.py::test_transport_only_skill_embedder_explicitly_opts_in",
+      "blocker": "Actual test attempt: 20 inherited parametrized cases pass, three embedder variants fail AttributeError execute. src/tools/skill_context.py:146-158 now exclusively calls public executor.execute; inherited Embedder only implements _run_on_host. Reintroducing the private transport shortcut would bypass the current governance seam; no fake wrapper or assertion change applied. Whole suite remains deferred.",
+      "attempt": "PID1406043; scope+browser combined:74 passed,3 failed; final corpus excludes scope",
+      "retired_cases": []
+    },
+    {
+      "path": "tests/test_hosts_consumer_edges.py",
+      "status": "deferred",
+      "inherited_sha256": "06fb2ac3ee5207756d8a4cbc68f6e8a6d6ac4ac61c3e502e0ce4b804ebc9c039",
+      "selector": "tests/test_hosts_consumer_edges.py::TestSkillContextHostEdges",
+      "blocker": "test_run_on_host_falls_back_to_raw_executor_output specifically asserts removed private-only executor fallback; SkillContext.run_on_host now always uses execute. test_run_on_host_preserves_tool_executor_generation_lease's spy is on private _exec_command while actual public governance needs canonical owner. test_schedule_task_propagates_requester_id requires fenced Phase2 scheduled admission. SSH pool tests alone do not restore whole suite.",
+      "retired_cases": []
+    },
+    {
+      "path": "tests/test_tool_catalog_dependency_gate.py",
+      "status": "deferred",
+      "inherited_sha256": "f7db630da366641f110d4f433398747dbd6a24f8bdf3be31acb936abacdd0311",
+      "selector": "tests/test_tool_catalog_dependency_gate.py::test_missing_pdf_dependency_is_hidden_with_actionable_log",
+      "blocker": "Frozen test patches src.discord.tool_catalog.importlib.util.find_spec and asserts its log.info; retained Desktop catalog module no longer exposes importlib or dependency logging. Actual build_engine_services readiness checks dependency via src.desktop.services.importlib.util.find_spec and hides PDF but does not emit inherited actionable log. Exact setup adapter requires resolving this real diagnostic contract gap, not faking a log or changing assertions.",
+      "retired_cases": [],
+      "proposed": "Reviewer decision for missing inherited actionable dependency log; no retirement authored"
+    },
+    {
+      "path": "tests/test_native_media.py",
+      "status": "deferred",
+      "inherited_sha256": "53dd95c883e2c974712b06d1f01d3346e5f9ee68d1fb35ef2304de415d249dbb",
+      "selector": "tests/test_native_media.py",
+      "blocker": "Mixed suite: removed Discord attachment URL/File/send/HTTPException contracts coexist with surviving MIME, validation and image-ingress cases. src/discord/native_tools/media.py lacks _safe_discord_attachment_url and the inherited import therefore fails. Exact case retirement and full real admitted DesktopMediaTools RequestService adapter for survivors not completed. Do not retire all32 merely because import mentions Discord.",
+      "retired_cases": [],
+      "proposed_retirement_cases": ["TestSafeDiscordAttachmentUrl.test_accepts_only_https_discord_attachment_hosts", "TestSafeDiscordAttachmentUrl.test_rejects_invalid_values_and_unsafe_urls", "TestGenerateImage.test_success_posts_attachment", "TestGenerateImage.test_success_does_not_expose_non_discord_attachment_url", "TestGenerateImage.test_attachment_url_guard_rejects_lookalikes_and_credentials", "TestPostFile.test_discord_http_error"]
+    },
+    {
+      "path": "tests/test_mcp_admin.py",
+      "status": "deferred",
+      "inherited_sha256": "3947e6fa123f9c612d90dac6d4f37b63b279a0854b14fb31ada9e1fcc786b6ef",
+      "selector": "tests/test_mcp_admin.py",
+      "blocker": "32 legacy web HTTP route cases removable, but TestManagementCancellationDrain's two _drain_mcp_management helper cases are not solely removed listeners and require reviewer disposition or service transaction adapter. Exact full-case removal accounting not completed; no whole-suite retirement claim.",
+      "retired_cases": [],
+      "proposed": "Case-level HTTP retirement list needs integration review; keep pure cancellation helpers pending"
+    },
+    {
+      "path": "tests/test_mcp_client_eras.py",
+      "status": "restored",
+      "inherited_sha256": "62c51bc82631c0554f09138ceccf7461c069e7231da58377ca55751a8cdc73a8",
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::Test_test_mcp_client_eras_*",
+      "restoration": "All71 inherited functions unchanged; real stdio subprocess and private fake remote HTTP endpoint transport. These are MCP client HTTP contracts, not removed Odin HTTP listeners or bearer sessions.",
+      "retired_cases": [],
+      "blocker": null
+    },
+    {
+      "path": "tests/test_mcp_dispatch.py",
+      "status": "deferred",
+      "inherited_sha256": "c47b22b4afcbb87a666d7bd2eb7a4aa5064773c06ca6982af6d712004f14df73",
+      "selector": "tests/test_mcp_dispatch.py::TestBackgroundTaskMCPIntegration",
+      "blocker": "Actual attempt restored manager dispatch through MCPService, but five inherited background calls fail real authenticated output-retention requirement in runtime_delivery.py:87-95 because frozen setup supplies None/MagicMock executor. Exact real executor readiness/retention fixture for synthetic native tool names needs approved setup mapping; do not manufacture permissive policy. Not whole restored.",
+      "attempt": "PID1429540 full run:412 passed,5 failed; final corpus excludes dispatch suite",
+      "retired_cases": [],
+      "proposed_retirement_cases": ["TestRbacTier.test_mcp_names_are_not_user_tier_tools"]
+    },
+    {
+      "path": "tests/test_mcp_edges.py",
+      "status": "restored",
+      "inherited_sha256": "42dcd4392df123a0be27bc081b3a612eb4241814805e559084f4858515a69df3",
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::Test_test_mcp_edges_*",
+      "restoration": "All24 inherited functions. MCPManager remains genuine retained engine; execute enters real MCPService with current canonical OwnerAuthority context. Real private transports unchanged.",
+      "retired_cases": [],
+      "blocker": null
+    },
+    {
+      "path": "tests/test_mcp_manager.py",
+      "status": "restored",
+      "inherited_sha256": "e1bc52991260c7890115df0d4b26df7afa8a47c8160df580d5633fc682939ed3",
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::Test_test_mcp_manager_*",
+      "restoration": "All39 inherited functions. Same retained real manager and real transport implementation; MCPService handles execute authority, no fake service or permission manager.",
+      "retired_cases": [],
+      "blocker": null
+    },
+    {
+      "path": "tests/test_mcp_media_checkpoint.py",
+      "status": "restored",
+      "inherited_sha256": "b753c0ce54463d2d0eaa161974ea9ffe970066bfb4494f62ded245f699580ef6",
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::test_test_mcp_media_checkpoint_*",
+      "restoration": "All11 inherited functions. Real negotiated transport/media ingress. Synthetic outcome injected at retained manager backend, replaces SimpleNamespace manager with actual MCPService; inherited one-dispatch assertion preserved.",
+      "retired_cases": [],
+      "blocker": null
+    },
+    {
+      "path": "tests/test_mcp_media_surfaces_checkpoint.py",
+      "status": "deferred",
+      "inherited_sha256": "3867dc01832dd100673748535ee26a5190e289d77b79931d84d6d58b2e5f057a",
+      "selector": "tests/test_mcp_media_surfaces_checkpoint.py",
+      "blocker": "Inherited agent and autonomous paths require fenced spawn/autonomous request admission, including callback from test_agent_image_safety. Web API chat case is removed listener surface, but survivor real runner/computer freshness setup needs full RequestService binding. Cannot preserve whole suite by executing removed _tools/make_bot factories.",
+      "retired_cases": [],
+      "proposed_retirement_cases": ["TestChatApiAndProviderCheckpoint.test_api_chat_exercises_same_typed_media_continuation"]
+    },
+    {
+      "path": "tests/test_mcp_publication_limits.py",
+      "status": "deferred",
+      "inherited_sha256": "350d4b9cb725fc5cf3bc7a136dc37908dc174226b98daf1bd784209c55eb1cf6",
+      "selector": "tests/test_mcp_publication_limits.py",
+      "blocker": "Mixed actual publication with removed HealthServer/ApiTokenIdentity/WebConfig listener fixture. test_apply_registry_classifies_live_limits_not_server_container asserts POST /api/mcp/limits exactly. Surviving dynamic whole-config rebind make_bot fixtures need actual settings transaction adapter, MCPService snapshots effective limits rather than direct config assignment. No full exact restoration completed.",
+      "retired_cases": []
+    },
+    {
+      "path": "tests/test_mcp_transport_http.py",
+      "status": "restored",
+      "inherited_sha256": "be86586786e7cb0f22d94649bb82df033f212476831ded04b077cf2352b83301",
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::Test_test_mcp_transport_http_*",
+      "restoration": "All11 inherited functions unchanged; client HTTP transport with isolated fake remote endpoints. Remote MCP Authorization header test is not an Odin bearer session and is retained.",
+      "retired_cases": [],
+      "blocker": null
+    },
+    {
+      "path": "tests/test_mcp_wiring.py",
+      "status": "deferred",
+      "inherited_sha256": "437864d8d44d4d8e6a6741caff73d9cdb61eb863f71a8c10644a5194cd5d5d83",
+      "selector": "tests/test_mcp_wiring.py",
+      "blocker": "Frozen boot fixtures import removed start_mcp/shutdown_services facade paths; surviving manager/health/config/locking cases mixed with model turn integration and production-fenced autonomous dispatch. Whole real CoreService+ManagementService lifecycle adapter not completed. The neutral engine coverage is restored in manager suite, not falsely counted as this suite.",
+      "retired_cases": []
+    }
+  ],
+  "entries": [
+    {
+      "path": "tests/desktop_adapters/step8_6a_tools.py",
+      "reason": "Exact setup-only whole frozen suites bound to canonical private Desktop owners",
+      "contract": "Frozen bytes from fixture_corpus archive, literal per-suite SHA256 guards, unchanged complete corpus before excluded-case projection; actual MCPService, BrowserRuntime, build_engine_services, OwnerAuthority",
+      "invariant": "No dummy authority/service, no production changes, no listener retirement of remote MCP transport, no admission fence bypass, no unsafe data authored",
+      "owner": "lane8_6A tools",
+      "tests": ["tests/test_desktop_step8_6a_tools_corpus.py"]
+    }
+  ],
+  "validation": {
+    "runner": "sudo unshare --mount --pid --fork --mount-proc --kill-child; non-root odin; HOME/XDG sanitized, DBUS/DISPLAY/WAYLAND removed",
+    "passing_full_process_pid": 1460082,
+    "passing_full_count": 401,
+    "inherited_parametrized_cases": 392,
+    "support_checks": 9,
+    "whole_restored_suites": 8,
+    "deferred_suites": 12,
+    "retired_inherited_case_functions": 5,
+    "production_files_changed": [],
+    "warning": "One aiohttp fake server NotAppKeyWarning, no skip",
+    "exact_setup_hunks": "Adapter TRANSFORMS computed from frozen_source; parent fixture-corpus admission required"
+  }
+}

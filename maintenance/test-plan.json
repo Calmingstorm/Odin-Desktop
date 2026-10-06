@@ -6,19 +6,43 @@
     "tracked_test_paths": 869,
     "archive": "maintenance/odin-v4.13.0.tar.gz"
   },
-  "execution_status": "Historical eligibility inventory, not whole-product parity or acceptance. Nine whole inherited suites restored; five retired by Claude, review of #26, never passing. All 326 original paths remain in phase2 plus phase2_restored plus phase2_retired with original hashes. Merged main retains 30 qualification groups including phase2-step5-profile-management. Historical116/259 evidence unchanged.",
+  "execution_status": "Exact whole-suite restoration accounting, not passing or acceptance evidence. Lane8 step6A dispositions are hash/corpus bound; partial support does not restore a suite. Retirements are case-level removed surfaces under the current work order.",
   "qualification_plan": "maintenance/qualification-plan.json",
   "phase2_suite_map": "maintenance/phase2-suite-map.json",
   "phase2_restored": [
+    "tests/test_branch_freshness.py",
+    "tests/test_browser_wait_timeout.py",
+    "tests/test_campaign_diagnostic_privacy.py",
+    "tests/test_campaign_display_binding_coverage.py",
     "tests/test_campaign_execution_risk.py",
+    "tests/test_campaign_web_final_coverage.py",
+    "tests/test_catalog_campaign.py",
     "tests/test_channel_state_recent_action_failure.py",
+    "tests/test_codex_replay_boundaries.py",
+    "tests/test_computer_admission_http_r8.py",
     "tests/test_computer_audit_output_r21.py",
     "tests/test_computer_checkpoint_privacy_r5.py",
     "tests/test_computer_frame_boundary.py",
+    "tests/test_computer_hyprland_integration_r32.py",
+    "tests/test_computer_identity_sequences_r21.py",
+    "tests/test_computer_lifecycle_review_r5.py",
+    "tests/test_computer_product_status_r11.py",
+    "tests/test_computer_provisioning_r29.py",
+    "tests/test_computer_resources_r21.py",
+    "tests/test_computer_scope_readiness_r13.py",
+    "tests/test_computer_sequence_injection_r21.py",
+    "tests/test_computer_wayland_config_r8.py",
     "tests/test_connection_lifecycle_d1.py",
+    "tests/test_hyprland_discovery_campaign.py",
     "tests/test_local_supervisor_wrapper_r10.py",
+    "tests/test_mcp_client_eras.py",
+    "tests/test_mcp_edges.py",
+    "tests/test_mcp_manager.py",
+    "tests/test_mcp_media_checkpoint.py",
+    "tests/test_mcp_transport_http.py",
     "tests/test_process_manager.py",
-    "tests/test_restored_process_shutdown.py"
+    "tests/test_restored_process_shutdown.py",
+    "tests/test_round40_reviewer.py"
   ],
   "methodology": {
     "imports": "AST Import/ImportFrom relative resolution, package initializers, cross-test helper closure. Deduplicated pinned source import closure below. Literal src patch references also recorded. No source imported.",
@@ -33,12 +57,14 @@
   },
   "counts": {
     "excluded": 18,
-    "phase2": 312,
+    "phase2": 274,
     "retained_adaptation_gated": 38,
     "retained_support": 30,
-    "safe_pass_now": 366,
+    "safe_pass_now": 390,
     "safety_manual_gated": 100,
-    "retired": 5
+    "retired": 19,
+    "phase2_restored": 33,
+    "phase2_retired": 19
   },
   "entries": [
     {
@@ -76,13 +102,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api_common.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api_common.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/characterization/test_autonomous_loop.py",
@@ -2364,7 +2394,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/web/__init__.py",
@@ -2432,7 +2462,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/client.py"
@@ -3070,7 +3100,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/agents_loops.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/web/__init__.py",
@@ -3132,11 +3162,15 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/discord/scheduled_events.py: Desktop owner/intake/control/durable delivery adapter: scheduled_events. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/scheduled_events.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_campaign_discord_final_coverage.py",
@@ -3268,7 +3302,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/_agent_display.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/health/server.py",
@@ -4438,7 +4472,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/discord_connection.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/schedules_api.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api_common.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/websocket.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/permissions/token_manager.py",
@@ -4534,7 +4568,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/discord/tool_catalog.py: Desktop owner/intake/control/durable delivery adapter: tool_catalog. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/tool_catalog.py"
@@ -5338,7 +5372,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/codec.py: install-bound context reconstruction. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/tool_loop.py",
@@ -6082,7 +6116,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -6147,14 +6181,18 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/health/server.py",
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/computer.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_computer_api_recovery_r18.py",
@@ -6178,14 +6216,18 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/health/server.py",
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/computer.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_computer_app_offering_r7.py",
@@ -7825,7 +7867,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -8178,7 +8220,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/codec.py: install-bound context reconstruction. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -8648,7 +8690,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_catalog.py: Desktop owner/intake/control/durable delivery adapter: tool_catalog; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -9101,7 +9143,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -9112,7 +9154,11 @@
         "src/web/api/computer.py",
         "src/web/api/security.py",
         "src/web/computer_binding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_computer_orchestration_coverage_r10.py",
@@ -9345,7 +9391,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -9464,7 +9510,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_catalog.py: Desktop owner/intake/control/durable delivery adapter: tool_catalog; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -10082,7 +10128,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_catalog.py: Desktop owner/intake/control/durable delivery adapter: tool_catalog; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -10390,7 +10436,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -10538,7 +10584,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/turn_state/codec.py: install-bound context reconstruction. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -10997,7 +11043,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_catalog.py: Desktop owner/intake/control/durable delivery adapter: tool_catalog; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -11501,7 +11547,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_catalog.py: Desktop owner/intake/control/durable delivery adapter: tool_catalog; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -11517,7 +11563,11 @@
         "src/web/api/security.py",
         "src/web/api/sessions_chat.py",
         "src/web/computer_binding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_computer_x11_app_scope_r5.py",
@@ -15092,7 +15142,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py"
@@ -15755,7 +15805,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/computer/integration.py: foreground/operator/control explicitly unavailable until Phase2; src/discord/channel_state.py: Desktop owner/intake/control/durable delivery adapter: channel_state; src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/native_tools/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/native_tools/registry.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/discord/tool_catalog.py: Desktop owner/intake/control/durable delivery adapter: tool_catalog; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/health/server.py: authenticated IPC readiness/ingress; src/permissions/token_manager.py: IPC provenance replaces bearer identity; src/turn_state/codec.py: install-bound context reconstruction; src/turn_state/durability.py: private delivery/outbox/replay admission; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/computer.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/security.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/computer_binding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/computer/integration.py",
@@ -15774,7 +15824,11 @@
         "src/web/api/computer.py",
         "src/web/api/security.py",
         "src/web/computer_binding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_hyprland_original_resource_absence.py",
@@ -18848,7 +18902,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/client.py"
@@ -18917,7 +18971,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/client.py"
@@ -18950,7 +19004,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/client.py"
@@ -18986,7 +19040,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/mcp_dispatch.py: Desktop owner/intake/control/durable delivery adapter: mcp_dispatch. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/client.py",
@@ -19175,7 +19229,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/client.py"
@@ -19950,7 +20004,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/discord/client.py: Desktop owner/intake/control/durable delivery adapter: client; src/discord/connection_supervisor.py: Desktop owner/intake/control/durable delivery adapter: connection_supervisor; src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/onboarding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/client.py",
@@ -19958,7 +20012,11 @@
         "src/health/server.py",
         "src/web/__init__.py",
         "src/web/onboarding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_onboarding_journey_campaign.py",
@@ -19987,13 +20045,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/onboarding.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/health/server.py",
         "src/web/__init__.py",
         "src/web/onboarding.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_onboarding_partial_publication.py",
@@ -22672,7 +22734,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "safe_pass_now",
       "reason": "Phase2 retained integration: src/health/checker.py: core readiness replaces gateway. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/health/checker.py"
@@ -25684,13 +25746,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/integrations.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/integrations.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_web_api_integrations_validation_coverage.py",
@@ -26003,13 +26069,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/sessions_chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/sessions_chat.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_web_api_skills_and_observability.py",
@@ -26039,14 +26109,18 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/observability.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/skills_api.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/web/__init__.py",
         "src/web/api/__init__.py",
         "src/web/api/observability.py",
         "src/web/api/skills_api.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_web_api_turn_state.py",
@@ -26146,13 +26220,17 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/discord/scheduled_events.py: Desktop owner/intake/control/durable delivery adapter: scheduled_events; src/discord/tool_loop.py: Desktop owner/intake/control/durable delivery adapter: tool_loop; src/health/server.py: authenticated IPC readiness/ingress. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/discord/scheduled_events.py",
         "src/discord/tool_loop.py",
         "src/health/server.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_web_campaign_policy_races.py",
@@ -26391,7 +26469,7 @@
         "spawn_calls": [],
         "review_scope": "static AST, no imports/tests executed"
       },
-      "classification": "phase2",
+      "classification": "retired",
       "reason": "Phase2 retained integration: src/health/server.py: authenticated IPC readiness/ingress; src/web/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/__init__.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/api/skills_api.py: authenticated Desktop command/event/owner adapter replaces legacy transport; src/web/chat.py: authenticated Desktop command/event/owner adapter replaces legacy transport. Preserve cases, no privileged fake shim.",
       "phase2_seams": [
         "src/health/server.py",
@@ -26399,7 +26477,11 @@
         "src/web/api/__init__.py",
         "src/web/api/skills_api.py",
         "src/web/chat.py"
-      ]
+      ],
+      "retirement": {
+        "reviewer": "Claude, review of step 8 part 4",
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact."
+      }
     },
     {
       "path": "tests/test_web_skills_v413.py",
@@ -36346,7 +36428,6 @@
     "tests/test_webui_turn_state_render.py"
   ],
   "phase2": [
-    "tests/characterization/test_api_route_parity.py",
     "tests/characterization/test_autonomous_loop.py",
     "tests/characterization/test_chat_tool_loop.py",
     "tests/characterization/test_delivery.py",
@@ -36385,21 +36466,16 @@
     "tests/test_bootstrap_bind_policy.py",
     "tests/test_bootstrap_runtime_bind.py",
     "tests/test_bounded_process_wait.py",
-    "tests/test_branch_freshness.py",
-    "tests/test_browser_wait_timeout.py",
     "tests/test_campaign_a_coverage_boundaries.py",
     "tests/test_campaign_agent_routes_coverage.py",
     "tests/test_campaign_attachment_intake_coverage.py",
     "tests/test_campaign_audit_observability.py",
     "tests/test_campaign_authorization_persistence.py",
     "tests/test_campaign_cli_coverage.py",
-    "tests/test_campaign_diagnostic_privacy.py",
     "tests/test_campaign_discord_attachments.py",
-    "tests/test_campaign_discord_digest.py",
     "tests/test_campaign_discord_final_coverage.py",
     "tests/test_campaign_discord_intake.py",
     "tests/test_campaign_discord_resume.py",
-    "tests/test_campaign_display_binding_coverage.py",
     "tests/test_campaign_execution_outcomes.py",
     "tests/test_campaign_finish_boundaries.py",
     "tests/test_campaign_health_coverage.py",
@@ -36412,10 +36488,8 @@
     "tests/test_campaign_scheduler_workflows.py",
     "tests/test_campaign_startup_auth.py",
     "tests/test_campaign_startup_health.py",
-    "tests/test_campaign_web_final_coverage.py",
     "tests/test_campaign_websocket_coverage.py",
     "tests/test_cancelled_persistence_settles.py",
-    "tests/test_catalog_campaign.py",
     "tests/test_channel_cursor_campaign.py",
     "tests/test_channel_history_recency.py",
     "tests/test_channel_logger.py",
@@ -36430,7 +36504,6 @@
     "tests/test_chat_steering_runtime.py",
     "tests/test_codex_account_mutation_regressions.py",
     "tests/test_codex_quota_check.py",
-    "tests/test_codex_replay_boundaries.py",
     "tests/test_codex_replay_matrix.py",
     "tests/test_command_shell_callers.py",
     "tests/test_command_shell_framing.py",
@@ -36438,9 +36511,6 @@
     "tests/test_command_shell_scope.py",
     "tests/test_compatible_output_reserve.py",
     "tests/test_compatible_timeout_migration.py",
-    "tests/test_computer_admission_http_r8.py",
-    "tests/test_computer_api.py",
-    "tests/test_computer_api_recovery_r18.py",
     "tests/test_computer_boundary_guidance_regression.py",
     "tests/test_computer_catalog.py",
     "tests/test_computer_clean_interruption_integration.py",
@@ -36453,36 +36523,25 @@
     "tests/test_computer_hyprland_durable_fence_r42.py",
     "tests/test_computer_hyprland_failure_r38.py",
     "tests/test_computer_hyprland_failure_r41.py",
-    "tests/test_computer_hyprland_integration_r32.py",
     "tests/test_computer_hyprland_receipts_r33.py",
     "tests/test_computer_hyprland_settling_r35.py",
     "tests/test_computer_hyprland_turnloop_r33.py",
-    "tests/test_computer_identity_sequences_r21.py",
     "tests/test_computer_integration_boundary.py",
     "tests/test_computer_integration_r5.py",
     "tests/test_computer_inventory_capabilities_x1.py",
     "tests/test_computer_lifecycle_r5.py",
-    "tests/test_computer_lifecycle_review_r5.py",
     "tests/test_computer_manager_coverage_r10.py",
     "tests/test_computer_modal_binding_recovery.py",
     "tests/test_computer_native_keyboard_focus_class.py",
     "tests/test_computer_native_vision_r5.py",
     "tests/test_computer_normal_turn_r3.py",
     "tests/test_computer_observe_session_boundary.py",
-    "tests/test_computer_operator_auth_r5.py",
     "tests/test_computer_privacy_r5.py",
-    "tests/test_computer_product_status_r11.py",
-    "tests/test_computer_provisioning_r29.py",
     "tests/test_computer_r19_delivery.py",
     "tests/test_computer_reconciliation_r18.py",
-    "tests/test_computer_resources_r21.py",
     "tests/test_computer_review_r3.py",
     "tests/test_computer_round14_verification.py",
-    "tests/test_computer_scope_readiness_r13.py",
-    "tests/test_computer_sequence_injection_r21.py",
     "tests/test_computer_sequences_r19.py",
-    "tests/test_computer_wayland_config_r8.py",
-    "tests/test_computer_web_binding_r5.py",
     "tests/test_computer_x11_focus_controller.py",
     "tests/test_config.py",
     "tests/test_config_campaign_v410.py",
@@ -36515,10 +36574,8 @@
     "tests/test_hosts_consumer_edges.py",
     "tests/test_hosts_web_edges.py",
     "tests/test_hyprland_clean_interruption_continuity.py",
-    "tests/test_hyprland_discovery_campaign.py",
     "tests/test_hyprland_keyboard_raster_grounding.py",
     "tests/test_hyprland_multiturn_drawing.py",
-    "tests/test_hyprland_normal_turn_wire_r33.py",
     "tests/test_hyprland_popup_focus_working_paths.py",
     "tests/test_hyprland_release_outcomes_regression.py",
     "tests/test_image_default_update_paths.py",
@@ -36540,14 +36597,9 @@
     "tests/test_main_exit_codes.py",
     "tests/test_max_reasoning_effort.py",
     "tests/test_mcp_admin.py",
-    "tests/test_mcp_client_eras.py",
     "tests/test_mcp_dispatch.py",
-    "tests/test_mcp_edges.py",
-    "tests/test_mcp_manager.py",
-    "tests/test_mcp_media_checkpoint.py",
     "tests/test_mcp_media_surfaces_checkpoint.py",
     "tests/test_mcp_publication_limits.py",
-    "tests/test_mcp_transport_http.py",
     "tests/test_mcp_wiring.py",
     "tests/test_mixed_agent_reasoning_contract.py",
     "tests/test_native_agents_tasks.py",
@@ -36559,8 +36611,6 @@
     "tests/test_nested_agents.py",
     "tests/test_onboarding_campaign.py",
     "tests/test_onboarding_durable_binding_restart.py",
-    "tests/test_onboarding_full_parity_campaign.py",
-    "tests/test_onboarding_journey_campaign.py",
     "tests/test_onboarding_partial_publication.py",
     "tests/test_openrouter_admin_boundaries.py",
     "tests/test_output_executor_fences.py",
@@ -36588,7 +36638,6 @@
     "tests/test_resource_usage.py",
     "tests/test_restart.py",
     "tests/test_resume_admission.py",
-    "tests/test_round40_reviewer.py",
     "tests/test_runtime_output_delivery.py",
     "tests/test_schedule_report_format_parity.py",
     "tests/test_scheduled_digest_identity.py",
@@ -36628,7 +36677,6 @@
     "tests/test_web_api_agents_loops.py",
     "tests/test_web_api_codex_admin.py",
     "tests/test_web_api_config_admin.py",
-    "tests/test_web_api_integrations.py",
     "tests/test_web_api_integrations_validation_coverage.py",
     "tests/test_web_api_knowledge_mem.py",
     "tests/test_web_api_llm_admin.py",
@@ -36638,17 +36686,13 @@
     "tests/test_web_api_security_helpers_coverage.py",
     "tests/test_web_api_security_routes.py",
     "tests/test_web_api_self_update.py",
-    "tests/test_web_api_sessions_chat.py",
-    "tests/test_web_api_skills_and_observability.py",
     "tests/test_web_api_turn_state.py",
-    "tests/test_web_campaign_authorization.py",
     "tests/test_web_campaign_policy_races.py",
     "tests/test_web_campaign_streams.py",
     "tests/test_web_campaign_truth.py",
     "tests/test_web_chat.py",
     "tests/test_web_persisted_sessions.py",
     "tests/test_web_security_reliability.py",
-    "tests/test_web_skill_identity_v412.py",
     "tests/test_web_skills_v413.py",
     "tests/test_web_websocket.py",
     "tests/test_webauth_campaign_regressions.py",
@@ -36732,15 +36776,6 @@
     "tests/supervised_shell_double.py"
   ],
   "safe_pass_now": [
-    "tests/test_campaign_execution_risk.py",
-    "tests/test_channel_state_recent_action_failure.py",
-    "tests/test_computer_audit_output_r21.py",
-    "tests/test_computer_checkpoint_privacy_r5.py",
-    "tests/test_computer_frame_boundary.py",
-    "tests/test_connection_lifecycle_d1.py",
-    "tests/test_local_supervisor_wrapper_r10.py",
-    "tests/test_process_manager.py",
-    "tests/test_restored_process_shutdown.py",
     "tests/computer/test_hyprland_backend.py",
     "tests/test_adaptive_compaction.py",
     "tests/test_agent_cascade_retention.py",
@@ -36761,7 +36796,9 @@
     "tests/test_auxiliary_llm.py",
     "tests/test_backoff.py",
     "tests/test_binary_host_read.py",
+    "tests/test_branch_freshness.py",
     "tests/test_browser_automation.py",
+    "tests/test_browser_wait_timeout.py",
     "tests/test_campaign_audit_durability.py",
     "tests/test_campaign_backend_environment_final_coverage.py",
     "tests/test_campaign_close_backend_capture_coverage.py",
@@ -36772,7 +36809,10 @@
     "tests/test_campaign_coverage_core_llm.py",
     "tests/test_campaign_coverage_core_observability.py",
     "tests/test_campaign_coverage_core_scheduler.py",
+    "tests/test_campaign_diagnostic_privacy.py",
+    "tests/test_campaign_display_binding_coverage.py",
     "tests/test_campaign_evidence_review.py",
+    "tests/test_campaign_execution_risk.py",
     "tests/test_campaign_execution_validation.py",
     "tests/test_campaign_host_collisions.py",
     "tests/test_campaign_hosts_trust_coverage.py",
@@ -36792,6 +36832,9 @@
     "tests/test_campaign_scheduler_time.py",
     "tests/test_campaign_system_coverage_restore.py",
     "tests/test_campaign_usage_lock.py",
+    "tests/test_campaign_web_final_coverage.py",
+    "tests/test_catalog_campaign.py",
+    "tests/test_channel_state_recent_action_failure.py",
     "tests/test_circuit_breaker.py",
     "tests/test_codex_55_retirement.py",
     "tests/test_codex_auth.py",
@@ -36800,6 +36843,7 @@
     "tests/test_codex_limit_aware.py",
     "tests/test_codex_quota.py",
     "tests/test_codex_reliability.py",
+    "tests/test_codex_replay_boundaries.py",
     "tests/test_codex_spark_retirement.py",
     "tests/test_command_authority.py",
     "tests/test_command_shell_matrix.py",
@@ -36810,16 +36854,19 @@
     "tests/test_computer_actions_contract_r11.py",
     "tests/test_computer_actions_r4.py",
     "tests/test_computer_adapters_r11.py",
+    "tests/test_computer_admission_http_r8.py",
     "tests/test_computer_admission_r8.py",
     "tests/test_computer_app_offering_r7.py",
     "tests/test_computer_app_profiles_r6.py",
     "tests/test_computer_attached_controller_r5.py",
+    "tests/test_computer_audit_output_r21.py",
     "tests/test_computer_audit_reason_codes.py",
     "tests/test_computer_campaign_absence_resolution.py",
     "tests/test_computer_campaign_cache_retirement.py",
     "tests/test_computer_campaign_orphans.py",
     "tests/test_computer_capture_scope_boundary_r19.py",
     "tests/test_computer_capture_settling_r5.py",
+    "tests/test_computer_checkpoint_privacy_r5.py",
     "tests/test_computer_class1_receipt_recovery.py",
     "tests/test_computer_clean_interruption_recovery.py",
     "tests/test_computer_contract_r1.py",
@@ -36830,6 +36877,7 @@
     "tests/test_computer_dispatch_truth_r21.py",
     "tests/test_computer_drawing_modal_r5.py",
     "tests/test_computer_field_adoption_r21.py",
+    "tests/test_computer_frame_boundary.py",
     "tests/test_computer_freshness_r1.py",
     "tests/test_computer_geometry_r1.py",
     "tests/test_computer_guardian_semantic_r19.py",
@@ -36837,9 +36885,11 @@
     "tests/test_computer_hyprland_app_group_runtime.py",
     "tests/test_computer_hyprland_foundation_r29.py",
     "tests/test_computer_hyprland_guardian_r32.py",
+    "tests/test_computer_hyprland_integration_r32.py",
     "tests/test_computer_hyprland_preinventory_r42.py",
     "tests/test_computer_hyprland_scope_r32.py",
     "tests/test_computer_identity_native_r21.py",
+    "tests/test_computer_identity_sequences_r21.py",
     "tests/test_computer_isolated_pixels_r17.py",
     "tests/test_computer_keyboard_grounding_r6.py",
     "tests/test_computer_kwin_popup_scope_r11.py",
@@ -36849,13 +36899,16 @@
     "tests/test_computer_launch_r4.py",
     "tests/test_computer_lifecycle_coverage_r13.py",
     "tests/test_computer_lifecycle_races_r21.py",
+    "tests/test_computer_lifecycle_review_r5.py",
     "tests/test_computer_local_recovery.py",
     "tests/test_computer_native_gui_r5.py",
     "tests/test_computer_orchestration_coverage_r10.py",
     "tests/test_computer_pixel_guards_r19.py",
     "tests/test_computer_product_controller_r11.py",
+    "tests/test_computer_product_status_r11.py",
     "tests/test_computer_profile_hooks_r7.py",
     "tests/test_computer_provenance_r11.py",
+    "tests/test_computer_provisioning_r29.py",
     "tests/test_computer_qt_accessibility_r19.py",
     "tests/test_computer_r17_regression.py",
     "tests/test_computer_r19_effect_contracts.py",
@@ -36868,11 +36921,14 @@
     "tests/test_computer_recovery_r5.py",
     "tests/test_computer_recovery_reopen_campaign.py",
     "tests/test_computer_region_truthfulness_r21.py",
+    "tests/test_computer_resources_r21.py",
     "tests/test_computer_round14_grounding.py",
     "tests/test_computer_runtime_coverage_r10.py",
     "tests/test_computer_runtime_coverage_r10_worker.py",
     "tests/test_computer_runtime_grounding_r4.py",
+    "tests/test_computer_scope_readiness_r13.py",
     "tests/test_computer_selection_campaign.py",
+    "tests/test_computer_sequence_injection_r21.py",
     "tests/test_computer_shared_admission_r13.py",
     "tests/test_computer_shared_release_claims_r23.py",
     "tests/test_computer_stop_retry_r23.py",
@@ -36884,6 +36940,7 @@
     "tests/test_computer_visible_frontier_r19.py",
     "tests/test_computer_wayland_backend_r10.py",
     "tests/test_computer_wayland_backend_r8.py",
+    "tests/test_computer_wayland_config_r8.py",
     "tests/test_computer_wayland_frame_controller_r11.py",
     "tests/test_computer_wayland_guardian_r10.py",
     "tests/test_computer_wayland_identity_r10.py",
@@ -36912,6 +36969,7 @@
     "tests/test_computer_x11_topology_r11.py",
     "tests/test_config_ceiling_migration.py",
     "tests/test_config_init.py",
+    "tests/test_connection_lifecycle_d1.py",
     "tests/test_context_budget.py",
     "tests/test_context_budget_legacy_profile_conversion.py",
     "tests/test_context_compressor.py",
@@ -36941,6 +36999,7 @@
     "tests/test_hyprland_continuity_classification.py",
     "tests/test_hyprland_coverage_r32.py",
     "tests/test_hyprland_diagnostics_b0.py",
+    "tests/test_hyprland_discovery_campaign.py",
     "tests/test_hyprland_durable_reconnect.py",
     "tests/test_hyprland_durable_recovery.py",
     "tests/test_hyprland_exact_retirement_build.py",
@@ -36999,10 +37058,16 @@
     "tests/test_local_supervisor_ack.py",
     "tests/test_local_supervisor_pidfd.py",
     "tests/test_local_supervisor_worker_r10.py",
+    "tests/test_local_supervisor_wrapper_r10.py",
     "tests/test_loop_error_sanitization.py",
     "tests/test_mcp_campaign.py",
+    "tests/test_mcp_client_eras.py",
+    "tests/test_mcp_edges.py",
+    "tests/test_mcp_manager.py",
+    "tests/test_mcp_media_checkpoint.py",
     "tests/test_mcp_media_retention_checkpoint.py",
     "tests/test_mcp_protocol.py",
+    "tests/test_mcp_transport_http.py",
     "tests/test_mcp_transport_stdio.py",
     "tests/test_memory_fail_closed.py",
     "tests/test_model_breaker.py",
@@ -37024,6 +37089,7 @@
     "tests/test_pr356_environment_compatibility.py",
     "tests/test_process_host_lease_authority.py",
     "tests/test_process_kill_status.py",
+    "tests/test_process_manager.py",
     "tests/test_process_output_retention.py",
     "tests/test_process_read_leases.py",
     "tests/test_process_retention_error_paths.py",
@@ -37045,8 +37111,10 @@
     "tests/test_remote_process_streaming.py",
     "tests/test_remote_processes.py",
     "tests/test_response_guards.py",
+    "tests/test_restored_process_shutdown.py",
     "tests/test_result_validator.py",
     "tests/test_retained_output_compression.py",
+    "tests/test_round40_reviewer.py",
     "tests/test_round41_hedging_regression.py",
     "tests/test_safe_fetch.py",
     "tests/test_schedule_history.py",
@@ -37100,7 +37168,6 @@
     "tests/test_webhook_text.py"
   ],
   "safety_manual_gated": [
-    "tests/test_hyprland_input_loss_campaign.py",
     "tests/test_attached_apps_r6_harness.py",
     "tests/test_campaign_a_validation.py",
     "tests/test_campaign_governor_skills.py",
@@ -37160,6 +37227,7 @@
     "tests/test_hyprland_durable_recovery_journal.py",
     "tests/test_hyprland_harness_exit_r48.py",
     "tests/test_hyprland_input_held_r38.py",
+    "tests/test_hyprland_input_loss_campaign.py",
     "tests/test_hyprland_input_wire_r32.py",
     "tests/test_hyprland_inventory_blockers.py",
     "tests/test_hyprland_original_resource_absence.py",
@@ -37219,17 +37287,45 @@
     }
   ],
   "retired": [
+    "tests/characterization/test_api_route_parity.py",
+    "tests/test_campaign_discord_digest.py",
     "tests/test_client.py",
     "tests/test_command_reconciliation.py",
+    "tests/test_computer_api.py",
+    "tests/test_computer_api_recovery_r18.py",
+    "tests/test_computer_operator_auth_r5.py",
+    "tests/test_computer_web_binding_r5.py",
     "tests/test_gateway_transition_regressions.py",
+    "tests/test_hyprland_normal_turn_wire_r33.py",
+    "tests/test_onboarding_full_parity_campaign.py",
+    "tests/test_onboarding_journey_campaign.py",
     "tests/test_rate_limiter.py",
+    "tests/test_web_api_integrations.py",
+    "tests/test_web_api_sessions_chat.py",
+    "tests/test_web_api_skills_and_observability.py",
+    "tests/test_web_campaign_authorization.py",
+    "tests/test_web_skill_identity_v412.py",
     "tests/test_websocket_production_stack.py"
   ],
   "phase2_retired": [
+    "tests/characterization/test_api_route_parity.py",
+    "tests/test_campaign_discord_digest.py",
     "tests/test_client.py",
     "tests/test_command_reconciliation.py",
+    "tests/test_computer_api.py",
+    "tests/test_computer_api_recovery_r18.py",
+    "tests/test_computer_operator_auth_r5.py",
+    "tests/test_computer_web_binding_r5.py",
     "tests/test_gateway_transition_regressions.py",
+    "tests/test_hyprland_normal_turn_wire_r33.py",
+    "tests/test_onboarding_full_parity_campaign.py",
+    "tests/test_onboarding_journey_campaign.py",
     "tests/test_rate_limiter.py",
+    "tests/test_web_api_integrations.py",
+    "tests/test_web_api_sessions_chat.py",
+    "tests/test_web_api_skills_and_observability.py",
+    "tests/test_web_campaign_authorization.py",
+    "tests/test_web_skill_identity_v412.py",
     "tests/test_websocket_production_stack.py"
   ]
 }

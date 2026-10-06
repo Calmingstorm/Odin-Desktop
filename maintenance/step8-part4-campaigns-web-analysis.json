@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "artifact": "Lane8 exact campaigns/web assignment analysis",
+  "status": "pending-independent-review",
+  "scope": {
+    "lane": "lane8_6A",
+    "assignment_paths": [
+      "tests/test_campaign_diagnostic_privacy.py",
+      "tests/test_campaign_discord_digest.py",
+      "tests/test_campaign_discord_final_coverage.py",
+      "tests/test_campaign_display_binding_coverage.py",
+      "tests/test_campaign_execution_outcomes.py",
+      "tests/test_campaign_finish_boundaries.py",
+      "tests/test_campaign_web_final_coverage.py",
+      "tests/test_catalog_campaign.py",
+      "tests/test_onboarding_full_parity_campaign.py",
+      "tests/test_onboarding_journey_campaign.py",
+      "tests/test_smoke_run_bot.py",
+      "tests/test_web_api_config_admin.py",
+      "tests/test_web_api_integrations.py",
+      "tests/test_web_api_sessions_chat.py",
+      "tests/test_web_api_skills_and_observability.py",
+      "tests/test_web_campaign_authorization.py",
+      "tests/test_web_security_reliability.py",
+      "tests/test_web_skill_identity_v412.py",
+      "tests/test_web_skills_v413.py"
+    ],
+    "selection_rule": "Exact path membership only. No glob, prefix, class-level or cross-lane expansion."
+  },
+  "disposition_reference": {
+    "path": "maintenance/step8-part4-campaigns-candidates.json",
+    "pointer": "/dispositions",
+    "filter": "Select only rows whose path exactly occurs in scope.assignment_paths. All source hashes, file selectors, restoration records and sorted exact retired cases live in those records."
+  },
+  "analysis": [
+    {"path":"tests/test_campaign_diagnostic_privacy.py","status":"restored","reason":"Complete retained neutral diagnostics corpus restored. Only the two exact removed HTTP process inventory cases retired."},
+    {"path":"tests/test_campaign_discord_digest.py","status":"retired","reason":"Exact case is the removed Discord digest heading/message formatter."},
+    {"path":"tests/test_campaign_discord_final_coverage.py","status":"deferred","reason":"Six neutral startup/lifecycle/runtime resume/scheduler cases need exact Desktop adapters. Nine exact Discord reply/attachment/presence/startup-option/setup_hook transport cases retired."},
+    {"path":"tests/test_campaign_display_binding_coverage.py","status":"restored","reason":"Complete retained display/provider corpus restored. Exact browser bearer-authority case retired, not neutral display truthfulness."},
+    {"path":"tests/test_campaign_execution_outcomes.py","status":"deferred","reason":"Complete cases provide partial support only. Two parameters of the durable dispatch-failure case require exact authenticated RequestService worker and ledger observation adapters."},
+    {"path":"tests/test_campaign_finish_boundaries.py","status":"deferred","reason":"Four neutral envwriter/backfill/reconcile/background cases need adapters. Eight exact Discord-token/actual HTTP-route cases retired."},
+    {"path":"tests/test_campaign_web_final_coverage.py","status":"restored","reason":"Complete retained safe-int helper corpus restored. Seven exact HTTP/bearer/WebSocket cases retired."},
+    {"path":"tests/test_catalog_campaign.py","status":"restored","reason":"Complete retained catalog corpus restored through actual Desktop ready catalog/policy; no retired cases."},
+    {"path":"tests/test_onboarding_full_parity_campaign.py","status":"retired","reason":"Every exact frozen case drives removed HTTP/listener/bearer/Discord onboarding."},
+    {"path":"tests/test_onboarding_journey_campaign.py","status":"retired","reason":"Every exact frozen case drives removed web onboarding listener or Discord admin route."},
+    {"path":"tests/test_smoke_run_bot.py","status":"deferred","reason":"Mixed import-sweep case deferred intact with all parameters. Seven exact Discord or removed web/tier schema cases retired; remaining cases partial support only."},
+    {"path":"tests/test_web_api_config_admin.py","status":"deferred","reason":"Mixed neutral explicit-path config helper and actual HTTP routes. Whole suite deferred; no blanket retirement."},
+    {"path":"tests/test_web_api_integrations.py","status":"retired","reason":"Every exact frozen case drives removed integrations HTTP handlers, not direct neutral service methods."},
+    {"path":"tests/test_web_api_sessions_chat.py","status":"retired","reason":"Every exact frozen case drives removed HTTP chat/session/execution/trajectory handlers."},
+    {"path":"tests/test_web_api_skills_and_observability.py","status":"retired","reason":"Every exact frozen case drives removed skills/observability HTTP handlers."},
+    {"path":"tests/test_web_campaign_authorization.py","status":"retired","reason":"Exact cases drive removed HTTP tier matrix/multi-user route authorization."},
+    {"path":"tests/test_web_security_reliability.py","status":"deferred","reason":"Neutral client_ip parser helpers are deferred pending exact adapters, never retired. Only three admin-path and seven listener-middleware cases retired. Retained redaction/SSRF/outbound probe/context cases are complete-case partial support."},
+    {"path":"tests/test_web_skill_identity_v412.py","status":"retired","reason":"Exact cases drive removed HTTP skill-test route/tier identity behavior."},
+    {"path":"tests/test_web_skills_v413.py","status":"deferred","reason":"Two direct neutral failed-delete cases deferred: test_failed_delete_never_removes_loaded_alias_or_user_path and test_failed_delete_clears_stale_record_when_file_already_removed. Four actual HTTP route cases retired."}
+  ],
+  "fixture_proof": {
+    "status": "pending-independent-review",
+    "reference": "maintenance/step8-part4-campaigns-candidates.json#/fixture_proof",
+    "qualification": "Four whole campaign suites restored; three campaign suites provide partial support only. Exact fixture proof does not accept pending reviewer proposals or restore deferred suites."
+  },
+  "entries": [
+    {"path":"maintenance/step8-part4-campaigns-web-analysis.json","reason":"Replace broad legacy web analysis with exact19-path campaign assignment analysis.","contract":"All dispositions resolve by exact membership into the consolidated candidate; exact case/hash records are not duplicated or broadened.","invariant":"No out-of-assignment rows, glob scope, neutral parser retirement or pending accepted proof.","owner":"lane8_6A","tests":["tests/test_desktop_step8_6a_campaigns_corpus.py"]}
+  ],
+  "validation": {
+    "campaigns": {"passed":186,"seconds":14.22,"deselected":0},
+    "combined_final": {"passed":244,"seconds":43.21,"source":"Parent-observed final five-selector run on merged source c84cdd41, restricted isolation helper, invoking UID1003, fresh HOME and .venv"},
+    "review": "pending-independent-review"
+  }
+}

@@ -1,0 +1,2544 @@
+{
+  "assignment_sha256": "20f094868694949d7e3fc89d74f9277e4d1a293e0c7578311f7b1c6bb0b5d12c",
+  "counts": {
+    "deferred": 59,
+    "restored": 24,
+    "retired": 14
+  },
+  "data_substitutions": [],
+  "dispositions": [
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194",
+      "path": "tests/characterization/test_api_route_parity.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "TestImportSurface.test_helpers_canonical_home_is_api_common",
+          "reason": "Removed HTTP API import surface.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestImportSurface.test_process_web_chat_patch_seam",
+          "reason": "Removed web chat patch seam.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestImportSurface.test_public_entry_points",
+          "reason": "Removed HTTP listener entrypoints.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestImportSurface.test_shared_helpers_importable_from_api",
+          "reason": "Removed HTTP API import surface.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestRouteTableParity.test_exact_route_list_and_order",
+          "reason": "Removed HTTP route table.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestRouteTableParity.test_handlers_close_over_the_given_bot",
+          "reason": "Removed HTTP handler table.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        },
+        {
+          "case": "TestRouteTableParity.test_no_duplicate_method_path_pairs",
+          "reason": "Removed HTTP route table.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_api_route_parity.py",
+          "source_sha256": "06907b927462404899f27f30470735cb54df201b1d058d15eb3f4043a2b9d194"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "selector": "tests/characterization/test_api_route_parity.py",
+      "status": "retired"
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Mixed transport/neutral flat surface lists and absent live knowledge setter.",
+      "inherited_sha256": "5781096ed17b7dd88c88ee8047197f169e4782a4518c8e8dffdd67427be977d4",
+      "path": "tests/characterization/test_facade_contract.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "TestWebChatRoute.test_process_web_chat_drives_real_tool_loop",
+          "reason": "Removed HTTP web chat route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_facade_contract.py",
+          "source_sha256": "5781096ed17b7dd88c88ee8047197f169e4782a4518c8e8dffdd67427be977d4"
+        }
+      ],
+      "selector": "tests/characterization/test_facade_contract.py",
+      "status": "deferred",
+      "support_evidence": {
+        "reference": "maintenance/step8-part4-characterization-candidates.json"
+      }
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Neutral file staging is Phase2 unavailable; exact native registration table changed.",
+      "inherited_sha256": "b1639873c2af9332df8e0d2ac57177c39efb721e1a822b22187b9da085cabfb2",
+      "path": "tests/characterization/test_native_skill_dispatch_pins.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "TestFileDelivery.test_file_cb_send_mode_posts_to_channel",
+          "reason": "Removed Discord channel file callback.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_native_skill_dispatch_pins.py",
+          "source_sha256": "b1639873c2af9332df8e0d2ac57177c39efb721e1a822b22187b9da085cabfb2"
+        }
+      ],
+      "selector": "tests/characterization/test_native_skill_dispatch_pins.py",
+      "status": "deferred",
+      "support_evidence": {
+        "reference": "maintenance/step8-part4-characterization-candidates.json"
+      }
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Real list_schedules output authority unavailable; post-turn detail storage changed.",
+      "inherited_sha256": "011f3a955b54720e5023ed485c4ab267ccf324d085449371dbc6196771b709dc",
+      "path": "tests/characterization/test_p1_carve_semantics.py",
+      "restoration": null,
+      "retired_cases": [],
+      "selector": "tests/characterization/test_p1_carve_semantics.py",
+      "status": "deferred",
+      "support_evidence": {
+        "reference": "maintenance/step8-part4-characterization-candidates.json"
+      }
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Exact inherited pipeline facade and auxiliary seam unadapted. Real production UsageRollup/calibration/Core resume release hooks fixed and verified.",
+      "inherited_sha256": "0195fbb4c590d4bb523f1333581456bb957c3d12049e8faf2ecc05ee4dc45f1e",
+      "path": "tests/characterization/test_p2_composition.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "TestTwoStageComposition.test_scheduler_start_wires_scheduled_events_methods",
+          "reason": "Removed Discord on_ready/guild lifecycle.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/characterization/test_p2_composition.py",
+          "source_sha256": "0195fbb4c590d4bb523f1333581456bb957c3d12049e8faf2ecc05ee4dc45f1e"
+        }
+      ],
+      "selector": "tests/characterization/test_p2_composition.py",
+      "status": "deferred",
+      "support_evidence": {
+        "reference": "maintenance/step8-part4-characterization-candidates.json"
+      }
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Neutral schema/readiness/profile-clone differences need reviewer ruling, not retirement.",
+      "inherited_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
+      "path": "tests/characterization/test_tool_parity.py",
+      "restoration": null,
+      "retired_cases": [],
+      "selector": "tests/characterization/test_tool_parity.py",
+      "status": "deferred",
+      "support_evidence": {
+        "reference": "maintenance/step8-part4-characterization-candidates.json"
+      }
+    },
+    {
+      "batch": "tools",
+      "blocker": "All four inherited cases obtain callback via _handle_spawn_agent. src/discord/native_tools/agents_tasks.py:1123 immediately raises Phase 2 agent request admission and invocation context is not implemented. Canonical owner fixture cannot bypass this actual production fence.",
+      "inherited_sha256": "3a69110269578920064eff8a556e1cf15cbc1491ba6256854d108e792b22319a",
+      "path": "tests/test_agent_image_safety.py",
+      "retired_cases": [],
+      "selector": "tests/test_agent_image_safety.py",
+      "status": "deferred"
+    },
+    {
+      "batch": "tools",
+      "blocker": null,
+      "exclusions": "Exact five case dictionaries in adapter CORPUS_EXCLUSIONS.test_branch_freshness",
+      "inherited_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871",
+      "path": "tests/test_branch_freshness.py",
+      "restoration": "Test_test_branch_freshness_*; all 106 surviving inherited functions; actual ToolExecutor composed in build_engine_services with canonical owner.",
+      "retired_cases": [
+        {
+          "case": "TestFreshnessAPI.test_recent_endpoint",
+          "reason": "GET /api/freshness/recent is a removed Odin web UI HTTP listener route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestFreshnessAPI.test_recent_no_executor",
+          "reason": "503 response from GET /api/freshness/recent is a removed Odin web UI HTTP listener contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestFreshnessAPI.test_recent_with_limit",
+          "reason": "GET /api/freshness/recent?limit=5 is a removed Odin web UI HTTP listener route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestFreshnessAPI.test_stats_endpoint",
+          "reason": "GET /api/freshness/stats is a removed Odin web UI HTTP listener route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestFreshnessAPI.test_stats_no_executor",
+          "reason": "503 response from GET /api/freshness/stats is a removed Odin web UI HTTP listener contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        }
+      ],
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "tools",
+      "blocker": null,
+      "environment": "BrowserRuntime bundle_root=/home/odin/desktop-p41-final-stage/runtime; no active display/session",
+      "inherited_sha256": "32036111f71c333db06ecaa87227b8c44bfd9d94de236af843994ea8b6bafa99",
+      "path": "tests/test_browser_wait_timeout.py",
+      "restoration": "All 11 inherited functions and 52 parametrized cases through actual BrowserRuntime and real packaged headless Chromium; handler Playwright mocks retained only where inherited. Config snapshot remains restart-only.",
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::test_test_browser_wait_timeout_*",
+      "status": "restored"
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "584ef3fca00a3f88171b0ce10eb4197d1f67972c9706964d140dd4bb9fb4eca6",
+      "path": "tests/test_campaign_diagnostic_privacy.py",
+      "restoration": {
+        "adapter": "tests/desktop_adapters/step8_6a_campaigns.py",
+        "loader": "load",
+        "selector": "tests/test_desktop_step8_6a_campaigns_corpus.py"
+      },
+      "retired_cases": [
+        {
+          "case": "test_process_api_scrubs_legacy_and_spoofed_commands_and_output",
+          "reason": "Removed web process inventory HTTP handler.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_diagnostic_privacy.py",
+          "source_sha256": "584ef3fca00a3f88171b0ce10eb4197d1f67972c9706964d140dd4bb9fb4eca6"
+        },
+        {
+          "case": "test_process_preview_scrubs_multiline_key_before_tail",
+          "reason": "Removed web process inventory HTTP handler.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_diagnostic_privacy.py",
+          "source_sha256": "584ef3fca00a3f88171b0ce10eb4197d1f67972c9706964d140dd4bb9fb4eca6"
+        }
+      ],
+      "selector": "tests/test_desktop_step8_6a_campaigns_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "e59e566e4f2b96d7b9f597845139653e9a40e6ef841e378666914a8c5f4ea167",
+      "path": "tests/test_campaign_discord_digest.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "test_raw_digest_fallback_is_bounded_including_heading_and_failures",
+          "reason": "Removed Discord digest heading/message formatter.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_digest.py",
+          "source_sha256": "e59e566e4f2b96d7b9f597845139653e9a40e6ef841e378666914a8c5f4ea167"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "selector": "tests/test_campaign_discord_digest.py",
+      "status": "retired"
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Neutral startup/lifecycle/runtime resume/scheduler require exact Desktop adapters.",
+      "deferred_cases": [
+        "test_application_lifecycle_is_idempotent_and_terminal_shutdown_refuses_restart",
+        "test_application_startup_completes_services_despite_nonfatal_component_failures",
+        "test_application_startup_tolerates_quota_check_failure",
+        "test_auto_resume_stands_down_for_unresolved_effects_before_claiming_channel",
+        "test_resume_revision_and_session_append_fail_closed_without_session_support",
+        "test_scheduling_connection_outage_is_reported_for_create_and_update"
+      ],
+      "inherited_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0",
+      "path": "tests/test_campaign_discord_final_coverage.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "test_attachment_fallback_cleanup_and_seek_failure_are_fail_closed",
+          "reason": "Removed Discord attachment transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_auto_resume_balances_presence_on_success_and_failure",
+          "reason": "Removed Discord presence transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_delivery_application_change_clears_staged_files_and_presence_work",
+          "reason": "Removed Discord delivery/presence transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_delivery_exhausts_definite_http_failures_without_claiming_a_send",
+          "reason": "Removed Discord HTTP delivery transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_invalid_reply_attachment_fallback_failure_never_retries_or_duplicates",
+          "reason": "Removed Discord reply attachment transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_invalid_reply_reference_recurses_through_lists_without_text_heuristics",
+          "reason": "Removed Discord reply-reference transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_invalid_reply_without_a_safe_attachment_copy_refuses_incomplete_plain_send",
+          "reason": "Removed Discord reply attachment transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_setup_hook_delegates_to_application_start_and_close_only_closes_transport",
+          "reason": "Removed Discord setup_hook transport.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        },
+        {
+          "case": "test_startup_config_logging_covers_nonempty_host_and_option_flags",
+          "reason": "Removed Discord-specific startup options.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_discord_final_coverage.py",
+          "source_sha256": "3e5fc365ed87f885cf253501c2c2b55c080017902186852a365eca384c9767b0"
+        }
+      ],
+      "selector": "tests/test_campaign_discord_final_coverage.py",
+      "status": "deferred"
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "d74cddea7e7c2b4dcc56aa6b6329fd0cfb34dcea19ba03be5a4bcfcfe759d3a5",
+      "path": "tests/test_campaign_display_binding_coverage.py",
+      "restoration": {
+        "adapter": "tests/desktop_adapters/step8_6a_campaigns.py",
+        "loader": "load",
+        "selector": "tests/test_desktop_step8_6a_campaigns_corpus.py"
+      },
+      "retired_cases": [
+        {
+          "case": "test_unknown_backing_credential_never_grants_browser_authority",
+          "reason": "Removed bearer browser session authority.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_display_binding_coverage.py",
+          "source_sha256": "d74cddea7e7c2b4dcc56aa6b6329fd0cfb34dcea19ba03be5a4bcfcfe759d3a5"
+        }
+      ],
+      "selector": "tests/test_desktop_step8_6a_campaigns_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Two parameter items use legacy TurnDurability.admit. Exact RequestService worker-scoped helper and conversation ledger observation missing.",
+      "deferred_cases": [
+        "test_dispatch_failure_is_durably_unknown_and_fenced"
+      ],
+      "inherited_sha256": "535d5636bda63bc41cd4ecdffd2f1a3ab91a6ba65ae46724819de41113f87434",
+      "path": "tests/test_campaign_execution_outcomes.py",
+      "restoration": null,
+      "retired_cases": [],
+      "selector": "tests/test_campaign_execution_outcomes.py",
+      "status": "deferred",
+      "support_evidence": {
+        "adapter": "tests/desktop_adapters/step8_6a_campaigns.py",
+        "loader": "load_support",
+        "selector": "tests/test_desktop_step8_6a_campaigns_corpus.py"
+      }
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Neutral envwriter/backfill/reconcile require exact Desktop adapters.",
+      "deferred_cases": [
+        "test_archive_backfill_logs_zero_or_progress",
+        "test_archive_failure_does_not_escape_ready_background_work",
+        "test_knowledge_fts_reconcile_runs_locked_and_survives_failure",
+        "test_legacy_env_writer_delegates_without_changing_content"
+      ],
+      "inherited_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788",
+      "path": "tests/test_campaign_finish_boundaries.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "test_login_valid_identity_without_session_manager_fails_honestly",
+          "reason": "Removed HTTP login route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_nonstring_resolved_token_is_missing_not_truthy",
+          "reason": "Removed Discord token check.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_pending_status_never_exposes_operational_inventory",
+          "reason": "Removed HTTP status route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_schedule_routes_report_disconnected_mutations_as_503",
+          "reason": "Removed HTTP schedule route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_setup_completion_race_returns_conflict",
+          "reason": "Removed HTTP setup route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_setup_gateway_failure_is_not_reported_connected",
+          "reason": "Removed HTTP setup route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_setup_invalid_nested_shapes_never_publish",
+          "reason": "Removed HTTP setup route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        },
+        {
+          "case": "test_setup_missing_or_recovery_context_never_writes",
+          "reason": "Removed HTTP setup route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_finish_boundaries.py",
+          "source_sha256": "fed4888c1fdd1f4b705ef0c66b86310cf5ade3def7fe8208007c51a458bf3788"
+        }
+      ],
+      "selector": "tests/test_campaign_finish_boundaries.py",
+      "status": "deferred"
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575",
+      "path": "tests/test_campaign_web_final_coverage.py",
+      "restoration": {
+        "adapter": "tests/desktop_adapters/step8_6a_campaigns.py",
+        "loader": "load",
+        "selector": "tests/test_desktop_step8_6a_campaigns_corpus.py"
+      },
+      "retired_cases": [
+        {
+          "case": "test_discord_connection_admin_errors_do_not_expose_credentials",
+          "reason": "Removed Discord connection HTTP route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_discord_connection_rejects_malformed_admin_requests_without_side_effects",
+          "reason": "Removed Discord connection HTTP route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_discord_connection_requires_real_admin_identity_and_supervisor",
+          "reason": "Removed Discord connection HTTP route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_schedule_unavailable_and_bad_json_are_safe",
+          "reason": "Removed schedule HTTP route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_token_guard_accepts_async_bool_and_rejects_non_bool",
+          "reason": "Removed bearer-token HTTP auth guard.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_websocket_auth_inventory_and_revoked_chat_are_denied",
+          "reason": "Removed WebSocket listener.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        },
+        {
+          "case": "test_websocket_invalid_chat_inputs_do_not_call_bot",
+          "reason": "Removed WebSocket listener.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_campaign_web_final_coverage.py",
+          "source_sha256": "03afb8a2d7ef9988f4e824ea317d2d4529397bd5f89b6c9d7a09bbd5d2b5e575"
+        }
+      ],
+      "selector": "tests/test_desktop_step8_6a_campaigns_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "694371b2f130d6cede610e69334dbef50ff3337ea18e752aa0f996fb52fe05f8",
+      "path": "tests/test_catalog_campaign.py",
+      "restoration": {
+        "adapter": "tests/desktop_adapters/step8_6a_campaigns.py",
+        "loader": "load",
+        "selector": "tests/test_desktop_step8_6a_campaigns_corpus.py"
+      },
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_campaigns_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "tools",
+      "blocker": null,
+      "inherited_sha256": "31ccc09d0d7d34ab0baf55cf8f16e03cadd62212e879c3da89a1d9028ebc4f1b",
+      "path": "tests/test_codex_replay_boundaries.py",
+      "restoration": "All 14 inherited functions; retained real converters/stores. Ownerless ToolLoopRunner.__new__ fixture replaced by build_engine_services(...).runner before inherited dispatch spies installed.",
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::test_test_codex_replay_boundaries_*",
+      "status": "restored"
+    },
+    {
+      "batch": "tools",
+      "blocker": "18 parametrized scheduled_workflow/scheduled_check/delegate_task cases require production owners not implemented: scheduled_events._on_scheduled_task:473, _execute_scheduled_tool:237 and _dispatch_scheduled_tool:286 are unconditional Phase2 fences; agents_tasks._handle_delegate_task:755 also fenced. ROUTES parameter list is immutable, so available 40 cases cannot truthfully restore the whole suite. Safe real runtime helper exposed for dependent suites, but no dispatcher bypass.",
+      "inherited_sha256": "9b3ab82395a1586ddc378004fc79c9aa03930a7d4b4259d2acf2f3d0c5fd81e2",
+      "path": "tests/test_command_shell_callers.py",
+      "retired_cases": [],
+      "selector": "tests/test_command_shell_callers.py::test_real_command_shell_caller_parity",
+      "status": "deferred"
+    },
+    {
+      "batch": "tools",
+      "blocker": "Agent parameter obtains native spawn catalog through _handle_spawn_agent; actual production admission is unimplemented and fenced at agents_tasks.py:1123. All three route parameter values must remain unchanged. test_built_system_prompt_byte_identical_to_precampaign_master also asserts frozen upstream source hash; needs reviewer decision for Desktop prompt divergence, not retirement.",
+      "inherited_sha256": "7b56912212ec81889c6c585ce4c9385d64aee9e3e82f591abc0f72b4d73d1b10",
+      "path": "tests/test_command_shell_round2.py",
+      "retired_cases": [],
+      "selector": "tests/test_command_shell_round2.py::test_served_catalogs_name_shell_once[agent]",
+      "status": "deferred"
+    },
+    {
+      "attempt": "PID1406043; scope+browser combined:74 passed,3 failed; final corpus excludes scope",
+      "batch": "tools",
+      "blocker": "Actual test attempt: 20 inherited parametrized cases pass, three embedder variants fail AttributeError execute. src/tools/skill_context.py:146-158 now exclusively calls public executor.execute; inherited Embedder only implements _run_on_host. Reintroducing the private transport shortcut would bypass the current governance seam; no fake wrapper or assertion change applied. Whole suite remains deferred.",
+      "inherited_sha256": "93b5b66de8a073cc083c63f806b201c166b8efad942b9227b7e7b076647cf5ba",
+      "path": "tests/test_command_shell_scope.py",
+      "retired_cases": [],
+      "selector": "tests/test_command_shell_scope.py::test_transport_only_skill_embedder_explicitly_opts_in",
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "blocker": null,
+      "inherited_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94",
+      "path": "tests/test_computer_admission_http_r8.py",
+      "restoration": {
+        "inherited_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94",
+        "mode": "frozen-adapter",
+        "reason": "Entire retained immutable corpus; only exact approved removed HTTP projections retired.",
+        "retired_cases": [
+          {
+            "case": "test_http_attached_has_no_application_allowlist",
+            "reason": "Removed Odin web UI HTTP GET /api/computer application-profile projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_admission_http_r8.py",
+            "source_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94"
+          },
+          {
+            "case": "test_http_exposes_bounded_reason_and_remedy_with_actual_auth",
+            "reason": "Removed Odin web UI HTTP GET /api/computer bearer-authenticated admission projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_admission_http_r8.py",
+            "source_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94"
+          }
+        ],
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ]
+      },
+      "retired_cases": [
+        {
+          "case": "test_http_attached_has_no_application_allowlist",
+          "reason": "Removed Odin web UI HTTP GET /api/computer application-profile projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_admission_http_r8.py",
+          "source_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94"
+        },
+        {
+          "case": "test_http_exposes_bounded_reason_and_remedy_with_actual_auth",
+          "reason": "Removed Odin web UI HTTP GET /api/computer bearer-authenticated admission projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_admission_http_r8.py",
+          "source_sha256": "628f4a155305880114e49a8f43654999da787dcac9f250af99b7bb4914431d94"
+        }
+      ],
+      "selector": "tests/test_desktop_step8_6a_computer_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "inherited_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc",
+      "path": "tests/test_computer_api.py",
+      "retired_cases": [
+        {
+          "case": "test_all_routes_require_auth_owner_and_session",
+          "reason": "Removed HTTP operator route auth/session admission.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_auth_disabled_and_owner_fences",
+          "reason": "Removed HTTP operator auth/owner fences.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_dispatched_enable_failure_is_unknown_not_bad_request",
+          "reason": "Removed HTTP enabled-route failure outcome projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_emergency_stop_not_blocked_by_observe_or_disable",
+          "reason": "Removed HTTP stop/pause/observe route concurrency response.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_explicit_frame_download_and_expiration",
+          "reason": "Removed HTTP evidence/download expiration routes.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_export_opaque_then_forced_safe_download",
+          "reason": "Removed HTTP export/download binary headers.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_export_rejects_paths_identity_and_invalid_names",
+          "reason": "Removed HTTP export body validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_provisioning_error_does_not_bypass_auth_or_validation",
+          "reason": "Removed HTTP enabled-route auth/body validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_status_is_private_summary_without_capture",
+          "reason": "Removed HTTP status privacy/cache projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_toggle_fail_closed_without_lifecycle_hook_and_strict_input",
+          "reason": "Removed HTTP enabled-route hook/body validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        },
+        {
+          "case": "test_typed_provisioning_preflight_is_not_applied_with_safe_remedy",
+          "reason": "Removed HTTP provisioning preflight remedy/status projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api.py",
+          "source_sha256": "e2b63d9bb94352a93110a8383e4fb60ee11cea6c7f4baa99214628a0f5fc49cc"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "status": "retired"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "inherited_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872",
+      "path": "tests/test_computer_api_recovery_r18.py",
+      "retired_cases": [
+        {
+          "case": "test_correct_body_preserves_safe_controller_failure",
+          "reason": "Removed HTTP recovery body/error projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_local_cleanup_distinct_from_historical_receiver_uncertainty",
+          "reason": "Removed HTTP reconcile local/historical cleanup projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_native_recovery_status_preserves_distinct_safe_guidance",
+          "reason": "Removed HTTP native recovery guidance projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_optional_accessibility_failure_keeps_status_safe",
+          "reason": "Removed HTTP optional-accessibility failure response.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_quarantined_status_exposes_generations_despite_optional_probe_failure",
+          "reason": "Removed HTTP quarantine/accessibility status projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_quarantined_status_keeps_live_accessibility_indicator",
+          "reason": "Removed HTTP accessibility indicator projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_reconcile_body_validation_never_dispatches",
+          "reason": "Removed HTTP reconcile body validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_reconcile_preserves_operator_auth",
+          "reason": "Removed HTTP reconcile browser/bearer operator auth.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        },
+        {
+          "case": "test_reconcile_works_disabled_and_does_not_claim_verified_cleanup",
+          "reason": "Removed HTTP reconcile cleanup/status response.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_api_recovery_r18.py",
+          "source_sha256": "cf48e174ddfc0bb883e423e3155fea9462f5c06a69be8a6de3a5042148d13872"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "status": "retired"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Remaining service guidance definitions need ComputerIntegration._context foreground service; selected guidance/effects cases support only.",
+      "inherited_sha256": "3f5024c3079f669f803a7ed1f257240a57a2c6585df567dfff541f83d3e3e45d",
+      "path": "tests/test_computer_boundary_guidance_regression.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "test_disabled_same_name_skill_is_not_changed fails retained collision policy: src/discord/tool_catalog.py reserves built-in computer names even disabled. Eight other definitions support only; not retired.",
+      "inherited_sha256": "f69e52a4ac9043ff3a9f70cf0cbe8de1134c035a65b83c93aa8ed59bd6f5da7f",
+      "path": "tests/test_computer_catalog.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "normal/rig inherited service requires _context and canonical foreground ToolLoopRunner delivery, unavailable Desktop ComputerBindingService foreground.",
+      "inherited_sha256": "f7b4543b0d6e7a0a771f91571814186d9e7533520038b75765ecba782f515e55",
+      "path": "tests/test_computer_clean_interruption_integration.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Actual mixed ToolLoopRunner/native handler and ordinary-tool publication graph needs canonical foreground service, not direct controller replacement.",
+      "inherited_sha256": "faddd5c7168903f0c3006f3efa28364d81a886509d65923ac55c05266adbc616",
+      "path": "tests/test_computer_dispatch_r3.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Inherited campaign normal/drawing fixture requires actual foreground dispatch/delivery before release history; Desktop foreground unavailable.",
+      "inherited_sha256": "6b6ee9c6575ba86dcf8916ee55c660a5267c76a41aab615ef87a571963cd9db5",
+      "path": "tests/test_computer_emergency_release_campaign.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "3 normal-fixture cases invoke actual ToolLoopRunner dispatch/delivery. Desktop ComputerBindingService foreground unavailable. 3 pure guidance/effects cases tested as support, not whole suite.",
+      "inherited_sha256": "7cd016dbd6c71f40230f8b0c0066de18a9c856b09a66f40fe2bdce73da1e824a",
+      "path": "tests/test_computer_hyprland_app_group_controller.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "test_controller_dialog_delivery_is_new_authority_not_batch_rebind uses real normal turn dispatch/delivery, unavailable Desktop foreground seam. 8 pure backend/scope cases tested unchanged as support.",
+      "inherited_sha256": "58914febf57a8660e7d0a81cbbee61bf4cd715dc3264055d292200f4acaa38e0",
+      "path": "tests/test_computer_hyprland_dialog_scope_r35.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "Every case obtains session through inherited normal ToolLoopRunner start/observe/dispatch and exact image delivery. Native/controller logic cannot be substituted for missing canonical Desktop turn admission.",
+      "inherited_sha256": "329499d39c7fce30524220a4b107bd3e656afce03877a5f57c48914487288024",
+      "path": "tests/test_computer_hyprland_durable_fence_r42.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "Both cases use normal fixture and real start/observe dispatch before durable storage/failure assertions. No authentic Desktop foreground turn grants.",
+      "inherited_sha256": "ae9b034c0a799da1c300776f5bc6df2dc1961c3c34eec92fe89a70a0dcbad6e2",
+      "path": "tests/test_computer_hyprland_failure_r38.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "4 normal-fixture cases use real turn dispatch/delivery for roundtrip, malformed detail, cancellation and revocation. 8 real guardian/parser cases tested as unchanged support with frozen DETAIL-only helper closure.",
+      "inherited_sha256": "7b43167c9a26b3a46e5e4861087a3c02c25bd4a9bea75ed87c4d4b0fe8a3cb96",
+      "path": "tests/test_computer_hyprland_failure_r41.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": null,
+      "inherited_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e",
+      "path": "tests/test_computer_hyprland_integration_r32.py",
+      "restoration": "6 remaining frozen cases, 2 exact canonical owner/auth setup expressions, real retained Integration/controller/backend engine. No native startup qualification.",
+      "retired_cases": [
+        {
+          "case": "test_operator_recovery_fences_and_preserves_truth",
+          "reason": "Removed explicit webui RequestContext operator recovery; Desktop uses sealed owner ManagementContext, not web operator authority.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_hyprland_integration_r32.py",
+          "source_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e"
+        },
+        {
+          "case": "test_recovery_api_auth_and_truth",
+          "reason": "Removed HTTP /api/computer/release_owned_input, bearer browser sessions and multi-user tiers.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_hyprland_integration_r32.py",
+          "source_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e"
+        },
+        {
+          "case": "test_recovery_api_no_target_override",
+          "reason": "Removed HTTP /api/computer/release_owned_input route body validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_hyprland_integration_r32.py",
+          "source_sha256": "d314119fb1cadd3e70d754d68abc9c883c7ffeec3b903a324a155d8d2278452e"
+        }
+      ],
+      "selector": "tests/test_desktop_step8_6a_hyprland_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "9 remaining cases invoke normal real ToolLoopRunner dispatch/delivery. Missing Desktop foreground receipt/image transport.",
+      "inherited_sha256": "4f959d278c7091e25a3a0a7eb4421df9f0cace52f68f567e41cb7fc184db9045",
+      "path": "tests/test_computer_hyprland_receipts_r33.py",
+      "retired_cases": [
+        {
+          "case": "test_authenticated_web_turn_and_revoked_browser_refusal",
+          "reason": "Removed authenticated web foreground browser-session binding and revocation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_hyprland_receipts_r33.py",
+          "source_sha256": "4f959d278c7091e25a3a0a7eb4421df9f0cace52f68f567e41cb7fc184db9045"
+        },
+        {
+          "case": "test_web_turn_without_browser_binding_cannot_start",
+          "reason": "Removed web foreground/browser-session admission.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_hyprland_receipts_r33.py",
+          "source_sha256": "4f959d278c7091e25a3a0a7eb4421df9f0cace52f68f567e41cb7fc184db9045"
+        }
+      ],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "All 7 cases require normal fixture authentic turn admission and exact image delivery before actual settling backend logic. Desktop foreground unavailable; synthetic runner would substitute missing product behaviour.",
+      "inherited_sha256": "b86501febf3bbe5224d80c4a82baf5e862651f1282f524ca145f639b32a64bbf",
+      "path": "tests/test_computer_hyprland_settling_r35.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "12 normal turn/foreground owner lifecycle cases need Desktop admission/delivery; additive factory case constructs old bot lifecycle unavailable as authentic Desktop owner. 2 independent compositor-adapter cases tested unchanged support.",
+      "inherited_sha256": "529dee92a822edef1da3dad73245be1c4815ed06f12a187651a5ea8f98a051ed",
+      "path": "tests/test_computer_hyprland_turnloop_r33.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "blocker": null,
+      "inherited_sha256": "3ce2e7d22070ce4c670b3ba58a8f17871b4fbfffd355273cd9a9dad62055ed7b",
+      "path": "tests/test_computer_identity_sequences_r21.py",
+      "restoration": {
+        "inherited_sha256": "3ce2e7d22070ce4c670b3ba58a8f17871b4fbfffd355273cd9a9dad62055ed7b",
+        "mode": "frozen-adapter",
+        "reason": "Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.",
+        "retired_cases": [],
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ]
+      },
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_computer_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Mixed operator/model-handler suite needs browser-bound grants and ComputerIntegration._context canonical foreground service; not entire removable HTTP suite.",
+      "inherited_sha256": "fabd208883cc886ca082af90fa18d6bf9f05e5b439c089e52a8c4099b51f938b",
+      "path": "tests/test_computer_integration_boundary.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Remaining real facade context/dispatch definitions require _context foreground admission. Selected factory/config/store cases support only.",
+      "inherited_sha256": "96095dbf231178732348dd03fa5a87c23df55f1b750c67488c1df60e26f9bedd",
+      "path": "tests/test_computer_integration_r5.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Remaining foreground inventory publication requires _context and canonical turn admission; one pure unsupported-capability definition support only.",
+      "inherited_sha256": "4b7c63ee94a8d00d408ee3380f52976e5173e9f4e69e0256b948baf449d2e99b",
+      "path": "tests/test_computer_inventory_capabilities_x1.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Inherited owner() bot lifecycle service publication, foreground manager and artifact delivery unavailable in Desktop ComputerBindingService.",
+      "inherited_sha256": "79577594e8ade40d094bf81af5fd86e35dac2a998ad7dcc747f158f600b6ea4b",
+      "path": "tests/test_computer_lifecycle_r5.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "blocker": null,
+      "inherited_sha256": "0ef699d85ce2777534041cf8a02f35d849a86d9fe9e5ba3fdaffbec49bfcd572",
+      "path": "tests/test_computer_lifecycle_review_r5.py",
+      "restoration": {
+        "inherited_sha256": "0ef699d85ce2777534041cf8a02f35d849a86d9fe9e5ba3fdaffbec49bfcd572",
+        "mode": "frozen-adapter",
+        "reason": "Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.",
+        "retired_cases": [],
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ]
+      },
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_computer_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Actual bot ComputerLifecycle publication/janitor/authority watcher/operator delegation seam missing; no fabricated replacement service admitted.",
+      "inherited_sha256": "85a6651cd31fac0b331911a81ff6b24556dfe6d6f99483ca4587a1579a155cde",
+      "path": "tests/test_computer_manager_coverage_r10.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Remaining normal/rig modal recovery definitions require _context foreground delivery; selected pure guardian definition support only.",
+      "inherited_sha256": "d50a062b49755e1552305421e370408cf95e3844acce254a274ebbae43158a40",
+      "path": "tests/test_computer_modal_binding_recovery.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "normal.service._context(normal.state) and authentic delivered turn bindings required; Desktop foreground unavailable.",
+      "inherited_sha256": "b435c3e9fa16c31b4834eb5e8e7f6cedd7813efd8eb6752742408e0044648912",
+      "path": "tests/test_computer_native_keyboard_focus_class.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Actual normal foreground ToolLoopRunner admission/image delivery missing; migration and own-session finish definitions support only.",
+      "inherited_sha256": "5b786fa3bc733d209e6e8598b8a2d804b445bb90f8d74564eeff50ffd732ce6a",
+      "path": "tests/test_computer_normal_turn_r3.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Inherited normal/rig session observation delivery requires _context and canonical foreground service unavailable on Desktop.",
+      "inherited_sha256": "3c61516218d2a769d00ba2e4f6d14dbbd4901542ead9522dcc906d9975cfee2e",
+      "path": "tests/test_computer_observe_session_boundary.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "inherited_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf",
+      "path": "tests/test_computer_operator_auth_r5.py",
+      "retired_cases": [
+        {
+          "case": "test_all_operator_routes_fail_closed",
+          "reason": "Removed HTTP operator bearer/browser scope/tier auth.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_binary_prepare_hook_revocation_sends_no_private_bytes",
+          "reason": "Removed HTTP binary prepare-hook bearer revocation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_binary_revocation_after_headers_aborts_body",
+          "reason": "Removed HTTP authorized binary response revocation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_credential_hosts_override_default_for_every_operator_route",
+          "reason": "Removed HTTP operator credential host scope.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_dynamic_operator_keeps_exact_issuance_across_unchanged_reload",
+          "reason": "Removed browser bearer issuance reload contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_dynamic_operator_requires_live_exact_issued_identity",
+          "reason": "Removed bearer-issued browser operator authority.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_dynamic_rotation_requires_relogin_and_rebinds_exact_session",
+          "reason": "Removed bearer rotation/login/browser rebinding.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_grant_is_current_task_local_and_not_forged_context",
+          "reason": "Removed task-local web-operator grants.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_live_managed_browser_all_operator_routes",
+          "reason": "Removed managed-browser HTTP operator routes.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_operator_effective_host_policy",
+          "reason": "Removed browser/bearer HTTP operator host policy.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_operator_scope_covers_real_integration_and_restores_on_exception",
+          "reason": "Removed web operator_scope bearer host binding.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_real_controller_checks_live_grant_after_capture",
+          "reason": "Removed HTTP observe web-operator live grant bridge.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_real_host_scope_revalidated_after_await",
+          "reason": "Removed HTTP operator host-scope response revalidation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_revalidate_after_backend_await",
+          "reason": "Removed HTTP operator response reauthorization.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_safety_stop_when_disabled_is_minimal_and_not_raw_authority",
+          "reason": "Removed HTTP stop raw-bearer/browser distinction.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        },
+        {
+          "case": "test_static_legacy_login_and_rotation",
+          "reason": "Removed legacy bearer login/session rotation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_operator_auth_r5.py",
+          "source_sha256": "b9b63d00f80825b06ffdb4da96f5351c627dd748453b1cd0be2685cb67a87abf"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "status": "retired"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "blocker": null,
+      "inherited_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb",
+      "path": "tests/test_computer_product_status_r11.py",
+      "restoration": {
+        "inherited_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb",
+        "mode": "frozen-adapter",
+        "reason": "Entire retained immutable corpus; only exact approved removed HTTP projections retired.",
+        "retired_cases": [
+          {
+            "case": "test_attached_http_omits_invalid_provenance_and_unknown_capabilities",
+            "reason": "Removed Odin web UI HTTP GET /api/computer provenance projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_product_status_r11.py",
+            "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+          },
+          {
+            "case": "test_attached_http_provenance_capabilities_and_public_null_app",
+            "reason": "Removed Odin web UI HTTP GET /api/computer attached status projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_product_status_r11.py",
+            "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+          },
+          {
+            "case": "test_http_retains_isolated_fixed_launch_list_and_capability_fallback",
+            "reason": "Removed Odin web UI HTTP GET /api/computer isolated launch-list projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_product_status_r11.py",
+            "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+          }
+        ],
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ]
+      },
+      "retired_cases": [
+        {
+          "case": "test_attached_http_omits_invalid_provenance_and_unknown_capabilities",
+          "reason": "Removed Odin web UI HTTP GET /api/computer provenance projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_product_status_r11.py",
+          "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+        },
+        {
+          "case": "test_attached_http_provenance_capabilities_and_public_null_app",
+          "reason": "Removed Odin web UI HTTP GET /api/computer attached status projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_product_status_r11.py",
+          "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+        },
+        {
+          "case": "test_http_retains_isolated_fixed_launch_list_and_capability_fallback",
+          "reason": "Removed Odin web UI HTTP GET /api/computer isolated launch-list projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_product_status_r11.py",
+          "source_sha256": "550799804cd6fbb4c3334d2e5c3570971edf93bb1762d1215c88ea8f8f0f40bb"
+        }
+      ],
+      "selector": "tests/test_desktop_step8_6a_computer_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "blocker": null,
+      "inherited_sha256": "7c87c683ff57c163749534fb114e869a8414ca3d679d9e6c75015a2e854ec92b",
+      "path": "tests/test_computer_provisioning_r29.py",
+      "restoration": {
+        "inherited_sha256": "7c87c683ff57c163749534fb114e869a8414ca3d679d9e6c75015a2e854ec92b",
+        "mode": "frozen-adapter",
+        "reason": "Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.",
+        "retired_cases": [],
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ]
+      },
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_computer_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Remaining canonical turn image delivery requires _context foreground service; selected direct receipt/controller cases support only.",
+      "inherited_sha256": "d0649a078c3a62b4e673eb577b4871c9232f66a169196bf277c2f6d141a68750",
+      "path": "tests/test_computer_r19_delivery.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Inherited manager/service/operator reconciliation seam requires actual lifecycle/foreground service, unavailable Desktop binding.",
+      "inherited_sha256": "74bcba426d8a581188650f21871e8dbf352e5d571bfdf5778fc83a2c7bfd198f",
+      "path": "tests/test_computer_reconciliation_r18.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "blocker": null,
+      "inherited_sha256": "d4680ea395e2a6359f70be870df3cafe69bae6df064119daab10d41c6485fa00",
+      "path": "tests/test_computer_resources_r21.py",
+      "restoration": {
+        "inherited_sha256": "d4680ea395e2a6359f70be870df3cafe69bae6df064119daab10d41c6485fa00",
+        "mode": "frozen-adapter",
+        "reason": "Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.",
+        "retired_cases": [],
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ]
+      },
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_computer_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Inherited facade/turn integration review cases require canonical _context foreground dispatch and actual bot service graph.",
+      "inherited_sha256": "78deda42ceb7327e17f114d8b367deae51dbdb9f4a2115b346b3fbb4870bbe02",
+      "path": "tests/test_computer_review_r3.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Remaining integration definitions require _context foreground delivery; direct pointer/native verification definitions support only.",
+      "inherited_sha256": "e878244ba73141d938db1cbe166c83f0c385ea8478d74f61dd42fe2f2984be44",
+      "path": "tests/test_computer_round14_verification.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "blocker": null,
+      "inherited_sha256": "f3c4f80c1d8aafa864c1781355698f17cb03228f72b759cf1ee8430e996c646b",
+      "path": "tests/test_computer_scope_readiness_r13.py",
+      "restoration": {
+        "inherited_sha256": "f3c4f80c1d8aafa864c1781355698f17cb03228f72b759cf1ee8430e996c646b",
+        "mode": "frozen-adapter",
+        "reason": "Entire retained immutable corpus; only exact approved removed HTTP projections retired.",
+        "retired_cases": [
+          {
+            "case": "test_http_retains_only_known_scope_failure_reasons",
+            "reason": "Removed Odin web UI HTTP GET /api/computer bearer-authenticated scope diagnostic projection.",
+            "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_computer_scope_readiness_r13.py",
+            "source_sha256": "f3c4f80c1d8aafa864c1781355698f17cb03228f72b759cf1ee8430e996c646b"
+          }
+        ],
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ]
+      },
+      "retired_cases": [
+        {
+          "case": "test_http_retains_only_known_scope_failure_reasons",
+          "reason": "Removed Odin web UI HTTP GET /api/computer bearer-authenticated scope diagnostic projection.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_scope_readiness_r13.py",
+          "source_sha256": "f3c4f80c1d8aafa864c1781355698f17cb03228f72b759cf1ee8430e996c646b"
+        }
+      ],
+      "selector": "tests/test_desktop_step8_6a_computer_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "blocker": null,
+      "inherited_sha256": "e8cf8cbdaf2d417110b59044585c92282ff17370c412387587b4a34b362eb05f",
+      "path": "tests/test_computer_sequence_injection_r21.py",
+      "restoration": {
+        "inherited_sha256": "e8cf8cbdaf2d417110b59044585c92282ff17370c412387587b4a34b362eb05f",
+        "mode": "frozen-adapter",
+        "reason": "Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.",
+        "retired_cases": [],
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ]
+      },
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_computer_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Remaining normal sequence/turn delivery needs _context unavailable foreground service; direct controller/stroke cases support only.",
+      "inherited_sha256": "0442f92afc9a10b42ff115cdbdf316f2f967c7ce0ee69cb561b0c2e3ab0c69b1",
+      "path": "tests/test_computer_sequences_r19.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "blocker": null,
+      "inherited_sha256": "9805950ec34b39f95250034c1389c660e7e660a5443d3ffd44432ae25fe3218f",
+      "path": "tests/test_computer_wayland_config_r8.py",
+      "restoration": {
+        "inherited_sha256": "9805950ec34b39f95250034c1389c660e7e660a5443d3ffd44432ae25fe3218f",
+        "mode": "frozen-adapter",
+        "reason": "Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.",
+        "retired_cases": [],
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ]
+      },
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_computer_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "inherited_sha256": "86c1759ee2bb5f127e022b8bc41206dc143273a4ca3d4dc302ef33b39f8b46a2",
+      "path": "tests/test_computer_web_binding_r5.py",
+      "retired_cases": [
+        {
+          "case": "test_bound_authentication_is_live_and_does_not_extend_expiry",
+          "reason": "Removed browser_binding authentication/expiry contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_web_binding_r5.py",
+          "source_sha256": "86c1759ee2bb5f127e022b8bc41206dc143273a4ca3d4dc302ef33b39f8b46a2"
+        },
+        {
+          "case": "test_no_desktop_authority_from_api_token_or_unbound_transport",
+          "reason": "Removed raw bearer/unbound browser admission.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_web_binding_r5.py",
+          "source_sha256": "86c1759ee2bb5f127e022b8bc41206dc143273a4ca3d4dc302ef33b39f8b46a2"
+        },
+        {
+          "case": "test_route_binding_is_server_owned_not_chat_session_input",
+          "reason": "Removed HTTP chat/execute server-owned browser binding.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_web_binding_r5.py",
+          "source_sha256": "86c1759ee2bb5f127e022b8bc41206dc143273a4ca3d4dc302ef33b39f8b46a2"
+        },
+        {
+          "case": "test_session_revocation_stops_owned_foreground_while_model_waits",
+          "reason": "Removed web foreground browser-session revocation bridge.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_computer_web_binding_r5.py",
+          "source_sha256": "86c1759ee2bb5f127e022b8bc41206dc143273a4ca3d4dc302ef33b39f8b46a2"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "status": "retired"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Remaining normal-turn focus authority requires _context and exact canonical delivery service; direct focus-controller definitions support only.",
+      "inherited_sha256": "7a19bb517b0aea30a78c876e6cbfcb7291dcd4ec675aeabbd38772d8f774d95b",
+      "path": "tests/test_computer_x11_focus_controller.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Approved Permission denied conflicts with inherited access denied; neutral native dispatcher adapter incomplete. Both eight-parameter cases deferred, neither retired.",
+      "inherited_sha256": "00a2d64470e19838247ca9c89db2162669a1a315f7e3638afb18ab6a064b69c1",
+      "path": "tests/test_delivery_empty_fields.py",
+      "restoration": null,
+      "retired_cases": [],
+      "selector": "tests/test_delivery_empty_fields.py",
+      "status": "deferred",
+      "support_evidence": {
+        "reference": "maintenance/step8-part4-empty-fields-candidates.json"
+      }
+    },
+    {
+      "batch": "tools",
+      "blocker": "test_run_on_host_falls_back_to_raw_executor_output specifically asserts removed private-only executor fallback; SkillContext.run_on_host now always uses execute. test_run_on_host_preserves_tool_executor_generation_lease's spy is on private _exec_command while actual public governance needs canonical owner. test_schedule_task_propagates_requester_id requires fenced Phase2 scheduled admission. SSH pool tests alone do not restore whole suite.",
+      "inherited_sha256": "06fb2ac3ee5207756d8a4cbc68f6e8a6d6ac4ac61c3e502e0ce4b804ebc9c039",
+      "path": "tests/test_hosts_consumer_edges.py",
+      "retired_cases": [],
+      "selector": "tests/test_hosts_consumer_edges.py::TestSkillContextHostEdges",
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "All 3 cases require drawing fixture, real runner finish_turn/bind_turn and fresh image delivery authority. Desktop foreground turn binding missing.",
+      "inherited_sha256": "a7a16d5d09fb8bccfa22c879785bcab7b89fa38f275303fb57c66af57b2e324c",
+      "path": "tests/test_hyprland_clean_interruption_continuity.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": null,
+      "inherited_sha256": "702606233a69db0b2793ce4a6a0d104dd17e66cd87a4c3c644531c6ee10e2f88",
+      "path": "tests/test_hyprland_discovery_campaign.py",
+      "restoration": "All 15 frozen cases unchanged through real discovery resolver, integration backend constructor/configuration and neutral retained lifecycle _construct. Socket fixtures are disposable Unix paths, never native desktop startup or foreground grants.",
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_hyprland_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "3 normal composed-keyboard/pointer cases require missing Desktop foreground image authority. Independent fourth case can use real controller exact canonical-owner keyboard fixture in followup; not claimed whole restored.",
+      "inherited_sha256": "e28f5918b6b1f4db887a85e34d170145210cb7ac23502a75268f2b9d4aa36ce8",
+      "path": "tests/test_hyprland_keyboard_raster_grounding.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "Both cases exercise real ToolLoopRunner finish-turn/bind-turn and manager consent across several turns. No Desktop foreground harness exists.",
+      "inherited_sha256": "e8b5288290ebed4db9d25938ac913f82b3ee8039dfdf821f8036c3c4a0db6bca",
+      "path": "tests/test_hyprland_multiturn_drawing.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": null,
+      "inherited_sha256": "9277c54475cead8f7a5a00d8a0d064841fdfa53a82b40d42af55f53720f7c462",
+      "path": "tests/test_hyprland_normal_turn_wire_r33.py",
+      "retired_cases": [
+        {
+          "case": "test_normal_turn_native_stroke_next_frame_no_replay_and_cleanup",
+          "reason": "Both exact frozen surface parameters discord and webui assert removed Discord/web transport. No Desktop parameter inherited. Native wire backend remains retained; this retirement does not qualify it.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_hyprland_normal_turn_wire_r33.py",
+          "source_sha256": "9277c54475cead8f7a5a00d8a0d064841fdfa53a82b40d42af55f53720f7c462"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "selector": null,
+      "status": "retired"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "All 7 cases use normal/drawing real foreground dispatch and inspection authority. Native backend retained but canonical Desktop foreground seam absent.",
+      "inherited_sha256": "b5e02b392381ced2541ca7d05eb347815d82258ac8012a9f68e77a7be37bd0ec",
+      "path": "tests/test_hyprland_popup_focus_working_paths.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "hyprland",
+      "blocker": "2 normal-fixture cases require real foreground durable receipts/image delivery. 5 independent actual backend-release cases pass unchanged as support, not whole restoration.",
+      "inherited_sha256": "fec2f274c5b9f98ef361fe27fca59984424ad4362445d23d393e12236c550c7b",
+      "path": "tests/test_hyprland_release_outcomes_regression.py",
+      "retired_cases": [],
+      "selector": null,
+      "status": "deferred"
+    },
+    {
+      "batch": "tools",
+      "blocker": "32 legacy web HTTP route cases removable, but TestManagementCancellationDrain's two _drain_mcp_management helper cases are not solely removed listeners and require reviewer disposition or service transaction adapter. Exact full-case removal accounting not completed; no whole-suite retirement claim.",
+      "inherited_sha256": "3947e6fa123f9c612d90dac6d4f37b63b279a0854b14fb31ada9e1fcc786b6ef",
+      "path": "tests/test_mcp_admin.py",
+      "proposed": "Case-level HTTP retirement list needs integration review; keep pure cancellation helpers pending",
+      "retired_cases": [],
+      "selector": "tests/test_mcp_admin.py",
+      "status": "deferred"
+    },
+    {
+      "batch": "tools",
+      "blocker": null,
+      "inherited_sha256": "62c51bc82631c0554f09138ceccf7461c069e7231da58377ca55751a8cdc73a8",
+      "path": "tests/test_mcp_client_eras.py",
+      "restoration": "All71 inherited functions unchanged; real stdio subprocess and private fake remote HTTP endpoint transport. These are MCP client HTTP contracts, not removed Odin HTTP listeners or bearer sessions.",
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::Test_test_mcp_client_eras_*",
+      "status": "restored"
+    },
+    {
+      "attempt": "PID1429540 full run:412 passed,5 failed; final corpus excludes dispatch suite",
+      "batch": "tools",
+      "blocker": "Actual attempt restored manager dispatch through MCPService, but five inherited background calls fail real authenticated output-retention requirement in runtime_delivery.py:87-95 because frozen setup supplies None/MagicMock executor. Exact real executor readiness/retention fixture for synthetic native tool names needs approved setup mapping; do not manufacture permissive policy. Not whole restored.",
+      "inherited_sha256": "c47b22b4afcbb87a666d7bd2eb7a4aa5064773c06ca6982af6d712004f14df73",
+      "path": "tests/test_mcp_dispatch.py",
+      "proposed_retirement_cases": [
+        "TestRbacTier.test_mcp_names_are_not_user_tier_tools"
+      ],
+      "retired_cases": [],
+      "selector": "tests/test_mcp_dispatch.py::TestBackgroundTaskMCPIntegration",
+      "status": "deferred"
+    },
+    {
+      "batch": "tools",
+      "blocker": null,
+      "inherited_sha256": "42dcd4392df123a0be27bc081b3a612eb4241814805e559084f4858515a69df3",
+      "path": "tests/test_mcp_edges.py",
+      "restoration": "All24 inherited functions. MCPManager remains genuine retained engine; execute enters real MCPService with current canonical OwnerAuthority context. Real private transports unchanged.",
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::Test_test_mcp_edges_*",
+      "status": "restored"
+    },
+    {
+      "batch": "tools",
+      "blocker": null,
+      "inherited_sha256": "e1bc52991260c7890115df0d4b26df7afa8a47c8160df580d5633fc682939ed3",
+      "path": "tests/test_mcp_manager.py",
+      "restoration": "All39 inherited functions. Same retained real manager and real transport implementation; MCPService handles execute authority, no fake service or permission manager.",
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::Test_test_mcp_manager_*",
+      "status": "restored"
+    },
+    {
+      "batch": "tools",
+      "blocker": null,
+      "inherited_sha256": "b753c0ce54463d2d0eaa161974ea9ffe970066bfb4494f62ded245f699580ef6",
+      "path": "tests/test_mcp_media_checkpoint.py",
+      "restoration": "All11 inherited functions. Real negotiated transport/media ingress. Synthetic outcome injected at retained manager backend, replaces SimpleNamespace manager with actual MCPService; inherited one-dispatch assertion preserved.",
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::test_test_mcp_media_checkpoint_*",
+      "status": "restored"
+    },
+    {
+      "batch": "tools",
+      "blocker": "Inherited agent and autonomous paths require fenced spawn/autonomous request admission, including callback from test_agent_image_safety. Web API chat case is removed listener surface, but survivor real runner/computer freshness setup needs full RequestService binding. Cannot preserve whole suite by executing removed _tools/make_bot factories.",
+      "inherited_sha256": "3867dc01832dd100673748535ee26a5190e289d77b79931d84d6d58b2e5f057a",
+      "path": "tests/test_mcp_media_surfaces_checkpoint.py",
+      "proposed_retirement_cases": [
+        "TestChatApiAndProviderCheckpoint.test_api_chat_exercises_same_typed_media_continuation"
+      ],
+      "retired_cases": [],
+      "selector": "tests/test_mcp_media_surfaces_checkpoint.py",
+      "status": "deferred"
+    },
+    {
+      "batch": "tools",
+      "blocker": "Mixed actual publication with removed HealthServer/ApiTokenIdentity/WebConfig listener fixture. test_apply_registry_classifies_live_limits_not_server_container asserts POST /api/mcp/limits exactly. Surviving dynamic whole-config rebind make_bot fixtures need actual settings transaction adapter, MCPService snapshots effective limits rather than direct config assignment. No full exact restoration completed.",
+      "inherited_sha256": "350d4b9cb725fc5cf3bc7a136dc37908dc174226b98daf1bd784209c55eb1cf6",
+      "path": "tests/test_mcp_publication_limits.py",
+      "retired_cases": [],
+      "selector": "tests/test_mcp_publication_limits.py",
+      "status": "deferred"
+    },
+    {
+      "batch": "tools",
+      "blocker": null,
+      "inherited_sha256": "be86586786e7cb0f22d94649bb82df033f212476831ded04b077cf2352b83301",
+      "path": "tests/test_mcp_transport_http.py",
+      "restoration": "All11 inherited functions unchanged; client HTTP transport with isolated fake remote endpoints. Remote MCP Authorization header test is not an Odin bearer session and is retained.",
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_tools_corpus.py::Test_test_mcp_transport_http_*",
+      "status": "restored"
+    },
+    {
+      "batch": "tools",
+      "blocker": "Frozen boot fixtures import removed start_mcp/shutdown_services facade paths; surviving manager/health/config/locking cases mixed with model turn integration and production-fenced autonomous dispatch. Whole real CoreService+ManagementService lifecycle adapter not completed. The neutral engine coverage is restored in manager suite, not falsely counted as this suite.",
+      "inherited_sha256": "437864d8d44d4d8e6a6741caff73d9cdb61eb863f71a8c10644a5194cd5d5d83",
+      "path": "tests/test_mcp_wiring.py",
+      "retired_cases": [],
+      "selector": "tests/test_mcp_wiring.py",
+      "status": "deferred"
+    },
+    {
+      "batch": "tools",
+      "blocker": "Mixed suite: removed Discord attachment URL/File/send/HTTPException contracts coexist with surviving MIME, validation and image-ingress cases. src/discord/native_tools/media.py lacks _safe_discord_attachment_url and the inherited import therefore fails. Exact case retirement and full real admitted DesktopMediaTools RequestService adapter for survivors not completed. Do not retire all32 merely because import mentions Discord.",
+      "inherited_sha256": "53dd95c883e2c974712b06d1f01d3346e5f9ee68d1fb35ef2304de415d249dbb",
+      "path": "tests/test_native_media.py",
+      "proposed_retirement_cases": [
+        "TestSafeDiscordAttachmentUrl.test_accepts_only_https_discord_attachment_hosts",
+        "TestSafeDiscordAttachmentUrl.test_rejects_invalid_values_and_unsafe_urls",
+        "TestGenerateImage.test_success_posts_attachment",
+        "TestGenerateImage.test_success_does_not_expose_non_discord_attachment_url",
+        "TestGenerateImage.test_attachment_url_guard_rejects_lookalikes_and_credentials",
+        "TestPostFile.test_discord_http_error"
+      ],
+      "retired_cases": [],
+      "selector": "tests/test_native_media.py",
+      "status": "deferred"
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "8e98a27813ed4e8fa9c5aa61196441b047324d78de27eef3a72ca36825ba7ec0",
+      "path": "tests/test_onboarding_full_parity_campaign.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "test_fresh_bootstrap_becomes_ordinary_composed_api_without_widening",
+          "reason": "Removed Discord/API/bearer onboarding.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_onboarding_full_parity_campaign.py",
+          "source_sha256": "8e98a27813ed4e8fa9c5aa61196441b047324d78de27eef3a72ca36825ba7ec0"
+        },
+        {
+          "case": "test_listener_consent_does_not_rebind_or_restart_composed_server",
+          "reason": "Removed HTTP listener consent/rebind.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_onboarding_full_parity_campaign.py",
+          "source_sha256": "8e98a27813ed4e8fa9c5aa61196441b047324d78de27eef3a72ca36825ba7ec0"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "selector": "tests/test_onboarding_full_parity_campaign.py",
+      "status": "retired"
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "4832a6b1241ab4198d1936d35daa4e4fe1ebe52463ff3b9e71ec18046b809183",
+      "path": "tests/test_onboarding_journey_campaign.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "test_completed_install_corrects_discord_credential_only_through_dedicated_admin_route",
+          "reason": "Removed Discord admin onboarding route.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_onboarding_journey_campaign.py",
+          "source_sha256": "4832a6b1241ab4198d1936d35daa4e4fe1ebe52463ff3b9e71ec18046b809183"
+        },
+        {
+          "case": "test_pending_install_is_loopback_ui_only_and_codex_stays_loopback_safe",
+          "reason": "Removed web onboarding listener.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_onboarding_journey_campaign.py",
+          "source_sha256": "4832a6b1241ab4198d1936d35daa4e4fe1ebe52463ff3b9e71ec18046b809183"
+        },
+        {
+          "case": "test_submission_immediately_requires_web_credential_and_enables_normal_scheduler_routes",
+          "reason": "Removed web credential/listener onboarding.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_onboarding_journey_campaign.py",
+          "source_sha256": "4832a6b1241ab4198d1936d35daa4e4fe1ebe52463ff3b9e71ec18046b809183"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "selector": "tests/test_onboarding_journey_campaign.py",
+      "status": "retired"
+    },
+    {
+      "batch": "computer",
+      "blocker": "Remaining native call/skill/background-task cases need actual tool_executor/skill-manager/ToolLoopRunner service graph. Three supervised-process/static support definitions not whole restoration.",
+      "inherited_sha256": "592b3738e40ef7097f16663ad11ac929a239c3f7761f839ae0520daa5626f7e4",
+      "path": "tests/test_pr635_round1.py",
+      "retired_cases": [],
+      "status": "deferred"
+    },
+    {
+      "batch": "computer",
+      "blocked_on": null,
+      "blocker": null,
+      "inherited_sha256": "93148dd08a347b3ac078ea19347c41a9a3b401694c3561eebd6b60bac4369c57",
+      "path": "tests/test_round40_reviewer.py",
+      "restoration": {
+        "inherited_sha256": "93148dd08a347b3ac078ea19347c41a9a3b401694c3561eebd6b60bac4369c57",
+        "mode": "frozen-adapter",
+        "reason": "Entire immutable suite retained with exact setup-only owner/helper adaptation and reverse replay.",
+        "retired_cases": [],
+        "selectors": [
+          "tests/test_desktop_step8_6a_computer_corpus.py"
+        ]
+      },
+      "retired_cases": [],
+      "selector": "tests/test_desktop_step8_6a_computer_corpus.py",
+      "status": "restored"
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Mixed import-sweep includes removed Discord module. Whole case deferred with all parameters unchanged.",
+      "deferred_cases": [
+        "TestImportSweep.test_import"
+      ],
+      "inherited_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83",
+      "path": "tests/test_smoke_run_bot.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "TestEntryPoint.test_client_module_imports",
+          "reason": "Removed Discord OdinBot public facade.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestOdinBotInit.test_bot_has_cog_list",
+          "reason": "Removed Discord cog bootstrap.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestOdinBotInit.test_instantiate_bot",
+          "reason": "Removed Discord OdinBot construction.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestOdinConfig.test_construct_default",
+          "reason": "Removed Discord bootstrap token dataclass.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestOdinConfig.test_construct_with_token",
+          "reason": "Removed Discord token validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestOdinConfig.test_validate_missing_token",
+          "reason": "Removed Discord token validation.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        },
+        {
+          "case": "TestPydanticConfig.test_config_has_all_round_fields",
+          "reason": "Exact removed web and multi-user tier fields.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_smoke_run_bot.py",
+          "source_sha256": "08d911add7b63cd5f52a05c2eaf4a7c70824aa07a63dfaa6240decd06a847e83"
+        }
+      ],
+      "selector": "tests/test_smoke_run_bot.py",
+      "status": "deferred",
+      "support_evidence": {
+        "adapter": "tests/desktop_adapters/step8_6a_campaigns.py",
+        "loader": "load_support",
+        "mode": "partial complete-case support only",
+        "selector": "tests/test_desktop_step8_6a_campaigns_corpus.py"
+      }
+    },
+    {
+      "batch": "tools",
+      "blocker": "Frozen test patches src.discord.tool_catalog.importlib.util.find_spec and asserts its log.info; retained Desktop catalog module no longer exposes importlib or dependency logging. Actual build_engine_services readiness checks dependency via src.desktop.services.importlib.util.find_spec and hides PDF but does not emit inherited actionable log. Exact setup adapter requires resolving this real diagnostic contract gap, not faking a log or changing assertions.",
+      "inherited_sha256": "f7db630da366641f110d4f433398747dbd6a24f8bdf3be31acb936abacdd0311",
+      "path": "tests/test_tool_catalog_dependency_gate.py",
+      "proposed": "Reviewer decision for missing inherited actionable dependency log; no retirement authored",
+      "retired_cases": [],
+      "selector": "tests/test_tool_catalog_dependency_gate.py::test_missing_pdf_dependency_is_hidden_with_actionable_log",
+      "status": "deferred"
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Mixed neutral explicit-path config helper and actual HTTP routes. Entire suite deferred pending exact Desktop adapter; no blanket retirement.",
+      "deferred_cases": [
+        {
+          "case": "test_config_explicit_path_handles_absent_invalid_and_scalar_config",
+          "reason": "Neutral explicit-path helper lacks exact Desktop adapter.",
+          "source_path": "tests/test_web_api_config_admin.py",
+          "source_sha256": "fccb791f3278f7b0f1feb6cea491a492a96ce85a0cca9d10973059064effb477"
+        }
+      ],
+      "inherited_sha256": "fccb791f3278f7b0f1feb6cea491a492a96ce85a0cca9d10973059064effb477",
+      "path": "tests/test_web_api_config_admin.py",
+      "restoration": null,
+      "retired_cases": [],
+      "selector": "tests/test_web_api_config_admin.py",
+      "status": "deferred",
+      "whole_suite_deferred": true
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc",
+      "path": "tests/test_web_api_integrations.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "TestMcpServers.test_add_validates_before_any_persistence",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestMcpServers.test_enabled_requires_boolean",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestMcpServers.test_list_and_unknown_lookups",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestMcpServers.test_mask_values_rejected",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestMcpServers.test_status_always_works_even_disabled",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_basic_auth_url_password_is_masked_in_all_crud_responses",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_boolean_fields_reject_non_booleans_without_echoing_values",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_cancelled_persistence_commit_propagates_after_swap",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_create",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_create_attaches_missing_targets_key",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_delete_and_test",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_delete_idless_duplicate_url_keeps_remaining_runtime_identity",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_disabled_503",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_edited_idless_row_rebinds_after_earlier_delete",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_failed_persistence_returns_503_without_swapping_state",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_hand_deleted_target_conflicts_without_resurrecting_it",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_hand_edited_legacy_url_conflicts_without_reappending_old_url",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_invalid_boolean_error_names_field_without_echo",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_list_and_stats",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_non_string_update_is_bad_request",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_test_event_success_response",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_unexpected_mutation_error_returns_503",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_update",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_update_and_delete_unexpected_errors_return_503",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_webhook_crud_preserves_exact_trailing_template",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        },
+        {
+          "case": "TestOutboundWebhooks.test_webhook_round_trip_preserves_config_owned_yaml",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_integrations.py",
+          "source_sha256": "351c26ef37067a3329a9d129398d0d81507ab032ffb77cce199c097bfffe61bc"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "selector": "tests/test_web_api_integrations.py",
+      "status": "retired"
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971",
+      "path": "tests/test_web_api_sessions_chat.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "TestAgentTrajectories.test_all",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestAgentTrajectories.test_unavailable_503",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestChat.test_escaping_exception_never_leaks_its_text",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestChat.test_success_and_error_and_session",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestChat.test_validation",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestExecute.test_validation_and_success",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_clear_bulk",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_get_export_delete",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_list_and_stats_and_search",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_non_admin_access",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_search_invalid_query_and_failure_are_distinct",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestSessionsCrud.test_surrogate_query_is_400_at_route_boundary",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestTrajectories.test_all",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        },
+        {
+          "case": "TestTrajectories.test_unavailable_503",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_sessions_chat.py",
+          "source_sha256": "6c59630b44e1524006d6d4bcdfdc67003d604512947a9f6850e88996992c0971"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "selector": "tests/test_web_api_sessions_chat.py",
+      "status": "retired"
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d",
+      "path": "tests/test_web_api_skills_and_observability.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "TestObservabilityRoutes.test_audit_query_and_verify",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestObservabilityRoutes.test_audit_verify_unsigned_409",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestObservabilityRoutes.test_tools_list_and_stats",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestSkillsRoutes.test_enable_disable_and_config",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestSkillsRoutes.test_get_missing_skill",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestSkillsRoutes.test_list_create_get_delete",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestSkillsRoutes.test_prompt_runtime_filter_and_api_inventory_toggle",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        },
+        {
+          "case": "TestSkillsRoutes.test_validate_route",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_api_skills_and_observability.py",
+          "source_sha256": "8d58cd05575fab73dbf2fb30e4f7ae951d513246dd836a83c50db728b1da679d"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "selector": "tests/test_web_api_skills_and_observability.py",
+      "status": "retired"
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c",
+      "path": "tests/test_web_campaign_authorization.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "test_every_registered_route_tier_matrix",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_campaign_authorization.py",
+          "source_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c"
+        },
+        {
+          "case": "test_falsy_requester_never_bypasses_rbac",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_campaign_authorization.py",
+          "source_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c"
+        },
+        {
+          "case": "test_session_owner_boundary",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_campaign_authorization.py",
+          "source_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c"
+        },
+        {
+          "case": "test_system_schedule_has_explicit_scoped_authority",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_campaign_authorization.py",
+          "source_sha256": "02bfb9a1e16233e7345a88fac393c4574ece2a3671aaa3aeaeca6f24f2a6c34c"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "selector": "tests/test_web_campaign_authorization.py",
+      "status": "retired"
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Neutral client_ip parser helpers missing exact Desktop adapters. All client_ip helpers deferred, not retired. Redaction, SSRF, outbound probe and context cases are partial support only.",
+      "inherited_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2",
+      "path": "tests/test_web_security_reliability.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "TestRedactionMaskMiddleware.test_a_masked_body_never_reaches_the_handler",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_malformed_json_is_left_to_the_handler",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_reads_and_malformed_bodies_are_not_inspected",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_real_server_chain_fences_valid_json_with_false_content_type",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_real_values_are_untouched",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_the_fence_is_actually_installed_on_the_real_server",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "TestRedactionMaskMiddleware.test_valid_json_cannot_bypass_with_a_false_content_type",
+          "reason": "Removed HTTP middleware.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "test_admin_only_paths_matched",
+          "reason": "Removed admin HTTP paths.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "test_admin_prefix_exact_and_subpath",
+          "reason": "Removed admin HTTP paths.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        },
+        {
+          "case": "test_non_admin_paths_not_matched",
+          "reason": "Removed admin HTTP paths.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_security_reliability.py",
+          "source_sha256": "210abc309c370eb3721a89d0f96b493023ba862de20d6b17c14af8bcdec8f0c2"
+        }
+      ],
+      "selector": "tests/test_web_security_reliability.py",
+      "status": "deferred",
+      "support_evidence": {
+        "adapter": "tests/desktop_adapters/step8_6a_campaigns.py",
+        "cases": "PARTIAL_CASES",
+        "loader": "load_support",
+        "selector": "tests/test_desktop_step8_6a_campaigns_corpus.py"
+      }
+    },
+    {
+      "batch": "campaigns",
+      "inherited_sha256": "ad710cb8fdef1f7219ecd941cb413c971624d681c39c03a9c78413e755083081",
+      "path": "tests/test_web_skill_identity_v412.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "test_manager_failure_preserves_500_contract_and_cleans_identity_scope",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skill_identity_v412.py",
+          "source_sha256": "ad710cb8fdef1f7219ecd941cb413c971624d681c39c03a9c78413e755083081"
+        },
+        {
+          "case": "test_skill_result_error_reporting_unchanged",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skill_identity_v412.py",
+          "source_sha256": "ad710cb8fdef1f7219ecd941cb413c971624d681c39c03a9c78413e755083081"
+        },
+        {
+          "case": "test_skill_test_enforces_selected_skill_and_nested_tool_scope",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skill_identity_v412.py",
+          "source_sha256": "ad710cb8fdef1f7219ecd941cb413c971624d681c39c03a9c78413e755083081"
+        },
+        {
+          "case": "test_skill_test_matches_chat_host_and_tier",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skill_identity_v412.py",
+          "source_sha256": "ad710cb8fdef1f7219ecd941cb413c971624d681c39c03a9c78413e755083081"
+        }
+      ],
+      "retirement": {
+        "reason": "All inherited cases individually retired for removed surfaces; exact case-level reasons in the immutable lane8 disposition artifact.",
+        "reviewer": "Claude, review of step 8 part 4"
+      },
+      "selector": "tests/test_web_skill_identity_v412.py",
+      "status": "retired"
+    },
+    {
+      "batch": "campaigns",
+      "blocker": "Two direct neutral failed-delete helpers lack exact Desktop adapters; four actual route cases retired.",
+      "deferred_cases": [
+        {
+          "case": "test_failed_delete_clears_stale_record_when_file_already_removed",
+          "reason": "Two direct neutral failed-delete helpers lack exact Desktop adapters; four actual route cases retired.",
+          "source_path": "tests/test_web_skills_v413.py",
+          "source_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c"
+        },
+        {
+          "case": "test_failed_delete_never_removes_loaded_alias_or_user_path",
+          "reason": "Two direct neutral failed-delete helpers lack exact Desktop adapters; four actual route cases retired.",
+          "source_path": "tests/test_web_skills_v413.py",
+          "source_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c"
+        }
+      ],
+      "inherited_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c",
+      "path": "tests/test_web_skills_v413.py",
+      "restoration": null,
+      "retired_cases": [
+        {
+          "case": "test_api_activation_storage_failure_has_no_published_change",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skills_v413.py",
+          "source_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c"
+        },
+        {
+          "case": "test_disabled_edit_test_and_reload_keep_prompt_catalog_exclusion",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skills_v413.py",
+          "source_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c"
+        },
+        {
+          "case": "test_failed_delete_is_web_only_and_clears_disk_error_restart",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skills_v413.py",
+          "source_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c"
+        },
+        {
+          "case": "test_failed_delete_unlink_failure_preserves_card",
+          "reason": "Removed HTTP listener route or web/bearer/Discord transport-specific contract.",
+          "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_web_skills_v413.py",
+          "source_sha256": "2da12be38ec0fefb30a687ade631398f0061719afcb7e577cea46c5c47ddcc9c"
+        }
+      ],
+      "selector": "tests/test_web_skills_v413.py",
+      "status": "deferred"
+    }
+  ],
+  "proposed": [
+    {
+      "case": "TestBackendGatedVisibility.test_generate_image_follows_codex_auth_not_chat_provider",
+      "path": "tests/characterization/test_tool_parity.py",
+      "reason": "Genuine native image readiness requires a qualified media owner rather than dummy enabled Config flags. Decide the exact inherited readiness-contract disposition; remains deferred, not retired.",
+      "reviewer": "Claude, review of step 8 part 4",
+      "source_path": "tests/characterization/test_tool_parity.py",
+      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
+      "status": "pending-reviewer-decision"
+    },
+    {
+      "case": "TestBackendGatedVisibility.test_unconfigured_backends_are_invisible",
+      "path": "tests/characterization/test_tool_parity.py",
+      "reason": "Real Desktop readiness removes unready native owners, conflicting with inherited registry arithmetic. Decide the exact contract disposition; remains deferred, not retired.",
+      "reviewer": "Claude, review of step 8 part 4",
+      "source_path": "tests/characterization/test_tool_parity.py",
+      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
+      "status": "pending-reviewer-decision"
+    },
+    {
+      "case": "TestRegistryMutabilitySemantics.test_defs_cache_identity",
+      "path": "tests/characterization/test_tool_parity.py",
+      "reason": "Profile-isolated registry clones intentionally contradict inherited cache object identity. Decide the exact contract disposition; remains deferred, not retired.",
+      "reviewer": "Claude, review of step 8 part 4",
+      "source_path": "tests/characterization/test_tool_parity.py",
+      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
+      "status": "pending-reviewer-decision"
+    },
+    {
+      "case": "TestRegistryMutabilitySemantics.test_defs_shape_and_schema_identity",
+      "path": "tests/characterization/test_tool_parity.py",
+      "reason": "The inherited 67-tool list and reference-shared schemas conflict with retained profile-isolation semantics. Decide the exact contract disposition; remains deferred, not retired.",
+      "reviewer": "Claude, review of step 8 part 4",
+      "source_path": "tests/characterization/test_tool_parity.py",
+      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
+      "status": "pending-reviewer-decision"
+    },
+    {
+      "case": "TestRegistryMutabilitySemantics.test_tool_map_static_but_defs_cache_rebuilds",
+      "path": "tests/characterization/test_tool_parity.py",
+      "reason": "Canonical registry returns profile-isolated clones rather than original same-object cache behavior. Decide the exact contract disposition; remains deferred, not retired.",
+      "reviewer": "Claude, review of step 8 part 4",
+      "source_path": "tests/characterization/test_tool_parity.py",
+      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
+      "status": "pending-reviewer-decision"
+    },
+    {
+      "case": "TestToolParity.test_exact_names_and_order",
+      "path": "tests/characterization/test_tool_parity.py",
+      "reason": "Exact inherited order mixes removed Discord/tier tools with neutral tools. Decide the complete mixed-list case disposition without parameter edits or blanket retirement.",
+      "reviewer": "Claude, review of step 8 part 4",
+      "source_path": "tests/characterization/test_tool_parity.py",
+      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
+      "status": "pending-reviewer-decision"
+    },
+    {
+      "case": "TestToolParity.test_schema_deep_equality",
+      "path": "tests/characterization/test_tool_parity.py",
+      "reason": "Intentional Desktop schema changes conflict with frozen inherited schema equality. Decide the exact contract disposition; inherited assertions and hashes remain unchanged.",
+      "reviewer": "Claude, review of step 8 part 4",
+      "source_path": "tests/characterization/test_tool_parity.py",
+      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
+      "status": "pending-reviewer-decision"
+    },
+    {
+      "case": "TestToolParity.test_tool_map_completeness_and_identity",
+      "path": "tests/characterization/test_tool_parity.py",
+      "reason": "Complete inherited registry includes removed tools while neutral mapping/identity still matters. Decide the complete mixed-contract case disposition; remains deferred, not retired.",
+      "reviewer": "Claude, review of step 8 part 4",
+      "source_path": "tests/characterization/test_tool_parity.py",
+      "source_sha256": "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2",
+      "status": "pending-reviewer-decision"
+    }
+  ],
+  "reviewer": "Claude, review of step 8 part 4",
+  "schema_version": 1,
+  "status": "pending-independent-review-not-accepted"
+}

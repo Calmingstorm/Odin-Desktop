@@ -10,6 +10,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import subprocess
 from collections import Counter
 from pathlib import Path
 
@@ -22,6 +23,7 @@ INPUTS = {
     "hyprland": "maintenance/step8-part4-hyprland-candidates.json",
     "campaigns": "maintenance/step8-part4-campaigns-candidates.json",
 }
+ACCOUNTING_BASE = "288ce7b4"
 
 
 def read(path):
@@ -31,6 +33,20 @@ def read(path):
 def write(path, data):
     target = ROOT / path
     target.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
+def base_bytes(path):
+    return subprocess.check_output(
+        ["git", "-C", str(ROOT), "show", f"{ACCOUNTING_BASE}:{path}"], timeout=30)
+
+
+def write_suite_map(mapping):
+    path = "maintenance/phase2-suite-map.json"
+    original = base_bytes(path).decode()
+    prefix = original.split('  "entries": [\n', 1)[0] + '  "entries": [\n'
+    rows = ["    " + json.dumps(row, separators=(",", ":"), ensure_ascii=False)
+            for row in mapping["entries"]]
+    (ROOT / path).write_text(prefix + ",\n".join(rows) + "\n  ]\n}\n")
 
 
 def case_names(path):
@@ -60,6 +76,8 @@ def main():
             path = row["path"]
             if path not in assigned or path in candidates:
                 raise ValueError(f"Unassigned or duplicate lane row: {path}")
+            if "inherited_sha256" not in row:
+                raise ValueError(f"Candidate inherited source identity missing: {path}")
             source_hash = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
             if source_hash != row["inherited_sha256"]:
                 raise ValueError(f"Candidate source hash differs: {path}")
@@ -106,7 +124,8 @@ def main():
         "proposed": proposals, "data_substitutions": substitutions,
     }
     write("maintenance/phase2-step8-part4-lane8-dispositions.json", artifact)
-    mapping, plan = read("maintenance/phase2-suite-map.json"), read("maintenance/test-plan.json")
+    mapping = json.loads(base_bytes("maintenance/phase2-suite-map.json"))
+    plan = json.loads(base_bytes("maintenance/test-plan.json"))
     entries = {entry["path"]: entry for entry in plan["entries"]}
     for row in mapping["entries"]:
         path = row["path"]
@@ -117,7 +136,13 @@ def main():
         row.pop("retirement", None)
         row["status"] = candidate["status"]
         if candidate["status"] == "restored":
-            selector = candidate["selector"]
+            selector = candidate["selector"].split("::", 1)[0]
+            expected_selector = f"tests/test_desktop_step8_6a_{candidate['batch']}_corpus.py"
+            if candidate["batch"] == "campaigns" and selector == path:
+                selector = expected_selector
+            if selector != expected_selector:
+                if candidate["batch"] != "campaigns":
+                    raise ValueError(f"Unknown whole-suite corpus selector: {selector}")
             row["blocked_on"] = None
             row["qualification_group"] = f"phase2-step6a-{candidate['batch']}-restored-corpus"
             row["restoration"] = {
@@ -156,8 +181,8 @@ def main():
         "a suite. Retirements are case-level removed surfaces under the current work order."
     )
     mapping.pop("counts", None)
-    write("maintenance/phase2-suite-map.json", mapping)
-    write("maintenance/test-plan.json", plan)
+    write_suite_map(mapping)
+    (ROOT / "maintenance/test-plan.json").write_text(json.dumps(plan, indent=2) + "\n")
     parent = read("maintenance/phase2-step8-part4-lane8-adaptation-plan.json")
     for row in parent["entries"]:
         adaptations[row["path"]] = row

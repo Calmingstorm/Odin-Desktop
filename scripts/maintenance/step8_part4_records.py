@@ -39,10 +39,10 @@ def merge_provenance():
     planned = {}
     for path in sorted(local.keys() | services.keys()):
         ours, theirs = local.get(path), services.get(path)
-        if theirs is None or ours == theirs:
+        if ours == theirs:
             continue
         entry = fields(ours or theirs)
-        if ours is not None:
+        if ours is not None and theirs is not None:
             for key in ("reason", "contract", "invariant"):
                 if theirs[key] not in entry[key]:
                     entry[key] += " | 6A provenance: " + theirs[key]
@@ -83,6 +83,8 @@ def main():
     for path, entry in sorted(planned.items()):
         if not (inventory.ROOT / path).is_file():
             raise ValueError(f"Named merge/part4 path missing: {path}")
+        if path.startswith("maintenance/"):
+            continue  # Audited generated accounting, not engine source adaptation scope.
         inventory.record(inventory.ROOT, SimpleNamespace(**entry))
     return inventory.main(["refresh"])
 

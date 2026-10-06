@@ -56,7 +56,7 @@ QUALIFICATION_PATH = "maintenance/qualification-plan.json"
 PART4_REVIEWER = "Claude, review of step 8 part 4"
 PART4_PATH = "maintenance/phase2-step8-part4-lane8-dispositions.json"
 # Replaced with the exact parent-audited artifact digest before qualification.
-PART4_SHA256 = "pending"
+PART4_SHA256 = "0b8601be06252b40878b667d4f3aa63c2c126cd0aae0bd25f5bd453b5c1097fa"
 PART4_GROUPS = {
     "phase2-step6a-tools-restored-corpus": {
         "tests/test_desktop_step8_6a_tools_corpus.py",
@@ -287,8 +287,12 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             return False
         if stem in exclusions:
             declared = exclusions[stem]
-        for excluded_stem, cases in exclusions.items():
-            if cases:
+            if not _case_retirements(root, path, inherited_hash, declared):
+                return False
+        if stem in selections:
+            for excluded_stem, cases in exclusions.items():
+                if not cases:
+                    continue
                 matches = [entry for entry in _part4_dispositions(root).values()
                            if PurePosixPath(entry["path"]).stem == excluded_stem]
                 if len(matches) != 1 or not _case_retirements(
