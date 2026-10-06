@@ -1,11 +1,27 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import type { CodexAccount, QuotaWindow } from '../../../shared/api'
 import { ask } from '../dialog'
-import { accountIdentity, activateAccount, beginLogin, labelAccount, loadCodex, removeAccount, settings, stopLogin } from '../stores/settings'
+import { accountIdentity, activateAccount, beginLogin, labelAccount, loadCodex, removeAccount, retryLogin, settings, stopLogin } from '../stores/settings'
 import { unavailableText } from '../capability'
 
 onMounted(loadCodex)
+const copyStatus = ref('')
+const loginAnnouncement = computed(() => {
+  const login = settings.codex.login
+  if (!login) return ''
+  if (login.status === 'waiting') return 'Waiting for sign-in approval in the browser.'
+  if (login.status === 'stopped') return 'Stopped waiting. This app is no longer checking or finishing that login. Add an account to start again.'
+  return login.message ?? (login.status === 'done' ? 'Account added.' : `Sign-in ${login.status}.`)
+})
+watch(() => settings.codex.login?.code, () => { copyStatus.value = '' })
+async function copyCode(): Promise<void> {
+  const login = settings.codex.login
+  if (!login || login.status !== 'waiting') return
+  const result = await window.odin.copyText(login.code)
+  copyStatus.value = result.ok ? 'Sign-in code copied.' : 'Could not copy the sign-in code.'
+}
+const accountName = (account: CodexAccount): string => account.label || account.email || `Account ${account.index + 1}`
 
 function windowName(minutes: number): string {
   if (minutes >= 10080) return 'weekly'
@@ -51,23 +67,27 @@ async function remove(account: CodexAccount): Promise<void> {
     <header class="panel-head">
       <h3>Codex accounts</h3>
       <span class="panel-hint">Odin uses one at a time and moves to the next when one hits its limit.</span>
-      <button v-if="!settings.codex.unavailable" class="ghost" :disabled="settings.codex.login?.status === 'waiting'" @click="beginLogin">Add account</button>
+      <button v-if="!settings.codex.unavailable" class="ghost" :disabled="settings.codex.beginning || settings.codex.login?.status === 'waiting'" @click="beginLogin">Add account</button>
     </header>
     <p v-if="settings.codex.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Codex accounts') }}</p>
     <template v-else>
-      <div v-if="settings.codex.login" class="login" role="status">
+      <div v-if="settings.codex.login" class="login">
+      <p role="status" aria-atomic="true">{{ loginAnnouncement }}</p>
       <template v-if="settings.codex.login.status === 'waiting'">
         <p>
-          Open <a :href="settings.codex.login.url" target="_blank" rel="noopener noreferrer">{{ settings.codex.login.url }}</a>
-          and enter <code class="login-code">{{ settings.codex.login.code }}</code>. Odin adds the account once you approve it.
+          Open <a :href="settings.codex.login.url" target="_blank" rel="noopener noreferrer" aria-describedby="codex-login-browser">{{ settings.codex.login.url }}</a>
+          and enter the sign-in code. Odin adds the account once you approve it.
         </p>
+        <p id="codex-login-browser" class="panel-hint">Opens in your browser. The sign-in code is temporary; your stored credentials are never shown here.</p>
+        <p>Sign-in code: <code class="login-code">{{ settings.codex.login.code }}</code></p>
+        <button class="ghost" @click="copyCode">Copy sign-in code</button>
+        <p v-if="copyStatus" role="status">{{ copyStatus }}</p>
         <button class="ghost" @click="stopLogin">Stop waiting</button>
       </template>
-      <p v-else-if="settings.codex.login.status === 'done'">{{ settings.codex.login.message }}</p>
-      <p v-else-if="settings.codex.login.status === 'stopped'">Stopped waiting. A login you finish in the browser is still added.</p>
-      <p v-else class="warn">{{ settings.codex.login.message }}</p>
+      <button v-if="settings.codex.login.status === 'failed'" class="ghost" @click="retryLogin">Retry login</button>
       </div>
-      <p v-if="settings.codex.error" class="warn">{{ settings.codex.error }}</p>
+      <p v-if="settings.codex.error" class="warn" role="status">{{ settings.codex.error }} <button class="ghost" @click="loadCodex">Retry</button></p>
+      <p v-if="settings.codex.busy" role="status">Updating Codex accounts.</p>
       <p v-if="settings.codex.stale && !settings.codex.busy" class="warn">
         The list couldn't be refreshed after your last change, so it may be out of date.
         <button class="ghost" @click="loadCodex">Refresh</button>
@@ -78,7 +98,7 @@ async function remove(account: CodexAccount): Promise<void> {
           <p v-if="account.error" class="warn">Account {{ account.index + 1 }}: {{ account.error }}</p>
           <template v-else>
             <div class="account-line">
-              <strong>{{ account.label || account.email }}</strong>
+              <strong>{{ accountName(account) }}</strong>
               <span class="account-meta">{{ account.email }} · {{ account.plan_type }}</span>
               <span v-if="account.is_current" class="in-use">In use</span>
               <span v-if="account.limit_reached" class="warn">Limit reached</span>
@@ -87,13 +107,13 @@ async function remove(account: CodexAccount): Promise<void> {
             </div>
             <div class="account-meta">{{ quota(account) }}</div>
             <div class="account-actions">
-              <button v-if="!account.is_current" class="ghost" :disabled="settings.codex.busy || settings.codex.stale" @click="activateAccount(account)">
+              <button v-if="!account.is_current" class="ghost" :aria-label="`Use this account: ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale" @click="activateAccount(account)">
                 Use this account
               </button>
-              <button class="ghost" :disabled="settings.codex.busy || settings.codex.stale" @click="rename(account)">Label…</button>
-              <button class="ghost danger-item" :disabled="settings.codex.busy || settings.codex.stale" @click="remove(account)">Remove…</button>
+              <button class="ghost" :aria-label="`Label ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale" @click="rename(account)">Label…</button>
+              <button class="ghost danger-item" :aria-label="`Remove ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale" @click="remove(account)">Remove…</button>
             </div>
-            <p v-if="settings.codex.notes[accountIdentity(account)]" class="account-note">{{ settings.codex.notes[accountIdentity(account)] }}</p>
+            <p v-if="settings.codex.notes[accountIdentity(account)]" class="account-note" role="status">{{ settings.codex.notes[accountIdentity(account)] }}</p>
           </template>
         </li>
       </ul>

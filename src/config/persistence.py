@@ -765,7 +765,7 @@ def _patch_config_paths(
                 # destroys ruamel comments/flow styles and can materialize
                 # resolved secret placeholders.
                 existing = node.get(target, [])
-                if not isinstance(existing, list):
+                if target not in node or not isinstance(existing, list):
                     existing = []
                     node[target] = existing
 
