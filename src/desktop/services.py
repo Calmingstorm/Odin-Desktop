@@ -270,7 +270,9 @@ class EngineServices:
                 await shutdown_provider_clients(d.llm_gateway)
         except Exception as error:
             failed("providers", error)
-        await release(d.outbound_webhook_dispatcher, "close")
+        await release(getattr(d, "outbound_webhook_dispatcher",
+                              getattr(d.runtime_context, "outbound_webhook_dispatcher", None)),
+                      "close")
         try:
             await asyncio.to_thread(d.sessions.save)
         except Exception as error:
