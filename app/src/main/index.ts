@@ -19,6 +19,8 @@ import { DeviceLoginBoundary } from './device-login'
 import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
+import { inspectPackagedState } from './package-state'
+import { acquirePackagedApp, admitPackagedApp } from './package-ownership'
 import { realCoreSmoke } from './real-core-smoke'
 import { ReleaseNoticeService } from './release-notice'
 import { onboardingSmoke } from './onboarding-smoke'
@@ -39,7 +41,27 @@ if (!app.requestSingleInstanceLock()) {
   // No running app: Exit is a no-op, before profile/core construction.
   app.quit()
 } else {
-  run()
+  if (app.isPackaged) {
+    void (async () => {
+      let guardian: Awaited<ReturnType<typeof acquirePackagedApp>> | undefined
+      try {
+        guardian = await acquirePackagedApp(profilePaths(), process.resourcesPath, process.env)
+        inspectPackagedState(profilePaths(), process.resourcesPath, process.env)
+        await admitPackagedApp(guardian)
+        // Keep stdin open through real process exit. EOF plus fresh cleanup
+        // receipts releases the guardian, not a pre-exit event or bare PID.
+        guardian.once('exit', () => app.exit(1))
+        run()
+      } catch (error) {
+        guardian?.stdin.end()
+        await app.whenReady()
+        dialog.showErrorBox('Odin ownership unavailable', (error as Error).message)
+        app.exit(1)
+      }
+    })()
+  } else {
+    run()
+  }
 }
 
 function run(): void {
@@ -263,7 +285,7 @@ function run(): void {
     win.focus()
   }
 
-  const settings = (): Settings => ({ autostart: isAutostartEnabled(), notifications: notificationSettings })
+  const settings = (): Settings => ({ autostart: isAutostartEnabled(undefined, launchCommand()), notifications: notificationSettings })
 
   const shutdown = boundedShutdown({
     stopAdmission: () => { lifecycle.quitting = true; broker.quiesce(); tray?.setStatus('Stopping Odin…') },
@@ -480,7 +502,8 @@ function run(): void {
 /** The command the autostart entry runs: the AppImage, the packaged binary, or Electron plus this app in development. */
 function launchCommand(): string[] {
   if (process.env.APPIMAGE) return [process.env.APPIMAGE]
-  if (app.isPackaged) return [process.execPath]
+  // Use the stable lease-bearing launcher, not the raw Electron payload.
+  if (app.isPackaged) return [join(process.resourcesPath, '..', 'odin-desktop')]
   return [process.execPath, app.getAppPath()]
 }
 

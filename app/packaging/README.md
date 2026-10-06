@@ -15,9 +15,10 @@ Use a disposable build environment if those pinned inputs are unavailable.
 
 From `app/`, run `npm ci --ignore-scripts`, provision the pinned Electron binary
 with `node node_modules/electron/install.js`, then `npm run check` and
-`npm run package:candidate`. Candidate construction never publishes. No packaging
-workflow is added; the pre-existing engine workflow is now manual-dispatch only
-so opening this private-repository PR does not spend hosted-runner minutes.
+`npm run package:candidate`. Candidate construction never publishes. Engine CI
+runs on pull requests and main pushes using separate self-hosted short-gate and
+full-suite runner labels. P4.3 adds a self-hosted release workflow whose default
+dispatch is a nonpublishing dry-run; publication remains separately guarded.
 
 Build-time downloads are hash checked: standalone CPython 3.12.15, build-only uv,
 the wheel-only production closure from `uv.lock`, Chromium Headless Shell,
@@ -58,6 +59,18 @@ inventory, not a signed trust anchor, update feed or self-updater.
 `npm run test:packaging` runs behavior tests for closure, tampering, archive parsing,
 credential-pattern scanning and namespace isolation. Engine/resource pytest cases
 must run inside the PID namespace prescribed by `CONTRIBUTING.md`.
+
+The behavior tests use the invoking account for isolation and real first-start
+OpenSSH key generation. Ordinary users use a private unprivileged user namespace;
+real root uses the privileged sandbox without `--unshare-user`, retaining access
+to checkout inputs in another user's private home until they are bound. No named
+workstation account, checkout location or passwordless sudo is needed for these
+rows. Missing namespace support/tools produces an explicit prerequisite skip;
+once the prerequisite succeeds, sandbox failures remain failures. The disposable
+real-dpkg/maintainer-script row still needs real root, and skips with a plain
+reason if neither root nor `sudo -n true` is available. This does not qualify
+user-namespace dpkg as real installation or replace the privileged candidate
+and installed-root acceptance lanes below.
 
 Run `sudo -n python3 -B app/packaging/qualify.py --deb <candidate.deb>
 --appimage <candidate.AppImage> --pdf-wheel <local-pinned-wheel.whl>
@@ -109,6 +122,18 @@ candidates**. Its download provenance remains pinned for user-initiated PDF use;
 this packaging change does not assert that downloading resolves every licensing
 question. Other distributed third-party notice closure remains a release gate.
 
-No tag, GitHub Release, asset upload, update service or publishing workflow is
-created. Candidates stay local. Ownership/upgrades and along-side installation
-are P4.2; final supervised owner acceptance and release handoff are P4.6.
+These local packaging commands create no tag, GitHub Release, asset upload or
+update service. Candidates stay local. The separately guarded P4.3 workflow is
+documented in [`maintenance/phase4-releases.md`](../../maintenance/phase4-releases.md).
+P4.2 ownership/upgrades and alongside evidence
+are recorded in [`maintenance/phase4-packaging.md`](../../maintenance/phase4-packaging.md).
+The `.deb` now uses explicit self-contained preinst/postinst/prerm/postrm hooks
+with `python3-minimal` predependency. They fence replacement without starting
+or signalling any application/service and preserve all user state. The shared
+lease-bearing launcher and independent app/core lifetimes remain active through
+authoritative cleanup. AppImage replacement is explicitly user-managed and
+offline; see [`APPIMAGE-REPLACEMENT.md`](APPIMAGE-REPLACEMENT.md). No app apply
+path exists. Legacy unguarded P4.1 direct upgrade is refused; its isolated
+offline transition is qualified separately, not mislabeled a normal upgrade.
+Native/FUSE/restricted-Ubuntu gates and final supervised owner acceptance/release
+handoff remain open for P4.5/P4.6.
