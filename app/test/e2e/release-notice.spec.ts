@@ -133,7 +133,11 @@ test.afterEach(async () => {
 
 for (const real of [false, true]) test(`${real ? 'real core' : 'fixture core'}: named anonymous operation, all states, read-only and accessible`, async () => {
   await launch(real)
-  const dataBefore = snapshot(join(root, 'data')), configBefore = snapshot(join(root, 'config'))
+  // Chromium independently writes its own Preferences/cache files after launch.
+  // Compare all product configuration and executables, not browser housekeeping.
+  const configDirectory = join(root, 'config', 'odin-desktop')
+  const dataBefore = snapshot(join(root, 'data')), configBefore = snapshot(configDirectory)
+  const executablesBefore = snapshot(join(appDir, 'out'))
   const coreBefore = await page.evaluate(() => window.odin.status())
   const noticeDispatches: string[] = []
   // Record actual registered notice-handler dispatch, not a renderer-only fake API.
@@ -192,7 +196,8 @@ for (const real of [false, true]) test(`${real ? 'real core' : 'fixture core'}: 
   const coreAfter = await page.evaluate(() => window.odin.status())
   expect(coreAfter.ok && coreAfter.result.core_instance_id).toBe(coreBefore.ok && coreBefore.result.core_instance_id)
   expect(snapshot(join(root, 'data'))).toEqual(dataBefore)
-  expect(snapshot(join(root, 'config'))).toEqual(configBefore)
+  expect(snapshot(configDirectory)).toEqual(configBefore)
+  expect(snapshot(join(appDir, 'out'))).toEqual(executablesBefore)
   expect(await childIds()).toBe(childrenBefore)
   const audit = await app!.evaluate(() => (globalThis as any).__noticeAudit)
   expect(audit.writes).toEqual([])
@@ -214,7 +219,9 @@ for (const real of [false, true]) test(`${real ? 'real core' : 'fixture core'}: 
   expect(JSON.stringify(ax)).toContain('App version and updates')
   expect(JSON.stringify(ax)).toContain('Check for updates')
   await test.info().attach('notice-safety-and-a11y', { body: JSON.stringify({ audit, coreBefore, coreAfter,
-    filesUnchanged: true, childIdentityUnchanged: true, axe: { violations: axe.violations, incomplete: axe.incomplete }, ax }, null, 2), contentType: 'application/json' })
+    productConfigAndDataUnchanged: true, executablesUnchanged: true,
+    chromiumHousekeepingExcluded: true, childIdentityUnchanged: true,
+    axe: { violations: axe.violations, incomplete: axe.incomplete }, ax }, null, 2), contentType: 'application/json' })
 })
 
 test('built app resources do not contain credential material or ambient canaries', () => {
