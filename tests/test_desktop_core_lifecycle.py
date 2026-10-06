@@ -102,9 +102,14 @@ async def connect(socket_path, *, token="ab" * 32):
     return reader, writer, await receive(reader)
 
 
-async def request(reader, writer, method, params=None, command_id=None, *, timeout=3):
+async def request(reader, writer, method, params=None, command_id=None, *, timeout=None):
     command_id = command_id or str(uuid.uuid4())
     await send(writer, {"t": "req", "id": command_id, "method": method, "params": params or {}})
+    # Real first submission constructs the executor/catalog lazily. This is a
+    # correctness fixture, not a 3-second latency SLA on a shared CI machine.
+    # Other RPC waits keep their historical bound; no request is retried.
+    if timeout is None:
+        timeout = 15 if method == "submission.send" else 3
     result = await receive(reader, timeout=timeout)
     assert result["t"] == "res"
     assert result["id"] == command_id
