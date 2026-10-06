@@ -167,3 +167,29 @@ identified the same defect; canonicalization repairs it rather than weakening th
 Earlier failed evidence is retained under `/home/odin/desktop-pr32-r1-e2e/`. Final rerun evidence is recorded
 separately. The lifecycle evidence digests in `desktop-deltas.json` were updated only for the two added behavior
 cases, with no engine/fixture byte or safety approval recapture.
+
+### Verified review-round results
+
+On implementation commit `4a7e3f80733a4302d32252bcc012f93de6b18480`, all requested gates passed:
+
+| Gate | Observed result |
+|---|---|
+| `npm run check` | Typecheck/build passed; 72 files, 662 tests passed |
+| `npm run smoke` | Fixture smoke passed |
+| `npm run test:real-core` | 19 passed (8 lifecycle contracts plus 11 merged main settings contracts) |
+| `npm run smoke:real-core` | 37 real-core screen checkpoints passed |
+| `npm run test:a11y` | 15/15 passed |
+| Lifecycle plus notification E2E, requested isolated selection | 19/19 passed, zero retries/skips; two new acknowledgment cases |
+| Additional engine regression selection | 87 passed; lineage clean; no new lint findings |
+
+Required E2E source/artifact hashes and clean-checkout identity are retained at
+`/home/odin/desktop-pr32-r1-required-e2e/qualification.json`; app gates at
+`/home/odin/desktop-pr32-r1-final-gates.log`. No live installation or active desktop changed.
+
+**Extra qualification limitation, not hidden:** an optional expanded 29-case run passed 28/29. Its original
+execution-owner direct-EOF case observed a `ConnectionResetError` in supervisor settlement and correctly retained
+unknown even though independent identities/counters proved descendants absent. No original owner/fixture/core
+code changed in this review fix. A separate same-source, no-retry owner-suite rerun passed 4/4, with normal clean
+settlement/exit 0. Both results remain at `/home/odin/desktop-pr32-r1-final-e2e/` and
+`/home/odin/desktop-pr32-r1-owner-rerun/`. This is intermittent qualification evidence, **not a clean 29/29 claim**;
+the exact transport race is not established and no ownership guard was weakened.
