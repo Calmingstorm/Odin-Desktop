@@ -60,7 +60,8 @@ support or required tools fail with an explanation. There are no silent skips or
 management writes, knowledge versions, record filtering and write-only credentials. Slice 4 adds skill CRUD and
 validation, failed-module cards, a harmless local stdio MCP fixture, publication/enable/reconnect transitions,
 settings revision conflicts without replay, server-local keyring failures, and browser/computer truthfulness.
-`skills.test` is deliberately unadvertised; its refusal is checked, never represented as executed Python.
+`skills.test` executes the harmless constant with empty input, returns its real result, and increments the manager's
+execution count. Disabled and unknown skills retain their actual error outcomes.
 Device authentication uses
 an isolated localhost auth service and an ephemeral injected keyring, never a production account. These tests
 do not qualify native Secret Service unlock behavior or successful model generation.
@@ -70,7 +71,8 @@ chat/search/work and every settings section's own service loads, and checks on-d
 shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge and audit/log
 records, unknown usage and disabled turn-state storage. Health reports absent runtime owners honestly; missing
 keyring access is a distinct failure with Retry, not an empty account success. The slice 4 smoke saves, validates
-and reads a harmless constant skill through the named bridge, verifies Test remains unavailable, adds a local
+and reads a harmless constant skill through the named bridge, executes Test once through the bridge and once from
+the editor, checks the rendered result and two genuine runs, adds a local
 stdio MCP fixture and renders its discovered tools. Browser health distinguishes missing bundle/readiness from
 next-use retry; computer status says no session and no qualified foreground/native input. No remote MCP service
 or real account is used. Scheduling remains unavailable. The gate exits through normal `runtime.shutdown` and

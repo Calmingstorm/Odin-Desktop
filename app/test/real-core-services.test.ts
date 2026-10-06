@@ -39,19 +39,31 @@ describe('real 6A services through the app Broker, private profiles only', () =>
     }
   }
 
-  test('advertises retained services, validates/saves/reads/edits/enables/deletes a trusted constant, but never executes an unavailable test', async () => {
+  test('advertises retained services and validates/saves/tests/reads/edits/enables/deletes a trusted constant', async () => {
     const broker = await connect()
     const observed = result<{ capabilities: string[] }>(await broker.request('status.get'))
     expect(observed.capabilities).toEqual(SERVED_CAPABILITIES)
-    expect(observed.capabilities).not.toContain('skills.test')
+    expect(observed.capabilities).toContain('skills.test')
     expect(result(await broker.request('skills.list'))).toEqual([])
     expect(result(await broker.request('skills.validate', { code }))).toMatchObject({ valid: true })
     expect(result(await broker.request('skills.validate', { code: 'This is not valid Python.' }))).toMatchObject({ valid: false })
     result(await broker.request('skills.save', { name: 'slice4_constant', code }, randomUUID()))
     expect(result(await broker.request('skills.get', { name: 'slice4_constant' }))).toMatchObject({ code, status: 'loaded' })
-    refused(await broker.request('skills.test', { name: 'slice4_constant', input: {} }), 'capability_unavailable')
+    expect(result(await broker.request('skills.list'))).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'slice4_constant', total_executions: 0 })
+    ]))
+    expect(result(await broker.request('skills.test', { name: 'slice4_constant' }, randomUUID())))
+      .toEqual({ result: 'harmless constant', is_error: false })
+    expect(result(await broker.request('skills.list'))).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'slice4_constant', total_executions: 1 })
+    ]))
     result(await broker.request('skills.set_enabled', { name: 'slice4_constant', enabled: false }, randomUUID()))
     expect(result(await broker.request('skills.get', { name: 'slice4_constant' }))).toMatchObject({ status: 'disabled' })
+    expect(result(await broker.request('skills.test', { name: 'slice4_constant' }, randomUUID())))
+      .toEqual({ result: "Skill 'slice4_constant' is disabled. Use enable_skill to re-activate it.", is_error: true })
+    expect(result(await broker.request('skills.list'))).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'slice4_constant', total_executions: 1 })
+    ]))
     result(await broker.request('skills.set_enabled', { name: 'slice4_constant', enabled: true }, randomUUID()))
     const edited = code.replace('harmless constant', 'another harmless constant')
     result(await broker.request('skills.save', { name: 'slice4_constant', code: edited }, randomUUID()))
@@ -59,6 +71,7 @@ describe('real 6A services through the app Broker, private profiles only', () =>
     result(await broker.request('skills.delete', { name: 'slice4_constant' }, randomUUID()))
     expect(result(await broker.request('skills.list'))).toEqual([])
     refused(await broker.request('skills.get', { name: 'slice4_constant' }), 'not_found')
+    refused(await broker.request('skills.test', { name: 'slice4_constant' }, randomUUID()), 'not_found')
   })
 
   test('retains failed startup module cards instead of inventing ready skills, and deletes them through the real manager', async () => {

@@ -136,7 +136,34 @@ describe('real management contracts', () => {
     expect(store.management.notes.mcp).toBe('Profile keyring is locked')
   })
 
-  it('shows only Test unavailable, preserving failed cards, editor and all other skill actions', async () => {
+  it('enables Test for a capable core and renders its returned result and refreshed run count', async () => {
+    api.status!.mockResolvedValue(ok({ capabilities: ['skills.list', 'skills.save', 'skills.test'] }))
+    api.skillsList!.mockResolvedValueOnce(ok([{ name: 'hello', status: 'loaded', description: 'Harmless', total_executions: 0 }]))
+    api.skillsList!.mockResolvedValue(ok([{ name: 'hello', status: 'loaded', description: 'Harmless', total_executions: 1 }]))
+    api.skillsTest!.mockResolvedValue(ok({ result: 'harmless constant', is_error: false }))
+    // A newly capable core clears a previous core's unavailable state on refresh.
+    store.management.skillTestUnavailable = true
+    const component = (await import('../../src/renderer/src/views/settings/Skills.vue')).default
+    const view = mount(component); views.push(view); await flush()
+    expect(store.management.skillTestUnavailable).toBe(false)
+    expect(view.root.textContent()).not.toContain('Test is unavailable in this core.')
+    expect(view.root.textContent()).toContain('0 runs')
+    const cardTest = view.root.findAll((node) => node.props['aria-label'] === 'Test hello')[0]!
+    expect(cardTest.props.disabled).toBeFalsy()
+    await store.openSkill('hello'); await flush()
+    const editor = view.root.findAll((node) => node.props['aria-label'] === 'Skill editor')[0]!
+    const test = editor.findAll((node) => node.props['aria-label'] === 'Test hello')[0]!
+    expect(test.props.disabled).toBeFalsy()
+    await test.fire('click'); await flush()
+    expect(api.skillsTest).toHaveBeenCalledExactlyOnceWith({ name: 'hello' })
+    expect(editor.find('pre')?.textContent()).toBe('harmless constant')
+    expect(editor.find('pre')?.props.class).not.toContain('warn')
+    expect(view.root.textContent()).toContain('1 runs')
+    expect(view.root.textContent()).toContain('Ran with empty input.')
+    expect(view.root.textContent()).not.toContain('Test is unavailable in this core.')
+  })
+
+  it('shows only Test unavailable for a core without skills.test, preserving failed cards, editor and other skill actions', async () => {
     const component = (await import('../../src/renderer/src/views/settings/Skills.vue')).default
     const view = mount(component); views.push(view); await flush()
     expect(view.root.textContent()).toContain('Test is unavailable in this core.')

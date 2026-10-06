@@ -398,8 +398,14 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await expect(panel).not.toContainText('Skills is unavailable in this core')
       await activate(panel.getByRole('button', { name: 'Open slice4_constant', exact: true }))
       await tabTo(page.getByRole('textbox', { name: 'Skill code', exact: true }))
-      await expect(panel).toContainText('Test is unavailable in this core.')
-      await expect(panel.getByRole('button', { name: 'Test slice4_constant', exact: true })).toBeDisabled()
+      await expect(panel).not.toContainText('Test is unavailable in this core.')
+      const editor = page.getByRole('region', { name: 'Skill editor', exact: true })
+      const testSkill = editor.getByRole('button', { name: 'Test slice4_constant', exact: true })
+      await expect(testSkill).toBeEnabled()
+      await activate(testSkill)
+      await expect(editor.locator('.manage-json')).toHaveText('harmless constant')
+      await expect(editor.locator('.manage-json')).not.toHaveClass(/warn/)
+      await expect(panel.locator('.manage-count')).toHaveText('1 runs')
     }
     if (label === 'MCP servers') {
       const panel = page.getByRole('region', { name: 'MCP servers', exact: true })

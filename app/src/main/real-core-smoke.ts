@@ -22,13 +22,12 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
     'tools.list', 'tools.timeouts.get', 'personality.get', 'hosts.list', 'hosts.public_key',
     'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get',
-    'skills.list', 'skills.save', 'skills.validate', 'mcp.status', 'mcp.save', 'mcp.tools', 'computer.status', 'computer.reconcile']) {
+    'skills.list', 'skills.save', 'skills.validate', 'skills.test', 'mcp.status', 'mcp.save', 'mcp.tools', 'computer.status', 'computer.reconcile']) {
     assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
   }
 
   // Later-slice reads are genuine core refusals, not empty successful lists.
-  assert(!status.capabilities.includes('skills.test'), 'unwired skill execution must not be advertised')
-  for (const method of ['work.list', 'schedules.list', 'skills.test']) {
+  for (const method of ['work.list', 'schedules.list']) {
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
@@ -166,9 +165,13 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   await observedService('skillsSave', { name: 'slice4_constant', code: skillCode, create: true })
   const skill = await observedService('skillsGet', { name: 'slice4_constant' }) as { code: string }
   assert.equal(skill.code, skillCode)
-  const unavailableTest = await invoke<Answer>('skillsTest', { name: 'slice4_constant' })
-  assert(!unavailableTest.ok && unavailableTest.error?.code === 'capability_unavailable', 'named skill test must honestly refuse, never claim execution')
-  observations.skillsTest = unavailableTest
+  type SkillRow = { name: string; total_executions: number }
+  const initialSkills = await observedService('skillsList') as SkillRow[]
+  assert.equal(initialSkills.find((row) => row.name === 'slice4_constant')?.total_executions, 0)
+  const tested = await observedService('skillsTest', { name: 'slice4_constant' }) as { result: string; is_error: boolean }
+  assert.deepEqual(tested, { result: 'harmless constant', is_error: false }, 'named bridge must execute the harmless skill with empty input')
+  const testedSkills = await observedService('skillsList') as SkillRow[]
+  assert.equal(testedSkills.find((row) => row.name === 'slice4_constant')?.total_executions, 1, 'bridge Test must count a genuine execution')
   type McpStatus = { revision: string; server_count: number; servers: Array<{ name: string; state: string; published_count: number }> }
   const mcpMutation = async (name: string, params: Record<string, unknown>): Promise<void> => {
     const before = await observedService('mcpStatus') as McpStatus
@@ -205,7 +208,20 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     }
     if (sections[i] === 'Skills') {
       await until(async () => (await text('section[aria-label="Skills"]')).includes('slice4_constant'), 'real skill card')
-      assert((await text('section[aria-label="Skills"]')).includes('Test is unavailable in this core.'), 'unwired skill test must be explicit')
+      assert(!(await text('section[aria-label="Skills"]')).includes('Test is unavailable in this core.'), 'a capable core must not show Test unavailable')
+      assert((await text('section[aria-label="Skills"] .manage-count')).includes('1 runs'), 'the card must show the bridge execution')
+      await click('button[aria-label="Open slice4_constant"]')
+      await until(async () => await run<boolean>('Boolean(document.querySelector(".skill-editor"))'), 'real skill editor')
+      const testButton = '.skill-editor button[aria-label="Test slice4_constant"]'
+      assert.equal(await run(`document.querySelector(${JSON.stringify(testButton)}).disabled`), false)
+      await click(testButton)
+      await until(async () => (await text('.skill-editor .manage-json')) === 'harmless constant', 'real rendered Test result')
+      await until(async () => (await text('section[aria-label="Skills"] .manage-count')).includes('2 runs'), 'rendered execution count after UI Test')
+      const afterUiTest = await observedService('skillsList') as SkillRow[]
+      const runs = afterUiTest.find((row) => row.name === 'slice4_constant')?.total_executions
+      assert.equal(runs, 2, 'one named-bridge Test and one UI Test must produce exactly two executions')
+      assert.equal(await run('document.querySelector(".skill-editor .manage-json").classList.contains("warn")'), false)
+      process.stdout.write(`real-core-smoke: skills.test result=${JSON.stringify(tested.result)} is_error=${tested.is_error} rendered=${JSON.stringify(await text('.skill-editor .manage-json'))} runs=${runs}\n`)
     }
     if (sections[i] === 'MCP servers') {
       await until(async () => (await text('section[aria-label="MCP servers"]')).includes('slice4_local'), 'real MCP row')

@@ -8,7 +8,7 @@ import { ensureProfileDirs, ensureToken, profilePaths, type ProfilePaths } from 
 
 const repository = resolve(__dirname, '../..')
 
-// The published named contract, not arbitrary renderer RPC. Request delivery skills.test is absent.
+// The published named contract, not arbitrary renderer RPC.
 export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
   'artifacts.read', 'tool.detail', 'tool.output',
@@ -32,7 +32,7 @@ export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.s
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
   'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete',
   'webhooks.outbound.test', 'integrations.email.get',
-  'skills.list', 'skills.get', 'skills.save', 'skills.validate', 'skills.set_enabled', 'skills.delete',
+  'skills.list', 'skills.get', 'skills.save', 'skills.validate', 'skills.test', 'skills.set_enabled', 'skills.delete',
   'skills.config.get', 'skills.config.set',
   'mcp.list', 'mcp.status', 'mcp.tools', 'mcp.save', 'mcp.set_enabled', 'mcp.delete',
   'mcp.reconnect', 'mcp.refresh_tools', 'mcp.set_global_enabled', 'mcp.set_limits',
