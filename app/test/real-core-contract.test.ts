@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import { statSync } from 'node:fs'
+import { statSync, writeFileSync } from 'node:fs'
+import { createServer, type Server } from 'node:http'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import type { ConversationSnapshot, CoreEvent } from '../src/shared/api'
 import { PROTOCOL, type Settled, type Welcome } from '../src/main/broker'
+import { AttachmentManager } from '../src/main/attachments'
 import { assertIsolated, onceEvent, RealCoreHarness, waitFor, SERVED_CAPABILITIES } from './real-core-harness'
 import { assertFreshManagementStatus, realCoreCapabilities, type RealCoreStatus } from '../src/main/real-core-smoke'
 
@@ -23,11 +26,16 @@ type Subscription = { event_high: string; reset_required: boolean }
 
 describe('actual app Broker ↔ repository real core', () => {
   let core: RealCoreHarness
+  let provider: Server | undefined
   beforeEach(async () => {
     core = new RealCoreHarness()
     await core.start()
   })
-  afterEach(async () => { await core?.dispose() })
+  afterEach(async () => {
+    await core?.dispose()
+    if (provider) await new Promise<void>((resolve, reject) => provider!.close((error) => error ? reject(error) : resolve()))
+    provider = undefined
+  })
 
   test('authenticates the handshake, reads real status and replays events after a cursor', async () => {
     expect(realCoreCapabilities).toEqual(SERVED_CAPABILITIES)
@@ -232,6 +240,85 @@ describe('actual app Broker ↔ repository real core', () => {
     expect(restored.queued).toEqual([])
     expect(successful<Status>(await restarted.request('status.get')).providers)
       .toContainEqual({ name: 'codex', health: 'unavailable' })
+  })
+
+  test('real uploaded attachment with add_to_knowledge commits an assistant reply and completes the request', async () => {
+    expect(await core.parentEOF()).toEqual({ code: 0, signal: null })
+    core = new RealCoreHarness({ memoryKeyring: true })
+    await core.start()
+
+    // Only the external model boundary is synthetic. This remains the actual repository core,
+    // with the app Broker and AttachmentManager performing the real upload and submission.
+    const modelInputs: string[] = []
+    provider = createServer(async (request, response) => {
+      if (request.method !== 'POST' || request.url !== '/api/chat') {
+        response.statusCode = 404
+        response.end()
+        return
+      }
+      const chunks: Buffer[] = []
+      for await (const chunk of request) chunks.push(Buffer.from(chunk))
+      const payload = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+        tools?: unknown[]; messages: { role: string; content: string }[] }
+      if (payload.tools) modelInputs.push(payload.messages.filter((message) => message.role === 'user')
+        .map((message) => message.content).join('\n'))
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(JSON.stringify({ model: 'contract-model', done: true, done_reason: 'stop',
+        message: { role: 'assistant', content: payload.tools ? 'I reviewed the uploaded note.' : 'COMPLETE' },
+        prompt_eval_count: 12, eval_count: 10 }))
+    })
+    await new Promise<void>((resolve) => provider!.listen(0, '127.0.0.1', resolve))
+    const address = provider.address()
+    if (!address || typeof address === 'string') throw new Error('Missing deterministic provider port')
+
+    const { broker } = await core.connect()
+    const schema = successful<{ revision: string }>(await broker.request('settings.schema'))
+    successful(await broker.request('providers.ollama.set', { expected_revision: schema.revision,
+      changes: [{ path: 'ollama.model', value: 'contract-model' },
+        { path: 'ollama.base_url', value: `http://127.0.0.1:${address.port}` },
+        { path: 'ollama.enabled', value: true }] }))
+    const configured = successful<{ revision: string }>(await broker.request('settings.schema'))
+    successful(await broker.request('models.main.set', { model: 'ollama:contract-model',
+      expected_revision: configured.revision }))
+
+    const created = successful<{ conversation: { id: string } }>(await broker.request(
+      'conversations.create', { title: 'uploaded attachment knowledge contract' }, randomUUID()))
+    const file = join(core.root, 'real-upload.txt')
+    writeFileSync(file, 'A deterministic note uploaded through the real attachment manager.\n')
+    const manager = new AttachmentManager(broker, () => ({ attachment_bytes: 50 * 1024 * 1024, chunk_bytes: 512 * 1024 }))
+    const staged = await manager.stagePath(file)
+    expect(staged.ok).toBe(true)
+    if (!staged.ok) throw new Error(`Could not stage attachment: ${staged.error.code}`)
+    const uploaded = await manager.upload(staged.result.id, created.conversation.id)
+    expect(uploaded.ok).toBe(true)
+    if (!uploaded.ok) throw new Error(`Could not upload attachment: ${uploaded.error.code}`)
+
+    const events: CoreEvent[] = []
+    broker.on('event', (event: CoreEvent) => events.push(event))
+    successful(await broker.subscribe())
+    const submission = { client_submission_id: randomUUID(), conversation_id: created.conversation.id,
+      text: 'Review this note.', attachments: [{ ref: uploaded.result.ref, add_to_knowledge: true }] }
+    const accepted = successful<{ disposition: string; request_id: string; message_id: string }>(await broker.request(
+      'submission.send', submission, randomUUID()))
+    expect(accepted).toMatchObject({ disposition: 'accepted', request_id: expect.stringMatching(/^r_/),
+      message_id: expect.stringMatching(/^m_/) })
+    await waitFor(() => events.some((event) => event.type === 'request.completed' &&
+      event.payload.request_id === accepted.request_id), 'real attachment request completion')
+
+    const snapshot = successful<ConversationSnapshot>(await broker.request('conversation.snapshot', {
+      conversation_id: created.conversation.id }))
+    expect(snapshot).toMatchObject({ running: null, queued: [], unresolved: [], recent: [
+      { request_id: accepted.request_id, generation: 1, outcome: 'completed', unknown_effects: 0 }
+    ] })
+    expect(snapshot.messages.items.map(({ role, text, request_id }) => ({ role, text, request_id }))).toEqual([
+      { role: 'user', text: submission.text, request_id: accepted.request_id },
+      { role: 'assistant', text: 'I reviewed the uploaded note.', request_id: accepted.request_id }
+    ])
+    expect(snapshot.messages.items[0]).toMatchObject({ id: accepted.message_id,
+      attachments: [{ ref: uploaded.result.ref, name: 'real-upload.txt', mime: 'text/plain' }] })
+    expect(events.some((event) => event.type === 'request.failed' && event.payload.request_id === accepted.request_id)).toBe(false)
+    expect(modelInputs).toContainEqual(expect.stringContaining(
+      '**Attached file: real-upload.txt**\n```\nA deterministic note uploaded through the real attachment manager.\n\n```\n[File read for current task. User requested knowledge ingestion; use ingest_document if appropriate.]'))
   })
 
   test('closing the parent stdin pipe exits orderly and releases the profile for a successor', async () => {
