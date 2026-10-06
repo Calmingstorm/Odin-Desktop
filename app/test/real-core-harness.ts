@@ -10,7 +10,8 @@ import { configureCannedProvider } from '../src/main/real-core-smoke'
 
 const repository = resolve(__dirname, '../..')
 
-// The published named contract, not an arbitrary renderer RPC surface. Step 6 is absent.
+// The published named contract, not an arbitrary renderer RPC surface. Step 6A
+// management is served; Part B dispatch and foreground input remain absent.
 export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
   'artifacts.read', 'tool.detail', 'tool.output',
@@ -33,7 +34,15 @@ export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.s
   'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
   'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete',
-  'webhooks.outbound.test', 'integrations.email.get'
+  'webhooks.outbound.test', 'integrations.email.get',
+  'skills.list', 'skills.get', 'skills.validate', 'skills.save', 'skills.delete',
+  'skills.set_enabled', 'skills.config.get', 'skills.config.set',
+  'mcp.list', 'mcp.status', 'mcp.tools', 'mcp.save', 'mcp.set_enabled', 'mcp.delete',
+  'mcp.reconnect', 'mcp.refresh_tools', 'mcp.set_global_enabled', 'mcp.set_limits',
+  'computer.status', 'computer.activation.set', 'computer.stop', 'computer.pause',
+  'computer.cancel', 'computer.close', 'computer.reconcile', 'computer.operator_reconcile',
+  'computer.release_owned_input', 'computer.acknowledge_legacy_recovery',
+  'computer.reconcile_hyprland_owner'
 ].sort()]
 
 type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string; profileRoot?: string }

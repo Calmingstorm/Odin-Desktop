@@ -438,3 +438,143 @@ def test_merged_main_group_and_selectors_are_preserved(
                             merged + b" " if revision == checker.MERGED_MAIN else historical[path])
     _write(repo, checker.QUALIFICATION_PATH, qualification)
     assert checker.validate(repo)
+
+
+def _step6a_group(root):
+    qualification = _read(root, checker.QUALIFICATION_PATH)
+    group = {
+        "name": "phase2-step6a-qualified-local-services",
+        "files": [
+            "tests/test_desktop_skills.py", "tests/test_desktop_mcp.py",
+            "tests/test_desktop_browser_runtime.py", "tests/test_desktop_computer_binding.py",
+            "tests/test_desktop_dependency_resolver.py", "tests/test_desktop_service_catalog.py",
+            "tests/test_desktop_services_core.py", "tests/test_desktop_workspace_diagnostics.py",
+        ],
+        "reason": (
+            "Step 6A real skill lifecycle/schema/dependency installation, supervised configured "
+            "MCP, bundled Chromium startup, bounded local workspace diagnostics and authentic "
+            "computer management/recovery. Pip, keyring, network, browser and native backends "
+            "stubbed; benign disposable git only. No foreground/delivery/work/schedule "
+            "implementation or native qualification claim. Immutable GI original cases run "
+            "in the direct group through the worker-only resolver adapter without assertion "
+            "edits. All engine suites remain isolated PID namespace with throwaway HOME."
+        ),
+    }
+    for path in group["files"]:
+        shutil.copyfile(ROOT / path, root / path)
+    qualification["groups"].append(group)
+    _write(root, checker.QUALIFICATION_PATH, qualification)
+    return group
+
+
+ADAPTER_ASSOCIATIONS = (
+    ("direct-shared-stores-providers-tools", "tests/test_gi_support_loading.py",
+     "tests/test_desktop_gi_loading_adaptation.py"),
+    ("direct-shared-computer", "tests/test_computer_runtime_coverage_r10.py",
+     "tests/test_desktop_accessibility_gi_adaptation.py"),
+)
+
+
+def _replace_gi_selector(root, association):
+    name, original, adapter = association
+    qualification = _read(root, checker.QUALIFICATION_PATH)
+    group = next(group for group in qualification["groups"] if group["name"] == name)
+    group["files"][group["files"].index(original)] = adapter
+    shutil.copyfile(ROOT / adapter, root / adapter)
+    _write(root, checker.QUALIFICATION_PATH, qualification)
+
+
+def test_exact_reviewed_step6a_group_and_both_adapters_are_permitted(repo):
+    _step6a_group(repo)
+    assert checker.validate(repo) == []
+    for association in ADAPTER_ASSOCIATIONS:
+        _replace_gi_selector(repo, association)
+        assert checker.validate(repo) == []
+
+
+@pytest.mark.parametrize("mutation", [
+    "unknown_group", "renamed_group", "missing_file", "extra_file", "case_selector",
+    "reason", "duplicate_file", "exclude_expression", "args", "missing_regular",
+    "symlink_file",
+])
+def test_reviewed_step6a_group_is_not_a_generic_addition_waiver(repo, mutation):
+    reviewed = _step6a_group(repo)
+    qualification = _read(repo, checker.QUALIFICATION_PATH)
+    group = qualification["groups"][-1]
+    path = group["files"][0]
+    if mutation == "unknown_group":
+        qualification["groups"].append({"name": "unreviewed", "files": [path]})
+    elif mutation == "renamed_group":
+        group["name"] += "-renamed"
+    elif mutation == "missing_file":
+        group["files"].pop()
+    elif mutation == "extra_file":
+        group["files"].append("tests/test_desktop_unreviewed.py")
+    elif mutation == "case_selector":
+        group["files"][0] += "::test_one"
+    elif mutation == "reason":
+        group["reason"] = "Generic Phase 2 waiver"
+    elif mutation == "duplicate_file":
+        group["files"].append(path)
+    elif mutation in {"exclude_expression", "args"}:
+        group[mutation] = "test_one"
+    elif mutation == "missing_regular":
+        (repo / path).unlink()
+    elif mutation == "symlink_file":
+        (repo / path).unlink()
+        (repo / path).symlink_to(ROOT / path)
+    _write(repo, checker.QUALIFICATION_PATH, qualification)
+    assert checker.validate(repo), (mutation, reviewed)
+
+
+@pytest.mark.parametrize("association", ADAPTER_ASSOCIATIONS)
+def test_reviewed_adapters_are_independently_permitted_without_new_group(repo, association):
+    _replace_gi_selector(repo, association)
+    assert checker.validate(repo) == []
+
+
+@pytest.mark.parametrize("association", ADAPTER_ASSOCIATIONS)
+@pytest.mark.parametrize("mutation", [
+    "corrupt_adapter", "missing_adapter", "symlink_adapter", "corrupt_original",
+    "missing_original", "wrong_adapter", "drop_adapter", "drop_other_selector",
+    "wrong_group", "duplicate_association", "both_selectors", "exclude_expression",
+    "include_expression", "args", "pytest_args", "exclusions",
+])
+def test_reviewed_gi_replacements_cannot_weaken_merged_suites(repo, association, mutation):
+    name, original, adapter = association
+    _replace_gi_selector(repo, association)
+    qualification = _read(repo, checker.QUALIFICATION_PATH)
+    group = next(group for group in qualification["groups"] if group["name"] == name)
+    if mutation == "corrupt_adapter":
+        with (repo / adapter).open("a") as stream:
+            stream.write("\n# unreviewed adapter drift\n")
+    elif mutation == "missing_adapter":
+        (repo / adapter).unlink()
+    elif mutation == "symlink_adapter":
+        (repo / adapter).unlink()
+        (repo / adapter).symlink_to(ROOT / adapter)
+    elif mutation == "corrupt_original":
+        (repo / original).unlink()  # Do not mutate the hard-linked immutable template.
+        (repo / original).write_text("def test_weakened():\n    assert True\n")
+    elif mutation == "missing_original":
+        (repo / original).unlink()
+    elif mutation == "wrong_adapter":
+        unknown = "tests/test_unreviewed_adapter.py"
+        shutil.copyfile(repo / adapter, repo / unknown)
+        group["files"][group["files"].index(adapter)] = unknown
+    elif mutation == "drop_adapter":
+        group["files"].remove(adapter)
+    elif mutation == "drop_other_selector":
+        group["files"].remove(next(path for path in group["files"] if path != adapter))
+    elif mutation in {"wrong_group", "duplicate_association"}:
+        other = next(group for group in qualification["groups"]
+                     if group["name"] == "phase2-core-transport")
+        other["files"].append(adapter)
+        if mutation == "wrong_group":
+            group["files"].remove(adapter)
+    elif mutation == "both_selectors":
+        group["files"].append(original)
+    else:
+        group[mutation] = "test_one"
+    _write(repo, checker.QUALIFICATION_PATH, qualification)
+    assert checker.validate(repo), (association, mutation)
