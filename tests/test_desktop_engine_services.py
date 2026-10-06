@@ -40,9 +40,11 @@ class Provider:
 
 
 @pytest.mark.asyncio
-async def test_management_mutation_governs_retained_request_runner(tmp_path):
+@pytest.mark.parametrize("mcp_shutdown_fails", [False, True])
+async def test_management_mutation_governs_retained_request_runner(tmp_path, mcp_shutdown_fails):
     import os
     from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
 
     from src.desktop.core import CoreService, profile_config
     from tests.test_desktop_core_lifecycle import profile
@@ -56,16 +58,23 @@ async def test_management_mutation_governs_retained_request_runner(tmp_path):
     config.learning.enabled = False
     config.browser.enabled = False
     provider = Provider([LLMResponse(text="The request used the shared runtime.")])
+    mcp_manager = SimpleNamespace(
+        get_tool_definitions=Mock(return_value=[]), set_on_catalog_changed=Mock(),
+        load_desired_state=AsyncMock(), start=AsyncMock(), shutdown=AsyncMock(),
+    )
     read_fd, write_fd = os.pipe()
     core = CoreService(paths, socket_path, token_file,
         config_provider=lambda _: config,
-        runtime_provider=lambda *_: SimpleNamespace(compatible_client=provider),
+        runtime_provider=lambda *_: SimpleNamespace(
+            compatible_client=provider, mcp_manager=mcp_manager),
         secret_backend=TemporaryKeyring())
     try:
         await core.start(read_fd)
         assert isinstance(core.engine.runner, ToolLoopRunner)
         gateway = core.engine.deps.llm_gateway
         assert gateway is core.management.providers
+        assert core.management.mcp.manager is mcp_manager
+        assert core.engine.deps.management_mcp_service is core.management.mcp
         assert gateway.capture_serving_identity().client is provider
         changed = await core.management.invoke("tools.set_enabled", {
             "name": "parse_time", "enabled": False,
@@ -87,10 +96,37 @@ async def test_management_mutation_governs_retained_request_runner(tmp_path):
         assert "read_file" in offered
         assert core.transcript.read_conversation(cid)[-1]["text"] == (
             "The request used the shared runtime.")
+
+        async def shutdown_shared_mcp():
+            assert core.management.mcp._closed
+            assert not core.engine.producers_quiesced
+            assert core.engine.execution_cleanup_results is None
+            if mcp_shutdown_fails:
+                raise RuntimeError("private MCP error")
+
+        mcp_manager.shutdown.side_effect = shutdown_shared_mcp
+        if mcp_shutdown_fails:
+            gateway_close = AsyncMock()
+            gateway.close = gateway_close
+            with pytest.raises(RuntimeError, match="producers"):
+                await core.close()
+            gateway_close.assert_not_called()
+            assert core.engine.deps.turn_store.available
+            assert core.engine.cleanup_outcome["state"] == "unknown"
+            assert core.resource_cleanup.current["state"] == "unknown"
     finally:
         await core.close()
         os.close(read_fd)
         os.close(write_fd)
+        if mcp_shutdown_fails:
+            # Failed cleanup intentionally retains graph ownership. Dispose
+            # only this test's private stores after checking the barrier.
+            if core.engine is not None:
+                core.engine.deps.turn_store.close()
+            if core.store is not None:
+                core.store.close()
+            core.release_runtime()
+    mcp_manager.shutdown.assert_awaited_once()
 
 
 @pytest.fixture
@@ -243,6 +279,100 @@ def cleanup_engine(*, computer=None, registry=None):
         sessions=SimpleNamespace(save=Mock()), turn_store=SimpleNamespace(close=Mock()),
     )
     return EngineServices(deps, None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("shutdown_fails", [False, True])
+async def test_management_mcp_is_early_single_engine_producer_barrier(tmp_path, shutdown_fails):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from src.desktop.management import ManagementService
+    from src.desktop.mcp import MCPService
+    from src.desktop.resource_cleanup import ResourceCleanupError, ResourceCleanupJournal
+
+    calls = []
+    engine = cleanup_engine()
+
+    async def mcp_shutdown():
+        assert not engine.producers_quiesced
+        assert engine.execution_cleanup_results is None
+        assert mcp._closed
+        calls.append("mcp")
+        if shutdown_fails:
+            raise RuntimeError("private MCP error")
+
+    async def computer_close():
+        assert engine.producers_quiesced and mcp._closed
+        calls.append("computer")
+
+    async def process_shutdown():
+        assert engine.producers_quiesced and mcp._closed
+        calls.append("processes")
+
+    manager = SimpleNamespace(shutdown=AsyncMock(side_effect=mcp_shutdown))
+    mcp = MCPService(SimpleNamespace(config=Config()), manager=manager)
+    d = engine.deps
+    d.runtime_context.mcp_manager = manager
+    d.management_owned_mcp = True
+    d.management_mcp_service = mcp
+    d.channel_state.shutdown_steering.side_effect = lambda: calls.append("steering")
+    d.loop_manager.shutdown.side_effect = lambda: calls.append("loops")
+    d.scheduler.stop.side_effect = lambda: calls.append("scheduler")
+    d.agent_manager.cleanup.side_effect = lambda: calls.append("agents")
+    computer = SimpleNamespace(close=AsyncMock(side_effect=computer_close))
+    registry = SimpleNamespace(shutdown=AsyncMock(side_effect=process_shutdown))
+    d.native_tools.owners["computer"] = computer
+    d.tool_executor._process_registry = registry
+    d.tool_executor.ssh_pool = SimpleNamespace(
+        close_all=AsyncMock(side_effect=lambda: calls.append("ssh")))
+    d.browser_manager = SimpleNamespace(
+        close=AsyncMock(side_effect=lambda: calls.append("browser")))
+    d.llm_gateway.close.side_effect = lambda: calls.append("providers")
+    d.runtime_context.outbound_webhook_dispatcher = SimpleNamespace(
+        close=AsyncMock(side_effect=lambda: calls.append("outbound")))
+    d.runtime_context.knowledge_store = SimpleNamespace(
+        close=AsyncMock(side_effect=lambda: calls.append("knowledge")))
+    d.sessions.save.side_effect = lambda: calls.append("sessions")
+    d.turn_store.close.side_effect = lambda: calls.append("turn_store")
+    late_owner = SimpleNamespace(METHODS=(), READ_METHODS=(),
+        close=AsyncMock(side_effect=lambda: calls.append("management")))
+    journal = ResourceCleanupJournal(tmp_path / "cleanup.json")
+    core = SimpleNamespace(engine=engine, resource_cleanup=journal)
+    management = ManagementService(core, services=(late_owner, mcp), identity_key=b"x" * 32)
+    management._engine_owned = True
+
+    if shutdown_fails:
+        for _ in range(2):
+            with pytest.raises(RuntimeError, match="producers"):
+                await engine.close()
+            with pytest.raises(ResourceCleanupError):
+                await management.close()
+        assert calls == ["steering", "loops", "scheduler", "mcp", "agents"]
+        assert not engine.producers_quiesced
+        assert engine.cleanup_outcome["state"] == "unknown"
+        assert journal.current["state"] == "unknown"
+        assert journal.current["resources"]["services"] == {
+            "state": "unknown", "reason": "producers_not_quiesced"}
+        for owner in (computer.close, registry.shutdown, d.tool_executor.ssh_pool.close_all,
+                      d.browser_manager.close, d.llm_gateway.close,
+                      d.runtime_context.outbound_webhook_dispatcher.close,
+                      d.runtime_context.knowledge_store.close, d.sessions.save,
+                      d.turn_store.close, late_owner.close):
+            owner.assert_not_called()
+        # Even a later direct wrapper traversal must retain the first failure.
+        with pytest.raises(RuntimeError, match="private MCP error"):
+            await mcp.shutdown()
+    else:
+        await asyncio.gather(engine.close(), engine.close())
+        await management.close()
+        await mcp.shutdown()
+        assert calls == ["steering", "loops", "scheduler", "mcp", "agents",
+                         "computer", "processes", "ssh", "browser", "providers",
+                         "outbound", "sessions", "knowledge", "turn_store", "management"]
+        assert engine.cleanup_outcome["state"] == "released"
+        assert journal.current["state"] == "complete"
+    manager.shutdown.assert_awaited_once()
 
 
 @pytest.mark.asyncio
