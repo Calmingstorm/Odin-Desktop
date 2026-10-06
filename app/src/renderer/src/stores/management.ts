@@ -17,6 +17,7 @@ import { adoptSkill, type Loaded, type SkillEditor } from '../skill-editor'
 import { isUnknownOutcome, onLateReceipt } from '../store'
 import { busy } from './locks'
 import { isUnavailable, resultMessage } from '../capability'
+import { loadSettings, settings } from './settings'
 
 type Resource = 'tools' | 'timeouts' | 'skills' | 'mcp'
 const FEATURES: Record<Resource, string> = { tools: 'Tool management', timeouts: 'Tool timeout management', skills: 'Skill management', mcp: 'MCP management' }
@@ -357,6 +358,9 @@ function showMcp(sent: number, status: McpStatus): void {
   mcpShown = sent
   management.mcp = status
   management.unavailable.mcp = false
+  // MCP shares the profile settings revision. Keep the schema-backed saved
+  // fields in this same screen current after management changes, not just rows.
+  if (status.revision && settings.meta && status.revision !== settings.meta.revision) void loadSettings()
 }
 
 export async function loadMcp(): Promise<void> {

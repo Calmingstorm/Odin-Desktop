@@ -34,6 +34,21 @@ beforeEach(async () => {
 afterEach(() => { for (const view of views) view.unmount(); vi.unstubAllGlobals() })
 
 describe('real management contracts', () => {
+  it('refreshes schema-backed saved values when the real MCP revision changes', async () => {
+    const { settings } = await import('../../src/renderer/src/stores/settings')
+    settings.meta = { revision: 'r1', fields: [], schema_version: 1,
+      status: { counts: {}, desired_revision: 'r1', effective_revision: null } }
+    const refreshed = { ...settings.meta, revision: 'r2',
+      status: { ...settings.meta.status, desired_revision: 'r2' } }
+    api.settingsSchema = vi.fn(async () => ok(refreshed))
+    store.management.mcp = status('r1')
+    await store.setMcpGlobal(true)
+    await flush()
+    expect(api.settingsSchema).toHaveBeenCalledTimes(1)
+    expect(settings.meta?.revision).toBe('r2')
+    expect(store.management.mcp?.revision).toBe('r2')
+  })
+
   it('binds every MCP operation to status revision and adopts full-status outcomes', async () => {
     const cases: Array<[string, () => Promise<unknown>, object]> = [
       ['mcpSave', () => store.saveMcp({ name: 'public', create: true, command: '/bin/true' }), { name: 'public', command: '/bin/true' }],
