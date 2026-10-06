@@ -19,8 +19,10 @@ import type { AttachmentManager } from './attachments'
 import type { ArtifactStore } from './artifacts'
 import type { Broker, Settled } from './broker'
 import type { DraftStore } from './drafts'
+import type { ReleaseNoticeService } from './release-notice'
 import {
   artifactActionSchema,
+  releaseNoticeSchema,
   toolDetailSchema,
   toolOutputSchema,
   workControlSchema,
@@ -65,6 +67,7 @@ import { withCommandId } from './command-id'
 import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-policy'
 
 export interface IpcDeps {
+  releases: ReleaseNoticeService
   broker: Broker
   windowId: () => number | null
   /** The window's top frame; requests from any other frame are refused. */
@@ -120,6 +123,8 @@ export function registerIpc(deps: IpcDeps): void {
   }
 
   handle(IPC.status, null, async () => fromSettled(await deps.broker.request('status.get')))
+  handle(IPC.checkReleases, releaseNoticeSchema, async () => ({ ok: true, result: await deps.releases.check() }))
+  handle(IPC.openRelease, releaseNoticeSchema, () => deps.releases.open())
   handle(IPC.listConversations, null, async () => fromSettled(await deps.broker.request('conversations.list')))
   // Conversation commands carry the window's command ID, so their late receipts can be matched (store.ts).
   const command = async (method: string, { command_id: id, ...params }: { command_id: string }) =>

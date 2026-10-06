@@ -92,6 +92,48 @@ Reports, full Chromium AX dumps, axe violations **and incomplete checks**, sandb
 are written under ignored `test-results/`. Set `ODIN_APP_A11Y_REPORT` to an absolute JSON path to retain a report
 outside the checkout. Review `../maintenance/phase3-accessibility.md` for findings, dispositions and open native rows.
 
+## Manual version notice (P4.3 notice slice)
+
+General shows the installed **desktop product** version, separate from the engine version, and a manual
+**Check for updates** control. It performs one named `checkReleases` main-process operation against the fixed
+`Calmingstorm/Odin-Desktop` GitHub Releases endpoint. It does not ask the core to check or apply an update.
+The request uses Node HTTPS, an isolated per-request agent, no Electron session/cookies, authentication,
+credential-store lookup, proxy credential import or redirects. It is bounded to ten seconds, one MiB and
+100 release rows. A further page means incomplete/unavailable metadata, not an invented up-to-date result.
+
+Anonymous checks cannot read this currently private repository. Not-found/unauthorized means **can't check**,
+not **no releases**. Offline, rate-limit, unavailable/incomplete and malformed responses have distinct honest
+status text. Only published stable `major.minor.patch` (optional `v`) versions are compared numerically; draft
+and prerelease rows are ignored. Build/prerelease-tagged or invalid local versions cannot claim stable currency.
+Missing/invalid metadata for a purported stable release fails closed.
+
+The renderer cannot choose a repository, URL or transport. `openRelease` accepts no URL; main revalidates its
+last successful result as an exact HTTPS release-tag page for this repository. Rechecking revokes the old target
+immediately, including during offline failures. Opening hands only that page to the system browser, whose own
+GitHub session is outside the app. Nothing checks automatically, downloads assets, writes/stages executables,
+runs an installer, stops/restarts the core, changes quarantine or replays effects. Upgrade `.deb` with your
+package manager or replace your AppImage yourself.
+
+Targeted development gates:
+
+```bash
+npx vitest run test/release-notice.test.ts test/release-notice-ipc.test.ts test/renderer/release-notice.test.ts
+npm run build
+node scripts/accessibility.mjs release-notice.spec.ts
+```
+
+The last command uses the existing isolated runner and checks actual Electron main/preload/renderer operations
+with debugger-injected controlled GitHub HTTPS responses. It records sandbox, anonymous request options,
+browser-opener calls, write/process-spawn observations, unchanged core incarnation/children and profile
+config/data hashes, axe findings and Chromium AX trees for fixture and real-core sessions. Built `out/` resources
+are scanned for credential signatures and ambient test canaries. This is not a scan of `.deb`/AppImage candidates,
+which P4.1/P4.2 package qualification and the later release-workflow gate must supply. Pattern scans cannot prove
+absence of every possible secret. The IPC unit test additionally supplies a fail-on-use broker and writable
+dependencies and proves neither notice action dispatches core replay/quarantine/lifecycle operations. The Electron
+profile/core comparison is an idle fresh-profile proof, not an active execution/quarantine recovery test.
+Controlled metadata/opener fixtures do not qualify live GitHub access, actual browser launch/login,
+native screen-reader speech, existing active execution or package-manager replacement.
+
 ## Layout
 
 | Path | What it is |

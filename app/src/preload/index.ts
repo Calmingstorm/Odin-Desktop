@@ -32,6 +32,8 @@ const settingsShaped = Object.fromEntries(
 ) as SettingsShapedApi
 
 const api: OdinApi = {
+  checkReleases: () => ipcRenderer.invoke(IPC.checkReleases, {}),
+  openRelease: () => ipcRenderer.invoke(IPC.openRelease, {}),
   ...management,
   ...settingsShaped,
   status: () => ipcRenderer.invoke(IPC.status),

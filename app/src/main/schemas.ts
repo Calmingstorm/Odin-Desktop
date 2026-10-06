@@ -4,6 +4,9 @@ import type { CoreError, ManagementMethod } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
+// Neither notice action accepts a repository, URL, transport, credentials or an update command.
+export const releaseNoticeSchema = z.object({}).strict()
+
 /** The window names each conversation command, so a lost answer is reconciled by its late receipt, never re-sent. */
 const commandId = z.uuid()
 

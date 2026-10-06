@@ -19,6 +19,7 @@ import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type Lifecyc
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
 import { realCoreSmoke } from './real-core-smoke'
+import { ReleaseNoticeService } from './release-notice'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
 import { OdinTray, detectTray } from './tray'
@@ -157,6 +158,7 @@ function run(): void {
   })
 
   const appState = (): AppState => ({
+    appVersion: app.getVersion(),
     link: supervisorLink ?? broker.linkState,
     coreInstanceId: broker.coreInstanceId,
     noTray: !lifecycle.trayAvailable,
@@ -275,6 +277,7 @@ function run(): void {
         return chosen.canceled || !chosen.filePath ? null : chosen.filePath
       },
       copyText: (text) => clipboard.writeText(text),
+      releases: new ReleaseNoticeService(app.getVersion(), (url) => shell.openExternal(url)),
       mainFrame: () => win?.webContents.mainFrame ?? null,
       getSettings: settings,
       setAutostart: (enabled) => {
