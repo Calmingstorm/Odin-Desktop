@@ -1,5 +1,19 @@
 # P3.3 part 2: native VM continuation, gate OPEN
 
+## Direction correction, 2026-10-06
+
+See `pr59-direction-r1.md` for the corrected harness and one measurement of each
+failed Cinnamon row: native tray Open and Exit pass; the fixed notification
+fixture reaches OS acceptance but fails native appearance/click discovery.
+Real 125-second freeze/thaw is witnessed, while D12 remains blocked by absent
+production scheduling. PR67 fixes package modes/prerequisites, but native KDE
+finds a preserved pre-existing 0775 directory rejection; PR70 adds normalization
+and install-audit regressions without repairing that guest. GNOME is blocked by prior
+unresolved cleanup and unprofiled source sandbox denial. KDE FUSE AppImage
+safely refuses with its `.deb` recommendation. Full P3.3 remains OPEN. The
+original historical rows and 15-cell initial accounting below are retained,
+not retroactively rewritten as corrected-run results.
+
 Source candidates: freshly fetched main `cd52a8e2b055a9c4abc051a49566b9daf3e1bd79`.
 Branch `app/p33-native-part2` does not adopt unmerged PR54. D17 and production
 authority are unchanged. Native helpers are source-development scripts only.

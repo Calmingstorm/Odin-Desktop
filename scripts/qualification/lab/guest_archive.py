@@ -13,7 +13,6 @@ import argparse
 import tarfile
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 GUEST_SOURCES = (
     "scripts/qualification/lab/guest/common.sh",
@@ -33,7 +32,7 @@ GUEST_SOURCES = (
 
 
 def archive_sources(root: Path, output: Path) -> tuple[str, ...]:
-    """Create a deterministic tar of every reviewed source helper/dependency."""
+    """Create a source tar of every reviewed source helper/dependency."""
     root = root.resolve(strict=True)
     if output.exists() or output.is_symlink():
         raise ValueError("Refusing to replace an existing archive")

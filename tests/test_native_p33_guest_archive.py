@@ -1,6 +1,8 @@
 """Small-fixture tests for the reusable P3.3 guest source archive."""
 
+import ast
 import importlib.util
+import re
 import tarfile
 from pathlib import Path
 
@@ -31,6 +33,45 @@ def test_archive_contains_all_guest_imported_and_launched_sources(tmp_path):
         assert set(names) == set(builder.GUEST_SOURCES)
         for name in builder.GUEST_SOURCES:
             assert archive.extractfile(name).read() == (root / name).read_bytes()
+
+
+def test_reviewed_archive_covers_actual_local_import_and_launch_dependencies():
+    # Derive edges from the real helpers, not from fake files or the allowlist.
+    # External Node/Python packages and built engine/app trees are separately
+    # provisioned. Local imports and repository-relative launches belong here.
+    required = set()
+    for relative in builder.GUEST_SOURCES:
+        source = ROOT / relative
+        text = source.read_text()
+        if source.suffix == ".mjs":
+            for name in re.findall(r"from ['\"](\./[^'\"]+)['\"]", text):
+                required.add(str((source.parent / name).resolve().relative_to(ROOT)))
+            required.update(re.findall(r"join\(repository, ['\"]([^'\"]+\.py)['\"]\)", text))
+        if source.suffix != ".py":
+            continue
+        tree = ast.parse(text)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                imported = source.parent / (node.module.replace(".", "/") + ".py")
+                if imported.is_file():
+                    required.add(str(imported.relative_to(ROOT)))
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if node.func.attr == "with_name" and node.args:
+                    argument = node.args[0]
+                    if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                        target = source.parent / argument.value
+                        if target.is_file():
+                            required.add(str(target.relative_to(ROOT)))
+            # Resolve literal repository-path suffixes, including notification
+            # fixture's Path(__file__).parents[2] / 'app/fixture-core/fixture_core.py'.
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                candidate = ROOT / node.value
+                if "/" in node.value and candidate.is_file() and candidate.suffix == ".py":
+                    required.add(node.value)
+    assert "app/fixture-core/fixture_core.py" in required
+    assert "tests/desktop_fixtures/private_notification_server.py" in required
+    assert "app/scripts/native-p33-display.mjs" in required
+    assert required <= set(builder.GUEST_SOURCES), sorted(required - set(builder.GUEST_SOURCES))
 
 
 def test_fixture_core_is_required_and_missing_dependency_fails(tmp_path):

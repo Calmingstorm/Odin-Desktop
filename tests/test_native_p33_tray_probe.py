@@ -1,10 +1,10 @@
 """Offline tray collector behaviour. No desktop, VM, service or input calls."""
 
 import importlib.util
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
-import subprocess
 
 import pytest
 
@@ -77,10 +77,10 @@ class Node:
     def __getitem__(self, index):
         return self.children[index]
 
-    def getRoleName(self):
+    def getRoleName(self):  # noqa: N802 - matches the native AT-SPI interface
         return self.role
 
-    def getState(self):
+    def getState(self):  # noqa: N802 - matches the native AT-SPI interface
         return SimpleNamespace(contains=lambda state: self.showing)
 
 
@@ -142,7 +142,8 @@ def test_runner_failed_row_selection_and_notifications_not_global_gate():
     assert "selectedCases: cases" in source
     assert "cases.includes('tray-open')" in source
     assert "app_identity: identities.main" in source
-    assert source.index("notification row unavailable") > source.index("if (cases.includes('notification'))")
+    assert (source.index("notification row unavailable")
+            > source.index("if (cases.includes('notification'))"))
     assert "Real desktop notification owner absent')" not in source
     assert "trayOpenSetup = { visible: false }" in source
 
@@ -155,7 +156,8 @@ def test_runner_failed_row_selection_and_notifications_not_global_gate():
 ])
 def test_case_validation_executes_offline(core, cases, success):
     source = (ROOT / "app/scripts/native-p33-guest.mjs").read_text()
-    block = source[source.index("const allowedCases"):source.index("execFileSync('/usr/bin/python3'")]
+    block = source[source.index("const allowedCases"):
+                   source.index("execFileSync('/usr/bin/python3'")]
     # Execute only the pure validation block, never import/launch Electron or guard.
     script = f"const options = {{core:{core!r}, cases:{cases!r}}};\n" + block
     result = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True)

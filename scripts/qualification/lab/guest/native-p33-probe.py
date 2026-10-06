@@ -196,7 +196,8 @@ def x11_owned_windows(process):
         if min(rectangle) < 0 or min(rectangle[2:]) < 1:
             continue
         result.append({"window": wid, "rectangle": rectangle, "properties": props,
-                       "details": detail, "embedded": bool(re.search(r"_XEMBED_INFO\(.*?\) =", props)),
+                       "details": detail,
+                       "embedded": bool(re.search(r"_XEMBED_INFO\(.*?\) =", props)),
                        "popup": "Override Redirect State: yes" in detail
                        and "_NET_WM_WINDOW_TYPE_POPUP_MENU" in props})
     if identity(process["pid"]) != process:
@@ -218,7 +219,8 @@ def x11_peer_pid(window):
     x11.XOpenDisplay.restype = ctypes.c_void_p
     x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
     xres.XResQueryClientIds.argtypes = [ctypes.c_void_p, ctypes.c_long, ctypes.POINTER(Spec),
-                                      ctypes.POINTER(ctypes.c_long), ctypes.POINTER(ctypes.POINTER(Value))]
+                                      ctypes.POINTER(ctypes.c_long),
+                                      ctypes.POINTER(ctypes.POINTER(Value))]
     xres.XResClientIdsDestroy.argtypes = [ctypes.c_long, ctypes.POINTER(Value)]
     display = x11.XOpenDisplay(None)
     if not display:
@@ -226,7 +228,8 @@ def x11_peer_pid(window):
     count, values = ctypes.c_long(), ctypes.POINTER(Value)()
     try:
         spec = Spec(window, 2)  # XRES_CLIENT_ID_PID_MASK
-        status = xres.XResQueryClientIds(display, 1, ctypes.byref(spec), ctypes.byref(count), ctypes.byref(values))
+        status = xres.XResQueryClientIds(
+            display, 1, ctypes.byref(spec), ctypes.byref(count), ctypes.byref(values))
         if status != 0 or not values or count.value < 1 or count.value > 16:
             raise RuntimeError("XRes native client PID unavailable")
         pids = {ctypes.cast(values[i].value, ctypes.POINTER(ctypes.c_uint32))[0]
@@ -280,7 +283,8 @@ def main():
     if owner:
         bus.add_signal_receiver(
             lambda nid, action: signals.append({"id": int(nid), "action": str(action)}),
-            signal_name="ActionInvoked", dbus_interface="org.freedesktop.Notifications", bus_name=owner)
+            signal_name="ActionInvoked", dbus_interface="org.freedesktop.Notifications",
+            bus_name=owner)
     context = GLib.MainContext.default()
 
     def pump():
@@ -375,8 +379,9 @@ def main():
         if operation == "tray-menu":
             observed_menu.clear()
             process = resolve_inner(request["app_identity"], account.pw_uid)
-            before_popups = {window["window"] for window in x11_owned_windows(process)
-                             if window["popup"]} if os.environ["XDG_SESSION_TYPE"] == "x11" else set()
+            before_popups = ({window["window"] for window in x11_owned_windows(process)
+                              if window["popup"]}
+                             if os.environ["XDG_SESSION_TYPE"] == "x11" else set())
             try:
                 obj, _ = find(
                     lambda obj: "odin" in (obj.name + " " + obj.description).lower()
@@ -392,16 +397,19 @@ def main():
                 result = activate(obj, index)
             else:
                 if os.environ["XDG_SESSION_TYPE"] != "x11":
-                    raise RuntimeError("Wayland tray lacks native AT-SPI menu action; no coordinate fallback")
+                    raise RuntimeError(
+                        "Wayland tray lacks native AT-SPI menu action; no coordinate fallback")
                 icons = [window for window in x11_owned_windows(process) if window["embedded"]]
                 if len(icons) != 1:
                     raise RuntimeError("No unique app-owned viewable native XEmbed icon")
                 icon = icons[0]
-                if identity(process["pid"]) != process or x11_peer_pid(int(icon["window"], 16)) != process["pid"]:
+                if (identity(process["pid"]) != process
+                        or x11_peer_pid(int(icon["window"], 16)) != process["pid"]):
                     raise RuntimeError("XEmbed owner changed before input")
                 x, y, width, height = icon["rectangle"]
                 pyatspi.Registry.generateMouseEvent(x + width // 2, y + height // 2, "b3c")
-                result = {"process": process, "transport": "native XEmbed X11 right-click", "icon": icon}
+                result = {"process": process, "transport": "native XEmbed X11 right-click",
+                          "icon": icon}
             try:
                 opened = find_item(process, "Open Odin", seconds=3)
             except RuntimeError:
@@ -417,13 +425,15 @@ def main():
                 result["appeared"] = describe(opened)
                 if accessible_identity(opened) != process:
                     raise RuntimeError("Opened menu accessibility bus peer is not the app")
-            observed_menu.update({"process": process, "keyboard_popup": result.get("keyboardPopup")})
+            observed_menu.update({"process": process,
+                                  "keyboard_popup": result.get("keyboardPopup")})
             return result
         if operation == "tray-action":
             label = request["label"]
             if label not in ("Open Odin", "Exit Odin"):
                 raise RuntimeError("Unknown tray action")
-            if not observed_menu or identity(observed_menu["process"]["pid"]) != observed_menu["process"]:
+            if (not observed_menu
+                    or identity(observed_menu["process"]["pid"]) != observed_menu["process"]):
                 raise RuntimeError("No fresh live app-owned opened tray menu")
             process = observed_menu["process"]
             popup = observed_menu["keyboard_popup"]
@@ -435,7 +445,8 @@ def main():
                 if len(windows) != 1:
                     raise RuntimeError("Observed GTK popup disappeared before keyboard input")
                 subprocess.run(["xdotool", "windowfocus", "--sync", popup], check=True, timeout=2)
-                focused = int(subprocess.check_output(["xdotool", "getwindowfocus"], text=True, timeout=2))
+                focused = int(subprocess.check_output(
+                    ["xdotool", "getwindowfocus"], text=True, timeout=2))
                 if focused != int(popup, 16) or x11_peer_pid(focused) != process["pid"]:
                     raise RuntimeError("Native keyboard focus is not the observed app GTK popup")
                 # Production menu: first enabled item Open, last enabled item Exit.
@@ -456,7 +467,8 @@ def main():
             return result
         if operation == "notification-click":
             if owner_identity is None:
-                raise RuntimeError("Real desktop notification owner absent; notification row unavailable")
+                raise RuntimeError(
+                    "Real desktop notification owner absent; notification row unavailable")
             text = request["text"]
             if not text.startswith("P33 native ") or len(text) > 100:
                 raise RuntimeError("Requires qualification notification marker")
