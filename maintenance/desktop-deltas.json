@@ -2830,7 +2830,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "One runtime owns one observer task and settles it on shutdown.",
+      "contract": "One runtime owns one observer task and settles it on shutdown. Merged-main contract retained: phase-2/requests-delivery provenance: Desktop users see durability off or unavailable and missing_api_key without reading journals.\n\nphase-2/conversations provenance: phase-2/conversations provenance: Owner-authenticated real transport serves conversations, transcript and search at minor 3.\n\norigin/main provenance: Stored hmac-v1 tags select keyed identities; untagged step-one receipts compare original raw JSON parameters and replay without effects. Actual runtime status and unavailable-method nonreservation coexist with supervised shutdown.\n\nManagement mutations govern actual request execution, persisted settings seed restart, and no management event advances live cursors over pending workers. Merged-main contract retained: phase-2/controls-resume provenance: phase-2/controls-resume provenance: Trusted request-service execution and durable delivery own every path; no ledger builds no manager; startup diagnostics remain available\n\nphase-2/requests-delivery provenance: phase-2/requests-delivery provenance: Desktop users see durability off or unavailable and missing_api_key without reading journals.\n\nphase-2/conversations provenance: phase-2/conversations provenance: Owner-authenticated real transport serves conversations, transcript and search at minor 3.\n\norigin/main provenance: Stored hmac-v1 tags select keyed identities; untagged step-one receipts compare original raw JSON parameters and replay without effects. Actual runtime status and unavailable-method nonreservation coexist with supervised shutdown.\n\nphase-2/requests-delivery provenance: phase-2/requests-delivery provenance: Desktop users see durability off or unavailable and missing_api_key without reading journals.\n\nphase-2/conversations provenance: phase-2/conversations provenance: Owner-authenticated real transport serves conversations, transcript and search at minor 3.\n\norigin/main provenance: Stored hmac-v1 tags select keyed identities; untagged step-one receipts compare original raw JSON parameters and replay without effects. Actual runtime status and unavailable-method nonreservation coexist with supervised shutdown.\n\nManagement mutations govern actual request execution, persisted settings seed restart, and no management event advances live cursors over pending workers.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
@@ -2848,7 +2848,7 @@
         }
       ],
       "path": "src/desktop/core.py",
-      "reason": "Start the retained quota observer only after the authenticated runtime listener starts. Merge main d546c44c preserving the existing request-engine ownership, shared configured guard and quota observer settlement before provider close. Merge main4ea7aa0f retaining controls/resume cleanup plus quota pre-provider stop; exact witnesses refreshed.",
+      "reason": "Start the retained quota observer only after the authenticated runtime listener starts. Merge main d546c44c preserving the existing request-engine ownership, shared configured guard and quota observer settlement before provider close. Merge main4ea7aa0f retaining controls/resume cleanup plus quota pre-provider stop; exact witnesses refreshed. Concurrent main ledger record retained by exact test-union and explicit three-way source merge. Concurrent main ledger record retained by exact test-union and explicit three-way source merge.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -2856,15 +2856,35 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
+        "tests/test_desktop_auto_resume.py": "f541d7e33163057f890fb5bb029091e30789d6c7690322c795bab8624fd63092",
+        "tests/test_desktop_control_core.py": "6cf1887bbe5954e1c34c466f7fe0cfd92735610cf4b007adcc986661d5e87309",
+        "tests/test_desktop_conversation_core.py": "e605205bdd9c8c1855d09372e6880c138c55153edaef07461911201b8bc3f321",
+        "tests/test_desktop_core_durability.py": "611d2a5a066707d6976fa046349ed2afbc5332534e8de6e9d6bcab007887bd69",
+        "tests/test_desktop_core_entry.py": "7990e32722c64c6c984120c10b1d8c2ebc253d81f2bafdc3b3514e60d3a64570",
         "tests/test_desktop_core_lifecycle.py": "f47f5ce8e0e53813011fc369880cd8e38c4d53289aaae1232b76b03ae71b20dd",
+        "tests/test_desktop_engine_services.py": "e4fc986b05ea695d727b8ea46a92e664b1f5a54b14aab75c51f1931040dbbe5c",
         "tests/test_desktop_management_core.py": "ebe1586fd55a4994f82022330acf967b77559b4ace3e78862cba2f2bc2dc60d9",
         "tests/test_desktop_phase2_runtime_guard.py": "e2bb8cf46b8c82c18039c82c7a3972cb33abb23b7bddca363d83835598ee5a0c",
+        "tests/test_desktop_receipt_retention.py": "31b30fe4f2a5e4b6f65d0e048d2b4b0b269c8c33bb5855f9a37a434cf6f7b859",
+        "tests/test_desktop_request_core.py": "c1d81b3dce86f0266f3f39801185162f6bae90807c21db0216731c0e7d5ee0aa",
+        "tests/test_desktop_resume_no_ledger.py": "b9bcbacebb7a86b2e420e056eb331115cb174d439389217e4586313416498b79",
+        "tests/test_desktop_resume_trigger.py": "1d20c2357369f70d6e4fb8f9832f4a67771f1c418999eb1388ac837823387279",
         "tests/test_desktop_review_quota_lifecycle.py": "9463b9bbe1e19dd3ede6b00d2d9328be83ff4f1c9575f1631d855664727ef6f5"
       },
       "tests": [
+        "tests/test_desktop_auto_resume.py",
+        "tests/test_desktop_control_core.py",
+        "tests/test_desktop_conversation_core.py",
+        "tests/test_desktop_core_durability.py",
+        "tests/test_desktop_core_entry.py",
         "tests/test_desktop_core_lifecycle.py",
+        "tests/test_desktop_engine_services.py",
         "tests/test_desktop_management_core.py",
         "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_resume_no_ledger.py",
+        "tests/test_desktop_resume_trigger.py",
         "tests/test_desktop_review_quota_lifecycle.py"
       ]
     },
@@ -2998,7 +3018,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Canonical owner, keyring signing authority, existing enrollment/lease fences; audit failure cannot reverse durable adoption.",
+      "contract": "Canonical owner, keyring signing authority, existing enrollment/lease fences; audit failure cannot reverse durable adoption. Merged-main contract retained: Expose configured_default_host alongside effective default_host while retaining named enrollment, reference and lease management.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
@@ -3016,7 +3036,7 @@
         }
       ],
       "path": "src/desktop/hosts.py",
-      "reason": "Restore inherited host import, audit, actionable reference conflict and actual publication/cache effects through the Desktop owner. Exact merged-main evidence binding refresh; protected runtime behavior retained.",
+      "reason": "Restore inherited host import, audit, actionable reference conflict and actual publication/cache effects through the Desktop owner. Exact merged-main evidence binding refresh; protected runtime behavior retained. Concurrent main ledger record retained by exact test-union and explicit three-way source merge.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -3025,12 +3045,16 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_hosts.py": "658936e907f250796e81bd6b1b38cf77e64eb83e4609fa8bc40c60a3abf0cb16",
+        "tests/test_desktop_management_core.py": "ebe1586fd55a4994f82022330acf967b77559b4ace3e78862cba2f2bc2dc60d9",
+        "tests/test_desktop_provisioning.py": "b48f4cab24f7bb02547210fcdf1387f0b124fc152b0a533f949f453cfbd3ef75",
         "tests/test_desktop_review_audit_authority.py": "4b17b6e267862ceb0a01a21409152e47c7dd47030d06a22b0e454d03aaa94514",
         "tests/test_desktop_review_provider_hosts.py": "0e9edd0ee44bc69fbbd7d310f3b303c5439b81d886e5e8b878fc5d8ca69ed4b1",
         "tests/test_desktop_review_provider_hosts_provenance.py": "337da70a903ca37614b8dd42f77a271600f1429cbb71501b06d59a2f2078bff7"
       },
       "tests": [
         "tests/test_desktop_hosts.py",
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_provisioning.py",
         "tests/test_desktop_review_audit_authority.py",
         "tests/test_desktop_review_provider_hosts.py",
         "tests/test_desktop_review_provider_hosts_provenance.py"
@@ -3275,7 +3299,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "No constructor network side effects, captured boot pool, or independent runtime lifetime.",
+      "contract": "No constructor network side effects, captured boot pool, or independent runtime lifetime. Merged-main contract retained: Reserve before effect, atomically finalize receipt/validated event, replay without callbacks and bypass reservations for reads. Stored hmac-v1 prefixes select keyed comparison; untagged receipts retain original raw-parameter JSON comparison, without rewriting old receipts or reexecuting effects.\n\nManagement mutations govern actual request execution, persisted settings seed restart, and no management event advances live cursors over pending workers.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
@@ -3293,7 +3317,7 @@
         }
       ],
       "path": "src/desktop/management.py",
-      "reason": "Compose the retained Codex quota checker against current live config and serving pool; stop it before provider retirement. Merge main d546c44c preserving the existing request-engine ownership, shared configured guard and quota observer settlement before provider close.",
+      "reason": "Compose the retained Codex quota checker against current live config and serving pool; stop it before provider retirement. Merge main d546c44c preserving the existing request-engine ownership, shared configured guard and quota observer settlement before provider close. Concurrent main ledger record retained by exact test-union and explicit three-way source merge. Concurrent main ledger record retained by exact test-union and explicit three-way source merge.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -3301,14 +3325,22 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
+        "tests/test_desktop_engine_services.py": "e4fc986b05ea695d727b8ea46a92e664b1f5a54b14aab75c51f1931040dbbe5c",
+        "tests/test_desktop_management.py": "ddb1ef0e30e312da1902b7ac6637f22ab20fb8ceb5214742d277249cf563b7c7",
         "tests/test_desktop_management_core.py": "ebe1586fd55a4994f82022330acf967b77559b4ace3e78862cba2f2bc2dc60d9",
         "tests/test_desktop_phase2_runtime_guard.py": "e2bb8cf46b8c82c18039c82c7a3972cb33abb23b7bddca363d83835598ee5a0c",
+        "tests/test_desktop_receipt_retention.py": "31b30fe4f2a5e4b6f65d0e048d2b4b0b269c8c33bb5855f9a37a434cf6f7b859",
+        "tests/test_desktop_request_core.py": "c1d81b3dce86f0266f3f39801185162f6bae90807c21db0216731c0e7d5ee0aa",
         "tests/test_desktop_review_provider_quota.py": "63745c41005191a53f272f3cff3b2819dba31bb87ffc4c5fa1fe3bd587ae2bd5",
         "tests/test_desktop_review_quota_lifecycle.py": "9463b9bbe1e19dd3ede6b00d2d9328be83ff4f1c9575f1631d855664727ef6f5"
       },
       "tests": [
+        "tests/test_desktop_engine_services.py",
+        "tests/test_desktop_management.py",
         "tests/test_desktop_management_core.py",
         "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_desktop_receipt_retention.py",
+        "tests/test_desktop_request_core.py",
         "tests/test_desktop_review_provider_quota.py",
         "tests/test_desktop_review_quota_lifecycle.py"
       ]
@@ -3318,7 +3350,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Existing discovery validation, desired/adopted selection, stale/storage MethodError classification and provider cleanup are unchanged. Evidence-only rebinding preserves all named tests.",
+      "contract": "Existing discovery validation, desired/adopted selection, stale/storage MethodError classification and provider cleanup are unchanged. Evidence-only rebinding preserves all named tests. Merged-main contract retained: Named main-model command preserves stale_binding and storage error dispositions without adopting rejected models; actual owner retains publication and rollback responsibility.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
@@ -3336,7 +3368,7 @@
         }
       ],
       "path": "src/desktop/model_settings.py",
-      "reason": "Refresh exact evidence-test digest after an import-only separator fix in main's new model-setting tests; model-settings product bytes remain merged main's bytes. Exact merged-main evidence binding refresh; protected runtime behavior retained.",
+      "reason": "Refresh exact evidence-test digest after an import-only separator fix in main's new model-setting tests; model-settings product bytes remain merged main's bytes. Exact merged-main evidence binding refresh; protected runtime behavior retained. Concurrent main ledger record retained by exact test-union and explicit three-way source merge.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -3519,7 +3551,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Provider replacement still qualifies candidates; agent policy edits invalidate consumers without replacing serving generation.",
+      "contract": "Provider replacement still qualifies candidates; agent policy edits invalidate consumers without replacing serving generation. Merged-main contract retained: Retained provider graph qualifies and persists before publication; failed persistence rolls back unpublished clients while leaving prior graph intact.\n\nManagement mutations govern actual request execution, persisted settings seed restart, and no management event advances live cursors over pending workers.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
@@ -3537,7 +3569,7 @@
         }
       ],
       "path": "src/desktop/providers.py",
-      "reason": "Keep serving transport identity for policy-only and startup-only changes rather than rebuilding concrete clients. Merge main d546c44c preserving the existing request-engine ownership, shared configured guard and quota observer settlement before provider close.",
+      "reason": "Keep serving transport identity for policy-only and startup-only changes rather than rebuilding concrete clients. Merge main d546c44c preserving the existing request-engine ownership, shared configured guard and quota observer settlement before provider close. Concurrent main ledger record retained by exact test-union and explicit three-way source merge. Concurrent main ledger record retained by exact test-union and explicit three-way source merge.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -3545,18 +3577,26 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
+        "tests/test_desktop_codex_accounts.py": "32134fbb9ac95f2d21044c4f87ea4dad47e353ec279fb6134173e902e3d48058",
+        "tests/test_desktop_engine_services.py": "e4fc986b05ea695d727b8ea46a92e664b1f5a54b14aab75c51f1931040dbbe5c",
         "tests/test_desktop_management_core.py": "ebe1586fd55a4994f82022330acf967b77559b4ace3e78862cba2f2bc2dc60d9",
+        "tests/test_desktop_model_settings.py": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d",
         "tests/test_desktop_phase2_review_llm.py": "d34d8303242fc7deab0068e382fac6400db5a12fba4350d29df7f960f74b8931",
         "tests/test_desktop_phase2_runtime_guard.py": "e2bb8cf46b8c82c18039c82c7a3972cb33abb23b7bddca363d83835598ee5a0c",
         "tests/test_desktop_providers.py": "c87384c98b1cb1d85bd5da314b256f6c16bd73ab72aba90124f41d9983fdc93b",
+        "tests/test_desktop_request_core.py": "c1d81b3dce86f0266f3f39801185162f6bae90807c21db0216731c0e7d5ee0aa",
         "tests/test_desktop_review_provider_policy_reload.py": "e37c35a2892ca1193a4c8b1a1154901f599ee94bba0b6a4e22fb07f57a02d35c",
         "tests/test_desktop_review_quota_lifecycle.py": "9463b9bbe1e19dd3ede6b00d2d9328be83ff4f1c9575f1631d855664727ef6f5"
       },
       "tests": [
+        "tests/test_desktop_codex_accounts.py",
+        "tests/test_desktop_engine_services.py",
         "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
         "tests/test_desktop_phase2_review_llm.py",
         "tests/test_desktop_phase2_runtime_guard.py",
         "tests/test_desktop_providers.py",
+        "tests/test_desktop_request_core.py",
         "tests/test_desktop_review_provider_policy_reload.py",
         "tests/test_desktop_review_quota_lifecycle.py"
       ]
@@ -3609,7 +3649,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Locked keyring cannot misreport signed history as unsigned; reads never construct a writer.",
+      "contract": "Locked keyring cannot misreport signed history as unsigned; reads never construct a writer. Merged-main contract retained: Preserve filters/limits/signed verification/read-only turn snapshots; honest absent owner/store and scrubbed legacy diagnostics.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
@@ -3627,7 +3667,7 @@
         }
       ],
       "path": "src/desktop/records.py",
-      "reason": "Resolve profile audit keyring signing authority before verification without incidental settings-schema hydration. Exact merged-main evidence binding refresh; protected runtime behavior retained.",
+      "reason": "Resolve profile audit keyring signing authority before verification without incidental settings-schema hydration. Exact merged-main evidence binding refresh; protected runtime behavior retained. Concurrent main ledger record retained by exact test-union and explicit three-way source merge.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -3635,10 +3675,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
+        "tests/test_desktop_management_core.py": "ebe1586fd55a4994f82022330acf967b77559b4ace3e78862cba2f2bc2dc60d9",
         "tests/test_desktop_records.py": "944601fa51ca04531d4e408b8b6708b6472ceb7cf42d891db5e8e312affd50cf",
         "tests/test_desktop_review_audit_authority.py": "4b17b6e267862ceb0a01a21409152e47c7dd47030d06a22b0e454d03aaa94514"
       },
       "tests": [
+        "tests/test_desktop_management_core.py",
         "tests/test_desktop_records.py",
         "tests/test_desktop_review_audit_authority.py"
       ]
@@ -3699,7 +3741,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Existing serving identity, measured/estimated/unknown usage, read-only rollup and named reload contracts remain; runtime refers to the same guard used by actual provider admission.",
+      "contract": "Existing serving identity, measured/estimated/unknown usage, read-only rollup and named reload contracts remain; runtime refers to the same guard used by actual provider admission. Merged-main contract retained: Report adopted serving identity and measured/estimated/unknown provenance; adopt only real reload results.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
@@ -3717,7 +3759,7 @@
         }
       ],
       "path": "src/desktop/runtime.py",
-      "reason": "Expose the exact provider owner's real subsystem guard to the runtime observer, preserving one guard identity rather than constructing separate diagnostic state. Exact merged-main evidence binding refresh; protected runtime behavior retained.",
+      "reason": "Expose the exact provider owner's real subsystem guard to the runtime observer, preserving one guard identity rather than constructing separate diagnostic state. Exact merged-main evidence binding refresh; protected runtime behavior retained. Concurrent main ledger record retained by exact test-union and explicit three-way source merge.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -3867,7 +3909,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "D17 startup parity preserves Codex service when compatible credentials are absent; status exposes credential-free durability/provider reasons. Error accounting accepts absent turn ledger.\n\nManagement mutations govern actual request execution, persisted settings seed restart, and no management event advances live cursors over pending workers.",
+      "contract": "D17 startup parity preserves Codex service when compatible credentials are absent; status exposes credential-free durability/provider reasons. Error accounting accepts absent turn ledger.\n\nManagement mutations govern actual request execution, persisted settings seed restart, and no management event advances live cursors over pending workers. Merged-main contract retained: phase-2/controls-resume provenance: Disabled or failed-open ledger keeps legacy turns; opened dead ledger refuses; policy-filtered services and failure presentation retain D17 behavior\n\nphase-2/requests-delivery provenance: D17 startup parity preserves Codex service when compatible credentials are absent; status exposes credential-free durability/provider reasons. Error accounting accepts absent turn ledger.\n\nManagement mutations govern actual request execution, persisted settings seed restart, and no management event advances live cursors over pending workers.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
@@ -3885,7 +3927,7 @@
         }
       ],
       "path": "src/desktop/services.py",
-      "reason": "Refresh the changed failure-test witness for the existing optional ledger and missing-compatible-key startup behavior.\n\nMerge integration: compose management on the retained request runtime's settings, executor, provider gateway, host registry and context owners; publish pending worker and settings frames in journal order. Merge main d546c44c preserving the existing request-engine ownership, shared configured guard and quota observer settlement before provider close. Merge main4ea7aa0f retaining controls/resume cleanup plus quota pre-provider stop; exact witnesses refreshed.",
+      "reason": "Refresh the changed failure-test witness for the existing optional ledger and missing-compatible-key startup behavior.\n\nMerge integration: compose management on the retained request runtime's settings, executor, provider gateway, host registry and context owners; publish pending worker and settings frames in journal order. Merge main d546c44c preserving the existing request-engine ownership, shared configured guard and quota observer settlement before provider close. Merge main4ea7aa0f retaining controls/resume cleanup plus quota pre-provider stop; exact witnesses refreshed. Concurrent main ledger record retained by exact test-union and explicit three-way source merge.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -3897,6 +3939,7 @@
         "tests/test_desktop_core_durability.py": "611d2a5a066707d6976fa046349ed2afbc5332534e8de6e9d6bcab007887bd69",
         "tests/test_desktop_engine_services.py": "e4fc986b05ea695d727b8ea46a92e664b1f5a54b14aab75c51f1931040dbbe5c",
         "tests/test_desktop_management_core.py": "ebe1586fd55a4994f82022330acf967b77559b4ace3e78862cba2f2bc2dc60d9",
+        "tests/test_desktop_persisted_outputs.py": "603549cefa73554fca84a0858a5be11d599b5214620f4e0aa6f0ec136b038387",
         "tests/test_desktop_phase2_runtime_guard.py": "e2bb8cf46b8c82c18039c82c7a3972cb33abb23b7bddca363d83835598ee5a0c",
         "tests/test_desktop_request_core.py": "c1d81b3dce86f0266f3f39801185162f6bae90807c21db0216731c0e7d5ee0aa",
         "tests/test_desktop_request_failures.py": "3772fa98e1fb249f49594ec396beefdee31828233c7539816d2d6fad2f811395",
@@ -3907,6 +3950,7 @@
         "tests/test_desktop_core_durability.py",
         "tests/test_desktop_engine_services.py",
         "tests/test_desktop_management_core.py",
+        "tests/test_desktop_persisted_outputs.py",
         "tests/test_desktop_phase2_runtime_guard.py",
         "tests/test_desktop_request_core.py",
         "tests/test_desktop_request_failures.py",
@@ -3918,7 +3962,7 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Followed defaults stay absent; pin stays explicit; keyring failures do not become unsigned success.",
+      "contract": "Followed defaults stay absent; pin stays explicit; keyring failures do not become unsigned success. Merged-main contract retained: Retain profile schema/revisions/dedicated owners, private YAML transactions, vault mutations and image intent validators/apply metadata.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
@@ -3936,7 +3980,7 @@
         }
       ],
       "path": "src/desktop/settings.py",
-      "reason": "Preserve image follow/pin presence during full-image form roundtrip and share audit key resolution across writer/reader. Exact merged-main evidence binding refresh; protected runtime behavior retained.",
+      "reason": "Preserve image follow/pin presence during full-image form roundtrip and share audit key resolution across writer/reader. Exact merged-main evidence binding refresh; protected runtime behavior retained. Concurrent main ledger record retained by exact test-union and explicit three-way source merge.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -3944,12 +3988,18 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
+        "tests/test_desktop_management_core.py": "ebe1586fd55a4994f82022330acf967b77559b4ace3e78862cba2f2bc2dc60d9",
+        "tests/test_desktop_model_settings.py": "0a0a4e581707ec52ab98bbc7deaab9bc67282397bb65b128ed0b99c71038029d",
+        "tests/test_desktop_providers.py": "c87384c98b1cb1d85bd5da314b256f6c16bd73ab72aba90124f41d9983fdc93b",
         "tests/test_desktop_review_audit_authority.py": "4b17b6e267862ceb0a01a21409152e47c7dd47030d06a22b0e454d03aaa94514",
         "tests/test_desktop_review_provider_image.py": "b15906e9513c56815952c06da1ad7ed8138e5a298a98318503c2f963ec61b748",
         "tests/test_desktop_review_provider_image_inherited.py": "c9b48da09e68912a93e3b67bd7e67be0490843985b21446de054fd4b06377573",
         "tests/test_desktop_settings.py": "54e209380576a440baccd16e38d1bf1581e90f99feb65f65e12afee627790a63"
       },
       "tests": [
+        "tests/test_desktop_management_core.py",
+        "tests/test_desktop_model_settings.py",
+        "tests/test_desktop_providers.py",
         "tests/test_desktop_review_audit_authority.py",
         "tests/test_desktop_review_provider_image.py",
         "tests/test_desktop_review_provider_image_inherited.py",
@@ -16139,7 +16189,7 @@
       ]
     },
     {
-      "after_sha256": "cf15f7b3446f2b2c2bec047bbbdab3678c8129ac327159d55f1902db2d42f674",
+      "after_sha256": "4b7de3e42c2da2d0cc57e4f309b231c33bf162a92a5b14aa5d026b4761249643",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -16155,13 +16205,13 @@
       "patch": [
         {
           "end": 0,
-          "new_base64": "IiIiQmF0Y2gtQiBib3VuZGFyeSBwcm9iZXMsIG5vdCBwYXJ0aWFsIGV4cG9ydHMgb2YgYmxvY2tlZCBpbmhlcml0ZWQgc3VpdGVzLgoKVGhlIGNvbXBsZXRlIG5hdGl2ZSBrbm93bGVkZ2Ugc3VpdGUgcnVucyBkaXJlY3RseSBhdCBpdHMgb3JpZ2luYWwgcGF0aC4gVGhlc2UKdGVzdHMgZXN0YWJsaXNoIHdoeSBhbiB1bmNoYW5nZWQgSFRUUC1zdGF0dXMgYXNzZXJ0aW9uIGNhbm5vdCBiZSBleHBvcnRlZCBhcyBhCkRlc2t0b3AgcmVzdWx0IHdpdGhvdXQgaW52ZW50aW5nIHRyYW5zcG9ydCBzZW1hbnRpY3MuIE9ubHkgZGlzcG9zYWJsZSBwcm9maWxlcywKYW4gaW4tbWVtb3J5IGtleXJpbmcgYW5kIGF1dGhlbnRpY2F0ZWQgbG9jYWwgSVBDIGFyZSB1c2VkLgoiIiIKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGpzb24KaW1wb3J0IG9zCmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKaW1wb3J0IHB5dGVzdAoKZnJvbSBzY3JpcHRzLm1haW50ZW5hbmNlLmZpeHR1cmVfY29ycHVzIGltcG9ydCBjb3JwdXMsIGRpZ2VzdCwgZnJvemVuX3NvdXJjZQpmcm9tIHNyYy5hdWRpdC5sb2dnZXIgaW1wb3J0IEF1ZGl0TG9nZ2VyCmZyb20gc3JjLmNvbmZpZy5zY2hlbWEgaW1wb3J0IENvbmZpZywgT3V0Ym91bmRXZWJob29rc0NvbmZpZywgT3V0Ym91bmRXZWJob29rVGFyZ2V0CmZyb20gc3JjLmRlc2t0b3AuY29yZSBpbXBvcnQgQ29yZVNlcnZpY2UKZnJvbSBzcmMuZGVza3RvcC5pbnRlZ3JhdGlvbnMgaW1wb3J0IEludGVncmF0aW9uc1NlcnZpY2UKZnJvbSBzcmMuZGVza3RvcC5tYW5hZ2VtZW50IGltcG9ydCBNZXRob2RFcnJvcgpmcm9tIHNyYy5kZXNrdG9wLnBhdGhzIGltcG9ydCBQcm9maWxlUGF0aHMKZnJvbSBzcmMuZGVza3RvcC5zZWNyZXRzIGltcG9ydCBQcm9maWxlU2VjcmV0U3RvcmUKZnJvbSBzcmMuZGVza3RvcC5zZXR0aW5ncyBpbXBvcnQgU2V0dGluZ3NTZXJ2aWNlCmZyb20gdGVzdHMudGVzdF9kZXNrdG9wX2NvcmVfbGlmZWN5Y2xlIGltcG9ydCBjb25uZWN0LCBwcm9maWxlLCByZXF1ZXN0CgoKY2xhc3MgTWVtb3J5S2V5cmluZzoKICAgIGRlZiBfX2luaXRfXyhzZWxmKToKICAgICAgICBzZWxmLnZhbHVlcyA9IHt9CgogICAgZGVmIGdldF9wYXNzd29yZChzZWxmLCBuYW1lc3BhY2UsIG5hbWUpOgogICAgICAgIHJldHVybiBzZWxmLnZhbHVlcy5nZXQoKG5hbWVzcGFjZSwgbmFtZSkpCgogICAgZGVmIHNldF9wYXNzd29yZChzZWxmLCBuYW1lc3BhY2UsIG5hbWUsIHZhbHVlKToKICAgICAgICBzZWxmLnZhbHVlc1tuYW1lc3BhY2UsIG5hbWVdID0gdmFsdWUKCiAgICBkZWYgZGVsZXRlX3Bhc3N3b3JkKHNlbGYsIG5hbWVzcGFjZSwgbmFtZSk6CiAgICAgICAgc2VsZi52YWx1ZXMucG9wKChuYW1lc3BhY2UsIG5hbWUpLCBOb25lKQoKCkBweXRlc3QuZml4dHVyZShhdXRvdXNlPVRydWUpCmRlZiByZWZ1c2VfZXh0ZXJuYWxfaHR0cChtb25rZXlwYXRjaCk6CiAgICBpbXBvcnQgYWlvaHR0cAoKICAgIGRlZiBmb3JiaWRkZW4oKmFyZ3MsICoqa3dhcmdzKToKICAgICAgICByYWlzZSBBc3NlcnRpb25FcnJvcigiQmF0Y2gtQiBwcm9iZXMgbXVzdCBub3QgaW5pdGlhdGUgbmV0d29yayByZXF1ZXN0cyIpCgogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihhaW9odHRwLCAiQ2xpZW50U2Vzc2lvbiIsIGZvcmJpZGRlbikKCgpAcHl0ZXN0LmZpeHR1cmUKYXN5bmMgZGVmIGxvY2FsX2NvcmUodG1wX3BhdGgpOgogICAgcGF0aHMsIHNvY2tldF9wYXRoLCB0b2tlbl9maWxlID0gcHJvZmlsZSh0bXBfcGF0aCkKICAgIHJlYWRfZmQsIHdyaXRlX2ZkID0gb3MucGlwZSgpCiAgICBjb3JlID0gQ29yZVNlcnZpY2UocGF0aHMsIHNvY2tldF9wYXRoLCB0b2tlbl9maWxlLCBzZWNyZXRfYmFja2VuZD1NZW1vcnlLZXlyaW5nKCkpCiAgICB3cml0ZXIgPSBOb25lCiAgICB0cnk6CiAgICAgICAgYXdhaXQgY29yZS5zdGFydChyZWFkX2ZkKQogICAgICAgIHJlYWRlciwgd3JpdGVyLCB3ZWxjb21lID0gYXdhaXQgY29ubmVjdChzb2NrZXRfcGF0aCkKICAgICAgICBhc3NlcnQgd2VsY29tZVsidCJdID09ICJ3ZWxjb21lIgogICAgICAgIGFzc2VydCBjb3JlLmF1dGhvcml0eS5vd25lcl9pZAogICAgICAgIHlpZWxkIGNvcmUsIHJlYWRlciwgd3JpdGVyCiAgICBmaW5hbGx5OgogICAgICAgIGlmIHdyaXRlciBpcyBub3QgTm9uZToKICAgICAgICAgICAgd3JpdGVyLmNsb3NlKCkKICAgICAgICAgICAgYXdhaXQgd3JpdGVyLndhaXRfY2xvc2VkKCkKICAgICAgICBhd2FpdCBjb3JlLmNsb3NlKCkKICAgICAgICBvcy5jbG9zZShyZWFkX2ZkKQogICAgICAgIG9zLmNsb3NlKHdyaXRlX2ZkKQoKCmRlZiB0ZXN0X25hdGl2ZV9rbm93bGVkZ2Vfb3JpZ2luYWxfaGFzX25vX3NldHVwX2FkYXB0YXRpb24oKToKICAgIGltcG9ydCBhc3QKCiAgICBvcmlnaW5hbCA9IGZyb3plbl9zb3VyY2UoInRlc3RzL3Rlc3RfbmF0aXZlX2tub3dsZWRnZS5weSIpCiAgICBhc3NlcnQgZGlnZXN0KG9yaWdpbmFsKSA9PSAiNDE4MDQ2ZDVmZmU1MzhhYzU4NmNjYzg5ZmExN2IyNDMwMzQ3ZmNhMTgzOGMzZGNiYjViNDA0ZTU1NmMyNWJhYyIKICAgIGluaGVyaXRlZCA9IGNvcnB1cyhhc3QucGFyc2Uob3JpZ2luYWwpKQogICAgYXNzZXJ0IGxlbihpbmhlcml0ZWRbImNhc2VzIl0pID09IDI2CiAgICBhc3NlcnQgbGVuKGluaGVyaXRlZFsiYXNzZXJ0aW9ucyJdKSA9PSAzMwoKCmRlZiB0ZXN0X2FsbF9iYXRjaF9iX3JldGFpbmVkX2J5dGVzX21hdGNoX2Zyb3plbl9hcmNoaXZlX2FuZF9yZXZpZXdfbWFwKCk6CiAgICByb290ID0gUGF0aChfX2ZpbGVfXykucmVzb2x2ZSgpLnBhcmVudHNbMV0KICAgIG1hcHBpbmcgPSBqc29uLmxvYWRzKChyb290IC8gIm1haW50ZW5hbmNlL3BoYXNlMi1zdWl0ZS1tYXAuanNvbiIpLnJlYWRfdGV4dCgpKQogICAgb3duZWQgPSBzb3J0ZWQoKHJvdyBmb3Igcm93IGluIG1hcHBpbmdbImVudHJpZXMiXSBpZiByb3dbInN0ZXAiXSA9PSA1KSwKICAgICAgICAgICAgICAgICAgIGtleT1sYW1iZGEgcm93OiByb3dbInBhdGgiXSlbMTo6NF0KICAgIGFzc2VydCBsZW4ob3duZWQpID09IDIxCiAgICBmb3Igcm93IGluIG93bmVkOgogICAgICAgICMgZnJvemVuX3NvdXJjZSBjaGVja3MgdGhlIGFyY2hpdmUgaGFzaCwgdW5pcXVlIHJlZ3VsYXIgbWVtYmVyLCByZXRhaW5lZAogICAgICAgICMgYnl0ZSBpZGVudGl0eSBhbmQgbm8gc3ltbGluayBhbmNlc3RvcnMgYmVmb3JlIHBhcnNpbmcgb3IgZXhlY3V0aW9uLgogICAgICAgIGFzc2VydCBkaWdlc3QoZnJvemVuX3NvdXJjZShyb3dbInBhdGgiXSkpID09IHJvd1siaW5oZXJpdGVkX3NoYTI1NiJdCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJzY2VuYXJpbywgdmFsaWQsIGF2YWlsYWJpbGl0eSIsIFsKICAgICgidmFsaWQiLCBUcnVlLCAiYXZhaWxhYmxlIiksCiAgICAoInRhbXBlcmVkIiwgRmFsc2UsICJhdmFpbGFibGUiKSwKICAgICgicm90YXRlZF90YW1wZXJlZCIsIEZhbHNlLCAiYXZhaWxhYmxlIiksCiAgICAoIm5vX3NpZ25pbmciLCBGYWxzZSwgIm5vdF9lbmFibGVkIiksCiAgICAoInVuc2lnbmVkX3ByZWZpeCIsIFRydWUsICJhdmFpbGFibGUiKSwKICAgICgiZW1wdHlfc2lnbmVkIiwgVHJ1ZSwgImF2YWlsYWJsZSIpLApdKQphc3luYyBkZWYgdGVzdF9yZWFsX2F1ZGl0X2lwY19yZXBvcnRzX2ludGVncml0eV93aXRob3V0X2ludmVudGVkX2NvbmZsaWN0KAogICAgbG9jYWxfY29yZSwgc2NlbmFyaW8sIHZhbGlkLCBhdmFpbGFiaWxpdHksCik6CiAgICBjb3JlLCByZWFkZXIsIHdyaXRlciA9IGxvY2FsX2NvcmUKICAgIGtleSA9ICJpc29sYXRlZC1iYXRjaC1iLXNpZ25pbmcta2V5IiBpZiBzY2VuYXJpbyAhPSAibm9fc2lnbmluZyIgZWxzZSAiIgogICAgaWYga2V5OgogICAgICAgIHNhdmVkID0gYXdhaXQgcmVxdWVzdChyZWFkZXIsIHdyaXRlciwgInNlY3JldHMuc2V0IiwgewogICAgICAgICAgICAicGF0aCI6ICJhdWRpdC5obWFjX2tleSIsICJ2YWx1ZSI6IGtleSwKICAgICAgICB9KQogICAgICAgIGFzc2VydCBzYXZlZFsib2siXSwgc2F2ZWQKICAgIHBhdGggPSBjb3JlLnBhdGhzLmRhdGFfZGlyIC8gImF1ZGl0Lmpzb25sIgogICAgaWYgc2NlbmFyaW8gPT0gInVuc2lnbmVkX3ByZWZpeCI6CiAgICAgICAgcGF0aC53cml0ZV90ZXh0KCIiLmpvaW4oanNvbi5kdW1wcyh7ImxlZ2FjeSI6IGl9KSArICJcbiIgZm9yIGkgaW4gcmFuZ2UoMykpKQogICAgYXVkaXQgPSBBdWRpdExvZ2dlcihzdHIocGF0aCksIGhtYWNfa2V5PWtleSwKICAgICAgICAgICAgICAgICAgICAgICAgbWF4X2J5dGVzPTEgaWYgc2NlbmFyaW8gPT0gInJvdGF0ZWRfdGFtcGVyZWQiIGVsc2UgMV8wMDBfMDAwLAogICAgICAgICAgICAgICAgICAgICAgICBtYXhfZmlsZXM9MikKICAgIGF3YWl0IGF1ZGl0LmluaXRpYWxpemVfY2hhaW4oKQogICAgaWYgc2NlbmFyaW8gIT0gImVtcHR5X3NpZ25lZCI6CiAgICAgICAgZm9yIGkgaW4gcmFuZ2UoMiBpZiBzY2VuYXJpbyA9PSAicm90YXRlZF90YW1wZXJlZCIgZWxzZSAxKToKICAgICAgICAgICAgYXdhaXQgYXVkaXQubG9nX2V2ZW50KGV2ZW50X3R5cGU9ImZpeHR1cmUiLCBhY3Rpb249ZiJhY3R7aX0iLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYWN0b3I9InRlbXBvcmFyeS1vd25lciIsIGRldGFpbD0iaW50YWN0IikKICAgIHRhbXBlcmVkID0gTm9uZQogICAgaWYgc2NlbmFyaW8gaW4geyJ0YW1wZXJlZCIsICJyb3RhdGVkX3RhbXBlcmVkIn06CiAgICAgICAgdGFtcGVyZWQgPSBwYXRoLndpdGhfbmFtZSgiYXVkaXQuanNvbmwuMSIpIGlmIHNjZW5hcmlvID09ICJyb3RhdGVkX3RhbXBlcmVkIiBlbHNlIHBhdGgKICAgICAgICBsaW5lcyA9IHRhbXBlcmVkLnJlYWRfdGV4dCgpLnNwbGl0bGluZXMoa2VlcGVuZHM9VHJ1ZSkKICAgICAgICBlbnRyeSA9IGpzb24ubG9hZHMobGluZXNbMF0pCiAgICAgICAgZW50cnlbImRldGFpbCJdID0gImNoYW5nZWQgb25seSBpbiBkaXNwb3NhYmxlIGZpeHR1cmUiCiAgICAgICAgbGluZXNbMF0gPSBqc29uLmR1bXBzKGVudHJ5KSArICJcbiIKICAgICAgICB0YW1wZXJlZC53cml0ZV90ZXh0KCIiLmpvaW4obGluZXMpKQogICAgYmVmb3JlID0ge2l0ZW06IGl0ZW0ucmVhZF9ieXRlcygpIGZvciBpdGVtIGluIHBhdGgucGFyZW50Lmdsb2IoImF1ZGl0Lmpzb25sKiIpfQogICAgcmVjZWlwdF9jb3VudCA9IGNvcmUuc3RvcmUuY29ubmVjdGlvbi5leGVjdXRlKAogICAgICAgICJTRUxFQ1QgQ09VTlQoKikgRlJPTSBjb21tYW5kX3JlY2VpcHRzIikuZmV0Y2hvbmUoKVswXQogICAgcmVzcG9uc2UgPSBhd2FpdCByZXF1ZXN0KHJlYWRlciwgd3JpdGVyLCAiYXVkaXQudmVyaWZ5IikKICAgICMgSW52YWxpZCBpbnRlZ3JpdHkgaXMgYSBzdWNjZXNzZnVsIHJlYWQgb2YgYW4gaW52YWxpZCByZXBvcnQsIG5vdCBhbgogICAgIyBpbnRlZ3JpdHktY29uZmxpY3QgTWV0aG9kRXJyb3IuIFJldHVybmluZyBzeW50aGV0aWMgNDA5IHdvdWxkIGhpZGUgdGhpcy4KICAgIGFzc2VydCByZXNwb25zZVsib2siXSBpcyBUcnVlCiAgICBhc3NlcnQgImVycm9yIiBub3QgaW4gcmVzcG9uc2UKICAgIHJlcG9ydCA9IHJlc3BvbnNlWyJyZXN1bHQiXQogICAgYXNzZXJ0IHJlcG9ydFsidmFsaWQiXSBpcyB2YWxpZAogICAgYXNzZXJ0IHJlcG9ydFsiYXZhaWxhYmlsaXR5Il0gPT0gYXZhaWxhYmlsaXR5CiAgICBpZiBzY2VuYXJpbyA9PSAicm90YXRlZF90YW1wZXJlZCI6CiAgICAgICAgYXNzZXJ0IHJlcG9ydFsiZmlyc3RfYmFkX2ZpbGUiXSA9PSAiYXVkaXQuanNvbmwuMSIKICAgIGlmIHNjZW5hcmlvID09ICJ1bnNpZ25lZF9wcmVmaXgiOgogICAgICAgIGFzc2VydCByZXBvcnRbInVuc2lnbmVkX3ByZWZpeCJdID09IDMKICAgICAgICBhc3NlcnQgcmVwb3J0WyJ2ZXJpZmllZCJdID09IDEKICAgIGlmIG5vdCB2YWxpZDoKICAgICAgICBhc3NlcnQgcmVwb3J0WyJlcnJvciJdCiAgICBhc3NlcnQge2l0ZW06IGl0ZW0ucmVhZF9ieXRlcygpIGZvciBpdGVtIGluIGJlZm9yZX0gPT0gYmVmb3JlCiAgICBhc3NlcnQgY29yZS5zdG9yZS5jb25uZWN0aW9uLmV4ZWN1dGUoCiAgICAgICAgIlNFTEVDVCBDT1VOVCgqKSBGUk9NIGNvbW1hbmRfcmVjZWlwdHMiKS5mZXRjaG9uZSgpWzBdID09IHJlY2VpcHRfY291bnQKCgpkZWYgaXNvbGF0ZWRfaW50ZWdyYXRpb25zKHRtcF9wYXRoLCAqLCBjb25maWc9Tm9uZSk6CiAgICBwYXRocyA9IFByb2ZpbGVQYXRocy5mcm9tX3hkZyhob21lPXRtcF9wYXRoLCBlbnZpcm9uPXt9KQogICAgcGF0aHMuY3JlYXRlX3ByaXZhdGUoKQogICAgcGF0aHMuY29uZmlnX2ZpbGUud3JpdGVfdGV4dCgie31cbiIpCiAgICBzZWNyZXRzID0gUHJvZmlsZVNlY3JldFN0b3JlKHBhdGhzLCBiYWNrZW5kPU1lbW9yeUtleXJpbmcoKSkKICAgIHNldHRpbmdzID0gU2V0dGluZ3NTZXJ2aWNlKHBhdGhzLCBzZWNyZXRzLCBjb25maWc9Y29uZmlnKQogICAgcmV0dXJuIEludGVncmF0aW9uc1NlcnZpY2Uoc2V0dGluZ3MpCgoKYXN5bmMgZGVmIHRlc3Rfd2ViaG9va19maWxlX2Rlc2lyZWRfc3RhdGVfaXNfbm90X3RoZV9pbl9tZW1vcnlfcmVqZWN0ZWRfcm93KHRtcF9wYXRoKToKICAgIGNvbmZpZyA9IENvbmZpZyhvdXRib3VuZF93ZWJob29rcz1PdXRib3VuZFdlYmhvb2tzQ29uZmlnKGVuYWJsZWQ9VHJ1ZSwgdGFyZ2V0cz1bCiAgICAgICAgT3V0Ym91bmRXZWJob29rVGFyZ2V0KGlkPSJiYWQiLCBuYW1lPSJ0eXBvIiwgdXJsPSJodHRwOi8vMTY5LjI1NC4xNjkuMjU0LyIpLAogICAgICAgIE91dGJvdW5kV2ViaG9va1RhcmdldChpZD0iZ29vZCIsIG5hbWU9InZhbGlkIiwgdXJsPSJodHRwczovL2dvb2QuZXhhbXBsZS50ZXN0L2hvb2siKSwKICAgIF0pKQogICAgc2VydmljZSA9IGlzb2xhdGVkX2ludGVncmF0aW9ucyh0bXBfcGF0aCwgY29uZmlnPWNvbmZpZykKICAgICMgTWF0Y2ggdGhlIGluaGVyaXRlZCB0ZXN0OiBzYXZlZCBkZXNpcmVkIHN0YXRlIGRpZmZlcnMgZnJvbSByZWplY3RlZCBib290CiAgICAjIHN0YXRlLiBUaGUgb3JpZ2luYWwgSFRUUCByb3V0ZSBwcmVzZXJ2ZXMgdGhlIHNhdmVkIFVSTCwgbm90IHRoZSBib290IFVSTC4KICAgIHNlcnZpY2Uuc2V0dGluZ3MucGF0aHMuY29uZmlnX2ZpbGUud3JpdGVfdGV4dCgKICAgICAgICAib3V0Ym91bmRfd2ViaG9va3M6XG4gIGVuYWJsZWQ6IHRydWVcbiAgdGFyZ2V0czpcbiIKICAgICAgICAiICAgIC0gaWQ6IGJhZFxuICAgICAgbmFtZTogdHlwb1xuICAgICAgdXJsOiBodHRwczovL2V4YW1wbGUudGVzdC9ob29rXG4iCiAgICAgICAgIiAgICAtIGlkOiBnb29kXG4gICAgICBuYW1lOiB2YWxpZFxuICAgICAgdXJsOiBodHRwczovL2dvb2QuZXhhbXBsZS50ZXN0L2hvb2tcbiIpCiAgICB0cnk6CiAgICAgICAgcmVzdWx0ID0gYXdhaXQgc2VydmljZS5oYW5kbGUoIndlYmhvb2tzLm91dGJvdW5kLnNhdmUiLCB7ImlkIjogImdvb2QiLCAibmFtZSI6ICJyZW5hbWVkIn0pCiAgICAgICAgYXNzZXJ0IHJlc3VsdFsibmFtZSJdID09ICJyZW5hbWVkIgogICAgICAgIGltcG9ydCB5YW1sCgogICAgICAgIHNhdmVkID0geWFtbC5zYWZlX2xvYWQoc2VydmljZS5zZXR0aW5ncy5wYXRocy5jb25maWdfZmlsZS5yZWFkX3RleHQoKSkKICAgICAgICByb3dzID0gc2F2ZWRbIm91dGJvdW5kX3dlYmhvb2tzIl1bInRhcmdldHMiXQogICAgICAgIGFzc2VydCByb3dzWzBdWyJpZCJdID09ICJiYWQiCiAgICAgICAgYXNzZXJ0IHJvd3NbMF1bInVybCJdID09ICJodHRwOi8vMTY5LjI1NC4xNjkuMjU0LyIKICAgICAgICBhc3NlcnQgc2VydmljZS5kaXNwYXRjaGVyLmdldCgiYmFkIikgaXMgTm9uZQogICAgZmluYWxseToKICAgICAgICBhd2FpdCBzZXJ2aWNlLmRpc3BhdGNoZXIuY2xvc2UoKQoKCmFzeW5jIGRlZiB0ZXN0X3dlYmhvb2tfcGVyc2lzdGVuY2VfcmVmdXNhbF9pc19yZWFsX21ldGhvZF9lcnJvcl9ub3RfaHR0cF81MDModG1wX3BhdGgsIG1vbmtleXBhdGNoKToKICAgIHNlcnZpY2UgPSBpc29sYXRlZF9pbnRlZ3JhdGlvbnModG1wX3BhdGgpCgogICAgZGVmIGZhaWxlZF9wZXJzaXN0ZW5jZSgqYXJncywgKiprd2FyZ3MpOgogICAgICAgIHJhaXNlIE9TRXJyb3IoImRpc3Bvc2FibGUgcGVyc2lzdGVuY2UgcmVmdXNhbCIpCgogICAgbW9ua2V5cGF0Y2guc2V0YXR0cigic3JjLmRlc2t0b3Auc2V0dGluZ3MuX3BhdGNoX2NvbmZpZ19wYXRocyIsIGZhaWxlZF9wZXJzaXN0ZW5jZSkKICAgIHRyeToKICAgICAgICB3aXRoIHB5dGVzdC5yYWlzZXMoTWV0aG9kRXJyb3IpIGFzIHJlZnVzZWQ6CiAgICAgICAgICAgIGF3YWl0IHNlcnZpY2UuaGFuZGxlKCJ3ZWJob29rcy5vdXRib3VuZC5zYXZlIiwgewogICAgICAgICAgICAgICAgIm5hbWUiOiAibm90IHNhdmVkIiwgInVybCI6ICJodHRwczovL2V4YW1wbGUudGVzdC9ob29rIiwKICAgICAgICAgICAgICAgICJzZWNyZXQiOiAiYmF0Y2gtYi1kdW1teS1vbmx5IiwKICAgICAgICAgICAgfSkKICAgICAgICBhc3NlcnQgcmVmdXNlZC52YWx1ZS5jb2RlID09ICJpbnRlcm5hbF9lcnJvciIKICAgICAgICBhc3NlcnQgcmVmdXNlZC52YWx1ZS5kaXNwb3NpdGlvbiA9PSAicmVqZWN0ZWQiCiAgICAgICAgYXNzZXJ0ICJiYXRjaC1iLWR1bW15LW9ubHkiIG5vdCBpbiByZWZ1c2VkLnZhbHVlLm1lc3NhZ2UKICAgICAgICBhc3NlcnQgc2VydmljZS5kaXNwYXRjaGVyLmxpc3Rfd2ViaG9va3MoKSA9PSBbXQogICAgICAgIGFzc2VydCBzZXJ2aWNlLnNldHRpbmdzLmNvbmZpZy5vdXRib3VuZF93ZWJob29rcy50YXJnZXRzID09IFtdCiAgICAgICAgYXNzZXJ0IHNlcnZpY2Uuc2V0dGluZ3Muc2VjcmV0cy5fYmFja2VuZC52YWx1ZXMgPT0ge30KICAgIGZpbmFsbHk6CiAgICAgICAgYXdhaXQgc2VydmljZS5kaXNwYXRjaGVyLmNsb3NlKCkK",
+          "new_base64": "IiIiQmF0Y2gtQiBib3VuZGFyeSBwcm9iZXMsIG5vdCBwYXJ0aWFsIGV4cG9ydHMgb2YgYmxvY2tlZCBpbmhlcml0ZWQgc3VpdGVzLgoKVGhlIGNvbXBsZXRlIG5hdGl2ZSBrbm93bGVkZ2Ugc3VpdGUgcnVucyBkaXJlY3RseSBhdCBpdHMgb3JpZ2luYWwgcGF0aC4gVGhlc2UKdGVzdHMgcHJlc2VydmUgdGhlIGFjdHVhbCByZXN1bHQgc2hhcGUgc2VwYXJhdGVseSBmcm9tIHRoZSByZXZpZXdlZCBsZWdhY3kKdmVyZGljdCBjYXJyaWVyIHByb2plY3Rpb24uIE9ubHkgZGlzcG9zYWJsZSBwcm9maWxlcywKYW4gaW4tbWVtb3J5IGtleXJpbmcgYW5kIGF1dGhlbnRpY2F0ZWQgbG9jYWwgSVBDIGFyZSB1c2VkLgoiIiIKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGpzb24KaW1wb3J0IG9zCmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKaW1wb3J0IHB5dGVzdAoKZnJvbSBzY3JpcHRzLm1haW50ZW5hbmNlLmZpeHR1cmVfY29ycHVzIGltcG9ydCBjb3JwdXMsIGRpZ2VzdCwgZnJvemVuX3NvdXJjZQpmcm9tIHNyYy5hdWRpdC5sb2dnZXIgaW1wb3J0IEF1ZGl0TG9nZ2VyCmZyb20gc3JjLmNvbmZpZy5zY2hlbWEgaW1wb3J0IENvbmZpZywgT3V0Ym91bmRXZWJob29rc0NvbmZpZywgT3V0Ym91bmRXZWJob29rVGFyZ2V0CmZyb20gc3JjLmRlc2t0b3AuY29yZSBpbXBvcnQgQ29yZVNlcnZpY2UKZnJvbSBzcmMuZGVza3RvcC5pbnRlZ3JhdGlvbnMgaW1wb3J0IEludGVncmF0aW9uc1NlcnZpY2UKZnJvbSBzcmMuZGVza3RvcC5tYW5hZ2VtZW50IGltcG9ydCBNZXRob2RFcnJvcgpmcm9tIHNyYy5kZXNrdG9wLnBhdGhzIGltcG9ydCBQcm9maWxlUGF0aHMKZnJvbSBzcmMuZGVza3RvcC5zZWNyZXRzIGltcG9ydCBQcm9maWxlU2VjcmV0U3RvcmUKZnJvbSBzcmMuZGVza3RvcC5zZXR0aW5ncyBpbXBvcnQgU2V0dGluZ3NTZXJ2aWNlCmZyb20gdGVzdHMudGVzdF9kZXNrdG9wX2NvcmVfbGlmZWN5Y2xlIGltcG9ydCBjb25uZWN0LCBwcm9maWxlLCByZXF1ZXN0CgoKY2xhc3MgTWVtb3J5S2V5cmluZzoKICAgIGRlZiBfX2luaXRfXyhzZWxmKToKICAgICAgICBzZWxmLnZhbHVlcyA9IHt9CgogICAgZGVmIGdldF9wYXNzd29yZChzZWxmLCBuYW1lc3BhY2UsIG5hbWUpOgogICAgICAgIHJldHVybiBzZWxmLnZhbHVlcy5nZXQoKG5hbWVzcGFjZSwgbmFtZSkpCgogICAgZGVmIHNldF9wYXNzd29yZChzZWxmLCBuYW1lc3BhY2UsIG5hbWUsIHZhbHVlKToKICAgICAgICBzZWxmLnZhbHVlc1tuYW1lc3BhY2UsIG5hbWVdID0gdmFsdWUKCiAgICBkZWYgZGVsZXRlX3Bhc3N3b3JkKHNlbGYsIG5hbWVzcGFjZSwgbmFtZSk6CiAgICAgICAgc2VsZi52YWx1ZXMucG9wKChuYW1lc3BhY2UsIG5hbWUpLCBOb25lKQoKCkBweXRlc3QuZml4dHVyZShhdXRvdXNlPVRydWUpCmRlZiByZWZ1c2VfZXh0ZXJuYWxfaHR0cChtb25rZXlwYXRjaCk6CiAgICBpbXBvcnQgYWlvaHR0cAoKICAgIGRlZiBmb3JiaWRkZW4oKmFyZ3MsICoqa3dhcmdzKToKICAgICAgICByYWlzZSBBc3NlcnRpb25FcnJvcigiQmF0Y2gtQiBwcm9iZXMgbXVzdCBub3QgaW5pdGlhdGUgbmV0d29yayByZXF1ZXN0cyIpCgogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihhaW9odHRwLCAiQ2xpZW50U2Vzc2lvbiIsIGZvcmJpZGRlbikKCgpAcHl0ZXN0LmZpeHR1cmUKYXN5bmMgZGVmIGxvY2FsX2NvcmUodG1wX3BhdGgpOgogICAgcGF0aHMsIHNvY2tldF9wYXRoLCB0b2tlbl9maWxlID0gcHJvZmlsZSh0bXBfcGF0aCkKICAgIHJlYWRfZmQsIHdyaXRlX2ZkID0gb3MucGlwZSgpCiAgICBjb3JlID0gQ29yZVNlcnZpY2UocGF0aHMsIHNvY2tldF9wYXRoLCB0b2tlbl9maWxlLCBzZWNyZXRfYmFja2VuZD1NZW1vcnlLZXlyaW5nKCkpCiAgICB3cml0ZXIgPSBOb25lCiAgICB0cnk6CiAgICAgICAgYXdhaXQgY29yZS5zdGFydChyZWFkX2ZkKQogICAgICAgIHJlYWRlciwgd3JpdGVyLCB3ZWxjb21lID0gYXdhaXQgY29ubmVjdChzb2NrZXRfcGF0aCkKICAgICAgICBhc3NlcnQgd2VsY29tZVsidCJdID09ICJ3ZWxjb21lIgogICAgICAgIGFzc2VydCBjb3JlLmF1dGhvcml0eS5vd25lcl9pZAogICAgICAgIHlpZWxkIGNvcmUsIHJlYWRlciwgd3JpdGVyCiAgICBmaW5hbGx5OgogICAgICAgIGlmIHdyaXRlciBpcyBub3QgTm9uZToKICAgICAgICAgICAgd3JpdGVyLmNsb3NlKCkKICAgICAgICAgICAgYXdhaXQgd3JpdGVyLndhaXRfY2xvc2VkKCkKICAgICAgICBhd2FpdCBjb3JlLmNsb3NlKCkKICAgICAgICBvcy5jbG9zZShyZWFkX2ZkKQogICAgICAgIG9zLmNsb3NlKHdyaXRlX2ZkKQoKCmRlZiB0ZXN0X25hdGl2ZV9rbm93bGVkZ2Vfb3JpZ2luYWxfaGFzX25vX3NldHVwX2FkYXB0YXRpb24oKToKICAgIGltcG9ydCBhc3QKCiAgICBvcmlnaW5hbCA9IGZyb3plbl9zb3VyY2UoInRlc3RzL3Rlc3RfbmF0aXZlX2tub3dsZWRnZS5weSIpCiAgICBhc3NlcnQgZGlnZXN0KG9yaWdpbmFsKSA9PSAiNDE4MDQ2ZDVmZmU1MzhhYzU4NmNjYzg5ZmExN2IyNDMwMzQ3ZmNhMTgzOGMzZGNiYjViNDA0ZTU1NmMyNWJhYyIKICAgIGluaGVyaXRlZCA9IGNvcnB1cyhhc3QucGFyc2Uob3JpZ2luYWwpKQogICAgYXNzZXJ0IGxlbihpbmhlcml0ZWRbImNhc2VzIl0pID09IDI2CiAgICBhc3NlcnQgbGVuKGluaGVyaXRlZFsiYXNzZXJ0aW9ucyJdKSA9PSAzMwoKCmRlZiB0ZXN0X2FsbF9iYXRjaF9iX3JldGFpbmVkX2J5dGVzX21hdGNoX2Zyb3plbl9hcmNoaXZlX2FuZF9yZXZpZXdfbWFwKCk6CiAgICByb290ID0gUGF0aChfX2ZpbGVfXykucmVzb2x2ZSgpLnBhcmVudHNbMV0KICAgIG1hcHBpbmcgPSBqc29uLmxvYWRzKChyb290IC8gIm1haW50ZW5hbmNlL3BoYXNlMi1zdWl0ZS1tYXAuanNvbiIpLnJlYWRfdGV4dCgpKQogICAgIyBCYXRjaCBvd25lcnNoaXAgaXMgaGlzdG9yaWNhbC4gUmV2aWV3LWFwcHJvdmVkIHJlbWFwcyBkbyBub3QgY2hhbmdlIHRoZQogICAgIyBvcmlnaW5hbCBiYXRjaCdzIG1lbWJlcnNoaXAgb3IgZXhlbXB0IGFueSBvZiBpdHMgZnJvemVuIHNvdXJjZSBoYXNoZXMuCiAgICBiYXRjaCA9IGpzb24ubG9hZHMoKHJvb3QgLyAibWFpbnRlbmFuY2Uvc3RlcDgtcGFydDItYmF0Y2gtYi5qc29uIikucmVhZF90ZXh0KCkpCiAgICBtYXBwZWQgPSB7cm93WyJwYXRoIl06IHJvdyBmb3Igcm93IGluIG1hcHBpbmdbImVudHJpZXMiXX0KICAgIG93bmVkID0gW21hcHBlZFtyb3dbInBhdGgiXV0gZm9yIHJvdyBpbiBiYXRjaFsiZW50cmllcyJdXQogICAgYXNzZXJ0IGxlbihvd25lZCkgPT0gMjEKICAgIGZvciByb3cgaW4gb3duZWQ6CiAgICAgICAgIyBmcm96ZW5fc291cmNlIGNoZWNrcyB0aGUgYXJjaGl2ZSBoYXNoLCB1bmlxdWUgcmVndWxhciBtZW1iZXIsIHJldGFpbmVkCiAgICAgICAgIyBieXRlIGlkZW50aXR5IGFuZCBubyBzeW1saW5rIGFuY2VzdG9ycyBiZWZvcmUgcGFyc2luZyBvciBleGVjdXRpb24uCiAgICAgICAgYXNzZXJ0IGRpZ2VzdChmcm96ZW5fc291cmNlKHJvd1sicGF0aCJdKSkgPT0gcm93WyJpbmhlcml0ZWRfc2hhMjU2Il0KCgpAcHl0ZXN0Lm1hcmsucGFyYW1ldHJpemUoInNjZW5hcmlvLCB2YWxpZCwgYXZhaWxhYmlsaXR5IiwgWwogICAgKCJ2YWxpZCIsIFRydWUsICJhdmFpbGFibGUiKSwKICAgICgidGFtcGVyZWQiLCBGYWxzZSwgImF2YWlsYWJsZSIpLAogICAgKCJyb3RhdGVkX3RhbXBlcmVkIiwgRmFsc2UsICJhdmFpbGFibGUiKSwKICAgICgibm9fc2lnbmluZyIsIEZhbHNlLCAibm90X2VuYWJsZWQiKSwKICAgICgidW5zaWduZWRfcHJlZml4IiwgVHJ1ZSwgImF2YWlsYWJsZSIpLAogICAgKCJlbXB0eV9zaWduZWQiLCBUcnVlLCAiYXZhaWxhYmxlIiksCl0pCmFzeW5jIGRlZiB0ZXN0X3JlYWxfYXVkaXRfaXBjX3JlcG9ydHNfaW50ZWdyaXR5X3dpdGhvdXRfaW52ZW50ZWRfY29uZmxpY3QoCiAgICBsb2NhbF9jb3JlLCBzY2VuYXJpbywgdmFsaWQsIGF2YWlsYWJpbGl0eSwKKToKICAgIGNvcmUsIHJlYWRlciwgd3JpdGVyID0gbG9jYWxfY29yZQogICAga2V5ID0gImlzb2xhdGVkLWJhdGNoLWItc2lnbmluZy1rZXkiIGlmIHNjZW5hcmlvICE9ICJub19zaWduaW5nIiBlbHNlICIiCiAgICBpZiBrZXk6CiAgICAgICAgc2F2ZWQgPSBhd2FpdCByZXF1ZXN0KHJlYWRlciwgd3JpdGVyLCAic2VjcmV0cy5zZXQiLCB7CiAgICAgICAgICAgICJwYXRoIjogImF1ZGl0LmhtYWNfa2V5IiwgInZhbHVlIjoga2V5LAogICAgICAgIH0pCiAgICAgICAgYXNzZXJ0IHNhdmVkWyJvayJdLCBzYXZlZAogICAgcGF0aCA9IGNvcmUucGF0aHMuZGF0YV9kaXIgLyAiYXVkaXQuanNvbmwiCiAgICBpZiBzY2VuYXJpbyA9PSAidW5zaWduZWRfcHJlZml4IjoKICAgICAgICBwYXRoLndyaXRlX3RleHQoIiIuam9pbihqc29uLmR1bXBzKHsibGVnYWN5IjogaX0pICsgIlxuIiBmb3IgaSBpbiByYW5nZSgzKSkpCiAgICBhdWRpdCA9IEF1ZGl0TG9nZ2VyKHN0cihwYXRoKSwgaG1hY19rZXk9a2V5LAogICAgICAgICAgICAgICAgICAgICAgICBtYXhfYnl0ZXM9MSBpZiBzY2VuYXJpbyA9PSAicm90YXRlZF90YW1wZXJlZCIgZWxzZSAxXzAwMF8wMDAsCiAgICAgICAgICAgICAgICAgICAgICAgIG1heF9maWxlcz0yKQogICAgYXdhaXQgYXVkaXQuaW5pdGlhbGl6ZV9jaGFpbigpCiAgICBpZiBzY2VuYXJpbyAhPSAiZW1wdHlfc2lnbmVkIjoKICAgICAgICBmb3IgaSBpbiByYW5nZSgyIGlmIHNjZW5hcmlvID09ICJyb3RhdGVkX3RhbXBlcmVkIiBlbHNlIDEpOgogICAgICAgICAgICBhd2FpdCBhdWRpdC5sb2dfZXZlbnQoZXZlbnRfdHlwZT0iZml4dHVyZSIsIGFjdGlvbj1mImFjdHtpfSIsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBhY3Rvcj0idGVtcG9yYXJ5LW93bmVyIiwgZGV0YWlsPSJpbnRhY3QiKQogICAgdGFtcGVyZWQgPSBOb25lCiAgICBpZiBzY2VuYXJpbyBpbiB7InRhbXBlcmVkIiwgInJvdGF0ZWRfdGFtcGVyZWQifToKICAgICAgICB0YW1wZXJlZCA9IHBhdGgud2l0aF9uYW1lKCJhdWRpdC5qc29ubC4xIikgaWYgc2NlbmFyaW8gPT0gInJvdGF0ZWRfdGFtcGVyZWQiIGVsc2UgcGF0aAogICAgICAgIGxpbmVzID0gdGFtcGVyZWQucmVhZF90ZXh0KCkuc3BsaXRsaW5lcyhrZWVwZW5kcz1UcnVlKQogICAgICAgIGVudHJ5ID0ganNvbi5sb2FkcyhsaW5lc1swXSkKICAgICAgICBlbnRyeVsiZGV0YWlsIl0gPSAiY2hhbmdlZCBvbmx5IGluIGRpc3Bvc2FibGUgZml4dHVyZSIKICAgICAgICBsaW5lc1swXSA9IGpzb24uZHVtcHMoZW50cnkpICsgIlxuIgogICAgICAgIHRhbXBlcmVkLndyaXRlX3RleHQoIiIuam9pbihsaW5lcykpCiAgICBiZWZvcmUgPSB7aXRlbTogaXRlbS5yZWFkX2J5dGVzKCkgZm9yIGl0ZW0gaW4gcGF0aC5wYXJlbnQuZ2xvYigiYXVkaXQuanNvbmwqIil9CiAgICByZWNlaXB0X2NvdW50ID0gY29yZS5zdG9yZS5jb25uZWN0aW9uLmV4ZWN1dGUoCiAgICAgICAgIlNFTEVDVCBDT1VOVCgqKSBGUk9NIGNvbW1hbmRfcmVjZWlwdHMiKS5mZXRjaG9uZSgpWzBdCiAgICByZXNwb25zZSA9IGF3YWl0IHJlcXVlc3QocmVhZGVyLCB3cml0ZXIsICJhdWRpdC52ZXJpZnkiKQogICAgIyBJbnZhbGlkIGludGVncml0eSByZW1haW5zIGEgc3VjY2Vzc2Z1bCByZWFkIG9mIGFuIGludmFsaWQgcmVwb3J0LiBUaGUKICAgICMgc2VwYXJhdGVseSByZXZpZXdlZCBhZGFwdGVyIHByb2plY3RzIHRoaXMgdmVyZGljdCB0byBsZWdhY3kgNDA5IHdpdGhvdXQKICAgICMgY2hhbmdpbmcgdGhlIHJlYWwgcmVzdWx0IGludG8gYW4gaW50ZWdyaXR5LWNvbmZsaWN0IE1ldGhvZEVycm9yLgogICAgYXNzZXJ0IHJlc3BvbnNlWyJvayJdIGlzIFRydWUKICAgIGFzc2VydCAiZXJyb3IiIG5vdCBpbiByZXNwb25zZQogICAgcmVwb3J0ID0gcmVzcG9uc2VbInJlc3VsdCJdCiAgICBhc3NlcnQgcmVwb3J0WyJ2YWxpZCJdIGlzIHZhbGlkCiAgICBhc3NlcnQgcmVwb3J0WyJhdmFpbGFiaWxpdHkiXSA9PSBhdmFpbGFiaWxpdHkKICAgIGlmIHNjZW5hcmlvID09ICJyb3RhdGVkX3RhbXBlcmVkIjoKICAgICAgICBhc3NlcnQgcmVwb3J0WyJmaXJzdF9iYWRfZmlsZSJdID09ICJhdWRpdC5qc29ubC4xIgogICAgaWYgc2NlbmFyaW8gPT0gInVuc2lnbmVkX3ByZWZpeCI6CiAgICAgICAgYXNzZXJ0IHJlcG9ydFsidW5zaWduZWRfcHJlZml4Il0gPT0gMwogICAgICAgIGFzc2VydCByZXBvcnRbInZlcmlmaWVkIl0gPT0gMQogICAgaWYgbm90IHZhbGlkOgogICAgICAgIGFzc2VydCByZXBvcnRbImVycm9yIl0KICAgIGFzc2VydCB7aXRlbTogaXRlbS5yZWFkX2J5dGVzKCkgZm9yIGl0ZW0gaW4gYmVmb3JlfSA9PSBiZWZvcmUKICAgIGFzc2VydCBjb3JlLnN0b3JlLmNvbm5lY3Rpb24uZXhlY3V0ZSgKICAgICAgICAiU0VMRUNUIENPVU5UKCopIEZST00gY29tbWFuZF9yZWNlaXB0cyIpLmZldGNob25lKClbMF0gPT0gcmVjZWlwdF9jb3VudAoKCmRlZiBpc29sYXRlZF9pbnRlZ3JhdGlvbnModG1wX3BhdGgsICosIGNvbmZpZz1Ob25lKToKICAgIHBhdGhzID0gUHJvZmlsZVBhdGhzLmZyb21feGRnKGhvbWU9dG1wX3BhdGgsIGVudmlyb249e30pCiAgICBwYXRocy5jcmVhdGVfcHJpdmF0ZSgpCiAgICBwYXRocy5jb25maWdfZmlsZS53cml0ZV90ZXh0KCJ7fVxuIikKICAgIHNlY3JldHMgPSBQcm9maWxlU2VjcmV0U3RvcmUocGF0aHMsIGJhY2tlbmQ9TWVtb3J5S2V5cmluZygpKQogICAgc2V0dGluZ3MgPSBTZXR0aW5nc1NlcnZpY2UocGF0aHMsIHNlY3JldHMsIGNvbmZpZz1jb25maWcpCiAgICByZXR1cm4gSW50ZWdyYXRpb25zU2VydmljZShzZXR0aW5ncykKCgphc3luYyBkZWYgdGVzdF93ZWJob29rX2ZpbGVfZGVzaXJlZF9zdGF0ZV9pc19ub3RfdGhlX2luX21lbW9yeV9yZWplY3RlZF9yb3codG1wX3BhdGgpOgogICAgY29uZmlnID0gQ29uZmlnKG91dGJvdW5kX3dlYmhvb2tzPU91dGJvdW5kV2ViaG9va3NDb25maWcoZW5hYmxlZD1UcnVlLCB0YXJnZXRzPVsKICAgICAgICBPdXRib3VuZFdlYmhvb2tUYXJnZXQoaWQ9ImJhZCIsIG5hbWU9InR5cG8iLCB1cmw9Imh0dHA6Ly8xNjkuMjU0LjE2OS4yNTQvIiksCiAgICAgICAgT3V0Ym91bmRXZWJob29rVGFyZ2V0KGlkPSJnb29kIiwgbmFtZT0idmFsaWQiLCB1cmw9Imh0dHBzOi8vZ29vZC5leGFtcGxlLnRlc3QvaG9vayIpLAogICAgXSkpCiAgICBzZXJ2aWNlID0gaXNvbGF0ZWRfaW50ZWdyYXRpb25zKHRtcF9wYXRoLCBjb25maWc9Y29uZmlnKQogICAgIyBNYXRjaCB0aGUgaW5oZXJpdGVkIHRlc3Q6IHNhdmVkIGRlc2lyZWQgc3RhdGUgZGlmZmVycyBmcm9tIHJlamVjdGVkIGJvb3QKICAgICMgc3RhdGUuIFRoZSBvcmlnaW5hbCBIVFRQIHJvdXRlIHByZXNlcnZlcyB0aGUgc2F2ZWQgVVJMLCBub3QgdGhlIGJvb3QgVVJMLgogICAgc2VydmljZS5zZXR0aW5ncy5wYXRocy5jb25maWdfZmlsZS53cml0ZV90ZXh0KAogICAgICAgICJvdXRib3VuZF93ZWJob29rczpcbiAgZW5hYmxlZDogdHJ1ZVxuICB0YXJnZXRzOlxuIgogICAgICAgICIgICAgLSBpZDogYmFkXG4gICAgICBuYW1lOiB0eXBvXG4gICAgICB1cmw6IGh0dHBzOi8vZXhhbXBsZS50ZXN0L2hvb2tcbiIKICAgICAgICAiICAgIC0gaWQ6IGdvb2RcbiAgICAgIG5hbWU6IHZhbGlkXG4gICAgICB1cmw6IGh0dHBzOi8vZ29vZC5leGFtcGxlLnRlc3QvaG9va1xuIikKICAgIHRyeToKICAgICAgICByZXN1bHQgPSBhd2FpdCBzZXJ2aWNlLmhhbmRsZSgid2ViaG9va3Mub3V0Ym91bmQuc2F2ZSIsIHsiaWQiOiAiZ29vZCIsICJuYW1lIjogInJlbmFtZWQifSkKICAgICAgICBhc3NlcnQgcmVzdWx0WyJuYW1lIl0gPT0gInJlbmFtZWQiCiAgICAgICAgaW1wb3J0IHlhbWwKCiAgICAgICAgc2F2ZWQgPSB5YW1sLnNhZmVfbG9hZChzZXJ2aWNlLnNldHRpbmdzLnBhdGhzLmNvbmZpZ19maWxlLnJlYWRfdGV4dCgpKQogICAgICAgIHJvd3MgPSBzYXZlZFsib3V0Ym91bmRfd2ViaG9va3MiXVsidGFyZ2V0cyJdCiAgICAgICAgYXNzZXJ0IHJvd3NbMF1bImlkIl0gPT0gImJhZCIKICAgICAgICBhc3NlcnQgcm93c1swXVsidXJsIl0gPT0gImh0dHBzOi8vZXhhbXBsZS50ZXN0L2hvb2siCiAgICAgICAgYXNzZXJ0IHNlcnZpY2UuZGlzcGF0Y2hlci5nZXQoImJhZCIpIGlzIE5vbmUKICAgIGZpbmFsbHk6CiAgICAgICAgYXdhaXQgc2VydmljZS5kaXNwYXRjaGVyLmNsb3NlKCkKCgphc3luYyBkZWYgdGVzdF93ZWJob29rX3BlcnNpc3RlbmNlX3JlZnVzYWxfaXNfcmVhbF9tZXRob2RfZXJyb3Jfbm90X2h0dHBfNTAzKHRtcF9wYXRoLCBtb25rZXlwYXRjaCk6CiAgICBzZXJ2aWNlID0gaXNvbGF0ZWRfaW50ZWdyYXRpb25zKHRtcF9wYXRoKQoKICAgIGRlZiBmYWlsZWRfcGVyc2lzdGVuY2UoKmFyZ3MsICoqa3dhcmdzKToKICAgICAgICByYWlzZSBPU0Vycm9yKCJkaXNwb3NhYmxlIHBlcnNpc3RlbmNlIHJlZnVzYWwiKQoKICAgIG1vbmtleXBhdGNoLnNldGF0dHIoInNyYy5kZXNrdG9wLnNldHRpbmdzLl9wYXRjaF9jb25maWdfcGF0aHMiLCBmYWlsZWRfcGVyc2lzdGVuY2UpCiAgICB0cnk6CiAgICAgICAgd2l0aCBweXRlc3QucmFpc2VzKE1ldGhvZEVycm9yKSBhcyByZWZ1c2VkOgogICAgICAgICAgICBhd2FpdCBzZXJ2aWNlLmhhbmRsZSgid2ViaG9va3Mub3V0Ym91bmQuc2F2ZSIsIHsKICAgICAgICAgICAgICAgICJuYW1lIjogIm5vdCBzYXZlZCIsICJ1cmwiOiAiaHR0cHM6Ly9leGFtcGxlLnRlc3QvaG9vayIsCiAgICAgICAgICAgICAgICAic2VjcmV0IjogImJhdGNoLWItZHVtbXktb25seSIsCiAgICAgICAgICAgIH0pCiAgICAgICAgYXNzZXJ0IHJlZnVzZWQudmFsdWUuY29kZSA9PSAiaW50ZXJuYWxfZXJyb3IiCiAgICAgICAgYXNzZXJ0IHJlZnVzZWQudmFsdWUuZGlzcG9zaXRpb24gPT0gInJlamVjdGVkIgogICAgICAgIGFzc2VydCAiYmF0Y2gtYi1kdW1teS1vbmx5IiBub3QgaW4gcmVmdXNlZC52YWx1ZS5tZXNzYWdlCiAgICAgICAgYXNzZXJ0IHNlcnZpY2UuZGlzcGF0Y2hlci5saXN0X3dlYmhvb2tzKCkgPT0gW10KICAgICAgICBhc3NlcnQgc2VydmljZS5zZXR0aW5ncy5jb25maWcub3V0Ym91bmRfd2ViaG9va3MudGFyZ2V0cyA9PSBbXQogICAgICAgIGFzc2VydCBzZXJ2aWNlLnNldHRpbmdzLnNlY3JldHMuX2JhY2tlbmQudmFsdWVzID09IHt9CiAgICBmaW5hbGx5OgogICAgICAgIGF3YWl0IHNlcnZpY2UuZGlzcGF0Y2hlci5jbG9zZSgpCg==",
           "old_base64": "",
           "start": 0
         }
       ],
       "path": "tests/test_desktop_phase2_runtime_b.py",
-      "reason": "Validate direct native knowledge provenance and expose incompatible audit/webhook outcomes through actual authenticated IPC rather than fake inherited HTTP status equivalence.",
+      "reason": "Validate direct native knowledge provenance and expose incompatible audit/webhook outcomes through actual authenticated IPC rather than fake inherited HTTP status equivalence. Update new Desktop probe to reviewer-approved saved URL fix; seal historical batch membership independently of remapped owner step.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -16169,7 +16219,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_desktop_phase2_runtime_b.py": "cf15f7b3446f2b2c2bec047bbbdab3678c8129ac327159d55f1902db2d42f674",
+        "tests/test_desktop_phase2_runtime_b.py": "4b7de3e42c2da2d0cc57e4f309b231c33bf162a92a5b14aa5d026b4761249643",
         "tests/test_native_knowledge.py": "418046d5ffe538ac586ccc89fa17b2430347fca1838c3dcbb5b404e556c25bac"
       },
       "tests": [

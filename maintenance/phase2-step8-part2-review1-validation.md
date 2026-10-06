@@ -58,6 +58,14 @@ Configured guard thresholds remain qualified in the newly shared graph.
 Merged composition/guard/audit/quota tests returned 144 passed. Output-fence
 full candidate returned 21 passed including all nine inherited cases.
 
+A second two-parent merge preserves `main@4ea7aa0f` step 4 controls and resume
+cleanup alongside quota cleanup. Both ledger authorities' exact test lists are
+unioned and recorded in `phase2-step8-part2-review1-merges.json`; no side was
+discarded or rebase substituted for merge. Final prequalification of quota,
+audit, output fences, actual controls, missing-ledger resume and accounting
+returned 166 passed. The full gate executes fresh `0ec1b308` with locked dev
+dependencies under the required group-writable parent and PID/HOME boundary.
+
 ## Targeted verification before the final fresh qualification
 
 - Existing management/hosts/integrations/providers/settings/model/core suite:

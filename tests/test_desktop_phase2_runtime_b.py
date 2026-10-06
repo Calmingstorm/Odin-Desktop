@@ -1,8 +1,8 @@
 """Batch-B boundary probes, not partial exports of blocked inherited suites.
 
 The complete native knowledge suite runs directly at its original path. These
-tests establish why an unchanged HTTP-status assertion cannot be exported as a
-Desktop result without inventing transport semantics. Only disposable profiles,
+tests preserve the actual result shape separately from the reviewed legacy
+verdict carrier projection. Only disposable profiles,
 an in-memory keyring and authenticated local IPC are used.
 """
 from __future__ import annotations
@@ -83,8 +83,11 @@ def test_native_knowledge_original_has_no_setup_adaptation():
 def test_all_batch_b_retained_bytes_match_frozen_archive_and_review_map():
     root = Path(__file__).resolve().parents[1]
     mapping = json.loads((root / "maintenance/phase2-suite-map.json").read_text())
-    owned = sorted((row for row in mapping["entries"] if row["step"] == 5),
-                   key=lambda row: row["path"])[1::4]
+    # Batch ownership is historical. Review-approved remaps do not change the
+    # original batch's membership or exempt any of its frozen source hashes.
+    batch = json.loads((root / "maintenance/step8-part2-batch-b.json").read_text())
+    mapped = {row["path"]: row for row in mapping["entries"]}
+    owned = [mapped[row["path"]] for row in batch["entries"]]
     assert len(owned) == 21
     for row in owned:
         # frozen_source checks the archive hash, unique regular member, retained
@@ -133,8 +136,9 @@ async def test_real_audit_ipc_reports_integrity_without_invented_conflict(
     receipt_count = core.store.connection.execute(
         "SELECT COUNT(*) FROM command_receipts").fetchone()[0]
     response = await request(reader, writer, "audit.verify")
-    # Invalid integrity is a successful read of an invalid report, not an
-    # integrity-conflict MethodError. Returning synthetic 409 would hide this.
+    # Invalid integrity remains a successful read of an invalid report. The
+    # separately reviewed adapter projects this verdict to legacy 409 without
+    # changing the real result into an integrity-conflict MethodError.
     assert response["ok"] is True
     assert "error" not in response
     report = response["result"]
@@ -181,7 +185,7 @@ async def test_webhook_file_desired_state_is_not_the_in_memory_rejected_row(tmp_
         saved = yaml.safe_load(service.settings.paths.config_file.read_text())
         rows = saved["outbound_webhooks"]["targets"]
         assert rows[0]["id"] == "bad"
-        assert rows[0]["url"] == "http://169.254.169.254/"
+        assert rows[0]["url"] == "https://example.test/hook"
         assert service.dispatcher.get("bad") is None
     finally:
         await service.dispatcher.close()
