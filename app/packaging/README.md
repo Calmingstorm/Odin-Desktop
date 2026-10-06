@@ -110,6 +110,37 @@ installation from known bytes, not a successful internet download.
 The `.deb` declares `openssh-client`. AppImage users need host `ssh` and
 `ssh-keygen`; those host tools are not bundled.
 
+### Restricted user namespaces
+
+The shared ownership launcher performs an **AppImage-only** preflight before
+creating an install lease or starting Electron. It refuses with exit code 78 when
+`kernel.apparmor_restrict_unprivileged_userns` is nonzero (including Ubuntu 24.04's
+default 1), `kernel.unprivileged_userns_clone` is not 1, or
+`user.max_user_namespaces` is zero/negative. Unreadable or malformed values are
+also refused; absent optional sysctls are tolerated. There is no environment or
+CLI bypass. The Python sysctl-root argument exists solely for behavior-test fixtures.
+
+This is deliberately conservative: a site-specific AppArmor exception may permit
+an AppImage despite the global restriction, but this launcher still refuses it.
+Passing the preflight does not prove sandbox availability: other LSM policies,
+namespace quotas, mount settings or kernel support may still prevent startup.
+Refusal prints a plain explanation and recommends the `.deb`, without running
+Electron, adding sandbox-disabling flags, or changing system settings. On a
+graphical session, `/usr/bin/zenity`, if installed, additionally shows the same
+message in a native error dialog (15-second dismissal, 20-second process timeout).
+Without zenity/display support, or if the dialog fails, stderr remains the only
+delivery; graphical visibility is not guaranteed in that case.
+
+The `.deb` launch branch does **not** perform this preflight. Its AppArmor asset
+attaches `userns` permission separately to the actual Electron ELF
+`/opt/Odin/odin-desktop.bin` and the bundled D14 Headless Shell ELF
+`/opt/Odin/resources/runtime/browser/chromium/chrome-headless-shell-linux64/chrome-headless-shell`.
+These paths follow the renamed executable and pinned Chromium staging layout,
+not the shell/Python launcher or a Playwright download cache. The profiles are
+unconfined compatibility attachments, not a claim of additional confinement.
+Profile installation/loading and real sandbox execution still require disposable
+Ubuntu guest qualification; unit fixtures alone do not establish native success.
+
 ## Legal and release boundaries
 
 Each resource records provenance, digests and available license notices. Electron
